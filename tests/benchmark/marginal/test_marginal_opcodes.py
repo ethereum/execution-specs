@@ -122,7 +122,7 @@ MUL_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],  # Worst case: max values
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=100,  # Already >= 500K
+    num_calls=200,  # Doubled for ~1M gas
 )
 
 SUB_CONFIG = MarginalOpcodeConfig(
@@ -144,7 +144,7 @@ DIV_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=100,  # Already >= 500K
+    num_calls=200,  # Doubled for ~1M gas
 )
 
 SDIV_CONFIG = MarginalOpcodeConfig(
@@ -155,7 +155,7 @@ SDIV_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=100,  # Already >= 500K
+    num_calls=200,  # Doubled for ~1M gas
 )
 
 MOD_CONFIG = MarginalOpcodeConfig(
@@ -166,7 +166,7 @@ MOD_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=100,  # Already >= 500K
+    num_calls=200,  # Doubled for ~1M gas
 )
 
 SMOD_CONFIG = MarginalOpcodeConfig(
@@ -177,7 +177,7 @@ SMOD_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=100,  # Already >= 500K
+    num_calls=200,  # Doubled for ~1M gas
 )
 
 ADDMOD_CONFIG = MarginalOpcodeConfig(
@@ -212,7 +212,7 @@ EXP_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],  # Worst case: max base and exponent
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=2,  # Very expensive - only need 2 calls for 500K+ gas
+    num_calls=4,  # Doubled for ~1M gas
 )
 
 SIGNEXTEND_CONFIG = MarginalOpcodeConfig(
@@ -833,7 +833,7 @@ def _create_opcode_test(config: MarginalOpcodeConfig, gas_limit: int = 1_000_000
 
 # ============================================================================
 # NOTE: Direct test functions for EXP, KECCAK256, DUP, SWAP removed.
-# These opcodes use the caller-contract approach (test_caller_*) at end of file.
+# These opcodes use the caller-contract approach (test_*) at end of file.
 # ============================================================================
 
 
@@ -1022,7 +1022,7 @@ SELFBALANCE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=100,  # Already >= 500K
+    num_calls=200,  # Doubled for ~1M gas
 )
 
 BASEFEE_CONFIG = MarginalOpcodeConfig(
@@ -1105,16 +1105,16 @@ MSIZE_CONFIG = MarginalOpcodeConfig(
 )
 
 # CALLDATACOPY: destOffset, offset, size (copies from calldata to memory)
-# Use 1KB size for worst-case (aligned with gas-cost-estimator)
+# Use 32 bytes for worst-case cycles/gas (smaller size = higher zkVM overhead per gas)
 CALLDATACOPY_CONFIG = MarginalOpcodeConfig(
     name="CALLDATACOPY",
     opcode=Op.CALLDATACOPY,
     max_op_count=300,
     step=30,
-    stack_args=[1024, 0, 0],  # size=1KB, offset=0, destOffset=0 (pushed in reverse pop order)
+    stack_args=[32, 0, 0],  # size=32 bytes, offset=0, destOffset=0 (worst-case: small copy)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=58,  # Calculated for 500K+ gas
+    num_calls=277,  # Recalculated for 500K+ gas with 32-byte copies (6 gas/op)
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1137,6 +1137,8 @@ def _generate_returndatacopy_setup() -> Bytecode:
 
 # RETURNDATACOPY: destOffset, offset, size (copies from return data to memory)
 # Note: Requires a prior call to populate RETURNDATA
+# Setup calls IDENTITY precompile to fill RETURNDATA buffer
+# Gas per op = 3 + 3 * ceil(64/32) = 9 gas
 RETURNDATACOPY_CONFIG = MarginalOpcodeConfig(
     name="RETURNDATACOPY",
     opcode=Op.RETURNDATACOPY,
@@ -1145,20 +1147,21 @@ RETURNDATACOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[64, 0, 128],  # size=64, offset=0, destOffset=128 (pushed in reverse pop order)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=100,  # Keep at 100 - special setup
+    num_calls=170,  # Calculated for 500K+ gas: 170 × (200 setup + 300×9) ≈ 493K
     setup_code=_generate_returndatacopy_setup(),
 )
 
 # CODECOPY: destOffset, offset, size (copies from code to memory)
+# Use 32 bytes for worst-case cycles/gas (smaller size = higher zkVM overhead per gas)
 CODECOPY_CONFIG = MarginalOpcodeConfig(
     name="CODECOPY",
     opcode=Op.CODECOPY,
     max_op_count=300,
     step=30,
-    stack_args=[1024, 0, 0],  # size=1KB, offset=0, destOffset=0 (pushed in reverse pop order)
+    stack_args=[32, 0, 0],  # size=32 bytes, offset=0, destOffset=0 (worst-case: small copy)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=58,  # Calculated for 500K+ gas
+    num_calls=277,  # Recalculated for 500K+ gas with 32-byte copies (6 gas/op)
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1177,9 +1180,8 @@ MCOPY_CONFIG = MarginalOpcodeConfig(
 
 
 # NOTE: Direct tests for MLOAD, MSTORE, MSTORE8, MSIZE, CALLDATACOPY removed.
-# These opcodes use caller-contract approach (test_caller_*).
+# These opcodes use caller-contract approach (test_*).
 
-@pytest.mark.skip(reason="RETURNDATACOPY setup needs investigation")
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "op_count",
@@ -1187,7 +1189,12 @@ MCOPY_CONFIG = MarginalOpcodeConfig(
     ids=lambda x: f"op_count_{x}",
 )
 def test_marginal_returndatacopy(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for RETURNDATACOPY opcode."""
+    """
+    Marginal cost test for RETURNDATACOPY opcode.
+    
+    Setup calls IDENTITY precompile (0x04) to populate RETURNDATA buffer.
+    This is a constant overhead that doesn't affect the marginal measurement.
+    """
     code = generate_marginal_program(RETURNDATACOPY_CONFIG, op_count)
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
@@ -1461,7 +1468,7 @@ JUMPI_NUM_CALLS = 175  # Calculated for 500K+ gas
 
 
 # NOTE: Direct tests removed - use caller-contract approach.
-# PC uses caller-contract approach - see test_caller_pc at end of file
+# PC uses caller-contract approach - see test_pc at end of file
 
 
 def generate_jump_target(op_count: int, max_op_count: int) -> Bytecode:
@@ -1596,8 +1603,8 @@ def _create_jumpi_caller_test(max_op_count: int, step: int, num_calls: int):
     return test_func
 
 
-test_caller_jump = _create_jump_caller_test(JUMP_MAX_OP_COUNT, JUMP_STEP, JUMP_NUM_CALLS)
-test_caller_jumpi = _create_jumpi_caller_test(JUMPI_MAX_OP_COUNT, JUMPI_STEP, JUMPI_NUM_CALLS)
+test_jump = _create_jump_caller_test(JUMP_MAX_OP_COUNT, JUMP_STEP, JUMP_NUM_CALLS)
+test_jumpi = _create_jumpi_caller_test(JUMPI_MAX_OP_COUNT, JUMPI_STEP, JUMPI_NUM_CALLS)
 
 
 # ============================================================================
@@ -1844,8 +1851,8 @@ def generate_call_program(op_count: int, call_opcode: Op, max_op_count: int) -> 
     return code
 
 
-CALL_MAX_OP_COUNT = 100
-CALL_STEP = 10
+CALL_MAX_OP_COUNT = 600  # Limited by bytecode size (24KB limit)
+CALL_STEP = 60  # Keep ~11 data points
 
 
 @pytest.mark.valid_from("Prague")
@@ -2135,7 +2142,7 @@ EXTCODECOPY_CONFIG = MarginalOpcodeConfig(
 
 
 # NOTE: Direct tests for BALANCE, EXTCODESIZE, EXTCODEHASH, EXTCODECOPY removed.
-# These opcodes use caller-contract approach (test_caller_*).
+# These opcodes use caller-contract approach (test_*).
 
 # ============================================================================
 # CALLER-CONTRACT TESTS FOR LOW-GAS OPCODES
@@ -2148,95 +2155,94 @@ EXTCODECOPY_CONFIG = MarginalOpcodeConfig(
 # ============================================================================
 
 # Arithmetic opcodes
-test_caller_add = _create_caller_contract_test(ADD_CONFIG)
-test_caller_sub = _create_caller_contract_test(SUB_CONFIG)
-test_caller_mul = _create_caller_contract_test(MUL_CONFIG)
-test_caller_div = _create_caller_contract_test(DIV_CONFIG)
-test_caller_sdiv = _create_caller_contract_test(SDIV_CONFIG)
-test_caller_mod = _create_caller_contract_test(MOD_CONFIG)
-test_caller_smod = _create_caller_contract_test(SMOD_CONFIG)
-test_caller_addmod = _create_caller_contract_test(ADDMOD_CONFIG)
-test_caller_mulmod = _create_caller_contract_test(MULMOD_CONFIG)
-test_caller_signextend = _create_caller_contract_test(SIGNEXTEND_CONFIG)
+test_add = _create_caller_contract_test(ADD_CONFIG)
+test_sub = _create_caller_contract_test(SUB_CONFIG)
+test_mul = _create_caller_contract_test(MUL_CONFIG)
+test_div = _create_caller_contract_test(DIV_CONFIG)
+test_sdiv = _create_caller_contract_test(SDIV_CONFIG)
+test_mod = _create_caller_contract_test(MOD_CONFIG)
+test_smod = _create_caller_contract_test(SMOD_CONFIG)
+test_addmod = _create_caller_contract_test(ADDMOD_CONFIG)
+test_mulmod = _create_caller_contract_test(MULMOD_CONFIG)
+test_signextend = _create_caller_contract_test(SIGNEXTEND_CONFIG)
 
 # Comparison opcodes
-test_caller_lt = _create_caller_contract_test(LT_CONFIG)
-test_caller_gt = _create_caller_contract_test(GT_CONFIG)
-test_caller_slt = _create_caller_contract_test(SLT_CONFIG)
-test_caller_sgt = _create_caller_contract_test(SGT_CONFIG)
-test_caller_eq = _create_caller_contract_test(EQ_CONFIG)
-test_caller_iszero = _create_caller_contract_test(ISZERO_CONFIG)
+test_lt = _create_caller_contract_test(LT_CONFIG)
+test_gt = _create_caller_contract_test(GT_CONFIG)
+test_slt = _create_caller_contract_test(SLT_CONFIG)
+test_sgt = _create_caller_contract_test(SGT_CONFIG)
+test_eq = _create_caller_contract_test(EQ_CONFIG)
+test_iszero = _create_caller_contract_test(ISZERO_CONFIG)
 
 # Bitwise opcodes
-test_caller_and = _create_caller_contract_test(AND_CONFIG)
-test_caller_or = _create_caller_contract_test(OR_CONFIG)
-test_caller_xor = _create_caller_contract_test(XOR_CONFIG)
-test_caller_not = _create_caller_contract_test(NOT_CONFIG)
-test_caller_byte = _create_caller_contract_test(BYTE_CONFIG)
-test_caller_shl = _create_caller_contract_test(SHL_CONFIG)
-test_caller_shr = _create_caller_contract_test(SHR_CONFIG)
-test_caller_sar = _create_caller_contract_test(SAR_CONFIG)
+test_and = _create_caller_contract_test(AND_CONFIG)
+test_or = _create_caller_contract_test(OR_CONFIG)
+test_xor = _create_caller_contract_test(XOR_CONFIG)
+test_not = _create_caller_contract_test(NOT_CONFIG)
+test_byte = _create_caller_contract_test(BYTE_CONFIG)
+test_shl = _create_caller_contract_test(SHL_CONFIG)
+test_shr = _create_caller_contract_test(SHR_CONFIG)
+test_sar = _create_caller_contract_test(SAR_CONFIG)
 
 # Stack opcodes
-test_caller_push0 = _create_caller_contract_test(PUSH0_CONFIG)
-test_caller_push1 = _create_caller_contract_test(PUSH1_CONFIG)
-test_caller_push16 = _create_caller_contract_test(PUSH16_CONFIG)
-test_caller_push32 = _create_caller_contract_test(PUSH32_CONFIG)
-test_caller_pop = _create_caller_contract_test(POP_CONFIG)
+test_push0 = _create_caller_contract_test(PUSH0_CONFIG)
+test_push1 = _create_caller_contract_test(PUSH1_CONFIG)
+test_push16 = _create_caller_contract_test(PUSH16_CONFIG)
+test_push32 = _create_caller_contract_test(PUSH32_CONFIG)
+test_pop = _create_caller_contract_test(POP_CONFIG)
 
 # Environment opcodes
-test_caller_address = _create_caller_contract_test(ADDRESS_CONFIG)
-test_caller_origin = _create_caller_contract_test(ORIGIN_CONFIG)
-test_caller_caller = _create_caller_contract_test(CALLER_CONFIG)
-test_caller_callvalue = _create_caller_contract_test(CALLVALUE_CONFIG)
-test_caller_calldatasize = _create_caller_contract_test(CALLDATASIZE_CONFIG)
-test_caller_codesize = _create_caller_contract_test(CODESIZE_CONFIG)
-test_caller_gasprice = _create_caller_contract_test(GASPRICE_CONFIG)
-test_caller_returndatasize = _create_caller_contract_test(RETURNDATASIZE_CONFIG)
-test_caller_gas = _create_caller_contract_test(GAS_CONFIG)
+test_address = _create_caller_contract_test(ADDRESS_CONFIG)
+test_origin = _create_caller_contract_test(ORIGIN_CONFIG)
+test_caller = _create_caller_contract_test(CALLER_CONFIG)
+test_callvalue = _create_caller_contract_test(CALLVALUE_CONFIG)
+test_calldatasize = _create_caller_contract_test(CALLDATASIZE_CONFIG)
+test_codesize = _create_caller_contract_test(CODESIZE_CONFIG)
+test_gasprice = _create_caller_contract_test(GASPRICE_CONFIG)
+test_returndatasize = _create_caller_contract_test(RETURNDATASIZE_CONFIG)
+test_gas = _create_caller_contract_test(GAS_CONFIG)
 
 # Block info opcodes
-test_caller_coinbase = _create_caller_contract_test(COINBASE_CONFIG)
-test_caller_timestamp = _create_caller_contract_test(TIMESTAMP_CONFIG)
-test_caller_number = _create_caller_contract_test(NUMBER_CONFIG)
-test_caller_prevrandao = _create_caller_contract_test(PREVRANDAO_CONFIG)
-test_caller_gaslimit = _create_caller_contract_test(GASLIMIT_CONFIG)
-test_caller_chainid = _create_caller_contract_test(CHAINID_CONFIG)
-test_caller_selfbalance = _create_caller_contract_test(SELFBALANCE_CONFIG)
+test_coinbase = _create_caller_contract_test(COINBASE_CONFIG)
+test_timestamp = _create_caller_contract_test(TIMESTAMP_CONFIG)
+test_number = _create_caller_contract_test(NUMBER_CONFIG)
+test_prevrandao = _create_caller_contract_test(PREVRANDAO_CONFIG)
+test_gaslimit = _create_caller_contract_test(GASLIMIT_CONFIG)
+test_chainid = _create_caller_contract_test(CHAINID_CONFIG)
+test_selfbalance = _create_caller_contract_test(SELFBALANCE_CONFIG)
 test_caller_basefee = _create_caller_contract_test(BASEFEE_CONFIG)
-test_caller_blobbasefee = _create_caller_contract_test(BLOBBASEFEE_CONFIG)
-test_caller_pc = _create_caller_contract_test(PC_CONFIG)
+test_blobbasefee = _create_caller_contract_test(BLOBBASEFEE_CONFIG)
+test_pc = _create_caller_contract_test(PC_CONFIG)
 
 # Memory opcodes
-test_caller_mload = _create_caller_contract_test(MLOAD_CONFIG)
-test_caller_mstore = _create_caller_contract_test(MSTORE_CONFIG)
-test_caller_mstore8 = _create_caller_contract_test(MSTORE8_CONFIG)
-test_caller_msize = _create_caller_contract_test(MSIZE_CONFIG)
-test_caller_mcopy = _create_caller_contract_test(MCOPY_CONFIG)
-test_caller_codecopy = _create_caller_contract_test(CODECOPY_CONFIG)
-test_caller_calldatacopy = _create_caller_contract_test(CALLDATACOPY_CONFIG)
-test_caller_calldataload = _create_caller_contract_test(CALLDATALOAD_CONFIG)
-# Note: RETURNDATACOPY caller test omitted - setup requires RETURNDATA from a prior call
-# which doesn't transfer well to the caller-contract approach
+test_mload = _create_caller_contract_test(MLOAD_CONFIG)
+test_mstore = _create_caller_contract_test(MSTORE_CONFIG)
+test_mstore8 = _create_caller_contract_test(MSTORE8_CONFIG)
+test_msize = _create_caller_contract_test(MSIZE_CONFIG)
+test_mcopy = _create_caller_contract_test(MCOPY_CONFIG)
+test_codecopy = _create_caller_contract_test(CODECOPY_CONFIG)
+test_calldatacopy = _create_caller_contract_test(CALLDATACOPY_CONFIG)
+test_calldataload = _create_caller_contract_test(CALLDATALOAD_CONFIG)
+test_returndatacopy = _create_caller_contract_test(RETURNDATACOPY_CONFIG)
 
 # Storage opcodes (SLOAD, TLOAD work with STATICCALL)
-test_caller_sload = _create_caller_contract_test(SLOAD_CONFIG)
-test_caller_tload = _create_caller_contract_test(TLOAD_CONFIG)
+test_sload = _create_caller_contract_test(SLOAD_CONFIG)
+test_tload = _create_caller_contract_test(TLOAD_CONFIG)
 
 # External code opcodes
-test_caller_balance = _create_caller_contract_test(BALANCE_CONFIG)
-test_caller_extcodesize = _create_caller_contract_test(EXTCODESIZE_CONFIG)
-test_caller_extcodehash = _create_caller_contract_test(EXTCODEHASH_CONFIG)
-test_caller_extcodecopy = _create_caller_contract_test(EXTCODECOPY_CONFIG)
+test_balance = _create_caller_contract_test(BALANCE_CONFIG)
+test_extcodesize = _create_caller_contract_test(EXTCODESIZE_CONFIG)
+test_extcodehash = _create_caller_contract_test(EXTCODEHASH_CONFIG)
+test_extcodecopy = _create_caller_contract_test(EXTCODECOPY_CONFIG)
 # Note: BLOCKHASH caller test omitted - fails with high op_count due to large bytecode
-test_caller_blobhash = _create_caller_contract_test(BLOBHASH_CONFIG)
+test_blobhash = _create_caller_contract_test(BLOBHASH_CONFIG)
 
 # Hash opcodes
-test_caller_keccak256 = _create_caller_contract_test(KECCAK256_CONFIG)
+test_keccak256 = _create_caller_contract_test(KECCAK256_CONFIG)
 
 # Misc opcodes
-test_caller_jumpdest = _create_caller_contract_test(JUMPDEST_CONFIG)
-test_caller_exp = _create_caller_contract_test(EXP_CONFIG)
+test_jumpdest = _create_caller_contract_test(JUMPDEST_CONFIG)
+test_exp = _create_caller_contract_test(EXP_CONFIG)
 
 
 # ============================================================================
@@ -2311,8 +2317,8 @@ def _create_caller_contract_test_call(config: MarginalOpcodeConfig):
 
 
 # State-modifying opcodes use CALL-based caller
-test_caller_tstore = _create_caller_contract_test_call(TSTORE_CONFIG)
-test_caller_sstore = _create_caller_contract_test_call(SSTORE_CONFIG)
+test_tstore = _create_caller_contract_test_call(TSTORE_CONFIG)
+test_sstore = _create_caller_contract_test_call(SSTORE_CONFIG)
 
 
 # ============================================================================
@@ -2476,12 +2482,12 @@ def _create_swap_caller_test(swap_n: int, max_op_count: int, step: int, num_call
     return test_func
 
 
-test_caller_dup1 = _create_dup_caller_test(1, DUP1_MAX_OP_COUNT, DUP1_STEP, num_calls=465)
-test_caller_dup8 = _create_dup_caller_test(8, DUP8_MAX_OP_COUNT, DUP8_STEP, num_calls=465)
-test_caller_dup16 = _create_dup_caller_test(16, DUP16_MAX_OP_COUNT, DUP16_STEP, num_calls=465)
-test_caller_swap1 = _create_swap_caller_test(1, SWAP1_MAX_OP_COUNT, SWAP1_STEP, num_calls=465)
-test_caller_swap8 = _create_swap_caller_test(8, SWAP8_MAX_OP_COUNT, SWAP8_STEP, num_calls=465)
-test_caller_swap16 = _create_swap_caller_test(16, SWAP16_MAX_OP_COUNT, SWAP16_STEP, num_calls=465)
+test_dup1 = _create_dup_caller_test(1, DUP1_MAX_OP_COUNT, DUP1_STEP, num_calls=465)
+test_dup8 = _create_dup_caller_test(8, DUP8_MAX_OP_COUNT, DUP8_STEP, num_calls=465)
+test_dup16 = _create_dup_caller_test(16, DUP16_MAX_OP_COUNT, DUP16_STEP, num_calls=465)
+test_swap1 = _create_swap_caller_test(1, SWAP1_MAX_OP_COUNT, SWAP1_STEP, num_calls=465)
+test_swap8 = _create_swap_caller_test(8, SWAP8_MAX_OP_COUNT, SWAP8_STEP, num_calls=465)
+test_swap16 = _create_swap_caller_test(16, SWAP16_MAX_OP_COUNT, SWAP16_STEP, num_calls=465)
 
 
 # ============================================================================
@@ -2529,8 +2535,8 @@ def _create_log_caller_test(log_opcode, topic_count: int, max_op_count: int, ste
     return test_func
 
 
-test_caller_log0 = _create_log_caller_test(Op.LOG0, 0, LOG0_MAX_OP_COUNT, LOG0_STEP, num_calls=100)
-test_caller_log1 = _create_log_caller_test(Op.LOG1, 1, LOG1_MAX_OP_COUNT, LOG1_STEP, num_calls=100)
-test_caller_log2 = _create_log_caller_test(Op.LOG2, 2, LOG2_MAX_OP_COUNT, LOG2_STEP, num_calls=100)
-test_caller_log3 = _create_log_caller_test(Op.LOG3, 3, LOG3_MAX_OP_COUNT, LOG3_STEP, num_calls=100)
-test_caller_log4 = _create_log_caller_test(Op.LOG4, 4, LOG4_MAX_OP_COUNT, LOG4_STEP, num_calls=100)
+test_log0 = _create_log_caller_test(Op.LOG0, 0, LOG0_MAX_OP_COUNT, LOG0_STEP, num_calls=100)
+test_log1 = _create_log_caller_test(Op.LOG1, 1, LOG1_MAX_OP_COUNT, LOG1_STEP, num_calls=100)
+test_log2 = _create_log_caller_test(Op.LOG2, 2, LOG2_MAX_OP_COUNT, LOG2_STEP, num_calls=100)
+test_log3 = _create_log_caller_test(Op.LOG3, 3, LOG3_MAX_OP_COUNT, LOG3_STEP, num_calls=100)
+test_log4 = _create_log_caller_test(Op.LOG4, 4, LOG4_MAX_OP_COUNT, LOG4_STEP, num_calls=100)

@@ -7,12 +7,16 @@ CALL/STATICCALL rather than being executed directly.
 
 Program layout for precompile marginal measurement:
     | Setup memory with precompile input |
+    | STATICCALL to NOOP address (0xFFFF) × (max_op_count - op_count) |
     | STATICCALL to precompile × op_count |
-    | Dummy work (NOPs) × (max_op_count - op_count) |
     | SSTORE success marker |
     | STOP |
 
-The "dummy work" ensures the program structure remains constant regardless of op_count.
+The "noop" STATICCALLs ensure the TOTAL number of STATICCALL instructions remains
+constant regardless of op_count. This eliminates STATICCALL overhead from the
+measurement, so we only measure the pure precompile computation cost.
+
+This approach is based on the gas-cost-estimator project's methodology.
 """
 
 from dataclasses import dataclass
@@ -143,8 +147,8 @@ ECRECOVER_INPUT = create_ecrecover_input(
 ECRECOVER_CONFIG = MarginalPrecompileConfig(
     name="ECRECOVER",
     address=ECRECOVER_ADDRESS,
-    max_op_count=4,  # ECRECOVER costs 3000 gas, so we can do many calls
-    step=1,
+    max_op_count=76,  # Increased for ~1M gas (3000 gas/call)
+    step=15,
     input_data=ECRECOVER_INPUT,
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
 )
@@ -179,8 +183,8 @@ SHA256_INPUT = bytes.fromhex("ff" * 128)  # 128 bytes of 0xff
 SHA256_CONFIG = MarginalPrecompileConfig(
     name="SHA256",
     address=SHA256_ADDRESS,
-    max_op_count=30,  # ~108 gas per call
-    step=5,
+    max_op_count=65,  # Increased for ~1M gas
+    step=9,
     input_data=SHA256_INPUT,
     input_size=len(SHA256_INPUT),  # 128 bytes
 )
@@ -195,8 +199,8 @@ RIPEMD160_INPUT = bytes.fromhex("ff" * 128)  # 128 bytes of 0xff
 RIPEMD160_CONFIG = MarginalPrecompileConfig(
     name="RIPEMD160",
     address=RIPEMD160_ADDRESS,
-    max_op_count=10,  # ~1,080 gas per call
-    step=2,
+    max_op_count=22,  # Increased for ~1M gas
+    step=3,
     input_data=RIPEMD160_INPUT,
     input_size=len(RIPEMD160_INPUT),  # 128 bytes
 )
@@ -211,8 +215,8 @@ IDENTITY_INPUT = bytes.fromhex("ff" * 128)  # 128 bytes of 0xff
 IDENTITY_CONFIG = MarginalPrecompileConfig(
     name="IDENTITY",
     address=IDENTITY_ADDRESS,
-    max_op_count=30,  # ~27 gas per call (cheap)
-    step=5,
+    max_op_count=312,  # Increased for ~1M gas (cheap precompile)
+    step=44,
     input_data=IDENTITY_INPUT,
     input_size=len(IDENTITY_INPUT),  # 128 bytes
 )
@@ -235,8 +239,8 @@ BN128_ADD_INPUT = bytes.fromhex(
 BN128_ADD_CONFIG = MarginalPrecompileConfig(
     name="BN128_ADD",
     address=BN128_ADD_ADDRESS,
-    max_op_count=30,  # 150 gas per call
-    step=5,
+    max_op_count=457,  # Increased for ~1M gas (150 gas/call)
+    step=65,
     input_data=BN128_ADD_INPUT,
     input_size=len(BN128_ADD_INPUT),  # 128 bytes
 )
@@ -257,8 +261,8 @@ BN128_MUL_INPUT = bytes.fromhex(
 BN128_MUL_CONFIG = MarginalPrecompileConfig(
     name="BN128_MUL",
     address=BN128_MUL_ADDRESS,
-    max_op_count=5,  # 6,000 gas per call
-    step=1,
+    max_op_count=73,  # Increased for ~1M gas (6000 gas/call)
+    step=12,
     input_data=BN128_MUL_INPUT,
     input_size=len(BN128_MUL_INPUT),  # 96 bytes
 )
@@ -288,8 +292,8 @@ BN128_PAIRING_INPUT = bytes.fromhex(
 BN128_PAIRING_CONFIG = MarginalPrecompileConfig(
     name="BN128_PAIRING",
     address=BN128_PAIRING_ADDRESS,
-    max_op_count=3,  # 113,000 gas per call (2 pairs)
-    step=1,
+    max_op_count=8,  # Increased for ~1M gas (113K gas/call)
+    step=2,
     input_data=BN128_PAIRING_INPUT,
     input_size=len(BN128_PAIRING_INPUT),  # 384 bytes (2 pairs * 192)
 )
@@ -321,8 +325,8 @@ BLAKE2F_INPUT = create_blake2f_input(rounds=0xFFFF, f=True)  # 65,535 rounds
 BLAKE2F_CONFIG = MarginalPrecompileConfig(
     name="BLAKE2F",
     address=BLAKE2F_ADDRESS,
-    max_op_count=5,  # 65,535 gas per call
-    step=1,
+    max_op_count=14,  # Increased for ~1M gas (65K gas/call)
+    step=2,
     input_data=BLAKE2F_INPUT,
     input_size=len(BLAKE2F_INPUT),  # 213 bytes
 )
@@ -349,8 +353,8 @@ POINT_EVALUATION_INPUT = bytes.fromhex(
 POINT_EVALUATION_CONFIG = MarginalPrecompileConfig(
     name="POINT_EVALUATION",
     address=POINT_EVALUATION_ADDRESS,
-    max_op_count=3,  # 50,000 gas per call
-    step=1,
+    max_op_count=16,  # Increased for ~1M gas (50K gas/call)
+    step=4,
     input_data=POINT_EVALUATION_INPUT,
     input_size=len(POINT_EVALUATION_INPUT),  # 192 bytes
 )
@@ -369,8 +373,8 @@ BLS12_G1ADD_INPUT = bytes(BLS12Spec.G1 + BLS12Spec.P1)
 BLS12_G1ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1ADD",
     address=BLS12_G1ADD_ADDRESS,
-    max_op_count=50,  # 375 gas per call
-    step=5,
+    max_op_count=772,  # Increased for ~1M gas (375 gas/call)
+    step=70,
     input_data=BLS12_G1ADD_INPUT,
     input_size=len(BLS12_G1ADD_INPUT),  # 256 bytes
 )
@@ -386,8 +390,8 @@ BLS12_G1MSM_INPUT = bytes(
 BLS12_G1MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1MSM",
     address=BLS12_G1MSM_ADDRESS,
-    max_op_count=30,  # Variable gas, k=2
-    step=3,
+    max_op_count=40,  # Reduced to fit within 1M gas limit (40 × ~22500 = 900K)
+    step=4,
     input_data=BLS12_G1MSM_INPUT,
     input_size=len(BLS12_G1MSM_INPUT),  # 320 bytes (2 × 160)
 )
@@ -402,8 +406,8 @@ BLS12_G2ADD_INPUT = bytes(BLS12Spec.G2 + BLS12Spec.P2)
 BLS12_G2ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G2ADD",
     address=BLS12_G2ADD_ADDRESS,
-    max_op_count=50,  # 600 gas per call
-    step=5,
+    max_op_count=451,  # Increased for ~1M gas (600 gas/call)
+    step=41,
     input_data=BLS12_G2ADD_INPUT,
     input_size=len(BLS12_G2ADD_INPUT),  # 512 bytes
 )
@@ -419,7 +423,7 @@ BLS12_G2MSM_INPUT = bytes(
 BLS12_G2MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G2MSM",
     address=BLS12_G2MSM_ADDRESS,
-    max_op_count=20,  # Variable gas, k=2 (expensive)
+    max_op_count=23,  # Increased for ~1M gas
     step=2,
     input_data=BLS12_G2MSM_INPUT,
     input_size=len(BLS12_G2MSM_INPUT),  # 576 bytes (2 × 288)
@@ -452,8 +456,8 @@ BLS12_MAP_FP_TO_G1_INPUT = bytes(FP(BLS12Spec.P - 1))
 BLS12_MAP_FP_TO_G1_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP_TO_G1",
     address=BLS12_MAP_FP_TO_G1_ADDRESS,
-    max_op_count=50,  # 5,500 gas per call
-    step=5,
+    max_op_count=169,  # Increased for ~1M gas (5500 gas/call)
+    step=15,
     input_data=BLS12_MAP_FP_TO_G1_INPUT,
     input_size=len(BLS12_MAP_FP_TO_G1_INPUT),  # 64 bytes
 )
@@ -468,11 +472,16 @@ BLS12_MAP_FP2_TO_G2_INPUT = bytes(FP2((BLS12Spec.P - 1, BLS12Spec.P - 1)))
 BLS12_MAP_FP2_TO_G2_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP2_TO_G2",
     address=BLS12_MAP_FP2_TO_G2_ADDRESS,
-    max_op_count=30,  # 23,800 gas per call
-    step=3,
+    max_op_count=36,  # Reduced to fit within 1M gas limit (36 × 23800 = 857K + overhead)
+    step=4,
     input_data=BLS12_MAP_FP2_TO_G2_INPUT,
     input_size=len(BLS12_MAP_FP2_TO_G2_INPUT),  # 128 bytes
 )
+
+
+# Address for "noop" STATICCALL - an invalid precompile address that fails immediately
+# Using 0xFFFF as per gas-cost-estimator approach
+NOOP_PRECOMPILE_ADDRESS = Address(0xFFFF)
 
 
 def generate_marginal_precompile_program(
@@ -481,6 +490,12 @@ def generate_marginal_precompile_program(
 ) -> tuple[Bytecode, bytes]:
     """
     Generate a marginal program for a precompile.
+
+    Uses the gas-cost-estimator technique: keep TOTAL STATICCALL count constant
+    by padding with noop STATICCALLs to an invalid address (0xFFFF).
+    
+    This ensures STATICCALL overhead is constant and cancels out in regression,
+    leaving only the pure precompile computation cost as the measured slope.
 
     Returns:
         Tuple of (bytecode, calldata) where calldata contains the precompile input
@@ -492,12 +507,28 @@ def generate_marginal_precompile_program(
     # 1. Copy calldata (precompile input) to memory at offset 0
     code += Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
 
-    # 2. Call precompile op_count times
+    # Calculate ret_offset after input data to avoid corrupting it
+    ret_offset = config.input_size
+
+    # 2. "Noop" STATICCALLs to invalid address 0xFFFF
+    # These fail immediately (no valid precompile) but still incur STATICCALL overhead
+    # Total STATICCALL count = max_op_count + 1 (constant across all op_count values)
+    noop_count = config.max_op_count - op_count + 1
+    for _ in range(noop_count):
+        code += Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=NOOP_PRECOMPILE_ADDRESS,
+                args_offset=0,
+                args_size=config.input_size,
+                ret_offset=ret_offset,
+                ret_size=32,
+            )
+        )
+
+    # 3. Real precompile calls - op_count times
     # Each call: STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize)
     # Pass all available gas - unused gas is returned after the call
-    # IMPORTANT: ret_offset must be AFTER the input data to avoid corrupting it!
-    # Input is at [0, input_size), so we write result at input_size
-    ret_offset = config.input_size
     for _ in range(op_count):
         code += Op.POP(
             Op.STATICCALL(
@@ -509,14 +540,6 @@ def generate_marginal_precompile_program(
                 ret_size=32,
             )
         )
-
-    # 3. "Dummy work" for remaining iterations to keep bytecode structure similar
-    # Use cheap operations that don't affect state
-    # We use PUSH0 + POP as a no-op that takes minimal gas
-    nop_count = config.max_op_count - op_count
-    for _ in range(nop_count):
-        # This is a lightweight placeholder - adjust if needed for better calibration
-        code += Op.PUSH0 + Op.POP
 
     # 4. Write success marker to storage
     code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
