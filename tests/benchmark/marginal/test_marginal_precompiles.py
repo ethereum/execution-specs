@@ -148,7 +148,7 @@ ECRECOVER_CONFIG = MarginalPrecompileConfig(
     name="ECRECOVER",
     address=ECRECOVER_ADDRESS,
     max_op_count=200,  # Increased for ~1M gas (3000 gas/call)
-    step=40,
+    step=50,  # ~5 data points
     input_data=ECRECOVER_INPUT,
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
 )
@@ -200,7 +200,7 @@ RIPEMD160_CONFIG = MarginalPrecompileConfig(
     name="RIPEMD160",
     address=RIPEMD160_ADDRESS,
     max_op_count=1500,  # 1500 * 4,440 ≈ 6.7M gas (bytecode limited)
-    step=150,
+    step=375,  # ~5 data points
     input_data=RIPEMD160_INPUT,
     input_size=len(RIPEMD160_INPUT),  # 1024 bytes
 )
@@ -216,7 +216,7 @@ IDENTITY_CONFIG = MarginalPrecompileConfig(
     name="IDENTITY",
     address=IDENTITY_ADDRESS,
     max_op_count=312,  # Increased for ~1M gas (cheap precompile)
-    step=44,
+    step=78,  # ~5 data points
     input_data=IDENTITY_INPUT,
     input_size=len(IDENTITY_INPUT),  # 128 bytes
 )
@@ -240,7 +240,7 @@ BN128_ADD_CONFIG = MarginalPrecompileConfig(
     name="BN128_ADD",
     address=BN128_ADD_ADDRESS,
     max_op_count=457,  # Increased for ~1M gas (150 gas/call)
-    step=65,
+    step=114,  # ~5 data points
     input_data=BN128_ADD_INPUT,
     input_size=len(BN128_ADD_INPUT),  # 128 bytes
 )
@@ -262,7 +262,7 @@ BN128_MUL_CONFIG = MarginalPrecompileConfig(
     name="BN128_MUL",
     address=BN128_MUL_ADDRESS,
     max_op_count=73,  # Increased for ~1M gas (6000 gas/call)
-    step=12,
+    step=18,  # ~5 data points
     input_data=BN128_MUL_INPUT,
     input_size=len(BN128_MUL_INPUT),  # 96 bytes
 )
@@ -326,7 +326,7 @@ BLAKE2F_CONFIG = MarginalPrecompileConfig(
     name="BLAKE2F",
     address=BLAKE2F_ADDRESS,
     max_op_count=14,  # Increased for ~1M gas (65K gas/call)
-    step=2,
+    step=3,  # ~5 data points
     input_data=BLAKE2F_INPUT,
     input_size=len(BLAKE2F_INPUT),  # 213 bytes
 )
@@ -374,7 +374,7 @@ BLS12_G1ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1ADD",
     address=BLS12_G1ADD_ADDRESS,
     max_op_count=772,  # Increased for ~1M gas (375 gas/call)
-    step=70,
+    step=193,  # ~5 data points
     input_data=BLS12_G1ADD_INPUT,
     input_size=len(BLS12_G1ADD_INPUT),  # 256 bytes
 )
@@ -391,7 +391,7 @@ BLS12_G1MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1MSM",
     address=BLS12_G1MSM_ADDRESS,
     max_op_count=40,  # Reduced to fit within 1M gas limit (40 × ~22500 = 900K)
-    step=4,
+    step=10,  # ~5 data points
     input_data=BLS12_G1MSM_INPUT,
     input_size=len(BLS12_G1MSM_INPUT),  # 320 bytes (2 × 160)
 )
@@ -407,7 +407,7 @@ BLS12_G2ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G2ADD",
     address=BLS12_G2ADD_ADDRESS,
     max_op_count=451,  # Increased for ~1M gas (600 gas/call)
-    step=41,
+    step=112,  # ~5 data points
     input_data=BLS12_G2ADD_INPUT,
     input_size=len(BLS12_G2ADD_INPUT),  # 512 bytes
 )
@@ -424,7 +424,7 @@ BLS12_G2MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G2MSM",
     address=BLS12_G2MSM_ADDRESS,
     max_op_count=23,  # Increased for ~1M gas
-    step=2,
+    step=5,  # ~5 data points
     input_data=BLS12_G2MSM_INPUT,
     input_size=len(BLS12_G2MSM_INPUT),  # 576 bytes (2 × 288)
 )
@@ -457,7 +457,7 @@ BLS12_MAP_FP_TO_G1_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP_TO_G1",
     address=BLS12_MAP_FP_TO_G1_ADDRESS,
     max_op_count=169,  # Increased for ~1M gas (5500 gas/call)
-    step=15,
+    step=42,  # ~5 data points
     input_data=BLS12_MAP_FP_TO_G1_INPUT,
     input_size=len(BLS12_MAP_FP_TO_G1_INPUT),  # 64 bytes
 )
@@ -473,7 +473,7 @@ BLS12_MAP_FP2_TO_G2_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP2_TO_G2",
     address=BLS12_MAP_FP2_TO_G2_ADDRESS,
     max_op_count=36,  # Reduced to fit within 1M gas limit (36 × 23800 = 857K + overhead)
-    step=4,
+    step=9,  # ~5 data points
     input_data=BLS12_MAP_FP2_TO_G2_INPUT,
     input_size=len(BLS12_MAP_FP2_TO_G2_INPUT),  # 128 bytes
 )
