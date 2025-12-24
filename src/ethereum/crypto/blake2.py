@@ -36,7 +36,7 @@ class Blake2:
     """
     Implementation of the BLAKE2 cryptographic hashing algorithm.
 
-    Please refer the following document for details:
+    Please refer to the following document for details:
     https://datatracker.ietf.org/doc/html/rfc7693
     """
 
