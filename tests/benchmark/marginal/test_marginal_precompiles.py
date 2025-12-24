@@ -147,8 +147,8 @@ ECRECOVER_INPUT = create_ecrecover_input(
 ECRECOVER_CONFIG = MarginalPrecompileConfig(
     name="ECRECOVER",
     address=ECRECOVER_ADDRESS,
-    max_op_count=76,  # Increased for ~1M gas (3000 gas/call)
-    step=15,
+    max_op_count=200,  # Increased for ~1M gas (3000 gas/call)
+    step=40,
     input_data=ECRECOVER_INPUT,
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
 )
