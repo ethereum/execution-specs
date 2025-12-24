@@ -9,9 +9,9 @@ In particular, we appreciate support in the following areas:
 - Improving the documentation.
 
 > [!IMPORTANT]
-> Generally, we do not assign issues to external contributors. If you want to work on an issue, you are very welcome to go ahead and make a pull request. We would, hoever, be happy to answer questions you may have before you start implementing.
+> Generally, we do not assign issues to external contributors. If you want to work on an issue, you are very welcome to go ahead and make a pull request. We would, however, be happy to answer questions you may have before you start implementing.
 
-For details about EELS usage and building, please refer the [README](https://github.com/ethereum/execution-specs/blob/master/README.md#usage)
+For details about EELS usage and building, please refer to the [README](https://github.com/ethereum/execution-specs/blob/master/README.md#usage)
 
 ## Contribution Guidelines
 
