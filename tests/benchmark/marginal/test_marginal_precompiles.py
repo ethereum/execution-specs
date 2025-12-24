@@ -176,14 +176,15 @@ MODEXP_CONFIG = MarginalPrecompileConfig(
 # ============================================================================
 # SHA256 precompile (0x02) - Using 4KB input (worst-case)
 # Gas: 60 + 12 * ceil(input_bytes/32) = 60 + 12 * 128 = 1,596 gas per call
+# Max ops limited by bytecode size (24KB), not gas: ~1500 ops fit
 # ============================================================================
 SHA256_INPUT = bytes.fromhex("ff" * 4096)  # 4KB of 0xff
 
 SHA256_CONFIG = MarginalPrecompileConfig(
     name="SHA256",
     address=SHA256_ADDRESS,
-    max_op_count=60,  # 60 * 1,596 ≈ 95,760 gas (reduced due to larger input)
-    step=6,
+    max_op_count=1500,  # 1500 * 1,596 ≈ 2.4M gas (bytecode limited)
+    step=150,
     input_data=SHA256_INPUT,
     input_size=len(SHA256_INPUT),  # 4096 bytes
 )
@@ -191,14 +192,15 @@ SHA256_CONFIG = MarginalPrecompileConfig(
 # ============================================================================
 # RIPEMD160 precompile (0x03) - Using 1KB input (worst-case)
 # Gas: 600 + 120 * ceil(input_bytes/32) = 600 + 120 * 32 = 4,440 gas per call
+# Max ops limited by bytecode size (24KB), not gas: ~1500 ops fit
 # ============================================================================
 RIPEMD160_INPUT = bytes.fromhex("ff" * 1024)  # 1KB of 0xff
 
 RIPEMD160_CONFIG = MarginalPrecompileConfig(
     name="RIPEMD160",
     address=RIPEMD160_ADDRESS,
-    max_op_count=22,  # 22 * 4,440 ≈ 97,680 gas
-    step=2,
+    max_op_count=1500,  # 1500 * 4,440 ≈ 6.7M gas (bytecode limited)
+    step=150,
     input_data=RIPEMD160_INPUT,
     input_size=len(RIPEMD160_INPUT),  # 1024 bytes
 )
@@ -675,7 +677,7 @@ def test_marginal_sha256(
 
     tx = Transaction(
         to=contract,
-        gas_limit=1_000_000,
+        gas_limit=50_000_000,  # High limit for worst-case benchmarking
         data=calldata,
         sender=sender,
     )
@@ -715,7 +717,7 @@ def test_marginal_ripemd160(
 
     tx = Transaction(
         to=contract,
-        gas_limit=1_000_000,
+        gas_limit=50_000_000,  # High limit for worst-case benchmarking
         data=calldata,
         sender=sender,
     )
