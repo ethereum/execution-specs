@@ -174,35 +174,33 @@ MODEXP_CONFIG = MarginalPrecompileConfig(
 )
 
 # ============================================================================
-# SHA256 precompile (0x02) - Using 128 bytes input
-# Gas: 60 + 12 * ceil(input_bytes/32) = 60 + 12 * 4 = 108 gas per call
-# Note: Using smaller input to match working precompile test structure
+# SHA256 precompile (0x02) - Using 4KB input (worst-case)
+# Gas: 60 + 12 * ceil(input_bytes/32) = 60 + 12 * 128 = 1,596 gas per call
 # ============================================================================
-SHA256_INPUT = bytes.fromhex("ff" * 128)  # 128 bytes of 0xff
+SHA256_INPUT = bytes.fromhex("ff" * 4096)  # 4KB of 0xff
 
 SHA256_CONFIG = MarginalPrecompileConfig(
     name="SHA256",
     address=SHA256_ADDRESS,
-    max_op_count=65,  # Increased for ~1M gas
-    step=9,
+    max_op_count=60,  # 60 * 1,596 ≈ 95,760 gas (reduced due to larger input)
+    step=6,
     input_data=SHA256_INPUT,
-    input_size=len(SHA256_INPUT),  # 128 bytes
+    input_size=len(SHA256_INPUT),  # 4096 bytes
 )
 
 # ============================================================================
-# RIPEMD160 precompile (0x03) - Using 128 bytes input
-# Gas: 600 + 120 * ceil(input_bytes/32) = 600 + 120 * 4 = 1,080 gas per call
-# Note: Using smaller input to match working precompile test structure
+# RIPEMD160 precompile (0x03) - Using 1KB input (worst-case)
+# Gas: 600 + 120 * ceil(input_bytes/32) = 600 + 120 * 32 = 4,440 gas per call
 # ============================================================================
-RIPEMD160_INPUT = bytes.fromhex("ff" * 128)  # 128 bytes of 0xff
+RIPEMD160_INPUT = bytes.fromhex("ff" * 1024)  # 1KB of 0xff
 
 RIPEMD160_CONFIG = MarginalPrecompileConfig(
     name="RIPEMD160",
     address=RIPEMD160_ADDRESS,
-    max_op_count=22,  # Increased for ~1M gas
-    step=3,
+    max_op_count=22,  # 22 * 4,440 ≈ 97,680 gas
+    step=2,
     input_data=RIPEMD160_INPUT,
-    input_size=len(RIPEMD160_INPUT),  # 128 bytes
+    input_size=len(RIPEMD160_INPUT),  # 1024 bytes
 )
 
 # ============================================================================
