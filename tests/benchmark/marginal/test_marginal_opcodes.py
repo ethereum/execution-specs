@@ -111,7 +111,7 @@ ADD_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],  # Worst case: max values
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=465,  # Calculated for 500K+ gas
+    num_calls=1488,  # Calculated for 500K+ gas
 )
 
 MUL_CONFIG = MarginalOpcodeConfig(
@@ -122,7 +122,7 @@ MUL_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],  # Worst case: max values
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Doubled for ~1M gas
+    num_calls=1920,  # Doubled for ~1M gas
 )
 
 SUB_CONFIG = MarginalOpcodeConfig(
@@ -133,7 +133,7 @@ SUB_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 DIV_CONFIG = MarginalOpcodeConfig(
@@ -144,7 +144,7 @@ DIV_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=200,  # Doubled for ~1M gas
+    num_calls=640,
 )
 
 SDIV_CONFIG = MarginalOpcodeConfig(
@@ -155,7 +155,7 @@ SDIV_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=200,  # Doubled for ~1M gas
+    num_calls=640
 )
 
 MOD_CONFIG = MarginalOpcodeConfig(
@@ -166,7 +166,7 @@ MOD_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=200,  # Doubled for ~1M gas
+    num_calls=640,
 )
 
 SMOD_CONFIG = MarginalOpcodeConfig(
@@ -177,7 +177,7 @@ SMOD_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Scaled for 150M cycles
+    num_calls=1920,  # Scaled for 150M cycles
 )
 
 ADDMOD_CONFIG = MarginalOpcodeConfig(
@@ -188,7 +188,7 @@ ADDMOD_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256, MAX_U256],  # N=3, b=MAX, a=MAX (pushed in reverse pop order)
     pops_per_op=3,
     pushes_per_op=1,
-    num_calls=276,  # Calculated for 500K+ gas
+    num_calls=882,  # Calculated for 500K+ gas
 )
 
 MULMOD_CONFIG = MarginalOpcodeConfig(
@@ -199,7 +199,7 @@ MULMOD_CONFIG = MarginalOpcodeConfig(
     stack_args=[3, MAX_U256, MAX_U256],  # N=3, b=MAX, a=MAX (pushed in reverse pop order)
     pops_per_op=3,
     pushes_per_op=1,
-    num_calls=276,  # Calculated for 500K+ gas
+    num_calls=882,  # Calculated for 500K+ gas
 )
 
 # EXP is expensive: 10 + 50 * byte_length_of_exponent
@@ -212,7 +212,7 @@ EXP_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],  # Worst case: max base and exponent
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=4,  # Doubled for ~1M gas
+    num_calls=12,  # Doubled for ~1M gas
 )
 
 SIGNEXTEND_CONFIG = MarginalOpcodeConfig(
@@ -223,7 +223,7 @@ SIGNEXTEND_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 31],  # x=MAX, k=31 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
 )
 
 # ============================================================================
@@ -238,7 +238,7 @@ LT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 GT_CONFIG = MarginalOpcodeConfig(
@@ -249,7 +249,7 @@ GT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 SLT_CONFIG = MarginalOpcodeConfig(
@@ -260,7 +260,7 @@ SLT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 SGT_CONFIG = MarginalOpcodeConfig(
@@ -271,7 +271,7 @@ SGT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 EQ_CONFIG = MarginalOpcodeConfig(
@@ -282,7 +282,7 @@ EQ_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=465,  # Calculated for 500K+ gas
+    num_calls=1488,  # Calculated for 500K+ gas
 )
 
 ISZERO_CONFIG = MarginalOpcodeConfig(
@@ -293,7 +293,7 @@ ISZERO_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=600,  # Already >= 500K
+    num_calls=1920,  # Already >= 500K
 )
 
 # ============================================================================
@@ -308,7 +308,7 @@ AND_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 OR_CONFIG = MarginalOpcodeConfig(
@@ -319,7 +319,7 @@ OR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 XOR_CONFIG = MarginalOpcodeConfig(
@@ -330,7 +330,7 @@ XOR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 NOT_CONFIG = MarginalOpcodeConfig(
@@ -341,7 +341,7 @@ NOT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=600,  # Already >= 500K
+    num_calls=1920,  # Already >= 500K
 )
 
 BYTE_CONFIG = MarginalOpcodeConfig(
@@ -352,7 +352,7 @@ BYTE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 31],  # x=MAX, i=31 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=289,  # Scaled for 150M cycles
+    num_calls=924,  # Scaled for 150M cycles
 )
 
 SHL_CONFIG = MarginalOpcodeConfig(
@@ -363,7 +363,7 @@ SHL_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 255],  # value=MAX, shift=255 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=465,  # Calculated for 500K+ gas
+    num_calls=1488,  # Calculated for 500K+ gas
 )
 
 SHR_CONFIG = MarginalOpcodeConfig(
@@ -374,7 +374,7 @@ SHR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 255],  # value=MAX, shift=255 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=600,  # Scaled for 150M cycles
+    num_calls=1920,  # Scaled for 150M cycles
 )
 
 SAR_CONFIG = MarginalOpcodeConfig(
@@ -385,7 +385,7 @@ SAR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 255],  # value=MAX, shift=255 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=465,  # Calculated for 500K+ gas
+    num_calls=1488,  # Calculated for 500K+ gas
 )
 
 # ============================================================================
@@ -411,7 +411,7 @@ KECCAK256_CONFIG = MarginalOpcodeConfig(
     stack_args=[8192, 0],  # size=8KB, offset=0 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=59,  # Calculated for 500K+ gas
+    num_calls=188,  # Calculated for 500K+ gas
     # Pre-allocate 8KB of memory with data to hash
     setup_code=_generate_keccak256_setup(),
 )
@@ -431,7 +431,7 @@ PUSH0_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 PUSH1_CONFIG = MarginalOpcodeConfig(
@@ -442,7 +442,7 @@ PUSH1_CONFIG = MarginalOpcodeConfig(
     stack_args=[],  # PUSH doesn't consume stack
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 PUSH16_CONFIG = MarginalOpcodeConfig(
@@ -453,7 +453,7 @@ PUSH16_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
 )
 
 PUSH32_CONFIG = MarginalOpcodeConfig(
@@ -464,7 +464,7 @@ PUSH32_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=406,  # Calculated for 500K+ gas
+    num_calls=1298,  # Calculated for 500K+ gas
 )
 
 # DUP opcodes need N items on stack before they can duplicate
@@ -505,7 +505,7 @@ POP_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Push 0 to pop (using PUSH0 is cheapest)
     pops_per_op=1,
     pushes_per_op=0,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
 )
 
 
@@ -722,25 +722,63 @@ def generate_target_contract_code(
 
 def generate_caller_contract_code(target_address: Address, num_calls: int) -> Bytecode:
     """
-    Generate caller contract that calls target num_calls times.
+    Generate caller contract that calls target num_calls times using a loop.
     
-    Uses unrolled STATICCALL to ensure constant opcode counts per test.
-    After all calls, writes success marker to storage.
+    Uses a loop structure instead of unrolled calls to keep bytecode size constant.
+    The loop overhead is constant across all test variants, so it gets eliminated
+    in the marginal cost regression.
+    
+    Structure:
+        PUSH num_calls          ; Initialize counter
+        JUMPDEST (loop_start)   ; Loop label
+        STATICCALL to target    ; Call target contract
+        POP                     ; Pop success flag
+        PUSH 1                  ; 
+        SWAP1                   ;
+        SUB                     ; counter -= 1
+        DUP1                    ; Duplicate counter for check
+        PUSH2 loop_start        ;
+        JUMPI                   ; Jump if counter > 0
+        POP                     ; Pop counter (now 0)
+        SSTORE + STOP           ; Success marker
     """
     code = Bytecode()
     
-    # Unrolled calls to target
-    for _ in range(num_calls):
-        code += Op.PUSH1(0)      # retSize
-        code += Op.PUSH1(0)      # retOffset  
-        code += Op.PUSH1(0)      # argsSize
-        code += Op.PUSH1(0)      # argsOffset
-        code += Op.PUSH20(target_address)  # address
-        code += Op.GAS           # gas (forward all)
-        code += Op.STATICCALL
-        code += Op.POP           # pop success flag
+    # Push loop counter (use appropriate PUSH based on num_calls size)
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
     
-    # Success marker (only in caller, not target)
+    # Loop start - we need to calculate the offset for JUMPDEST
+    # The PUSH for counter takes 2-4 bytes, JUMPDEST is at that offset
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    
+    # Call target contract (STATICCALL: gas, addr, argsOffset, argsSize, retOffset, retSize)
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas (forward all)
+    code += Op.STATICCALL
+    code += Op.POP                        # pop success flag
+    
+    # Decrement counter: counter -= 1
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+    
+    # Check if counter > 0 and loop
+    code += Op.DUP1                       # Duplicate counter for JUMPI check
+    code += Op.PUSH2(loop_start_offset)   # Push loop start offset
+    code += Op.JUMPI                      # Jump back if counter > 0
+    
+    # Counter is 0, pop it and write success marker
+    code += Op.POP
     code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
     code += Op.STOP
     
@@ -850,7 +888,7 @@ ADDRESS_CONFIG = MarginalOpcodeConfig(
     stack_args=[],  # No input
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=360,  # Calculated for 500K+ gas
+    num_calls=1152,  # Calculated for 500K+ gas
 )
 
 ORIGIN_CONFIG = MarginalOpcodeConfig(
@@ -861,7 +899,7 @@ ORIGIN_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 CALLER_CONFIG = MarginalOpcodeConfig(
@@ -872,7 +910,7 @@ CALLER_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 CALLVALUE_CONFIG = MarginalOpcodeConfig(
@@ -883,7 +921,7 @@ CALLVALUE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 CALLDATASIZE_CONFIG = MarginalOpcodeConfig(
@@ -894,7 +932,7 @@ CALLDATASIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 CODESIZE_CONFIG = MarginalOpcodeConfig(
@@ -905,7 +943,7 @@ CODESIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 GASPRICE_CONFIG = MarginalOpcodeConfig(
@@ -916,7 +954,7 @@ GASPRICE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 RETURNDATASIZE_CONFIG = MarginalOpcodeConfig(
@@ -927,7 +965,7 @@ RETURNDATASIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 GAS_CONFIG = MarginalOpcodeConfig(
@@ -938,7 +976,7 @@ GAS_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=360,  # Calculated for 500K+ gas
+    num_calls=1152,  # Calculated for 500K+ gas
 )
 
 # Environment opcode tests use caller-contract approach - see end of file
@@ -956,7 +994,7 @@ COINBASE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 TIMESTAMP_CONFIG = MarginalOpcodeConfig(
@@ -967,7 +1005,7 @@ TIMESTAMP_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 NUMBER_CONFIG = MarginalOpcodeConfig(
@@ -978,7 +1016,7 @@ NUMBER_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 PREVRANDAO_CONFIG = MarginalOpcodeConfig(
@@ -989,7 +1027,7 @@ PREVRANDAO_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=360,  # Calculated for 500K+ gas
+    num_calls=1152,  # Calculated for 500K+ gas
 )
 
 GASLIMIT_CONFIG = MarginalOpcodeConfig(
@@ -1000,7 +1038,7 @@ GASLIMIT_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 CHAINID_CONFIG = MarginalOpcodeConfig(
@@ -1011,7 +1049,7 @@ CHAINID_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 SELFBALANCE_CONFIG = MarginalOpcodeConfig(
@@ -1022,7 +1060,7 @@ SELFBALANCE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Doubled for ~1M gas
+    num_calls=1920,  # Doubled for ~1M gas
 )
 
 BASEFEE_CONFIG = MarginalOpcodeConfig(
@@ -1033,7 +1071,7 @@ BASEFEE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 
@@ -1045,7 +1083,7 @@ BLOBBASEFEE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 # Block info opcode tests use caller-contract approach - see end of file
@@ -1064,7 +1102,7 @@ MLOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # offset - read from offset 0
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
     setup_code=Op.MSTORE(0, MAX_U256),  # Pre-expand memory with data
 )
 
@@ -1076,7 +1114,7 @@ MSTORE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 0],  # value, offset (MSTORE pops offset first)
     pops_per_op=2,
     pushes_per_op=0,
-    num_calls=293,  # Calculated for 500K+ gas
+    num_calls=936,  # Calculated for 500K+ gas
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1088,7 +1126,7 @@ MSTORE8_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xFF, 0],  # value, offset (MSTORE8 pops offset first)
     pops_per_op=2,
     pushes_per_op=0,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1100,7 +1138,7 @@ MSIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas (MSIZE costs 2 gas)
+    num_calls=1920,  # Calculated for 500K+ gas (MSIZE costs 2 gas)
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory so MSIZE returns non-zero
 )
 
@@ -1114,7 +1152,7 @@ CALLDATACOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[32, 0, 0],  # size=32 bytes, offset=0, destOffset=0 (worst-case: small copy)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1147,7 +1185,7 @@ RETURNDATACOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[64, 0, 128],  # size=64, offset=0, destOffset=128 (pushed in reverse pop order)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=170,  # Calculated for 500K+ gas: 170 × (200 setup + 300×9) ≈ 493K
+    num_calls=544,  # Calculated for 500K+ gas: 170 × (200 setup + 300×9) ≈ 493K
     setup_code=_generate_returndatacopy_setup(),
 )
 
@@ -1161,7 +1199,7 @@ CODECOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[32, 0, 0],  # size=32 bytes, offset=0, destOffset=0 (worst-case: small copy)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1174,7 +1212,7 @@ MCOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[1024, 0, 4096],  # size=1KB, srcOffset=0, destOffset=4096 (pushed in reverse pop order)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=58,  # Calculated for 500K+ gas
+    num_calls=184,  # Calculated for 500K+ gas
     setup_code=Op.MSTORE(0, MAX_U256) + Op.MSTORE(4096, 0),  # Pre-expand memory regions
 )
 
@@ -1218,7 +1256,7 @@ CALLDATALOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Load from offset 0
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=293,  # Calculated for 500K+ gas
+    num_calls=936,  # Calculated for 500K+ gas
 )
 
 # BLOCKHASH: pops block number, pushes hash (or 0 if out of range)
@@ -1230,7 +1268,7 @@ BLOCKHASH_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Block 0 (will return 0 but still executes)
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=100,  # Keep at 100
+    num_calls=320,  # Keep at 100
 )
 
 # BLOBHASH: pops blob index, pushes versioned hash (or 0 if out of range)
@@ -1242,7 +1280,7 @@ BLOBHASH_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Blob index 0 (will return 0 if no blobs)
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
 )
 
 
@@ -1281,7 +1319,7 @@ SLOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[100],  # Storage slot 100 (different from SUCCESS_SLOT)
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
     setup_code=Op.POP(Op.SLOAD(100)),  # Warm up slot 100 first
 )
 
@@ -1297,7 +1335,7 @@ SSTORE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 100],  # value, slot (SSTORE pops slot first)
     pops_per_op=2,
     pushes_per_op=0,
-    num_calls=364,  # Scaled for 150M cycles target
+    num_calls=1164,  # Scaled for 150M cycles target
     setup_code=Op.POP(Op.SLOAD(100)),  # Warm up slot 100 first
 )
 
@@ -1310,7 +1348,7 @@ TLOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Transient slot 0
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 # TSTORE: Transient storage store (EIP-1153) - 100 gas
@@ -1323,7 +1361,7 @@ TSTORE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 0],  # value, slot (TSTORE pops slot first)
     pops_per_op=2,
     pushes_per_op=0,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
 )
 
 
@@ -1344,7 +1382,7 @@ JUMPDEST_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=0,
-    num_calls=600,  # Calculated for 500K+ gas (1 gas per JUMPDEST)
+    num_calls=1920,  # Calculated for 500K+ gas (1 gas per JUMPDEST)
 )
 
 # PC pushes the program counter value
@@ -1356,7 +1394,7 @@ PC_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
 )
 
 
@@ -2092,7 +2130,7 @@ BALANCE_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xDEAD],  # Query balance of address 0xDEAD
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
     setup_code=Op.POP(Op.BALANCE(0xDEAD)),  # Warm up address 0xDEAD first
 )
 
@@ -2107,7 +2145,7 @@ EXTCODESIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xDEAD],  # Query code size of address 0xDEAD
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=600,  # Calculated for 500K+ gas
+    num_calls=1920,  # Calculated for 500K+ gas
     setup_code=Op.POP(Op.EXTCODESIZE(0xDEAD)),  # Warm up address 0xDEAD first
 )
 
@@ -2122,7 +2160,7 @@ EXTCODEHASH_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xDEAD],  # Query code hash of address 0xDEAD
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=564,  # Calculated for 500K+ gas
+    num_calls=1804,  # Calculated for 500K+ gas
     setup_code=Op.POP(Op.EXTCODEHASH(0xDEAD)),  # Warm up address 0xDEAD first
 )
 
@@ -2136,7 +2174,7 @@ EXTCODECOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[256, 0, 0, 0xDEAD],  # size=256, offset=0, destOffset=0, address (pushed in reverse pop order)
     pops_per_op=4,
     pushes_per_op=0,
-    num_calls=600,  # Scaled for 150M cycles target
+    num_calls=1920,  # Scaled for 150M cycles target
     setup_code=Op.MSTORE(0, 0) + Op.POP(Op.EXTCODESIZE(0xDEAD)),  # Pre-expand memory + warm up address
 )
 
@@ -2251,22 +2289,48 @@ test_exp = _create_caller_contract_test(EXP_CONFIG)
 
 def generate_caller_contract_code_call(target_address: Address, num_calls: int) -> Bytecode:
     """
-    Generate caller contract using CALL instead of STATICCALL.
+    Generate caller contract using CALL instead of STATICCALL (loop version).
     Required for state-modifying opcodes (TSTORE, LOG, SSTORE).
+    
+    Uses a loop structure instead of unrolled calls to keep bytecode size constant.
     """
     code = Bytecode()
     
-    for _ in range(num_calls):
-        code += Op.PUSH1(0)      # retSize
-        code += Op.PUSH1(0)      # retOffset  
-        code += Op.PUSH1(0)      # argsSize
-        code += Op.PUSH1(0)      # argsOffset
-        code += Op.PUSH1(0)      # value (no ETH transfer)
-        code += Op.PUSH20(target_address)  # address
-        code += Op.GAS           # gas (forward all)
-        code += Op.CALL
-        code += Op.POP           # pop success flag
+    # Push loop counter
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
     
+    # Loop start
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    
+    # Call target contract (CALL: gas, addr, value, argsOffset, argsSize, retOffset, retSize)
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH1(0)                   # value (no ETH transfer)
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas (forward all)
+    code += Op.CALL
+    code += Op.POP                        # pop success flag
+    
+    # Decrement counter: counter -= 1
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+    
+    # Check if counter > 0 and loop
+    code += Op.DUP1                       # Duplicate counter for JUMPI check
+    code += Op.PUSH2(loop_start_offset)   # Push loop start offset
+    code += Op.JUMPI                      # Jump back if counter > 0
+    
+    # Counter is 0, pop it and write success marker
+    code += Op.POP
     code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
     code += Op.STOP
     
@@ -2482,12 +2546,12 @@ def _create_swap_caller_test(swap_n: int, max_op_count: int, step: int, num_call
     return test_func
 
 
-test_dup1 = _create_dup_caller_test(1, DUP1_MAX_OP_COUNT, DUP1_STEP, num_calls=600)
-test_dup8 = _create_dup_caller_test(8, DUP8_MAX_OP_COUNT, DUP8_STEP, num_calls=600)
-test_dup16 = _create_dup_caller_test(16, DUP16_MAX_OP_COUNT, DUP16_STEP, num_calls=600)
-test_swap1 = _create_swap_caller_test(1, SWAP1_MAX_OP_COUNT, SWAP1_STEP, num_calls=465)
-test_swap8 = _create_swap_caller_test(8, SWAP8_MAX_OP_COUNT, SWAP8_STEP, num_calls=465)
-test_swap16 = _create_swap_caller_test(16, SWAP16_MAX_OP_COUNT, SWAP16_STEP, num_calls=465)
+test_dup1 = _create_dup_caller_test(1, DUP1_MAX_OP_COUNT, DUP1_STEP, num_calls=1200)
+test_dup8 = _create_dup_caller_test(8, DUP8_MAX_OP_COUNT, DUP8_STEP, num_calls=1200)
+test_dup16 = _create_dup_caller_test(16, DUP16_MAX_OP_COUNT, DUP16_STEP, num_calls=1200)
+test_swap1 = _create_swap_caller_test(1, SWAP1_MAX_OP_COUNT, SWAP1_STEP, num_calls=930)
+test_swap8 = _create_swap_caller_test(8, SWAP8_MAX_OP_COUNT, SWAP8_STEP, num_calls=930)
+test_swap16 = _create_swap_caller_test(16, SWAP16_MAX_OP_COUNT, SWAP16_STEP, num_calls=930)
 
 
 # ============================================================================
@@ -2535,8 +2599,8 @@ def _create_log_caller_test(log_opcode, topic_count: int, max_op_count: int, ste
     return test_func
 
 
-test_log0 = _create_log_caller_test(Op.LOG0, 0, LOG0_MAX_OP_COUNT, LOG0_STEP, num_calls=600)
-test_log1 = _create_log_caller_test(Op.LOG1, 1, LOG1_MAX_OP_COUNT, LOG1_STEP, num_calls=479)
-test_log2 = _create_log_caller_test(Op.LOG2, 2, LOG2_MAX_OP_COUNT, LOG2_STEP, num_calls=331)
-test_log3 = _create_log_caller_test(Op.LOG3, 3, LOG3_MAX_OP_COUNT, LOG3_STEP, num_calls=329)
-test_log4 = _create_log_caller_test(Op.LOG4, 4, LOG4_MAX_OP_COUNT, LOG4_STEP, num_calls=346)
+test_log0 = _create_log_caller_test(Op.LOG0, 0, LOG0_MAX_OP_COUNT, LOG0_STEP, num_calls=1200)
+test_log1 = _create_log_caller_test(Op.LOG1, 1, LOG1_MAX_OP_COUNT, LOG1_STEP, num_calls=958)
+test_log2 = _create_log_caller_test(Op.LOG2, 2, LOG2_MAX_OP_COUNT, LOG2_STEP, num_calls=662)
+test_log3 = _create_log_caller_test(Op.LOG3, 3, LOG3_MAX_OP_COUNT, LOG3_STEP, num_calls=658)
+test_log4 = _create_log_caller_test(Op.LOG4, 4, LOG4_MAX_OP_COUNT, LOG4_STEP, num_calls=692)
