@@ -828,7 +828,7 @@ def _create_caller_contract_test(config: MarginalOpcodeConfig):
             caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
         }
         
-        state_test(env=Environment(), pre=pre, post=post, tx=tx)
+        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
     
     return test_func
 
@@ -864,7 +864,7 @@ def _create_opcode_test(config: MarginalOpcodeConfig, gas_limit: int = 500_000_0
             contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
         }
 
-        state_test(env=Environment(), pre=pre, post=post, tx=tx)
+        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
     
     return test_func
 
@@ -1238,7 +1238,7 @@ def test_marginal_returndatacopy(state_test: StateTestFiller, pre: Alloc, op_cou
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 # NOTE: Direct tests for CODECOPY, MCOPY removed - use caller-contract approach.
@@ -1300,7 +1300,7 @@ def test_marginal_blockhash(state_test: StateTestFiller, pre: Alloc, op_count: i
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 # NOTE: Direct test for BLOBHASH removed - use caller-contract approach.
@@ -1597,7 +1597,7 @@ def _create_jump_caller_test(max_op_count: int, step: int, num_calls: int):
             caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
         }
         
-        state_test(env=Environment(), pre=pre, post=post, tx=tx)
+        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
     
     return test_func
 
@@ -1636,7 +1636,7 @@ def _create_jumpi_caller_test(max_op_count: int, step: int, num_calls: int):
             caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
         }
         
-        state_test(env=Environment(), pre=pre, post=post, tx=tx)
+        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
     
     return test_func
 
@@ -1924,7 +1924,7 @@ def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Prague")
@@ -1956,7 +1956,7 @@ def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: in
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Prague")
@@ -1988,7 +1988,7 @@ def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Prague")
@@ -2020,7 +2020,7 @@ def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: 
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -2070,7 +2070,7 @@ def test_marginal_create(state_test: StateTestFiller, pre: Alloc, op_count: int)
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 CREATE2_MAX_OP_COUNT = 50
@@ -2111,7 +2111,7 @@ def test_marginal_create2(state_test: StateTestFiller, pre: Alloc, op_count: int
     sender = pre.fund_eoa()
     tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -2375,7 +2375,7 @@ def _create_caller_contract_test_call(config: MarginalOpcodeConfig):
             caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
         }
         
-        state_test(env=Environment(), pre=pre, post=post, tx=tx)
+        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
     
     return test_func
 
@@ -2500,7 +2500,7 @@ def _create_dup_caller_test(dup_n: int, max_op_count: int, step: int, num_calls:
             caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
         }
         
-        state_test(env=Environment(), pre=pre, post=post, tx=tx)
+        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
     
     return test_func
 
@@ -2541,7 +2541,7 @@ def _create_swap_caller_test(swap_n: int, max_op_count: int, step: int, num_call
             caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
         }
         
-        state_test(env=Environment(), pre=pre, post=post, tx=tx)
+        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
     
     return test_func
 
@@ -2594,7 +2594,7 @@ def _create_log_caller_test(log_opcode, topic_count: int, max_op_count: int, ste
             caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
         }
         
-        state_test(env=Environment(), pre=pre, post=post, tx=tx)
+        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
     
     return test_func
 
