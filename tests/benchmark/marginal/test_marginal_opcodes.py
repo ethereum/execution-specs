@@ -83,10 +83,33 @@ class MarginalOpcodeConfig:
 # High-cost opcodes: 20 max_op_count, step of 5
 
 # ============================================================================
-# ARITHMETIC OPCODES - Use max 256-bit values for worst case
+# ARITHMETIC OPCODES
+# Arguments aligned with execution-specs benchmark worst cases from:
+# tests/benchmark/compute/instruction/test_arithmetic.py
 # ============================================================================
 MAX_U256 = (1 << 256) - 1  # Maximum uint256 value
 MAX_S256_NEG = 1 << 255     # Most negative signed int256
+
+# execution-specs benchmark DEFAULT_BINOP_ARGS from helpers.py
+# These are secp256k1 field prime and BLS12-381 scalar field modulus
+# Ref: tests/benchmark/compute/helpers.py
+SECP256K1_FIELD_PRIME = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+BLS12_381_SCALAR_FIELD = 0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
+
+# DIV worst case: divisor slightly > 2^128 triggers 3-word division path
+# Ref: test_arithmetic.py opcode_DIV-0
+DIV_DIVIDEND = SECP256K1_FIELD_PRIME
+DIV_DIVISOR = 0x100000000000000000000000000000033  # Slightly > 2^128
+
+# SDIV worst case: same as DIV-0 but with sign adjustments
+# Ref: test_arithmetic.py opcode_SDIV-1
+SDIV_DIVIDEND = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F  # Positive
+SDIV_DIVISOR = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFCD  # Negative ~2^128
+
+# MOD/SMOD/ADDMOD/MULMOD worst case: 191-bit modulus
+# execution-specs found 191-bit modulus is SLOWER than 255-bit (counterintuitive!)
+# Ref: test_arithmetic.py op_MOD-mod_bits_191, op_MULMOD-mod_bits_191, etc.
+MOD_191_BIT = (1 << 191) - 1  # 191-bit modulus for worst-case division
 
 # ============================================================================
 # STACK LIMIT CALCULATION:
@@ -103,105 +126,121 @@ MAX_S256_NEG = 1 << 255     # Most negative signed int256
 # - 1-arg + 1-return ops: max = 900/2 = 450
 # ============================================================================
 
+# Ref: test_arithmetic.py opcode_ADD (uses DEFAULT_BINOP_ARGS)
 ADD_CONFIG = MarginalOpcodeConfig(
     name="ADD",
     opcode=Op.ADD,
     max_op_count=300,  # 300 * 3 = 900 < 1024
     step=75,  # ~5 data points
-    stack_args=[MAX_U256, MAX_U256],  # Worst case: max values
+    stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     pops_per_op=2,
     pushes_per_op=1,
     num_calls=1500,  # Calculated for 500K+ gas
 )
 
+# Ref: test_arithmetic.py opcode_MUL (uses DEFAULT_BINOP_ARGS)
 MUL_CONFIG = MarginalOpcodeConfig(
     name="MUL",
     opcode=Op.MUL,
     max_op_count=300,
     step=75,  # ~5 data points
-    stack_args=[MAX_U256, MAX_U256],  # Worst case: max values
+    stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     pops_per_op=2,
     pushes_per_op=1,
     num_calls=2000,  # Doubled for ~1M gas
 )
 
+# Ref: test_arithmetic.py opcode_SUB (uses DEFAULT_BINOP_ARGS)
 SUB_CONFIG = MarginalOpcodeConfig(
     name="SUB",
     opcode=Op.SUB,
     max_op_count=300,
     step=75,  # ~5 data points
-    stack_args=[MAX_U256, MAX_U256],
+    stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     pops_per_op=2,
     pushes_per_op=1,
     num_calls=2000,  # Calculated for 500K+ gas
 )
 
+# Ref: test_arithmetic.py opcode_DIV-0
+# Worst case: divisor slightly > 2^128 triggers 3-word division path
 DIV_CONFIG = MarginalOpcodeConfig(
     name="DIV",
     opcode=Op.DIV,
     max_op_count=300,
     step=75,  # ~5 data points
-    stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
+    stack_args=[DIV_DIVISOR, DIV_DIVIDEND],  # divisor, dividend (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
     num_calls=700,
 )
 
+# Ref: test_arithmetic.py opcode_SDIV-1
+# Worst case: positive dividend, negative ~2^128 divisor
 SDIV_CONFIG = MarginalOpcodeConfig(
     name="SDIV",
     opcode=Op.SDIV,
     max_op_count=300,
     step=75,  # ~5 data points
-    stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
-    pops_per_op=2,
-    pushes_per_op=1,
-    num_calls=700
-)
-
-MOD_CONFIG = MarginalOpcodeConfig(
-    name="MOD",
-    opcode=Op.MOD,
-    max_op_count=300,
-    step=75,  # ~5 data points
-    stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
+    stack_args=[SDIV_DIVISOR, SDIV_DIVIDEND],  # divisor, dividend (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
     num_calls=700,
 )
 
+# Ref: test_arithmetic.py op_MOD-mod_bits_191
+# execution-specs found 191-bit modulus is SLOWER than 255-bit (counterintuitive!)
+MOD_CONFIG = MarginalOpcodeConfig(
+    name="MOD",
+    opcode=Op.MOD,
+    max_op_count=300,
+    step=75,  # ~5 data points
+    stack_args=[MOD_191_BIT, MAX_U256],  # 191-bit modulus, MAX dividend
+    pops_per_op=2,
+    pushes_per_op=1,
+    num_calls=700,
+)
+
+# Ref: test_arithmetic.py op_SMOD-mod_bits_191
+# execution-specs found 191-bit modulus is SLOWER than 255-bit (counterintuitive!)
 SMOD_CONFIG = MarginalOpcodeConfig(
     name="SMOD",
     opcode=Op.SMOD,
     max_op_count=300,
     step=75,  # ~5 data points
-    stack_args=[3, MAX_U256],  # divisor=3, dividend=MAX (pushed in reverse pop order)
+    stack_args=[MOD_191_BIT, MAX_U256],  # 191-bit modulus, MAX dividend
     pops_per_op=2,
     pushes_per_op=1,
     num_calls=2000,  # Scaled for 150M cycles
 )
 
+# Ref: test_arithmetic.py op_ADDMOD-mod_bits_191
+# execution-specs found 191-bit modulus is SLOWER than 255-bit (counterintuitive!)
 ADDMOD_CONFIG = MarginalOpcodeConfig(
     name="ADDMOD",
     opcode=Op.ADDMOD,
     max_op_count=200,  # 200 * 4 = 800 < 1024
     step=50,  # ~5 data points
-    stack_args=[3, MAX_U256, MAX_U256],  # N=3, b=MAX, a=MAX (pushed in reverse pop order)
+    stack_args=[MOD_191_BIT, MAX_U256, MAX_U256],  # N=191-bit mod, b=MAX, a=MAX
     pops_per_op=3,
     pushes_per_op=1,
     num_calls=1000,  # Calculated for 500K+ gas
 )
 
+# Ref: test_arithmetic.py op_MULMOD-mod_bits_191
+# execution-specs found 191-bit modulus is SLOWER than 255-bit (counterintuitive!)
 MULMOD_CONFIG = MarginalOpcodeConfig(
     name="MULMOD",
     opcode=Op.MULMOD,
     max_op_count=200,
     step=50,  # ~5 data points
-    stack_args=[3, MAX_U256, MAX_U256],  # N=3, b=MAX, a=MAX (pushed in reverse pop order)
+    stack_args=[MOD_191_BIT, MAX_U256, MAX_U256],  # N=191-bit mod, b=MAX, a=MAX
     pops_per_op=3,
     pushes_per_op=1,
     num_calls=1000,  # Calculated for 500K+ gas
 )
 
+# Ref: test_arithmetic.py opcode_EXP (uses MAX_U256, MAX_U256)
 # EXP is expensive: 10 + 50 * byte_length_of_exponent
 # With 32-byte exponent = 10 + 50 * 32 = 1610 gas
 EXP_CONFIG = MarginalOpcodeConfig(
@@ -209,18 +248,20 @@ EXP_CONFIG = MarginalOpcodeConfig(
     opcode=Op.EXP,
     max_op_count=150,
     step=37,  # ~5 data points
-    stack_args=[MAX_U256, MAX_U256],  # Worst case: max base and exponent
+    stack_args=[MAX_U256, MAX_U256],  # execution-specs uses MAX for both - matches!
     pops_per_op=2,
     pushes_per_op=1,
     num_calls=15,  # Doubled for ~1M gas
 )
 
+# Ref: test_arithmetic.py opcode_SIGNEXTEND (uses k=3, x=0xFFDADADA)
+# execution-specs uses k=3 (sign-extend 4 bytes) with a negative value
 SIGNEXTEND_CONFIG = MarginalOpcodeConfig(
     name="SIGNEXTEND",
     opcode=Op.SIGNEXTEND,
     max_op_count=300,  # 300 * 3 = 900 < 1024
     step=75,  # ~5 data points
-    stack_args=[MAX_U256, 31],  # x=MAX, k=31 (pushed in reverse pop order)
+    stack_args=[0xFFDADADA, 3],  # x=negative value, k=3 (4-byte extend)
     pops_per_op=2,
     pushes_per_op=1,
     num_calls=5000,  # Scaled for 150M cycles target
@@ -390,6 +431,9 @@ SAR_CONFIG = MarginalOpcodeConfig(
 
 # ============================================================================
 # KECCAK256 OPCODE - Variable cost based on input size
+# Ref: tests/benchmark/compute/instruction/test_keccak.py
+# execution-specs has test_keccak_max_permutations (dynamic sizing) and test_keccak (fixed sizes)
+# We use 8KB input to maximize hash work per call - similar to max permutations approach
 # ============================================================================
 
 # KECCAK256 with 8KB input for worst-case testing (aligned with gas-cost-estimator)

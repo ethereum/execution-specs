@@ -134,9 +134,13 @@ def create_modexp_input(
     )
 
 
+# ============================================================================
+# ECRECOVER precompile (0x01)
+# Ref: tests/benchmark/compute/precompile/test_ecrecover.py
 # Valid ECRECOVER input that performs full signature recovery (worst case)
 # This is a valid signature that will actually recover an address
-# Taken from gas-cost-estimator's ECRECOVER test case
+# execution-specs test also uses a valid signature - our args match
+# ============================================================================
 ECRECOVER_INPUT = create_ecrecover_input(
     msg_hash=bytes.fromhex("456e9aea5e197a1f1af7a3e85a3212fa4049a3ba34c2289b4c860fc0b0c64ef3"),
     v=28,  # 0x1c
@@ -153,28 +157,74 @@ ECRECOVER_CONFIG = MarginalPrecompileConfig(
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
 )
 
-# MODEXP true worst-case input: 256-byte (2048-bit) inputs
-# B = 2^2048 - 1 (all 0xff for 256 bytes)
-# E = 2^2048 - 1 (all 0xff for 256 bytes)
-# M = 2^2048 - 3 (all 0xff except last byte is 0xfd for odd modulus)
-# This costs ~698,709 gas per call (EIP-2565)
+# ============================================================================
+# MODEXP precompile (0x05) - execution-specs benchmark worst case
+# Ref: tests/benchmark/compute/precompile/test_modexp.py
+# Worst case: mod_vul_nagydani_5_qube (SP1: 3600s - highest in entire benchmark!)
+# Uses 512-byte (4096-bit) base and modulus with exponent = 0x03 (cubing)
+# This stresses large operand memory handling rather than exponent iterations
+# ============================================================================
+
+# mod_vul_nagydani_5_qube input - 512-byte base/mod with exp=3
+# Ported from test_modexp.py line 243-247
+MODEXP_NAGYDANI_5_BASE = bytes.fromhex(
+    "c5a1611f8be90071a43db23cc2fe01871cc4c0e8ab5743f6378e4fef77f7f6db"
+    "0095c0727e20225beb665645403453e325ad5f9aeb9ba99bf3c148f63f9c07cf"
+    "4fe8847ad5242d6b7d4499f93bd47056ddab8f7dee878fc2314f344dbee2a7c4"
+    "1a5d3db91eff372c730c2fdd3a141a4b61999e36d549b9870cf2f4e632c4d5df"
+    "5f024f81c028000073a0ed8847cfb0593d36a47142f578f05ccbe28c0c06aeb1"
+    "b1da027794c48db880278f79ba78ae64eedfea3c07d10e0562668d839749dc95"
+    "f40467d15cf65b9cfc52c7c4bcef1cda3596dd52631aac942f146c7cebd46065"
+    "131699ce8385b0db1874336747ee020a5698a3d1a1082665721e769567f57983"
+    "0f9d259cec1a836845109c21cf6b25da572512bf3c42fd4b96e43895589042ab"
+    "60dd41f497db96aec102087fe784165bb45f942859268fd2ff6c012d9d00c02b"
+    "a83eace047cc5f7b2c392c2955c58a49f0338d6fc58749c9db2155522ac17914"
+    "ec216ad87f12e0ee95574613942fa615898c4d9e8a3be68cd6afa4e7a003dedb"
+    "df8edfee31162b174f965b20ae752ad89c967b3068b6f722c16b354456ba8e28"
+    "0f987c08e0a52d40a2e8f3a59b94d590aeef01879eb7a90b3ee7d772c839c855"
+    "19cbeaddc0c193ec4874a463b53fcaea3271d80ebfb39b33489365fc039ae549"
+    "a17a9ff898eea2f4cb27b8dbee4c17b998438575b2b8d107e4a0d66ba7fca85b"
+)
+
+MODEXP_NAGYDANI_5_MODULUS = bytes.fromhex(
+    "e30049201ec12937e7ce79d0f55d9c810e20acf52212aca1d3888949e0e4830a"
+    "ad88d804161230eb89d4d329cc83570fe257217d2119134048dd2ed167646975"
+    "fc7d77136919a049ea74cf08ddd2b896890bb24a0ba18094a22baa351bf29ad9"
+    "6c66bbb1a598f2ca391749620e62d61c3561a7d3653ccc8892c7b99baaf76bf8"
+    "36e2991cb06d6bc0514568ff0d1ec8bb4b3d6984f5eaefb17d3ea2893722375d"
+    "3ddb8e389a8eef7d7d198f8e687d6a513983df906099f9a2d23f4f9dec6f8ef2"
+    "f11fc0a21fac45353b94e00486f5e17d386af42502d09db33cf0cf28310e049c"
+    "07e88682aeeb00cb833c5174266e62407a57583f1f88b304b7c6e0c84bbe1c0f"
+    "d423072d37a5bd0aacf764229e5c7cd02473460ba3645cd8e8ae144065bf02d0"
+    "dd238593d8e230354f67e0b2f23012c23274f80e3ee31e35e2606a4a3f31d94a"
+    "b755e6d163cff52cbb36b6d0cc67ffc512aeed1dce4d7a0d70ce82f2baba12e8"
+    "d514dc92a056f994adfb17b5b9712bd5186f27a2fda1f7039c5df2c8587fdc62"
+    "f5627580c13234b55be4df3056050e2d1ef3218f0dd66cb05265fe1acfb0989d"
+    "8213f2c19d1735a7cf3fa65d88dad5af52dc2bba22b7abf46c3bc77b5091baab"
+    "9e8f0ddc4d5e581037de91a9f8dcbc69309be29cc815cf19a20a7585b8b3073e"
+    "df51fc9baeb3e509b97fa4ecfd621e0fd57bd61cac1b895c03248ff12bdbc575"
+)
+
 MODEXP_INPUT = create_modexp_input(
-    base=bytes.fromhex("ff" * 256),      # 2^2048 - 1
-    exponent=bytes.fromhex("ff" * 256),  # 2^2048 - 1
-    modulus=bytes.fromhex("ff" * 255 + "fd"),  # 2^2048 - 3 (odd)
+    base=MODEXP_NAGYDANI_5_BASE,      # 512 bytes (4096 bits)
+    exponent=bytes.fromhex("03"),      # Just cubing (1 byte)
+    modulus=MODEXP_NAGYDANI_5_MODULUS, # 512 bytes (4096 bits)
 )
 
 MODEXP_CONFIG = MarginalPrecompileConfig(
     name="MODEXP",
     address=MODEXP_ADDRESS,
-    max_op_count=3,  # ~699K gas per call, need high gas limit
+    max_op_count=3,  # High gas per call, need high gas limit
     step=1,
     input_data=MODEXP_INPUT,
-    input_size=len(MODEXP_INPUT),  # 96 + 256 + 256 + 256 = 864 bytes
+    input_size=len(MODEXP_INPUT),  # 96 + 512 + 1 + 512 = 1121 bytes
 )
 
 # ============================================================================
 # SHA256 precompile (0x02) - Using 4KB input (worst-case)
+# Ref: tests/benchmark/compute/precompile/test_sha256.py
+# execution-specs uses dynamic optimal_input_length calculation; we use fixed 4KB
+# which is close to optimal for maximizing hash work
 # Gas: 60 + 12 * ceil(input_bytes/32) = 60 + 12 * 128 = 1,596 gas per call
 # Max ops limited by bytecode size (24KB), not gas: ~1500 ops fit
 # ============================================================================
@@ -191,6 +241,8 @@ SHA256_CONFIG = MarginalPrecompileConfig(
 
 # ============================================================================
 # RIPEMD160 precompile (0x03) - Using 1KB input (worst-case)
+# Ref: tests/benchmark/compute/precompile/test_ripemd160.py
+# execution-specs uses dynamic optimal_input_length calculation; we use fixed 1KB
 # Gas: 600 + 120 * ceil(input_bytes/32) = 600 + 120 * 32 = 4,440 gas per call
 # Max ops limited by bytecode size (24KB), not gas: ~1500 ops fit
 # ============================================================================
