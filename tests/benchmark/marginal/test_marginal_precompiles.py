@@ -214,8 +214,8 @@ MODEXP_INPUT = create_modexp_input(
 MODEXP_CONFIG = MarginalPrecompileConfig(
     name="MODEXP",
     address=MODEXP_ADDRESS,
-    max_op_count=3,  # High gas per call, need high gas limit
-    step=1,
+    max_op_count=40,  # High gas per call, need high gas limit
+    step=10,
     input_data=MODEXP_INPUT,
     input_size=len(MODEXP_INPUT),  # 96 + 512 + 1 + 512 = 1121 bytes
 )
