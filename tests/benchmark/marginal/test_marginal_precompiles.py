@@ -389,8 +389,8 @@ POINT_EVALUATION_INPUT = bytes.fromhex(
 POINT_EVALUATION_CONFIG = MarginalPrecompileConfig(
     name="POINT_EVALUATION",
     address=POINT_EVALUATION_ADDRESS,
-    max_op_count=16,  # Increased for ~1M gas (50K gas/call)
-    step=4,
+    max_op_count=8,  # Increased for ~1M gas (50K gas/call)
+    step=2,
     input_data=POINT_EVALUATION_INPUT,
     input_size=len(POINT_EVALUATION_INPUT),  # 192 bytes
 )
