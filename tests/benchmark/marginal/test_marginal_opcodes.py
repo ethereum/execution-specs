@@ -260,7 +260,7 @@ SLT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=5000,  # Calculated for 500K+ gas
 )
 
 SGT_CONFIG = MarginalOpcodeConfig(
@@ -330,7 +330,7 @@ XOR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=5000,  # Calculated for 500K+ gas
 )
 
 NOT_CONFIG = MarginalOpcodeConfig(
@@ -1889,41 +1889,277 @@ def generate_call_program(op_count: int, call_opcode: Op, max_op_count: int) -> 
     return code
 
 
-CALL_MAX_OP_COUNT = 600  # Limited by bytecode size (24KB limit)
-CALL_STEP = 150  # ~5 data points
+# ============================================================================
+# CALL-FAMILY OPCODES - Using loop-based caller contract approach
+# CALL, CALLCODE, DELEGATECALL, STATICCALL
+# ============================================================================
+
+# Loop-based caller contracts for each CALL variant
+# These use a fixed-size loop structure, allowing much higher call counts
+
+def generate_caller_with_call(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract that uses CALL in a loop.
+    CALL(gas, addr, value, argsOffset, argsSize, retOffset, retSize) -> success
+    """
+    code = Bytecode()
+    
+    # Push loop counter
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+    
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    
+    # CALL: gas, addr, value, argsOffset, argsSize, retOffset, retSize
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH1(0)                   # value
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas
+    code += Op.CALL
+    code += Op.POP                        # pop success flag
+    
+    # Decrement counter
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+    
+    # Loop back if counter > 0
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+    
+    # Done - write success marker
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+    
+    return code
+
+
+def generate_caller_with_callcode(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract that uses CALLCODE in a loop.
+    CALLCODE(gas, addr, value, argsOffset, argsSize, retOffset, retSize) -> success
+    """
+    code = Bytecode()
+    
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+    
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    
+    # CALLCODE: gas, addr, value, argsOffset, argsSize, retOffset, retSize
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH1(0)                   # value
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas
+    code += Op.CALLCODE
+    code += Op.POP
+    
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+    
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+    
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+    
+    return code
+
+
+def generate_caller_with_delegatecall(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract that uses DELEGATECALL in a loop.
+    DELEGATECALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
+    """
+    code = Bytecode()
+    
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+    
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    
+    # DELEGATECALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas
+    code += Op.DELEGATECALL
+    code += Op.POP
+    
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+    
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+    
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+    
+    return code
+
+
+def generate_caller_with_staticcall(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract that uses STATICCALL in a loop.
+    STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
+    """
+    code = Bytecode()
+    
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+    
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    
+    # STATICCALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas
+    code += Op.STATICCALL
+    code += Op.POP
+    
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+    
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+    
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+    
+    return code
+
+
+# Configuration for CALL-family opcodes with loop-based approach
+# Much higher limits now that we're not bytecode-size limited
+CALL_NUM_CALLS = 5000  # Number of caller loop iterations
+CALL_MAX_OP_COUNT = 4  # Target contract executes op_count STATICCALLs per call
+CALL_STEP = 1  # Step size for op_count (0, 1, 2, 3, 4 -> 0, 5K, 10K, 15K, 20K total calls)
+
+
+def _generate_target_with_inner_calls(inner_target: Address, op_count: int, call_op) -> Bytecode:
+    """
+    Generate a target contract that makes op_count calls to inner_target.
+    The call_op parameter specifies which CALL variant to use.
+    """
+    code = Bytecode()
+    
+    if op_count == 0:
+        # Just return immediately
+        code += Op.STOP
+        return code
+    
+    # Loop op_count times, making calls to inner_target
+    if op_count <= 0xFF:
+        code += Op.PUSH1(op_count)
+    elif op_count <= 0xFFFF:
+        code += Op.PUSH2(op_count)
+    else:
+        code += Op.PUSH3(op_count)
+    
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    
+    # Make the call (using the specified call_op)
+    if call_op in (Op.CALL, Op.CALLCODE):
+        # 7 args: gas, addr, value, argsOffset, argsSize, retOffset, retSize
+        code += Op.PUSH1(0)                   # retSize
+        code += Op.PUSH1(0)                   # retOffset  
+        code += Op.PUSH1(0)                   # argsSize
+        code += Op.PUSH1(0)                   # argsOffset
+        code += Op.PUSH1(0)                   # value
+        code += Op.PUSH20(inner_target)       # address
+        code += Op.GAS                        # gas
+        code += call_op
+    else:
+        # 6 args: gas, addr, argsOffset, argsSize, retOffset, retSize (STATICCALL/DELEGATECALL)
+        code += Op.PUSH1(0)                   # retSize
+        code += Op.PUSH1(0)                   # retOffset  
+        code += Op.PUSH1(0)                   # argsSize
+        code += Op.PUSH1(0)                   # argsOffset
+        code += Op.PUSH20(inner_target)       # address
+        code += Op.GAS                        # gas
+        code += call_op
+    
+    code += Op.POP  # pop success flag
+    
+    # Decrement and loop
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+    
+    code += Op.POP
+    code += Op.STOP
+    
+    return code
 
 
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "op_count",
     generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
-    ids=lambda x: f"op_count_{x}",
+    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
 )
 def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CALL opcode."""
-    # Deploy target contract
-    target = pre.deploy_contract(code=_generate_call_target_code())
+    """Marginal cost test for CALL opcode using loop-based caller."""
+    # Inner target: just stops
+    inner_target = pre.deploy_contract(code=Op.STOP)
     
-    # Generate call program with actual target address
-    code = Bytecode()
-    noop_count = CALL_MAX_OP_COUNT - op_count
+    # Target contract: makes op_count CALLs to inner_target per invocation
+    target_code = _generate_target_with_inner_calls(inner_target, op_count, Op.CALL)
+    target = pre.deploy_contract(code=target_code)
     
-    for _ in range(op_count):
-        code += Op.POP(Op.CALL(Op.GAS, target, 0, 0, 0, 0, 0))
+    # Caller contract: loops CALL_NUM_CALLS times, calling target
+    caller_code = generate_caller_with_call(target, CALL_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
     
-    for _ in range(noop_count):
-        for _ in range(7):
-            code += Op.PUSH0
-        for _ in range(7):
-            code += Op.POP
-    
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
@@ -1931,31 +2167,19 @@ def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -
 @pytest.mark.parametrize(
     "op_count",
     generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
-    ids=lambda x: f"op_count_{x}",
+    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
 )
 def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CALLCODE opcode."""
-    target = pre.deploy_contract(code=_generate_call_target_code())
+    """Marginal cost test for CALLCODE opcode using loop-based caller."""
+    inner_target = pre.deploy_contract(code=Op.STOP)
+    target_code = _generate_target_with_inner_calls(inner_target, op_count, Op.CALLCODE)
+    target = pre.deploy_contract(code=target_code)
+    caller_code = generate_caller_with_callcode(target, CALL_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
     
-    code = Bytecode()
-    noop_count = CALL_MAX_OP_COUNT - op_count
-    
-    for _ in range(op_count):
-        code += Op.POP(Op.CALLCODE(Op.GAS, target, 0, 0, 0, 0, 0))
-    
-    for _ in range(noop_count):
-        for _ in range(7):
-            code += Op.PUSH0
-        for _ in range(7):
-            code += Op.POP
-    
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
@@ -1963,31 +2187,19 @@ def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: in
 @pytest.mark.parametrize(
     "op_count",
     generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
-    ids=lambda x: f"op_count_{x}",
+    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
 )
 def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for DELEGATECALL opcode."""
-    target = pre.deploy_contract(code=_generate_call_target_code())
+    """Marginal cost test for DELEGATECALL opcode using loop-based caller."""
+    inner_target = pre.deploy_contract(code=Op.STOP)
+    target_code = _generate_target_with_inner_calls(inner_target, op_count, Op.DELEGATECALL)
+    target = pre.deploy_contract(code=target_code)
+    caller_code = generate_caller_with_delegatecall(target, CALL_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
     
-    code = Bytecode()
-    noop_count = CALL_MAX_OP_COUNT - op_count
-    
-    for _ in range(op_count):
-        code += Op.POP(Op.DELEGATECALL(Op.GAS, target, 0, 0, 0, 0))
-    
-    for _ in range(noop_count):
-        for _ in range(6):
-            code += Op.PUSH0
-        for _ in range(6):
-            code += Op.POP
-    
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
@@ -1995,31 +2207,19 @@ def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count
 @pytest.mark.parametrize(
     "op_count",
     generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
-    ids=lambda x: f"op_count_{x}",
+    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
 )
 def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for STATICCALL opcode."""
-    target = pre.deploy_contract(code=_generate_call_target_code())
+    """Marginal cost test for STATICCALL opcode using loop-based caller."""
+    inner_target = pre.deploy_contract(code=Op.STOP)
+    target_code = _generate_target_with_inner_calls(inner_target, op_count, Op.STATICCALL)
+    target = pre.deploy_contract(code=target_code)
+    caller_code = generate_caller_with_staticcall(target, CALL_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
     
-    code = Bytecode()
-    noop_count = CALL_MAX_OP_COUNT - op_count
-    
-    for _ in range(op_count):
-        code += Op.POP(Op.STATICCALL(Op.GAS, target, 0, 0, 0, 0))
-    
-    for _ in range(noop_count):
-        for _ in range(6):
-            code += Op.PUSH0
-        for _ in range(6):
-            code += Op.POP
-    
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
@@ -2028,89 +2228,173 @@ def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: 
 # These deploy new contracts
 # ============================================================================
 
-# Minimal contract bytecode that just STOPs (0x00 = STOP)
-# In initcode: just return empty runtime code
-MINIMAL_INITCODE = bytes.fromhex("600080f3")  # PUSH1 0, DUP1, RETURN (returns empty code)
+# ============================================================================
+# CREATE OPCODES - CREATE, CREATE2 (loop-based approach)
+# These deploy new contracts
+# ============================================================================
 
-CREATE_MAX_OP_COUNT = 50  # CREATE is expensive (32000 gas base)
-CREATE_STEP = 5
+# For CREATE: Each call to target increments nonce, so each CREATE gets unique address
+# For CREATE2: We use a storage counter as salt to generate unique addresses
+
+CREATE_NUM_CALLS = 1000  # Number of caller loop iterations
+CREATE_MAX_OP_COUNT = 4  # Target executes op_count CREATEs per call  
+CREATE_STEP = 1  # 0, 1, 2, 3, 4 -> 0, 500, 1000, 1500, 2000 total creates
+
+
+def _generate_target_with_creates(op_count: int) -> Bytecode:
+    """
+    Generate a target contract that executes op_count CREATE operations.
+    Each CREATE uses the same initcode (just returns empty code).
+    CREATE address depends on sender nonce, which increments with each CREATE.
+    """
+    code = Bytecode()
+    
+    if op_count == 0:
+        code += Op.STOP
+        return code
+    
+    # Store minimal initcode in memory: 0x600080f3 (PUSH1 0, DUP1, RETURN)
+    code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
+    
+    # Loop op_count times, executing CREATE
+    if op_count <= 0xFF:
+        code += Op.PUSH1(op_count)
+    elif op_count <= 0xFFFF:
+        code += Op.PUSH2(op_count)
+    else:
+        code += Op.PUSH3(op_count)
+    
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    
+    # CREATE(value, offset, size) -> address
+    code += Op.PUSH1(4)                   # size
+    code += Op.PUSH1(0)                   # offset
+    code += Op.PUSH1(0)                   # value
+    code += Op.CREATE
+    code += Op.POP                        # pop created address
+    
+    # Decrement counter and loop
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+    
+    code += Op.POP
+    code += Op.STOP
+    
+    return code
+
+
+def _generate_target_with_create2s(op_count: int) -> Bytecode:
+    """
+    Generate a target contract that executes op_count CREATE2 operations.
+    Uses a storage slot as a counter for unique salts.
+    """
+    code = Bytecode()
+    
+    if op_count == 0:
+        code += Op.STOP
+        return code
+    
+    # Store minimal initcode in memory
+    code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
+    
+    # Load current salt counter from storage slot 0x100
+    salt_slot = 0x100
+    code += Op.SLOAD(salt_slot)  # salt counter on stack
+    
+    # Loop op_count times
+    if op_count <= 0xFF:
+        code += Op.PUSH1(op_count)
+    elif op_count <= 0xFFFF:
+        code += Op.PUSH2(op_count)
+    else:
+        code += Op.PUSH3(op_count)
+    
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    # Stack: [op_count, salt_counter]
+    
+    # CREATE2(value, offset, size, salt) -> address
+    code += Op.SWAP1                      # [salt_counter, op_count]
+    code += Op.DUP1                       # [salt_counter, salt_counter, op_count]
+    code += Op.PUSH1(4)                   # size
+    code += Op.PUSH1(0)                   # offset
+    code += Op.PUSH1(0)                   # value
+    code += Op.CREATE2                    # Uses salt_counter as salt
+    code += Op.POP                        # pop created address
+    # Stack: [salt_counter, op_count]
+    
+    # Increment salt counter
+    code += Op.PUSH1(1)
+    code += Op.ADD                        # salt_counter + 1
+    code += Op.SWAP1                      # [op_count, new_salt_counter]
+    
+    # Decrement loop counter and check
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB                        # op_count - 1
+    code += Op.DUP1                       # [op_count-1, op_count-1, new_salt_counter]
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+    # Stack: [0, new_salt_counter]
+    
+    code += Op.POP                        # pop loop counter (0)
+    # Stack: [new_salt_counter]
+    
+    # Store updated salt counter
+    code += Op.PUSH2(salt_slot)
+    code += Op.SSTORE
+    
+    code += Op.STOP
+    
+    return code
 
 
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "op_count",
     generate_op_counts(CREATE_MAX_OP_COUNT, CREATE_STEP),
-    ids=lambda x: f"op_count_{x}",
+    ids=lambda x: f"op_count_{x * CREATE_NUM_CALLS}",
 )
 def test_marginal_create(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CREATE opcode."""
-    code = Bytecode()
-    noop_count = CREATE_MAX_OP_COUNT - op_count
+    """Marginal cost test for CREATE opcode using loop-based caller."""
+    # Target contract executes op_count CREATEs per call
+    target_code = _generate_target_with_creates(op_count)
+    target = pre.deploy_contract(code=target_code)
     
-    # Store initcode in memory
-    # MINIMAL_INITCODE = 0x600080f3 (4 bytes)
-    code += Op.MSTORE(0, 0x600080f3 << (28 * 8))  # Left-align in 32 bytes
+    # Caller loops CREATE_NUM_CALLS times, calling target
+    caller_code = generate_caller_with_call(target, CREATE_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
     
-    # Execute op_count CREATE calls
-    # CREATE(value, offset, size) -> address
-    for _ in range(op_count):
-        code += Op.POP(Op.CREATE(0, 0, 4))  # value=0, offset=0, size=4
-    
-    # Noop padding: push 3 values and pop them
-    for _ in range(noop_count):
-        for _ in range(3):
-            code += Op.PUSH0
-        for _ in range(3):
-            code += Op.POP
-    
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
-
-CREATE2_MAX_OP_COUNT = 50
-CREATE2_STEP = 12  # ~5 data points
 
 
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "op_count",
-    generate_op_counts(CREATE2_MAX_OP_COUNT, CREATE2_STEP),
-    ids=lambda x: f"op_count_{x}",
+    generate_op_counts(CREATE_MAX_OP_COUNT, CREATE_STEP),
+    ids=lambda x: f"op_count_{x * CREATE_NUM_CALLS}",
 )
 def test_marginal_create2(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CREATE2 opcode."""
-    code = Bytecode()
-    noop_count = CREATE2_MAX_OP_COUNT - op_count
+    """Marginal cost test for CREATE2 opcode using loop-based caller."""
+    # Target contract executes op_count CREATE2s per call with unique salts
+    target_code = _generate_target_with_create2s(op_count)
+    target = pre.deploy_contract(code=target_code)
     
-    # Store initcode in memory
-    code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
+    # Caller loops CREATE_NUM_CALLS times, calling target
+    caller_code = generate_caller_with_call(target, CREATE_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
     
-    # Execute op_count CREATE2 calls
-    # CREATE2(value, offset, size, salt) -> address
-    # Use different salts for each call to create different addresses
-    for i in range(op_count):
-        code += Op.POP(Op.CREATE2(0, 0, 4, i))  # Use i as salt
-    
-    # Noop padding: push 4 values and pop them
-    for _ in range(noop_count):
-        for _ in range(4):
-            code += Op.PUSH0
-        for _ in range(4):
-            code += Op.POP
-    
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
