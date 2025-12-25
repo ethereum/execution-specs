@@ -258,22 +258,6 @@ RIPEMD160_CONFIG = MarginalPrecompileConfig(
 )
 
 # ============================================================================
-# IDENTITY precompile (0x04) - Using 128 bytes input (same as ECRECOVER)
-# Gas: 15 + 3 * ceil(input_bytes/32) = 15 + 3 * 4 = 27 gas per call
-# Note: Using smaller input to match working precompile test structure
-# ============================================================================
-IDENTITY_INPUT = bytes.fromhex("ff" * 128)  # 128 bytes of 0xff
-
-IDENTITY_CONFIG = MarginalPrecompileConfig(
-    name="IDENTITY",
-    address=IDENTITY_ADDRESS,
-    max_op_count=312,  # Increased for ~1M gas (cheap precompile)
-    step=78,  # ~5 data points
-    input_data=IDENTITY_INPUT,
-    input_size=len(IDENTITY_INPUT),  # 128 bytes
-)
-
-# ============================================================================
 # BN128_ADD precompile (0x06) - Valid curve points
 # Gas: 150 (fixed)
 # Input: Two G1 points (64 bytes each = 128 bytes total)
@@ -782,15 +766,155 @@ def test_marginal_ripemd160(
 
 
 # ============================================================================
-# IDENTITY precompile tests (0x04) - ~399 gas per call with 4KB input
+# IDENTITY precompile tests (0x04) - Using caller-contract approach for amplification
+# The identity precompile is very cheap, so we need high call counts for good data
 # ============================================================================
+
+# Caller-based approach constants
+IDENTITY_NUM_CALLS = 5000  # Number of caller loop iterations
+IDENTITY_MAX_OP_COUNT = 300  # Target executes op_count IDENTITY calls per invocation
+IDENTITY_STEP = 60  # ~5 data points
+IDENTITY_GAS_LIMIT = 500_000_000  # High gas limit for many calls
+
+
+def _generate_identity_target(op_count: int, max_op_count: int, input_size: int = 128) -> Bytecode:
+    """
+    Generate a target contract with proper marginal padding.
+    
+    Uses the gas-cost-estimator technique: keep TOTAL STATICCALL count constant
+    by padding with noop STATICCALLs to an invalid address (0xFFFF).
+    
+    Total STATICCALLs = (max_op_count - op_count + 1) noops + op_count real = max_op_count + 1
+    
+    This ensures STATICCALL overhead is constant and cancels out in regression.
+    """
+    code = Bytecode()
+    
+    # Store input data in memory (128 bytes of 0xff)
+    # We store it in 4 chunks of 32 bytes each
+    for i in range(4):
+        code += Op.MSTORE(i * 32, (1 << 256) - 1)  # 32 bytes of 0xff
+    
+    ret_offset = input_size  # Return data goes after input
+    
+    # First loop: noop STATICCALLs to invalid address 0xFFFF
+    # These fail immediately but still incur STATICCALL overhead
+    noop_count = max_op_count - op_count + 1
+    if noop_count > 0:
+        if noop_count <= 0xFF:
+            code += Op.PUSH1(noop_count)
+        elif noop_count <= 0xFFFF:
+            code += Op.PUSH2(noop_count)
+        else:
+            code += Op.PUSH3(noop_count)
+        
+        noop_loop_start = len(bytes(code))
+        code += Op.JUMPDEST
+        
+        # STATICCALL to invalid address 0xFFFF (noop)
+        code += Op.PUSH1(32)                  # retSize
+        code += Op.PUSH1(ret_offset)          # retOffset
+        code += Op.PUSH1(input_size)          # argsSize
+        code += Op.PUSH1(0)                   # argsOffset
+        code += Op.PUSH2(0xFFFF)              # address (invalid - noop)
+        code += Op.GAS                        # gas
+        code += Op.STATICCALL
+        code += Op.POP                        # pop success flag (will be 0)
+        
+        # Decrement counter and loop
+        code += Op.PUSH1(1)
+        code += Op.SWAP1
+        code += Op.SUB
+        code += Op.DUP1
+        code += Op.PUSH2(noop_loop_start)
+        code += Op.JUMPI
+        code += Op.POP
+    
+    # Second loop: real STATICCALLs to IDENTITY precompile
+    if op_count > 0:
+        if op_count <= 0xFF:
+            code += Op.PUSH1(op_count)
+        elif op_count <= 0xFFFF:
+            code += Op.PUSH2(op_count)
+        else:
+            code += Op.PUSH3(op_count)
+        
+        real_loop_start = len(bytes(code))
+        code += Op.JUMPDEST
+        
+        # STATICCALL to IDENTITY (0x04)
+        code += Op.PUSH1(32)                  # retSize
+        code += Op.PUSH1(ret_offset)          # retOffset
+        code += Op.PUSH1(input_size)          # argsSize
+        code += Op.PUSH1(0)                   # argsOffset
+        code += Op.PUSH1(0x04)                # address (IDENTITY)
+        code += Op.GAS                        # gas
+        code += Op.STATICCALL
+        code += Op.POP                        # pop success flag
+        
+        # Decrement counter and loop
+        code += Op.PUSH1(1)
+        code += Op.SWAP1
+        code += Op.SUB
+        code += Op.DUP1
+        code += Op.PUSH2(real_loop_start)
+        code += Op.JUMPI
+        code += Op.POP
+    
+    code += Op.STOP
+    
+    return code
+
+
+def _generate_identity_caller(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate a caller contract that calls the target num_calls times using a loop.
+    Uses STATICCALL since target doesn't modify state.
+    """
+    code = Bytecode()
+    
+    # Push loop counter
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+    
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+    
+    # STATICCALL to target
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas
+    code += Op.STATICCALL
+    code += Op.POP                        # pop success flag
+    
+    # Decrement counter and loop
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+    
+    # Done - write success marker
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+    
+    return code
 
 
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "op_count",
-    generate_op_counts(IDENTITY_CONFIG.max_op_count, IDENTITY_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
+    generate_op_counts(IDENTITY_MAX_OP_COUNT, IDENTITY_STEP),
+    ids=lambda x: f"op_count_{x * IDENTITY_NUM_CALLS}",
 )
 def test_marginal_identity(
     state_test: StateTestFiller,
@@ -798,27 +922,34 @@ def test_marginal_identity(
     op_count: int,
 ) -> None:
     """
-    Marginal cost estimation test for IDENTITY precompile.
-
-    Uses worst-case input: 4KB of data for maximum memory operations.
-    Gas cost: 15 + 3 * ceil(4096/32) = 15 + 3 * 128 = 399 gas per call.
+    Marginal cost estimation test for IDENTITY precompile using caller-contract approach.
+    
+    Uses a two-level structure:
+    - Caller contract loops IDENTITY_NUM_CALLS times
+    - Target contract calls IDENTITY precompile op_count times per invocation
+    - Total IDENTITY calls = IDENTITY_NUM_CALLS × op_count
+    
+    This amplifies the cheap IDENTITY precompile to generate meaningful ZK cycles.
     """
-    code, calldata = generate_marginal_precompile_program(IDENTITY_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    # Target contract calls IDENTITY op_count times with noop padding
+    target_code = _generate_identity_target(op_count, IDENTITY_MAX_OP_COUNT)
+    target = pre.deploy_contract(code=target_code)
+    
+    # Caller contract loops IDENTITY_NUM_CALLS times
+    caller_code = _generate_identity_caller(target, IDENTITY_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
+        to=caller,
+        gas_limit=IDENTITY_GAS_LIMIT,
         sender=sender,
     )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=IDENTITY_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
