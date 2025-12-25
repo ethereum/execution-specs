@@ -275,8 +275,8 @@ BN128_ADD_INPUT = bytes.fromhex(
 BN128_ADD_CONFIG = MarginalPrecompileConfig(
     name="BN128_ADD",
     address=BN128_ADD_ADDRESS,
-    max_op_count=457,  # Increased for ~1M gas (150 gas/call)
-    step=114,  # ~5 data points
+    max_op_count=800,
+    step=200,
     input_data=BN128_ADD_INPUT,
     input_size=len(BN128_ADD_INPUT),  # 128 bytes
 )
