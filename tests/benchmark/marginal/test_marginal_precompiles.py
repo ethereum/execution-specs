@@ -476,7 +476,7 @@ BLS12_PAIRING_INPUT = bytes(
 BLS12_PAIRING_CONFIG = MarginalPrecompileConfig(
     name="BLS12_PAIRING",
     address=BLS12_PAIRING_ADDRESS,
-    max_op_count=10,  # Variable gas, k=2
+    max_op_count=8,  # Variable gas, k=2
     step=2,
     input_data=BLS12_PAIRING_INPUT,
     input_size=len(BLS12_PAIRING_INPUT),  # 768 bytes (2 × 384)
@@ -492,8 +492,8 @@ BLS12_MAP_FP_TO_G1_INPUT = bytes(FP(BLS12Spec.P - 1))
 BLS12_MAP_FP_TO_G1_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP_TO_G1",
     address=BLS12_MAP_FP_TO_G1_ADDRESS,
-    max_op_count=169,  # Increased for ~1M gas (5500 gas/call)
-    step=42,  # ~5 data points
+    max_op_count=80,  # Increased for ~1M gas (5500 gas/call)
+    step=20,  # ~5 data points
     input_data=BLS12_MAP_FP_TO_G1_INPUT,
     input_size=len(BLS12_MAP_FP_TO_G1_INPUT),  # 64 bytes
 )
@@ -508,8 +508,8 @@ BLS12_MAP_FP2_TO_G2_INPUT = bytes(FP2((BLS12Spec.P - 1, BLS12Spec.P - 1)))
 BLS12_MAP_FP2_TO_G2_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP2_TO_G2",
     address=BLS12_MAP_FP2_TO_G2_ADDRESS,
-    max_op_count=36,  # Reduced to fit within 1M gas limit (36 × 23800 = 857K + overhead)
-    step=9,  # ~5 data points
+    max_op_count=28,
+    step=7,
     input_data=BLS12_MAP_FP2_TO_G2_INPUT,
     input_size=len(BLS12_MAP_FP2_TO_G2_INPUT),  # 128 bytes
 )

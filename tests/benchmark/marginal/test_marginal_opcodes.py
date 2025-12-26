@@ -119,7 +119,7 @@ ADD_CONFIG = MarginalOpcodeConfig(
     stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=1500,  # Calculated for 500K+ gas
+    num_calls=3000,
 )
 
 # Ref: test_arithmetic.py opcode_MUL (uses DEFAULT_BINOP_ARGS)
@@ -143,7 +143,7 @@ SUB_CONFIG = MarginalOpcodeConfig(
     stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=4000,
 )
 
 # Ref: test_arithmetic.py opcode_DIV-0
@@ -285,7 +285,7 @@ SLT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=5000,  # Calculated for 500K+ gas
+    num_calls=7000,
 )
 
 SGT_CONFIG = MarginalOpcodeConfig(
@@ -296,7 +296,7 @@ SGT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=3000,
 )
 
 EQ_CONFIG = MarginalOpcodeConfig(
@@ -318,7 +318,7 @@ ISZERO_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=2000,  # Already >= 500K
+    num_calls=3000,
 )
 
 # ============================================================================
@@ -344,7 +344,7 @@ OR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=3000,
 )
 
 XOR_CONFIG = MarginalOpcodeConfig(
@@ -377,7 +377,7 @@ BYTE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 31],  # x=MAX, i=31 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=1000,  # Scaled for 150M cycles
+    num_calls=2000,
 )
 
 SHL_CONFIG = MarginalOpcodeConfig(
@@ -533,7 +533,7 @@ POP_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Push 0 to pop (using PUSH0 is cheapest)
     pops_per_op=1,
     pushes_per_op=0,
-    num_calls=2000,  # Scaled for 150M cycles target
+    num_calls=3000,
 )
 
 
@@ -1088,7 +1088,7 @@ SELFBALANCE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Doubled for ~1M gas
+    num_calls=1000, 
 )
 
 BASEFEE_CONFIG = MarginalOpcodeConfig(
@@ -1227,7 +1227,7 @@ CODECOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[32, 0, 0],  # size=32 bytes, offset=0, destOffset=0 (worst-case: small copy)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=2000,  # Scaled for 150M cycles target
+    num_calls=3000,
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1288,7 +1288,7 @@ BLOBHASH_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Blob index 0 (will return 0 if no blobs)
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=2000,  # Scaled for 150M cycles target
+    num_calls=3000,
 )
 
 
@@ -1507,7 +1507,7 @@ def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
 
 JUMP_MAX_OP_COUNT = 200
 JUMP_STEP = 50  # ~5 data points
-JUMP_NUM_CALLS = 2500
+JUMP_NUM_CALLS = 3000
 JUMPI_MAX_OP_COUNT = 200
 JUMPI_STEP = 50  # ~5 data points
 JUMPI_NUM_CALLS = 5000 
@@ -2870,8 +2870,8 @@ def _create_swap_caller_test(swap_n: int, max_op_count: int, step: int, num_call
     return test_func
 
 
-test_dup1 = _create_dup_caller_test(1, DUP1_MAX_OP_COUNT, DUP1_STEP, num_calls=2000)
-test_dup8 = _create_dup_caller_test(8, DUP8_MAX_OP_COUNT, DUP8_STEP, num_calls=2000)
+test_dup1 = _create_dup_caller_test(1, DUP1_MAX_OP_COUNT, DUP1_STEP, num_calls=3000)
+test_dup8 = _create_dup_caller_test(8, DUP8_MAX_OP_COUNT, DUP8_STEP, num_calls=3000)
 test_dup16 = _create_dup_caller_test(16, DUP16_MAX_OP_COUNT, DUP16_STEP, num_calls=2000)
 test_swap1 = _create_swap_caller_test(1, SWAP1_MAX_OP_COUNT, SWAP1_STEP, num_calls=1000)
 test_swap8 = _create_swap_caller_test(8, SWAP8_MAX_OP_COUNT, SWAP8_STEP, num_calls=1000)
