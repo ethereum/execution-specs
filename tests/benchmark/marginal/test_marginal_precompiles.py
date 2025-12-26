@@ -151,8 +151,8 @@ ECRECOVER_INPUT = create_ecrecover_input(
 ECRECOVER_CONFIG = MarginalPrecompileConfig(
     name="ECRECOVER",
     address=ECRECOVER_ADDRESS,
-    max_op_count=200,  # Increased for ~1M gas (3000 gas/call)
-    step=50,  # ~5 data points
+    max_op_count=201,  # Increased for ~1M gas (3000 gas/call)
+    step=67,  # 4 data points
     input_data=ECRECOVER_INPUT,
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
 )
@@ -214,8 +214,8 @@ MODEXP_INPUT = create_modexp_input(
 MODEXP_CONFIG = MarginalPrecompileConfig(
     name="MODEXP",
     address=MODEXP_ADDRESS,
-    max_op_count=40,  # High gas per call, need high gas limit
-    step=10,
+    max_op_count=36,  # High gas per call, need high gas limit
+    step=12,
     input_data=MODEXP_INPUT,
     input_size=len(MODEXP_INPUT),  # 96 + 512 + 1 + 512 = 1121 bytes
 )
@@ -234,7 +234,7 @@ SHA256_CONFIG = MarginalPrecompileConfig(
     name="SHA256",
     address=SHA256_ADDRESS,
     max_op_count=1500,  # 1500 * 1,596 ≈ 2.4M gas (bytecode limited)
-    step=150,
+    step=500,  # 4 data points
     input_data=SHA256_INPUT,
     input_size=len(SHA256_INPUT),  # 4096 bytes
 )
@@ -252,7 +252,7 @@ RIPEMD160_CONFIG = MarginalPrecompileConfig(
     name="RIPEMD160",
     address=RIPEMD160_ADDRESS,
     max_op_count=1500,  # 1500 * 4,440 ≈ 6.7M gas (bytecode limited)
-    step=375,  # ~5 data points
+    step=500,  # 4 data points
     input_data=RIPEMD160_INPUT,
     input_size=len(RIPEMD160_INPUT),  # 1024 bytes
 )
@@ -275,8 +275,8 @@ BN128_ADD_INPUT = bytes.fromhex(
 BN128_ADD_CONFIG = MarginalPrecompileConfig(
     name="BN128_ADD",
     address=BN128_ADD_ADDRESS,
-    max_op_count=800,
-    step=200,
+    max_op_count=801,
+    step=267,  # 4 data points
     input_data=BN128_ADD_INPUT,
     input_size=len(BN128_ADD_INPUT),  # 128 bytes
 )
@@ -297,8 +297,8 @@ BN128_MUL_INPUT = bytes.fromhex(
 BN128_MUL_CONFIG = MarginalPrecompileConfig(
     name="BN128_MUL",
     address=BN128_MUL_ADDRESS,
-    max_op_count=73,  # Increased for ~1M gas (6000 gas/call)
-    step=18,  # ~5 data points
+    max_op_count=72,  # Increased for ~1M gas (6000 gas/call)
+    step=24,  # 4 data points
     input_data=BN128_MUL_INPUT,
     input_size=len(BN128_MUL_INPUT),  # 96 bytes
 )
@@ -361,8 +361,8 @@ BLAKE2F_INPUT = create_blake2f_input(rounds=0xFFFF, f=True)  # 65,535 rounds
 BLAKE2F_CONFIG = MarginalPrecompileConfig(
     name="BLAKE2F",
     address=BLAKE2F_ADDRESS,
-    max_op_count=14,  # Increased for ~1M gas (65K gas/call)
-    step=3,  # ~5 data points
+    max_op_count=15,  # Increased for ~1M gas (65K gas/call)
+    step=5,  # ~5 data points
     input_data=BLAKE2F_INPUT,
     input_size=len(BLAKE2F_INPUT),  # 213 bytes
 )
@@ -389,8 +389,8 @@ POINT_EVALUATION_INPUT = bytes.fromhex(
 POINT_EVALUATION_CONFIG = MarginalPrecompileConfig(
     name="POINT_EVALUATION",
     address=POINT_EVALUATION_ADDRESS,
-    max_op_count=8,  # Increased for ~1M gas (50K gas/call)
-    step=2,
+    max_op_count=9,  # Increased for ~1M gas (50K gas/call)
+    step=3,
     input_data=POINT_EVALUATION_INPUT,
     input_size=len(POINT_EVALUATION_INPUT),  # 192 bytes
 )
@@ -409,8 +409,8 @@ BLS12_G1ADD_INPUT = bytes(BLS12Spec.G1 + BLS12Spec.P1)
 BLS12_G1ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1ADD",
     address=BLS12_G1ADD_ADDRESS,
-    max_op_count=772,  # Increased for ~1M gas (375 gas/call)
-    step=193,  # ~5 data points
+    max_op_count=771,  # Increased for ~1M gas (375 gas/call)
+    step=257,  # 4 data points
     input_data=BLS12_G1ADD_INPUT,
     input_size=len(BLS12_G1ADD_INPUT),  # 256 bytes
 )
@@ -426,8 +426,8 @@ BLS12_G1MSM_INPUT = bytes(
 BLS12_G1MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1MSM",
     address=BLS12_G1MSM_ADDRESS,
-    max_op_count=40,  # Reduced to fit within 1M gas limit (40 × ~22500 = 900K)
-    step=10,  # ~5 data points
+    max_op_count=39,  # Reduced to fit within 1M gas limit (39 × ~22500 = 877K)
+    step=13,  # 4 data points
     input_data=BLS12_G1MSM_INPUT,
     input_size=len(BLS12_G1MSM_INPUT),  # 320 bytes (2 × 160)
 )
@@ -442,8 +442,8 @@ BLS12_G2ADD_INPUT = bytes(BLS12Spec.G2 + BLS12Spec.P2)
 BLS12_G2ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G2ADD",
     address=BLS12_G2ADD_ADDRESS,
-    max_op_count=451,  # Increased for ~1M gas (600 gas/call)
-    step=112,  # ~5 data points
+    max_op_count=450,  # Increased for ~1M gas (600 gas/call)
+    step=150,  # 4 data points
     input_data=BLS12_G2ADD_INPUT,
     input_size=len(BLS12_G2ADD_INPUT),  # 512 bytes
 )
@@ -459,8 +459,8 @@ BLS12_G2MSM_INPUT = bytes(
 BLS12_G2MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G2MSM",
     address=BLS12_G2MSM_ADDRESS,
-    max_op_count=23,  # Increased for ~1M gas
-    step=5,  # ~5 data points
+    max_op_count=24,  # Increased for ~1M gas
+    step=8,  # 4 data points
     input_data=BLS12_G2MSM_INPUT,
     input_size=len(BLS12_G2MSM_INPUT),  # 576 bytes (2 × 288)
 )
@@ -476,8 +476,8 @@ BLS12_PAIRING_INPUT = bytes(
 BLS12_PAIRING_CONFIG = MarginalPrecompileConfig(
     name="BLS12_PAIRING",
     address=BLS12_PAIRING_ADDRESS,
-    max_op_count=8,  # Variable gas, k=2
-    step=2,
+    max_op_count=9,  # Variable gas, k=2
+    step=3,
     input_data=BLS12_PAIRING_INPUT,
     input_size=len(BLS12_PAIRING_INPUT),  # 768 bytes (2 × 384)
 )
@@ -492,8 +492,8 @@ BLS12_MAP_FP_TO_G1_INPUT = bytes(FP(BLS12Spec.P - 1))
 BLS12_MAP_FP_TO_G1_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP_TO_G1",
     address=BLS12_MAP_FP_TO_G1_ADDRESS,
-    max_op_count=80,  # Increased for ~1M gas (5500 gas/call)
-    step=20,  # ~5 data points
+    max_op_count=75,  # Increased for ~1M gas (5500 gas/call)
+    step=25,  # ~5 data points
     input_data=BLS12_MAP_FP_TO_G1_INPUT,
     input_size=len(BLS12_MAP_FP_TO_G1_INPUT),  # 64 bytes
 )
@@ -508,8 +508,8 @@ BLS12_MAP_FP2_TO_G2_INPUT = bytes(FP2((BLS12Spec.P - 1, BLS12Spec.P - 1)))
 BLS12_MAP_FP2_TO_G2_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP2_TO_G2",
     address=BLS12_MAP_FP2_TO_G2_ADDRESS,
-    max_op_count=28,
-    step=7,
+    max_op_count=27,
+    step=9,
     input_data=BLS12_MAP_FP2_TO_G2_INPUT,
     input_size=len(BLS12_MAP_FP2_TO_G2_INPUT),  # 128 bytes
 )
@@ -773,7 +773,7 @@ def test_marginal_ripemd160(
 # Caller-based approach constants
 IDENTITY_NUM_CALLS = 5000  # Number of caller loop iterations
 IDENTITY_MAX_OP_COUNT = 300  # Target executes op_count IDENTITY calls per invocation
-IDENTITY_STEP = 60  # ~5 data points
+IDENTITY_STEP = 100
 IDENTITY_GAS_LIMIT = 500_000_000  # High gas limit for many calls
 
 
