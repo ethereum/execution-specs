@@ -1248,27 +1248,7 @@ MCOPY_CONFIG = MarginalOpcodeConfig(
 # NOTE: Direct tests for MLOAD, MSTORE, MSTORE8, MSIZE, CALLDATACOPY removed.
 # These opcodes use caller-contract approach (test_*).
 
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(RETURNDATACOPY_CONFIG.max_op_count, RETURNDATACOPY_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
-)
-def test_marginal_returndatacopy(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """
-    Marginal cost test for RETURNDATACOPY opcode.
-    
-    Setup calls IDENTITY precompile (0x04) to populate RETURNDATA buffer.
-    This is a constant overhead that doesn't affect the marginal measurement.
-    """
-    code = generate_marginal_program(RETURNDATACOPY_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
-
+# NOTE: Direct test for RETURNDATACOPY removed - use caller-contract approach (test_returndatacopy).
 # NOTE: Direct tests for CODECOPY, MCOPY removed - use caller-contract approach.
 
 # ============================================================================
