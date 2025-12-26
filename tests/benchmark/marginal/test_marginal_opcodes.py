@@ -139,7 +139,7 @@ SUB_CONFIG = MarginalOpcodeConfig(
     name="SUB",
     opcode=Op.SUB,
     max_op_count=300,
-    step=100,  # 4 data points
+    step=60,  # 6 data points (improved R²)
     stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     pops_per_op=2,
     pushes_per_op=1,
@@ -281,7 +281,7 @@ SLT_CONFIG = MarginalOpcodeConfig(
     name="SLT",
     opcode=Op.SLT,
     max_op_count=300,
-    step=100,  # 4 data points
+    step=60,  # 6 data points (improved R²)
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
@@ -292,7 +292,7 @@ SGT_CONFIG = MarginalOpcodeConfig(
     name="SGT",
     opcode=Op.SGT,
     max_op_count=300,
-    step=100,  # 4 data points
+    step=60,  # 6 data points (improved R²)
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
@@ -314,7 +314,7 @@ ISZERO_CONFIG = MarginalOpcodeConfig(
     name="ISZERO",
     opcode=Op.ISZERO,
     max_op_count=450,  # 450 * 2 = 900 < 1024
-    step=150,  # 4 data points
+    step=90,  # 6 data points (improved R²)
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
@@ -340,7 +340,7 @@ OR_CONFIG = MarginalOpcodeConfig(
     name="OR",
     opcode=Op.OR,
     max_op_count=300,
-    step=100,  # 4 data points
+    step=60,  # 6 data points (improved R²)
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
@@ -362,7 +362,7 @@ NOT_CONFIG = MarginalOpcodeConfig(
     name="NOT",
     opcode=Op.NOT,
     max_op_count=450,  # 450 * 2 = 900 < 1024
-    step=150,  # 4 data points
+    step=90,  # 6 data points (improved R²)
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
@@ -466,7 +466,7 @@ PUSH1_CONFIG = MarginalOpcodeConfig(
     name="PUSH1",
     opcode=Op.PUSH1(0xFF),  # Push max 1-byte value
     max_op_count=600,
-    step=200,  # 4 data points
+    step=120,  # 6 data points (improved R²)
     stack_args=[],  # PUSH doesn't consume stack
     pops_per_op=0,
     pushes_per_op=1,
@@ -487,8 +487,8 @@ PUSH16_CONFIG = MarginalOpcodeConfig(
 PUSH32_CONFIG = MarginalOpcodeConfig(
     name="PUSH32",
     opcode=Op.PUSH32(MAX_U256),  # Max 32-byte value
-    max_op_count=351,
-    step=117,  # 4 data points
+    max_op_count=350,
+    step=70,  # 6 data points (improved R²)
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
@@ -501,21 +501,21 @@ PUSH32_CONFIG = MarginalOpcodeConfig(
 
 # DUP1 uses custom generator - see generate_dup_program
 DUP1_MAX_OP_COUNT = 300
-DUP1_STEP = 100  # 4 data points
+DUP1_STEP = 60  # 6 data points (improved R²)
 
 # DUP8, DUP16, SWAP8, SWAP16 need special handling - see generate_dup_program/generate_swap_program
 # Stack limit constraints: Need base items + space for max_op_count duplicates
 # DUP8: 8 base items, each DUP adds 1, each POP removes 1, net = 0 per iteration
 # So max_op_count is limited only by bytecode size, not stack
 DUP8_MAX_OP_COUNT = 300
-DUP8_STEP = 100  # 4 data points
+DUP8_STEP = 60  # 6 data points (improved R²)
 DUP16_MAX_OP_COUNT = 300
-DUP16_STEP = 100  # 4 data points
+DUP16_STEP = 60  # 6 data points (improved R²)
 
 # SWAP opcodes need N+1 items on stack
 # SWAP1 uses custom generator - see generate_swap_program
 SWAP1_MAX_OP_COUNT = 300
-SWAP1_STEP = 100  # 4 data points
+SWAP1_STEP = 60  # 6 data points (improved R²)
 
 # SWAP8, SWAP16 use custom generator - see generate_swap_program
 SWAP8_MAX_OP_COUNT = 300
@@ -529,7 +529,7 @@ POP_CONFIG = MarginalOpcodeConfig(
     name="POP",
     opcode=Op.POP,
     max_op_count=600,
-    step=200,  # 4 data points
+    step=120,  # 6 data points (improved R²)
     stack_args=[0],  # Push 0 to pop (using PUSH0 is cheapest)
     pops_per_op=1,
     pushes_per_op=0,
@@ -956,7 +956,7 @@ CALLDATASIZE_CONFIG = MarginalOpcodeConfig(
     name="CALLDATASIZE",
     opcode=Op.CALLDATASIZE,
     max_op_count=600,
-    step=200,  # 4 data points
+    step=120,  # 6 data points (improved R²)
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
@@ -1505,8 +1505,8 @@ def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
     return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
 
 
-JUMP_MAX_OP_COUNT = 201
-JUMP_STEP = 67  # 4 data points
+JUMP_MAX_OP_COUNT = 200
+JUMP_STEP = 40  # 6 data points (improved R²)
 JUMP_NUM_CALLS = 3000
 JUMPI_MAX_OP_COUNT = 201
 JUMPI_STEP = 67  # 4 data points
@@ -1816,8 +1816,8 @@ def generate_swap_program(
 
 
 # LOG configs - these use the special generate_log_program function
-LOG0_MAX_OP_COUNT = 99
-LOG0_STEP = 33  # 4 data points
+LOG0_MAX_OP_COUNT = 100
+LOG0_STEP = 20  # 6 data points (improved R²)
 LOG1_MAX_OP_COUNT = 81
 LOG1_STEP = 27  # 4 data points
 

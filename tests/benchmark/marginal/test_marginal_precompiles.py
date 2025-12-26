@@ -151,8 +151,8 @@ ECRECOVER_INPUT = create_ecrecover_input(
 ECRECOVER_CONFIG = MarginalPrecompileConfig(
     name="ECRECOVER",
     address=ECRECOVER_ADDRESS,
-    max_op_count=201,  # Increased for ~1M gas (3000 gas/call)
-    step=67,  # 4 data points
+    max_op_count=200,  # Increased for ~1M gas (3000 gas/call)
+    step=40,  # 6 data points (improved R²)
     input_data=ECRECOVER_INPUT,
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
 )
@@ -773,7 +773,7 @@ def test_marginal_ripemd160(
 # Caller-based approach constants
 IDENTITY_NUM_CALLS = 5000  # Number of caller loop iterations
 IDENTITY_MAX_OP_COUNT = 300  # Target executes op_count IDENTITY calls per invocation
-IDENTITY_STEP = 100
+IDENTITY_STEP = 60  # 6 data points (improved R²)
 IDENTITY_GAS_LIMIT = 500_000_000  # High gas limit for many calls
 
 
