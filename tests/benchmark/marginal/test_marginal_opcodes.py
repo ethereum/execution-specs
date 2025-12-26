@@ -2099,11 +2099,13 @@ def generate_caller_with_staticcall(target_address: Address, num_calls: int) -> 
     return code
 
 
-# Configuration for CALL-family opcodes with loop-based approach
-# Much higher limits now that we're not bytecode-size limited
-CALL_NUM_CALLS = 5000  # Number of caller loop iterations
-CALL_MAX_OP_COUNT = 4  # Target contract executes op_count STATICCALLs per call
-CALL_STEP = 1  # Step size for op_count (0, 1, 2, 3, 4 -> 0, 5K, 10K, 15K, 20K total calls)
+# Configuration for CALL-family opcodes with simplified noop approach
+# Stack-limited but caller-amplified for high total op counts
+# Stack limit: 1024, each noop leaves +5 or +6 items
+# Safe max_op_count: ~150 (with buffer), caller amplifies to 150 × N total ops
+CALL_NUM_CALLS = 500  # Number of caller loop iterations
+CALL_MAX_OP_COUNT = 100  # Target contract executes up to 100 CALLs per invocation
+CALL_STEP = 25  # Step size (0, 25, 50, 75, 100 → 0, 12.5K, 25K, 37.5K, 50K total)
 
 
 def _generate_target_with_inner_calls(
@@ -2111,36 +2113,37 @@ def _generate_target_with_inner_calls(
 ) -> Bytecode:
     """
     Generate a target contract that makes op_count calls to inner_target,
-    with proper noop padding to ensure marginal property.
+    with simplified noop padding to ensure perfect marginal property.
     
-    Following gas-cost-estimator's approach:
-    - Total operations per invocation = max_op_count + 1 (constant)
-    - Noop operations = (max_op_count - op_count + 1)
-    - Real operations = op_count
+    NEW APPROACH (simplified, perfect gas marginality):
+    - Noops: Push args + POP one (stack accumulates, but no call)
+    - Real calls: Push args + CALL + POP result
     
-    Noops push the same args as real calls but use a conditional jump to skip
-    the actual CALL instruction, ensuring same stack manipulation overhead.
+    Gas analysis:
+    - Noop:      PUSH×6/7 (18/21 gas) + POP (2 gas) = 20/23 gas
+    - Real call: PUSH×6/7 (18/21 gas) + CALL (100 gas) + POP (2 gas) = 120/123 gas
+    - Marginal:  100 gas (exactly the CALL cost!)
+    
+    Stack analysis:
+    - Each noop leaves +5 items (STATICCALL/DELEGATECALL) or +6 items (CALL/CALLCODE)
+    - Stack limit = 1024, so max noops ≈ 150-170
+    - With caller amplification, total ops = max_op_count × CALL_NUM_CALLS
     """
     code = Bytecode()
     
-    # Calculate noop count to ensure constant total operations
-    noop_count = max_op_count - op_count + 1
+    # Calculate noop count
+    noop_count = max_op_count - op_count
     
-    # ========== NOOP LOOP (same args, but skip actual call) ==========
-    if noop_count > 0:
-        if noop_count <= 0xFF:
-            code += Op.PUSH1(noop_count)
-        elif noop_count <= 0xFFFF:
-            code += Op.PUSH2(noop_count)
-        else:
-            code += Op.PUSH3(noop_count)
-        
-        noop_loop_start = len(bytes(code))
-        code += Op.JUMPDEST
-        
+    # Determine arg count based on call type
+    if call_op in (Op.CALL, Op.CALLCODE):
+        args_count = 7  # gas, addr, value, argsOffset, argsSize, retOffset, retSize
+    else:
+        args_count = 6  # gas, addr, argsOffset, argsSize, retOffset, retSize
+    
+    # ========== NOOPS (push args + pop one, stack accumulates) ==========
+    for _ in range(noop_count):
         # Push same arguments as real call
         if call_op in (Op.CALL, Op.CALLCODE):
-            # 7 args for CALL/CALLCODE
             code += Op.PUSH1(0)                   # retSize
             code += Op.PUSH1(0)                   # retOffset  
             code += Op.PUSH1(0)                   # argsSize
@@ -2149,7 +2152,6 @@ def _generate_target_with_inner_calls(
             code += Op.PUSH20(inner_target)       # address
             code += Op.GAS                        # gas
         else:
-            # 6 args for STATICCALL/DELEGATECALL
             code += Op.PUSH1(0)                   # retSize
             code += Op.PUSH1(0)                   # retOffset  
             code += Op.PUSH1(0)                   # argsSize
@@ -2157,48 +2159,11 @@ def _generate_target_with_inner_calls(
             code += Op.PUSH20(inner_target)       # address
             code += Op.GAS                        # gas
         
-        # Skip the actual call using: PUSH1 1, PC, PUSH1 offset, ADD, JUMPI
-        # This jumps over the call opcode to the JUMPDEST after it
-        # PUSH1 1 (always true) + PC + PUSH1 4 + ADD + JUMPI + call_op = jump to JUMPDEST
-        code += Op.PUSH1(1)                       # condition (always true)
-        code += Op.PC                             # current PC
-        code += Op.PUSH1(6)                       # offset to skip: PUSH1(6) + ADD + JUMPI + call_op + JUMPDEST = 6 bytes
-        code += Op.ADD                            # target = PC + 6
-        code += Op.JUMPI                          # jump if true (always)
-        # The call opcode is here but never executed
-        code += call_op                           # skipped by JUMPI
-        code += Op.JUMPDEST                       # land here after jump
-        
-        # Pop the 6 or 7 args that were pushed
-        if call_op in (Op.CALL, Op.CALLCODE):
-            for _ in range(7):
-                code += Op.POP
-        else:
-            for _ in range(6):
-                code += Op.POP
-        
-        # Decrement noop counter and loop
-        code += Op.PUSH1(1)
-        code += Op.SWAP1
-        code += Op.SUB
-        code += Op.DUP1
-        code += Op.PUSH2(noop_loop_start)
-        code += Op.JUMPI
+        # Just pop one item - NO call, stack accumulates
         code += Op.POP
     
-    # ========== REAL CALL LOOP ==========
-    if op_count > 0:
-        if op_count <= 0xFF:
-            code += Op.PUSH1(op_count)
-        elif op_count <= 0xFFFF:
-            code += Op.PUSH2(op_count)
-        else:
-            code += Op.PUSH3(op_count)
-        
-        real_loop_start = len(bytes(code))
-        code += Op.JUMPDEST
-        
-        # Make the actual call
+    # ========== REAL CALLS (push args + call + pop result) ==========
+    for _ in range(op_count):
         if call_op in (Op.CALL, Op.CALLCODE):
             code += Op.PUSH1(0)                   # retSize
             code += Op.PUSH1(0)                   # retOffset  
@@ -2207,7 +2172,7 @@ def _generate_target_with_inner_calls(
             code += Op.PUSH1(0)                   # value
             code += Op.PUSH20(inner_target)       # address
             code += Op.GAS                        # gas
-            code += call_op
+            code += call_op                       # CALL/CALLCODE
         else:
             code += Op.PUSH1(0)                   # retSize
             code += Op.PUSH1(0)                   # retOffset  
@@ -2215,18 +2180,9 @@ def _generate_target_with_inner_calls(
             code += Op.PUSH1(0)                   # argsOffset
             code += Op.PUSH20(inner_target)       # address
             code += Op.GAS                        # gas
-            code += call_op
+            code += call_op                       # STATICCALL/DELEGATECALL
         
         code += Op.POP  # pop success flag
-        
-        # Decrement and loop
-        code += Op.PUSH1(1)
-        code += Op.SWAP1
-        code += Op.SUB
-        code += Op.DUP1
-        code += Op.PUSH2(real_loop_start)
-        code += Op.JUMPI
-        code += Op.POP
     
     code += Op.STOP
     return code
@@ -2330,106 +2286,61 @@ def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: 
 
 
 # ============================================================================
-# CREATE OPCODES - CREATE, CREATE2
-# These deploy new contracts
-# ============================================================================
-
-# ============================================================================
-# CREATE OPCODES - CREATE, CREATE2 (loop-based approach)
+# CREATE OPCODES - CREATE, CREATE2 (simplified noop approach)
 # These deploy new contracts
 # ============================================================================
 
 # For CREATE: Each call to target increments nonce, so each CREATE gets unique address
 # For CREATE2: We use a storage counter as salt to generate unique addresses
 
-CREATE_NUM_CALLS = 1000  # Number of caller loop iterations
-CREATE_MAX_OP_COUNT = 4  # Target executes op_count CREATEs per call  
-CREATE_STEP = 1  # 0, 1, 2, 3, 4 -> 0, 500, 1000, 1500, 2000 total creates
+# Stack-limited: each noop leaves +2 items (3 pushed, 1 popped)
+# Safe max_op_count: ~400 (with buffer), caller amplifies total
+CREATE_NUM_CALLS = 200  # Number of caller loop iterations
+CREATE_MAX_OP_COUNT = 20  # Target executes up to 20 CREATEs per call
+CREATE_STEP = 5  # 0, 5, 10, 15, 20 -> 0, 1K, 2K, 3K, 4K total creates
 
 
 def _generate_target_with_creates(op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate a target contract that executes op_count CREATE operations,
-    with proper noop padding to ensure marginal property.
+    with simplified noop padding to ensure perfect marginal property.
     
-    Total operations per invocation = max_op_count + 1 (constant)
-    - Noop operations = (max_op_count - op_count + 1)
-    - Real CREATE operations = op_count
+    NEW APPROACH (simplified, perfect gas marginality):
+    - Noops: Push 3 args + POP one (stack accumulates, but no CREATE)
+    - Real calls: Push 3 args + CREATE + POP result
+    
+    Gas analysis:
+    - Noop:   PUSH×3 (9 gas) + POP (2 gas) = 11 gas
+    - Real:   PUSH×3 (9 gas) + CREATE (32000 gas) + POP (2 gas) = 32011 gas
+    - Marginal: 32000 gas (exactly the CREATE cost!)
+    
+    Stack analysis:
+    - Each noop leaves +2 items (3 pushed, 1 popped)
+    - Stack limit = 1024, so max noops ≈ 500
     """
     code = Bytecode()
     
     # Store minimal initcode in memory: 0x600080f3 (PUSH1 0, DUP1, RETURN)
     code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
     
-    noop_count = max_op_count - op_count + 1
+    noop_count = max_op_count - op_count
     
-    # ========== NOOP LOOP (same args, but skip actual CREATE) ==========
-    if noop_count > 0:
-        if noop_count <= 0xFF:
-            code += Op.PUSH1(noop_count)
-        elif noop_count <= 0xFFFF:
-            code += Op.PUSH2(noop_count)
-        else:
-            code += Op.PUSH3(noop_count)
-        
-        noop_loop_start = len(bytes(code))
-        code += Op.JUMPDEST
-        
+    # ========== NOOPS (push args + pop one, stack accumulates) ==========
+    for _ in range(noop_count):
         # Push same arguments as real CREATE
         code += Op.PUSH1(4)                   # size
         code += Op.PUSH1(0)                   # offset
         code += Op.PUSH1(0)                   # value
-        
-        # Skip the actual CREATE using conditional jump
-        code += Op.PUSH1(1)                   # condition (always true)
-        code += Op.PC                         # current PC
-        code += Op.PUSH1(6)                   # offset to skip to JUMPDEST
-        code += Op.ADD                        # target = PC + 6
-        code += Op.JUMPI                      # jump if true (always)
-        code += Op.CREATE                     # skipped by JUMPI
-        code += Op.JUMPDEST                   # land here after jump
-        
-        # Pop the 3 args that were pushed
-        code += Op.POP
-        code += Op.POP
-        code += Op.POP
-        
-        # Decrement noop counter and loop
-        code += Op.PUSH1(1)
-        code += Op.SWAP1
-        code += Op.SUB
-        code += Op.DUP1
-        code += Op.PUSH2(noop_loop_start)
-        code += Op.JUMPI
+        # Just pop one item - NO CREATE, stack accumulates
         code += Op.POP
     
-    # ========== REAL CREATE LOOP ==========
-    if op_count > 0:
-        if op_count <= 0xFF:
-            code += Op.PUSH1(op_count)
-        elif op_count <= 0xFFFF:
-            code += Op.PUSH2(op_count)
-        else:
-            code += Op.PUSH3(op_count)
-        
-        real_loop_start = len(bytes(code))
-        code += Op.JUMPDEST
-        
-        # CREATE(value, offset, size) -> address
+    # ========== REAL CREATEs (push args + CREATE + pop result) ==========
+    for _ in range(op_count):
         code += Op.PUSH1(4)                   # size
         code += Op.PUSH1(0)                   # offset
         code += Op.PUSH1(0)                   # value
-        code += Op.CREATE
+        code += Op.CREATE                     # CREATE(value, offset, size) -> address
         code += Op.POP                        # pop created address
-        
-        # Decrement counter and loop
-        code += Op.PUSH1(1)
-        code += Op.SWAP1
-        code += Op.SUB
-        code += Op.DUP1
-        code += Op.PUSH2(real_loop_start)
-        code += Op.JUMPI
-        code += Op.POP
     
     code += Op.STOP
     return code
@@ -2438,11 +2349,20 @@ def _generate_target_with_creates(op_count: int, max_op_count: int) -> Bytecode:
 def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate a target contract that executes op_count CREATE2 operations,
-    with proper noop padding to ensure marginal property.
+    with simplified noop padding to ensure perfect marginal property.
     
-    Total operations per invocation = max_op_count + 1 (constant)
-    - Noop operations = (max_op_count - op_count + 1)
-    - Real CREATE2 operations = op_count
+    NEW APPROACH (simplified, perfect gas marginality):
+    - Noops: Push 4 args + POP one (stack accumulates, but no CREATE2)
+    - Real calls: Push 4 args + CREATE2 + POP result
+    
+    Gas analysis:
+    - Noop:   PUSH×4 (12 gas) + POP (2 gas) = 14 gas
+    - Real:   PUSH×4 (12 gas) + CREATE2 (32000 gas) + POP (2 gas) = 32014 gas
+    - Marginal: 32000 gas (exactly the CREATE2 cost!)
+    
+    Stack analysis:
+    - Each noop leaves +3 items (4 pushed, 1 popped)
+    - Stack limit = 1024, so max noops ≈ 340
     
     Uses a storage slot as a counter for unique salts.
     """
@@ -2455,100 +2375,36 @@ def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode
     salt_slot = 0x100
     code += Op.SLOAD(salt_slot)  # salt counter on stack
     
-    noop_count = max_op_count - op_count + 1
+    noop_count = max_op_count - op_count
     
-    # ========== NOOP LOOP (same args, but skip actual CREATE2) ==========
-    if noop_count > 0:
-        if noop_count <= 0xFF:
-            code += Op.PUSH1(noop_count)
-        elif noop_count <= 0xFFFF:
-            code += Op.PUSH2(noop_count)
-        else:
-            code += Op.PUSH3(noop_count)
-        
-        # Stack: [noop_count, salt_counter]
-        noop_loop_start = len(bytes(code))
-        code += Op.JUMPDEST
-        
+    # ========== NOOPS (push args + pop one, stack accumulates) ==========
+    for i in range(noop_count):
         # Push same arguments as real CREATE2
-        code += Op.SWAP1                      # [salt_counter, noop_count]
-        code += Op.DUP1                       # [salt_counter, salt_counter, noop_count]
+        # Need unique salt for each CREATE2, so use counter + i
+        code += Op.DUP1                       # duplicate salt counter
+        code += Op.PUSH2(i)                   # add offset for this noop
+        code += Op.ADD                        # salt = counter + i
         code += Op.PUSH1(4)                   # size
         code += Op.PUSH1(0)                   # offset
         code += Op.PUSH1(0)                   # value
-        # Stack: [value, offset, size, salt, salt_counter, noop_count]
-        
-        # Skip the actual CREATE2 using conditional jump
-        code += Op.PUSH1(1)                   # condition (always true)
-        code += Op.PC                         # current PC
-        code += Op.PUSH1(6)                   # offset to skip to JUMPDEST
-        code += Op.ADD                        # target = PC + 6
-        code += Op.JUMPI                      # jump if true (always)
-        code += Op.CREATE2                    # skipped by JUMPI
-        code += Op.JUMPDEST                   # land here after jump
-        
-        # Pop the 4 args that were pushed (salt, size, offset, value)
+        # Just pop one item - NO CREATE2, stack accumulates
         code += Op.POP
-        code += Op.POP
-        code += Op.POP
-        code += Op.POP
-        # Stack: [salt_counter, noop_count]
-        
-        # Increment salt counter (to match the real loop behavior)
-        code += Op.PUSH1(1)
-        code += Op.ADD                        # salt_counter + 1
-        code += Op.SWAP1                      # [noop_count, new_salt_counter]
-        
-        # Decrement noop counter and loop
-        code += Op.PUSH1(1)
-        code += Op.SWAP1
-        code += Op.SUB
-        code += Op.DUP1
-        code += Op.PUSH2(noop_loop_start)
-        code += Op.JUMPI
-        code += Op.POP
-        # Stack: [salt_counter]
     
-    # ========== REAL CREATE2 LOOP ==========
-    if op_count > 0:
-        if op_count <= 0xFF:
-            code += Op.PUSH1(op_count)
-        elif op_count <= 0xFFFF:
-            code += Op.PUSH2(op_count)
-        else:
-            code += Op.PUSH3(op_count)
-        
-        # Stack: [op_count, salt_counter]
-        real_loop_start = len(bytes(code))
-        code += Op.JUMPDEST
-        
+    # ========== REAL CREATE2s (push args + CREATE2 + pop result) ==========
+    for i in range(op_count):
         # CREATE2(value, offset, size, salt) -> address
-        code += Op.SWAP1                      # [salt_counter, op_count]
-        code += Op.DUP1                       # [salt_counter, salt_counter, op_count]
+        code += Op.DUP1                       # duplicate salt counter
+        code += Op.PUSH2(noop_count + i)      # add offset for unique salt
+        code += Op.ADD                        # salt = counter + noop_count + i
         code += Op.PUSH1(4)                   # size
         code += Op.PUSH1(0)                   # offset
         code += Op.PUSH1(0)                   # value
-        code += Op.CREATE2                    # Uses salt_counter as salt
+        code += Op.CREATE2                    # Uses unique salt
         code += Op.POP                        # pop created address
-        # Stack: [salt_counter, op_count]
-        
-        # Increment salt counter
-        code += Op.PUSH1(1)
-        code += Op.ADD                        # salt_counter + 1
-        code += Op.SWAP1                      # [op_count, new_salt_counter]
-        
-        # Decrement loop counter and check
-        code += Op.PUSH1(1)
-        code += Op.SWAP1
-        code += Op.SUB                        # op_count - 1
-        code += Op.DUP1                       # [op_count-1, op_count-1, new_salt_counter]
-        code += Op.PUSH2(real_loop_start)
-        code += Op.JUMPI
-        # Stack: [0, new_salt_counter]
-        code += Op.POP                        # pop loop counter (0)
-        # Stack: [new_salt_counter]
     
-    # Store updated salt counter
+    # Update salt counter for next invocation
+    code += Op.PUSH2(max_op_count)
+    code += Op.ADD                            # new counter = old + max_op_count
     code += Op.PUSH2(salt_slot)
     code += Op.SSTORE
     
