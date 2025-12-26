@@ -8,22 +8,6 @@ in the gas-cost-estimator project. The key insight is:
 2. Keep everything else constant (stack setup, cleanup, or noop padding)
 3. The marginal cost of an opcode can be extracted via linear regression on execution times
 
-Two strategies are used depending on whether the opcode returns values:
-
-Strategy 1: POP-based padding (for opcodes with pushes_per_op > 0)
-    | PUSH0 × max_op_count × pushes_per_op | Empty values for POP padding    |
-    | PUSH args × max_op_count             | Stack setup (same for all)      |
-    | OPCODE + (POP × pushes_per_op + OPCODE) × (op_count-1) | Interleaved   |
-    | POP × remaining                      | Constant total POPs             |
-    | SSTORE + STOP                        | Success marker                  |
-
-Strategy 2: Noop-based padding (for opcodes with pushes_per_op == 0, like MSTORE)
-    | (PUSH args + OPCODE) × op_count      | Real operations                 |
-    | (PUSH args) × (max_op_count - op_count) | Noops (push only, no op)     |
-    | SSTORE + STOP                        | Success marker                  |
-
-The program with op_count=K+1 differs from op_count=K by exactly ONE instance
-of the target opcode, enabling marginal cost estimation.
 """
 
 from dataclasses import dataclass
@@ -2122,63 +2106,129 @@ CALL_MAX_OP_COUNT = 4  # Target contract executes op_count STATICCALLs per call
 CALL_STEP = 1  # Step size for op_count (0, 1, 2, 3, 4 -> 0, 5K, 10K, 15K, 20K total calls)
 
 
-def _generate_target_with_inner_calls(inner_target: Address, op_count: int, call_op) -> Bytecode:
+def _generate_target_with_inner_calls(
+    inner_target: Address, op_count: int, max_op_count: int, call_op
+) -> Bytecode:
     """
-    Generate a target contract that makes op_count calls to inner_target.
-    The call_op parameter specifies which CALL variant to use.
+    Generate a target contract that makes op_count calls to inner_target,
+    with proper noop padding to ensure marginal property.
+    
+    Following gas-cost-estimator's approach:
+    - Total operations per invocation = max_op_count + 1 (constant)
+    - Noop operations = (max_op_count - op_count + 1)
+    - Real operations = op_count
+    
+    Noops push the same args as real calls but use a conditional jump to skip
+    the actual CALL instruction, ensuring same stack manipulation overhead.
     """
     code = Bytecode()
     
-    if op_count == 0:
-        # Just return immediately
-        code += Op.STOP
-        return code
+    # Calculate noop count to ensure constant total operations
+    noop_count = max_op_count - op_count + 1
     
-    # Loop op_count times, making calls to inner_target
-    if op_count <= 0xFF:
-        code += Op.PUSH1(op_count)
-    elif op_count <= 0xFFFF:
-        code += Op.PUSH2(op_count)
-    else:
-        code += Op.PUSH3(op_count)
+    # ========== NOOP LOOP (same args, but skip actual call) ==========
+    if noop_count > 0:
+        if noop_count <= 0xFF:
+            code += Op.PUSH1(noop_count)
+        elif noop_count <= 0xFFFF:
+            code += Op.PUSH2(noop_count)
+        else:
+            code += Op.PUSH3(noop_count)
+        
+        noop_loop_start = len(bytes(code))
+        code += Op.JUMPDEST
+        
+        # Push same arguments as real call
+        if call_op in (Op.CALL, Op.CALLCODE):
+            # 7 args for CALL/CALLCODE
+            code += Op.PUSH1(0)                   # retSize
+            code += Op.PUSH1(0)                   # retOffset  
+            code += Op.PUSH1(0)                   # argsSize
+            code += Op.PUSH1(0)                   # argsOffset
+            code += Op.PUSH1(0)                   # value
+            code += Op.PUSH20(inner_target)       # address
+            code += Op.GAS                        # gas
+        else:
+            # 6 args for STATICCALL/DELEGATECALL
+            code += Op.PUSH1(0)                   # retSize
+            code += Op.PUSH1(0)                   # retOffset  
+            code += Op.PUSH1(0)                   # argsSize
+            code += Op.PUSH1(0)                   # argsOffset
+            code += Op.PUSH20(inner_target)       # address
+            code += Op.GAS                        # gas
+        
+        # Skip the actual call using: PUSH1 1, PC, PUSH1 offset, ADD, JUMPI
+        # This jumps over the call opcode to the JUMPDEST after it
+        # PUSH1 1 (always true) + PC + PUSH1 4 + ADD + JUMPI + call_op = jump to JUMPDEST
+        code += Op.PUSH1(1)                       # condition (always true)
+        code += Op.PC                             # current PC
+        code += Op.PUSH1(6)                       # offset to skip: PUSH1(6) + ADD + JUMPI + call_op + JUMPDEST = 6 bytes
+        code += Op.ADD                            # target = PC + 6
+        code += Op.JUMPI                          # jump if true (always)
+        # The call opcode is here but never executed
+        code += call_op                           # skipped by JUMPI
+        code += Op.JUMPDEST                       # land here after jump
+        
+        # Pop the 6 or 7 args that were pushed
+        if call_op in (Op.CALL, Op.CALLCODE):
+            for _ in range(7):
+                code += Op.POP
+        else:
+            for _ in range(6):
+                code += Op.POP
+        
+        # Decrement noop counter and loop
+        code += Op.PUSH1(1)
+        code += Op.SWAP1
+        code += Op.SUB
+        code += Op.DUP1
+        code += Op.PUSH2(noop_loop_start)
+        code += Op.JUMPI
+        code += Op.POP
     
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
+    # ========== REAL CALL LOOP ==========
+    if op_count > 0:
+        if op_count <= 0xFF:
+            code += Op.PUSH1(op_count)
+        elif op_count <= 0xFFFF:
+            code += Op.PUSH2(op_count)
+        else:
+            code += Op.PUSH3(op_count)
+        
+        real_loop_start = len(bytes(code))
+        code += Op.JUMPDEST
+        
+        # Make the actual call
+        if call_op in (Op.CALL, Op.CALLCODE):
+            code += Op.PUSH1(0)                   # retSize
+            code += Op.PUSH1(0)                   # retOffset  
+            code += Op.PUSH1(0)                   # argsSize
+            code += Op.PUSH1(0)                   # argsOffset
+            code += Op.PUSH1(0)                   # value
+            code += Op.PUSH20(inner_target)       # address
+            code += Op.GAS                        # gas
+            code += call_op
+        else:
+            code += Op.PUSH1(0)                   # retSize
+            code += Op.PUSH1(0)                   # retOffset  
+            code += Op.PUSH1(0)                   # argsSize
+            code += Op.PUSH1(0)                   # argsOffset
+            code += Op.PUSH20(inner_target)       # address
+            code += Op.GAS                        # gas
+            code += call_op
+        
+        code += Op.POP  # pop success flag
+        
+        # Decrement and loop
+        code += Op.PUSH1(1)
+        code += Op.SWAP1
+        code += Op.SUB
+        code += Op.DUP1
+        code += Op.PUSH2(real_loop_start)
+        code += Op.JUMPI
+        code += Op.POP
     
-    # Make the call (using the specified call_op)
-    if call_op in (Op.CALL, Op.CALLCODE):
-        # 7 args: gas, addr, value, argsOffset, argsSize, retOffset, retSize
-        code += Op.PUSH1(0)                   # retSize
-        code += Op.PUSH1(0)                   # retOffset  
-        code += Op.PUSH1(0)                   # argsSize
-        code += Op.PUSH1(0)                   # argsOffset
-        code += Op.PUSH1(0)                   # value
-        code += Op.PUSH20(inner_target)       # address
-        code += Op.GAS                        # gas
-        code += call_op
-    else:
-        # 6 args: gas, addr, argsOffset, argsSize, retOffset, retSize (STATICCALL/DELEGATECALL)
-        code += Op.PUSH1(0)                   # retSize
-        code += Op.PUSH1(0)                   # retOffset  
-        code += Op.PUSH1(0)                   # argsSize
-        code += Op.PUSH1(0)                   # argsOffset
-        code += Op.PUSH20(inner_target)       # address
-        code += Op.GAS                        # gas
-        code += call_op
-    
-    code += Op.POP  # pop success flag
-    
-    # Decrement and loop
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-    code += Op.DUP1
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-    
-    code += Op.POP
     code += Op.STOP
-    
     return code
 
 
@@ -2194,7 +2244,10 @@ def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -
     inner_target = pre.deploy_contract(code=Op.STOP)
     
     # Target contract: makes op_count CALLs to inner_target per invocation
-    target_code = _generate_target_with_inner_calls(inner_target, op_count, Op.CALL)
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_inner_calls(
+        inner_target, op_count, CALL_MAX_OP_COUNT, Op.CALL
+    )
     target = pre.deploy_contract(code=target_code)
     
     # Caller contract: loops CALL_NUM_CALLS times, calling target
@@ -2216,7 +2269,10 @@ def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -
 def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
     """Marginal cost test for CALLCODE opcode using loop-based caller."""
     inner_target = pre.deploy_contract(code=Op.STOP)
-    target_code = _generate_target_with_inner_calls(inner_target, op_count, Op.CALLCODE)
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_inner_calls(
+        inner_target, op_count, CALL_MAX_OP_COUNT, Op.CALLCODE
+    )
     target = pre.deploy_contract(code=target_code)
     caller_code = generate_caller_with_callcode(target, CALL_NUM_CALLS)
     caller = pre.deploy_contract(code=caller_code)
@@ -2236,7 +2292,10 @@ def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: in
 def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
     """Marginal cost test for DELEGATECALL opcode using loop-based caller."""
     inner_target = pre.deploy_contract(code=Op.STOP)
-    target_code = _generate_target_with_inner_calls(inner_target, op_count, Op.DELEGATECALL)
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_inner_calls(
+        inner_target, op_count, CALL_MAX_OP_COUNT, Op.DELEGATECALL
+    )
     target = pre.deploy_contract(code=target_code)
     caller_code = generate_caller_with_delegatecall(target, CALL_NUM_CALLS)
     caller = pre.deploy_contract(code=caller_code)
@@ -2256,7 +2315,10 @@ def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count
 def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
     """Marginal cost test for STATICCALL opcode using loop-based caller."""
     inner_target = pre.deploy_contract(code=Op.STOP)
-    target_code = _generate_target_with_inner_calls(inner_target, op_count, Op.STATICCALL)
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_inner_calls(
+        inner_target, op_count, CALL_MAX_OP_COUNT, Op.STATICCALL
+    )
     target = pre.deploy_contract(code=target_code)
     caller_code = generate_caller_with_staticcall(target, CALL_NUM_CALLS)
     caller = pre.deploy_contract(code=caller_code)
@@ -2285,63 +2347,106 @@ CREATE_MAX_OP_COUNT = 4  # Target executes op_count CREATEs per call
 CREATE_STEP = 1  # 0, 1, 2, 3, 4 -> 0, 500, 1000, 1500, 2000 total creates
 
 
-def _generate_target_with_creates(op_count: int) -> Bytecode:
+def _generate_target_with_creates(op_count: int, max_op_count: int) -> Bytecode:
     """
-    Generate a target contract that executes op_count CREATE operations.
-    Each CREATE uses the same initcode (just returns empty code).
-    CREATE address depends on sender nonce, which increments with each CREATE.
+    Generate a target contract that executes op_count CREATE operations,
+    with proper noop padding to ensure marginal property.
+    
+    Total operations per invocation = max_op_count + 1 (constant)
+    - Noop operations = (max_op_count - op_count + 1)
+    - Real CREATE operations = op_count
     """
     code = Bytecode()
-    
-    if op_count == 0:
-        code += Op.STOP
-        return code
     
     # Store minimal initcode in memory: 0x600080f3 (PUSH1 0, DUP1, RETURN)
     code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
     
-    # Loop op_count times, executing CREATE
-    if op_count <= 0xFF:
-        code += Op.PUSH1(op_count)
-    elif op_count <= 0xFFFF:
-        code += Op.PUSH2(op_count)
-    else:
-        code += Op.PUSH3(op_count)
+    noop_count = max_op_count - op_count + 1
     
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
+    # ========== NOOP LOOP (same args, but skip actual CREATE) ==========
+    if noop_count > 0:
+        if noop_count <= 0xFF:
+            code += Op.PUSH1(noop_count)
+        elif noop_count <= 0xFFFF:
+            code += Op.PUSH2(noop_count)
+        else:
+            code += Op.PUSH3(noop_count)
+        
+        noop_loop_start = len(bytes(code))
+        code += Op.JUMPDEST
+        
+        # Push same arguments as real CREATE
+        code += Op.PUSH1(4)                   # size
+        code += Op.PUSH1(0)                   # offset
+        code += Op.PUSH1(0)                   # value
+        
+        # Skip the actual CREATE using conditional jump
+        code += Op.PUSH1(1)                   # condition (always true)
+        code += Op.PC                         # current PC
+        code += Op.PUSH1(6)                   # offset to skip to JUMPDEST
+        code += Op.ADD                        # target = PC + 6
+        code += Op.JUMPI                      # jump if true (always)
+        code += Op.CREATE                     # skipped by JUMPI
+        code += Op.JUMPDEST                   # land here after jump
+        
+        # Pop the 3 args that were pushed
+        code += Op.POP
+        code += Op.POP
+        code += Op.POP
+        
+        # Decrement noop counter and loop
+        code += Op.PUSH1(1)
+        code += Op.SWAP1
+        code += Op.SUB
+        code += Op.DUP1
+        code += Op.PUSH2(noop_loop_start)
+        code += Op.JUMPI
+        code += Op.POP
     
-    # CREATE(value, offset, size) -> address
-    code += Op.PUSH1(4)                   # size
-    code += Op.PUSH1(0)                   # offset
-    code += Op.PUSH1(0)                   # value
-    code += Op.CREATE
-    code += Op.POP                        # pop created address
+    # ========== REAL CREATE LOOP ==========
+    if op_count > 0:
+        if op_count <= 0xFF:
+            code += Op.PUSH1(op_count)
+        elif op_count <= 0xFFFF:
+            code += Op.PUSH2(op_count)
+        else:
+            code += Op.PUSH3(op_count)
+        
+        real_loop_start = len(bytes(code))
+        code += Op.JUMPDEST
+        
+        # CREATE(value, offset, size) -> address
+        code += Op.PUSH1(4)                   # size
+        code += Op.PUSH1(0)                   # offset
+        code += Op.PUSH1(0)                   # value
+        code += Op.CREATE
+        code += Op.POP                        # pop created address
+        
+        # Decrement counter and loop
+        code += Op.PUSH1(1)
+        code += Op.SWAP1
+        code += Op.SUB
+        code += Op.DUP1
+        code += Op.PUSH2(real_loop_start)
+        code += Op.JUMPI
+        code += Op.POP
     
-    # Decrement counter and loop
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-    code += Op.DUP1
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-    
-    code += Op.POP
     code += Op.STOP
-    
     return code
 
 
-def _generate_target_with_create2s(op_count: int) -> Bytecode:
+def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode:
     """
-    Generate a target contract that executes op_count CREATE2 operations.
+    Generate a target contract that executes op_count CREATE2 operations,
+    with proper noop padding to ensure marginal property.
+    
+    Total operations per invocation = max_op_count + 1 (constant)
+    - Noop operations = (max_op_count - op_count + 1)
+    - Real CREATE2 operations = op_count
+    
     Uses a storage slot as a counter for unique salts.
     """
     code = Bytecode()
-    
-    if op_count == 0:
-        code += Op.STOP
-        return code
     
     # Store minimal initcode in memory
     code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
@@ -2350,51 +2455,104 @@ def _generate_target_with_create2s(op_count: int) -> Bytecode:
     salt_slot = 0x100
     code += Op.SLOAD(salt_slot)  # salt counter on stack
     
-    # Loop op_count times
-    if op_count <= 0xFF:
-        code += Op.PUSH1(op_count)
-    elif op_count <= 0xFFFF:
-        code += Op.PUSH2(op_count)
-    else:
-        code += Op.PUSH3(op_count)
+    noop_count = max_op_count - op_count + 1
     
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-    # Stack: [op_count, salt_counter]
+    # ========== NOOP LOOP (same args, but skip actual CREATE2) ==========
+    if noop_count > 0:
+        if noop_count <= 0xFF:
+            code += Op.PUSH1(noop_count)
+        elif noop_count <= 0xFFFF:
+            code += Op.PUSH2(noop_count)
+        else:
+            code += Op.PUSH3(noop_count)
+        
+        # Stack: [noop_count, salt_counter]
+        noop_loop_start = len(bytes(code))
+        code += Op.JUMPDEST
+        
+        # Push same arguments as real CREATE2
+        code += Op.SWAP1                      # [salt_counter, noop_count]
+        code += Op.DUP1                       # [salt_counter, salt_counter, noop_count]
+        code += Op.PUSH1(4)                   # size
+        code += Op.PUSH1(0)                   # offset
+        code += Op.PUSH1(0)                   # value
+        # Stack: [value, offset, size, salt, salt_counter, noop_count]
+        
+        # Skip the actual CREATE2 using conditional jump
+        code += Op.PUSH1(1)                   # condition (always true)
+        code += Op.PC                         # current PC
+        code += Op.PUSH1(6)                   # offset to skip to JUMPDEST
+        code += Op.ADD                        # target = PC + 6
+        code += Op.JUMPI                      # jump if true (always)
+        code += Op.CREATE2                    # skipped by JUMPI
+        code += Op.JUMPDEST                   # land here after jump
+        
+        # Pop the 4 args that were pushed (salt, size, offset, value)
+        code += Op.POP
+        code += Op.POP
+        code += Op.POP
+        code += Op.POP
+        # Stack: [salt_counter, noop_count]
+        
+        # Increment salt counter (to match the real loop behavior)
+        code += Op.PUSH1(1)
+        code += Op.ADD                        # salt_counter + 1
+        code += Op.SWAP1                      # [noop_count, new_salt_counter]
+        
+        # Decrement noop counter and loop
+        code += Op.PUSH1(1)
+        code += Op.SWAP1
+        code += Op.SUB
+        code += Op.DUP1
+        code += Op.PUSH2(noop_loop_start)
+        code += Op.JUMPI
+        code += Op.POP
+        # Stack: [salt_counter]
     
-    # CREATE2(value, offset, size, salt) -> address
-    code += Op.SWAP1                      # [salt_counter, op_count]
-    code += Op.DUP1                       # [salt_counter, salt_counter, op_count]
-    code += Op.PUSH1(4)                   # size
-    code += Op.PUSH1(0)                   # offset
-    code += Op.PUSH1(0)                   # value
-    code += Op.CREATE2                    # Uses salt_counter as salt
-    code += Op.POP                        # pop created address
-    # Stack: [salt_counter, op_count]
-    
-    # Increment salt counter
-    code += Op.PUSH1(1)
-    code += Op.ADD                        # salt_counter + 1
-    code += Op.SWAP1                      # [op_count, new_salt_counter]
-    
-    # Decrement loop counter and check
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB                        # op_count - 1
-    code += Op.DUP1                       # [op_count-1, op_count-1, new_salt_counter]
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-    # Stack: [0, new_salt_counter]
-    
-    code += Op.POP                        # pop loop counter (0)
-    # Stack: [new_salt_counter]
+    # ========== REAL CREATE2 LOOP ==========
+    if op_count > 0:
+        if op_count <= 0xFF:
+            code += Op.PUSH1(op_count)
+        elif op_count <= 0xFFFF:
+            code += Op.PUSH2(op_count)
+        else:
+            code += Op.PUSH3(op_count)
+        
+        # Stack: [op_count, salt_counter]
+        real_loop_start = len(bytes(code))
+        code += Op.JUMPDEST
+        
+        # CREATE2(value, offset, size, salt) -> address
+        code += Op.SWAP1                      # [salt_counter, op_count]
+        code += Op.DUP1                       # [salt_counter, salt_counter, op_count]
+        code += Op.PUSH1(4)                   # size
+        code += Op.PUSH1(0)                   # offset
+        code += Op.PUSH1(0)                   # value
+        code += Op.CREATE2                    # Uses salt_counter as salt
+        code += Op.POP                        # pop created address
+        # Stack: [salt_counter, op_count]
+        
+        # Increment salt counter
+        code += Op.PUSH1(1)
+        code += Op.ADD                        # salt_counter + 1
+        code += Op.SWAP1                      # [op_count, new_salt_counter]
+        
+        # Decrement loop counter and check
+        code += Op.PUSH1(1)
+        code += Op.SWAP1
+        code += Op.SUB                        # op_count - 1
+        code += Op.DUP1                       # [op_count-1, op_count-1, new_salt_counter]
+        code += Op.PUSH2(real_loop_start)
+        code += Op.JUMPI
+        # Stack: [0, new_salt_counter]
+        code += Op.POP                        # pop loop counter (0)
+        # Stack: [new_salt_counter]
     
     # Store updated salt counter
     code += Op.PUSH2(salt_slot)
     code += Op.SSTORE
     
     code += Op.STOP
-    
     return code
 
 
@@ -2407,7 +2565,8 @@ def _generate_target_with_create2s(op_count: int) -> Bytecode:
 def test_marginal_create(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
     """Marginal cost test for CREATE opcode using loop-based caller."""
     # Target contract executes op_count CREATEs per call
-    target_code = _generate_target_with_creates(op_count)
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_creates(op_count, CREATE_MAX_OP_COUNT)
     target = pre.deploy_contract(code=target_code)
     
     # Caller loops CREATE_NUM_CALLS times, calling target
@@ -2429,7 +2588,8 @@ def test_marginal_create(state_test: StateTestFiller, pre: Alloc, op_count: int)
 def test_marginal_create2(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
     """Marginal cost test for CREATE2 opcode using loop-based caller."""
     # Target contract executes op_count CREATE2s per call with unique salts
-    target_code = _generate_target_with_create2s(op_count)
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_create2s(op_count, CREATE_MAX_OP_COUNT)
     target = pre.deploy_contract(code=target_code)
     
     # Caller loops CREATE_NUM_CALLS times, calling target
