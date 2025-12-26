@@ -361,8 +361,8 @@ BLAKE2F_INPUT = create_blake2f_input(rounds=0xFFFF, f=True)  # 65,535 rounds
 BLAKE2F_CONFIG = MarginalPrecompileConfig(
     name="BLAKE2F",
     address=BLAKE2F_ADDRESS,
-    max_op_count=15,  # Increased for ~1M gas (65K gas/call)
-    step=5,  # ~5 data points
+    max_op_count=12,  # Increased for ~1M gas (65K gas/call)
+    step=4,  # ~5 data points
     input_data=BLAKE2F_INPUT,
     input_size=len(BLAKE2F_INPUT),  # 213 bytes
 )
