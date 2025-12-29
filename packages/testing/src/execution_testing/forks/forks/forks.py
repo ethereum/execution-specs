@@ -946,7 +946,7 @@ class DAOFork(Homestead, ignore=True):
     pass
 
 
-class Tangerine(DAOFork, ignore=True):
+class Tangerine(DAOFork, transition_tool_name="TangerineWhistle"):
     """Tangerine fork (EIP-150)."""
 
     pass
@@ -958,7 +958,7 @@ class SpuriousDragon(Tangerine, ignore=True):
     pass
 
 
-class Byzantium(Homestead):
+class Byzantium(SpuriousDragon):
     """Byzantium fork."""
 
     @classmethod
