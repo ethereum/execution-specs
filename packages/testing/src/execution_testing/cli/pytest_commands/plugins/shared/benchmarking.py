@@ -1,7 +1,6 @@
 """The module contains the pytest hooks for the gas benchmark values."""
 
 import re
-import warnings
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import ClassVar, Dict, List, Self
@@ -172,17 +171,13 @@ class OpcodeCountsConfig(BaseModel, BenchmarkParametrizer):
             if default_file.exists():
                 return cls.model_validate_json(default_file.read_bytes())
             else:
-                warnings.warn(
+                pytest.UsageError(
                     "--fixed-opcode-count was provided without a value, but "
                     f"{cls.default_config_file_name} was not found. "
                     "Run 'uv run benchmark_parser' to generate it, or provide "
-                    "explicit values (e.g., --fixed-opcode-count 1,10,100).",
-                    UserWarning,
-                    stacklevel=1,
+                    "explicit values (e.g., --fixed-opcode-count 1,10,100)."
                 )
-                return cls()
-        else:
-            return cls.model_validate({"default_counts": value.split(",")})
+        return cls.model_validate({"default_counts": value.split(",")})
 
     def get_test_parameters(self, test_name: str) -> list[ParameterSet]:
         """
