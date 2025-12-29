@@ -268,17 +268,20 @@ def categorize_patterns(
 def generate_config_json(
     config: dict[str, list[int]],
     pattern_sources: dict[str, Path],
+    default_counts: list[int],
 ) -> OpcodeCountsConfig:
     """Generate the JSON config file content."""
     categories = categorize_patterns(config, pattern_sources)
 
     scenario_configs: dict[str, list[int]] = {}
-    output = OpcodeCountsConfig(scenario_configs=scenario_configs)
     for _, patterns in categories.items():
         for pattern in patterns:
-            output.scenario_configs[pattern] = config[pattern]
+            scenario_configs[pattern] = config[pattern]
 
-    return output
+    return OpcodeCountsConfig(
+        scenario_configs=scenario_configs,
+        default_counts=default_counts,
+    )
 
 
 def main() -> int:
@@ -352,8 +355,9 @@ def main() -> int:
         if pattern in merged:
             del merged[pattern]
 
-    content = generate_config_json(merged, pattern_sources)
-    content.default_counts = existing_file.default_counts
+    content = generate_config_json(
+        merged, pattern_sources, existing_file.default_counts
+    )
     config_file.write_text(
         content.model_dump_json(exclude_defaults=True, indent=2)
     )

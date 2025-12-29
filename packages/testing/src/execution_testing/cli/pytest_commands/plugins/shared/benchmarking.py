@@ -155,7 +155,7 @@ class OpcodeCountsConfig(BaseModel, BenchmarkParametrizer):
     """Opcode counts configuration object."""
 
     scenario_configs: Dict[str, List[int]] = Field(default_factory=dict)
-    default_counts: List[int] = Field(default_factory=lambda _: [1])
+    default_counts: List[int] = Field(default_factory=lambda: [1])
 
     default_config_file_name: ClassVar[str] = ".fixed_opcode_counts.json"
     flag: ClassVar[str] = "--fixed-opcode-count"
@@ -266,9 +266,6 @@ def pytest_collection_modifyitems(
                 item.callspec.params.get(key) == value
                 for key, value in repricing_marker.kwargs.items()
             ):
-                filtered.append(item)
-        else:
-            if not repricing_marker.kwargs:
                 filtered.append(item)
 
     items[:] = filtered
