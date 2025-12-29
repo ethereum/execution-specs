@@ -7,10 +7,12 @@ from .benchmark_code_generator import (
     BenchmarkCodeGenerator,
     ExtCallGenerator,
     JumpLoopGenerator,
+    XCallGenerator,
 )
 
 __all__ = (
     "BenchmarkCodeGenerator",
     "ExtCallGenerator",
     "JumpLoopGenerator",
+    "XCallGenerator",
 )

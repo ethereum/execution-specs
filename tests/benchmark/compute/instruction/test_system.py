@@ -33,11 +33,13 @@ from execution_testing import (
     TestPhaseManager,
     Transaction,
     While,
+    XCallGenerator,
     compute_create2_address,
     compute_create_address,
 )
 
 from tests.benchmark.compute.helpers import XOR_TABLE
+from tests.benchmark.helpers import MemorySize, StateAccess, StorageSize
 
 
 @pytest.mark.parametrize(
@@ -920,4 +922,69 @@ def test_selfdestruct_initcode(
             Block(txs=exec_txs, fee_recipient=fee_recipient),
         ],
         expected_benchmark_gas_used=expected_benchmark_gas_used,
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.CALL,
+        Op.CALLCODE,
+        Op.DELEGATECALL,
+        Op.STATICCALL,
+    ],
+)
+@pytest.mark.parametrize(
+    "state_access",
+    [
+        StateAccess.WARM,
+        StateAccess.COLD,
+    ],
+)
+@pytest.mark.parametrize(
+    "memory_size",
+    [
+        MemorySize.ZERO,
+        MemorySize.SMALL,
+        MemorySize.MEDIUM,
+        MemorySize.LARGE,
+    ],
+)
+@pytest.mark.parametrize(
+    "storage_size",
+    [
+        StorageSize.SMALL,
+        StorageSize.MEDIUM,
+        StorageSize.XEN,
+    ],
+)
+@pytest.mark.parametrize(
+    "value_transfer",
+    [0, 1],
+)
+def test_xcall_benchmark(
+    benchmark_test: BenchmarkTestFiller,
+    opcode: Op,
+    state_access: StateAccess,
+    memory_size: MemorySize,
+    storage_size: StorageSize,
+    value_transfer: int,
+) -> None:
+    """Benchmark CALL-family opcodes with various parametrizations."""
+    # Skip value_transfer for STATICCALL/DELEGATECALL
+    if opcode in [Op.STATICCALL, Op.DELEGATECALL] and value_transfer > 0:
+        pytest.skip("STATICCALL/DELEGATECALL do not support value transfer")
+
+    # Determine contract balance for value transfers
+    contract_balance = 10**18 * value_transfer
+
+    benchmark_test(
+        code_generator=XCallGenerator(
+            opcode=opcode,
+            value=value_transfer,
+            memory_size=memory_size.value,
+            target_code_size=storage_size.value,
+            warm_access=state_access.value,
+            contract_balance=contract_balance,
+        ),
     )

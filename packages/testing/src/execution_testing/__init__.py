@@ -22,6 +22,7 @@ from .benchmark import (
     BenchmarkCodeGenerator,
     ExtCallGenerator,
     JumpLoopGenerator,
+    XCallGenerator,
 )
 from .checklists import EIPChecklist
 from .exceptions import (
@@ -202,6 +203,7 @@ __all__ = (
     "TransactionType",
     "UndefinedOpcodes",
     "While",
+    "XCallGenerator",
     "CoerceBytes",
     "Withdrawal",
     "WithdrawalRequest",
