@@ -90,7 +90,7 @@ def mstore8(evm: Evm) -> None:
 
 def mload(evm: Evm) -> None:
     """
-    Load word from memory.
+    Loads a word from memory.
 
     Parameters
     ----------
@@ -120,7 +120,7 @@ def mload(evm: Evm) -> None:
 
 def msize(evm: Evm) -> None:
     """
-    Push the size of active memory in bytes onto the stack.
+    Pushes the size of active memory in bytes onto the stack.
 
     Parameters
     ----------
