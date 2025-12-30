@@ -22,10 +22,6 @@ from execution_testing.forks import Byzantium, Cancun
 from execution_testing.forks.helpers import Fork
 
 
-@pytest.mark.pre_alloc_group(
-    "selfdestruct_to_precompile",
-    reason="Modifies precompile balance, must be isolated in EngineX format",
-)
 @pytest.mark.parametrize("same_tx_selfdestruct", [False, True])
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Homestead")

@@ -26,7 +26,7 @@ def test_case(state_test):
                 valid_until='"Cancun"',
             ),
             [],
-            {"passed": 10, "failed": 0, "skipped": 1, "errors": 0},
+            {"passed": 11, "failed": 0, "skipped": 1, "errors": 0},
             id="valid_until",
         ),
         pytest.param(

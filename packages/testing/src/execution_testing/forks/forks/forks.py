@@ -1472,14 +1472,14 @@ class DAOFork(Homestead, ignore=True):
     pass
 
 
-class Tangerine(DAOFork, transition_tool_name="TangerineWhistle"):
-    """Tangerine fork (EIP-150)."""
+class TangerineWhistle(DAOFork):
+    """TangerineWhistle fork (EIP-150)."""
 
     pass
 
 
-class SpuriousDragon(Tangerine, ignore=True):
-    """SpuriousDragon fork (EIP-155, EIP-158)."""
+class SpuriousDragon(TangerineWhistle, ignore=True):
+    """SpuriousDragon fork."""
 
     @classmethod
     def _calculate_call_gas(
