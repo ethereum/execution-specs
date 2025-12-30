@@ -92,6 +92,12 @@ class MarginalPrecompileConfig:
     input_size: int
     """Size of input data in memory."""
 
+    num_calls: int = 1
+    """Number of times caller calls target (for caller-contract approach). Default 1 = no caller."""
+
+    gas_limit: int = 500_000_000
+    """Gas limit for the transaction. Default 500M for high-amplification tests."""
+
 
 def create_ecrecover_input(
     msg_hash: bytes,
@@ -155,6 +161,7 @@ ECRECOVER_CONFIG = MarginalPrecompileConfig(
     step=40,  # 6 data points (improved R²)
     input_data=ECRECOVER_INPUT,
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
+    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
 )
 
 # ============================================================================
@@ -218,6 +225,8 @@ MODEXP_CONFIG = MarginalPrecompileConfig(
     step=12,
     input_data=MODEXP_INPUT,
     input_size=len(MODEXP_INPUT),  # 96 + 512 + 1 + 512 = 1121 bytes
+    num_calls=1,  # No amplification needed (expensive precompile)
+    gas_limit=10_000_000,  # High limit for worst-case MODEXP
 )
 
 # ============================================================================
@@ -237,6 +246,7 @@ SHA256_CONFIG = MarginalPrecompileConfig(
     step=500,  # 4 data points
     input_data=SHA256_INPUT,
     input_size=len(SHA256_INPUT),  # 4096 bytes
+    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
 )
 
 # ============================================================================
@@ -255,6 +265,7 @@ RIPEMD160_CONFIG = MarginalPrecompileConfig(
     step=500,  # 4 data points
     input_data=RIPEMD160_INPUT,
     input_size=len(RIPEMD160_INPUT),  # 1024 bytes
+    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
 )
 
 # ============================================================================
@@ -279,6 +290,7 @@ BN128_ADD_CONFIG = MarginalPrecompileConfig(
     step=267,  # 4 data points
     input_data=BN128_ADD_INPUT,
     input_size=len(BN128_ADD_INPUT),  # 128 bytes
+    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
 )
 
 # ============================================================================
@@ -301,6 +313,7 @@ BN128_MUL_CONFIG = MarginalPrecompileConfig(
     step=24,  # 4 data points
     input_data=BN128_MUL_INPUT,
     input_size=len(BN128_MUL_INPUT),  # 96 bytes
+    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
 )
 
 # ============================================================================
@@ -332,6 +345,7 @@ BN128_PAIRING_CONFIG = MarginalPrecompileConfig(
     step=2,
     input_data=BN128_PAIRING_INPUT,
     input_size=len(BN128_PAIRING_INPUT),  # 384 bytes (2 pairs * 192)
+    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
 )
 
 # ============================================================================
@@ -365,6 +379,8 @@ BLAKE2F_CONFIG = MarginalPrecompileConfig(
     step=4,  # ~5 data points
     input_data=BLAKE2F_INPUT,
     input_size=len(BLAKE2F_INPUT),  # 213 bytes
+    num_calls=1,  # No amplification needed
+    gas_limit=1_000_000,
 )
 
 # ============================================================================
@@ -393,6 +409,8 @@ POINT_EVALUATION_CONFIG = MarginalPrecompileConfig(
     step=3,
     input_data=POINT_EVALUATION_INPUT,
     input_size=len(POINT_EVALUATION_INPUT),  # 192 bytes
+    num_calls=1,  # No amplification needed
+    gas_limit=1_000_000,
 )
 
 # ============================================================================
@@ -413,6 +431,8 @@ BLS12_G1ADD_CONFIG = MarginalPrecompileConfig(
     step=257,  # 4 data points
     input_data=BLS12_G1ADD_INPUT,
     input_size=len(BLS12_G1ADD_INPUT),  # 256 bytes
+    num_calls=1,  # No amplification needed
+    gas_limit=1_000_000,
 )
 
 # BLS12_G1MSM (0x0C) - Multi-scalar multiplication on G1
@@ -430,6 +450,8 @@ BLS12_G1MSM_CONFIG = MarginalPrecompileConfig(
     step=13,  # 4 data points
     input_data=BLS12_G1MSM_INPUT,
     input_size=len(BLS12_G1MSM_INPUT),  # 320 bytes (2 × 160)
+    num_calls=1,  # No amplification needed
+    gas_limit=1_000_000,
 )
 
 # BLS12_G2ADD (0x0D) - Add two G2 points
@@ -446,6 +468,8 @@ BLS12_G2ADD_CONFIG = MarginalPrecompileConfig(
     step=150,  # 4 data points
     input_data=BLS12_G2ADD_INPUT,
     input_size=len(BLS12_G2ADD_INPUT),  # 512 bytes
+    num_calls=1,  # No amplification needed
+    gas_limit=1_000_000,
 )
 
 # BLS12_G2MSM (0x0E) - Multi-scalar multiplication on G2
@@ -463,6 +487,8 @@ BLS12_G2MSM_CONFIG = MarginalPrecompileConfig(
     step=8,  # 4 data points
     input_data=BLS12_G2MSM_INPUT,
     input_size=len(BLS12_G2MSM_INPUT),  # 576 bytes (2 × 288)
+    num_calls=1,  # No amplification needed
+    gas_limit=10_000_000,  # High limit for G2MSM
 )
 
 # BLS12_PAIRING (0x0F) - Pairing check
@@ -480,6 +506,8 @@ BLS12_PAIRING_CONFIG = MarginalPrecompileConfig(
     step=3,
     input_data=BLS12_PAIRING_INPUT,
     input_size=len(BLS12_PAIRING_INPUT),  # 768 bytes (2 × 384)
+    num_calls=1,  # No amplification needed
+    gas_limit=10_000_000,  # Higher limit for pairing
 )
 
 # BLS12_MAP_FP_TO_G1 (0x10) - Map field element to G1
@@ -496,6 +524,8 @@ BLS12_MAP_FP_TO_G1_CONFIG = MarginalPrecompileConfig(
     step=25,  # ~5 data points
     input_data=BLS12_MAP_FP_TO_G1_INPUT,
     input_size=len(BLS12_MAP_FP_TO_G1_INPUT),  # 64 bytes
+    num_calls=1,  # No amplification needed
+    gas_limit=1_000_000,
 )
 
 # BLS12_MAP_FP2_TO_G2 (0x11) - Map Fp2 element to G2
@@ -512,78 +542,9 @@ BLS12_MAP_FP2_TO_G2_CONFIG = MarginalPrecompileConfig(
     step=9,
     input_data=BLS12_MAP_FP2_TO_G2_INPUT,
     input_size=len(BLS12_MAP_FP2_TO_G2_INPUT),  # 128 bytes
+    num_calls=1,  # No amplification needed
+    gas_limit=1_000_000,
 )
-
-
-# Address for "noop" STATICCALL - an invalid precompile address that fails immediately
-# Using 0xFFFF as per gas-cost-estimator approach
-NOOP_PRECOMPILE_ADDRESS = Address(0xFFFF)
-
-
-def generate_marginal_precompile_program(
-    config: MarginalPrecompileConfig,
-    op_count: int,
-) -> tuple[Bytecode, bytes]:
-    """
-    Generate a marginal program for a precompile.
-
-    Uses the gas-cost-estimator technique: keep TOTAL STATICCALL count constant
-    by padding with noop STATICCALLs to an invalid address (0xFFFF).
-    
-    This ensures STATICCALL overhead is constant and cancels out in regression,
-    leaving only the pure precompile computation cost as the measured slope.
-
-    Returns:
-        Tuple of (bytecode, calldata) where calldata contains the precompile input
-    """
-    assert 0 <= op_count <= config.max_op_count
-
-    code = Bytecode()
-
-    # 1. Copy calldata (precompile input) to memory at offset 0
-    code += Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-
-    # Calculate ret_offset after input data to avoid corrupting it
-    ret_offset = config.input_size
-
-    # 2. "Noop" STATICCALLs to invalid address 0xFFFF
-    # These fail immediately (no valid precompile) but still incur STATICCALL overhead
-    # Total STATICCALL count = max_op_count + 1 (constant across all op_count values)
-    noop_count = config.max_op_count - op_count + 1
-    for _ in range(noop_count):
-        code += Op.POP(
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=NOOP_PRECOMPILE_ADDRESS,
-                args_offset=0,
-                args_size=config.input_size,
-                ret_offset=ret_offset,
-                ret_size=32,
-            )
-        )
-
-    # 3. Real precompile calls - op_count times
-    # Each call: STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize)
-    # Pass all available gas - unused gas is returned after the call
-    for _ in range(op_count):
-        code += Op.POP(
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=config.address,
-                args_offset=0,
-                args_size=config.input_size,
-                ret_offset=ret_offset,
-                ret_size=32,
-            )
-        )
-
-    # 4. Write success marker to storage
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-
-    # 5. Stop
-    code += Op.STOP
-
-    return code, config.input_data
 
 
 def generate_op_counts(max_op_count: int, step: int) -> List[int]:
@@ -596,51 +557,7 @@ def generate_op_counts(max_op_count: int, step: int) -> List[int]:
 
 
 # ============================================================================
-# ECRECOVER precompile tests (3000 gas per call)
-# ============================================================================
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(ECRECOVER_CONFIG.max_op_count, ECRECOVER_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
-)
-def test_marginal_ecrecover(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    op_count: int,
-) -> None:
-    """
-    Marginal cost estimation test for ECRECOVER precompile.
-
-    Generates a program with exactly `op_count` ECRECOVER calls.
-    Uses a valid signature input that performs full EC recovery (worst case).
-    ECRECOVER has a fixed gas cost of 3000 per call.
-
-    The test verifies execution completed successfully via storage marker.
-    """
-    code, calldata = generate_marginal_precompile_program(ECRECOVER_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-
-    tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
-        sender=sender,
-    )
-
-    # Verify execution completed successfully (didn't revert)
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
-
-
-# ============================================================================
-# MODEXP precompile tests (variable gas cost based on input sizes)
+# MODEXP precompile tests
 # ============================================================================
 
 
@@ -658,215 +575,46 @@ def test_marginal_modexp(
     """
     Marginal cost estimation test for MODEXP precompile.
 
-    Generates a program with exactly `op_count` MODEXP calls.
     Uses true worst-case input: 256-byte (2048-bit) base, exponent, and modulus,
     all set to maximum values for maximum computational work.
     - B = 2^2048 - 1, E = 2^2048 - 1, M = 2^2048 - 3
     - Gas cost: ~698,709 per call (EIP-2565)
-
-    The test verifies execution completed successfully via storage marker.
     """
-    code, calldata = generate_marginal_precompile_program(MODEXP_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = MODEXP_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=10_000_000,  # High limit for worst-case MODEXP (~700K gas per call)
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
-
-    # Verify execution completed successfully (didn't revert)
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(gas_limit=100_000_000), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
-# SHA256 precompile tests (0x02) - ~1,596 gas per call with 4KB input
+# CALLER-CONTRACT APPROACH HELPER FUNCTIONS
+# These functions generate caller and target contracts for precompiles that
+# benefit from amplification (e.g., cheap precompiles like IDENTITY, or
+# short-proving-time precompiles)
 # ============================================================================
 
 
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(SHA256_CONFIG.max_op_count, SHA256_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
-)
-def test_marginal_sha256(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    op_count: int,
-) -> None:
-    """
-    Marginal cost estimation test for SHA256 precompile.
-
-    Uses worst-case input: 4KB of data for maximum computational work.
-    Gas cost: 60 + 12 * ceil(4096/32) = 60 + 12 * 128 = 1,596 gas per call.
-    """
-    code, calldata = generate_marginal_precompile_program(SHA256_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-
-    tx = Transaction(
-        to=contract,
-        gas_limit=50_000_000,  # High limit for worst-case benchmarking
-        data=calldata,
-        sender=sender,
-    )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
-
-
-# ============================================================================
-# RIPEMD160 precompile tests (0x03) - ~4,440 gas per call with 1KB input
-# ============================================================================
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(RIPEMD160_CONFIG.max_op_count, RIPEMD160_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
-)
-def test_marginal_ripemd160(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    op_count: int,
-) -> None:
-    """
-    Marginal cost estimation test for RIPEMD160 precompile.
-
-    Uses worst-case input: 1KB of data for maximum computational work.
-    Gas cost: 600 + 120 * ceil(1024/32) = 600 + 120 * 32 = 4,440 gas per call.
-    """
-    code, calldata = generate_marginal_precompile_program(RIPEMD160_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-
-    tx = Transaction(
-        to=contract,
-        gas_limit=50_000_000,  # High limit for worst-case benchmarking
-        data=calldata,
-        sender=sender,
-    )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
-
-
-# ============================================================================
-# IDENTITY precompile tests (0x04) - Using caller-contract approach for amplification
-# The identity precompile is very cheap, so we need high call counts for good data
-# ============================================================================
-
-# Caller-based approach constants
-IDENTITY_NUM_CALLS = 5000  # Number of caller loop iterations
-IDENTITY_MAX_OP_COUNT = 300  # Target executes op_count IDENTITY calls per invocation
-IDENTITY_STEP = 75  # 5 data points (improved R²)
-IDENTITY_GAS_LIMIT = 500_000_000  # High gas limit for many calls
-
-
-def _generate_identity_target(op_count: int, max_op_count: int, input_size: int = 128) -> Bytecode:
-    """
-    Generate a target contract with proper marginal padding.
-    
-    Uses the gas-cost-estimator technique: keep TOTAL STATICCALL count constant
-    by padding with noop STATICCALLs to an invalid address (0xFFFF).
-    
-    Total STATICCALLs = (max_op_count - op_count + 1) noops + op_count real = max_op_count + 1
-    
-    This ensures STATICCALL overhead is constant and cancels out in regression.
-    """
-    code = Bytecode()
-    
-    # Store input data in memory (128 bytes of 0xff)
-    # We store it in 4 chunks of 32 bytes each
-    for i in range(4):
-        code += Op.MSTORE(i * 32, (1 << 256) - 1)  # 32 bytes of 0xff
-    
-    ret_offset = input_size  # Return data goes after input
-    
-    # First loop: noop STATICCALLs to invalid address 0xFFFF
-    # These fail immediately but still incur STATICCALL overhead
-    noop_count = max_op_count - op_count + 1
-    if noop_count > 0:
-        if noop_count <= 0xFF:
-            code += Op.PUSH1(noop_count)
-        elif noop_count <= 0xFFFF:
-            code += Op.PUSH2(noop_count)
-        else:
-            code += Op.PUSH3(noop_count)
-        
-        noop_loop_start = len(bytes(code))
-        code += Op.JUMPDEST
-        
-        # STATICCALL to invalid address 0xFFFF (noop)
-        code += Op.PUSH1(32)                  # retSize
-        code += Op.PUSH1(ret_offset)          # retOffset
-        code += Op.PUSH1(input_size)          # argsSize
-        code += Op.PUSH1(0)                   # argsOffset
-        code += Op.PUSH2(0xFFFF)              # address (invalid - noop)
-        code += Op.GAS                        # gas
-        code += Op.STATICCALL
-        code += Op.POP                        # pop success flag (will be 0)
-        
-        # Decrement counter and loop
-        code += Op.PUSH1(1)
-        code += Op.SWAP1
-        code += Op.SUB
-        code += Op.DUP1
-        code += Op.PUSH2(noop_loop_start)
-        code += Op.JUMPI
-        code += Op.POP
-    
-    # Second loop: real STATICCALLs to IDENTITY precompile
-    if op_count > 0:
-        if op_count <= 0xFF:
-            code += Op.PUSH1(op_count)
-        elif op_count <= 0xFFFF:
-            code += Op.PUSH2(op_count)
-        else:
-            code += Op.PUSH3(op_count)
-        
-        real_loop_start = len(bytes(code))
-        code += Op.JUMPDEST
-        
-        # STATICCALL to IDENTITY (0x04)
-        code += Op.PUSH1(32)                  # retSize
-        code += Op.PUSH1(ret_offset)          # retOffset
-        code += Op.PUSH1(input_size)          # argsSize
-        code += Op.PUSH1(0)                   # argsOffset
-        code += Op.PUSH1(0x04)                # address (IDENTITY)
-        code += Op.GAS                        # gas
-        code += Op.STATICCALL
-        code += Op.POP                        # pop success flag
-        
-        # Decrement counter and loop
-        code += Op.PUSH1(1)
-        code += Op.SWAP1
-        code += Op.SUB
-        code += Op.DUP1
-        code += Op.PUSH2(real_loop_start)
-        code += Op.JUMPI
-        code += Op.POP
-    
-    code += Op.STOP
-    
-    return code
-
-
-def _generate_identity_caller(target_address: Address, num_calls: int) -> Bytecode:
+def _generate_precompile_caller(target_address: Address, num_calls: int) -> Bytecode:
     """
     Generate a caller contract that calls the target num_calls times using a loop.
     Uses STATICCALL since target doesn't modify state.
@@ -910,11 +658,91 @@ def _generate_identity_caller(target_address: Address, num_calls: int) -> Byteco
     return code
 
 
+def _generate_precompile_target(
+    precompile_address: Address,
+    input_data: bytes,
+    op_count: int,
+    max_op_count: int,
+) -> Bytecode:
+    """
+    Generate a target contract for any precompile with proper marginal padding.
+    
+    Stores input data in memory, then executes:
+    - (max_op_count - op_count + 1) noop STATICCALLs to 0xFFFF
+    - op_count real STATICCALLs to the precompile
+
+    This keeps total STATICCALL count constant for marginal property.
+    """
+    code = Bytecode()
+    input_size = len(input_data)
+    
+    # Store input data in memory in 32-byte chunks
+    for i in range(0, input_size, 32):
+        chunk = input_data[i:i+32]
+        # Pad chunk to 32 bytes if needed
+        chunk_padded = chunk.ljust(32, b'\x00')
+        chunk_int = int.from_bytes(chunk_padded, 'big')
+        code += Op.MSTORE(i, chunk_int)
+    
+    ret_offset = input_size  # Return data goes after input
+
+    # Noop STATICCALLs to invalid address 0xFFFF
+    noop_count = max_op_count - op_count + 1
+    for _ in range(noop_count):
+        code += Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=0xFFFF,  # Invalid address - noop
+                args_offset=0,
+                args_size=input_size,
+                ret_offset=ret_offset,
+                ret_size=32,
+            )
+        )
+    
+    # Real STATICCALLs to the precompile
+    for _ in range(op_count):
+        code += Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=precompile_address,
+                args_offset=0,
+                args_size=input_size,
+                ret_offset=ret_offset,
+                ret_size=32,
+            )
+        )
+
+    code += Op.STOP
+    
+    return code
+
+
+# ============================================================================
+# IDENTITY precompile tests
+# The identity precompile is very cheap, so we need high call counts for good data
+# ============================================================================
+
+# Identity precompile input: 128 bytes of 0xff
+IDENTITY_INPUT = bytes([0xFF] * 128)
+
+IDENTITY_CONFIG = MarginalPrecompileConfig(
+    name="IDENTITY",
+    address=IDENTITY_ADDRESS,
+    max_op_count=300,
+    step=75,
+    input_data=IDENTITY_INPUT,
+    input_size=len(IDENTITY_INPUT),  # 128 bytes
+    num_calls=5000,  # High amplification (total calls = 5000 × max_op_count)
+    gas_limit=500_000_000,  # High gas limit for many calls
+)
+
+
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "op_count",
-    generate_op_counts(IDENTITY_MAX_OP_COUNT, IDENTITY_STEP),
-    ids=lambda x: f"op_count_{x * IDENTITY_NUM_CALLS}",
+    generate_op_counts(IDENTITY_CONFIG.max_op_count, IDENTITY_CONFIG.step),
+    ids=lambda x: f"op_count_{x * IDENTITY_CONFIG.num_calls}",
 )
 def test_marginal_identity(
     state_test: StateTestFiller,
@@ -925,152 +753,38 @@ def test_marginal_identity(
     Marginal cost estimation test for IDENTITY precompile using caller-contract approach.
     
     Uses a two-level structure:
-    - Caller contract loops IDENTITY_NUM_CALLS times
+    - Caller contract loops num_calls times
     - Target contract calls IDENTITY precompile op_count times per invocation
-    - Total IDENTITY calls = IDENTITY_NUM_CALLS × op_count
+    - Total IDENTITY calls = num_calls × op_count
     
     This amplifies the cheap IDENTITY precompile to generate meaningful ZK cycles.
     """
+    cfg = IDENTITY_CONFIG
+    
     # Target contract calls IDENTITY op_count times with noop padding
-    target_code = _generate_identity_target(op_count, IDENTITY_MAX_OP_COUNT)
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
     target = pre.deploy_contract(code=target_code)
     
-    # Caller contract loops IDENTITY_NUM_CALLS times
-    caller_code = _generate_identity_caller(target, IDENTITY_NUM_CALLS)
+    # Caller contract loops num_calls times
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
     caller = pre.deploy_contract(code=caller_code)
     
     sender = pre.fund_eoa()
     
     tx = Transaction(
         to=caller,
-        gas_limit=IDENTITY_GAS_LIMIT,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
     
     post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     
-    state_test(env=Environment(gas_limit=IDENTITY_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
-
-# ============================================================================
-# BN128_ADD precompile tests (0x06) - 150 gas per call
-# ============================================================================
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(BN128_ADD_CONFIG.max_op_count, BN128_ADD_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
-)
-def test_marginal_bn128_add(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    op_count: int,
-) -> None:
-    """
-    Marginal cost estimation test for BN128_ADD (ecAdd) precompile.
-
-    Uses valid curve points to ensure full computation is performed.
-    Gas cost: 150 (fixed).
-    """
-    code, calldata = generate_marginal_precompile_program(BN128_ADD_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-
-    tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
-        sender=sender,
-    )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
-
-
-# ============================================================================
-# BN128_MUL precompile tests (0x07) - 6,000 gas per call
-# ============================================================================
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(BN128_MUL_CONFIG.max_op_count, BN128_MUL_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
-)
-def test_marginal_bn128_mul(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    op_count: int,
-) -> None:
-    """
-    Marginal cost estimation test for BN128_MUL (ecMul) precompile.
-
-    Uses worst-case input: maximum scalar (32 bytes of 0xff) for maximum
-    computational work in the scalar multiplication.
-    Gas cost: 6,000 (fixed).
-    """
-    code, calldata = generate_marginal_precompile_program(BN128_MUL_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-
-    tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
-        sender=sender,
-    )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
-
-
-# ============================================================================
-# BN128_PAIRING precompile tests (0x08) - 113,000 gas per call (2 pairs)
-# ============================================================================
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(BN128_PAIRING_CONFIG.max_op_count, BN128_PAIRING_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
-)
-def test_marginal_bn128_pairing(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    op_count: int,
-) -> None:
-    """
-    Marginal cost estimation test for BN128_PAIRING (ecPairing) precompile.
-
-    Uses 2 valid pairing pairs for substantial computational work.
-    Gas cost: 45,000 + 34,000 * 2 = 113,000 per call.
-    """
-    code, calldata = generate_marginal_precompile_program(BN128_PAIRING_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-
-    tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
-        sender=sender,
-    )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -1095,26 +809,34 @@ def test_marginal_blake2f(
     Uses worst-case input: 0xFFFF (65,535) rounds for maximum computational work.
     Gas cost: 1 * rounds = 65,535 per call.
     """
-    code, calldata = generate_marginal_precompile_program(BLAKE2F_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = BLAKE2F_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
-# POINT_EVALUATION precompile tests (0x0A) - 50,000 gas per call
+# POINT_EVALUATION precompile tests (0x0A)
 # ============================================================================
 
 
@@ -1135,22 +857,30 @@ def test_marginal_point_evaluation(
     Uses a valid KZG proof for point evaluation.
     Gas cost: 50,000 (fixed).
     """
-    code, calldata = generate_marginal_precompile_program(POINT_EVALUATION_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = POINT_EVALUATION_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -1175,22 +905,30 @@ def test_marginal_bls12_g1add(
     Adds two G1 points on the BLS12-381 curve.
     Gas cost: 375 (fixed).
     """
-    code, calldata = generate_marginal_precompile_program(BLS12_G1ADD_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = BLS12_G1ADD_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -1215,22 +953,30 @@ def test_marginal_bls12_g1msm(
     Multi-scalar multiplication on G1 with k=2 pairs for worst-case marginal cost.
     Gas cost: variable based on k.
     """
-    code, calldata = generate_marginal_precompile_program(BLS12_G1MSM_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = BLS12_G1MSM_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -1255,22 +1001,30 @@ def test_marginal_bls12_g2add(
     Adds two G2 points on the BLS12-381 curve.
     Gas cost: 600 (fixed).
     """
-    code, calldata = generate_marginal_precompile_program(BLS12_G2ADD_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = BLS12_G2ADD_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -1295,22 +1049,30 @@ def test_marginal_bls12_g2msm(
     Multi-scalar multiplication on G2 with k=2 pairs for worst-case marginal cost.
     Gas cost: variable based on k.
     """
-    code, calldata = generate_marginal_precompile_program(BLS12_G2MSM_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = BLS12_G2MSM_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=10_000_000,  # High limit for G2MSM
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -1335,22 +1097,30 @@ def test_marginal_bls12_pairing(
     Pairing check with k=2 pairs for worst-case marginal cost.
     Gas cost: variable based on k.
     """
-    code, calldata = generate_marginal_precompile_program(BLS12_PAIRING_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = BLS12_PAIRING_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=10_000_000,  # Higher limit for pairing
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -1375,22 +1145,30 @@ def test_marginal_bls12_map_fp_to_g1(
     Maps a field element to a G1 point.
     Gas cost: 5,500 (fixed).
     """
-    code, calldata = generate_marginal_precompile_program(BLS12_MAP_FP_TO_G1_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = BLS12_MAP_FP_TO_G1_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
-
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
-
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -1415,19 +1193,297 @@ def test_marginal_bls12_map_fp2_to_g2(
     Maps an Fp2 element to a G2 point.
     Gas cost: 23,800 (fixed).
     """
-    code, calldata = generate_marginal_precompile_program(BLS12_MAP_FP2_TO_G2_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
+    cfg = BLS12_MAP_FP2_TO_G2_CONFIG
+    
+    target_code = _generate_precompile_target(
+        precompile_address=cfg.address,
+        input_data=cfg.input_data,
+        op_count=op_count,
+        max_op_count=cfg.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, cfg.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
     sender = pre.fund_eoa()
-
+    
     tx = Transaction(
-        to=contract,
-        gas_limit=1_000_000,
-        data=calldata,
+        to=caller,
+        gas_limit=cfg.gas_limit,
         sender=sender,
     )
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=cfg.gas_limit), pre=pre, post=post, tx=tx)
 
-    post = {
-        contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-    }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+# ============================================================================
+# ECRECOVER with caller-contract approach (2x amplification)
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(ECRECOVER_CONFIG.max_op_count, ECRECOVER_CONFIG.step),
+    ids=lambda x: f"op_count_{x * ECRECOVER_CONFIG.num_calls}",
+)
+def test_marginal_ecrecover(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for ECRECOVER using caller-contract approach.
+    
+    Uses a two-level structure for 2x amplification of proving time.
+    """
+    target_code = _generate_precompile_target(
+        ECRECOVER_CONFIG.address,
+        ECRECOVER_CONFIG.input_data,
+        op_count,
+        ECRECOVER_CONFIG.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, ECRECOVER_CONFIG.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
+    sender = pre.fund_eoa()
+    
+    tx = Transaction(
+        to=caller,
+        gas_limit=ECRECOVER_CONFIG.gas_limit,
+        sender=sender,
+    )
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=ECRECOVER_CONFIG.gas_limit), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# SHA256 with caller-contract approach (2x amplification)
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(SHA256_CONFIG.max_op_count, SHA256_CONFIG.step),
+    ids=lambda x: f"op_count_{x * SHA256_CONFIG.num_calls}",
+)
+def test_marginal_sha256(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for SHA256 using caller-contract approach.
+    
+    Uses a two-level structure for 2x amplification of proving time.
+    """
+    target_code = _generate_precompile_target(
+        SHA256_CONFIG.address,
+        SHA256_CONFIG.input_data,
+        op_count,
+        SHA256_CONFIG.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, SHA256_CONFIG.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
+    sender = pre.fund_eoa()
+    
+    tx = Transaction(
+        to=caller,
+        gas_limit=SHA256_CONFIG.gas_limit,
+        sender=sender,
+    )
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=SHA256_CONFIG.gas_limit), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# RIPEMD160 with caller-contract approach (2x amplification)
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(RIPEMD160_CONFIG.max_op_count, RIPEMD160_CONFIG.step),
+    ids=lambda x: f"op_count_{x * RIPEMD160_CONFIG.num_calls}",
+)
+def test_marginal_ripemd160(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for RIPEMD160 using caller-contract approach.
+    
+    Uses a two-level structure for 2x amplification of proving time.
+    """
+    target_code = _generate_precompile_target(
+        RIPEMD160_CONFIG.address,
+        RIPEMD160_CONFIG.input_data,
+        op_count,
+        RIPEMD160_CONFIG.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, RIPEMD160_CONFIG.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
+    sender = pre.fund_eoa()
+    
+    tx = Transaction(
+        to=caller,
+        gas_limit=RIPEMD160_CONFIG.gas_limit,
+        sender=sender,
+    )
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=RIPEMD160_CONFIG.gas_limit), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BN128_ADD with caller-contract approach (2x amplification)
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BN128_ADD_CONFIG.max_op_count, BN128_ADD_CONFIG.step),
+    ids=lambda x: f"op_count_{x * BN128_ADD_CONFIG.num_calls}",
+)
+def test_marginal_bn128_add(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BN128_ADD using caller-contract approach.
+    
+    Uses a two-level structure for 2x amplification of proving time.
+    """
+    target_code = _generate_precompile_target(
+        BN128_ADD_CONFIG.address,
+        BN128_ADD_CONFIG.input_data,
+        op_count,
+        BN128_ADD_CONFIG.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, BN128_ADD_CONFIG.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
+    sender = pre.fund_eoa()
+    
+    tx = Transaction(
+        to=caller,
+        gas_limit=BN128_ADD_CONFIG.gas_limit,
+        sender=sender,
+    )
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=BN128_ADD_CONFIG.gas_limit), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BN128_MUL with caller-contract approach (2x amplification)
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BN128_MUL_CONFIG.max_op_count, BN128_MUL_CONFIG.step),
+    ids=lambda x: f"op_count_{x * BN128_MUL_CONFIG.num_calls}",
+)
+def test_marginal_bn128_mul(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BN128_MUL using caller-contract approach.
+    
+    Uses a two-level structure for 2x amplification of proving time.
+    """
+    target_code = _generate_precompile_target(
+        BN128_MUL_CONFIG.address,
+        BN128_MUL_CONFIG.input_data,
+        op_count,
+        BN128_MUL_CONFIG.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, BN128_MUL_CONFIG.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
+    sender = pre.fund_eoa()
+    
+    tx = Transaction(
+        to=caller,
+        gas_limit=BN128_MUL_CONFIG.gas_limit,
+        sender=sender,
+    )
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=BN128_MUL_CONFIG.gas_limit), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# BN128_PAIRING with caller-contract approach (2x amplification)
+# ============================================================================
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BN128_PAIRING_CONFIG.max_op_count, BN128_PAIRING_CONFIG.step),
+    ids=lambda x: f"op_count_{x * BN128_PAIRING_CONFIG.num_calls}",
+)
+def test_marginal_bn128_pairing(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    op_count: int,
+) -> None:
+    """
+    Marginal cost estimation test for BN128_PAIRING using caller-contract approach.
+    
+    Uses a two-level structure for 2x amplification of proving time.
+    """
+    target_code = _generate_precompile_target(
+        BN128_PAIRING_CONFIG.address,
+        BN128_PAIRING_CONFIG.input_data,
+        op_count,
+        BN128_PAIRING_CONFIG.max_op_count,
+    )
+    target = pre.deploy_contract(code=target_code)
+    
+    caller_code = _generate_precompile_caller(target, BN128_PAIRING_CONFIG.num_calls)
+    caller = pre.deploy_contract(code=caller_code)
+    
+    sender = pre.fund_eoa()
+    
+    tx = Transaction(
+        to=caller,
+        gas_limit=BN128_PAIRING_CONFIG.gas_limit,
+        sender=sender,
+    )
+    
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    
+    state_test(env=Environment(gas_limit=BN128_PAIRING_CONFIG.gas_limit), pre=pre, post=post, tx=tx)
