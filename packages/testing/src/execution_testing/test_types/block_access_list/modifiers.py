@@ -8,7 +8,10 @@ and can be combined to create complex modifications.
 
 from typing import Any, Callable, List, Optional
 
-from execution_testing.base_types import Address, HexNumber
+from execution_testing.base_types import (
+    Address,
+    ZeroPaddedHexNumber,
+)
 
 from .. import BalCodeChange
 from . import (
@@ -257,20 +260,28 @@ def swap_tx_indices(
                 for nonce_change in new_account.nonce_changes:
                     if nonce_change.block_access_index == tx1:
                         nonce_indices[tx1] = True
-                        nonce_change.block_access_index = HexNumber(tx2)
+                        nonce_change.block_access_index = ZeroPaddedHexNumber(
+                            tx2
+                        )
                     elif nonce_change.block_access_index == tx2:
                         nonce_indices[tx2] = True
-                        nonce_change.block_access_index = HexNumber(tx1)
+                        nonce_change.block_access_index = ZeroPaddedHexNumber(
+                            tx1
+                        )
 
             # Swap in balance changes
             if new_account.balance_changes:
                 for balance_change in new_account.balance_changes:
                     if balance_change.block_access_index == tx1:
                         balance_indices[tx1] = True
-                        balance_change.block_access_index = HexNumber(tx2)
+                        balance_change.block_access_index = (
+                            ZeroPaddedHexNumber(tx2)
+                        )
                     elif balance_change.block_access_index == tx2:
                         balance_indices[tx2] = True
-                        balance_change.block_access_index = HexNumber(tx1)
+                        balance_change.block_access_index = (
+                            ZeroPaddedHexNumber(tx1)
+                        )
 
             # Swap in storage changes (nested structure)
             if new_account.storage_changes:
@@ -278,10 +289,14 @@ def swap_tx_indices(
                     for storage_change in storage_slot.slot_changes:
                         if storage_change.block_access_index == tx1:
                             balance_indices[tx1] = True
-                            storage_change.block_access_index = HexNumber(tx2)
+                            storage_change.block_access_index = (
+                                ZeroPaddedHexNumber(tx2)
+                            )
                         elif storage_change.block_access_index == tx2:
                             balance_indices[tx2] = True
-                            storage_change.block_access_index = HexNumber(tx1)
+                            storage_change.block_access_index = (
+                                ZeroPaddedHexNumber(tx1)
+                            )
 
             # Note: storage_reads is just a list of StorageKey, no block_access_index to
             # swap
@@ -291,10 +306,14 @@ def swap_tx_indices(
                 for code_change in new_account.code_changes:
                     if code_change.block_access_index == tx1:
                         code_indices[tx1] = True
-                        code_change.block_access_index = HexNumber(tx2)
+                        code_change.block_access_index = ZeroPaddedHexNumber(
+                            tx2
+                        )
                     elif code_change.block_access_index == tx2:
                         code_indices[tx2] = True
-                        code_change.block_access_index = HexNumber(tx1)
+                        code_change.block_access_index = ZeroPaddedHexNumber(
+                            tx1
+                        )
 
             new_root.append(new_account)
 

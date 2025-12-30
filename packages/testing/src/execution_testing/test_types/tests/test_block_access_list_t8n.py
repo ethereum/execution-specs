@@ -9,7 +9,7 @@ from typing import List, Union
 
 import pytest
 
-from execution_testing.base_types import Address, HexNumber, StorageKey
+from execution_testing.base_types import Address
 from execution_testing.test_types.block_access_list import (
     BalAccountChange,
     BalBalanceChange,
@@ -61,9 +61,9 @@ def test_bal_storage_slot_ordering() -> None:
             BalAccountChange(
                 address=addr,
                 storage_changes=[
-                    BalStorageSlot(slot=StorageKey(0), slot_changes=[]),
-                    BalStorageSlot(slot=StorageKey(1), slot_changes=[]),
-                    BalStorageSlot(slot=StorageKey(2), slot_changes=[]),
+                    BalStorageSlot(slot=0, slot_changes=[]),
+                    BalStorageSlot(slot=1, slot_changes=[]),
+                    BalStorageSlot(slot=2, slot_changes=[]),
                 ],
             )
         ]
@@ -76,9 +76,9 @@ def test_bal_storage_slot_ordering() -> None:
             BalAccountChange(
                 address=addr,
                 storage_changes=[
-                    BalStorageSlot(slot=StorageKey(0), slot_changes=[]),
-                    BalStorageSlot(slot=StorageKey(2), slot_changes=[]),
-                    BalStorageSlot(slot=StorageKey(1), slot_changes=[]),
+                    BalStorageSlot(slot=0, slot_changes=[]),
+                    BalStorageSlot(slot=2, slot_changes=[]),
+                    BalStorageSlot(slot=1, slot_changes=[]),
                 ],
             )
         ]
@@ -100,7 +100,7 @@ def test_bal_storage_reads_ordering() -> None:
         [
             BalAccountChange(
                 address=addr,
-                storage_reads=[StorageKey(0), StorageKey(1), StorageKey(2)],
+                storage_reads=[0, 1, 2],
             )
         ]
     )
@@ -111,7 +111,7 @@ def test_bal_storage_reads_ordering() -> None:
         [
             BalAccountChange(
                 address=addr,
-                storage_reads=[StorageKey(0), StorageKey(2), StorageKey(1)],
+                storage_reads=[0, 2, 1],
             )
         ]
     )
@@ -142,59 +142,71 @@ def test_bal_block_access_indices_ordering(field_name: str) -> None:
     if field_name == "nonce_changes":
         changes_valid = [
             BalNonceChange(
-                block_access_index=HexNumber(1), post_nonce=HexNumber(1)
+                block_access_index=1,
+                post_nonce=1,
             ),
             BalNonceChange(
-                block_access_index=HexNumber(2), post_nonce=HexNumber(2)
+                block_access_index=2,
+                post_nonce=2,
             ),
             BalNonceChange(
-                block_access_index=HexNumber(3), post_nonce=HexNumber(3)
+                block_access_index=3,
+                post_nonce=3,
             ),
         ]
         changes_invalid = [
             BalNonceChange(
-                block_access_index=HexNumber(1), post_nonce=HexNumber(1)
+                block_access_index=1,
+                post_nonce=1,
             ),
             BalNonceChange(
-                block_access_index=HexNumber(3), post_nonce=HexNumber(3)
+                block_access_index=3,
+                post_nonce=3,
             ),
             BalNonceChange(
-                block_access_index=HexNumber(2), post_nonce=HexNumber(2)
+                block_access_index=2,
+                post_nonce=2,
             ),
         ]
     elif field_name == "balance_changes":
         changes_valid = [
             BalBalanceChange(
-                block_access_index=HexNumber(1), post_balance=HexNumber(100)
+                block_access_index=1,
+                post_balance=100,
             ),
             BalBalanceChange(
-                block_access_index=HexNumber(2), post_balance=HexNumber(200)
+                block_access_index=2,
+                post_balance=200,
             ),
             BalBalanceChange(
-                block_access_index=HexNumber(3), post_balance=HexNumber(300)
+                block_access_index=3,
+                post_balance=300,
             ),
         ]
         changes_invalid = [
             BalBalanceChange(
-                block_access_index=HexNumber(1), post_balance=HexNumber(100)
+                block_access_index=1,
+                post_balance=100,
             ),
             BalBalanceChange(
-                block_access_index=HexNumber(3), post_balance=HexNumber(300)
+                block_access_index=3,
+                post_balance=300,
             ),
             BalBalanceChange(
-                block_access_index=HexNumber(2), post_balance=HexNumber(200)
+                block_access_index=2,
+                post_balance=200,
             ),
         ]
     elif field_name == "code_changes":
         changes_valid = [
-            BalCodeChange(block_access_index=HexNumber(1), new_code=b"code1"),
-            BalCodeChange(block_access_index=HexNumber(2), new_code=b"code2"),
-            BalCodeChange(block_access_index=HexNumber(3), new_code=b"code3"),
+            BalCodeChange(block_access_index=1, new_code=b"code1"),
+            BalCodeChange(block_access_index=2, new_code=b"code2"),
+            BalCodeChange(block_access_index=3, new_code=b"code3"),
         ]
         changes_invalid = [
-            BalCodeChange(block_access_index=HexNumber(1), new_code=b"code1"),
-            BalCodeChange(block_access_index=HexNumber(3), new_code=b"code3"),
-            BalCodeChange(block_access_index=HexNumber(2), new_code=b"code2"),
+            BalCodeChange(block_access_index=1, new_code=b"code1"),
+            BalCodeChange(block_access_index=3, new_code=b"code3"),
+            BalCodeChange(block_access_index=2, new_code=b"code2"),
         ]
 
     bal_valid = BlockAccessList(
@@ -229,34 +241,40 @@ def test_bal_duplicate_block_access_indices(field_name: str) -> None:
     if field_name == "nonce_changes":
         changes = [
             BalNonceChange(
-                block_access_index=HexNumber(1), post_nonce=HexNumber(1)
+                block_access_index=1,
+                post_nonce=1,
             ),
             BalNonceChange(
-                block_access_index=HexNumber(1), post_nonce=HexNumber(2)
+                block_access_index=1,
+                post_nonce=2,
             ),  # duplicate block_access_index
             BalNonceChange(
-                block_access_index=HexNumber(2), post_nonce=HexNumber(3)
+                block_access_index=2,
+                post_nonce=3,
             ),
         ]
     elif field_name == "balance_changes":
         changes = [
             BalBalanceChange(
-                block_access_index=HexNumber(1), post_balance=HexNumber(100)
+                block_access_index=1,
+                post_balance=100,
             ),
             BalBalanceChange(
-                block_access_index=HexNumber(1), post_balance=HexNumber(200)
+                block_access_index=1,
+                post_balance=200,
             ),  # duplicate block_access_index
             BalBalanceChange(
-                block_access_index=HexNumber(2), post_balance=HexNumber(300)
+                block_access_index=2,
+                post_balance=300,
             ),
         ]
     elif field_name == "code_changes":
         changes = [
-            BalCodeChange(block_access_index=HexNumber(1), new_code=b"code1"),
+            BalCodeChange(block_access_index=1, new_code=b"code1"),
             BalCodeChange(
-                block_access_index=HexNumber(1), new_code=b""
+                block_access_index=1, new_code=b""
             ),  # duplicate block_access_index
-            BalCodeChange(block_access_index=HexNumber(2), new_code=b"code2"),
+            BalCodeChange(block_access_index=2, new_code=b"code2"),
         ]
 
     bal = BlockAccessList(
@@ -283,19 +301,19 @@ def test_bal_storage_duplicate_block_access_indices() -> None:
                 address=addr,
                 storage_changes=[
                     BalStorageSlot(
-                        slot=StorageKey(0),
+                        slot=0,
                         slot_changes=[
                             BalStorageChange(
-                                block_access_index=HexNumber(1),
-                                post_value=StorageKey(100),
+                                block_access_index=1,
+                                post_value=100,
                             ),
                             BalStorageChange(
-                                block_access_index=HexNumber(1),
-                                post_value=StorageKey(200),
+                                block_access_index=1,
+                                post_value=200,
                             ),  # duplicate block_access_index
                             BalStorageChange(
-                                block_access_index=HexNumber(2),
-                                post_value=StorageKey(300),
+                                block_access_index=2,
+                                post_value=300,
                             ),
                         ],
                     )
@@ -325,12 +343,12 @@ def test_bal_multiple_violations() -> None:
                 address=bob,  # Should come after alice
                 nonce_changes=[
                     BalNonceChange(
-                        block_access_index=HexNumber(1),
-                        post_nonce=HexNumber(1),
+                        block_access_index=1,
+                        post_nonce=1,
                     ),
                     BalNonceChange(
-                        block_access_index=HexNumber(1),
-                        post_nonce=HexNumber(2),
+                        block_access_index=1,
+                        post_nonce=2,
                     ),  # duplicate
                 ],
             ),
@@ -360,8 +378,8 @@ def test_bal_single_account_valid() -> None:
                 address=Address(0xA),
                 nonce_changes=[
                     BalNonceChange(
-                        block_access_index=HexNumber(1),
-                        post_nonce=HexNumber(1),
+                        block_access_index=1,
+                        post_nonce=1,
                     )
                 ],
             )
