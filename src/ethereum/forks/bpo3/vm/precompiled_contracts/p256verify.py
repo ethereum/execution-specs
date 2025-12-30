@@ -5,9 +5,10 @@ Ethereum Virtual Machine (EVM) P256VERIFY PRECOMPILED CONTRACT.
     :backlinks: none
     :local:
 
-Introduction.
+Introduction
 ------------
-Implementation of the P256VERIFY precompiled contract.
+
+Implementation of the `P256VERIFY` precompiled contract.
 """
 
 from ethereum_types.numeric import U256
