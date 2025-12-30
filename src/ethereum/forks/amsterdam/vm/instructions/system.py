@@ -16,7 +16,6 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.utils.numeric import ceil32
 
-# track_address_access removed - now using state_changes.track_address()
 from ...fork_types import Address
 from ...state import (
     account_has_code_or_nonce,
@@ -41,7 +40,6 @@ from ...utils.address import (
 )
 from ...vm.eoa_delegation import (
     calculate_delegation_cost,
-    read_delegation_target,
 )
 from .. import (
     Evm,
@@ -169,7 +167,6 @@ def generic_create(
         is_create=True,
         state_changes=child_state_changes,
     )
-
     child_evm = process_create_message(child_message)
 
     if child_evm.error:
@@ -407,6 +404,9 @@ def call(evm: Evm) -> None:
     memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
 
+    if evm.message.is_static and value != U256(0):
+        raise WriteInStaticContext
+
     # GAS
     extend_memory = calculate_gas_extend_memory(
         evm.memory,
@@ -417,69 +417,56 @@ def call(evm: Evm) -> None:
     )
 
     is_cold_access = to not in evm.accessed_addresses
-    access_gas_cost = (
-        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
-    )
+    if is_cold_access:
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+    else:
+        access_gas_cost = GAS_WARM_ACCESS
 
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
 
+    # check static gas before state access
     check_gas(
         evm,
         access_gas_cost + transfer_gas_cost + extend_memory.cost,
     )
 
-    # need to access account to check if account is alive, check gas before
-    create_gas_cost = GAS_NEW_ACCOUNT
-    if value == 0 or is_account_alive(evm.message.block_env.state, to):
-        create_gas_cost = Uint(0)
-
+    # STATE ACCESS
+    state = evm.message.block_env.state
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
+    create_gas_cost = GAS_NEW_ACCOUNT
+    if value == 0 or is_account_alive(state, to):
+        create_gas_cost = Uint(0)
+
+    extra_gas = access_gas_cost + transfer_gas_cost + create_gas_cost
     (
         is_delegated,
-        original_address,
-        delegated_address,
-        delegation_gas_cost,
+        code_address,
+        delegation_access_cost,
     ) = calculate_delegation_cost(evm, to)
 
-    if is_delegated and delegation_gas_cost > Uint(0):
-        assert delegated_address is not None
-        message_call_gas = calculate_message_call_gas(
-            value,
-            gas,
-            Uint(evm.gas_left),
-            extend_memory.cost,
-            access_gas_cost
-            + transfer_gas_cost
-            + create_gas_cost
-            + delegation_gas_cost,
-        )
-        check_gas(evm, message_call_gas.cost + extend_memory.cost)
-        code = read_delegation_target(evm, delegated_address)
-        final_address = delegated_address
-    else:
-        message_call_gas = calculate_message_call_gas(
-            value,
-            gas,
-            Uint(evm.gas_left),
-            extend_memory.cost,
-            access_gas_cost + create_gas_cost + transfer_gas_cost,
-        )
-        check_gas(evm, message_call_gas.cost + extend_memory.cost)
-        code = get_account(evm.message.block_env.state, to).code
-        final_address = to
+    if is_delegated:
+        # check enough gas for delegation access
+        extra_gas += delegation_access_cost
+        check_gas(evm, extra_gas + extend_memory.cost)
+        track_address(evm.state_changes, code_address)
+        if code_address not in evm.accessed_addresses:
+            evm.accessed_addresses.add(code_address)
 
-    code_address = final_address
-    disable_precompiles = is_delegated
+    code = get_account(state, code_address).code
 
+    message_call_gas = calculate_message_call_gas(
+        value,
+        gas,
+        Uint(evm.gas_left),
+        extend_memory.cost,
+        extra_gas,
+    )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-    if evm.message.is_static and value != U256(0):
-        raise WriteInStaticContext
+
     evm.memory += b"\x00" * extend_memory.expand_by
-    sender_balance = get_account(
-        evm.message.block_env.state, evm.message.current_target
-    ).balance
+    sender_balance = get_account(state, evm.message.current_target).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.return_data = b""
@@ -499,7 +486,7 @@ def call(evm: Evm) -> None:
             memory_output_start_position,
             memory_output_size,
             code,
-            disable_precompiles,
+            is_delegated,
         )
 
     # PROGRAM COUNTER
@@ -537,55 +524,48 @@ def callcode(evm: Evm) -> None:
     )
 
     is_cold_access = code_address not in evm.accessed_addresses
-    access_gas_cost = (
-        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
-    )
     if is_cold_access:
-        evm.accessed_addresses.add(code_address)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+    else:
+        access_gas_cost = GAS_WARM_ACCESS
 
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
 
+    # check static gas before state access
     check_gas(
         evm,
         access_gas_cost + extend_memory.cost + transfer_gas_cost,
     )
 
-    # need to access account to get delegation code, check gas before
+    # STATE ACCESS
+    state = evm.message.block_env.state
+    if is_cold_access:
+        evm.accessed_addresses.add(code_address)
+
+    extra_gas = access_gas_cost + transfer_gas_cost
     (
         is_delegated,
-        original_address,
-        delegated_address,
-        delegation_gas_cost,
+        code_address,
+        delegation_access_cost,
     ) = calculate_delegation_cost(evm, code_address)
 
-    if is_delegated and delegation_gas_cost > Uint(0):
-        assert delegated_address is not None
-        # Recalculate with delegation cost and check gas
-        message_call_gas = calculate_message_call_gas(
-            value,
-            gas,
-            Uint(evm.gas_left),
-            extend_memory.cost,
-            access_gas_cost + transfer_gas_cost + delegation_gas_cost,
-        )
-        check_gas(evm, message_call_gas.cost + extend_memory.cost)
-        code = read_delegation_target(evm, delegated_address)
-        final_address = delegated_address
-    else:
-        message_call_gas = calculate_message_call_gas(
-            value,
-            gas,
-            Uint(evm.gas_left),
-            extend_memory.cost,
-            access_gas_cost + transfer_gas_cost,
-        )
-        check_gas(evm, message_call_gas.cost + extend_memory.cost)
-        code = get_account(evm.message.block_env.state, code_address).code
-        final_address = code_address
+    if is_delegated:
+        # check enough gas for delegation access
+        extra_gas += delegation_access_cost
+        check_gas(evm, extra_gas + extend_memory.cost)
+        track_address(evm.state_changes, code_address)
+        if code_address not in evm.accessed_addresses:
+            evm.accessed_addresses.add(code_address)
 
-    code_address = final_address
-    disable_precompiles = is_delegated
+    code = get_account(state, code_address).code
 
+    message_call_gas = calculate_message_call_gas(
+        value,
+        gas,
+        Uint(evm.gas_left),
+        extend_memory.cost,
+        extra_gas,
+    )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
@@ -623,7 +603,7 @@ def callcode(evm: Evm) -> None:
             memory_output_start_position,
             memory_output_size,
             code,
-            disable_precompiles,
+            is_delegated,
         )
 
     # PROGRAM COUNTER
@@ -648,25 +628,25 @@ def selfdestruct(evm: Evm) -> None:
 
     # GAS
     gas_cost = GAS_SELF_DESTRUCT
+
     is_cold_access = beneficiary not in evm.accessed_addresses
     if is_cold_access:
         gas_cost += GAS_COLD_ACCOUNT_ACCESS
 
+    # check access gas cost before state access
     check_gas(evm, gas_cost)
 
-    # is_account_alive requires account to be accessed, check gas before
-    if (
-        not is_account_alive(evm.message.block_env.state, beneficiary)
-        and get_account(
-            evm.message.block_env.state, evm.message.current_target
-        ).balance
-        != 0
-    ):
-        gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
-
+    # STATE ACCESS
+    state = evm.message.block_env.state
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
-    track_address(evm.state_changes, beneficiary)
+        track_address(evm.state_changes, beneficiary)
+
+    if (
+        not is_account_alive(state, beneficiary)
+        and get_account(state, evm.message.current_target).balance != 0
+    ):
+        gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
 
     charge_gas(evm, gas_cost)
 
@@ -703,6 +683,8 @@ def selfdestruct(evm: Evm) -> None:
     # register account for deletion only if it was created
     # in the same transaction
     if originator in state.created_accounts:
+        # If beneficiary is the same as originator, then
+        # the ether is burnt.
         set_account_balance(state, originator, U256(0))
         track_balance_change(evm.state_changes, originator, U256(0))
         evm.accounts_to_delete.add(originator)
@@ -742,49 +724,43 @@ def delegatecall(evm: Evm) -> None:
     )
 
     is_cold_access = code_address not in evm.accessed_addresses
-    access_gas_cost = (
-        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
-    )
+    if is_cold_access:
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+    else:
+        access_gas_cost = GAS_WARM_ACCESS
+
+    # check static gas before state access
+    check_gas(evm, access_gas_cost + extend_memory.cost)
+
+    # STATE ACCESS
+    state = evm.message.block_env.state
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
 
-    check_gas(evm, access_gas_cost + extend_memory.cost)
-
-    # need to access account to get delegation code, check gas before
+    extra_gas = access_gas_cost
     (
         is_delegated,
-        original_address,
-        delegated_address,
-        delegation_gas_cost,
+        code_address,
+        delegation_access_cost,
     ) = calculate_delegation_cost(evm, code_address)
 
-    if is_delegated and delegation_gas_cost > Uint(0):
-        assert delegated_address is not None
-        message_call_gas = calculate_message_call_gas(
-            U256(0),
-            gas,
-            Uint(evm.gas_left),
-            extend_memory.cost,
-            access_gas_cost + delegation_gas_cost,
-        )
-        check_gas(evm, message_call_gas.cost + extend_memory.cost)
-        code = read_delegation_target(evm, delegated_address)
-        final_address = delegated_address
-    else:
-        message_call_gas = calculate_message_call_gas(
-            U256(0),
-            gas,
-            Uint(evm.gas_left),
-            extend_memory.cost,
-            access_gas_cost,
-        )
-        check_gas(evm, message_call_gas.cost + extend_memory.cost)
-        code = get_account(evm.message.block_env.state, code_address).code
-        final_address = code_address
+    if is_delegated:
+        # check enough gas for delegation access
+        extra_gas += delegation_access_cost
+        check_gas(evm, extra_gas + extend_memory.cost)
+        track_address(evm.state_changes, code_address)
+        if code_address not in evm.accessed_addresses:
+            evm.accessed_addresses.add(code_address)
 
-    code_address = final_address
-    disable_precompiles = is_delegated
+    code = get_account(state, code_address).code
 
+    message_call_gas = calculate_message_call_gas(
+        U256(0),
+        gas,
+        Uint(evm.gas_left),
+        extend_memory.cost,
+        extra_gas,
+    )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
@@ -803,7 +779,7 @@ def delegatecall(evm: Evm) -> None:
         memory_output_start_position,
         memory_output_size,
         code,
-        disable_precompiles,
+        is_delegated,
     )
 
     # PROGRAM COUNTER
@@ -838,49 +814,43 @@ def staticcall(evm: Evm) -> None:
     )
 
     is_cold_access = to not in evm.accessed_addresses
-    access_gas_cost = (
-        GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
-    )
+    if is_cold_access:
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+    else:
+        access_gas_cost = GAS_WARM_ACCESS
+
+    # check static gas before state access
+    check_gas(evm, access_gas_cost + extend_memory.cost)
+
+    # STATE ACCESS
+    state = evm.message.block_env.state
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
-    check_gas(evm, access_gas_cost + extend_memory.cost)
-
-    # need to access account to get delegation code, check gas before
+    extra_gas = access_gas_cost
     (
         is_delegated,
-        original_address,
-        delegated_address,
-        delegation_gas_cost,
+        code_address,
+        delegation_access_cost,
     ) = calculate_delegation_cost(evm, to)
 
-    if is_delegated and delegation_gas_cost > Uint(0):
-        assert delegated_address is not None
-        message_call_gas = calculate_message_call_gas(
-            U256(0),
-            gas,
-            Uint(evm.gas_left),
-            extend_memory.cost,
-            access_gas_cost + delegation_gas_cost,
-        )
-        check_gas(evm, message_call_gas.cost + extend_memory.cost)
-        code = read_delegation_target(evm, delegated_address)
-        final_address = delegated_address
-    else:
-        message_call_gas = calculate_message_call_gas(
-            U256(0),
-            gas,
-            Uint(evm.gas_left),
-            extend_memory.cost,
-            access_gas_cost,
-        )
-        check_gas(evm, message_call_gas.cost + extend_memory.cost)
-        code = get_account(evm.message.block_env.state, to).code
-        final_address = to
+    if is_delegated:
+        # check enough gas for delegation access
+        extra_gas += delegation_access_cost
+        check_gas(evm, extra_gas + extend_memory.cost)
+        track_address(evm.state_changes, code_address)
+        if code_address not in evm.accessed_addresses:
+            evm.accessed_addresses.add(code_address)
 
-    code_address = final_address
-    disable_precompiles = is_delegated
+    code = get_account(state, code_address).code
 
+    message_call_gas = calculate_message_call_gas(
+        U256(0),
+        gas,
+        Uint(evm.gas_left),
+        extend_memory.cost,
+        extra_gas,
+    )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
@@ -899,7 +869,7 @@ def staticcall(evm: Evm) -> None:
         memory_output_start_position,
         memory_output_size,
         code,
-        disable_precompiles,
+        is_delegated,
     )
 
     # PROGRAM COUNTER

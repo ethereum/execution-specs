@@ -55,20 +55,16 @@ def sload(evm: Evm) -> None:
     key = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    is_cold_access = (
-        evm.message.current_target,
-        key,
-    ) not in evm.accessed_storage_keys
-    gas_cost = GAS_COLD_SLOAD if is_cold_access else GAS_WARM_ACCESS
-
-    charge_gas(evm, gas_cost)
+    if (evm.message.current_target, key) in evm.accessed_storage_keys:
+        charge_gas(evm, GAS_WARM_ACCESS)
+    else:
+        evm.accessed_storage_keys.add((evm.message.current_target, key))
+        charge_gas(evm, GAS_COLD_SLOAD)
 
     # OPERATION
-    state = evm.message.block_env.state
-    value = get_storage(state, evm.message.current_target, key)
-
-    if is_cold_access:
-        evm.accessed_storage_keys.add((evm.message.current_target, key))
+    value = get_storage(
+        evm.message.block_env.state, evm.message.current_target, key
+    )
     track_storage_read(
         evm.state_changes,
         evm.message.current_target,
@@ -91,6 +87,9 @@ def sstore(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
@@ -98,28 +97,17 @@ def sstore(evm: Evm) -> None:
     # check we have at least the stipend gas
     check_gas(evm, GAS_CALL_STIPEND + Uint(1))
 
-    # check static context before accessing storage
-    if evm.message.is_static:
-        raise WriteInStaticContext
-
-    # GAS
-    gas_cost = Uint(0)
-    is_cold_access = (
-        evm.message.current_target,
-        key,
-    ) not in evm.accessed_storage_keys
-
-    if is_cold_access:
-        gas_cost += GAS_COLD_SLOAD
-
     state = evm.message.block_env.state
     original_value = get_storage_original(
         state, evm.message.current_target, key
     )
     current_value = get_storage(state, evm.message.current_target, key)
 
-    if is_cold_access:
+    gas_cost = Uint(0)
+
+    if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
+        gas_cost += GAS_COLD_SLOAD
 
     capture_pre_storage(
         evm.message.tx_env.state_changes,
@@ -141,9 +129,7 @@ def sstore(evm: Evm) -> None:
     else:
         gas_cost += GAS_WARM_ACCESS
 
-    charge_gas(evm, gas_cost)
-
-    # REFUND COUNTER
+    # Refund Counter Calculation
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
             # Storage is cleared for the first time in the transaction
@@ -164,7 +150,7 @@ def sstore(evm: Evm) -> None:
                     GAS_STORAGE_UPDATE - GAS_COLD_SLOAD - GAS_WARM_ACCESS
                 )
 
-    # OPERATION
+    charge_gas(evm, gas_cost)
     set_storage(state, evm.message.current_target, key, new_value)
     track_storage_write(
         evm.state_changes,
@@ -214,14 +200,15 @@ def tstore(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    if evm.message.is_static:
+        raise WriteInStaticContext
+
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
 
     # GAS
     charge_gas(evm, GAS_WARM_ACCESS)
-    if evm.message.is_static:
-        raise WriteInStaticContext
     set_transient_storage(
         evm.message.tx_env.transient_storage,
         evm.message.current_target,

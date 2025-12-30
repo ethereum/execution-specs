@@ -5,7 +5,6 @@ Set EOA account code.
 from typing import Optional, Tuple
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
@@ -127,13 +126,9 @@ def recover_authority(authorization: Authorization) -> Address:
 
 def calculate_delegation_cost(
     evm: Evm, address: Address
-) -> Tuple[bool, Address, Optional[Address], Uint]:
+) -> Tuple[bool, Address, Uint]:
     """
-    Check if address has delegation and calculate delegation target gas cost.
-
-    This function reads the original account's code to check for delegation
-    and tracks it in state_changes. It calculates the delegation target's
-    gas cost but does NOT read the delegation target yet.
+    Get the delegation address and the cost of access from the address.
 
     Parameters
     ----------
@@ -144,9 +139,8 @@ def calculate_delegation_cost(
 
     Returns
     -------
-    delegation_info : `Tuple[bool, Address, Optional[Address], Uint]`
-        (is_delegated, original_address, delegated_address_or_none,
-        delegation_gas_cost)
+    delegation : `Tuple[bool, Address, Uint]`
+        The delegation address and access gas cost.
 
     """
     state = evm.message.block_env.state
@@ -155,51 +149,16 @@ def calculate_delegation_cost(
     track_address(evm.state_changes, address)
 
     if not is_valid_delegation(code):
-        return False, address, None, Uint(0)
+        return False, address, Uint(0)
 
     delegated_address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
 
-    # Calculate gas cost for delegation target access
     if delegated_address in evm.accessed_addresses:
         delegation_gas_cost = GAS_WARM_ACCESS
     else:
         delegation_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    return True, address, delegated_address, delegation_gas_cost
-
-
-def read_delegation_target(evm: Evm, delegated_address: Address) -> Bytes:
-    """
-    Read the delegation target's code and track the access.
-
-    Should ONLY be called AFTER verifying we have gas for the access.
-
-    This function:
-    1. Reads the delegation target's code from state
-    2. Adds it to accessed_addresses (if not already there)
-    3. Tracks it in state_changes for BAL
-
-    Parameters
-    ----------
-    evm : `Evm`
-        The execution frame.
-    delegated_address : `Address`
-        The delegation target address.
-
-    Returns
-    -------
-    code : `Bytes`
-        The delegation target's code.
-
-    """
-    state = evm.message.block_env.state
-
-    if delegated_address not in evm.accessed_addresses:
-        evm.accessed_addresses.add(delegated_address)
-
-    track_address(evm.state_changes, delegated_address)
-
-    return get_account(state, delegated_address).code
+    return True, delegated_address, delegation_gas_cost
 
 
 def set_delegation(message: Message) -> U256:
