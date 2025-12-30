@@ -9,7 +9,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 - [x] `src/ethereum/forks/*/vm/instructions/arithmetic.py`, `comparison.py`, `bitwise.py` (~72 files)
 - [x] `src/ethereum/forks/*/vm/instructions/block.py`, `environment.py`, `control_flow.py` (~72 files)
 - [x] `src/ethereum/forks/*/vm/instructions/keccak.py`, `log.py`, `memory.py`, `stack.py` (~96 files)
-- [ ] `src/ethereum/forks/*/vm/instructions/storage.py`, `system.py`, `__init__.py` (~72 files)
+- [x] `src/ethereum/forks/*/vm/instructions/storage.py`, `system.py`, `__init__.py` (~72 files)
 
 ## src/ethereum/forks - VM Core
 
