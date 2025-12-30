@@ -8,7 +8,7 @@ Ethereum Virtual Machine (EVM) ECRECOVER PRECOMPILED CONTRACT.
 Introduction
 ------------
 
-Implementation of the ECRECOVER precompiled contract.
+Implementation of the `ECRECOVER` precompiled contract.
 """
 
 from ethereum_types.numeric import U256

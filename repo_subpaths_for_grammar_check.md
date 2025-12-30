@@ -20,7 +20,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 ## src/ethereum/forks - Precompiled Contracts
 
 - [x] `src/ethereum/forks/*/vm/precompiled_contracts/__init__.py`, `mapping.py` (~48 files)
-- [ ] `src/ethereum/forks/*/vm/precompiled_contracts/ecrecover.py`, `sha256.py`, `ripemd160.py`, `identity.py` (~96 files)
+- [x] `src/ethereum/forks/*/vm/precompiled_contracts/ecrecover.py`, `sha256.py`, `ripemd160.py`, `identity.py` (~96 files)
 - [ ] `src/ethereum/forks/*/vm/precompiled_contracts/modexp.py`, `alt_bn128.py` (~38 files)
 - [ ] `src/ethereum/forks/*/vm/precompiled_contracts/blake2f.py` (~17 files)
 - [ ] `src/ethereum/forks/*/vm/precompiled_contracts/point_evaluation.py`, `p256verify.py` (~16 files)
