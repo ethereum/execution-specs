@@ -84,7 +84,7 @@ def sub(evm: Evm) -> None:
 
 def mul(evm: Evm) -> None:
     """
-    Multiply the top two elements of the stack, and pushes the result back
+    Multiplies the top two elements of the stack, and pushes the result back
     on the stack.
 
     Parameters
@@ -353,7 +353,7 @@ def signextend(evm: Evm) -> None:
         # Can't extend any further
         result = value
     else:
-        # U256(0).to_be_bytes() gives b'' instead b'\x00'.
+        # U256(0).to_be_bytes() gives b'' instead of b'\x00'.
         value_bytes = Bytes(value.to_be_bytes32())
         # Now among the obtained value bytes, consider only
         # N `least significant bytes`, where N is `byte_num + 1`.
