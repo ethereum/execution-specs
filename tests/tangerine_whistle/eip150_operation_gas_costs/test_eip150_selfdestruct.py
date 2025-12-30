@@ -33,7 +33,7 @@ REFERENCE_SPEC_VERSION = ref_spec_150.version
 )
 @pytest.mark.parametrize("oog_before_state_access", [True, False])
 @pytest.mark.with_all_precompiles
-@pytest.mark.valid_from("Tangerine")
+@pytest.mark.valid_from("TangerineWhistle")
 def test_selfdestruct_to_precompile_oog(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
