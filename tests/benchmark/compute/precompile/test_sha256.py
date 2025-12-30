@@ -1,5 +1,6 @@
 """Benchmark SHA256 precompile."""
 
+import pytest
 from execution_testing import (
     BenchmarkTestFiller,
     Fork,
@@ -34,8 +35,26 @@ def test_sha256(
     )
 
     benchmark_test(
+        target_opcode=Op.STATICCALL,
         code_generator=JumpLoopGenerator(
             setup=Op.CODECOPY(0, 0, optimal_input_length),
             attack_block=attack_block,
+        ),
+    )
+
+
+@pytest.mark.parametrize("size", [0, 32, 256, 1024])
+def test_sha256_fixed_size(
+    benchmark_test: BenchmarkTestFiller, size: int
+) -> None:
+    """Benchmark SHA256 with fixed size input."""
+    attack_block = Op.POP(
+        Op.STATICCALL(Op.GAS, 0x02, Op.PUSH0, size, Op.PUSH0, Op.PUSH0)
+    )
+
+    benchmark_test(
+        target_opcode=Op.STATICCALL,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CODECOPY(0, 0, size), attack_block=attack_block
         ),
     )

@@ -115,6 +115,7 @@ def test_bls12_381(
     )
 
     benchmark_test(
+        target_opcode=Op.STATICCALL,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,

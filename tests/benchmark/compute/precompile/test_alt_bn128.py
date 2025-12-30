@@ -371,6 +371,7 @@ def test_alt_bn128(
     )
 
     benchmark_test(
+        target_opcode=Op.STATICCALL,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
@@ -418,7 +419,7 @@ def _generate_bn128_pairs(n: int, seed: int = 0) -> Bytes:
 def test_bn128_pairings_amortized(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
-    gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
     """Test running a block with as many BN128 pairings as possible."""
     base_cost = 45_000
@@ -432,9 +433,7 @@ def test_bn128_pairings_amortized(
     # This is a theoretical maximum number of pairings that can be done in a
     # block. It is only used for an upper bound for calculating the optimal
     # number of pairings below.
-    maximum_number_of_pairings = (
-        gas_benchmark_value - base_cost
-    ) // pairing_cost
+    maximum_number_of_pairings = (tx_gas_limit - base_cost) // pairing_cost
 
     # Discover the optimal number of pairings balancing two dimensions:
     # 1. Amortize the precompile base cost as much as possible.
@@ -444,7 +443,7 @@ def test_bn128_pairings_amortized(
     for i in range(1, maximum_number_of_pairings + 1):
         # We'll pass all pairing arguments via calldata.
         available_gas_after_intrinsic = (
-            gas_benchmark_value
+            tx_gas_limit
             - intrinsic_gas_calculator(
                 calldata=[0xFF]
                 * size_per_pairing
@@ -480,6 +479,7 @@ def test_bn128_pairings_amortized(
     )
 
     benchmark_test(
+        target_opcode=Op.STATICCALL,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
