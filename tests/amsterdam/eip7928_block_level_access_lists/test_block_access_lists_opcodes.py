@@ -2288,6 +2288,80 @@ def test_bal_sstore_static_context(
     )
 
 
+def test_bal_call_with_value_in_static_context(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Ensure BAL does NOT include target address when CALL with value fails
+    in static context. The static context check must happen BEFORE any
+    account access or BAL tracking.
+    """
+    alice = pre.fund_eoa()
+
+    target_starting_balance = 1022
+    target = pre.fund_eoa(amount=target_starting_balance)
+
+    caller_starting_balance = 10**18
+    caller = pre.deploy_contract(
+        code=Op.CALL(gas=100_000, address=target, value=1) + Op.STOP,
+        balance=caller_starting_balance,
+    )
+
+    # makes STATICCALL to caller
+    static_caller = pre.deploy_contract(
+        code=Op.STATICCALL(gas=500_000, address=caller)
+        + Op.SSTORE(0, 1)  # prove we continued after STATICCALL returned
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=static_caller,
+        gas_limit=1_000_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        static_caller: BalAccountExpectation(
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=0x00,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1, post_value=1
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                        caller: BalAccountExpectation.empty(),
+                        target: None,  # explicit check target is NOT in BAL
+                    }
+                ),
+            )
+        ],
+        post={
+            # STATICCALL returned, continued
+            static_caller: Account(storage={0: 1}),
+            # no transfer occurred, balances unchanged
+            caller: Account(balance=caller_starting_balance),
+            target: Account(balance=target_starting_balance),
+        },
+    )
+
+
 def test_bal_create_contract_init_revert(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
