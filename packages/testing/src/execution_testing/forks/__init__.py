@@ -25,7 +25,7 @@ from .forks.forks import (
     Paris,
     Prague,
     Shanghai,
-    Tangerine,
+    TangerineWhistle,
 )
 from .forks.transition import (
     BerlinToLondonAt5,
@@ -98,7 +98,7 @@ __all__ = [
     "Frontier",
     "GrayGlacier",
     "Homestead",
-    "Tangerine",
+    "TangerineWhistle",
     "InvalidForkError",
     "Istanbul",
     "London",
