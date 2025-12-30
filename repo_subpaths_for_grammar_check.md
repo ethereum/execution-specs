@@ -14,7 +14,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 ## src/ethereum/forks - VM Core
 
 - [x] `src/ethereum/forks/*/vm/interpreter.py`, `runtime.py` (~48 files)
-- [ ] `src/ethereum/forks/*/vm/gas.py`, `memory.py`, `stack.py`, `exceptions.py` (~96 files)
+- [x] `src/ethereum/forks/*/vm/gas.py`, `memory.py`, `stack.py`, `exceptions.py` (~96 files)
 - [x] `src/ethereum/forks/*/vm/__init__.py` (~24 files)
 
 ## src/ethereum/forks - Precompiled Contracts
