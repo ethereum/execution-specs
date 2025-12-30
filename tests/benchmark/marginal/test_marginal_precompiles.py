@@ -730,10 +730,10 @@ IDENTITY_CONFIG = MarginalPrecompileConfig(
     name="IDENTITY",
     address=IDENTITY_ADDRESS,
     max_op_count=300,
-    step=75,
+    step=50,
     input_data=IDENTITY_INPUT,
     input_size=len(IDENTITY_INPUT),  # 128 bytes
-    num_calls=5000,  # High amplification (total calls = 5000 × max_op_count)
+    num_calls=5500,  # High amplification (total calls = 5500 × max_op_count)
     gas_limit=500_000_000,  # High gas limit for many calls
 )
 
