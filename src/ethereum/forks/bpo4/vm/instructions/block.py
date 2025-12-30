@@ -101,7 +101,7 @@ def coinbase(evm: Evm) -> None:
 def timestamp(evm: Evm) -> None:
     """
     Push the current block's timestamp onto the stack. Here the timestamp
-    being referred is actually the unix timestamp in seconds.
+    being referred to is actually the unix timestamp in seconds.
 
     Here the current block refers to the block in which the currently
     executing transaction/call resides.

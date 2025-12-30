@@ -407,7 +407,7 @@ def returndatasize(evm: Evm) -> None:
 
 def returndatacopy(evm: Evm) -> None:
     """
-    Copies data from the return data buffer code to memory.
+    Copies data from the return data buffer to memory.
 
     Parameters
     ----------
