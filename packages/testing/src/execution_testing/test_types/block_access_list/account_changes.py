@@ -13,8 +13,8 @@ from execution_testing.base_types import (
     Address,
     Bytes,
     CamelModel,
-    HexNumber,
     RLPSerializable,
+    ZeroPaddedHexNumber,
 )
 
 
@@ -23,11 +23,11 @@ class BalNonceChange(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    block_access_index: HexNumber = Field(
-        HexNumber(1),
+    block_access_index: ZeroPaddedHexNumber = Field(
+        ZeroPaddedHexNumber(1),
         description="Transaction index where the change occurred",
     )
-    post_nonce: HexNumber = Field(
+    post_nonce: ZeroPaddedHexNumber = Field(
         ..., description="Nonce value after the transaction"
     )
 
@@ -39,11 +39,11 @@ class BalBalanceChange(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    block_access_index: HexNumber = Field(
-        HexNumber(1),
+    block_access_index: ZeroPaddedHexNumber = Field(
+        ZeroPaddedHexNumber(1),
         description="Transaction index where the change occurred",
     )
-    post_balance: HexNumber = Field(
+    post_balance: ZeroPaddedHexNumber = Field(
         ..., description="Balance after the transaction"
     )
 
@@ -55,8 +55,8 @@ class BalCodeChange(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    block_access_index: HexNumber = Field(
-        HexNumber(1),
+    block_access_index: ZeroPaddedHexNumber = Field(
+        ZeroPaddedHexNumber(1),
         description="Transaction index where the change occurred",
     )
     new_code: Bytes = Field(..., description="New code bytes")
@@ -69,11 +69,11 @@ class BalStorageChange(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    block_access_index: HexNumber = Field(
-        HexNumber(1),
+    block_access_index: ZeroPaddedHexNumber = Field(
+        ZeroPaddedHexNumber(1),
         description="Transaction index where the change occurred",
     )
-    post_value: HexNumber = Field(
+    post_value: ZeroPaddedHexNumber = Field(
         ..., description="Value after the transaction"
     )
 
@@ -85,7 +85,7 @@ class BalStorageSlot(CamelModel, RLPSerializable):
 
     model_config = CamelModel.model_config | {"extra": "forbid"}
 
-    slot: HexNumber = Field(..., description="Storage slot key")
+    slot: ZeroPaddedHexNumber = Field(..., description="Storage slot key")
     slot_changes: List[BalStorageChange] = Field(
         default_factory=list, description="List of changes to this slot"
     )
@@ -111,7 +111,7 @@ class BalAccountChange(CamelModel, RLPSerializable):
     storage_changes: List[BalStorageSlot] = Field(
         default_factory=list, description="List of storage changes"
     )
-    storage_reads: List[HexNumber] = Field(
+    storage_reads: List[ZeroPaddedHexNumber] = Field(
         default_factory=list,
         description="List of storage slots that were read",
     )

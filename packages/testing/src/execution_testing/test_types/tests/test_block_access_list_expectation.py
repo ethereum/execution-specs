@@ -567,7 +567,7 @@ def test_absent_values_nonce_changes(has_change_should_raise: bool) -> None:
 
     if has_change_should_raise:
         with pytest.raises(
-            Exception, match="Unexpected nonce change found at tx 0x2"
+            Exception, match="Unexpected nonce change found at tx 0x02"
         ):
             expectation.verify_against(actual_bal)
     else:
@@ -614,7 +614,7 @@ def test_absent_values_balance_changes(has_change_should_raise: bool) -> None:
     if has_change_should_raise:
         with pytest.raises(
             Exception,
-            match="Unexpected balance change found at tx 0x2",
+            match="Unexpected balance change found at tx 0x02",
         ):
             expectation.verify_against(actual_bal)
     else:
@@ -759,7 +759,7 @@ def test_absent_values_code_changes(has_change_should_raise: bool) -> None:
 
     if has_change_should_raise:
         with pytest.raises(
-            Exception, match="Unexpected code change found at tx 0x2"
+            Exception, match="Unexpected code change found at tx 0x02"
         ):
             expectation.verify_against(actual_bal)
     else:
@@ -898,7 +898,7 @@ def test_absent_values_with_multiple_tx_indices() -> None:
     )
 
     with pytest.raises(
-        Exception, match="Unexpected nonce change found at tx 0x1"
+        Exception, match="Unexpected nonce change found at tx 0x01"
     ):
         expectation_fail.verify_against(actual_bal)
 
