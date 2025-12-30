@@ -210,7 +210,7 @@ def calculate_message_call_gas(
         account inside a message call.
     call_stipend :
         The amount of stipend provided to a message call to execute code while
-        transferring value(ETH).
+        transferring value (ETH).
 
     Returns
     -------
