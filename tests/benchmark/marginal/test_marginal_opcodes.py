@@ -172,7 +172,7 @@ SUB_CONFIG = MarginalOpcodeConfig(
     stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=10000,  # 2x for short proving time
+    num_calls=15000,  # 1.5x for low R² (0.80)
 )
 
 # Ref: test_arithmetic.py opcode_DIV-0
@@ -314,7 +314,7 @@ SLT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=7000,
+    num_calls=10500,  # 1.5x for low R² (0.84)
 )
 
 SGT_CONFIG = MarginalOpcodeConfig(
@@ -325,7 +325,7 @@ SGT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=6000,  # 2x for short proving time
+    num_calls=9000,  # 1.5x for low R² (0.83)
 )
 
 EQ_CONFIG = MarginalOpcodeConfig(
@@ -347,7 +347,7 @@ ISZERO_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=6000,  # 2x for low R² (0.86)
+    num_calls=9000,  # 1.5x for low R² (0.86)
 )
 
 # ============================================================================
@@ -373,7 +373,7 @@ OR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=3000,
+    num_calls=6000,  # 2x for low R² (0.89)
 )
 
 XOR_CONFIG = MarginalOpcodeConfig(
@@ -521,7 +521,7 @@ PUSH32_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=3000,  # 2x for short proving time
+    num_calls=5000,  # Increased for low R² (0.92)
 )
 
 # ============================================================================
@@ -530,7 +530,7 @@ PUSH32_CONFIG = MarginalOpcodeConfig(
 # ============================================================================
 
 DUP1_CONFIG = CustomOpcodeConfig(
-    name="DUP1", max_op_count=300, step=60, num_calls=6000, variant=1
+    name="DUP1", max_op_count=300, step=60, num_calls=9000, variant=1  # 1.5x for low R² (0.89)
 )
 DUP8_CONFIG = CustomOpcodeConfig(
     name="DUP8", max_op_count=300, step=60, num_calls=6000, variant=8
@@ -566,7 +566,7 @@ LOG4_CONFIG = CustomOpcodeConfig(
 )
 
 JUMP_CONFIG = CustomOpcodeConfig(
-    name="JUMP", max_op_count=200, step=40, num_calls=6000
+    name="JUMP", max_op_count=200, step=40, num_calls=9000  # 1.5x for low R² (0.90)
 )
 JUMPI_CONFIG = CustomOpcodeConfig(
     name="JUMPI", max_op_count=201, step=67, num_calls=5000
@@ -582,7 +582,7 @@ POP_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Push 0 to pop (using PUSH0 is cheapest)
     pops_per_op=1,
     pushes_per_op=0,
-    num_calls=6000,  # 2x for short proving time
+    num_calls=12000,  # 2x for very low R² (0.73)
 )
 
 

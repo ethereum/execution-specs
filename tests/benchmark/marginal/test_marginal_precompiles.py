@@ -287,10 +287,10 @@ BN128_ADD_CONFIG = MarginalPrecompileConfig(
     name="BN128_ADD",
     address=BN128_ADD_ADDRESS,
     max_op_count=801,
-    step=267,  # 4 data points
+    step=200,  # 5 data points (improved R²)
     input_data=BN128_ADD_INPUT,
     input_size=len(BN128_ADD_INPUT),  # 128 bytes
-    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
+    num_calls=5,  # Increased for low R² (0.92)
 )
 
 # ============================================================================
@@ -730,10 +730,10 @@ IDENTITY_CONFIG = MarginalPrecompileConfig(
     name="IDENTITY",
     address=IDENTITY_ADDRESS,
     max_op_count=300,
-    step=50,
+    step=50,  # 7 data points (more points for low R²)
     input_data=IDENTITY_INPUT,
     input_size=len(IDENTITY_INPUT),  # 128 bytes
-    num_calls=5500,  # High amplification (total calls = 5500 × max_op_count)
+    num_calls=10000,  # High amplification for low R² (0.70)
     gas_limit=500_000_000,  # High gas limit for many calls
 )
 
