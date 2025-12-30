@@ -11,7 +11,7 @@ in the gas-cost-estimator project. The key insight is:
 """
 
 from dataclasses import dataclass
-from typing import List
+from typing import Callable, List
 
 import pytest
 from execution_testing import (
@@ -60,6 +60,35 @@ class MarginalOpcodeConfig:
 
     setup_code: Bytecode | None = None
     """Optional setup code to run before the main loop (e.g., memory init)."""
+
+
+@dataclass
+class CustomOpcodeConfig:
+    """Configuration for opcodes that use custom target generators (DUP, SWAP, LOG, JUMP)."""
+
+    name: str
+    """Name of the opcode for test identification."""
+
+    max_op_count: int
+    """Maximum number of opcode instances per call."""
+
+    step: int
+    """Step size for op_count increments."""
+
+    num_calls: int
+    """Number of times caller calls target (to amplify gas usage)."""
+
+    # For DUP/SWAP: which variant (1-16)
+    variant: int = 0
+    """For DUP1-16 or SWAP1-16, specifies which variant."""
+
+    # For LOG: number of topics
+    topic_count: int = 0
+    """For LOG0-4, specifies number of topics."""
+
+    # Whether target needs CALL instead of STATICCALL (e.g., LOG modifies state)
+    needs_call: bool = False
+    """If True, use CALL instead of STATICCALL for the caller contract."""
 
 
 # Define opcode configurations
@@ -495,33 +524,53 @@ PUSH32_CONFIG = MarginalOpcodeConfig(
     num_calls=3000,  # 2x for short proving time
 )
 
-# DUP opcodes need N items on stack before they can duplicate
-# Use small values (PUSH1) to minimize bytecode size - stack depth matters, not value
-# Contract code limit is 24,576 bytes
+# ============================================================================
+# CUSTOM OPCODE CONFIGS - DUP, SWAP, LOG, JUMP
+# These opcodes require custom target generators
+# ============================================================================
 
-# DUP1 uses custom generator - see generate_dup_program
-DUP1_MAX_OP_COUNT = 300
-DUP1_STEP = 60  # 6 data points (improved R²)
+DUP1_CONFIG = CustomOpcodeConfig(
+    name="DUP1", max_op_count=300, step=60, num_calls=6000, variant=1
+)
+DUP8_CONFIG = CustomOpcodeConfig(
+    name="DUP8", max_op_count=300, step=60, num_calls=6000, variant=8
+)
+DUP16_CONFIG = CustomOpcodeConfig(
+    name="DUP16", max_op_count=300, step=60, num_calls=4000, variant=16
+)
 
-# DUP8, DUP16, SWAP8, SWAP16 need special handling - see generate_dup_program/generate_swap_program
-# Stack limit constraints: Need base items + space for max_op_count duplicates
-# DUP8: 8 base items, each DUP adds 1, each POP removes 1, net = 0 per iteration
-# So max_op_count is limited only by bytecode size, not stack
-DUP8_MAX_OP_COUNT = 300
-DUP8_STEP = 60  # 6 data points (improved R²)
-DUP16_MAX_OP_COUNT = 300
-DUP16_STEP = 60  # 6 data points (improved R²)
+SWAP1_CONFIG = CustomOpcodeConfig(
+    name="SWAP1", max_op_count=300, step=60, num_calls=2000, variant=1
+)
+SWAP8_CONFIG = CustomOpcodeConfig(
+    name="SWAP8", max_op_count=300, step=100, num_calls=2000, variant=8
+)
+SWAP16_CONFIG = CustomOpcodeConfig(
+    name="SWAP16", max_op_count=300, step=100, num_calls=2000, variant=16
+)
 
-# SWAP opcodes need N+1 items on stack
-# SWAP1 uses custom generator - see generate_swap_program
-SWAP1_MAX_OP_COUNT = 300
-SWAP1_STEP = 60  # 6 data points (improved R²)
+LOG0_CONFIG = CustomOpcodeConfig(
+    name="LOG0", max_op_count=100, step=20, num_calls=2400, topic_count=0, needs_call=True
+)
+LOG1_CONFIG = CustomOpcodeConfig(
+    name="LOG1", max_op_count=81, step=27, num_calls=2000, topic_count=1, needs_call=True
+)
+LOG2_CONFIG = CustomOpcodeConfig(
+    name="LOG2", max_op_count=60, step=20, num_calls=1400, topic_count=2, needs_call=True
+)
+LOG3_CONFIG = CustomOpcodeConfig(
+    name="LOG3", max_op_count=51, step=17, num_calls=1400, topic_count=3, needs_call=True
+)
+LOG4_CONFIG = CustomOpcodeConfig(
+    name="LOG4", max_op_count=39, step=13, num_calls=1400, topic_count=4, needs_call=True
+)
 
-# SWAP8, SWAP16 use custom generator - see generate_swap_program
-SWAP8_MAX_OP_COUNT = 300
-SWAP8_STEP = 100  # 4 data points
-SWAP16_MAX_OP_COUNT = 300
-SWAP16_STEP = 100  # 4 data points
+JUMP_CONFIG = CustomOpcodeConfig(
+    name="JUMP", max_op_count=200, step=40, num_calls=6000
+)
+JUMPI_CONFIG = CustomOpcodeConfig(
+    name="JUMPI", max_op_count=201, step=67, num_calls=5000
+)
 
 # POP opcode: pops 1 value, pushes 0 (2 gas)
 # For marginal testing, we need to provide values to pop
@@ -813,84 +862,128 @@ def generate_caller_contract_code(target_address: Address, num_calls: int) -> By
     return code
 
 
-def _create_caller_contract_test(config: MarginalOpcodeConfig):
-    """Factory to create a caller-contract test for an opcode config."""
-    
-    # Use per-config num_calls
-    num_calls = config.num_calls
-    
-    # Generate op_counts with total_ops in the ID for accurate naming
-    op_counts = generate_op_counts(config.max_op_count, config.step)
-    
+def generate_caller_contract_code_call(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract using CALL instead of STATICCALL (loop version).
+    Required for state-modifying opcodes (TSTORE, LOG, SSTORE).
+
+    Uses a loop structure instead of unrolled calls to keep bytecode size constant.
+    """
+    code = Bytecode()
+
+    # Push loop counter
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+
+    # Loop start
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+
+    # Call target contract (CALL: gas, addr, value, argsOffset, argsSize, retOffset, retSize)
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH1(0)                   # value (no ETH transfer)
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas (forward all)
+    code += Op.CALL
+    code += Op.POP                        # pop success flag
+
+    # Decrement counter: counter -= 1
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+
+    # Check if counter > 0 and loop
+    code += Op.DUP1                       # Duplicate counter for JUMPI check
+    code += Op.PUSH2(loop_start_offset)   # Push loop start offset
+    code += Op.JUMPI                      # Jump back if counter > 0
+
+    # Counter is 0, pop it and write success marker
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+
+    return code
+
+
+TargetGenerator = Callable[[int, int], Bytecode]
+"""Target generator signature: (op_count, max_op_count) -> Bytecode."""
+
+CallerGenerator = Callable[[Address, int], Bytecode]
+"""Caller generator signature: (target_address, num_calls) -> Bytecode."""
+
+
+def _create_caller_test(
+    cfg: MarginalOpcodeConfig | CustomOpcodeConfig,
+    target_generator: TargetGenerator | None = None,
+    *,
+    needs_call: bool | None = None,
+):
+    """
+    Single factory for all caller-contract marginal tests.
+
+    - If cfg is MarginalOpcodeConfig: defaults to generate_target_contract_code(cfg, op_count)
+    - If cfg is CustomOpcodeConfig: requires target_generator(op_count, max_op_count)
+
+    `needs_call=True` forces using CALL-based caller (required for state-modifying opcodes).
+    """
+    if isinstance(cfg, MarginalOpcodeConfig):
+        max_op_count = cfg.max_op_count
+        step = cfg.step
+        num_calls = cfg.num_calls
+        if target_generator is None:
+            target_generator = lambda oc, _moc: generate_target_contract_code(cfg, oc)
+        if needs_call is None:
+            needs_call = False
+    elif isinstance(cfg, CustomOpcodeConfig):
+        max_op_count = cfg.max_op_count
+        step = cfg.step
+        num_calls = cfg.num_calls
+        if target_generator is None:
+            raise ValueError("CustomOpcodeConfig requires a target_generator")
+        if needs_call is None:
+            needs_call = cfg.needs_call
+    else:
+        raise TypeError(f"Unsupported config type: {type(cfg)}")
+
+    caller_gen: CallerGenerator = (
+        generate_caller_contract_code_call if needs_call else generate_caller_contract_code
+    )
+
+    op_counts = generate_op_counts(max_op_count, step)
+
     @pytest.mark.valid_from("Prague")
     @pytest.mark.parametrize(
         "op_count",
         op_counts,
-        ids=lambda x: f"op_count_{x * num_calls}",  # Show total ops (N × op_count)
+        ids=lambda x: f"op_count_{x * num_calls}",
     )
     def test_func(
         state_test: StateTestFiller,
         pre: Alloc,
         op_count: int,
     ) -> None:
-        # Deploy target contract with op_count operations
-        target_code = generate_target_contract_code(config, op_count)
+        target_code = target_generator(op_count, max_op_count)
         target_contract = pre.deploy_contract(code=target_code)
-        
-        # Deploy caller contract that calls target num_calls times
-        caller_code = generate_caller_contract_code(target_contract, num_calls)
+
+        caller_code = caller_gen(target_contract, num_calls)
         caller_contract = pre.deploy_contract(code=caller_code)
-        
-        # Fund sender
+
         sender = pre.fund_eoa()
-        
-        # Transaction calls the caller contract
+
         tx = Transaction(
             to=caller_contract,
             gas_limit=CALLER_GAS_LIMIT,
             sender=sender,
         )
-        
-        # Post state: caller contract should have success marker
-        post = {
-            caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-        }
-        
-        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-    
-    return test_func
 
-
-# ============================================================================
-# Helper to generate test for any opcode config
-# ============================================================================
-
-def _create_opcode_test(config: MarginalOpcodeConfig, gas_limit: int = 500_000_000):
-    """Factory to create test function for an opcode config."""
-    @pytest.mark.valid_from("Prague")
-    @pytest.mark.parametrize(
-        "op_count",
-        generate_op_counts(config.max_op_count, config.step),
-        ids=lambda x: f"op_count_{x}",
-    )
-    def test_func(
-        state_test: StateTestFiller,
-        pre: Alloc,
-        op_count: int,
-    ) -> None:
-        code = generate_marginal_program(config, op_count)
-        contract = pre.deploy_contract(code=code)
-        sender = pre.fund_eoa()
-
-        tx = Transaction(
-            to=contract,
-            gas_limit=gas_limit,
-            sender=sender,
-        )
-
-        post = {
-            contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-        }
+        post = {caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
 
         state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
     
@@ -898,14 +991,16 @@ def _create_opcode_test(config: MarginalOpcodeConfig, gas_limit: int = 500_000_0
 
 
 # ============================================================================
-# NOTE: Direct test functions for EXP, KECCAK256, DUP, SWAP removed.
-# These opcodes use the caller-contract approach (test_*) at end of file.
+# NOTE
+# Most opcodes in this file use the caller-contract pattern:
+#   - a target contract whose opcode count varies with op_count
+#   - a caller contract that loops num_calls times (amplifies total work)
+# This keeps marginal regression well-conditioned for low-gas opcodes.
 # ============================================================================
 
 
 # ============================================================================
 # ENVIRONMENT OPCODES - Return context/environment info (no input, push 1)
-# (Test functions use caller-contract approach - see end of file)
 # ============================================================================
 
 ADDRESS_CONFIG = MarginalOpcodeConfig(
@@ -1007,11 +1102,8 @@ GAS_CONFIG = MarginalOpcodeConfig(
     num_calls=2000,  # Calculated for 500K+ gas
 )
 
-# Environment opcode tests use caller-contract approach - see end of file
-
 # ============================================================================
 # BLOCK INFO OPCODES - Return block context (no input, push 1)
-# (Test functions use caller-contract approach - see end of file)
 # ============================================================================
 
 COINBASE_CONFIG = MarginalOpcodeConfig(
@@ -1113,8 +1205,6 @@ BLOBBASEFEE_CONFIG = MarginalOpcodeConfig(
     pushes_per_op=1,
     num_calls=2000,  # Calculated for 500K+ gas
 )
-
-# Block info opcode tests use caller-contract approach - see end of file
 
 # ============================================================================
 # MEMORY OPCODES - Memory read/write operations
@@ -1245,12 +1335,6 @@ MCOPY_CONFIG = MarginalOpcodeConfig(
 )
 
 
-# NOTE: Direct tests for MLOAD, MSTORE, MSTORE8, MSIZE, CALLDATACOPY removed.
-# These opcodes use caller-contract approach (test_*).
-
-# NOTE: Direct test for RETURNDATACOPY removed - use caller-contract approach (test_returndatacopy).
-# NOTE: Direct tests for CODECOPY, MCOPY removed - use caller-contract approach.
-
 # ============================================================================
 # DATA ACCESS OPCODES
 # ============================================================================
@@ -1292,8 +1376,6 @@ BLOBHASH_CONFIG = MarginalOpcodeConfig(
 )
 
 
-# NOTE: Direct test for CALLDATALOAD removed - use caller-contract approach.
-
 @pytest.mark.skip(reason="BLOCKHASH requires proper block history in test environment")
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
@@ -1310,8 +1392,6 @@ def test_marginal_blockhash(state_test: StateTestFiller, pre: Alloc, op_count: i
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
     state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
-
-# NOTE: Direct test for BLOBHASH removed - use caller-contract approach.
 
 # ============================================================================
 # STORAGE OPCODES - SLOAD, SSTORE, TLOAD, TSTORE
@@ -1372,8 +1452,6 @@ TSTORE_CONFIG = MarginalOpcodeConfig(
     num_calls=2000,  # Scaled for 150M cycles target
 )
 
-
-# NOTE: Direct tests for SLOAD, SSTORE, TLOAD, TSTORE removed - use caller-contract approach.
 
 # ============================================================================
 # CONTROL FLOW OPCODES
@@ -1505,18 +1583,6 @@ def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
     return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
 
 
-JUMP_MAX_OP_COUNT = 200
-JUMP_STEP = 40  # 6 data points (improved R²)
-JUMP_NUM_CALLS = 6000  # 2x for short proving time
-JUMPI_MAX_OP_COUNT = 201
-JUMPI_STEP = 67  # 4 data points
-JUMPI_NUM_CALLS = 5000 
-
-
-# NOTE: Direct tests removed - use caller-contract approach.
-# PC uses caller-contract approach - see test_pc at end of file
-
-
 def generate_jump_target(op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate JUMP target contract for caller-contract approach.
@@ -1569,88 +1635,6 @@ def generate_jumpi_target(op_count: int, max_op_count: int) -> Bytecode:
     bytecode_hex += "00"
     
     return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
-
-
-def _create_jump_caller_test(max_op_count: int, step: int, num_calls: int):
-    """Factory for JUMP caller test."""
-    
-    op_counts = generate_op_counts(max_op_count, step)
-    
-    @pytest.mark.valid_from("Prague")
-    @pytest.mark.parametrize(
-        "op_count",
-        op_counts,
-        ids=lambda x: f"op_count_{x * num_calls}",  # Show total ops (N × op_count)
-    )
-    def test_func(
-        state_test: StateTestFiller,
-        pre: Alloc,
-        op_count: int,
-    ) -> None:
-        target_code = generate_jump_target(op_count, max_op_count)
-        target_contract = pre.deploy_contract(code=target_code)
-        
-        caller_code = generate_caller_contract_code(target_contract, num_calls)
-        caller_contract = pre.deploy_contract(code=caller_code)
-        
-        sender = pre.fund_eoa()
-        
-        tx = Transaction(
-            to=caller_contract,
-            gas_limit=CALLER_GAS_LIMIT,
-            sender=sender,
-        )
-        
-        post = {
-            caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-        }
-        
-        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-    
-    return test_func
-
-
-def _create_jumpi_caller_test(max_op_count: int, step: int, num_calls: int):
-    """Factory for JUMPI caller test."""
-    
-    op_counts = generate_op_counts(max_op_count, step)
-    
-    @pytest.mark.valid_from("Prague")
-    @pytest.mark.parametrize(
-        "op_count",
-        op_counts,
-        ids=lambda x: f"op_count_{x * num_calls}",  # Show total ops (N × op_count)
-    )
-    def test_func(
-        state_test: StateTestFiller,
-        pre: Alloc,
-        op_count: int,
-    ) -> None:
-        target_code = generate_jumpi_target(op_count, max_op_count)
-        target_contract = pre.deploy_contract(code=target_code)
-        
-        caller_code = generate_caller_contract_code(target_contract, num_calls)
-        caller_contract = pre.deploy_contract(code=caller_code)
-        
-        sender = pre.fund_eoa()
-        
-        tx = Transaction(
-            to=caller_contract,
-            gas_limit=CALLER_GAS_LIMIT,
-            sender=sender,
-        )
-        
-        post = {
-            caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-        }
-        
-        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-    
-    return test_func
-
-
-test_jump = _create_jump_caller_test(JUMP_MAX_OP_COUNT, JUMP_STEP, JUMP_NUM_CALLS)
-test_jumpi = _create_jumpi_caller_test(JUMPI_MAX_OP_COUNT, JUMPI_STEP, JUMPI_NUM_CALLS)
 
 
 # ============================================================================
@@ -1814,22 +1798,6 @@ def generate_swap_program(
     
     return code
 
-
-# LOG configs - these use the special generate_log_program function
-LOG0_MAX_OP_COUNT = 100
-LOG0_STEP = 20  # 6 data points (improved R²)
-LOG1_MAX_OP_COUNT = 81
-LOG1_STEP = 27  # 4 data points
-
-LOG2_MAX_OP_COUNT = 60
-LOG2_STEP = 20  # 4 data points
-LOG3_MAX_OP_COUNT = 51
-LOG3_STEP = 17  # 4 data points
-LOG4_MAX_OP_COUNT = 39
-LOG4_STEP = 13  # 4 data points
-
-
-# NOTE: Direct tests for LOG0-4 removed - use caller-contract approach.
 
 # ============================================================================
 # EXTERNAL CALL OPCODES - CALL, CALLCODE, DELEGATECALL, STATICCALL
@@ -2502,9 +2470,6 @@ EXTCODECOPY_CONFIG = MarginalOpcodeConfig(
 )
 
 
-# NOTE: Direct tests for BALANCE, EXTCODESIZE, EXTCODEHASH, EXTCODECOPY removed.
-# These opcodes use caller-contract approach (test_*).
-
 # ============================================================================
 # CALLER-CONTRACT TESTS FOR LOW-GAS OPCODES
 # ============================================================================
@@ -2516,200 +2481,145 @@ EXTCODECOPY_CONFIG = MarginalOpcodeConfig(
 # ============================================================================
 
 # Arithmetic opcodes
-test_add = _create_caller_contract_test(ADD_CONFIG)
-test_sub = _create_caller_contract_test(SUB_CONFIG)
-test_mul = _create_caller_contract_test(MUL_CONFIG)
-test_div = _create_caller_contract_test(DIV_CONFIG)
-test_sdiv = _create_caller_contract_test(SDIV_CONFIG)
-test_mod = _create_caller_contract_test(MOD_CONFIG)
-test_smod = _create_caller_contract_test(SMOD_CONFIG)
-test_addmod = _create_caller_contract_test(ADDMOD_CONFIG)
-test_mulmod = _create_caller_contract_test(MULMOD_CONFIG)
-test_signextend = _create_caller_contract_test(SIGNEXTEND_CONFIG)
+test_add = _create_caller_test(ADD_CONFIG)
+test_sub = _create_caller_test(SUB_CONFIG)
+test_mul = _create_caller_test(MUL_CONFIG)
+test_div = _create_caller_test(DIV_CONFIG)
+test_sdiv = _create_caller_test(SDIV_CONFIG)
+test_mod = _create_caller_test(MOD_CONFIG)
+test_smod = _create_caller_test(SMOD_CONFIG)
+test_addmod = _create_caller_test(ADDMOD_CONFIG)
+test_mulmod = _create_caller_test(MULMOD_CONFIG)
+test_signextend = _create_caller_test(SIGNEXTEND_CONFIG)
 
 # Comparison opcodes
-test_lt = _create_caller_contract_test(LT_CONFIG)
-test_gt = _create_caller_contract_test(GT_CONFIG)
-test_slt = _create_caller_contract_test(SLT_CONFIG)
-test_sgt = _create_caller_contract_test(SGT_CONFIG)
-test_eq = _create_caller_contract_test(EQ_CONFIG)
-test_iszero = _create_caller_contract_test(ISZERO_CONFIG)
+test_lt = _create_caller_test(LT_CONFIG)
+test_gt = _create_caller_test(GT_CONFIG)
+test_slt = _create_caller_test(SLT_CONFIG)
+test_sgt = _create_caller_test(SGT_CONFIG)
+test_eq = _create_caller_test(EQ_CONFIG)
+test_iszero = _create_caller_test(ISZERO_CONFIG)
 
 # Bitwise opcodes
-test_and = _create_caller_contract_test(AND_CONFIG)
-test_or = _create_caller_contract_test(OR_CONFIG)
-test_xor = _create_caller_contract_test(XOR_CONFIG)
-test_not = _create_caller_contract_test(NOT_CONFIG)
-test_byte = _create_caller_contract_test(BYTE_CONFIG)
-test_shl = _create_caller_contract_test(SHL_CONFIG)
-test_shr = _create_caller_contract_test(SHR_CONFIG)
-test_sar = _create_caller_contract_test(SAR_CONFIG)
+test_and = _create_caller_test(AND_CONFIG)
+test_or = _create_caller_test(OR_CONFIG)
+test_xor = _create_caller_test(XOR_CONFIG)
+test_not = _create_caller_test(NOT_CONFIG)
+test_byte = _create_caller_test(BYTE_CONFIG)
+test_shl = _create_caller_test(SHL_CONFIG)
+test_shr = _create_caller_test(SHR_CONFIG)
+test_sar = _create_caller_test(SAR_CONFIG)
 
 # Stack opcodes
-test_push0 = _create_caller_contract_test(PUSH0_CONFIG)
-test_push1 = _create_caller_contract_test(PUSH1_CONFIG)
-test_push16 = _create_caller_contract_test(PUSH16_CONFIG)
-test_push32 = _create_caller_contract_test(PUSH32_CONFIG)
-test_pop = _create_caller_contract_test(POP_CONFIG)
+test_push0 = _create_caller_test(PUSH0_CONFIG)
+test_push1 = _create_caller_test(PUSH1_CONFIG)
+test_push16 = _create_caller_test(PUSH16_CONFIG)
+test_push32 = _create_caller_test(PUSH32_CONFIG)
+test_pop = _create_caller_test(POP_CONFIG)
 
 # Environment opcodes
-test_address = _create_caller_contract_test(ADDRESS_CONFIG)
-test_origin = _create_caller_contract_test(ORIGIN_CONFIG)
-test_caller = _create_caller_contract_test(CALLER_CONFIG)
-test_callvalue = _create_caller_contract_test(CALLVALUE_CONFIG)
-test_calldatasize = _create_caller_contract_test(CALLDATASIZE_CONFIG)
-test_codesize = _create_caller_contract_test(CODESIZE_CONFIG)
-test_gasprice = _create_caller_contract_test(GASPRICE_CONFIG)
-test_returndatasize = _create_caller_contract_test(RETURNDATASIZE_CONFIG)
-test_gas = _create_caller_contract_test(GAS_CONFIG)
+test_address = _create_caller_test(ADDRESS_CONFIG)
+test_origin = _create_caller_test(ORIGIN_CONFIG)
+test_caller = _create_caller_test(CALLER_CONFIG)
+test_callvalue = _create_caller_test(CALLVALUE_CONFIG)
+test_calldatasize = _create_caller_test(CALLDATASIZE_CONFIG)
+test_codesize = _create_caller_test(CODESIZE_CONFIG)
+test_gasprice = _create_caller_test(GASPRICE_CONFIG)
+test_returndatasize = _create_caller_test(RETURNDATASIZE_CONFIG)
+test_gas = _create_caller_test(GAS_CONFIG)
 
 # Block info opcodes
-test_coinbase = _create_caller_contract_test(COINBASE_CONFIG)
-test_timestamp = _create_caller_contract_test(TIMESTAMP_CONFIG)
-test_number = _create_caller_contract_test(NUMBER_CONFIG)
-test_prevrandao = _create_caller_contract_test(PREVRANDAO_CONFIG)
-test_gaslimit = _create_caller_contract_test(GASLIMIT_CONFIG)
-test_chainid = _create_caller_contract_test(CHAINID_CONFIG)
-test_selfbalance = _create_caller_contract_test(SELFBALANCE_CONFIG)
-test_caller_basefee = _create_caller_contract_test(BASEFEE_CONFIG)
-test_blobbasefee = _create_caller_contract_test(BLOBBASEFEE_CONFIG)
-test_pc = _create_caller_contract_test(PC_CONFIG)
+test_coinbase = _create_caller_test(COINBASE_CONFIG)
+test_timestamp = _create_caller_test(TIMESTAMP_CONFIG)
+test_number = _create_caller_test(NUMBER_CONFIG)
+test_prevrandao = _create_caller_test(PREVRANDAO_CONFIG)
+test_gaslimit = _create_caller_test(GASLIMIT_CONFIG)
+test_chainid = _create_caller_test(CHAINID_CONFIG)
+test_selfbalance = _create_caller_test(SELFBALANCE_CONFIG)
+test_caller_basefee = _create_caller_test(BASEFEE_CONFIG)
+test_blobbasefee = _create_caller_test(BLOBBASEFEE_CONFIG)
+test_pc = _create_caller_test(PC_CONFIG)
 
 # Memory opcodes
-test_mload = _create_caller_contract_test(MLOAD_CONFIG)
-test_mstore = _create_caller_contract_test(MSTORE_CONFIG)
-test_mstore8 = _create_caller_contract_test(MSTORE8_CONFIG)
-test_msize = _create_caller_contract_test(MSIZE_CONFIG)
-test_mcopy = _create_caller_contract_test(MCOPY_CONFIG)
-test_codecopy = _create_caller_contract_test(CODECOPY_CONFIG)
-test_calldatacopy = _create_caller_contract_test(CALLDATACOPY_CONFIG)
-test_calldataload = _create_caller_contract_test(CALLDATALOAD_CONFIG)
-test_returndatacopy = _create_caller_contract_test(RETURNDATACOPY_CONFIG)
+test_mload = _create_caller_test(MLOAD_CONFIG)
+test_mstore = _create_caller_test(MSTORE_CONFIG)
+test_mstore8 = _create_caller_test(MSTORE8_CONFIG)
+test_msize = _create_caller_test(MSIZE_CONFIG)
+test_mcopy = _create_caller_test(MCOPY_CONFIG)
+test_codecopy = _create_caller_test(CODECOPY_CONFIG)
+test_calldatacopy = _create_caller_test(CALLDATACOPY_CONFIG)
+test_calldataload = _create_caller_test(CALLDATALOAD_CONFIG)
+test_returndatacopy = _create_caller_test(RETURNDATACOPY_CONFIG)
 
 # Storage opcodes (SLOAD, TLOAD work with STATICCALL)
-test_sload = _create_caller_contract_test(SLOAD_CONFIG)
-test_tload = _create_caller_contract_test(TLOAD_CONFIG)
+test_sload = _create_caller_test(SLOAD_CONFIG)
+test_tload = _create_caller_test(TLOAD_CONFIG)
 
 # External code opcodes
-test_balance = _create_caller_contract_test(BALANCE_CONFIG)
-test_extcodesize = _create_caller_contract_test(EXTCODESIZE_CONFIG)
-test_extcodehash = _create_caller_contract_test(EXTCODEHASH_CONFIG)
-test_extcodecopy = _create_caller_contract_test(EXTCODECOPY_CONFIG)
+test_balance = _create_caller_test(BALANCE_CONFIG)
+test_extcodesize = _create_caller_test(EXTCODESIZE_CONFIG)
+test_extcodehash = _create_caller_test(EXTCODEHASH_CONFIG)
+test_extcodecopy = _create_caller_test(EXTCODECOPY_CONFIG)
 # Note: BLOCKHASH caller test omitted - fails with high op_count due to large bytecode
-test_blobhash = _create_caller_contract_test(BLOBHASH_CONFIG)
+test_blobhash = _create_caller_test(BLOBHASH_CONFIG)
 
 # Hash opcodes
-test_keccak256 = _create_caller_contract_test(KECCAK256_CONFIG)
+test_keccak256 = _create_caller_test(KECCAK256_CONFIG)
 
 # Misc opcodes
-test_jumpdest = _create_caller_contract_test(JUMPDEST_CONFIG)
-test_exp = _create_caller_contract_test(EXP_CONFIG)
+test_jumpdest = _create_caller_test(JUMPDEST_CONFIG)
+test_exp = _create_caller_test(EXP_CONFIG)
+
+# Control flow opcodes
+test_jump = _create_caller_test(JUMP_CONFIG, generate_jump_target)
+test_jumpi = _create_caller_test(JUMPI_CONFIG, generate_jumpi_target)
+
+# State-modifying opcodes (require CALL instead of STATICCALL)
+test_sstore = _create_caller_test(SSTORE_CONFIG, needs_call=True)
+test_tstore = _create_caller_test(TSTORE_CONFIG, needs_call=True)
+
+# DUP opcodes
+test_dup1 = _create_caller_test(
+    DUP1_CONFIG, lambda oc, moc: generate_dup_target(DUP1_CONFIG.variant, oc, moc)
+)
+test_dup8 = _create_caller_test(
+    DUP8_CONFIG, lambda oc, moc: generate_dup_target(DUP8_CONFIG.variant, oc, moc)
+)
+test_dup16 = _create_caller_test(
+    DUP16_CONFIG, lambda oc, moc: generate_dup_target(DUP16_CONFIG.variant, oc, moc)
+)
+
+# SWAP opcodes
+test_swap1 = _create_caller_test(
+    SWAP1_CONFIG, lambda oc, moc: generate_swap_target(SWAP1_CONFIG.variant, oc, moc)
+)
+test_swap8 = _create_caller_test(
+    SWAP8_CONFIG, lambda oc, moc: generate_swap_target(SWAP8_CONFIG.variant, oc, moc)
+)
+test_swap16 = _create_caller_test(
+    SWAP16_CONFIG, lambda oc, moc: generate_swap_target(SWAP16_CONFIG.variant, oc, moc)
+)
+
+# LOG opcodes (require CALL instead of STATICCALL)
+test_log0 = _create_caller_test(
+    LOG0_CONFIG, lambda oc, moc: generate_log_program(Op.LOG0, LOG0_CONFIG.topic_count, oc, moc)
+)
+test_log1 = _create_caller_test(
+    LOG1_CONFIG, lambda oc, moc: generate_log_program(Op.LOG1, LOG1_CONFIG.topic_count, oc, moc)
+)
+test_log2 = _create_caller_test(
+    LOG2_CONFIG, lambda oc, moc: generate_log_program(Op.LOG2, LOG2_CONFIG.topic_count, oc, moc)
+)
+test_log3 = _create_caller_test(
+    LOG3_CONFIG, lambda oc, moc: generate_log_program(Op.LOG3, LOG3_CONFIG.topic_count, oc, moc)
+)
+test_log4 = _create_caller_test(
+    LOG4_CONFIG, lambda oc, moc: generate_log_program(Op.LOG4, LOG4_CONFIG.topic_count, oc, moc)
+)
 
 
 # ============================================================================
-# CALL-based caller tests (for state-modifying opcodes like TSTORE, LOG)
-# ============================================================================
-
-def generate_caller_contract_code_call(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate caller contract using CALL instead of STATICCALL (loop version).
-    Required for state-modifying opcodes (TSTORE, LOG, SSTORE).
-    
-    Uses a loop structure instead of unrolled calls to keep bytecode size constant.
-    """
-    code = Bytecode()
-    
-    # Push loop counter
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-    
-    # Loop start
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-    
-    # Call target contract (CALL: gas, addr, value, argsOffset, argsSize, retOffset, retSize)
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset  
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH1(0)                   # value (no ETH transfer)
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas (forward all)
-    code += Op.CALL
-    code += Op.POP                        # pop success flag
-    
-    # Decrement counter: counter -= 1
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-    
-    # Check if counter > 0 and loop
-    code += Op.DUP1                       # Duplicate counter for JUMPI check
-    code += Op.PUSH2(loop_start_offset)   # Push loop start offset
-    code += Op.JUMPI                      # Jump back if counter > 0
-    
-    # Counter is 0, pop it and write success marker
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
-
-
-def _create_caller_contract_test_call(config: MarginalOpcodeConfig):
-    """Factory for caller-contract test using CALL (for state-modifying opcodes)."""
-    
-    # Use per-config num_calls
-    num_calls = config.num_calls
-    
-    # Generate op_counts with total_ops in the ID for accurate naming
-    op_counts = generate_op_counts(config.max_op_count, config.step)
-    
-    @pytest.mark.valid_from("Prague")
-    @pytest.mark.parametrize(
-        "op_count",
-        op_counts,
-        ids=lambda x: f"op_count_{x * num_calls}",  # Show total ops (N × op_count)
-    )
-    def test_func(
-        state_test: StateTestFiller,
-        pre: Alloc,
-        op_count: int,
-    ) -> None:
-        target_code = generate_target_contract_code(config, op_count)
-        target_contract = pre.deploy_contract(code=target_code)
-        
-        caller_code = generate_caller_contract_code_call(target_contract, num_calls)
-        caller_contract = pre.deploy_contract(code=caller_code)
-        
-        sender = pre.fund_eoa()
-        
-        tx = Transaction(
-            to=caller_contract,
-            gas_limit=CALLER_GAS_LIMIT,
-            sender=sender,
-        )
-        
-        post = {
-            caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-        }
-        
-        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-    
-    return test_func
-
-
-# State-modifying opcodes use CALL-based caller
-test_tstore = _create_caller_contract_test_call(TSTORE_CONFIG)
-test_sstore = _create_caller_contract_test_call(SSTORE_CONFIG)
-
-
-# ============================================================================
-# DUP/SWAP caller tests (using custom generators)
+# HELPER FUNCTIONS FOR DUP/SWAP TARGET GENERATION
 # ============================================================================
 
 def generate_dup_target(dup_n: int, op_count: int, max_op_count: int) -> Bytecode:
@@ -2785,145 +2695,3 @@ def generate_swap_target(swap_n: int, op_count: int, max_op_count: int) -> Bytec
     
     code += Op.STOP
     return code
-
-
-def _create_dup_caller_test(dup_n: int, max_op_count: int, step: int, num_calls: int = 465):
-    """Factory for DUP caller tests."""
-    
-    # Generate op_counts with total_ops in the ID for accurate naming
-    op_counts = generate_op_counts(max_op_count, step)
-    
-    @pytest.mark.valid_from("Prague")
-    @pytest.mark.parametrize(
-        "op_count",
-        op_counts,
-        ids=lambda x: f"op_count_{x * num_calls}",  # Show total ops (N × op_count)
-    )
-    def test_func(
-        state_test: StateTestFiller,
-        pre: Alloc,
-        op_count: int,
-    ) -> None:
-        # Use target version without SSTORE for STATICCALL compatibility
-        target_code = generate_dup_target(dup_n, op_count, max_op_count)
-        target_contract = pre.deploy_contract(code=target_code)
-        
-        caller_code = generate_caller_contract_code(target_contract, num_calls)
-        caller_contract = pre.deploy_contract(code=caller_code)
-        
-        sender = pre.fund_eoa()
-        
-        tx = Transaction(
-            to=caller_contract,
-            gas_limit=CALLER_GAS_LIMIT,
-            sender=sender,
-        )
-        
-        post = {
-            caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-        }
-        
-        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-    
-    return test_func
-
-
-def _create_swap_caller_test(swap_n: int, max_op_count: int, step: int, num_calls: int = 465):
-    """Factory for SWAP caller tests."""
-    
-    # Generate op_counts with total_ops in the ID for accurate naming
-    op_counts = generate_op_counts(max_op_count, step)
-    
-    @pytest.mark.valid_from("Prague")
-    @pytest.mark.parametrize(
-        "op_count",
-        op_counts,
-        ids=lambda x: f"op_count_{x * num_calls}",  # Show total ops (N × op_count)
-    )
-    def test_func(
-        state_test: StateTestFiller,
-        pre: Alloc,
-        op_count: int,
-    ) -> None:
-        # Use target version without SSTORE for STATICCALL compatibility
-        target_code = generate_swap_target(swap_n, op_count, max_op_count)
-        target_contract = pre.deploy_contract(code=target_code)
-        
-        caller_code = generate_caller_contract_code(target_contract, num_calls)
-        caller_contract = pre.deploy_contract(code=caller_code)
-        
-        sender = pre.fund_eoa()
-        
-        tx = Transaction(
-            to=caller_contract,
-            gas_limit=CALLER_GAS_LIMIT,
-            sender=sender,
-        )
-        
-        post = {
-            caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-        }
-        
-        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-    
-    return test_func
-
-
-test_dup1 = _create_dup_caller_test(1, DUP1_MAX_OP_COUNT, DUP1_STEP, num_calls=6000)  # 2x for short proving time
-test_dup8 = _create_dup_caller_test(8, DUP8_MAX_OP_COUNT, DUP8_STEP, num_calls=6000)  # 2x for short proving time
-test_dup16 = _create_dup_caller_test(16, DUP16_MAX_OP_COUNT, DUP16_STEP, num_calls=4000)  # 2x for short proving time
-test_swap1 = _create_swap_caller_test(1, SWAP1_MAX_OP_COUNT, SWAP1_STEP, num_calls=2000)  # 2x for short proving time
-test_swap8 = _create_swap_caller_test(8, SWAP8_MAX_OP_COUNT, SWAP8_STEP, num_calls=2000)  # 2x for short proving time
-test_swap16 = _create_swap_caller_test(16, SWAP16_MAX_OP_COUNT, SWAP16_STEP, num_calls=2000)  # 2x for short proving time
-
-
-# ============================================================================
-# LOG caller tests (use CALL since LOG modifies state)
-# ============================================================================
-
-def _create_log_caller_test(log_opcode, topic_count: int, max_op_count: int, step: int, num_calls: int = 100):
-    """Factory for LOG caller tests using CALL."""
-    
-    # Generate op_counts with total_ops in the ID for accurate naming
-    op_counts = generate_op_counts(max_op_count, step)
-    
-    @pytest.mark.valid_from("Prague")
-    @pytest.mark.parametrize(
-        "op_count",
-        op_counts,
-        ids=lambda x: f"op_count_{x * num_calls}",  # Show total ops (N × op_count)
-    )
-    def test_func(
-        state_test: StateTestFiller,
-        pre: Alloc,
-        op_count: int,
-    ) -> None:
-        target_code = generate_log_program(log_opcode, topic_count, op_count, max_op_count)
-        target_contract = pre.deploy_contract(code=target_code)
-        
-        # Use CALL for LOG since it modifies state
-        caller_code = generate_caller_contract_code_call(target_contract, num_calls)
-        caller_contract = pre.deploy_contract(code=caller_code)
-        
-        sender = pre.fund_eoa()
-        
-        tx = Transaction(
-            to=caller_contract,
-            gas_limit=CALLER_GAS_LIMIT,
-            sender=sender,
-        )
-        
-        post = {
-            caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})
-        }
-        
-        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-    
-    return test_func
-
-
-test_log0 = _create_log_caller_test(Op.LOG0, 0, LOG0_MAX_OP_COUNT, LOG0_STEP, num_calls=2400)  # 2x for short proving time
-test_log1 = _create_log_caller_test(Op.LOG1, 1, LOG1_MAX_OP_COUNT, LOG1_STEP, num_calls=2000)  # 2x for short proving time
-test_log2 = _create_log_caller_test(Op.LOG2, 2, LOG2_MAX_OP_COUNT, LOG2_STEP, num_calls=1400)  # 2x for short proving time
-test_log3 = _create_log_caller_test(Op.LOG3, 3, LOG3_MAX_OP_COUNT, LOG3_STEP, num_calls=1400)  # 2x for short proving time
-test_log4 = _create_log_caller_test(Op.LOG4, 4, LOG4_MAX_OP_COUNT, LOG4_STEP, num_calls=1400)  # 2x for short proving time
