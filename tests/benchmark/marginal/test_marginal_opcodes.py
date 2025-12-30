@@ -139,11 +139,11 @@ SUB_CONFIG = MarginalOpcodeConfig(
     name="SUB",
     opcode=Op.SUB,
     max_op_count=300,
-    step=60,  # 6 data points (improved R²)
+    step=50,  # 7 data points (improved R²)
     stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=5000,
+    num_calls=10000,  # 2x for short proving time
 )
 
 # Ref: test_arithmetic.py opcode_DIV-0
@@ -281,7 +281,7 @@ SLT_CONFIG = MarginalOpcodeConfig(
     name="SLT",
     opcode=Op.SLT,
     max_op_count=300,
-    step=60,  # 6 data points (improved R²)
+    step=50,  # 7 data points (improved R²)
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
@@ -292,11 +292,11 @@ SGT_CONFIG = MarginalOpcodeConfig(
     name="SGT",
     opcode=Op.SGT,
     max_op_count=300,
-    step=60,  # 6 data points (improved R²)
+    step=50,  # 7 data points (improved R²)
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=3000,
+    num_calls=6000,  # 2x for short proving time
 )
 
 EQ_CONFIG = MarginalOpcodeConfig(
@@ -318,7 +318,7 @@ ISZERO_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=3000,
+    num_calls=6000,  # 2x for low R² (0.86)
 )
 
 # ============================================================================
@@ -366,7 +366,7 @@ NOT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=2000,  # Already >= 500K
+    num_calls=4000,  # 2x for short proving time
 )
 
 BYTE_CONFIG = MarginalOpcodeConfig(
@@ -481,7 +481,7 @@ PUSH16_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Scaled for 150M cycles target
+    num_calls=4000,  # 2x for short proving time
 )
 
 PUSH32_CONFIG = MarginalOpcodeConfig(
@@ -492,7 +492,7 @@ PUSH32_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=1500,  # Calculated for 500K+ gas
+    num_calls=3000,  # 2x for short proving time
 )
 
 # DUP opcodes need N items on stack before they can duplicate
@@ -533,7 +533,7 @@ POP_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Push 0 to pop (using PUSH0 is cheapest)
     pops_per_op=1,
     pushes_per_op=0,
-    num_calls=3000,
+    num_calls=6000,  # 2x for short proving time
 )
 
 
@@ -1154,7 +1154,7 @@ MSTORE8_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xFF, 0],  # value, offset (MSTORE8 pops offset first)
     pops_per_op=2,
     pushes_per_op=0,
-    num_calls=2000,  # Scaled for 150M cycles target
+    num_calls=4000,  # 2x for short proving time
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1166,7 +1166,7 @@ MSIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas (MSIZE costs 2 gas)
+    num_calls=4000,  # 2x for short proving time
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory so MSIZE returns non-zero
 )
 
@@ -1240,7 +1240,7 @@ MCOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[1024, 0, 4096],  # size=1KB, srcOffset=0, destOffset=4096 (pushed in reverse pop order)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=200,  # Calculated for 500K+ gas
+    num_calls=400,  # 2x for short proving time
     setup_code=Op.MSTORE(0, MAX_U256) + Op.MSTORE(4096, 0),  # Pre-expand memory regions
 )
 
@@ -1264,7 +1264,7 @@ CALLDATALOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Load from offset 0
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=1000,  # Calculated for 500K+ gas
+    num_calls=2000,  # 2x for short proving time
 )
 
 # BLOCKHASH: pops block number, pushes hash (or 0 if out of range)
@@ -1390,7 +1390,7 @@ JUMPDEST_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=0,
-    num_calls=4000,  # Scaled 6-7x for 100M+ ZK cycles
+    num_calls=8000,  # 2x for short proving time
 )
 
 # PC pushes the program counter value
@@ -1507,7 +1507,7 @@ def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
 
 JUMP_MAX_OP_COUNT = 200
 JUMP_STEP = 40  # 6 data points (improved R²)
-JUMP_NUM_CALLS = 3000
+JUMP_NUM_CALLS = 6000  # 2x for short proving time
 JUMPI_MAX_OP_COUNT = 201
 JUMPI_STEP = 67  # 4 data points
 JUMPI_NUM_CALLS = 5000 
@@ -2275,7 +2275,7 @@ def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: 
 
 # Stack-limited: each noop leaves +2 items (3 pushed, 1 popped)
 # Safe max_op_count: ~400 (with buffer), caller amplifies total
-CREATE_NUM_CALLS = 200  # Number of caller loop iterations
+CREATE_NUM_CALLS = 400  # 2x for short proving time
 CREATE_MAX_OP_COUNT = 21  # Target executes up to 21 CREATEs per call
 CREATE_STEP = 7  # 4 data points
 
@@ -2869,12 +2869,12 @@ def _create_swap_caller_test(swap_n: int, max_op_count: int, step: int, num_call
     return test_func
 
 
-test_dup1 = _create_dup_caller_test(1, DUP1_MAX_OP_COUNT, DUP1_STEP, num_calls=3000)
-test_dup8 = _create_dup_caller_test(8, DUP8_MAX_OP_COUNT, DUP8_STEP, num_calls=3000)
-test_dup16 = _create_dup_caller_test(16, DUP16_MAX_OP_COUNT, DUP16_STEP, num_calls=2000)
-test_swap1 = _create_swap_caller_test(1, SWAP1_MAX_OP_COUNT, SWAP1_STEP, num_calls=1000)
-test_swap8 = _create_swap_caller_test(8, SWAP8_MAX_OP_COUNT, SWAP8_STEP, num_calls=1000)
-test_swap16 = _create_swap_caller_test(16, SWAP16_MAX_OP_COUNT, SWAP16_STEP, num_calls=1000)
+test_dup1 = _create_dup_caller_test(1, DUP1_MAX_OP_COUNT, DUP1_STEP, num_calls=6000)  # 2x for short proving time
+test_dup8 = _create_dup_caller_test(8, DUP8_MAX_OP_COUNT, DUP8_STEP, num_calls=6000)  # 2x for short proving time
+test_dup16 = _create_dup_caller_test(16, DUP16_MAX_OP_COUNT, DUP16_STEP, num_calls=4000)  # 2x for short proving time
+test_swap1 = _create_swap_caller_test(1, SWAP1_MAX_OP_COUNT, SWAP1_STEP, num_calls=2000)  # 2x for short proving time
+test_swap8 = _create_swap_caller_test(8, SWAP8_MAX_OP_COUNT, SWAP8_STEP, num_calls=2000)  # 2x for short proving time
+test_swap16 = _create_swap_caller_test(16, SWAP16_MAX_OP_COUNT, SWAP16_STEP, num_calls=2000)  # 2x for short proving time
 
 
 # ============================================================================
@@ -2922,8 +2922,8 @@ def _create_log_caller_test(log_opcode, topic_count: int, max_op_count: int, ste
     return test_func
 
 
-test_log0 = _create_log_caller_test(Op.LOG0, 0, LOG0_MAX_OP_COUNT, LOG0_STEP, num_calls=1200)
-test_log1 = _create_log_caller_test(Op.LOG1, 1, LOG1_MAX_OP_COUNT, LOG1_STEP, num_calls=1000)
-test_log2 = _create_log_caller_test(Op.LOG2, 2, LOG2_MAX_OP_COUNT, LOG2_STEP, num_calls=700)
-test_log3 = _create_log_caller_test(Op.LOG3, 3, LOG3_MAX_OP_COUNT, LOG3_STEP, num_calls=700)
-test_log4 = _create_log_caller_test(Op.LOG4, 4, LOG4_MAX_OP_COUNT, LOG4_STEP, num_calls=700)
+test_log0 = _create_log_caller_test(Op.LOG0, 0, LOG0_MAX_OP_COUNT, LOG0_STEP, num_calls=2400)  # 2x for short proving time
+test_log1 = _create_log_caller_test(Op.LOG1, 1, LOG1_MAX_OP_COUNT, LOG1_STEP, num_calls=2000)  # 2x for short proving time
+test_log2 = _create_log_caller_test(Op.LOG2, 2, LOG2_MAX_OP_COUNT, LOG2_STEP, num_calls=1400)  # 2x for short proving time
+test_log3 = _create_log_caller_test(Op.LOG3, 3, LOG3_MAX_OP_COUNT, LOG3_STEP, num_calls=1400)  # 2x for short proving time
+test_log4 = _create_log_caller_test(Op.LOG4, 4, LOG4_MAX_OP_COUNT, LOG4_STEP, num_calls=1400)  # 2x for short proving time

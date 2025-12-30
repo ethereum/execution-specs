@@ -773,7 +773,7 @@ def test_marginal_ripemd160(
 # Caller-based approach constants
 IDENTITY_NUM_CALLS = 5000  # Number of caller loop iterations
 IDENTITY_MAX_OP_COUNT = 300  # Target executes op_count IDENTITY calls per invocation
-IDENTITY_STEP = 60  # 6 data points (improved R²)
+IDENTITY_STEP = 75  # 5 data points (improved R²)
 IDENTITY_GAS_LIMIT = 500_000_000  # High gas limit for many calls
 
 
