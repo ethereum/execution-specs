@@ -8,7 +8,7 @@ Precompiled Contract Addresses.
 Introduction
 ------------
 
-Mapping of precompiled contracts their implementations.
+Mapping of precompiled contracts to their implementations.
 """
 
 from typing import Callable, Dict
