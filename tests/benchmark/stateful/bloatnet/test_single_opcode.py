@@ -500,9 +500,9 @@ def sstore_helper_contract(sloads_before_sstore: bool) -> Bytecode:
 
     if sloads_before_sstore:
         loop += Op.DUP2
-        loop += Op.SSTORE
         loop += Op.SLOAD
         loop += Op.POP
+        loop += Op.SSTORE
     else:
         loop += Op.SWAP1
         loop += Op.SSTORE  # STORAGE[start_slot + counter] = value
@@ -526,15 +526,6 @@ def sstore_helper_contract(sloads_before_sstore: bool) -> Bytecode:
 
 @pytest.mark.parametrize("slot_count", [50, 100])
 @pytest.mark.parametrize("use_access_list", [True, False])
-@pytest.mark.parametrize(
-    "contract_size",
-    [
-        pytest.param(0, id="just_created"),
-        pytest.param(1024, id="small"),
-        pytest.param(12 * 1024, id="medium"),
-        pytest.param(24 * 1024, id="xen"),
-    ],
-)
 @pytest.mark.parametrize("sloads_before_sstore", [True, False])
 @pytest.mark.parametrize("num_contracts", [1, 5, 10])
 @pytest.mark.parametrize(
@@ -543,16 +534,17 @@ def sstore_helper_contract(sloads_before_sstore: bool) -> Bytecode:
         pytest.param(0, 0, id="zero_to_zero"),
         pytest.param(0, 0xDEADBEEF, id="zero_to_nonzero"),
         pytest.param(0xDEADBEEF, 0, id="nonzero_to_zero"),
-        pytest.param(0xDEADBEEF, 0xBEEFBEEF, id="nonzero_to_nonzero"),
+        pytest.param(0xDEADBEEF, 0xBEEFBEEF, id="nonzero_to_diff"),
+        pytest.param(0xDEADBEEF, 0xBEEFBEEF, id="nonzero_to_same"),
     ],
 )
 def test_sstore_variants(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
+    gas_benchmark_values: int,
     slot_count: int,
     use_access_list: bool,
-    contract_size: int,
     sloads_before_sstore: bool,
     num_contracts: int,
     initial_value: int,
@@ -563,8 +555,6 @@ def test_sstore_variants(
 
     Variants:
     - use_access_list: Warm storage slots via access list
-    - contract_size: Contract code size
-      (just_created=0, small=1KB, medium=12KB, xen=24KB)
     - sloads_before_sstore: Number of SLOADs per slot before SSTORE
     - num_contracts: Number of contract instances (cold storage writes)
     - initial_value/write_value: Storage transitions
@@ -573,15 +563,14 @@ def test_sstore_variants(
     base_contract = sstore_helper_contract(sloads_before_sstore)
     padded_contract = base_contract
 
-    if len(base_contract) < contract_size:
-        padded_contract += Op.INVALID * (contract_size - len(base_contract))
-
     slots_per_contract = slot_count // num_contracts
 
     txs: list[Transaction] = []
     post = {}
 
-    base_gas_per_contract = tx_gas_limit // num_contracts
+    base_gas_per_contract = min(
+        tx_gas_limit, gas_benchmark_values // num_contracts
+    )
     gas_remainder = tx_gas_limit % num_contracts
 
     for contract_idx in range(num_contracts):
@@ -717,8 +706,6 @@ def test_storage_sload_benchmark(
 
     Variants:
     - use_access_list: Warm storage slots via access list
-    - contract_size: Contract code size
-      (just_created=0, small=1KB, medium=12KB, xen=24KB)
     - sloads_before_sstore: Number of SLOADs per slot before SSTORE
     - num_contracts: Number of contract instances (cold storage writes)
     - initial_value/write_value: Storage transitions
