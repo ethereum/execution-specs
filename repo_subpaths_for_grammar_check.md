@@ -50,7 +50,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 
 ## src/ethereum_optimized
 
-- [ ] `src/ethereum_optimized/**/*.py` (~4 files)
+- [x] `src/ethereum_optimized/**/*.py` (~4 files)
 
 ---
 
