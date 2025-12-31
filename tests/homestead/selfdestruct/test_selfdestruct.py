@@ -22,15 +22,17 @@ from execution_testing.forks import Byzantium, Cancun
 from execution_testing.forks.helpers import Fork
 
 
-@pytest.mark.parametrize("same_tx_selfdestruct", [False, True])
 @pytest.mark.with_all_precompiles
+@pytest.mark.parametrize("same_tx_selfdestruct", [False, True])
+@pytest.mark.parametrize("warm_beneficiary", [False, True])
 @pytest.mark.valid_from("Homestead")
-def test_selfdestruct_to_precompile(
+def test_selfdestruct_to_precompile_and_oog_at_minus_1(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     fork: Fork,
     precompile: Address,
     same_tx_selfdestruct: bool,
+    warm_beneficiary: bool,
 ) -> None:
     """
     Test successful SELFDESTRUCT to precompile with exact gas.
@@ -48,7 +50,11 @@ def test_selfdestruct_to_precompile(
     push_cost = gas_costs.G_VERY_LOW
     selfdestruct_cost = gas_costs.G_SELF_DESTRUCT
     new_account_cost = gas_costs.G_NEW_ACCOUNT
-    exact_gas = push_cost + selfdestruct_cost + new_account_cost
+    if warm_beneficiary:
+        warming_cost = 0
+    else:
+        warming_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+    exact_gas = push_cost + selfdestruct_cost + new_account_cost + warming_cost
 
     if same_tx_selfdestruct:
         # Deploy and selfdestruct in same transaction
