@@ -38,7 +38,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 
 ## src/ethereum/forks - Misc
 
-- [ ] `src/ethereum/forks/*/exceptions.py`, `requests.py`, `vm/eoa_delegation.py`, `dao.py` (~40 files)
+- [x] `src/ethereum/forks/*/exceptions.py`, `requests.py`, `vm/eoa_delegation.py`, `dao.py` (~40 files)
 
 ## src/ethereum (non-forks)
 
