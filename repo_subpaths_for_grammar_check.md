@@ -24,7 +24,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 - [x] `src/ethereum/forks/*/vm/precompiled_contracts/modexp.py`, `alt_bn128.py` (~38 files)
 - [x] `src/ethereum/forks/*/vm/precompiled_contracts/blake2f.py` (~17 files)
 - [x] `src/ethereum/forks/*/vm/precompiled_contracts/point_evaluation.py`, `p256verify.py` (~16 files)
-- [ ] `src/ethereum/forks/*/vm/precompiled_contracts/bls12_381/*.py` (~32 files)
+- [x] `src/ethereum/forks/*/vm/precompiled_contracts/bls12_381/*.py` (~32 files)
 
 ## src/ethereum/forks - Utils & State
 

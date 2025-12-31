@@ -33,7 +33,7 @@ def bls12_pairing(evm: Evm) -> None:
     Raises
     ------
     InvalidParameter
-        If the input length is invalid or if sub-group check fails.
+        If the input length is invalid or if the subgroup check fails.
 
     """
     data = evm.message.data
@@ -54,12 +54,12 @@ def bls12_pairing(evm: Evm) -> None:
         g1_slice = data[g1_start : g1_start + Uint(128)]
         g1_point = bytes_to_g1(bytes(g1_slice))
         if not is_inf(bls12_multiply(g1_point, curve_order)):
-            raise InvalidParameter("Sub-group check failed for G1 point.")
+            raise InvalidParameter("Subgroup check failed for G1 point.")
 
         g2_slice = data[g2_start : g2_start + Uint(256)]
         g2_point = bytes_to_g2(bytes(g2_slice))
         if not is_inf(bls12_multiply(g2_point, curve_order)):
-            raise InvalidParameter("Sub-group check failed for G2 point.")
+            raise InvalidParameter("Subgroup check failed for G2 point.")
 
         result *= pairing(g2_point, g1_point)
 
