@@ -38,6 +38,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - 🔀 Relabel `@pytest.mark.repricing` markers in benchmark tests to reflect configurations requested for gas repricing analysis ([#1971](https://github.com/ethereum/execution-specs/pull/1971)).
 - ✨ New EIP-7702 test cases added ([#1974](https://github.com/ethereum/execution-specs/pull/1974)).
 - ✨ Add missing benchmark configurations / opcode to benchmark tests for repricing analysis([#2006](https://github.com/ethereum/execution-specs/pull/2006)).
+- ✨ Port STATICCALL to CALL tests with zero and non-zero value transfer from `tests/static`, extending coverage with `pytest.mark.with_all_precompiles` ([#1960](https://github.com/ethereum/execution-specs/pull/1960)).
 
 ## [v5.4.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.4.0) - 2025-12-07
 
