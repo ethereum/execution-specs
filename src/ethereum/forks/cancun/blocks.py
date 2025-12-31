@@ -151,7 +151,7 @@ class Header:
 
     number: Uint
     """
-    Block number, (height) in the chain.
+    Block number (height) in the chain.
     """
 
     gas_limit: Uint
