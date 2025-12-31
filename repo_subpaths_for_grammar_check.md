@@ -46,7 +46,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 
 ## src/ethereum_spec_tools
 
-- [ ] `src/ethereum_spec_tools/**/*.py` (~39 files)
+- [x] `src/ethereum_spec_tools/**/*.py` (~39 files)
 
 ## src/ethereum_optimized
 

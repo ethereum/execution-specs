@@ -37,7 +37,7 @@ class Alloc:
             with open(t8n.options.input_alloc, "r") as f:
                 data = json.load(f)
 
-        # The json_to_state functions expects the values to hex
+        # The json_to_state function expects the values to be hex
         # strings, so we convert them here.
         for address, account in data.items():
             for key, value in account.items():
