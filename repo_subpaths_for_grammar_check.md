@@ -42,7 +42,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 
 ## src/ethereum (non-forks)
 
-- [ ] `src/ethereum/*.py`, `src/ethereum/crypto/*.py`, `src/ethereum/utils/*.py` (~15 files)
+- [x] `src/ethereum/*.py`, `src/ethereum/crypto/*.py`, `src/ethereum/utils/*.py` (~15 files)
 
 ## src/ethereum_spec_tools
 

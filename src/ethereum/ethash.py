@@ -398,8 +398,8 @@ def hashimoto_light(
     dataset_size: Uint,
 ) -> Tuple[Bytes, Hash32]:
     """
-    Run the [`hashimoto`] algorithm by generating dataset item using the cache
-    instead of loading the full dataset into main memory.
+    Run the [`hashimoto`] algorithm by generating a dataset item using the
+    cache instead of loading the full dataset into main memory.
 
     #### Parameters
 
