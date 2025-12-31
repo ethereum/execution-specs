@@ -1,5 +1,5 @@
 """
-The fifth blob parameter only (BPO) fork, BPO3, includes only changes to the
+The fifth blob parameter only (BPO) fork, BPO5, includes only changes to the
 blob fee schedule.
 
 ### Changes

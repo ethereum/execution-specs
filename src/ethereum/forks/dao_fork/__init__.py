@@ -12,7 +12,7 @@ recovers the stolen funds into a new contract.
 
 | Network | Block       | Expected Date | Fork Hash    |
 | ------- | ----------- | ------------- | ------------ |
-| Mainnet | 1,920,000   | July 20, 1026 | `0x91d1f948` |
+| Mainnet | 1,920,000   | July 20, 2016 | `0x91d1f948` |
 
 ### Releases
 

@@ -34,7 +34,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 ## src/ethereum/forks - Blocks & Transactions
 
 - [x] `src/ethereum/forks/*/blocks.py`, `transactions.py`, `bloom.py` (~72 files)
-- [ ] `src/ethereum/forks/*/__init__.py`, `fork.py`, `fork_types.py` (~72 files)
+- [x] `src/ethereum/forks/*/__init__.py`, `fork.py`, `fork_types.py` (~72 files)
 
 ## src/ethereum/forks - Misc
 
