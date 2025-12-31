@@ -128,7 +128,7 @@ InternalNode = LeafNode | ExtensionNode | BranchNode
 def encode_internal_node(node: Optional[InternalNode]) -> Extended:
     """
     Encodes a Merkle Trie node into its RLP form. The RLP will then be
-    serialized into a `Bytes` and hashed unless it is less that 32 bytes
+    serialized into a `Bytes` and hashed unless it is less than 32 bytes
     when serialized.
 
     This function also accepts `None`, representing the absence of a node,

@@ -28,8 +28,8 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 
 ## src/ethereum/forks - Utils & State
 
-- [ ] `src/ethereum/forks/*/utils/*.py` (~96 files)
-- [ ] `src/ethereum/forks/*/trie.py`, `state.py` (~48 files)
+- [x] `src/ethereum/forks/*/utils/*.py` (~96 files)
+- [x] `src/ethereum/forks/*/trie.py`, `state.py` (~48 files)
 
 ## src/ethereum/forks - Blocks & Transactions
 

@@ -340,7 +340,7 @@ def account_exists(state: State, address: Address) -> bool:
 
 def account_has_code_or_nonce(state: State, address: Address) -> bool:
     """
-    Checks if an account has non zero nonce or non empty code.
+    Checks if an account has non-zero nonce or non-empty code.
 
     Parameters
     ----------
@@ -352,7 +352,7 @@ def account_has_code_or_nonce(state: State, address: Address) -> bool:
     Returns
     -------
     has_code_or_nonce : `bool`
-        True if the account has non zero nonce or non empty code,
+        True if the account has non-zero nonce or non-empty code,
         False otherwise.
 
     """
@@ -473,7 +473,7 @@ def set_account_balance(state: State, address: Address, amount: U256) -> None:
         Address of the account whose nonce needs to be incremented.
 
     amount:
-        The amount that needs to set in balance.
+        The amount that needs to be set in the balance.
 
     """
 
@@ -493,7 +493,7 @@ def touch_account(state: State, address: Address) -> None:
         The current state.
 
     address:
-        The address of the account that need to initialised.
+        The address of the account that needs to be initialized.
 
     """
     if not account_exists(state, address):
@@ -530,7 +530,7 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
         The current state.
 
     address:
-        Address of the account whose code needs to be update.
+        Address of the account whose code needs to be updated.
 
     code:
         The bytecode that needs to be set.
