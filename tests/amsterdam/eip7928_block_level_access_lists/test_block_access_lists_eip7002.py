@@ -457,11 +457,12 @@ def test_bal_7002_no_withdrawal_requests(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    Ensure BAL excludes EIP-7002 system contract when block has no
-    withdrawal requests.
+    Ensure BAL captures EIP-7002 system contract dequeue operation even
+    when block has no withdrawal requests.
 
-    This baseline test ensures the system contract doesn't spuriously
-    appear in BAL when no withdrawal requests are made.
+    This test verifies that the post-execution dequeue system call always
+    reads queue state (slots 0-3), even when no requests are present. The
+    system contract should have storage_reads but no storage_changes.
     """
     alice = pre.fund_eoa()
     bob = pre.fund_eoa(amount=0)
