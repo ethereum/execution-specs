@@ -145,6 +145,7 @@ class TransitionTool(EthereumCLI):
 
     supports_xdist: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = False
+    fork_name_map: ClassVar[Dict[str, str]] = {}
 
     @abstractmethod
     def __init__(
@@ -326,13 +327,19 @@ class TransitionTool(EthereumCLI):
         }
         output_paths["body"] = os.path.join("output", "txs.rlp")
 
+        # Get fork name and apply any tool-specific mapping
+        fork_name = (
+            t8n_data.fork_name_if_supports_blob_params
+            if self.supports_blob_params
+            else t8n_data.fork_name
+        )
+        fork_name = self.fork_name_map.get(fork_name, fork_name)
+
         # Construct args for evmone-t8n binary
         args = [
             str(self.binary),
             "--state.fork",
-            t8n_data.fork_name_if_supports_blob_params
-            if self.supports_blob_params
-            else t8n_data.fork_name,
+            fork_name,
             "--input.alloc",
             input_paths["alloc"],
             "--input.env",

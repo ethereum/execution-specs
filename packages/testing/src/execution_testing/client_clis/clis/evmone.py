@@ -47,6 +47,12 @@ class EvmOneTransitionTool(TransitionTool):
     supports_opcode_count: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = True
 
+    # evmone uses space-separated fork names for some forks
+    fork_name_map: ClassVar[Dict[str, str]] = {
+        "TangerineWhistle": "Tangerine Whistle",
+        "SpuriousDragon": "Spurious Dragon",
+    }
+
     def __init__(
         self,
         *,
