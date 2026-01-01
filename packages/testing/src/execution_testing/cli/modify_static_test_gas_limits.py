@@ -213,7 +213,7 @@ MAX_GAS_LIMIT = 16_777_216
     ),
     required=True,
     help="The input json file or directory containing json listing the new gas limits for the "
-    "static test files files.",
+    "static test files.",
 )
 @click.option(
     "--max-gas-limit",

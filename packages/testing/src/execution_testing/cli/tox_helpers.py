@@ -125,7 +125,7 @@ def pyspelling() -> None:
                 tox_env="spellcheck",
                 error_message=(
                     "aspell is not installed. This tool is required for spell checking "
-                    " documentation."
+                    "documentation."
                 ),
                 fix_commands=[
                     "# Install aspell on Ubuntu/Debian",

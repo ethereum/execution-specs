@@ -90,7 +90,7 @@ def calculate_size_distribution(
             # Added group_count
             test_distribution.append((label, tests_in_bin, 0, group_count))
 
-    # Calculate cumulative values For the table sorted from largest to
+    # Calculate cumulative values for the table sorted from largest to
     # smallest:
     #   Row N shows: if we exclude groups of size N and smaller, what
     #                percent of tests remain?

@@ -46,7 +46,7 @@ def count_json_files_exclude_index(start_path: Path) -> int:
 
 @click.command(
     help=(
-        "Generate an index file of all the json fixtures in the specified directory."
+        "Generate an index file of all the json fixtures in the specified directory. "
         "The index file is saved as 'index.json' in the specified directory."
     )
 )
