@@ -33,3 +33,7 @@ Format (but don't add a codeblock for each item):
 - [x] packages/testing/src/execution_testing/cli/fillerconvert/verify_filled.py:37-40 - "Verify post hash of the refilled test against original: Regex the original d,g,v from the refilled test name. Find the post record for this d,g,v and the fork of refilled test."
   Suggestion: "Verify the post hash of the refilled test against the original. Extract the d,g,v from the refilled test name. Find the post record for this d,g,v and the fork of the refilled test."
   Reason: Multiple potential issues - "Regex" used informally as a verb, possible missing articles ("the original", "the refilled test")
+
+- [x] packages/testing/src/execution_testing/specs/blockchain.py:167-168 - "This can be used in a test to explicitly skip a field in a block's RLP encoding. included in the (json) output when the model is serialized."
+  Suggestion: "This can be used in a test to explicitly skip a field in a block's RLP encoding that would otherwise be included in the (json) output when the model is serialized."
+  Reason: Sentence fragment - lowercase "included" after period has no subject. The sentence structure is broken.
