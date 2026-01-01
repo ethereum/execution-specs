@@ -206,7 +206,7 @@ class NethtestFixtureConsumer(
         Consume a single state test.
 
         Uses the cached result from `consume_state_test_file` in order to not
-        call the command every time an select a single result from there.
+        call the command every time and select a single result from there.
         """
         file_results, stderr = self.consume_state_test_file(
             fixture_path=fixture_path,

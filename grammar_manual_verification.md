@@ -37,3 +37,7 @@ Format (but don't add a codeblock for each item):
 - [x] packages/testing/src/execution_testing/specs/blockchain.py:167-168 - "This can be used in a test to explicitly skip a field in a block's RLP encoding. included in the (json) output when the model is serialized."
   Suggestion: "This can be used in a test to explicitly skip a field in a block's RLP encoding that would otherwise be included in the (json) output when the model is serialized."
   Reason: Sentence fragment - lowercase "included" after period has no subject. The sentence structure is broken.
+
+- [ ] packages/testing/src/execution_testing/client_clis/clis/__init__.py:1 - "Package containing concrete implementations of Ethereum CL interfaces."
+  Suggestion: "Package containing concrete implementations of Ethereum CLI interfaces."
+  Reason: "CL" likely means "CLI" (Command Line Interface) since this package contains CLI tools. "CL" in Ethereum context typically means "Consensus Layer" which doesn't fit the context.

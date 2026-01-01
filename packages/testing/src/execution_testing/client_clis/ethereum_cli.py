@@ -155,7 +155,7 @@ class EthereumCLI:
 
                 if result.returncode != 0:
                     logger.debug(
-                        f"Subprocess returncode is not 0!It is: {result.returncode}"
+                        f"Subprocess returncode is not 0! It is: {result.returncode}"
                     )
                     # don't raise exception, you are supposed to keep trying
                     # different version flags

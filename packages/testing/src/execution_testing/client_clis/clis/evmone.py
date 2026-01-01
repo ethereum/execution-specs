@@ -204,7 +204,7 @@ class EvmoneFixtureConsumerCommon:
         Consume a single state or blockchain test.
 
         Uses the cached result from `consume_test_file` in order to not
-        call the command every time an select a single result from there.
+        call the command every time and select a single result from there.
         """
         file_results = self.consume_test_file(
             fixture_path=fixture_path,
