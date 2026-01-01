@@ -1,4 +1,4 @@
-"""Pre-allocation fixtures using for test filling."""
+"""Pre-allocation fixtures used for test filling."""
 
 from itertools import count
 from pathlib import Path

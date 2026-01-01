@@ -54,8 +54,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         dest="engine_endpoint",
         help="Engine endpoint to an execution client, which implies that the execute command "
-        "will be used to drive the chain. If not provided, it's assumed that the execution client"
-        "is connected to a beacon node and the chain progresses automatically. If provided, the"
+        "will be used to drive the chain. If not provided, it's assumed that the execution client "
+        "is connected to a beacon node and the chain progresses automatically. If provided, the "
         "JWT secret must be provided as well.",
     )
     engine_rpc_group.addoption(
@@ -73,7 +73,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store",
         default=None,
         dest="engine_jwt_secret_file",
-        help="Path to a file containing the JWT secret to be used to authenticate with the engine"
+        help="Path to a file containing the JWT secret to be used to authenticate with the engine "
         "endpoint. The file must contain only the JWT secret as a hex string.",
     )
 

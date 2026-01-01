@@ -1,5 +1,5 @@
 """
-Test execution plugin for pytest, to run Ethereum tests using in live networks.
+Test execution plugin for pytest, to run Ethereum tests on live networks.
 """
 
 import os
@@ -74,7 +74,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help=(
             "Default max priority fee per gas used for transactions, "
-            "unless overridden by the test."
+            "unless overridden by the test. "
             "Default=None (1.5x current network max priority fee per gas)"
         ),
     )
@@ -85,7 +85,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=int,
         default=None,
         help=(
-            "Default max fee per blob gas used for transactions, unless overridden by the test."
+            "Default max fee per blob gas used for transactions, unless overridden by the test. "
             "Default=None (1.5x current network max fee per blob gas)"
         ),
     )
@@ -97,7 +97,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=int,
         help=(
             "Maximum gas used to execute a single transaction. "
-            "Will be used as ceiling for tests that attempt to consume the entire block gas limit."
+            "Will be used as ceiling for tests that attempt to consume the entire block gas limit. "
             f"(Default: {EnvironmentDefaults.gas_limit // 4})"
         ),
     )
