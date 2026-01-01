@@ -69,7 +69,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="test_contract_address_increments",
         default=f"{CONTRACT_ADDRESS_INCREMENTS_DEFAULT}",
         type=str,
-        help="The address increment value to each deployed contract by a test.",
+        help="The address increment value for each deployed contract by a test.",
     )
     pre_alloc_group.addoption(
         "--evm-code-type",

@@ -411,7 +411,7 @@ def yul(fork: Fork, request: pytest.FixtureRequest) -> Type[Yul]:
 
     This fixture defines a class that wraps the ::execution_testing.tools.Yul class
     so that upon instantiation within the test case, it provides the test
-    case's current fork parameter. The forks is then available for use in
+    case's current fork parameter. The fork is then available for use in
     solc's arguments for the Yul code compilation.
 
     Test cases can override the default value by specifying a fixed version
