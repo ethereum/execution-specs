@@ -1,5 +1,5 @@
 """
-Pytest plugin to fix the test IDs for all pytest command that use a
+Pytest plugin to fix the test IDs for all pytest commands that use a
 command-logic test file.
 """
 

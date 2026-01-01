@@ -10,7 +10,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 - [x] `packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/**/*.py` (~27 files)
 - [x] `packages/testing/src/execution_testing/cli/pytest_commands/plugins/execute/**/*.py` (~21 files)
 - [x] `packages/testing/src/execution_testing/cli/pytest_commands/plugins/forks/**/*.py`, `shared/**/*.py`, `help/**/*.py` (~16 files)
-- [ ] `packages/testing/src/execution_testing/cli/pytest_commands/plugins/*.py` (root plugins, ~6 files)
+- [x] `packages/testing/src/execution_testing/cli/pytest_commands/plugins/*.py` (root plugins, ~6 files)
 
 ## packages/testing - CLI Core
 
