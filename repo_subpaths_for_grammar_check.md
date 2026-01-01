@@ -26,7 +26,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 - [x] `packages/testing/src/execution_testing/specs/**/*.py` (~28 files)
 - [x] `packages/testing/src/execution_testing/fixtures/**/*.py` (~16 files)
 - [x] `packages/testing/src/execution_testing/client_clis/**/*.py` (~21 files)
-- [ ] `packages/testing/src/execution_testing/base_types/**/*.py` (~15 files)
+- [x] `packages/testing/src/execution_testing/base_types/**/*.py` (~15 files)
 - [ ] `packages/testing/src/execution_testing/forks/**/*.py` (~13 files)
 - [ ] `packages/testing/src/execution_testing/tools/**/*.py`, `exceptions/**/*.py` (~24 files)
 - [ ] `packages/testing/src/execution_testing/vm/**/*.py`, `rpc/**/*.py`, `config/**/*.py` (~17 files)

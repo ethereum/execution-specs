@@ -244,7 +244,7 @@ class Storage(
         hint: str = "",
     ) -> StorageKeyValueType:
         """
-        Store a value in the storage and returns the key where the value is
+        Store a value in the storage and return the key where the value is
         stored.
 
         Increments the key counter so the next time this function is called,
