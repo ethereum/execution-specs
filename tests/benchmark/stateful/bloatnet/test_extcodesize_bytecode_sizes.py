@@ -9,6 +9,59 @@ The test maximizes cold EXTCODESIZE calls to stress client state loading by:
 1. Using CREATE2 address derivation to access many unique contracts
 2. Filling block gas with transactions as close to FUSAKA_TX_GAS_LIMIT (16M) as possible
 3. Verifying contracts exist by checking the last accessed contract's size
+
+This benchmark measures the performance impact of `EXTCODESIZE` operations on contracts 
+of varying sizes (0.5KB to 24KB). 
+It stresses client state loading by maximizing **cold** EXTCODESIZE calls per block.
+
+## Overview
+
+The test deploys attack contracts that loop through thousands of unique contract addresses, 
+calling `EXTCODESIZE` on each. 
+By using CREATE2 address derivation, the test accesses pre-deployed contracts without storing 
+their addresses, maximizing the number of cold state accesses per block.
+
+┌─────────────────────────────────────────────────────────────────┐
+│                        Test Block                               │
+├─────────────────────────────────────────────────────────────────┤
+│  TX1: Verification (~30K gas)                                   │
+│    └─> Calls EXTCODESIZE on last contract, stores result        │
+│                                                                 │
+│  TX2: Attack (~16M gas)                                         │
+│    └─> Loops EXTCODESIZE on salts 0..5,878                      │
+│                                                                 │
+│  TX3: Attack (~16M gas)                                         │
+│    └─> Loops EXTCODESIZE on salts 5,879..11,757                 │
+│                                                                 │
+│  TX4: Attack (~16M gas)                                         │
+│    └─> Loops EXTCODESIZE on salts 11,758..17,636                │
+└─────────────────────────────────────────────────────────────────┘
+
+### Execute a Single Size
+
+```bash
+uv run execute remote \
+  --fork Prague \
+  --rpc-endpoint http://127.0.0.1:8545 \
+  --rpc-seed-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+  --rpc-chain-id 1337 \
+  --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \
+  -- -m stateful --gas-benchmark-values 60 \
+  tests/benchmark/stateful/bloatnet/test_extcodesize_bytecode_sizes.py -k '24KB' -v
+```
+
+### Execute All Sizes
+
+```bash
+uv run execute remote \
+  --fork Prague \
+  --rpc-endpoint http://127.0.0.1:8545 \
+  --rpc-seed-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+  --rpc-chain-id 1337 \
+  --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \
+  -- -m stateful --gas-benchmark-values 60 \
+  tests/benchmark/stateful/bloatnet/test_extcodesize_bytecode_sizes.py -v
+```
 """
 
 import pytest
