@@ -59,7 +59,7 @@ def test_bad_options(
     pytester: pytest.Pytester, options: tuple, error_string: str
 ) -> None:
     """
-    Test that a test with an invalid command-line options:
+    Test that a test with invalid command-line options:
     - Creates an outcome with exactly one error.
     - Triggers the expected error string in pytest's console output.
 

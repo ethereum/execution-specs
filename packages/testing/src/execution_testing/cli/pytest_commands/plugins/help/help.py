@@ -1,5 +1,5 @@
 """
-A small pytest plugin that shows the a concise help string that only contains
+A small pytest plugin that shows a concise help string that only contains
 the options defined by the plugins defined in execution-spec-tests.
 """
 
@@ -40,28 +40,28 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         dest="show_execute_help",
         default=False,
-        help="Show help options specific to the execute's command remote and exit.",
+        help="Show help options specific to the execute remote command and exit.",
     )
     help_group.addoption(
         "--execute-hive-help",
         action="store_true",
         dest="show_execute_hive_help",
         default=False,
-        help="Show help options specific to the execute's command hive and exit.",
+        help="Show help options specific to the execute hive command and exit.",
     )
     help_group.addoption(
         "--execute-recover-help",
         action="store_true",
         dest="show_execute_recover_help",
         default=False,
-        help="Show help options specific to the execute's command recover and exit.",
+        help="Show help options specific to the execute recover command and exit.",
     )
     help_group.addoption(
         "--execute-eth-config-help",
         action="store_true",
         dest="show_execute_eth_config_help",
         default=False,
-        help="Show help options specific to the execute's command eth_config and exit.",
+        help="Show help options specific to the execute eth_config command and exit.",
     )
 
 

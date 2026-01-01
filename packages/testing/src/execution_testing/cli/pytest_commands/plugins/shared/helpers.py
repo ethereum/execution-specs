@@ -40,7 +40,7 @@ def labeled_format_parameter_set(
     | FixtureFormat,
 ) -> ParameterSet:
     """
-    Return a parameter set from a fixture/execute format and parses a label if
+    Return a parameter set from a fixture/execute format and parse a label if
     there's any.
 
     The label will be used in the test id and also will be added as a marker to

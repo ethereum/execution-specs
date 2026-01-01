@@ -217,7 +217,7 @@ def test_invalid_validity_markers(
     pytester: pytest.Pytester, error_string: str, test_function: str
 ) -> None:
     """
-    Test that a test with an invalid marker cases:
+    Test that a test with invalid marker combinations:
     - Creates an outcome with exactly one error.
     - Triggers the expected error string in pytest's console output.
 

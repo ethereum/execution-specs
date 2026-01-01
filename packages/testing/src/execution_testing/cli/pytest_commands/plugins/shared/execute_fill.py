@@ -39,7 +39,7 @@ def pytest_configure(config: pytest.Config) -> None:
     Pytest hook called after command line options have been parsed and before
     test collection begins.
 
-    Couple of notes:
+    A couple of notes:
     1. Register the plugin's custom markers and process command-line options.
 
        Custom marker registration:

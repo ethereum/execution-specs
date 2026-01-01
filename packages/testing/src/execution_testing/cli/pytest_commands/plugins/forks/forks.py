@@ -450,7 +450,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
     Custom marker registration:
     https://docs.pytest.org/en/7.1.x/how-to/
-    writing_plugins.html# registering-custom-markers
+    writing_plugins.html#registering-custom-markers
     """
     config.addinivalue_line(
         "markers",
@@ -523,7 +523,7 @@ def pytest_configure(config: pytest.Config) -> None:
     dev_forks_help = textwrap.dedent(
         "To run tests for a fork under active development, it must be "
         "specified explicitly via --until=FORK.\n"
-        "Tests are only ran for deployed mainnet forks by default, i.e., "
+        "Tests are only run for deployed mainnet forks by default, i.e., "
         f"until {get_deployed_forks()[-1].name()}.\n"
     )
     if show_fork_help:
@@ -1079,7 +1079,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     marks=[
                         pytest.mark.skip(
                             reason=(
-                                f"{test_name} is not valid for any any of forks specified on "
+                                f"{test_name} is not valid for any of the forks specified on "
                                 "the command-line."
                             )
                         )
