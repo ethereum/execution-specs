@@ -39,8 +39,8 @@ def check_live_port(test_suite_name: str) -> Literal[8545, 8551]:
 
 class FixturesDict(Dict[Path, Fixtures]):
     """
-    A dictionary caches loaded fixture files to avoid reloading the same file
-    multiple times.
+    A dictionary that caches loaded fixture files to avoid reloading the same
+    file multiple times.
     """
 
     def __init__(self) -> None:

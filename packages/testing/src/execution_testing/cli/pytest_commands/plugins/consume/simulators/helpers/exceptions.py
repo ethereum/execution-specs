@@ -39,7 +39,7 @@ class LoggedError(Exception):
 
 class GenesisBlockMismatchExceptionError(Exception):
     """
-    Definers a mismatch exception between the client and fixture genesis
+    Defines a mismatch exception between the client and fixture genesis
     blockhash.
     """
 
@@ -68,7 +68,7 @@ class GenesisBlockMismatchExceptionError(Exception):
             )
         elif unexpected_fields:
             message += (
-                "\n\nUn-expected genesis block header fields from client:\n"
+                "\n\nUnexpected genesis block header fields from client:\n"
                 f"{pprint.pformat(unexpected_fields, indent=4)}"
                 "\nIs the fork configuration correct?"
             )

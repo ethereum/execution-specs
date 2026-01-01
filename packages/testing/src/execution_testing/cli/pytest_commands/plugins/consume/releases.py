@@ -186,7 +186,7 @@ def download_release_information(
 
     GitHub's API returns releases in pages of 30 by default. This function
     follows the pagination links to ensure we get every release, which is
-    crucial for finding older version or latest releases.
+    crucial for finding older versions or latest releases.
     """
     all_releases = []
     for repo in SUPPORTED_REPOS:
