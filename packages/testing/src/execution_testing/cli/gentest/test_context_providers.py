@@ -2,7 +2,7 @@
 Various providers which generate contexts required to create test scripts.
 
 Classes:
-  Provider: An provider generates required context for creating a
+  Provider: A provider generates required context for creating a
             test.
   BlockchainTestProvider: The BlockchainTestProvider takes a transaction
                           hash and creates required context to create a test.
@@ -27,7 +27,7 @@ from .request_manager import RPCRequest
 
 
 class Provider(ABC, BaseModel):
-    """An provider generates required context for creating a test."""
+    """A provider generates required context for creating a test."""
 
     @abstractmethod
     def get_context(self) -> Dict:

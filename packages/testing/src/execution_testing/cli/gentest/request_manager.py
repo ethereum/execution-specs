@@ -1,5 +1,5 @@
 """
-A request manager Ethereum RPC calls.
+A request manager for Ethereum RPC calls.
 
 The RequestManager handles transactions and block data retrieval from a remote
 Ethereum node, utilizing Pydantic models to define the structure of
