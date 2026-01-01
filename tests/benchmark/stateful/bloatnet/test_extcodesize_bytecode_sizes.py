@@ -1,65 +1,68 @@
-"""
-Test EXTCODESIZE with parametrized bytecode sizes using CREATE2 factory pattern.
+r"""
+Test EXTCODESIZE with parametrized bytecode sizes using CREATE2 factory.
 
-This test executes EXTCODESIZE operations against pre-deployed contracts via factories,
-measuring the performance impact of different contract sizes on EXTCODESIZE operations.
+This test executes EXTCODESIZE operations against pre-deployed contracts
+via factories, measuring the performance impact of different contract
+sizes on EXTCODESIZE operations.
 Designed for execute mode only - contracts must be pre-deployed.
 
-The test maximizes cold EXTCODESIZE calls to stress client state loading by:
+The test maximizes cold EXTCODESIZE calls to stress client state loading:
 1. Using CREATE2 address derivation to access many unique contracts
-2. Filling block gas with transactions as close to FUSAKA_TX_GAS_LIMIT (16M) as possible
+2. Filling block gas with transactions close to FUSAKA_TX_GAS_LIMIT (16M)
 3. Verifying contracts exist by checking the last accessed contract's size
 
-This benchmark measures the performance impact of `EXTCODESIZE` operations on contracts 
-of varying sizes (0.5KB to 24KB). 
-It stresses client state loading by maximizing **cold** EXTCODESIZE calls per block.
+This benchmark measures the performance impact of `EXTCODESIZE` operations
+on contracts of varying sizes (0.5KB to 24KB).
+It stresses client state loading by maximizing **cold** EXTCODESIZE calls.
 
 ## Overview
 
-The test deploys attack contracts that loop through thousands of unique contract addresses, 
-calling `EXTCODESIZE` on each. 
-By using CREATE2 address derivation, the test accesses pre-deployed contracts without storing 
-their addresses, maximizing the number of cold state accesses per block.
+The test deploys attack contracts that loop through thousands of unique
+contract addresses, calling `EXTCODESIZE` on each.
+By using CREATE2 address derivation, the test accesses pre-deployed
+contracts without storing their addresses, maximizing the number of cold
+state accesses per block.
 
-┌─────────────────────────────────────────────────────────────────┐
-│                        Test Block                               │
-├─────────────────────────────────────────────────────────────────┤
-│  TX1: Verification (~30K gas)                                   │
-│    └─> Calls EXTCODESIZE on last contract, stores result        │
-│                                                                 │
-│  TX2: Attack (~16M gas)                                         │
-│    └─> Loops EXTCODESIZE on salts 0..5,878                      │
-│                                                                 │
-│  TX3: Attack (~16M gas)                                         │
-│    └─> Loops EXTCODESIZE on salts 5,879..11,757                 │
-│                                                                 │
-│  TX4: Attack (~16M gas)                                         │
-│    └─> Loops EXTCODESIZE on salts 11,758..17,636                │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                        Test Block                             │
+├───────────────────────────────────────────────────────────────┤
+│  TX1: Verification (~30K gas)                                 │
+│    └─> Calls EXTCODESIZE on last contract, stores result      │
+│                                                               │
+│  TX2: Attack (~16M gas)                                       │
+│    └─> Loops EXTCODESIZE on salts 0..5,878                    │
+│                                                               │
+│  TX3: Attack (~16M gas)                                       │
+│    └─> Loops EXTCODESIZE on salts 5,879..11,757               │
+│                                                               │
+│  TX4: Attack (~16M gas)                                       │
+│    └─> Loops EXTCODESIZE on salts 11,758..17,636              │
+└───────────────────────────────────────────────────────────────┘
 
 ### Execute a Single Size
 
 ```bash
-uv run execute remote \
-  --fork Prague \
-  --rpc-endpoint http://127.0.0.1:8545 \
-  --rpc-seed-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-  --rpc-chain-id 1337 \
-  --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \
-  -- -m stateful --gas-benchmark-values 60 \
-  tests/benchmark/stateful/bloatnet/test_extcodesize_bytecode_sizes.py -k '24KB' -v
+uv run execute remote \\
+  --fork Prague \\
+  --rpc-endpoint http://127.0.0.1:8545 \\
+  --rpc-seed-key <SEED_KEY> \\
+  --rpc-chain-id 1337 \\
+  --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \\
+  -- -m stateful --gas-benchmark-values 60 \\
+  tests/benchmark/stateful/bloatnet/test_extcodesize_bytecode_sizes.py \\
+  -k '24KB' -v
 ```
 
 ### Execute All Sizes
 
 ```bash
-uv run execute remote \
-  --fork Prague \
-  --rpc-endpoint http://127.0.0.1:8545 \
-  --rpc-seed-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-  --rpc-chain-id 1337 \
-  --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \
-  -- -m stateful --gas-benchmark-values 60 \
+uv run execute remote \\
+  --fork Prague \\
+  --rpc-endpoint http://127.0.0.1:8545 \\
+  --rpc-seed-key <SEED_KEY> \\
+  --rpc-chain-id 1337 \\
+  --address-stubs tests/benchmark/stateful/bloatnet/stubs.json \\
+  -- -m stateful --gas-benchmark-values 60 \\
   tests/benchmark/stateful/bloatnet/test_extcodesize_bytecode_sizes.py -v
 ```
 """
@@ -142,14 +145,14 @@ def build_attack_contract(factory_address) -> Bytecode:
     3. Loops through salts starting_salt..starting_salt+N calling EXTCODESIZE
     4. Does NOT write to storage (pure computation for maximum efficiency)
 
-    Calldata format: 32 bytes representing the starting salt (big-endian uint256)
+    Calldata format: 32 bytes for the starting salt (big-endian uint256)
     """
     return (
         # === Step 0: Load starting salt from calldata ===
         # CALLDATALOAD(0) reads 32 bytes from calldata offset 0
         Op.CALLDATALOAD(0)  # Stack: [starting_salt]
         # === Step 1: Get factory configuration ===
-        # Call factory.getConfig() - returns (uint256 num_deployed, bytes32 init_code_hash)
+        # Call factory.getConfig() -> (num_deployed, init_code_hash)
         + Op.STATICCALL(
             gas=Op.GAS,
             address=factory_address,
@@ -173,13 +176,13 @@ def build_attack_contract(factory_address) -> Bytecode:
         # Memory layout at offset 0:
         # [0x00-0x0A]: padding (11 bytes)
         # [0x0B]: 0xFF marker (1 byte)
-        # [0x0C-0x1F]: factory address right-aligned in 32-byte word (20 bytes used)
+        # [0x0C-0x1F]: factory address right-aligned (20 bytes)
         # [0x20-0x3F]: salt (32 bytes)
         # [0x40-0x5F]: init_code_hash (32 bytes)
-        # Total CREATE2 input: 85 bytes starting at offset 0x0B
-        # Store factory address at memory[0] (will be right-aligned, address at bytes 12-31)
+        # Total CREATE2 input: 85 bytes from offset 0x0B
+        # Store factory address at memory[0] (right-aligned, at bytes 12-31)
         + Op.MSTORE(0, factory_address)
-        # Store 0xFF marker at position 11 (just before the address)
+        # Store 0xFF marker at position 11 (before the address)
         + Op.MSTORE8(11, 0xFF)
         # Store init_code_hash at memory[64]
         # Stack: [starting_salt, num_deployed, init_code_hash]
@@ -196,9 +199,8 @@ def build_attack_contract(factory_address) -> Bytecode:
         # === Step 3: Main loop - EXTCODESIZE operations ===
         + While(
             body=(
-                # Generate CREATE2 address: keccak256(0xFF ++ factory ++ salt ++ hash)
-                # Input is 85 bytes starting at offset 11
-                Op.SHA3(11, 85)
+                # CREATE2 address: keccak256(0xFF ++ factory ++ salt ++ hash)
+                Op.SHA3(11, 85)  # 85 bytes from offset 11
                 # Result is 32-byte hash, address is last 20 bytes (low bits)
                 # AND with address mask to extract address from hash
                 + Op.PUSH20(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
@@ -263,7 +265,9 @@ def calculate_verification_gas(gas_costs, intrinsic_gas: int) -> int:
     return int(total * 1.1)
 
 
-def build_verification_contract(factory_address, verification_salt: int) -> Bytecode:
+def build_verification_contract(
+    factory_address, verification_salt: int
+) -> Bytecode:
     """
     Build a verification contract that stores EXTCODESIZE result.
 
@@ -320,14 +324,14 @@ def test_extcodesize_bytecode_sizes(
     gas_benchmark_value: int,
 ) -> None:
     """
-    Execute EXTCODESIZE benchmark against pre-deployed contracts of various sizes.
+    Execute EXTCODESIZE benchmark against pre-deployed contracts.
 
     This test:
     1. Uses factory addresses passed via stubs (one factory per size)
-    2. Reads factory state to get number of deployed contracts and init code hash
+    2. Reads factory state to get deployed count and init code hash
     3. Generates CREATE2 addresses dynamically during execution
-    4. Calls EXTCODESIZE on as many contracts as gas allows (cold access each time)
-    5. Fills the block with transactions close to FUSAKA_TX_GAS_LIMIT (16M gas)
+    4. Calls EXTCODESIZE on as many contracts as gas allows (cold access)
+    5. Fills block with transactions close to FUSAKA_TX_GAS_LIMIT (16M gas)
     6. Verifies that contracts exist by checking a sample contract's size
     """
     gas_costs = fork.gas_costs()
@@ -359,11 +363,14 @@ def test_extcodesize_bytecode_sizes(
     )
 
     # Calculate how many iterations fit in one transaction
-    # Reserve gas for: intrinsic cost + setup (getConfig call, memory setup) + cleanup
+    # Reserve gas for: intrinsic + setup (getConfig, memory) + cleanup
     setup_gas = 5000  # Approximate gas for factory call and memory setup
     cleanup_gas = 1000  # Reserve for loop exit and cleanup
     available_gas_per_tx = (
-        FUSAKA_TX_GAS_LIMIT - intrinsic_gas_with_calldata - setup_gas - cleanup_gas
+        FUSAKA_TX_GAS_LIMIT
+        - intrinsic_gas_with_calldata
+        - setup_gas
+        - cleanup_gas
     )
     iterations_per_tx = available_gas_per_tx // gas_per_iteration
 
@@ -373,7 +380,7 @@ def test_extcodesize_bytecode_sizes(
     if num_attack_txs == 0:
         num_attack_txs = 1
 
-    # Total iterations across all transactions (each tx accesses unique contracts)
+    # Total iterations across all transactions (each tx uses unique contracts)
     total_iterations = iterations_per_tx * num_attack_txs
 
     # For verification, check the last contract accessed by the last attack tx
@@ -382,7 +389,9 @@ def test_extcodesize_bytecode_sizes(
     verification_salt = total_iterations - 1 if total_iterations > 0 else 0
 
     # Build and deploy verification contract
-    verification_code = build_verification_contract(factory_address, verification_salt)
+    verification_code = build_verification_contract(
+        factory_address, verification_salt
+    )
     verification_address = pre.deploy_contract(code=verification_code)
 
     # Calculate minimum gas needed for verification tx
@@ -405,7 +414,7 @@ def test_extcodesize_bytecode_sizes(
     txs.append(verification_tx)
 
     # Attack transactions: fill remaining block gas with ~16M gas txs
-    # Each transaction gets a different starting salt to access unique contracts
+    # Each tx uses a different starting salt to access unique contracts
     for tx_index in range(num_attack_txs):
         starting_salt = tx_index * iterations_per_tx
         # Encode starting salt as 32-byte big-endian
@@ -428,7 +437,7 @@ def test_extcodesize_bytecode_sizes(
     print(f"Iterations per tx (16M gas): ~{iterations_per_tx:,}")
     print(f"Number of attack txs: {num_attack_txs}")
     print(f"Total unique EXTCODESIZE calls: ~{total_iterations:,}")
-    print(f"Salt ranges per tx:")
+    print("Salt ranges per tx:")
     for i in range(num_attack_txs):
         start = i * iterations_per_tx
         end = (i + 1) * iterations_per_tx - 1
@@ -447,7 +456,7 @@ def test_extcodesize_bytecode_sizes(
     post = {
         verification_address: Account(
             storage={
-                0: expected_size_bytes,  # EXTCODESIZE should return the expected size
+                0: expected_size_bytes,  # EXTCODESIZE returns expected size
             }
         ),
     }
