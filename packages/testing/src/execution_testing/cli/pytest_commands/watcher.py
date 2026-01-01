@@ -73,7 +73,7 @@ class FileWatcher:
         file_count = len(file_mtimes)
         self.console.print(
             f"[blue]Watching {file_count} files in tests/ and src/ directories."
-            "\n Press Ctrl+C to stop.[/blue]"
+            "\nPress Ctrl+C to stop.[/blue]"
         )
 
         # Watch loop
