@@ -88,7 +88,7 @@ def compute_eofcreate_address(
 def add_kzg_version(
     b_hashes: List[bytes | SupportsBytes | int | str], kzg_version: int
 ) -> List[Hash]:
-    """Add  Kzg Version to each blob hash."""
+    """Add KZG version to each blob hash."""
     kzg_version_hex = bytes([kzg_version])
     kzg_versioned_hashes = []
 
