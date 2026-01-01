@@ -103,18 +103,15 @@ def deploy_contracts(w3: Web3, factory_address: str, count: int, size_kb: float)
     print(f"  (Network allows up to {int(block_gas_limit * 0.8):,} per transaction)")
 
     # Calculate optimal batch size based on gas costs
-    # Fusaka limit: 16M gas per transaction/block
-    FUSAKA_GAS_LIMIT = 16_000_000
-
-    # Calculate how many deployments can fit per block
+    # Use actual network block gas limit to maximize throughput
     # Each deployment is a separate transaction with our current factory
     # Leave some margin for safety (use 95% of block gas limit)
-    usable_gas = int(FUSAKA_GAS_LIMIT * 0.95)
+    usable_gas = int(block_gas_limit * 0.95)
     deployments_per_block = usable_gas // gas_limit
 
     print(f"Optimal batch size: {deployments_per_block} deployments per block")
     print(f"  (Each deployment uses {gas_limit:,} gas)")
-    print(f"  (Block limit is {FUSAKA_GAS_LIMIT:,}, using {usable_gas:,})")
+    print(f"  (Network block limit is {block_gas_limit:,}, using {usable_gas:,})")
 
     # Deploy contracts in optimized batches
     batch_size = deployments_per_block
@@ -129,8 +126,8 @@ def deploy_contracts(w3: Web3, factory_address: str, count: int, size_kb: float)
         batch_end = min(batch_start + batch_size, remaining)
         batch_count = batch_end - batch_start
 
-        # Get fresh nonce for this batch to avoid "already known" errors
-        nonce = w3.eth.get_transaction_count(account)
+        # Get fresh nonce for this batch including pending txs to avoid "already known" errors
+        nonce = w3.eth.get_transaction_count(account, "pending")
 
         # Send batch of transactions rapidly to fill a block
         tx_hashes = []
@@ -148,6 +145,7 @@ def deploy_contracts(w3: Web3, factory_address: str, count: int, size_kb: float)
                     "to": factory_address,
                     "data": "0x01",  # Non-empty data to trigger CREATE2
                     "gas": gas_limit,
+                    "gasPrice": w3.to_wei(1, 'gwei'),  # Fixed low gas price for dev mode
                     "nonce": nonce + i  # Pre-calculate nonce for speed
                 })
                 tx_hashes.append(tx_hash)
@@ -267,7 +265,11 @@ def main():
         sys.exit(1)
 
     # Find the appropriate factory
-    size_key = f"{args.size}kb".replace(".", "_")
+    # Handle size key naming: 0.5 -> "0_5kb", 1.0 -> "1kb", 24.0 -> "24kb"
+    if args.size == int(args.size):
+        size_key = f"{int(args.size)}kb"
+    else:
+        size_key = f"{args.size}kb".replace(".", "_")
     factory_key = f"bloatnet_factory_{size_key}"
     factory_address = stubs.get(factory_key)
 
