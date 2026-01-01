@@ -12,9 +12,9 @@ make_something_great = [
     "🖌️ Designers are crazy and yet sane enough to know where to draw the line. - Benjamin W.",
     "🌟 Creativity is piercing the mundane to find the marvelous. - Bill M.",
     "🔍 Mistakes are the portals of discovery. - James J.",
-    "🧠 It’s extremely difficult to be simultaneously concerned with the end-user experience of"
-    " whatever it is that you’re building and the architecture of the program that delivers that"
-    "experience. - James H.",
+    "🧠 It's extremely difficult to be simultaneously concerned with the end-user experience of"
+    " whatever it is that you're building and the architecture of the program that delivers that"
+    " experience. - James H.",
     "🧠 Good design is a lot like clear thinking made visual. - Edward T.",
     "🚀 Innovation leads one to see the new in the old and distinguishes the ingenious from the"
     " ingenuous. - Paul R.",

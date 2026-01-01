@@ -34,9 +34,10 @@ class FilledStateTest(RootModel[dict[str, StateTest]]):
 
 def verify_refilled(refilled: Path, original: Path) -> int:
     """
-    Verify post hash of the refilled test against original: Regex the original
-    d,g,v from the refilled test name. Find the post record for this d,g,v and
-    the fork of refilled test. Compare the post hash.
+    Verify the post hash of the refilled test against the original.
+
+    Extract the d,g,v from the refilled test name. Find the post record for
+    this d,g,v and the fork of the refilled test. Compare the post hash.
     """
     verified_vectors = 0
     json_str = refilled.read_text(encoding="utf-8")
