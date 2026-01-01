@@ -18,7 +18,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 - [x] `packages/testing/src/execution_testing/cli/gentest/**/*.py`, `fuzzer_bridge/**/*.py` (~15 files)
 - [x] `packages/testing/src/execution_testing/cli/eest/**/*.py`, `input/**/*.py`, `fillerconvert/**/*.py` (~15 files)
 - [x] `packages/testing/src/execution_testing/cli/*.py` (root cli files, ~15 files)
-- [ ] `packages/testing/src/execution_testing/cli/tests/**/*.py` (~10 files)
+- [x] `packages/testing/src/execution_testing/cli/tests/**/*.py` (~10 files)
 
 ## packages/testing - Core Modules
 

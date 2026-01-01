@@ -84,7 +84,7 @@ class TestFillPytester:
 
     This mode skips the fill command's Click CLI and uses pytester to run the command.
 
-    Pytester allows to actually fill the python test files.
+    Pytester allows actually filling the Python test files.
     """
 
     @pytest.fixture
@@ -161,7 +161,7 @@ class TestFillPytester:
         Monkeypatch default output directory for the pytest commands.
 
         This avoids using the local directory in user space for the output of
-        pytest commands and uses the a temporary directory instead.
+        pytest commands and uses a temporary directory instead.
         """
 
         def mock_default_output_directory() -> Path:
