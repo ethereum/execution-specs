@@ -429,9 +429,9 @@ def test_extcodesize_bytecode_sizes(
         txs.append(attack_tx)
 
     # Log test configuration
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"EXTCODESIZE Benchmark: {bytecode_size_kb}KB contracts")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Block gas budget: {gas_benchmark_value:,}")
     print(f"Gas per iteration: ~{gas_per_iteration}")
     print(f"Iterations per tx (16M gas): ~{iterations_per_tx:,}")
@@ -441,12 +441,12 @@ def test_extcodesize_bytecode_sizes(
     for i in range(num_attack_txs):
         start = i * iterations_per_tx
         end = (i + 1) * iterations_per_tx - 1
-        print(f"  TX{i+1}: salts {start:,} - {end:,}")
+        print(f"  TX{i + 1}: salts {start:,} - {end:,}")
     print(f"Verification tx gas: {verification_gas:,}")
     print(f"Verification salt: {verification_salt:,} (last contract accessed)")
     print(f"Expected contract size: {expected_size_bytes} bytes")
     print(f"Contracts required: {total_iterations:,}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Create block with all transactions
     block = Block(txs=txs)
