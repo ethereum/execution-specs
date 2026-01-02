@@ -319,7 +319,6 @@ class Opcode(Bytecode):
                 raise ValueError(
                     f"Invalid keyword argument(s) {list(invalid_kwargs)} for opcode "
                     f"{self._name_}. Valid arguments are: {self.kwargs}"
-                    f"Valid arguments are: {self.kwargs}"
                 )
 
             for kw in self.kwargs:
