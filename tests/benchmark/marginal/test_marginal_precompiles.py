@@ -157,17 +157,17 @@ ECRECOVER_INPUT = create_ecrecover_input(
 ECRECOVER_CONFIG = MarginalPrecompileConfig(
     name="ECRECOVER",
     address=ECRECOVER_ADDRESS,
-    max_op_count=200,  # Increased for ~1M gas (3000 gas/call)
-    step=40,  # 6 data points (improved R²)
+    max_op_count=200,  # 3000 gas/call
+    step=40,  # 6 data points
     input_data=ECRECOVER_INPUT,
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
-    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
+    num_calls=2,
 )
 
 # ============================================================================
 # MODEXP precompile (0x05) - execution-specs benchmark worst case
 # Ref: tests/benchmark/compute/precompile/test_modexp.py
-# Worst case: mod_vul_nagydani_5_qube (SP1: 3600s - highest in entire benchmark!)
+# Worst case: mod_vul_nagydani_5_qube
 # Uses 512-byte (4096-bit) base and modulus with exponent = 0x03 (cubing)
 # This stresses large operand memory handling rather than exponent iterations
 # ============================================================================
@@ -221,11 +221,11 @@ MODEXP_INPUT = create_modexp_input(
 MODEXP_CONFIG = MarginalPrecompileConfig(
     name="MODEXP",
     address=MODEXP_ADDRESS,
-    max_op_count=36,  # High gas per call, need high gas limit
+    max_op_count=36,
     step=12,
     input_data=MODEXP_INPUT,
     input_size=len(MODEXP_INPUT),  # 96 + 512 + 1 + 512 = 1121 bytes
-    num_calls=1,  # No amplification needed (expensive precompile)
+    num_calls=1,
     gas_limit=10_000_000,  # High limit for worst-case MODEXP
 )
 
@@ -242,11 +242,11 @@ SHA256_INPUT = bytes.fromhex("ff" * 4096)  # 4KB of 0xff
 SHA256_CONFIG = MarginalPrecompileConfig(
     name="SHA256",
     address=SHA256_ADDRESS,
-    max_op_count=1500,  # 1500 * 1,596 ≈ 2.4M gas (bytecode limited)
-    step=500,  # 4 data points
+    max_op_count=1000,  # Reduced to fit 24KB limit with noop padding
+    step=333,  # 4 data points
     input_data=SHA256_INPUT,
     input_size=len(SHA256_INPUT),  # 4096 bytes
-    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
+    num_calls=3,  # Compensates for reduced max_op_count (24KB limit)
 )
 
 # ============================================================================
@@ -261,11 +261,11 @@ RIPEMD160_INPUT = bytes.fromhex("ff" * 1024)  # 1KB of 0xff
 RIPEMD160_CONFIG = MarginalPrecompileConfig(
     name="RIPEMD160",
     address=RIPEMD160_ADDRESS,
-    max_op_count=1500,  # 1500 * 4,440 ≈ 6.7M gas (bytecode limited)
-    step=500,  # 4 data points
+    max_op_count=1000,  # Reduced to fit 24KB limit with noop padding
+    step=333,  # 4 data points
     input_data=RIPEMD160_INPUT,
     input_size=len(RIPEMD160_INPUT),  # 1024 bytes
-    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
+    num_calls=3,  # Compensates for reduced max_op_count (24KB limit)
 )
 
 # ============================================================================
@@ -287,10 +287,10 @@ BN128_ADD_CONFIG = MarginalPrecompileConfig(
     name="BN128_ADD",
     address=BN128_ADD_ADDRESS,
     max_op_count=801,
-    step=200,  # 5 data points (improved R²)
+    step=200,  # 5 data points
     input_data=BN128_ADD_INPUT,
     input_size=len(BN128_ADD_INPUT),  # 128 bytes
-    num_calls=5,  # Increased for low R² (0.92)
+    num_calls=5,
 )
 
 # ============================================================================
@@ -309,11 +309,11 @@ BN128_MUL_INPUT = bytes.fromhex(
 BN128_MUL_CONFIG = MarginalPrecompileConfig(
     name="BN128_MUL",
     address=BN128_MUL_ADDRESS,
-    max_op_count=72,  # Increased for ~1M gas (6000 gas/call)
+    max_op_count=72,  # 6000 gas/call
     step=24,  # 4 data points
     input_data=BN128_MUL_INPUT,
     input_size=len(BN128_MUL_INPUT),  # 96 bytes
-    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
+    num_calls=2,
 )
 
 # ============================================================================
@@ -341,11 +341,11 @@ BN128_PAIRING_INPUT = bytes.fromhex(
 BN128_PAIRING_CONFIG = MarginalPrecompileConfig(
     name="BN128_PAIRING",
     address=BN128_PAIRING_ADDRESS,
-    max_op_count=8,  # Increased for ~1M gas (113K gas/call)
+    max_op_count=8,  # 113K gas/call
     step=2,
     input_data=BN128_PAIRING_INPUT,
     input_size=len(BN128_PAIRING_INPUT),  # 384 bytes (2 pairs * 192)
-    num_calls=2,  # 2x amplification (total calls = 2 × max_op_count)
+    num_calls=2,
 )
 
 # ============================================================================
@@ -375,11 +375,11 @@ BLAKE2F_INPUT = create_blake2f_input(rounds=0xFFFF, f=True)  # 65,535 rounds
 BLAKE2F_CONFIG = MarginalPrecompileConfig(
     name="BLAKE2F",
     address=BLAKE2F_ADDRESS,
-    max_op_count=12,  # Increased for ~1M gas (65K gas/call)
+    max_op_count=12,  # 65K gas/call
     step=4,  # ~5 data points
     input_data=BLAKE2F_INPUT,
     input_size=len(BLAKE2F_INPUT),  # 213 bytes
-    num_calls=1,  # No amplification needed
+    num_calls=1,
     gas_limit=1_000_000,
 )
 
@@ -405,11 +405,11 @@ POINT_EVALUATION_INPUT = bytes.fromhex(
 POINT_EVALUATION_CONFIG = MarginalPrecompileConfig(
     name="POINT_EVALUATION",
     address=POINT_EVALUATION_ADDRESS,
-    max_op_count=9,  # Increased for ~1M gas (50K gas/call)
+    max_op_count=9,  # 50K gas/call
     step=3,
     input_data=POINT_EVALUATION_INPUT,
     input_size=len(POINT_EVALUATION_INPUT),  # 192 bytes
-    num_calls=1,  # No amplification needed
+    num_calls=1,
     gas_limit=1_000_000,
 )
 
@@ -427,11 +427,11 @@ BLS12_G1ADD_INPUT = bytes(BLS12Spec.G1 + BLS12Spec.P1)
 BLS12_G1ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1ADD",
     address=BLS12_G1ADD_ADDRESS,
-    max_op_count=771,  # Increased for ~1M gas (375 gas/call)
+    max_op_count=771,  # 375 gas/call
     step=257,  # 4 data points
     input_data=BLS12_G1ADD_INPUT,
     input_size=len(BLS12_G1ADD_INPUT),  # 256 bytes
-    num_calls=1,  # No amplification needed
+    num_calls=1,
     gas_limit=1_000_000,
 )
 
@@ -450,7 +450,7 @@ BLS12_G1MSM_CONFIG = MarginalPrecompileConfig(
     step=13,  # 4 data points
     input_data=BLS12_G1MSM_INPUT,
     input_size=len(BLS12_G1MSM_INPUT),  # 320 bytes (2 × 160)
-    num_calls=1,  # No amplification needed
+    num_calls=1,
     gas_limit=1_000_000,
 )
 
@@ -464,11 +464,11 @@ BLS12_G2ADD_INPUT = bytes(BLS12Spec.G2 + BLS12Spec.P2)
 BLS12_G2ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G2ADD",
     address=BLS12_G2ADD_ADDRESS,
-    max_op_count=450,  # Increased for ~1M gas (600 gas/call)
+    max_op_count=450,  # 600 gas/call
     step=150,  # 4 data points
     input_data=BLS12_G2ADD_INPUT,
     input_size=len(BLS12_G2ADD_INPUT),  # 512 bytes
-    num_calls=1,  # No amplification needed
+    num_calls=1,
     gas_limit=1_000_000,
 )
 
@@ -483,11 +483,11 @@ BLS12_G2MSM_INPUT = bytes(
 BLS12_G2MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G2MSM",
     address=BLS12_G2MSM_ADDRESS,
-    max_op_count=24,  # Increased for ~1M gas
+    max_op_count=24,
     step=8,  # 4 data points
     input_data=BLS12_G2MSM_INPUT,
     input_size=len(BLS12_G2MSM_INPUT),  # 576 bytes (2 × 288)
-    num_calls=1,  # No amplification needed
+    num_calls=1,
     gas_limit=10_000_000,  # High limit for G2MSM
 )
 
@@ -506,7 +506,7 @@ BLS12_PAIRING_CONFIG = MarginalPrecompileConfig(
     step=3,
     input_data=BLS12_PAIRING_INPUT,
     input_size=len(BLS12_PAIRING_INPUT),  # 768 bytes (2 × 384)
-    num_calls=1,  # No amplification needed
+    num_calls=1,
     gas_limit=10_000_000,  # Higher limit for pairing
 )
 
@@ -520,11 +520,11 @@ BLS12_MAP_FP_TO_G1_INPUT = bytes(FP(BLS12Spec.P - 1))
 BLS12_MAP_FP_TO_G1_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP_TO_G1",
     address=BLS12_MAP_FP_TO_G1_ADDRESS,
-    max_op_count=75,  # Increased for ~1M gas (5500 gas/call)
+    max_op_count=75,  # 5500 gas/call
     step=25,  # ~5 data points
     input_data=BLS12_MAP_FP_TO_G1_INPUT,
     input_size=len(BLS12_MAP_FP_TO_G1_INPUT),  # 64 bytes
-    num_calls=1,  # No amplification needed
+    num_calls=1,
     gas_limit=1_000_000,
 )
 
@@ -542,7 +542,7 @@ BLS12_MAP_FP2_TO_G2_CONFIG = MarginalPrecompileConfig(
     step=9,
     input_data=BLS12_MAP_FP2_TO_G2_INPUT,
     input_size=len(BLS12_MAP_FP2_TO_G2_INPUT),  # 128 bytes
-    num_calls=1,  # No amplification needed
+    num_calls=1,
     gas_limit=1_000_000,
 )
 
@@ -730,10 +730,10 @@ IDENTITY_CONFIG = MarginalPrecompileConfig(
     name="IDENTITY",
     address=IDENTITY_ADDRESS,
     max_op_count=300,
-    step=50,  # 7 data points (more points for low R²)
+    step=50,  # 7 data points
     input_data=IDENTITY_INPUT,
     input_size=len(IDENTITY_INPUT),  # 128 bytes
-    num_calls=10000,  # High amplification for low R² (0.70)
+    num_calls=10000,
     gas_limit=500_000_000,  # High gas limit for many calls
 )
 
@@ -1220,7 +1220,7 @@ def test_marginal_bls12_map_fp2_to_g2(
 
 
 # ============================================================================
-# ECRECOVER with caller-contract approach (2x amplification)
+# ECRECOVER with caller-contract approach
 # ============================================================================
 
 
@@ -1265,7 +1265,7 @@ def test_marginal_ecrecover(
 
 
 # ============================================================================
-# SHA256 with caller-contract approach (2x amplification)
+# SHA256 with caller-contract approach
 # ============================================================================
 
 
@@ -1310,7 +1310,7 @@ def test_marginal_sha256(
 
 
 # ============================================================================
-# RIPEMD160 with caller-contract approach (2x amplification)
+# RIPEMD160 with caller-contract approach
 # ============================================================================
 
 
@@ -1355,7 +1355,7 @@ def test_marginal_ripemd160(
 
 
 # ============================================================================
-# BN128_ADD with caller-contract approach (2x amplification)
+# BN128_ADD with caller-contract approach
 # ============================================================================
 
 
@@ -1400,7 +1400,7 @@ def test_marginal_bn128_add(
 
 
 # ============================================================================
-# BN128_MUL with caller-contract approach (2x amplification)
+# BN128_MUL with caller-contract approach
 # ============================================================================
 
 
@@ -1445,7 +1445,7 @@ def test_marginal_bn128_mul(
 
 
 # ============================================================================
-# BN128_PAIRING with caller-contract approach (2x amplification)
+# BN128_PAIRING with caller-contract approach
 # ============================================================================
 
 

@@ -168,11 +168,11 @@ SUB_CONFIG = MarginalOpcodeConfig(
     name="SUB",
     opcode=Op.SUB,
     max_op_count=300,
-    step=50,  # 7 data points (improved R²)
+    step=50,  # 7 data points
     stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=15000,  # 1.5x for low R² (0.80)
+    num_calls=15000,
 )
 
 # Ref: test_arithmetic.py opcode_DIV-0
@@ -237,7 +237,7 @@ ADDMOD_CONFIG = MarginalOpcodeConfig(
     stack_args=[MOD_191_BIT, MAX_U256, MAX_U256],  # N=191-bit mod, b=MAX, a=MAX
     pops_per_op=3,
     pushes_per_op=1,
-    num_calls=1000,  # Calculated for 500K+ gas
+    num_calls=1000,
 )
 
 # Ref: test_arithmetic.py op_MULMOD-mod_bits_191
@@ -246,11 +246,11 @@ MULMOD_CONFIG = MarginalOpcodeConfig(
     name="MULMOD",
     opcode=Op.MULMOD,
     max_op_count=210,
-    step=70,  # ~5 data points
+    step=70,  # 4 data points
     stack_args=[MOD_191_BIT, MAX_U256, MAX_U256],  # N=191-bit mod, b=MAX, a=MAX
     pops_per_op=3,
     pushes_per_op=1,
-    num_calls=1000,  # Calculated for 500K+ gas
+    num_calls=1000,
 )
 
 # Ref: test_arithmetic.py opcode_EXP (uses MAX_U256, MAX_U256)
@@ -292,7 +292,7 @@ LT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 GT_CONFIG = MarginalOpcodeConfig(
@@ -303,29 +303,29 @@ GT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 SLT_CONFIG = MarginalOpcodeConfig(
     name="SLT",
     opcode=Op.SLT,
     max_op_count=300,
-    step=50,  # 7 data points (improved R²)
+    step=50,  # 7 data points
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=10500,  # 1.5x for low R² (0.84)
+    num_calls=10500,
 )
 
 SGT_CONFIG = MarginalOpcodeConfig(
     name="SGT",
     opcode=Op.SGT,
     max_op_count=300,
-    step=50,  # 7 data points (improved R²)
+    step=50,  # 7 data points
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=9000,  # 1.5x for low R² (0.83)
+    num_calls=9000,
 )
 
 EQ_CONFIG = MarginalOpcodeConfig(
@@ -336,18 +336,18 @@ EQ_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=1500,  # Calculated for 500K+ gas
+    num_calls=1500,
 )
 
 ISZERO_CONFIG = MarginalOpcodeConfig(
     name="ISZERO",
     opcode=Op.ISZERO,
     max_op_count=450,  # 450 * 2 = 900 < 1024
-    step=90,  # 6 data points (improved R²)
+    step=90,  # 6 data points
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=9000,  # 1.5x for low R² (0.86)
+    num_calls=9000,
 )
 
 # ============================================================================
@@ -362,18 +362,18 @@ AND_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 OR_CONFIG = MarginalOpcodeConfig(
     name="OR",
     opcode=Op.OR,
     max_op_count=300,
-    step=60,  # 6 data points (improved R²)
+    step=60,  # 6 data points
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=6000,  # 2x for low R² (0.89)
+    num_calls=6000,
 )
 
 XOR_CONFIG = MarginalOpcodeConfig(
@@ -384,18 +384,18 @@ XOR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=5000,  # Calculated for 500K+ gas
+    num_calls=5000,
 )
 
 NOT_CONFIG = MarginalOpcodeConfig(
     name="NOT",
     opcode=Op.NOT,
     max_op_count=450,  # 450 * 2 = 900 < 1024
-    step=90,  # 6 data points (improved R²)
+    step=90,  # 6 data points
     stack_args=[MAX_U256],
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=4000,  # 2x for short proving time
+    num_calls=4000,
 )
 
 BYTE_CONFIG = MarginalOpcodeConfig(
@@ -417,7 +417,7 @@ SHL_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 255],  # value=MAX, shift=255 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=1500,  # Calculated for 500K+ gas
+    num_calls=1500,
 )
 
 SHR_CONFIG = MarginalOpcodeConfig(
@@ -439,7 +439,7 @@ SAR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 255],  # value=MAX, shift=255 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=1500,  # Calculated for 500K+ gas
+    num_calls=1500,
 )
 
 # ============================================================================
@@ -468,7 +468,7 @@ KECCAK256_CONFIG = MarginalOpcodeConfig(
     stack_args=[8192, 0],  # size=8KB, offset=0 (pushed in reverse pop order)
     pops_per_op=2,
     pushes_per_op=1,
-    num_calls=200,  # Calculated for 500K+ gas
+    num_calls=200,
     # Pre-allocate 8KB of memory with data to hash
     setup_code=_generate_keccak256_setup(),
 )
@@ -488,18 +488,18 @@ PUSH0_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 PUSH1_CONFIG = MarginalOpcodeConfig(
     name="PUSH1",
     opcode=Op.PUSH1(0xFF),  # Push max 1-byte value
     max_op_count=600,
-    step=120,  # 6 data points (improved R²)
+    step=120,  # 6 data points
     stack_args=[],  # PUSH doesn't consume stack
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 PUSH16_CONFIG = MarginalOpcodeConfig(
@@ -510,18 +510,18 @@ PUSH16_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=4000,  # 2x for short proving time
+    num_calls=4000,
 )
 
 PUSH32_CONFIG = MarginalOpcodeConfig(
     name="PUSH32",
     opcode=Op.PUSH32(MAX_U256),  # Max 32-byte value
     max_op_count=350,
-    step=70,  # 6 data points (improved R²)
+    step=70,  # 6 data points
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=5000,  # Increased for low R² (0.92)
+    num_calls=5000,
 )
 
 # ============================================================================
@@ -530,7 +530,7 @@ PUSH32_CONFIG = MarginalOpcodeConfig(
 # ============================================================================
 
 DUP1_CONFIG = CustomOpcodeConfig(
-    name="DUP1", max_op_count=300, step=60, num_calls=9000, variant=1  # 1.5x for low R² (0.89)
+    name="DUP1", max_op_count=300, step=60, num_calls=9000, variant=1
 )
 DUP8_CONFIG = CustomOpcodeConfig(
     name="DUP8", max_op_count=300, step=60, num_calls=6000, variant=8
@@ -540,7 +540,7 @@ DUP16_CONFIG = CustomOpcodeConfig(
 )
 
 SWAP1_CONFIG = CustomOpcodeConfig(
-    name="SWAP1", max_op_count=300, step=60, num_calls=2000, variant=1
+    name="SWAP1", max_op_count=300, step=60, num_calls=4000, variant=1
 )
 SWAP8_CONFIG = CustomOpcodeConfig(
     name="SWAP8", max_op_count=300, step=100, num_calls=2000, variant=8
@@ -556,7 +556,7 @@ LOG1_CONFIG = CustomOpcodeConfig(
     name="LOG1", max_op_count=81, step=27, num_calls=2000, topic_count=1, needs_call=True
 )
 LOG2_CONFIG = CustomOpcodeConfig(
-    name="LOG2", max_op_count=60, step=20, num_calls=1400, topic_count=2, needs_call=True
+    name="LOG2", max_op_count=60, step=20, num_calls=2100, topic_count=2, needs_call=True
 )
 LOG3_CONFIG = CustomOpcodeConfig(
     name="LOG3", max_op_count=51, step=17, num_calls=1400, topic_count=3, needs_call=True
@@ -566,7 +566,7 @@ LOG4_CONFIG = CustomOpcodeConfig(
 )
 
 JUMP_CONFIG = CustomOpcodeConfig(
-    name="JUMP", max_op_count=200, step=40, num_calls=9000  # 1.5x for low R² (0.90)
+    name="JUMP", max_op_count=200, step=40, num_calls=9000
 )
 JUMPI_CONFIG = CustomOpcodeConfig(
     name="JUMPI", max_op_count=201, step=67, num_calls=5000
@@ -578,11 +578,11 @@ POP_CONFIG = MarginalOpcodeConfig(
     name="POP",
     opcode=Op.POP,
     max_op_count=600,
-    step=120,  # 6 data points (improved R²)
+    step=120,  # 6 data points
     stack_args=[0],  # Push 0 to pop (using PUSH0 is cheapest)
     pops_per_op=1,
     pushes_per_op=0,
-    num_calls=12000,  # 2x for very low R² (0.73)
+    num_calls=12000,
 )
 
 
@@ -1011,7 +1011,7 @@ ADDRESS_CONFIG = MarginalOpcodeConfig(
     stack_args=[],  # No input
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=1500,  # Calculated for 500K+ gas
+    num_calls=1500,
 )
 
 ORIGIN_CONFIG = MarginalOpcodeConfig(
@@ -1022,7 +1022,7 @@ ORIGIN_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=4000,
 )
 
 CALLER_CONFIG = MarginalOpcodeConfig(
@@ -1033,7 +1033,7 @@ CALLER_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 CALLVALUE_CONFIG = MarginalOpcodeConfig(
@@ -1044,18 +1044,18 @@ CALLVALUE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=4000,
 )
 
 CALLDATASIZE_CONFIG = MarginalOpcodeConfig(
     name="CALLDATASIZE",
     opcode=Op.CALLDATASIZE,
     max_op_count=600,
-    step=120,  # 6 data points (improved R²)
+    step=120,  # 6 data points
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 CODESIZE_CONFIG = MarginalOpcodeConfig(
@@ -1066,7 +1066,7 @@ CODESIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 GASPRICE_CONFIG = MarginalOpcodeConfig(
@@ -1077,7 +1077,7 @@ GASPRICE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 RETURNDATASIZE_CONFIG = MarginalOpcodeConfig(
@@ -1088,7 +1088,7 @@ RETURNDATASIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 GAS_CONFIG = MarginalOpcodeConfig(
@@ -1099,7 +1099,7 @@ GAS_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 # ============================================================================
@@ -1114,7 +1114,7 @@ COINBASE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 TIMESTAMP_CONFIG = MarginalOpcodeConfig(
@@ -1125,7 +1125,7 @@ TIMESTAMP_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 NUMBER_CONFIG = MarginalOpcodeConfig(
@@ -1136,7 +1136,7 @@ NUMBER_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 PREVRANDAO_CONFIG = MarginalOpcodeConfig(
@@ -1147,7 +1147,7 @@ PREVRANDAO_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=1500,  # Calculated for 500K+ gas
+    num_calls=1500,
 )
 
 GASLIMIT_CONFIG = MarginalOpcodeConfig(
@@ -1158,7 +1158,7 @@ GASLIMIT_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 CHAINID_CONFIG = MarginalOpcodeConfig(
@@ -1169,14 +1169,14 @@ CHAINID_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 SELFBALANCE_CONFIG = MarginalOpcodeConfig(
     name="SELFBALANCE",
     opcode=Op.SELFBALANCE,
     max_op_count=600,
-    step=200,  # ~5 data points
+    step=200,  # 4 data points
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
@@ -1191,7 +1191,7 @@ BASEFEE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 
@@ -1203,7 +1203,7 @@ BLOBBASEFEE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
 )
 
 # ============================================================================
@@ -1220,7 +1220,7 @@ MLOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # offset - read from offset 0
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=4000,
     setup_code=Op.MSTORE(0, MAX_U256),  # Pre-expand memory with data
 )
 
@@ -1232,7 +1232,7 @@ MSTORE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 0],  # value, offset (MSTORE pops offset first)
     pops_per_op=2,
     pushes_per_op=0,
-    num_calls=1000,  # Calculated for 500K+ gas
+    num_calls=1000,
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1244,7 +1244,7 @@ MSTORE8_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xFF, 0],  # value, offset (MSTORE8 pops offset first)
     pops_per_op=2,
     pushes_per_op=0,
-    num_calls=4000,  # 2x for short proving time
+    num_calls=4000,
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -1256,7 +1256,7 @@ MSIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=4000,  # 2x for short proving time
+    num_calls=4000,
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory so MSIZE returns non-zero
 )
 
@@ -1303,7 +1303,7 @@ RETURNDATACOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[64, 0, 128],  # size=64, offset=0, destOffset=128 (pushed in reverse pop order)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=600,  # Calculated for 500K+ gas: 170 × (200 setup + 300×9) ≈ 493K
+    num_calls=600,
     setup_code=_generate_returndatacopy_setup(),
 )
 
@@ -1330,7 +1330,7 @@ MCOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[1024, 0, 4096],  # size=1KB, srcOffset=0, destOffset=4096 (pushed in reverse pop order)
     pops_per_op=3,
     pushes_per_op=0,
-    num_calls=400,  # 2x for short proving time
+    num_calls=400,
     setup_code=Op.MSTORE(0, MAX_U256) + Op.MSTORE(4096, 0),  # Pre-expand memory regions
 )
 
@@ -1348,7 +1348,7 @@ CALLDATALOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Load from offset 0
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=2000,  # 2x for short proving time
+    num_calls=2000,
 )
 
 # BLOCKHASH: pops block number, pushes hash (or 0 if out of range)
@@ -1436,7 +1436,7 @@ TLOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Transient slot 0
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=5000,  # Calculated for 500K+ gas
+    num_calls=5000,
 )
 
 # TSTORE: Transient storage store (EIP-1153) - 100 gas
@@ -1468,7 +1468,7 @@ JUMPDEST_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=0,
-    num_calls=8000,  # 2x for short proving time
+    num_calls=8000,
 )
 
 # PC pushes the program counter value
@@ -1480,7 +1480,7 @@ PC_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     pops_per_op=0,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=4000,
 )
 
 
@@ -2243,7 +2243,7 @@ def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: 
 
 # Stack-limited: each noop leaves +2 items (3 pushed, 1 popped)
 # Safe max_op_count: ~400 (with buffer), caller amplifies total
-CREATE_NUM_CALLS = 400  # 2x for short proving time
+CREATE_NUM_CALLS = 400
 CREATE_MAX_OP_COUNT = 21  # Target executes up to 21 CREATEs per call
 CREATE_STEP = 7  # 4 data points
 
@@ -2436,7 +2436,7 @@ EXTCODESIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xDEAD],  # Query code size of address 0xDEAD
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
     setup_code=Op.POP(Op.EXTCODESIZE(0xDEAD)),  # Warm up address 0xDEAD first
 )
 
@@ -2451,7 +2451,7 @@ EXTCODEHASH_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xDEAD],  # Query code hash of address 0xDEAD
     pops_per_op=1,
     pushes_per_op=1,
-    num_calls=2000,  # Calculated for 500K+ gas
+    num_calls=2000,
     setup_code=Op.POP(Op.EXTCODEHASH(0xDEAD)),  # Warm up address 0xDEAD first
 )
 
