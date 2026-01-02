@@ -41,3 +41,8 @@ Format (but don't add a codeblock for each item):
 - [ ] packages/testing/src/execution_testing/client_clis/clis/__init__.py:1 - "Package containing concrete implementations of Ethereum CL interfaces."
   Suggestion: "Package containing concrete implementations of Ethereum CLI interfaces."
   Reason: "CL" likely means "CLI" (Command Line Interface) since this package contains CLI tools. "CL" in Ethereum context typically means "Consensus Layer" which doesn't fit the context.
+
+- [x] packages/testing/src/execution_testing/forks/forks/forks.py:638 - Standalone string after docstring
+  Suggestion: Merge into docstring: """At genesis, there is no upper bound for initcode size. However, the default is set to the limit of EIP-3860 (Shanghai)."""
+  Reason: The string on line 638 appears after `del block_number, timestamp` and is not part of the docstring. Compare with similar `max_code_size` method which has both sentences in the docstring.
+  Status: Fixed in this PR.

@@ -613,7 +613,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def precompiles(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """Return list pre-compiles supported by the fork."""
+        """Return list of precompiles supported by the fork."""
         pass
 
     @classmethod
@@ -621,7 +621,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def system_contracts(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """Return list system-contracts supported by the fork."""
+        """Return list of system contracts supported by the fork."""
         pass
 
     @classmethod

@@ -588,7 +588,7 @@ class Frontier(BaseFork, solc_name="homestead"):
     def precompiles(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """At Genesis, no pre-compiles are present."""
+        """At Genesis, no precompiles are present."""
         del block_number, timestamp
         return []
 
@@ -596,7 +596,7 @@ class Frontier(BaseFork, solc_name="homestead"):
     def system_contracts(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """At Genesis, no system-contracts are present."""
+        """At Genesis, no system contracts are present."""
         del block_number, timestamp
         return []
 
@@ -633,9 +633,12 @@ class Frontier(BaseFork, solc_name="homestead"):
     def max_initcode_size(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> int:
-        """At genesis, there is no upper bound for initcode size."""
+        """
+        At genesis, there is no upper bound for initcode size.
+
+        However, the default is set to the limit of EIP-3860 (Shanghai).
+        """
         del block_number, timestamp
-        """However, the default is set to the limit of EIP-3860 (Shanghai)"""
         return 0xC000
 
     @classmethod
@@ -846,7 +849,7 @@ class Homestead(Frontier):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
         """
-        At Homestead, EC-recover, SHA256, RIPEMD160, and Identity pre-compiles
+        At Homestead, EC-recover, SHA256, RIPEMD160, and Identity precompiles
         are introduced.
         """
         return [
@@ -948,7 +951,7 @@ class Byzantium(Homestead):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
         """
-        At Byzantium, pre-compiles for bigint modular exponentiation, addition
+        At Byzantium, precompiles for bigint modular exponentiation, addition
         and scalar multiplication on elliptic curve alt_bn128, and optimal ate
         pairing check on elliptic curve alt_bn128 are introduced.
         """
@@ -1063,7 +1066,7 @@ class Istanbul(ConstantinopleFix):
     def precompiles(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """At Istanbul, pre-compile for blake2 compression is introduced."""
+        """At Istanbul, a precompile for blake2 compression is introduced."""
         return [
             Address(9, label="BLAKE2F"),
         ] + super(Istanbul, cls).precompiles(
@@ -1712,7 +1715,7 @@ class Cancun(Shanghai):
     def precompiles(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """At Cancun, pre-compile for kzg point evaluation is introduced."""
+        """At Cancun, a precompile for kzg point evaluation is introduced."""
         return [
             Address(10, label="KZG_POINT_EVALUATION"),
         ] + super(Cancun, cls).precompiles(
@@ -1816,7 +1819,7 @@ class Prague(Cancun):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
         """
-        At Prague, pre-compile for BLS operations are added.
+        At Prague, precompiles for BLS operations are added.
 
         BLS12_G1ADD = 0x0B
         BLS12_G1MSM = 0x0C
@@ -2223,7 +2226,7 @@ class Osaka(Prague, solc_name="cancun"):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
         """
-        At Osaka, pre-compile for p256verify operation is added.
+        At Osaka, a precompile for p256verify operation is added.
 
         P256VERIFY = 0x100
         """
