@@ -300,11 +300,13 @@ def test_withdrawals_root(
 @pytest.mark.parametrize("test_case", ["single_block", "multiple_blocks"])
 class TestMultipleWithdrawalsSameAddress:
     """
-    Test that multiple withdrawals can be sent to the same address in.
+    Test that multiple withdrawals can be sent to the same address.
 
-    1. A single block.
+    1. `single_block`: Test multiple withdrawals to the same address in a
+    single block.
 
-    2. Multiple blocks.
+    2. `multiple_blocks`: Test multiple withdrawals to the same address across
+    multiple blocks.
     """
 
     @pytest.fixture
