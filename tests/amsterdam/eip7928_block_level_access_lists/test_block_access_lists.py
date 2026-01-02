@@ -336,7 +336,7 @@ def test_bal_self_destruct(
     }
 
     # If the account was self-destructed in the same transaction,
-    # we expect the account to non-existent and its balance to be 0.
+    # we expect the account to be non-existent and its balance to be 0.
     if self_destruct_in_same_tx:
         post.update(
             {

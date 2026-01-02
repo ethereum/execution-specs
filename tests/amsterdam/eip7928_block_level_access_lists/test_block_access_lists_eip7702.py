@@ -143,7 +143,7 @@ def test_bal_7702_delegation_update(
     oracle1 = pre.deploy_contract(code=Op.STOP)
     oracle2 = pre.deploy_contract(code=Op.STOP)
 
-    ## Perhaps create pre existing delegation,
+    ## Perhaps create a pre-existing delegation,
     ## see `test_bal_7702_delegated_storage_access` since
     ## `test_bal_7702_delegation_create` already tests creation
     tx_create = Transaction(
@@ -268,7 +268,7 @@ def test_bal_7702_delegation_clear(
     oracle = pre.deploy_contract(code=Op.STOP)
     abyss = Spec7702.RESET_DELEGATION_ADDRESS
 
-    ## Perhaps create  pre existing delegation,
+    ## Perhaps create a pre-existing delegation,
     ## see `test_bal_7702_delegated_storage_access` since
     ## `test_bal_7702_delegation_create` already tests creation
     tx_create = Transaction(
