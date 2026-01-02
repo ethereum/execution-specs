@@ -83,6 +83,48 @@ def test_log(
     benchmark_test(
         target_opcode=opcode,
         code_generator=JumpLoopGenerator(
-            setup=setup, attack_block=attack_block
+            setup=setup,
+            attack_block=attack_block,
+            code_padding_opcode=Op.INVALID,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        pytest.param(Op.LOG0, id="log0"),
+        pytest.param(Op.LOG1, id="log1"),
+        pytest.param(Op.LOG2, id="log2"),
+        pytest.param(Op.LOG3, id="log3"),
+        pytest.param(Op.LOG4, id="log4"),
+    ],
+)
+@pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
+@pytest.mark.parametrize("log_size", [0, 32, 256, 1024])
+def test_log_benchmark(
+    benchmark_test: BenchmarkTestFiller,
+    mem_size: int,
+    log_size: int,
+    opcode: Op,
+) -> None:
+    """Benchmark LOG instructions with specific memory and log size."""
+    setup = (
+        Op.CODECOPY(dest_offset=0, offset=0, size=mem_size)
+        + Op.PUSH3(log_size)
+        + Op.PUSH32(2**256 - 1)
+    )
+
+    topic_count = len(opcode.kwargs or []) - 2
+    size_op = getattr(Op, f"DUP{topic_count + 2}")
+    offset = Op.PUSH0
+    attack_block = Op.DUP1 * topic_count + size_op + offset + opcode
+
+    benchmark_test(
+        target_opcode=opcode,
+        code_generator=JumpLoopGenerator(
+            setup=setup,
+            attack_block=attack_block,
+            code_padding_opcode=Op.INVALID,
         ),
     )
