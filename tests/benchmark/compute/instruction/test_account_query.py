@@ -129,7 +129,7 @@ def test_extcode_ops(
     gas_benchmark_value: int,
 ) -> None:
     """
-    Benchmark a block execution where a single opcode execution.
+    Benchmark a block execution where a single opcode is executed.
     """
     # The attack gas limit is the gas limit which the target tx will use The
     # test will scale the block gas limit to setup the contracts accordingly to

@@ -36,7 +36,7 @@ class TransactionResult:
 
 
 class ReturnDataStyle(Enum):
-    """Helper enum to specify return data is returned to the caller."""
+    """Helper enum to specify how return data is returned to the caller."""
 
     RETURN = auto()
     REVERT = auto()

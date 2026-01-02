@@ -61,7 +61,7 @@ def test_log(
     """Benchmark LOG instructions."""
     setup = Bytecode()
 
-    # For non-zero data, load  into memory.
+    # For non-zero data, load data into memory.
     if non_zero_data:
         setup += Op.CODECOPY(dest_offset=0, offset=0, size=Op.CODESIZE)
 
