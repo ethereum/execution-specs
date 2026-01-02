@@ -28,6 +28,8 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 ### 🧪 Test Cases
 
+- ✨ Add missing fuzzy-compute benchmark configurations for `KECCAK256`, `CODECOPY`, `CALLDATACOPY`, `RETURNDATACOPY`, `MLOAD`, `MSTORE`, `MSTORE8`, `MCOPY`, `LOG*`, `CALLDATASIZE`, `CALLDATALOAD`, and `RETURNDATASIZE` opcodes ([#1956](https://github.com/ethereum/execution-specs/pull/1956)).
+
 ## [v5.4.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.4.0) - 2025-12-07
 
 ### 🛠️ Framework
