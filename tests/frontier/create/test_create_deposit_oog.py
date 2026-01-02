@@ -1,5 +1,5 @@
 """
-The test CREATE's behavior when running out of gas for code deposit.
+Test CREATE's behavior when running out of gas for code deposit.
 """
 
 import pytest

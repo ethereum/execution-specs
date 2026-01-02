@@ -1,6 +1,6 @@
 """
-The test calls CREATE in a loop deploying 1-byte contracts with all possible
-byte values, records in storage the values that failed to deploy.
+Test calling CREATE in a loop to deploy 1-byte contracts with all possible
+byte values, recording in storage the values that failed to deploy.
 """
 
 import pytest

@@ -21,7 +21,7 @@ def test_tx_gas_limit(
     env: Environment,
 ) -> None:
     """
-    Tests that if a tx gas limit is higher than the block with a gas limit,
+    Tests that if a tx gas limit is higher than the block gas limit,
     an exception is raised.
     """
     sender = pre.fund_eoa()

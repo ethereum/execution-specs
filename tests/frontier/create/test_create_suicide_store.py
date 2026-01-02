@@ -1,6 +1,6 @@
 """
-Test dynamically created address is still callable and perform storage
-operations after being called for self destruct in a call.
+Test that a dynamically created address is still callable and can perform
+storage operations after being called for selfdestruct.
 """
 
 from enum import IntEnum
@@ -49,8 +49,8 @@ def test_create_suicide_store(
     create_opcode: Op,
 ) -> None:
     """
-    Create dynamic contract that suicides, then called to push some storage
-    and then called to return that storage value.
+    Create a dynamic contract that self-destructs, then call it to store some
+    data and then call it again to return that storage value.
     """
     tload_support = fork.valid_opcodes().count(Op.TLOAD)
     subcall_storage = 0x12

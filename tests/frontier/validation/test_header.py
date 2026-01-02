@@ -28,7 +28,7 @@ def test_gas_limit_below_minimum(
     env: Environment,
 ) -> None:
     """
-    Tests that a block with a gas limit below limit throws an error.
+    Tests that a block with a gas limit below the minimum throws an error.
     """
     modified_fields = {"gas_limit": gas_limit}
     env.gas_limit = ZeroPaddedHexNumber(5000)
