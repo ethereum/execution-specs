@@ -72,7 +72,7 @@ def test_tx_nonce(
     expected_exception: TransactionException | None,
 ) -> None:
     """
-    Tests that if a tx nonce matches the account nonce.
+    Tests that the tx nonce matches the account nonce.
     """
     sender = pre.fund_eoa(nonce=5)
     to = pre.fund_eoa()
@@ -114,7 +114,7 @@ def test_sender_balance(
     expected_exception: TransactionException | None,
 ) -> None:
     """
-    Tests that if a sender has sufficient balance.
+    Tests that the sender has sufficient balance.
     """
     sender = pre.fund_eoa()
     to = pre.fund_eoa()

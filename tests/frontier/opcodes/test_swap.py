@@ -116,8 +116,8 @@ def test_stack_underflow(
     swap_opcode: Op,
 ) -> None:
     """
-    A test to ensure that the stack underflow when there are not enough
-    elements for the `SWAP*` opcode to operate.
+    Test that the stack underflows when there are not enough elements for the
+    `SWAP*` opcode to operate.
 
     For each SWAPn operation, we push exactly (n-1) elements to cause an
     underflow when trying to swap with the nth element.

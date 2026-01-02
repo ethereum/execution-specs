@@ -1,4 +1,4 @@
-"""Test DUP Test the DUP opcodes."""
+"""Test the DUP opcodes."""
 
 import pytest
 from execution_testing import (

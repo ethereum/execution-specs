@@ -1,6 +1,6 @@
 """
 Call every possible opcode and test that the subcall is successful if the
-opcode is supported by the fork supports and fails otherwise.
+opcode is supported by the fork and fails otherwise.
 """
 
 from typing import Dict, Generator, Iterator

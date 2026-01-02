@@ -1,4 +1,4 @@
-"""Deploy contract that calls selfdestruct in it's initcode."""
+"""Deploy contract that calls selfdestruct in its initcode."""
 
 from enum import Enum
 

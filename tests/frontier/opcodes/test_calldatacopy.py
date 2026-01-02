@@ -1,4 +1,4 @@
-"""test `CALLDATACOPY` opcode."""
+"""Test `CALLDATACOPY` opcode."""
 
 import pytest
 from execution_testing import (

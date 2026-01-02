@@ -110,7 +110,7 @@ def test_stack_overflow(
     stack_height: int,
 ) -> None:
     """
-    A test the stack overflows when the stack limit of 1024 is exceeded.
+    Test that the stack overflows when the stack limit of 1024 is exceeded.
     """
     env = Environment()
 

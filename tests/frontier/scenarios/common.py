@@ -50,7 +50,7 @@ class ScenarioEnvironment:
     call_value: int  # Op.CALLVALUE of call that is done to the program
     call_dataload_0: int  # Op.CALLDATALOAD(0) expected result
     call_datasize: int  # Op.CALLDATASIZE expected result
-    has_static: bool = False  # Weather scenario execution context is static
+    has_static: bool = False  # Whether scenario execution context is static
 
 
 @dataclass

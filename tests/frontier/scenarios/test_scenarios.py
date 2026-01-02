@@ -193,13 +193,13 @@ def test_scenarios(
     scenarios: List[Scenario],
 ) -> None:
     """
-    Test given operation in different scenarios Verify that it's return value
-    equal to expected result on every scenario, that is valid for the given
-    fork.
+    Test a given operation in different scenarios. Verify that its return value
+    is equal to the expected result for every scenario that is valid for the
+    given fork.
 
     Note: Don't use pytest parametrize for scenario production, because
-    scenarios will be complex Generate one test file for [each operation] *
-    [each scenario] to save space As well as operations will be complex too
+    scenarios will be complex. Generate one test file for [each operation] *
+    [each scenario] to save space. As well as operations will be complex too.
     """
     tx_env = Environment()
     tx_origin: Address = pre.fund_eoa()
