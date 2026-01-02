@@ -11,7 +11,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 - [x] `tests/prague/**/*.py` (~69 files)
 - [x] `tests/frontier/**/*.py` (~50 files)
 - [x] `tests/cancun/**/*.py` (~44 files)
-- [ ] `tests/osaka/**/*.py` (~43 files)
+- [x] `tests/osaka/**/*.py` (~43 files)
 - [ ] `tests/benchmark/**/*.py` (~36 files)
 - [ ] `tests/json_infra/**/*.py` (~22 files)
 - [ ] `tests/shanghai/**/*.py` (~19 files)
