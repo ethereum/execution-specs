@@ -33,7 +33,7 @@ import urllib.request
 from pathlib import Path
 
 import pytest
-import rlp
+import rlp  # type: ignore[import-untyped]
 from eth_utils import keccak
 from execution_testing import (
     Account,
@@ -438,8 +438,8 @@ def test_worst_depth_stateroot_recomp(
         + [verification_tx]
     )
 
-    blocks = []
-    current_block_txs = []
+    blocks: list[Block] = []
+    current_block_txs: list[Transaction] = []
     current_block_gas = 0
     max_block_gas = gas_benchmark_value
 
