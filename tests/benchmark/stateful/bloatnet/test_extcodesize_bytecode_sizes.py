@@ -70,6 +70,7 @@ uv run execute remote \\
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Block,
     BlockchainTestFiller,
@@ -79,6 +80,7 @@ from execution_testing import (
     Transaction,
     While,
 )
+from execution_testing.forks.gas_costs import GasCosts
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
@@ -105,7 +107,7 @@ def get_factory_stub_name(size_kb: float) -> str:
         raise ValueError(f"Unsupported size: {size_kb}KB")
 
 
-def calculate_gas_per_iteration(gas_costs) -> int:
+def calculate_gas_per_iteration(gas_costs: GasCosts) -> int:
     """
     Calculate gas cost per EXTCODESIZE loop iteration.
 
@@ -135,7 +137,7 @@ def calculate_gas_per_iteration(gas_costs) -> int:
     )
 
 
-def build_attack_contract(factory_address) -> Bytecode:
+def build_attack_contract(factory_address: Address) -> Bytecode:
     """
     Build an attack contract that maximizes EXTCODESIZE calls.
 
@@ -229,7 +231,7 @@ def build_attack_contract(factory_address) -> Bytecode:
     )
 
 
-def calculate_verification_gas(gas_costs, intrinsic_gas: int) -> int:
+def calculate_verification_gas(gas_costs: GasCosts, intrinsic_gas: int) -> int:
     """
     Calculate the minimum gas needed for the verification transaction.
 
@@ -266,7 +268,7 @@ def calculate_verification_gas(gas_costs, intrinsic_gas: int) -> int:
 
 
 def build_verification_contract(
-    factory_address, verification_salt: int
+    factory_address: Address, verification_salt: int
 ) -> Bytecode:
     """
     Build a verification contract that stores EXTCODESIZE result.
