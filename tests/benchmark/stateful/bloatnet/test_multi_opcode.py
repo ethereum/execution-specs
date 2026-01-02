@@ -62,6 +62,7 @@ def test_bloatnet_balance_extcodesize(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     balance_first: bool,
 ) -> None:
     """
@@ -96,11 +97,13 @@ def test_bloatnet_balance_extcodesize(
         + 10  # While loop overhead
     )
 
-    # Calculate how many contracts to access based on available gas
-    available_gas = (
-        gas_benchmark_value - intrinsic_gas - 1000
-    )  # Reserve for cleanup
-    contracts_needed = int(available_gas // cost_per_contract)
+    # Calculate how many transactions we need to fill the block
+    num_txs = max(1, gas_benchmark_value // tx_gas_limit)
+
+    # Calculate how many contracts to access per transaction
+    # Reserve 1000 gas for cleanup
+    available_gas_per_tx = tx_gas_limit - intrinsic_gas - 1000
+    contracts_per_tx = int(available_gas_per_tx // cost_per_contract)
 
     # Deploy factory using stub contract - NO HARDCODED VALUES
     # The stub "bloatnet_factory" must be provided via --address-stubs flag
@@ -114,8 +117,9 @@ def test_bloatnet_balance_extcodesize(
 
     # Log test requirements - deployed count read from factory storage
     print(
-        f"Test needs {contracts_needed} contracts for "
-        f"{gas_benchmark_value / 1_000_000:.1f}M gas. "
+        f"Tx gas limit: {tx_gas_limit / 1_000_000:.1f}M gas. "
+        f"Number of txs: {num_txs}. "
+        f"Contracts per tx: {contracts_per_tx}. "
         f"Factory storage will be checked during execution."
     )
 
@@ -187,12 +191,16 @@ def test_bloatnet_balance_extcodesize(
     # Deploy attack contract
     attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+    # Create multiple attack transactions to fill the block
+    sender = pre.fund_eoa()
+    attack_txs = [
+        Transaction(
+            to=attack_address,
+            gas_limit=tx_gas_limit,
+            sender=sender,
+        )
+        for _ in range(num_txs)
+    ]
 
     # Post-state: just verify attack contract exists
     post = {
@@ -201,7 +209,7 @@ def test_bloatnet_balance_extcodesize(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=attack_txs)],
         post=post,
     )
 
@@ -217,6 +225,7 @@ def test_bloatnet_balance_extcodecopy(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     balance_first: bool,
 ) -> None:
     """
@@ -253,9 +262,12 @@ def test_bloatnet_balance_extcodecopy(
         + 10  # While loop overhead
     )
 
-    # Calculate how many contracts to access
-    available_gas = gas_benchmark_value - intrinsic_gas - 1000
-    contracts_needed = int(available_gas // cost_per_contract)
+    # Calculate how many transactions we need to fill the block
+    num_txs = max(1, gas_benchmark_value // tx_gas_limit)
+
+    # Calculate how many contracts to access per transaction
+    available_gas_per_tx = tx_gas_limit - intrinsic_gas - 1000
+    contracts_per_tx = int(available_gas_per_tx // cost_per_contract)
 
     # Deploy factory using stub contract - NO HARDCODED VALUES
     # The stub "bloatnet_factory" must be provided via --address-stubs flag
@@ -269,8 +281,9 @@ def test_bloatnet_balance_extcodecopy(
 
     # Log test requirements - deployed count read from factory storage
     print(
-        f"Test needs {contracts_needed} contracts for "
-        f"{gas_benchmark_value / 1_000_000:.1f}M gas. "
+        f"Tx gas limit: {tx_gas_limit / 1_000_000:.1f}M gas. "
+        f"Number of txs: {num_txs}. "
+        f"Contracts per tx: {contracts_per_tx}. "
         f"Factory storage will be checked during execution."
     )
 
@@ -349,12 +362,16 @@ def test_bloatnet_balance_extcodecopy(
     # Deploy attack contract
     attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+    # Create multiple attack transactions to fill the block
+    sender = pre.fund_eoa()
+    attack_txs = [
+        Transaction(
+            to=attack_address,
+            gas_limit=tx_gas_limit,
+            sender=sender,
+        )
+        for _ in range(num_txs)
+    ]
 
     # Post-state
     post = {
@@ -363,7 +380,7 @@ def test_bloatnet_balance_extcodecopy(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=attack_txs)],
         post=post,
     )
 
@@ -379,6 +396,7 @@ def test_bloatnet_balance_extcodehash(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     balance_first: bool,
 ) -> None:
     """
@@ -413,11 +431,13 @@ def test_bloatnet_balance_extcodehash(
         + 10  # While loop overhead
     )
 
-    # Calculate how many contracts to access based on available gas
-    available_gas = (
-        gas_benchmark_value - intrinsic_gas - 1000
-    )  # Reserve for cleanup
-    contracts_needed = int(available_gas // cost_per_contract)
+    # Calculate how many transactions we need to fill the block
+    num_txs = max(1, gas_benchmark_value // tx_gas_limit)
+
+    # Calculate how many contracts to access per transaction
+    # Reserve 1000 gas for cleanup
+    available_gas_per_tx = tx_gas_limit - intrinsic_gas - 1000
+    contracts_per_tx = int(available_gas_per_tx // cost_per_contract)
 
     # Deploy factory using stub contract
     factory_address = pre.deploy_contract(
@@ -427,8 +447,9 @@ def test_bloatnet_balance_extcodehash(
 
     # Log test requirements
     print(
-        f"Test needs {contracts_needed} contracts for "
-        f"{gas_benchmark_value / 1_000_000:.1f}M gas. "
+        f"Tx gas limit: {tx_gas_limit / 1_000_000:.1f}M gas. "
+        f"Number of txs: {num_txs}. "
+        f"Contracts per tx: {contracts_per_tx}. "
         f"Factory storage will be checked during execution."
     )
 
@@ -489,12 +510,16 @@ def test_bloatnet_balance_extcodehash(
     # Deploy attack contract
     attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+    # Create multiple attack transactions to fill the block
+    sender = pre.fund_eoa()
+    attack_txs = [
+        Transaction(
+            to=attack_address,
+            gas_limit=tx_gas_limit,
+            sender=sender,
+        )
+        for _ in range(num_txs)
+    ]
 
     # Post-state
     post = {
@@ -503,7 +528,7 @@ def test_bloatnet_balance_extcodehash(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=attack_txs)],
         post=post,
     )
 
@@ -530,6 +555,7 @@ def test_mixed_sload_sstore(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     address_stubs: AddressStubs | None,
     num_contracts: int,
     sload_percent: int,
@@ -642,13 +668,16 @@ def test_mixed_sload_sstore(
         + gas_costs.G_VERY_LOW  # PUSH1 0 for return offset (3)
     )
 
-    # Calculate gas budget per contract
-    available_gas = gas_benchmark_value - intrinsic_gas
-    gas_per_contract = available_gas // num_contracts
+    # Calculate how many transactions we need to fill the block
+    num_txs = max(1, gas_benchmark_value // tx_gas_limit)
+
+    # Calculate gas budget per contract per transaction
+    available_gas_per_tx = tx_gas_limit - intrinsic_gas
+    gas_per_contract_per_tx = available_gas_per_tx // num_contracts
 
     # For each contract, split gas by percentage
-    sload_gas_per_contract = (gas_per_contract * sload_percent) // 100
-    sstore_gas_per_contract = (gas_per_contract * sstore_percent) // 100
+    sload_gas_per_contract = (gas_per_contract_per_tx * sload_percent) // 100
+    sstore_gas_per_contract = (gas_per_contract_per_tx * sstore_percent) // 100
 
     # Account for cold/warm transitions in CALL costs
     # First SLOAD call is COLD (2600), rest are WARM (100)
@@ -686,9 +715,11 @@ def test_mixed_sload_sstore(
     # Log test requirements
     print(
         f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas. "
-        f"~{gas_per_contract / 1_000_000:.1f}M gas per contract "
+        f"Tx gas limit: {tx_gas_limit / 1_000_000:.1f}M gas. "
+        f"Number of txs: {num_txs}. "
+        f"~{gas_per_contract_per_tx / 1_000_000:.2f}M gas per contract per tx "
         f"({sload_percent}% SLOAD, {sstore_percent}% SSTORE). "
-        f"Per contract: {sload_calls_per_contract} balanceOf calls, "
+        f"Per contract per tx: {sload_calls_per_contract} balanceOf calls, "
         f"{sstore_calls_per_contract} approve calls."
     )
 
@@ -763,12 +794,16 @@ def test_mixed_sload_sstore(
     # Deploy attack contract
     attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+    # Create multiple attack transactions to fill the block
+    sender = pre.fund_eoa()
+    attack_txs = [
+        Transaction(
+            to=attack_address,
+            gas_limit=tx_gas_limit,
+            sender=sender,
+        )
+        for _ in range(num_txs)
+    ]
 
     # Post-state
     post = {
@@ -777,6 +812,6 @@ def test_mixed_sload_sstore(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=attack_txs)],
         post=post,
     )

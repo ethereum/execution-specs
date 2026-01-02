@@ -84,6 +84,7 @@ def test_sload_empty_erc20_balanceof(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     address_stubs: AddressStubs | None,
     num_contracts: int,
     request: pytest.FixtureRequest,
@@ -154,14 +155,7 @@ def test_sload_empty_erc20_balanceof(
         # RETURN costs 0 gas
     )
 
-    # Calculate gas budget per contract
-    available_gas = gas_benchmark_value - intrinsic_gas
-    gas_per_contract = available_gas // num_contracts
-
     # For each contract: first call is COLD (2600), subsequent are WARM (100)
-    # Solve for calls_per_contract:
-    # gas_per_contract = cold_call + (calls-1) * warm_call
-    # Simplifies to: gas = cold_warm_diff + calls * warm_call_cost
     warm_call_cost = (
         loop_overhead + gas_costs.G_WARM_ACCOUNT_ACCESS + erc20_internal_gas
     )
@@ -169,8 +163,18 @@ def test_sload_empty_erc20_balanceof(
         gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.G_WARM_ACCOUNT_ACCESS
     )
 
+    # Calculate how many transactions we need to fill the block
+    num_txs = max(1, gas_benchmark_value // tx_gas_limit)
+
+    # Calculate gas budget per contract per transaction
+    available_gas_per_tx = tx_gas_limit - intrinsic_gas
+    gas_per_contract_per_tx = available_gas_per_tx // num_contracts
+
+    # Solve for calls_per_contract per tx:
+    # gas_per_contract_per_tx = cold_call + (calls-1) * warm_call
+    # Simplifies to: gas = cold_warm_diff + calls * warm_call_cost
     calls_per_contract = int(
-        (gas_per_contract - cold_warm_diff) // warm_call_cost
+        (gas_per_contract_per_tx - cold_warm_diff) // warm_call_cost
     )
 
     # Deploy selected ERC20 contracts using stubs
@@ -188,8 +192,10 @@ def test_sload_empty_erc20_balanceof(
     # Log test requirements
     print(
         f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas. "
-        f"~{gas_per_contract / 1_000_000:.1f}M gas per contract, "
-        f"{calls_per_contract} balanceOf calls per contract."
+        f"Tx gas limit: {tx_gas_limit / 1_000_000:.1f}M gas. "
+        f"Number of txs: {num_txs}. "
+        f"~{gas_per_contract_per_tx / 1_000_000:.2f}M gas/contract/tx, "
+        f"{calls_per_contract} balanceOf calls/contract/tx."
     )
 
     # Build attack code that loops through each contract
@@ -230,12 +236,16 @@ def test_sload_empty_erc20_balanceof(
     # Deploy attack contract
     attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+    # Create multiple attack transactions to fill the block
+    sender = pre.fund_eoa()
+    attack_txs = [
+        Transaction(
+            to=attack_address,
+            gas_limit=tx_gas_limit,
+            sender=sender,
+        )
+        for _ in range(num_txs)
+    ]
 
     # Post-state
     post = {
@@ -244,7 +254,7 @@ def test_sload_empty_erc20_balanceof(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=attack_txs)],
         post=post,
     )
 
@@ -256,6 +266,7 @@ def test_sstore_erc20_approve(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     address_stubs: AddressStubs | None,
     num_contracts: int,
     request: pytest.FixtureRequest,
@@ -353,10 +364,6 @@ def test_sstore_erc20_approve(
         # RETURN costs 0 gas
     )
 
-    # Calculate total gas needed
-    total_overhead = intrinsic_gas + (overhead_per_contract * num_contracts)
-    available_gas_for_iterations = gas_benchmark_value - total_overhead
-
     # For each contract: first call is COLD (2600), subsequent are WARM (100)
     # Solve for calls per contract accounting for cold/warm transition
     warm_call_cost = (
@@ -366,10 +373,19 @@ def test_sstore_erc20_approve(
         gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.G_WARM_ACCOUNT_ACCESS
     )
 
-    # Per contract: gas_available = cold_warm_diff + calls * warm_call_cost
-    gas_per_contract = available_gas_for_iterations // num_contracts
+    # Calculate how many transactions we need to fill the block
+    num_txs = max(1, gas_benchmark_value // tx_gas_limit)
+
+    # Calculate gas budget per contract per transaction
+    total_overhead_per_tx = intrinsic_gas + (
+        overhead_per_contract * num_contracts
+    )
+    available_gas_per_tx = tx_gas_limit - total_overhead_per_tx
+    gas_per_contract_per_tx = available_gas_per_tx // num_contracts
+
+    # Per contract per tx: gas = cold_warm_diff + calls * warm_call_cost
     calls_per_contract = int(
-        (gas_per_contract - cold_warm_diff) // warm_call_cost
+        (gas_per_contract_per_tx - cold_warm_diff) // warm_call_cost
     )
 
     # Deploy selected ERC20 contracts using stubs
@@ -384,10 +400,11 @@ def test_sstore_erc20_approve(
     # Log test requirements
     print(
         f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas. "
-        f"Intrinsic: {intrinsic_gas}, "
+        f"Tx gas limit: {tx_gas_limit / 1_000_000:.1f}M gas. "
+        f"Number of txs: {num_txs}. "
         f"Overhead per contract: {overhead_per_contract}, "
         f"Warm call cost: {warm_call_cost}. "
-        f"{calls_per_contract} approve calls per contract "
+        f"{calls_per_contract} approve calls per contract per tx "
         f"({num_contracts} contracts)."
     )
 
@@ -433,12 +450,16 @@ def test_sstore_erc20_approve(
     # Deploy attack contract
     attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+    # Create multiple attack transactions to fill the block
+    sender = pre.fund_eoa()
+    attack_txs = [
+        Transaction(
+            to=attack_address,
+            gas_limit=tx_gas_limit,
+            sender=sender,
+        )
+        for _ in range(num_txs)
+    ]
 
     # Post-state
     post = {
@@ -447,6 +468,6 @@ def test_sstore_erc20_approve(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=attack_txs)],
         post=post,
     )
