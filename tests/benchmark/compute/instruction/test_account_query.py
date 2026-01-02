@@ -64,7 +64,10 @@ def test_codesize(
     """Benchmark CODESIZE instruction."""
     benchmark_test(
         target_opcode=Op.CODESIZE,
-        code_generator=ExtCallGenerator(attack_block=Op.CODESIZE),
+        code_generator=ExtCallGenerator(
+            attack_block=Op.CODESIZE,
+            code_padding_opcode=Op.INVALID,
+        ),
     )
 
 
@@ -107,6 +110,28 @@ def test_codecopy(
             setup=setup,
             attack_block=attack_block,
             code_padding_opcode=Op.STOP,
+        ),
+    )
+
+
+@pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
+@pytest.mark.parametrize("code_size", [0, 32, 256, 1024, 24576])
+def test_codecopy_benchmark(
+    benchmark_test: BenchmarkTestFiller,
+    mem_size: int,
+    code_size: int,
+) -> None:
+    """Benchmark CODECOPY with varying memory and code size config."""
+    setup = Op.MSTORE8(mem_size, 0xFF) if mem_size > 0 else Bytecode()
+
+    attack_block = Op.CODECOPY(Op.PUSH0, Op.PUSH0, code_size)
+
+    benchmark_test(
+        target_opcode=Op.CODECOPY,
+        code_generator=JumpLoopGenerator(
+            setup=setup,
+            attack_block=attack_block,
+            code_padding_opcode=Op.INVALID,
         ),
     )
 
