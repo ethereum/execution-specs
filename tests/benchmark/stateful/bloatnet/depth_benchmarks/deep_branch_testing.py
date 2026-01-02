@@ -46,7 +46,7 @@ from execution_testing import (
 )
 
 # Attack function selector: cast sig "attack(uint256)" = 0x64dd891a
-ATTACK_SELECTOR = 0x64dd891a
+ATTACK_SELECTOR = 0x64DD891A
 
 # Maximum gas per transaction (Fusaka EIP limit)
 MAX_GAS_PER_TX = 16_000_000
@@ -71,9 +71,7 @@ GAS_PER_ATTACK = 8_050  # 8,050 for margin over measured 8,042
 MAX_ATTACKS_PER_TX = 1980  # Use 1,980 for safety margin
 
 # GitHub raw URL base for downloading mined assets
-MINED_ASSETS_URL = (
-    "https://raw.githubusercontent.com/CPerezz/worst_case_miner/master/mined_assets"
-)
+MINED_ASSETS_URL = "https://raw.githubusercontent.com/CPerezz/worst_case_miner/master/mined_assets"
 
 # AttackOrchestrator deployment bytecode (without constructor args)
 # Compiled with: solc --bin --optimize --optimize-runs 200 --metadata-hash none
@@ -130,7 +128,7 @@ def download_mined_asset(filename: str) -> str:
     cache_path = cache_dir / filename
 
     if cache_path.exists():
-        with open(cache_path, 'r') as f:
+        with open(cache_path, "r") as f:
             return f.read()
 
     url = f"{MINED_ASSETS_URL}/{filename}"
@@ -138,9 +136,9 @@ def download_mined_asset(filename: str) -> str:
 
     try:
         with urllib.request.urlopen(url, timeout=30) as response:
-            content = response.read().decode('utf-8')
+            content = response.read().decode("utf-8")
             # Cache the file locally
-            with open(cache_path, 'w') as f:
+            with open(cache_path, "w") as f:
                 f.write(content)
             return content
     except urllib.error.URLError as e:
@@ -185,7 +183,7 @@ def get_deep_slot_from_sol(storage_depth: int) -> int:
     content = download_mined_asset(sol_filename)
 
     # Find all sstore operations in the constructor
-    sstore_pattern = r'sstore\((0x[0-9a-fA-F]+),\s*1\)'
+    sstore_pattern = r"sstore\((0x[0-9a-fA-F]+),\s*1\)"
     sstores = re.findall(sstore_pattern, content)
     if sstores:
         # The last sstore is the deepest slot
@@ -210,10 +208,10 @@ def calculate_create2_address(
 
     """
     deployer_bytes = bytes.fromhex(str(deployer_addr)[2:])
-    salt_bytes = salt.to_bytes(32, 'big')
+    salt_bytes = salt.to_bytes(32, "big")
 
     # CREATE2 preimage: 0xff ++ deployer ++ salt ++ keccak256(init_code)
-    preimage = b'\xff' + deployer_bytes + salt_bytes + init_code_hash
+    preimage = b"\xff" + deployer_bytes + salt_bytes + init_code_hash
     address_bytes = keccak(preimage)[12:]
     return Address("0x" + address_bytes.hex())
 
@@ -262,9 +260,12 @@ def calculate_num_contracts(gas_benchmark_value: int) -> int:
 
 
 @pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize("storage_depth,account_depth", [
-    (10, 6),  # From worst_case_miner/mined_assets
-])
+@pytest.mark.parametrize(
+    "storage_depth,account_depth",
+    [
+        (10, 6),  # From worst_case_miner/mined_assets
+    ],
+)
 def test_worst_depth_stateroot_recomp(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -315,8 +316,10 @@ def test_worst_depth_stateroot_recomp(
     # Verify we have enough contracts in the JSON
     available_contracts = len(create2_data.get("contracts", []))
     if num_contracts > available_contracts:
-        print(f"  WARNING: Requested {num_contracts} but only "
-              f"{available_contracts} available")
+        print(
+            f"  WARNING: Requested {num_contracts} but only "
+            f"{available_contracts} available"
+        )
         num_contracts = available_contracts
 
     print(f"  Final NUM_CONTRACTS: {num_contracts}")
@@ -331,7 +334,7 @@ def test_worst_depth_stateroot_recomp(
     # ABI encode constructor parameters for AttackOrchestrator
     # Constructor: constructor(address _deployer, bytes32 _initCodeHash)
     nick_deployer_bytes = bytes(NICK_DEPLOYER)
-    constructor_args = nick_deployer_bytes.rjust(32, b'\x00') + init_code_hash
+    constructor_args = nick_deployer_bytes.rjust(32, b"\x00") + init_code_hash
     orchestrator_init_code = ATTACK_ORCHESTRATOR_BYTECODE + constructor_args
 
     print(f"  Using init code hash from JSON: 0x{init_code_hash.hex()}")
@@ -378,9 +381,9 @@ def test_worst_depth_stateroot_recomp(
         # Selector: 0x407f85f8 = attack(uint256,uint256,uint256)
         calldata = (
             bytes.fromhex("407f85f8")
-            + attack_value.to_bytes(32, 'big')
-            + batch_start.to_bytes(32, 'big')
-            + batch_end.to_bytes(32, 'big')
+            + attack_value.to_bytes(32, "big")
+            + batch_start.to_bytes(32, "big")
+            + batch_end.to_bytes(32, "big")
         )
 
         # Calculate gas for this batch - aim for close to 16M
@@ -405,16 +408,17 @@ def test_worst_depth_stateroot_recomp(
     last_contract_address = calculate_create2_address(
         NICK_DEPLOYER, last_contract_salt, init_code_hash
     )
-    print(f"  Last contract (salt={last_contract_salt}): "
-          f"{last_contract_address}")
+    print(
+        f"  Last contract (salt={last_contract_salt}): {last_contract_address}"
+    )
 
     # Create verification transaction
     # Verifier.verify(address target, uint256 expectedValue)
     # Selector: bytes4(keccak256("verify(address,uint256)")) = 0x6be45db7
     verify_calldata = (
         bytes.fromhex("6be45db7")  # verify(address,uint256) selector
-        + bytes.fromhex(str(last_contract_address)[2:]).rjust(32, b'\x00')
-        + attack_value.to_bytes(32, 'big')
+        + bytes.fromhex(str(last_contract_address)[2:]).rjust(32, b"\x00")
+        + attack_value.to_bytes(32, "big")
     )
 
     verification_tx = Transaction(
