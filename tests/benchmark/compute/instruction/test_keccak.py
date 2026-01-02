@@ -10,6 +10,7 @@ import math
 import pytest
 from execution_testing import (
     BenchmarkTestFiller,
+    Bytecode,
     Fork,
     JumpLoopGenerator,
     Op,
@@ -85,5 +86,26 @@ def test_keccak(
             setup=Op.CALLDATACOPY(offset, Op.PUSH0, Op.CALLDATASIZE),
             attack_block=Op.POP(Op.SHA3(offset, Op.CALLDATASIZE)),
             tx_kwargs={"data": mem_alloc},
+        ),
+    )
+
+
+@pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
+@pytest.mark.parametrize("msg_size", [0, 32, 256, 1024])
+def test_keccak_diff_mem_msg_sizes(
+    benchmark_test: BenchmarkTestFiller,
+    mem_size: int,
+    msg_size: int,
+) -> None:
+    """Benchmark KECCAK256 instruction with diff memory and message sizes."""
+    # Setup expands memory to mem_size bytes (if > 0) by storing a value
+    # Then the attack block hashes msg_size bytes starting from offset 0.
+    setup = Op.MSTORE8(mem_size - 1, 0xFF) if mem_size > 0 else Bytecode()
+
+    benchmark_test(
+        target_opcode=Op.SHA3,
+        code_generator=JumpLoopGenerator(
+            setup=setup,
+            attack_block=Op.POP(Op.SHA3(0, msg_size)),
         ),
     )
