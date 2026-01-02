@@ -8,7 +8,7 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 
 - [ ] `tests/static/**/*.py` (~75 files)
 - [ ] `tests/unscheduled/**/*.py` (~73 files)
-- [ ] `tests/prague/**/*.py` (~69 files)
+- [x] `tests/prague/**/*.py` (~69 files)
 - [ ] `tests/frontier/**/*.py` (~50 files)
 - [ ] `tests/cancun/**/*.py` (~44 files)
 - [ ] `tests/osaka/**/*.py` (~43 files)
