@@ -1,7 +1,7 @@
 """
 A set of common pytest fixtures for tests executing precompiled contracts.
 
-These can help creating a wrapping contract that calls the precompile and
+These can help create a wrapping contract that calls the precompile and
 records the results in storage, so that tests can verify the expected behavior.
 Also, the gas calculation and transaction setup is handled here.
 """
@@ -83,7 +83,7 @@ def call_contract_code(
     The code calls the precompile and stores the call return code, output size,
     and output hash in storage. The information about the call output is
     collected with the RETURNDATASIZE and RETURNDATACOPY opcodes.
-    Therefore, the test contract doesn't work correctly in forks pre Byzantium.
+    Therefore, the test contract doesn't work correctly in pre-Byzantium forks.
 
     Args:
       precompile_address: Address of the precompile to call.

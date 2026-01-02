@@ -19,4 +19,4 @@ Status legend: `[ ]` pending, `[~]` in progress, `[x]` complete
 - [x] `tests/istanbul/**/*.py`, `berlin/**/*.py` (~18 files)
 - [x] `tests/constantinople/**/*.py`, `amsterdam/**/*.py` (~16 files)
 - [x] `tests/london/**/*.py`, `homestead/**/*.py`, `paris/**/*.py` (~17 files)
-- [ ] `tests/*.py`, `tests/common/**/*.py`, `tests/evm_tools/**/*.py` (~5 files)
+- [x] `tests/*.py`, `tests/common/**/*.py`, `tests/evm_tools/**/*.py` (~5 files)
