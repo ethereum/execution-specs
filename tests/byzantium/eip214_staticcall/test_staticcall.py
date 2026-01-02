@@ -165,7 +165,6 @@ def test_staticcall_call_to_precompile(
 def test_staticcall_nested_call_to_precompile(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
     precompile: Address,
     call_value: int,
 ) -> None:
@@ -258,11 +257,13 @@ def test_staticcall_nested_call_to_precompile(
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stStaticFlagEnabled/CallWithNOTZeroValueToPrecompileFromContractInitializationFiller.yml",
     ],
 )
+@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
 def test_staticcall_call_to_precompile_from_contract_init(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     precompile: Address,
     call_value: int,
+    create_opcode: Op,
 ) -> None:
     """
     Test STATICCALL behavior during contract initialization (CREATE).
@@ -286,7 +287,7 @@ def test_staticcall_call_to_precompile_from_contract_init(
     # Init code: stores markers and STATICCALL result during initialization
     # Note: storage written during init but no return means the created
     # contract will have empty code.
-    init_code = (
+    initcode = (
         Op.SSTORE(0, marker)
         + Op.SSTORE(1, Op.STATICCALL(gas=200_000, address=contract_b))
         + Op.SSTORE(2, marker)
@@ -297,12 +298,20 @@ def test_staticcall_call_to_precompile_from_contract_init(
         code=(
             Op.SSTORE(0, marker)
             + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-            + Op.SSTORE(1, Op.CREATE(value=0, offset=0, size=Op.CALLDATASIZE))
+            + Op.SSTORE(
+                1,
+                create_opcode(value=0, offset=0, size=Op.CALLDATASIZE),
+            )
             + Op.SSTORE(2, marker)
         ),
         balance=contract_initial_balance,
     )
-    created_contract = compute_create_address(address=contract_a, nonce=1)
+    created_contract = compute_create_address(
+        nonce=1,
+        address=contract_a,
+        opcode=create_opcode,
+        initcode=initcode,
+    )
 
     tx_value = 100
     blockchain_test(
@@ -315,7 +324,7 @@ def test_staticcall_call_to_precompile_from_contract_init(
                         to=contract_a,
                         gas_limit=4_000_000,
                         value=tx_value,
-                        data=bytes(init_code),
+                        data=bytes(initcode),
                         protected=True,
                     )
                 ]
