@@ -492,7 +492,7 @@ class EOFException(ExceptionBase):
     """Indicates that exception string is not mapped to an exception enum."""
 
     UNDEFINED_INSTRUCTION = auto()
-    """EOF container has undefined instruction in it's body code."""
+    """EOF container has undefined instruction in its body code."""
 
     UNKNOWN_VERSION = auto()
     """EOF container has an unknown version."""
@@ -543,7 +543,7 @@ class EOFException(ExceptionBase):
     TOO_MANY_CODE_SECTIONS = auto()
     """EOF container header has too many code sections."""
     MISSING_STOP_OPCODE = auto()
-    """EOF container's code missing STOP bytecode at it's end."""
+    """EOF container's code missing STOP bytecode at its end."""
     INPUTS_OUTPUTS_NUM_ABOVE_LIMIT = auto()
     """EOF container code section inputs/outputs number is above the limit"""
     UNREACHABLE_INSTRUCTIONS = auto()
@@ -551,9 +551,9 @@ class EOFException(ExceptionBase):
     UNREACHABLE_CODE_SECTIONS = auto()
     """EOF container's body have code sections that are unreachable."""
     STACK_UNDERFLOW = auto()
-    """EOF container's code produces an stack underflow."""
+    """EOF container's code produces a stack underflow."""
     STACK_OVERFLOW = auto()
-    """EOF container's code produces an stack overflow."""
+    """EOF container's code produces a stack overflow."""
     STACK_HEIGHT_MISMATCH = auto()
     """EOF container section stack height mismatch."""
     MAX_STACK_INCREASE_ABOVE_LIMIT = auto()

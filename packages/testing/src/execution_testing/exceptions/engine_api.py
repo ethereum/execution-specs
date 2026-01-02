@@ -1,4 +1,4 @@
-"""Engine API error defniitions."""
+"""Engine API error definitions."""
 
 from enum import IntEnum
 
