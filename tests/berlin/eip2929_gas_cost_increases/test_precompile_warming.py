@@ -103,7 +103,7 @@ def test_precompile_warming(
     pre: Alloc,
 ) -> None:
     """
-    Call BALANCE of a precompile addresses before and after a fork.
+    Call BALANCE of precompile addresses before and after a fork.
 
     According to EIP-2929, when a transaction begins, accessed_addresses is
     initialized to include:
