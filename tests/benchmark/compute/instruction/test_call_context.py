@@ -202,17 +202,6 @@ def test_calldatacopy_from_origin(
 
 
 @pytest.mark.parametrize(
-    "mem_size",
-    [
-        pytest.param(0, id="0 bytes"),
-        pytest.param(32, id="32 bytes"),
-        pytest.param(256, id="256 bytes"),
-        pytest.param(1024, id="1KiB"),
-        pytest.param(10 * 1024, id="10KiB"),
-        pytest.param(1024 * 1024, id="1MiB"),
-    ],
-)
-@pytest.mark.parametrize(
     "fixed_src_dst",
     [
         True,
