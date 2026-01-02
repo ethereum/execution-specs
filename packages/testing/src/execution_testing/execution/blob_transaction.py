@@ -156,7 +156,7 @@ class BlobTransaction(BaseExecute):
             list_versioned_hashes, version=version
         )
 
-        # if non-existing blob hashes were request then the response must be
+        # if non-existing blob hashes were requested then the response must be
         # 'null'
         if self.nonexisting_blob_hashes is not None:
             if blob_response is not None:
