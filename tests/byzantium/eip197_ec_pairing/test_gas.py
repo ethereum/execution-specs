@@ -34,8 +34,7 @@ def test_gas_costs(
     enough_gas: bool,
 ) -> None:
     """
-    Tests the constant gas behavior of `ecadd/ecmul/ecpairing` precompiled
-    contract.
+    Tests the constant gas behavior of `ecpairing` precompiled contract.
     """
     gas = fork.gas_costs().G_PRECOMPILE_ECPAIRING_BASE
     if not enough_gas:
