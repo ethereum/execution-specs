@@ -183,7 +183,7 @@ class Block:
     header: Header
     """
     The block header containing metadata and cryptographic commitments. Refer
-    [headers] for more details on the fields included in the header.
+    to [headers] for more details on the fields included in the header.
 
     [headers]: ref:ethereum.forks.byzantium.blocks.Header
     """
