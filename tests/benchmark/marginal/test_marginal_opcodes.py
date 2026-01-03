@@ -1408,94 +1408,10 @@ def _create_amplifier_test(
 # We use a loop-based approach where we control the iteration count.
 # ============================================================================
 
-def generate_jump_program(op_count: int, max_op_count: int) -> Bytecode:
-    """
-    Generate a JUMP program following gas-cost-estimator's approach.
-
-    Each combo is self-contained - JUMP jumps to its own JUMPDEST:
-    - Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes, gas = 3+8+1 = 12
-      (dest points to the JUMPDEST in this same combo)
-    - Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes, gas = 3+1 = 4
-      (dest points to the JUMPDEST in this combo, no JUMP executed)
-
-    Note: Combo sizes differ (6 vs 5 bytes), but positions are calculated dynamically.
-    Marginal gas = 12 - 4 = 8 (exactly JUMP gas)
-    """
-    code = Bytecode()
-
-    for i in range(max_op_count):
-        current_pc = len(bytes(code))
-
-        if i < op_count:
-            # Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes
-            # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) + 1 (JUMP) = current_pc + 5
-            jumpdest_pc = current_pc + 1 + 3 + 1
-            code += Op.PUSH3(jumpdest_pc)
-            code += Op.JUMP
-            code += Op.JUMPDEST
-        else:
-            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes (no JUMP!)
-            # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) = current_pc + 4
-            jumpdest_pc = current_pc + 1 + 3
-            code += Op.PUSH3(jumpdest_pc)
-            code += Op.JUMPDEST
-
-    # Add epilogue: SSTORE(SUCCESS_SLOT, SUCCESS_MARKER) + STOP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-
-    return code
-
-
-def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
-    """
-    Generate a JUMPI program with constant overhead.
-
-    Following gas-cost-estimator's approach:
-    - Push max_op_count conditions upfront (CONSTANT)
-    - Each JUMPI consumes one condition
-    - Unused conditions stay on stack (fine for gas measurement)
-
-    Structure:
-    1. Push max_op_count conditions (CONSTANT)
-    2. Run max_op_count combos:
-       - Real combo (i < op_count): PUSH3(dest) + JUMPI + JUMPDEST
-       - Noop combo (i >= op_count): PUSH3(dest) + JUMPDEST
-    """
-    code = Bytecode()
-
-    # 1. Push max_op_count conditions upfront (CONSTANT overhead)
-    for _ in range(max_op_count):
-        code += Op.PUSH1(1)  # Push true condition
-
-    # 2. Run combos
-    for i in range(max_op_count):
-        current_pc = len(bytes(code))
-
-        if i < op_count:
-            # Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
-            jumpdest_pc = current_pc + 1 + 3 + 1
-            code += Op.PUSH3(jumpdest_pc)
-            code += Op.JUMPI
-            code += Op.JUMPDEST
-        else:
-            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
-            jumpdest_pc = current_pc + 1 + 3
-            code += Op.PUSH3(jumpdest_pc)
-            code += Op.JUMPDEST
-
-    # 3. Epilogue: SSTORE(SUCCESS_SLOT, SUCCESS_MARKER) + STOP
-    # Note: Unused conditions stay on stack (fine for gas measurement)
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-
-    return code
-
-
 def generate_jump_target(op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate JUMP target contract for amplifier-target approach.
-    Similar to generate_jump_program but without SSTORE (called via CALL from amplifier).
+    No SSTORE (called via CALL from amplifier).
     """
     code = Bytecode()
 
@@ -1523,7 +1439,7 @@ def generate_jump_target(op_count: int, max_op_count: int) -> Bytecode:
 def generate_jumpi_target(op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate JUMPI target contract for amplifier-target approach.
-    Similar to generate_jumpi_program but without SSTORE (called via CALL from amplifier).
+    No SSTORE (called via CALL from amplifier).
     """
     code = Bytecode()
 
@@ -1547,72 +1463,6 @@ def generate_jumpi_target(op_count: int, max_op_count: int) -> Bytecode:
             code += Op.JUMPDEST
 
     # Just STOP (no SSTORE - called via CALL from amplifier)
-    code += Op.STOP
-
-    return code
-
-
-# ============================================================================
-# EXTERNAL CALL OPCODES - CALL, CALLCODE, DELEGATECALL, STATICCALL
-# These call other contracts/addresses
-# ============================================================================
-
-
-def _generate_call_target_code() -> Bytecode:
-    """
-    Generate simple target contract code that just returns immediately.
-    The target stores a value and returns, minimal gas consumption.
-    """
-    return Op.STOP
-
-
-def generate_call_program(op_count: int, call_opcode: Op, max_op_count: int) -> Bytecode:
-    """
-    Generate a program that executes CALL-type opcode op_count times.
-
-    Uses noop-based padding similar to other non-returning opcodes:
-    - For op_count executions: push args + execute call + pop result
-    - For remaining (max_op_count - op_count): just push args (no call)
-
-    The target is a simple contract that just STOPs.
-    """
-    code = Bytecode()
-
-    # Note: We'll need to set target_address later when deploying
-    # For now, use placeholder - will be replaced in test function
-
-    noop_count = max_op_count - op_count
-
-    # Execute op_count real calls
-    for _ in range(op_count):
-        if call_opcode == Op.CALL or call_opcode == Op.CALLCODE:
-            # CALL(gas, addr, value, argsOffset, argsSize, retOffset, retSize)
-            code += Op.POP(
-                call_opcode(Op.GAS, 0xCAFE, 0, 0, 0, 0, 0)  # 0xCAFE = placeholder
-            )
-        else:
-            # DELEGATECALL/STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize)
-            code += Op.POP(
-                call_opcode(Op.GAS, 0xCAFE, 0, 0, 0, 0)  # 0xCAFE = placeholder
-            )
-
-    # Execute noop_count "noops" (same pushes, no call)
-    for _ in range(noop_count):
-        if call_opcode == Op.CALL or call_opcode == Op.CALLCODE:
-            # Push 7 values (CALL/CALLCODE args) and pop them
-            for _ in range(7):
-                code += Op.PUSH0
-            for _ in range(7):
-                code += Op.POP
-        else:
-            # Push 6 values (DELEGATECALL/STATICCALL args) and pop them
-            for _ in range(6):
-                code += Op.PUSH0
-            for _ in range(6):
-                code += Op.POP
-
-    # Write success marker
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
     code += Op.STOP
 
     return code
