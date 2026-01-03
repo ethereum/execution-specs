@@ -56,7 +56,7 @@ class MarginalOpcodeConfig:
     """Number of stack outputs produced by the opcode."""
 
     num_calls: int = 100
-    """Number of times caller calls target (to amplify gas usage)."""
+    """Number of times amplifier calls target (to amplify gas usage)."""
 
     setup_code: Bytecode | None = None
     """Optional setup code to run before the main loop (e.g., memory init)."""
@@ -80,7 +80,7 @@ class CustomTargetConfig:
     """Step size for op_count increments."""
 
     num_calls: int
-    """Number of times caller calls target (to amplify gas usage)."""
+    """Number of times amplifier calls target (to amplify gas usage)."""
 
     # For DUP/SWAP: which variant (1-16)
     variant: int = 0
@@ -1247,9 +1247,9 @@ def generate_op_counts(max_op_count: int, step: int) -> List[int]:
 
 
 # ============================================================================
-# CALLER-CONTRACT APPROACH
+# AMPLIFIER-TARGET APPROACH
 # ============================================================================
-# The caller-contract pattern amplifies op_count by having a caller contract
+# The amplifier-target pattern amplifies op_count by having an amplifier contract
 # call a target contract N times. This allows much higher effective op_counts
 # while keeping individual contract sizes within limits.
 #
@@ -1260,7 +1260,7 @@ def generate_op_counts(max_op_count: int, step: int) -> List[int]:
 
 # Legacy constant for backward compatibility (new tests use config.num_calls)
 NUM_CALLS = 100
-CALLER_GAS_LIMIT = 500_000_000  # High gas limit for scaled benchmarking (500M)
+AMPLIFIER_GAS_LIMIT = 500_000_000  # High gas limit for scaled benchmarking (500M)
 
 
 def generate_target_contract_code(
@@ -1268,7 +1268,7 @@ def generate_target_contract_code(
     op_count: int,
 ) -> Bytecode:
     """
-    Generate a target contract for caller-contract approach.
+    Generate a target contract for amplifier-target approach.
 
     Same as generate_marginal_program but WITHOUT SSTORE (since it's called
     via STATICCALL which doesn't allow state changes). Just ends with STOP.
@@ -1323,9 +1323,9 @@ def generate_target_contract_code(
     return code
 
 
-def generate_caller_contract_code(target_address: Address, num_calls: int) -> Bytecode:
+def generate_amplifier_contract_code(target_address: Address, num_calls: int) -> Bytecode:
     """
-    Generate caller contract that calls target num_calls times using a loop to
+    Generate amplifier contract that calls target num_calls times using a loop to
     amplify the op_count. The loop overhead is constant across all test variants,
     so it gets eliminated in the marginal cost regression.
 
@@ -1403,16 +1403,16 @@ def generate_caller_contract_code(target_address: Address, num_calls: int) -> By
 TargetGenerator = Callable[[int, int], Bytecode]
 """Target generator signature: (op_count, max_op_count) -> Bytecode."""
 
-CallerGenerator = Callable[[Address, int], Bytecode]
-"""Caller generator signature: (target_address, num_calls) -> Bytecode."""
+AmplifierGenerator = Callable[[Address, int], Bytecode]
+"""Amplifier generator signature: (target_address, num_calls) -> Bytecode."""
 
 
-def _create_caller_test(
+def _create_amplifier_test(
     cfg: MarginalOpcodeConfig | CustomTargetConfig,
     target_generator: TargetGenerator | None = None,
 ):
     """
-    Single factory for all caller-contract marginal tests.
+    Single factory for all amplifier-target marginal tests.
 
     - If cfg is MarginalOpcodeConfig: defaults to generate_target_contract_code(cfg, op_count)
     - If cfg is CustomTargetConfig: requires target_generator(op_count, max_op_count)
@@ -1432,7 +1432,7 @@ def _create_caller_test(
     else:
         raise TypeError(f"Unsupported config type: {type(cfg)}")
 
-    caller_gen: CallerGenerator = generate_caller_contract_code
+    amplifier_gen: AmplifierGenerator = generate_amplifier_contract_code
 
     op_counts = generate_op_counts(max_op_count, step)
 
@@ -1450,20 +1450,20 @@ def _create_caller_test(
         target_code = target_generator(op_count, max_op_count)
         target_contract = pre.deploy_contract(code=target_code)
 
-        caller_code = caller_gen(target_contract, num_calls)
-        caller_contract = pre.deploy_contract(code=caller_code)
+        amplifier_code = amplifier_gen(target_contract, num_calls)
+        amplifier_contract = pre.deploy_contract(code=amplifier_code)
 
         sender = pre.fund_eoa()
 
         tx = Transaction(
-            to=caller_contract,
-            gas_limit=CALLER_GAS_LIMIT,
+            to=amplifier_contract,
+            gas_limit=AMPLIFIER_GAS_LIMIT,
             sender=sender,
         )
 
-        post = {caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+        post = {amplifier_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
 
-        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+        state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
     return test_func
 
@@ -1480,9 +1480,9 @@ def test_marginal_blockhash(state_test: StateTestFiller, pre: Alloc, op_count: i
     code = generate_marginal_program(BLOCKHASH_CONFIG, op_count)
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    tx = Transaction(to=contract, gas_limit=AMPLIFIER_GAS_LIMIT, sender=sender)
     post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+    state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -1586,7 +1586,7 @@ def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
 
 def generate_jump_target(op_count: int, max_op_count: int) -> Bytecode:
     """
-    Generate JUMP target contract for caller-contract approach.
+    Generate JUMP target contract for amplifier-target approach.
     Similar to generate_jump_program but without SSTORE (compatible with STATICCALL).
     """
     bytecode_hex = ""
@@ -1611,7 +1611,7 @@ def generate_jump_target(op_count: int, max_op_count: int) -> Bytecode:
 
 def generate_jumpi_target(op_count: int, max_op_count: int) -> Bytecode:
     """
-    Generate JUMPI target contract for caller-contract approach.
+    Generate JUMPI target contract for amplifier-target approach.
     Similar to generate_jumpi_program but without SSTORE (compatible with STATICCALL).
     """
     bytecode_hex = ""
@@ -1867,16 +1867,16 @@ def generate_call_program(op_count: int, call_opcode: Op, max_op_count: int) -> 
 
 
 # ============================================================================
-# CALL-FAMILY OPCODES - Using loop-based caller contract approach
+# CALL-FAMILY OPCODES - Using loop-based amplifier contract approach
 # CALL, CALLCODE, DELEGATECALL, STATICCALL
 # ============================================================================
 
-# Loop-based caller contracts for each CALL variant
+# Loop-based amplifier contracts for each CALL variant
 # These use a fixed-size loop structure, allowing much higher call counts
 
-def generate_caller_with_call(target_address: Address, num_calls: int) -> Bytecode:
+def generate_amplifier_with_call(target_address: Address, num_calls: int) -> Bytecode:
     """
-    Generate caller contract that uses CALL in a loop.
+    Generate amplifier contract that uses CALL in a loop.
     CALL(gas, addr, value, argsOffset, argsSize, retOffset, retSize) -> success
     """
     code = Bytecode()
@@ -1930,9 +1930,9 @@ def generate_caller_with_call(target_address: Address, num_calls: int) -> Byteco
     return code
 
 
-def generate_caller_with_callcode(target_address: Address, num_calls: int) -> Bytecode:
+def generate_amplifier_with_callcode(target_address: Address, num_calls: int) -> Bytecode:
     """
-    Generate caller contract that uses CALLCODE in a loop.
+    Generate amplifier contract that uses CALLCODE in a loop.
     CALLCODE(gas, addr, value, argsOffset, argsSize, retOffset, retSize) -> success
     """
     code = Bytecode()
@@ -1982,9 +1982,9 @@ def generate_caller_with_callcode(target_address: Address, num_calls: int) -> By
     return code
 
 
-def generate_caller_with_delegatecall(target_address: Address, num_calls: int) -> Bytecode:
+def generate_amplifier_with_delegatecall(target_address: Address, num_calls: int) -> Bytecode:
     """
-    Generate caller contract that uses DELEGATECALL in a loop.
+    Generate amplifier contract that uses DELEGATECALL in a loop.
     DELEGATECALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
     """
     code = Bytecode()
@@ -2033,9 +2033,9 @@ def generate_caller_with_delegatecall(target_address: Address, num_calls: int) -
     return code
 
 
-def generate_caller_with_staticcall(target_address: Address, num_calls: int) -> Bytecode:
+def generate_amplifier_with_staticcall(target_address: Address, num_calls: int) -> Bytecode:
     """
-    Generate caller contract that uses STATICCALL in a loop.
+    Generate amplifier contract that uses STATICCALL in a loop.
     STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
     """
     code = Bytecode()
@@ -2085,10 +2085,10 @@ def generate_caller_with_staticcall(target_address: Address, num_calls: int) -> 
 
 
 # Configuration for CALL-family opcodes with simplified noop approach
-# Stack-limited but caller-amplified for high total op counts
+# Stack-limited but amplifier-amplified for high total op counts
 # Stack limit: 1024, each noop leaves +5 or +6 items
-# Safe max_op_count: ~150 (with buffer), caller amplifies to 150 × N total ops
-CALL_NUM_CALLS = 500  # Number of caller loop iterations
+# Safe max_op_count: ~150 (with buffer), amplifier amplifies to 150 × N total ops
+CALL_NUM_CALLS = 500  # Number of amplifier loop iterations
 CALL_MAX_OP_COUNT = 99  # Target contract executes up to 99 CALLs per invocation
 CALL_STEP = 33  # 4 data points
 
@@ -2112,7 +2112,7 @@ def _generate_target_with_inner_calls(
     Stack analysis:
     - Each noop leaves +5 items (STATICCALL/DELEGATECALL) or +6 items (CALL/CALLCODE)
     - Stack limit = 1024, so max noops ≈ 150-170
-    - With caller amplification, total ops = max_op_count × CALL_NUM_CALLS
+    - With amplifier amplification, total ops = max_op_count × CALL_NUM_CALLS
     """
     code = Bytecode()
 
@@ -2180,7 +2180,7 @@ def _generate_target_with_inner_calls(
     ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
 )
 def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CALL opcode using loop-based caller."""
+    """Marginal cost test for CALL opcode using loop-based amplifier."""
     # Inner target: just stops
     inner_target = pre.deploy_contract(code=Op.STOP)
 
@@ -2191,14 +2191,14 @@ def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -
     )
     target = pre.deploy_contract(code=target_code)
 
-    # Caller contract: loops CALL_NUM_CALLS times, calling target
-    caller_code = generate_caller_with_call(target, CALL_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
+    # Amplifier contract: loops CALL_NUM_CALLS times, calling target
+    amplifier_code = generate_amplifier_with_call(target, CALL_NUM_CALLS)
+    amplifier = pre.deploy_contract(code=amplifier_code)
 
     sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+    tx = Transaction(to=amplifier, gas_limit=AMPLIFIER_GAS_LIMIT, sender=sender)
+    post = {amplifier: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Prague")
@@ -2208,20 +2208,20 @@ def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -
     ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
 )
 def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CALLCODE opcode using loop-based caller."""
+    """Marginal cost test for CALLCODE opcode using loop-based amplifier."""
     inner_target = pre.deploy_contract(code=Op.STOP)
     # With noop padding for proper marginality
     target_code = _generate_target_with_inner_calls(
         inner_target, op_count, CALL_MAX_OP_COUNT, Op.CALLCODE
     )
     target = pre.deploy_contract(code=target_code)
-    caller_code = generate_caller_with_callcode(target, CALL_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
+    amplifier_code = generate_amplifier_with_callcode(target, CALL_NUM_CALLS)
+    amplifier = pre.deploy_contract(code=amplifier_code)
 
     sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+    tx = Transaction(to=amplifier, gas_limit=AMPLIFIER_GAS_LIMIT, sender=sender)
+    post = {amplifier: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Prague")
@@ -2231,20 +2231,20 @@ def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: in
     ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
 )
 def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for DELEGATECALL opcode using loop-based caller."""
+    """Marginal cost test for DELEGATECALL opcode using loop-based amplifier."""
     inner_target = pre.deploy_contract(code=Op.STOP)
     # With noop padding for proper marginality
     target_code = _generate_target_with_inner_calls(
         inner_target, op_count, CALL_MAX_OP_COUNT, Op.DELEGATECALL
     )
     target = pre.deploy_contract(code=target_code)
-    caller_code = generate_caller_with_delegatecall(target, CALL_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
+    amplifier_code = generate_amplifier_with_delegatecall(target, CALL_NUM_CALLS)
+    amplifier = pre.deploy_contract(code=amplifier_code)
 
     sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+    tx = Transaction(to=amplifier, gas_limit=AMPLIFIER_GAS_LIMIT, sender=sender)
+    post = {amplifier: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Prague")
@@ -2254,20 +2254,20 @@ def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count
     ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
 )
 def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for STATICCALL opcode using loop-based caller."""
+    """Marginal cost test for STATICCALL opcode using loop-based amplifier."""
     inner_target = pre.deploy_contract(code=Op.STOP)
     # With noop padding for proper marginality
     target_code = _generate_target_with_inner_calls(
         inner_target, op_count, CALL_MAX_OP_COUNT, Op.STATICCALL
     )
     target = pre.deploy_contract(code=target_code)
-    caller_code = generate_caller_with_staticcall(target, CALL_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
+    amplifier_code = generate_amplifier_with_staticcall(target, CALL_NUM_CALLS)
+    amplifier = pre.deploy_contract(code=amplifier_code)
 
     sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+    tx = Transaction(to=amplifier, gas_limit=AMPLIFIER_GAS_LIMIT, sender=sender)
+    post = {amplifier: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -2279,7 +2279,7 @@ def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: 
 # For CREATE2: We use a storage counter as salt to generate unique addresses
 
 # Stack-limited: each noop leaves +2 items (3 pushed, 1 popped)
-# Safe max_op_count: ~400 (with buffer), caller amplifies total
+# Safe max_op_count: ~400 (with buffer), amplifier amplifies total
 CREATE_NUM_CALLS = 400
 CREATE_MAX_OP_COUNT = 21  # Target executes up to 21 CREATEs per call
 CREATE_STEP = 7  # 4 data points
@@ -2403,20 +2403,20 @@ def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode
     ids=lambda x: f"op_count_{x * CREATE_NUM_CALLS}",
 )
 def test_marginal_create(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CREATE opcode using loop-based caller."""
+    """Marginal cost test for CREATE opcode using loop-based amplifier."""
     # Target contract executes op_count CREATEs per call
     # With noop padding for proper marginality
     target_code = _generate_target_with_creates(op_count, CREATE_MAX_OP_COUNT)
     target = pre.deploy_contract(code=target_code)
 
-    # Caller loops CREATE_NUM_CALLS times, calling target
-    caller_code = generate_caller_with_call(target, CREATE_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
+    # Amplifier loops CREATE_NUM_CALLS times, calling target
+    amplifier_code = generate_amplifier_with_call(target, CREATE_NUM_CALLS)
+    amplifier = pre.deploy_contract(code=amplifier_code)
 
     sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+    tx = Transaction(to=amplifier, gas_limit=AMPLIFIER_GAS_LIMIT, sender=sender)
+    post = {amplifier: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Prague")
@@ -2426,26 +2426,26 @@ def test_marginal_create(state_test: StateTestFiller, pre: Alloc, op_count: int)
     ids=lambda x: f"op_count_{x * CREATE_NUM_CALLS}",
 )
 def test_marginal_create2(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CREATE2 opcode using loop-based caller."""
+    """Marginal cost test for CREATE2 opcode using loop-based amplifier."""
     # Target contract executes op_count CREATE2s per call with unique salts
     # With noop padding for proper marginality
     target_code = _generate_target_with_create2s(op_count, CREATE_MAX_OP_COUNT)
     target = pre.deploy_contract(code=target_code)
 
-    # Caller loops CREATE_NUM_CALLS times, calling target
-    caller_code = generate_caller_with_call(target, CREATE_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
+    # Amplifier loops CREATE_NUM_CALLS times, calling target
+    amplifier_code = generate_amplifier_with_call(target, CREATE_NUM_CALLS)
+    amplifier = pre.deploy_contract(code=amplifier_code)
 
     sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+    tx = Transaction(to=amplifier, gas_limit=AMPLIFIER_GAS_LIMIT, sender=sender)
+    post = {amplifier: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
-# CALLER-CONTRACT TESTS FOR LOW-GAS OPCODES
+# AMPLIFIER-TARGET TESTS FOR LOW-GAS OPCODES
 # ============================================================================
-# These use the caller-contract approach to amplify effective op_count.
+# These use the amplifier-target approach to amplify effective op_count.
 # Effective op_count = NUM_CALLS × op_count_per_call
 #
 # This is useful for opcodes with low gas costs where single-contract tests
@@ -2453,139 +2453,139 @@ def test_marginal_create2(state_test: StateTestFiller, pre: Alloc, op_count: int
 # ============================================================================
 
 # Arithmetic opcodes
-test_add = _create_caller_test(ADD_CONFIG)
-test_sub = _create_caller_test(SUB_CONFIG)
-test_mul = _create_caller_test(MUL_CONFIG)
-test_div = _create_caller_test(DIV_CONFIG)
-test_sdiv = _create_caller_test(SDIV_CONFIG)
-test_mod = _create_caller_test(MOD_CONFIG)
-test_smod = _create_caller_test(SMOD_CONFIG)
-test_addmod = _create_caller_test(ADDMOD_CONFIG)
-test_mulmod = _create_caller_test(MULMOD_CONFIG)
-test_signextend = _create_caller_test(SIGNEXTEND_CONFIG)
+test_add = _create_amplifier_test(ADD_CONFIG)
+test_sub = _create_amplifier_test(SUB_CONFIG)
+test_mul = _create_amplifier_test(MUL_CONFIG)
+test_div = _create_amplifier_test(DIV_CONFIG)
+test_sdiv = _create_amplifier_test(SDIV_CONFIG)
+test_mod = _create_amplifier_test(MOD_CONFIG)
+test_smod = _create_amplifier_test(SMOD_CONFIG)
+test_addmod = _create_amplifier_test(ADDMOD_CONFIG)
+test_mulmod = _create_amplifier_test(MULMOD_CONFIG)
+test_signextend = _create_amplifier_test(SIGNEXTEND_CONFIG)
 
 # Comparison opcodes
-test_lt = _create_caller_test(LT_CONFIG)
-test_gt = _create_caller_test(GT_CONFIG)
-test_slt = _create_caller_test(SLT_CONFIG)
-test_sgt = _create_caller_test(SGT_CONFIG)
-test_eq = _create_caller_test(EQ_CONFIG)
-test_iszero = _create_caller_test(ISZERO_CONFIG)
+test_lt = _create_amplifier_test(LT_CONFIG)
+test_gt = _create_amplifier_test(GT_CONFIG)
+test_slt = _create_amplifier_test(SLT_CONFIG)
+test_sgt = _create_amplifier_test(SGT_CONFIG)
+test_eq = _create_amplifier_test(EQ_CONFIG)
+test_iszero = _create_amplifier_test(ISZERO_CONFIG)
 
 # Bitwise opcodes
-test_and = _create_caller_test(AND_CONFIG)
-test_or = _create_caller_test(OR_CONFIG)
-test_xor = _create_caller_test(XOR_CONFIG)
-test_not = _create_caller_test(NOT_CONFIG)
-test_byte = _create_caller_test(BYTE_CONFIG)
-test_shl = _create_caller_test(SHL_CONFIG)
-test_shr = _create_caller_test(SHR_CONFIG)
-test_sar = _create_caller_test(SAR_CONFIG)
+test_and = _create_amplifier_test(AND_CONFIG)
+test_or = _create_amplifier_test(OR_CONFIG)
+test_xor = _create_amplifier_test(XOR_CONFIG)
+test_not = _create_amplifier_test(NOT_CONFIG)
+test_byte = _create_amplifier_test(BYTE_CONFIG)
+test_shl = _create_amplifier_test(SHL_CONFIG)
+test_shr = _create_amplifier_test(SHR_CONFIG)
+test_sar = _create_amplifier_test(SAR_CONFIG)
 
 # Stack opcodes
-test_push0 = _create_caller_test(PUSH0_CONFIG)
-test_push1 = _create_caller_test(PUSH1_CONFIG)
-test_push16 = _create_caller_test(PUSH16_CONFIG)
-test_push32 = _create_caller_test(PUSH32_CONFIG)
-test_pop = _create_caller_test(POP_CONFIG)
+test_push0 = _create_amplifier_test(PUSH0_CONFIG)
+test_push1 = _create_amplifier_test(PUSH1_CONFIG)
+test_push16 = _create_amplifier_test(PUSH16_CONFIG)
+test_push32 = _create_amplifier_test(PUSH32_CONFIG)
+test_pop = _create_amplifier_test(POP_CONFIG)
 
 # Environment opcodes
-test_address = _create_caller_test(ADDRESS_CONFIG)
-test_origin = _create_caller_test(ORIGIN_CONFIG)
-test_caller = _create_caller_test(CALLER_CONFIG)
-test_callvalue = _create_caller_test(CALLVALUE_CONFIG)
-test_calldatasize = _create_caller_test(CALLDATASIZE_CONFIG)
-test_codesize = _create_caller_test(CODESIZE_CONFIG)
-test_gasprice = _create_caller_test(GASPRICE_CONFIG)
-test_returndatasize = _create_caller_test(RETURNDATASIZE_CONFIG)
-test_gas = _create_caller_test(GAS_CONFIG)
+test_address = _create_amplifier_test(ADDRESS_CONFIG)
+test_origin = _create_amplifier_test(ORIGIN_CONFIG)
+test_caller = _create_amplifier_test(CALLER_CONFIG)
+test_callvalue = _create_amplifier_test(CALLVALUE_CONFIG)
+test_calldatasize = _create_amplifier_test(CALLDATASIZE_CONFIG)
+test_codesize = _create_amplifier_test(CODESIZE_CONFIG)
+test_gasprice = _create_amplifier_test(GASPRICE_CONFIG)
+test_returndatasize = _create_amplifier_test(RETURNDATASIZE_CONFIG)
+test_gas = _create_amplifier_test(GAS_CONFIG)
 
 # Block info opcodes
-test_coinbase = _create_caller_test(COINBASE_CONFIG)
-test_timestamp = _create_caller_test(TIMESTAMP_CONFIG)
-test_number = _create_caller_test(NUMBER_CONFIG)
-test_prevrandao = _create_caller_test(PREVRANDAO_CONFIG)
-test_gaslimit = _create_caller_test(GASLIMIT_CONFIG)
-test_chainid = _create_caller_test(CHAINID_CONFIG)
-test_selfbalance = _create_caller_test(SELFBALANCE_CONFIG)
-test_caller_basefee = _create_caller_test(BASEFEE_CONFIG)
-test_blobbasefee = _create_caller_test(BLOBBASEFEE_CONFIG)
-test_pc = _create_caller_test(PC_CONFIG)
+test_coinbase = _create_amplifier_test(COINBASE_CONFIG)
+test_timestamp = _create_amplifier_test(TIMESTAMP_CONFIG)
+test_number = _create_amplifier_test(NUMBER_CONFIG)
+test_prevrandao = _create_amplifier_test(PREVRANDAO_CONFIG)
+test_gaslimit = _create_amplifier_test(GASLIMIT_CONFIG)
+test_chainid = _create_amplifier_test(CHAINID_CONFIG)
+test_selfbalance = _create_amplifier_test(SELFBALANCE_CONFIG)
+test_caller_basefee = _create_amplifier_test(BASEFEE_CONFIG)
+test_blobbasefee = _create_amplifier_test(BLOBBASEFEE_CONFIG)
+test_pc = _create_amplifier_test(PC_CONFIG)
 
 # Memory opcodes
-test_mload = _create_caller_test(MLOAD_CONFIG)
-test_mstore = _create_caller_test(MSTORE_CONFIG)
-test_mstore8 = _create_caller_test(MSTORE8_CONFIG)
-test_msize = _create_caller_test(MSIZE_CONFIG)
-test_mcopy = _create_caller_test(MCOPY_CONFIG)
-test_codecopy = _create_caller_test(CODECOPY_CONFIG)
-test_calldatacopy = _create_caller_test(CALLDATACOPY_CONFIG)
-test_calldataload = _create_caller_test(CALLDATALOAD_CONFIG)
-test_returndatacopy = _create_caller_test(RETURNDATACOPY_CONFIG)
+test_mload = _create_amplifier_test(MLOAD_CONFIG)
+test_mstore = _create_amplifier_test(MSTORE_CONFIG)
+test_mstore8 = _create_amplifier_test(MSTORE8_CONFIG)
+test_msize = _create_amplifier_test(MSIZE_CONFIG)
+test_mcopy = _create_amplifier_test(MCOPY_CONFIG)
+test_codecopy = _create_amplifier_test(CODECOPY_CONFIG)
+test_calldatacopy = _create_amplifier_test(CALLDATACOPY_CONFIG)
+test_calldataload = _create_amplifier_test(CALLDATALOAD_CONFIG)
+test_returndatacopy = _create_amplifier_test(RETURNDATACOPY_CONFIG)
 
 # Storage opcodes (SLOAD, TLOAD work with STATICCALL)
-test_sload = _create_caller_test(SLOAD_CONFIG)
-test_tload = _create_caller_test(TLOAD_CONFIG)
+test_sload = _create_amplifier_test(SLOAD_CONFIG)
+test_tload = _create_amplifier_test(TLOAD_CONFIG)
 
 # External code opcodes
-test_balance = _create_caller_test(BALANCE_CONFIG)
-test_extcodesize = _create_caller_test(EXTCODESIZE_CONFIG)
-test_extcodehash = _create_caller_test(EXTCODEHASH_CONFIG)
-test_extcodecopy = _create_caller_test(EXTCODECOPY_CONFIG)
-# Note: BLOCKHASH caller test omitted - fails with high op_count due to large bytecode
-test_blobhash = _create_caller_test(BLOBHASH_CONFIG)
+test_balance = _create_amplifier_test(BALANCE_CONFIG)
+test_extcodesize = _create_amplifier_test(EXTCODESIZE_CONFIG)
+test_extcodehash = _create_amplifier_test(EXTCODEHASH_CONFIG)
+test_extcodecopy = _create_amplifier_test(EXTCODECOPY_CONFIG)
+# Note: BLOCKHASH amplifier test omitted - fails with high op_count due to large bytecode
+test_blobhash = _create_amplifier_test(BLOBHASH_CONFIG)
 
 # Hash opcodes
-test_keccak256 = _create_caller_test(KECCAK256_CONFIG)
+test_keccak256 = _create_amplifier_test(KECCAK256_CONFIG)
 
 # Misc opcodes
-test_jumpdest = _create_caller_test(JUMPDEST_CONFIG)
-test_exp = _create_caller_test(EXP_CONFIG)
+test_jumpdest = _create_amplifier_test(JUMPDEST_CONFIG)
+test_exp = _create_amplifier_test(EXP_CONFIG)
 
 # Control flow opcodes
-test_jump = _create_caller_test(JUMP_CONFIG, generate_jump_target)
-test_jumpi = _create_caller_test(JUMPI_CONFIG, generate_jumpi_target)
+test_jump = _create_amplifier_test(JUMP_CONFIG, generate_jump_target)
+test_jumpi = _create_amplifier_test(JUMPI_CONFIG, generate_jumpi_target)
 
 # State-modifying opcodes
-test_sstore = _create_caller_test(SSTORE_CONFIG)
-test_tstore = _create_caller_test(TSTORE_CONFIG)
+test_sstore = _create_amplifier_test(SSTORE_CONFIG)
+test_tstore = _create_amplifier_test(TSTORE_CONFIG)
 
 # DUP opcodes
-test_dup1 = _create_caller_test(
+test_dup1 = _create_amplifier_test(
     DUP1_CONFIG, lambda oc, moc: generate_dup_target(DUP1_CONFIG.variant, oc, moc)
 )
-test_dup8 = _create_caller_test(
+test_dup8 = _create_amplifier_test(
     DUP8_CONFIG, lambda oc, moc: generate_dup_target(DUP8_CONFIG.variant, oc, moc)
 )
-test_dup16 = _create_caller_test(
+test_dup16 = _create_amplifier_test(
     DUP16_CONFIG, lambda oc, moc: generate_dup_target(DUP16_CONFIG.variant, oc, moc)
 )
 
 # SWAP opcodes
-test_swap1 = _create_caller_test(
+test_swap1 = _create_amplifier_test(
     SWAP1_CONFIG, lambda oc, moc: generate_swap_target(SWAP1_CONFIG.variant, oc, moc)
 )
-test_swap8 = _create_caller_test(
+test_swap8 = _create_amplifier_test(
     SWAP8_CONFIG, lambda oc, moc: generate_swap_target(SWAP8_CONFIG.variant, oc, moc)
 )
-test_swap16 = _create_caller_test(
+test_swap16 = _create_amplifier_test(
     SWAP16_CONFIG, lambda oc, moc: generate_swap_target(SWAP16_CONFIG.variant, oc, moc)
 )
 
 # LOG opcodes (require CALL instead of STATICCALL)
-test_log0 = _create_caller_test(
+test_log0 = _create_amplifier_test(
     LOG0_CONFIG, lambda oc, moc: generate_log_program(Op.LOG0, LOG0_CONFIG.topic_count, oc, moc)
 )
-test_log1 = _create_caller_test(
+test_log1 = _create_amplifier_test(
     LOG1_CONFIG, lambda oc, moc: generate_log_program(Op.LOG1, LOG1_CONFIG.topic_count, oc, moc)
 )
-test_log2 = _create_caller_test(
+test_log2 = _create_amplifier_test(
     LOG2_CONFIG, lambda oc, moc: generate_log_program(Op.LOG2, LOG2_CONFIG.topic_count, oc, moc)
 )
-test_log3 = _create_caller_test(
+test_log3 = _create_amplifier_test(
     LOG3_CONFIG, lambda oc, moc: generate_log_program(Op.LOG3, LOG3_CONFIG.topic_count, oc, moc)
 )
-test_log4 = _create_caller_test(
+test_log4 = _create_amplifier_test(
     LOG4_CONFIG, lambda oc, moc: generate_log_program(Op.LOG4, LOG4_CONFIG.topic_count, oc, moc)
 )
 
@@ -2649,7 +2649,7 @@ def generate_dup_target(dup_n: int, op_count: int, max_op_count: int) -> Bytecod
 
 
 def generate_swap_target(swap_n: int, op_count: int, max_op_count: int) -> Bytecode:
-    """Generate SWAP target for caller (no SSTORE, just STOP)."""
+    """Generate SWAP target for amplifier (no SSTORE, just STOP)."""
     code = Bytecode()
 
     # Push swap_n+1 initial values
