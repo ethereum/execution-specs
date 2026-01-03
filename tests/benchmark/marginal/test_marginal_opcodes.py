@@ -809,8 +809,11 @@ def generate_caller_contract_code(target_address: Address, num_calls: int) -> By
         PUSH num_calls          ; Initialize counter
         JUMPDEST (loop_start)   ; Loop label
         STATICCALL to target    ; Call target contract
-        POP                     ; Pop success flag
-        PUSH 1                  ; 
+        PUSH2 continue          ; Push continue offset
+        JUMPI                   ; Jump if success (non-zero)
+        REVERT                  ; Revert if call failed
+        JUMPDEST (continue)     ; Continue if success
+        PUSH 1                  ;
         SWAP1                   ;
         SUB                     ; counter -= 1
         DUP1                    ; Duplicate counter for check
@@ -836,14 +839,24 @@ def generate_caller_contract_code(target_address: Address, num_calls: int) -> By
     
     # Call target contract (STATICCALL: gas, addr, argsOffset, argsSize, retOffset, retSize)
     code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # retOffset
     code += Op.PUSH1(0)                   # argsSize
     code += Op.PUSH1(0)                   # argsOffset
     code += Op.PUSH20(target_address)     # address
     code += Op.GAS                        # gas (forward all)
-    code += Op.STATICCALL
-    code += Op.POP                        # pop success flag
-    
+    code += Op.STATICCALL                 # Returns success flag on stack
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9      # PUSH2(3) + JUMPI(1) + PUSH1(2) + PUSH1(2) + REVERT(1)
+    code += Op.PUSH2(continue_offset)     # Push continue offset
+    code += Op.JUMPI                      # Jump if success (non-zero)
+    # Revert path (only executed if STATICCALL returned 0)
+    code += Op.PUSH1(0)                   # revert data size
+    code += Op.PUSH1(0)                   # revert data offset
+    code += Op.REVERT                     # Revert immediately on failure
+    code += Op.JUMPDEST                   # Continue path
+
     # Decrement counter: counter -= 1
     code += Op.PUSH1(1)
     code += Op.SWAP1
@@ -864,10 +877,11 @@ def generate_caller_contract_code(target_address: Address, num_calls: int) -> By
 
 def generate_caller_contract_code_call(target_address: Address, num_calls: int) -> Bytecode:
     """
-    Generate caller contract using CALL instead of STATICCALL (loop version).
-    Required for state-modifying opcodes (TSTORE, LOG, SSTORE).
-
-    Uses a loop structure instead of unrolled calls to keep bytecode size constant.
+    Generate caller contract using CALL instead of STATICCALL.
+    Required for state-modifying opcodes (SSTORE, TSTORE, LOG).
+    
+    Same structure as generate_caller_contract_code but uses CALL (with value=0)
+    instead of STATICCALL to allow state modifications in the target.
     """
     code = Bytecode()
 
@@ -891,8 +905,18 @@ def generate_caller_contract_code_call(target_address: Address, num_calls: int) 
     code += Op.PUSH1(0)                   # value (no ETH transfer)
     code += Op.PUSH20(target_address)     # address
     code += Op.GAS                        # gas (forward all)
-    code += Op.CALL
-    code += Op.POP                        # pop success flag
+    code += Op.CALL                       # Returns success flag on stack
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9      # PUSH2(3) + JUMPI(1) + PUSH1(2) + PUSH1(2) + REVERT(1)
+    code += Op.PUSH2(continue_offset)     # Push continue offset
+    code += Op.JUMPI                      # Jump if success (non-zero)
+    # Revert path (only executed if CALL returned 0)
+    code += Op.PUSH1(0)                   # revert data size
+    code += Op.PUSH1(0)                   # revert data offset
+    code += Op.REVERT                     # Revert immediately on failure
+    code += Op.JUMPDEST                   # Continue path
 
     # Decrement counter: counter -= 1
     code += Op.PUSH1(1)
@@ -1893,15 +1917,24 @@ def generate_caller_with_call(target_address: Address, num_calls: int) -> Byteco
     
     # CALL: gas, addr, value, argsOffset, argsSize, retOffset, retSize
     code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # retOffset
     code += Op.PUSH1(0)                   # argsSize
     code += Op.PUSH1(0)                   # argsOffset
     code += Op.PUSH1(0)                   # value
     code += Op.PUSH20(target_address)     # address
     code += Op.GAS                        # gas
     code += Op.CALL
-    code += Op.POP                        # pop success flag
-    
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9      # PUSH2(3) + JUMPI(1) + PUSH1(2) + PUSH1(2) + REVERT(1)
+    code += Op.PUSH2(continue_offset)
+    code += Op.JUMPI                      # Jump if success (non-zero)
+    code += Op.PUSH1(0)
+    code += Op.PUSH1(0)
+    code += Op.REVERT
+    code += Op.JUMPDEST
+
     # Decrement counter
     code += Op.PUSH1(1)
     code += Op.SWAP1
@@ -1939,15 +1972,24 @@ def generate_caller_with_callcode(target_address: Address, num_calls: int) -> By
     
     # CALLCODE: gas, addr, value, argsOffset, argsSize, retOffset, retSize
     code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # retOffset
     code += Op.PUSH1(0)                   # argsSize
     code += Op.PUSH1(0)                   # argsOffset
     code += Op.PUSH1(0)                   # value
     code += Op.PUSH20(target_address)     # address
     code += Op.GAS                        # gas
     code += Op.CALLCODE
-    code += Op.POP
-    
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9
+    code += Op.PUSH2(continue_offset)
+    code += Op.JUMPI
+    code += Op.PUSH1(0)
+    code += Op.PUSH1(0)
+    code += Op.REVERT
+    code += Op.JUMPDEST
+
     code += Op.PUSH1(1)
     code += Op.SWAP1
     code += Op.SUB
@@ -1982,14 +2024,23 @@ def generate_caller_with_delegatecall(target_address: Address, num_calls: int) -
     
     # DELEGATECALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
     code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # retOffset
     code += Op.PUSH1(0)                   # argsSize
     code += Op.PUSH1(0)                   # argsOffset
     code += Op.PUSH20(target_address)     # address
     code += Op.GAS                        # gas
     code += Op.DELEGATECALL
-    code += Op.POP
-    
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9
+    code += Op.PUSH2(continue_offset)
+    code += Op.JUMPI
+    code += Op.PUSH1(0)
+    code += Op.PUSH1(0)
+    code += Op.REVERT
+    code += Op.JUMPDEST
+
     code += Op.PUSH1(1)
     code += Op.SWAP1
     code += Op.SUB
@@ -2024,14 +2075,23 @@ def generate_caller_with_staticcall(target_address: Address, num_calls: int) -> 
     
     # STATICCALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
     code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset  
+    code += Op.PUSH1(0)                   # retOffset
     code += Op.PUSH1(0)                   # argsSize
     code += Op.PUSH1(0)                   # argsOffset
     code += Op.PUSH20(target_address)     # address
     code += Op.GAS                        # gas
     code += Op.STATICCALL
-    code += Op.POP
-    
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9
+    code += Op.PUSH2(continue_offset)
+    code += Op.JUMPI
+    code += Op.PUSH1(0)
+    code += Op.PUSH1(0)
+    code += Op.REVERT
+    code += Op.JUMPDEST
+
     code += Op.PUSH1(1)
     code += Op.SWAP1
     code += Op.SUB
