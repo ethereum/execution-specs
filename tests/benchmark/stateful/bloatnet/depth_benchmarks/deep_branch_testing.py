@@ -17,7 +17,7 @@ Test parameters:
 - storage_depth: Depth of storage slots (e.g., 10, 11)
 - account_depth: Account address prefix sharing depth (e.g., 6, 7)
 - NUM_CONTRACTS: Dynamically computed based on gas_benchmark_value
-- Gas per attack call: ~8,050 gas (2,750 overhead + 5,300 forwarded)
+- Gas per attack call: ~8,050 gas (~2,742 overhead + 5,300 forwarded)
 
 Contract sources:
 - AttackOrchestrator.sol and Verifier.sol:
@@ -30,7 +30,9 @@ import json
 import re
 import urllib.error
 import urllib.request
+import warnings
 from pathlib import Path
+from typing import Any
 
 import pytest
 import rlp  # type: ignore[import-untyped]
@@ -44,9 +46,6 @@ from execution_testing import (
     Fork,
     Transaction,
 )
-
-# Attack function selector: cast sig "attack(uint256)" = 0x64dd891a
-ATTACK_SELECTOR = 0x64DD891A
 
 # Maximum gas per transaction (Fusaka EIP limit)
 MAX_GAS_PER_TX = 16_000_000
@@ -71,7 +70,25 @@ GAS_PER_ATTACK = 8_050  # 8,050 for margin over measured 8,042
 MAX_ATTACKS_PER_TX = 1980  # Use 1,980 for safety margin
 
 # GitHub raw URL base for downloading mined assets
-MINED_ASSETS_URL = "https://raw.githubusercontent.com/CPerezz/worst_case_miner/master/mined_assets"
+MINED_ASSETS_URL = (
+    "https://raw.githubusercontent.com/CPerezz/"
+    "worst_case_miner/master/mined_assets"
+)
+
+# Gas limits for deployment and verification transactions
+ORCHESTRATOR_DEPLOY_GAS = 2_000_000
+VERIFIER_DEPLOY_GAS = 500_000
+VERIFICATION_GAS = 100_000
+
+# Transaction fee parameters (in wei)
+MAX_FEE_PER_GAS = 10_000_000_000  # 10 gwei
+MAX_PRIORITY_FEE_PER_GAS = 1_000_000_000  # 1 gwei
+
+# Initial balance for the deployer EOA
+DEPLOYER_INITIAL_BALANCE = 10_000 * 10**18  # 10,000 ETH
+
+# Arbitrary value written to storage slots during attack
+DEFAULT_ATTACK_VALUE = 42
 
 # AttackOrchestrator deployment bytecode (without constructor args)
 # Compiled with: solc --bin --optimize --optimize-runs 200 --metadata-hash none
@@ -145,7 +162,9 @@ def download_mined_asset(filename: str) -> str:
         raise RuntimeError(f"Failed to download {filename}: {e}") from e
 
 
-def load_create2_data(storage_depth: int, account_depth: int) -> dict:
+def load_create2_data(
+    storage_depth: int, account_depth: int
+) -> dict[str, Any]:
     """
     Load the pre-mined CREATE2 data for given depth parameters.
 
@@ -234,11 +253,8 @@ def calculate_num_contracts(gas_benchmark_value: int) -> int:
 
     """
     # Reserve gas for orchestrator, verifier deployment, and verification
-    orchestrator_deploy_gas = 2_000_000
-    verifier_deploy_gas = 500_000
-    verification_gas = 100_000
     reserved_gas = (
-        orchestrator_deploy_gas + verifier_deploy_gas + verification_gas
+        ORCHESTRATOR_DEPLOY_GAS + VERIFIER_DEPLOY_GAS + VERIFICATION_GAS
     )
 
     available_gas = gas_benchmark_value - reserved_gas
@@ -269,7 +285,7 @@ def calculate_num_contracts(gas_benchmark_value: int) -> int:
 def test_worst_depth_stateroot_recomp(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    _fork: Fork,
     gas_benchmark_value: int,
     storage_depth: int,
     account_depth: int,
@@ -286,7 +302,7 @@ def test_worst_depth_stateroot_recomp(
     Args:
         blockchain_test: The blockchain test filler
         pre: Pre-state allocation
-        fork: The fork to test on
+        _fork: The fork to test on (unused, provided by pytest fixture)
         gas_benchmark_value: Gas budget for benchmark
         storage_depth: Depth of storage slots in the contract
         account_depth: Account address prefix sharing depth
@@ -315,17 +331,21 @@ def test_worst_depth_stateroot_recomp(
 
     # Verify we have enough contracts in the JSON
     available_contracts = len(create2_data.get("contracts", []))
+    if available_contracts == 0:
+        json_name = f"s{storage_depth}_acc{account_depth}.json"
+        raise ValueError(f"No contracts available in {json_name}")
     if num_contracts > available_contracts:
-        print(
-            f"  WARNING: Requested {num_contracts} but only "
-            f"{available_contracts} available"
+        warnings.warn(
+            f"Requested {num_contracts} contracts but only "
+            f"{available_contracts} available, using {available_contracts}",
+            stacklevel=2,
         )
         num_contracts = available_contracts
 
     print(f"  Final NUM_CONTRACTS: {num_contracts}")
 
     # Create an EOA with funds for the deployer
-    deployer_eoa = pre.fund_eoa(amount=10000 * 10**18)  # 10,000 ETH
+    deployer_eoa = pre.fund_eoa(amount=DEPLOYER_INITIAL_BALANCE)
 
     # Get the deep storage slot for verification (downloads .sol if needed)
     deep_slot = get_deep_slot_from_sol(storage_depth)
@@ -354,24 +374,24 @@ def test_worst_depth_stateroot_recomp(
     orchestrator_deploy_tx = Transaction(
         to=None,
         data=orchestrator_init_code,
-        gas_limit=2_000_000,
+        gas_limit=ORCHESTRATOR_DEPLOY_GAS,
         sender=deployer_eoa,
-        max_fee_per_gas=10_000_000_000,
-        max_priority_fee_per_gas=1_000_000_000,
+        max_fee_per_gas=MAX_FEE_PER_GAS,
+        max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS,
     )
 
     verifier_deploy_tx = Transaction(
         to=None,
         data=VERIFIER_BYTECODE,
-        gas_limit=500_000,
+        gas_limit=VERIFIER_DEPLOY_GAS,
         sender=deployer_eoa,
-        max_fee_per_gas=10_000_000_000,
-        max_priority_fee_per_gas=1_000_000_000,
+        max_fee_per_gas=MAX_FEE_PER_GAS,
+        max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS,
     )
 
     # Build attack transactions
-    attack_txs = []
-    attack_value = 42  # Fixed value to write to all contracts
+    attack_txs: list[Transaction] = []
+    attack_value = DEFAULT_ATTACK_VALUE
 
     for batch_start in range(0, num_contracts, MAX_ATTACKS_PER_TX):
         batch_end = min(batch_start + MAX_ATTACKS_PER_TX, num_contracts)
@@ -396,8 +416,8 @@ def test_worst_depth_stateroot_recomp(
             gas_limit=batch_gas,
             sender=deployer_eoa,
             data=calldata,
-            max_fee_per_gas=10_000_000_000,
-            max_priority_fee_per_gas=1_000_000_000,
+            max_fee_per_gas=MAX_FEE_PER_GAS,
+            max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS,
         )
         attack_txs.append(attack_tx)
 
@@ -423,11 +443,11 @@ def test_worst_depth_stateroot_recomp(
 
     verification_tx = Transaction(
         to=verifier_address,
-        gas_limit=100_000,
+        gas_limit=VERIFICATION_GAS,
         sender=deployer_eoa,
         data=verify_calldata,
-        max_fee_per_gas=10_000_000_000,
-        max_priority_fee_per_gas=1_000_000_000,
+        max_fee_per_gas=MAX_FEE_PER_GAS,
+        max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS,
     )
 
     # Build blocks - pack transactions to maximize block gas usage
