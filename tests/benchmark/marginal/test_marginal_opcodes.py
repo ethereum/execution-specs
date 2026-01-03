@@ -1532,160 +1532,6 @@ def generate_amplifier_with_call(target_address: Address, num_calls: int) -> Byt
     return code
 
 
-def generate_amplifier_with_callcode(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate amplifier contract that uses CALLCODE in a loop.
-    CALLCODE(gas, addr, value, argsOffset, argsSize, retOffset, retSize) -> success
-    """
-    code = Bytecode()
-
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-
-    # CALLCODE: gas, addr, value, argsOffset, argsSize, retOffset, retSize
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH1(0)                   # value
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas
-    code += Op.CALLCODE
-
-    # Check success and revert if call failed
-    current_pc = len(bytes(code))
-    continue_offset = current_pc + 9
-    code += Op.PUSH2(continue_offset)
-    code += Op.JUMPI
-    code += Op.PUSH1(0)
-    code += Op.PUSH1(0)
-    code += Op.REVERT
-    code += Op.JUMPDEST
-
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-
-    code += Op.DUP1
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-
-    return code
-
-
-def generate_amplifier_with_delegatecall(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate amplifier contract that uses DELEGATECALL in a loop.
-    DELEGATECALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
-    """
-    code = Bytecode()
-
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-
-    # DELEGATECALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas
-    code += Op.DELEGATECALL
-
-    # Check success and revert if call failed
-    current_pc = len(bytes(code))
-    continue_offset = current_pc + 9
-    code += Op.PUSH2(continue_offset)
-    code += Op.JUMPI
-    code += Op.PUSH1(0)
-    code += Op.PUSH1(0)
-    code += Op.REVERT
-    code += Op.JUMPDEST
-
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-
-    code += Op.DUP1
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-
-    return code
-
-
-def generate_amplifier_with_staticcall(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate amplifier contract that uses STATICCALL in a loop.
-    STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
-    """
-    code = Bytecode()
-
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-
-    # STATICCALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas
-    code += Op.STATICCALL
-
-    # Check success and revert if call failed
-    current_pc = len(bytes(code))
-    continue_offset = current_pc + 9
-    code += Op.PUSH2(continue_offset)
-    code += Op.JUMPI
-    code += Op.PUSH1(0)
-    code += Op.PUSH1(0)
-    code += Op.REVERT
-    code += Op.JUMPDEST
-
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-
-    code += Op.DUP1
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-
-    return code
-
-
 # Configuration for CALL-family opcodes with simplified noop approach
 # Stack-limited but amplifier-amplified for high total op counts
 # Stack limit: 1024, each noop leaves +5 or +6 items
@@ -1817,7 +1663,7 @@ def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: in
         inner_target, op_count, CALL_MAX_OP_COUNT, Op.CALLCODE
     )
     target = pre.deploy_contract(code=target_code)
-    amplifier_code = generate_amplifier_with_callcode(target, CALL_NUM_CALLS)
+    amplifier_code = generate_amplifier_with_call(target, CALL_NUM_CALLS)
     amplifier = pre.deploy_contract(code=amplifier_code)
 
     sender = pre.fund_eoa()
@@ -1840,7 +1686,7 @@ def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count
         inner_target, op_count, CALL_MAX_OP_COUNT, Op.DELEGATECALL
     )
     target = pre.deploy_contract(code=target_code)
-    amplifier_code = generate_amplifier_with_delegatecall(target, CALL_NUM_CALLS)
+    amplifier_code = generate_amplifier_with_call(target, CALL_NUM_CALLS)
     amplifier = pre.deploy_contract(code=amplifier_code)
 
     sender = pre.fund_eoa()
@@ -1863,7 +1709,7 @@ def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: 
         inner_target, op_count, CALL_MAX_OP_COUNT, Op.STATICCALL
     )
     target = pre.deploy_contract(code=target_code)
-    amplifier_code = generate_amplifier_with_staticcall(target, CALL_NUM_CALLS)
+    amplifier_code = generate_amplifier_with_call(target, CALL_NUM_CALLS)
     amplifier = pre.deploy_contract(code=amplifier_code)
 
     sender = pre.fund_eoa()
