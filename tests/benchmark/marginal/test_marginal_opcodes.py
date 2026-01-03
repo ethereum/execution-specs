@@ -1370,7 +1370,7 @@ def _create_amplifier_test(
 
 def generate_jump_program(op_count: int, max_op_count: int) -> Bytecode:
     """
-    Generate a JUMP program following gas-cost-estimator's approach EXACTLY.
+    Generate a JUMP program following gas-cost-estimator's approach.
 
     Each combo is self-contained - JUMP jumps to its own JUMPDEST:
     - Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes, gas = 3+8+1 = 12
@@ -1379,7 +1379,7 @@ def generate_jump_program(op_count: int, max_op_count: int) -> Bytecode:
       (dest points to the JUMPDEST in this combo, no JUMP executed)
 
     Note: Combo sizes differ (6 vs 5 bytes), but positions are calculated dynamically.
-    Marginal gas = 12 - 4 = 8 (exactly JUMP gas!)
+    Marginal gas = 12 - 4 = 8 (exactly JUMP gas)
     """
     # Build bytecode by calculating positions dynamically (like gas-cost-estimator)
     bytecode_hex = ""
@@ -1411,7 +1411,7 @@ def generate_jump_program(op_count: int, max_op_count: int) -> Bytecode:
 
 def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
     """
-    Generate a JUMPI program with CONSTANT overhead (true marginal).
+    Generate a JUMPI program with constant overhead.
 
     Following gas-cost-estimator's approach:
     - Push max_op_count conditions upfront (CONSTANT)
@@ -1423,18 +1423,6 @@ def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
     2. Run max_op_count combos:
        - Real combo (i < op_count): PUSH3(dest) + JUMPI + JUMPDEST
        - Noop combo (i >= op_count): PUSH3(dest) + JUMPDEST
-
-    Gas breakdown:
-      Condition pushes: max_op_count * PUSH1(3) = CONSTANT
-      Real combo: PUSH3(3) + JUMPI(10) + JUMPDEST(1) = 14 gas
-      Noop combo: PUSH3(3) + JUMPDEST(1) = 4 gas
-
-      op_count=0:  max*3 (conditions) + max*4 (noops) = constant
-      op_count=N:  max*3 (conditions) + N*14 + (max-N)*4
-                 = max*3 + N*14 + max*4 - N*4
-                 = max*3 + max*4 + N*10
-
-      Marginal = N*10 / N = 10 gas per JUMPI ✓
     """
     bytecode_hex = ""
 
@@ -1537,7 +1525,7 @@ def generate_log_program(
     max_op_count: int,
 ) -> Bytecode:
     """
-    Generate a LOG program EXACTLY like gas-cost-estimator's pg_marginal.py.
+    Generate a LOG program following gas-cost-estimator's approach.
 
     Structure:
     1. Fill 32 bytes of memory: PUSH32 0xff...ff, PUSH1 0, MSTORE
@@ -1546,7 +1534,6 @@ def generate_log_program(
     3. Execute op_count LOG opcodes
     4. STOP
 
-    Note: No success marker - we verify via gas_used instead.
     """
     code = Bytecode()
 
@@ -1579,7 +1566,7 @@ def generate_dup_program(
     max_op_count: int,
 ) -> Bytecode:
     """
-    Generate a DUP program following gas-cost-estimator's approach EXACTLY.
+    Generate a DUP program following gas-cost-estimator's approach.
 
     Structure (matching gas-cost-estimator):
     1. Push empty_push_count values (max_op_count POPs worth) as padding
@@ -1589,7 +1576,6 @@ def generate_dup_program(
     4. End with remaining POPs to balance stack
 
     Key insight: Total POPs is CONSTANT (max_op_count), only DUP count varies.
-    Marginal gas = DUP gas (3 gas)
     """
     code = Bytecode()
 
