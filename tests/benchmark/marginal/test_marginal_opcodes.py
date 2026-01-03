@@ -65,7 +65,7 @@ class MarginalOpcodeConfig:
 @dataclass
 class CustomTargetConfig:
     """Configuration for opcodes that require custom target bytecode generators.
-    
+
     Used for DUP, SWAP, LOG, JUMP - opcodes that can't use the generic
     generate_target_contract_code() and need specialized bytecode generation.
     """
@@ -582,373 +582,6 @@ JUMPI_CONFIG = CustomTargetConfig(
     name="JUMPI", max_op_count=201, step=67, num_calls=5000
 )
 
-
-def push_value(value: int) -> Bytecode:
-    """Generate appropriate PUSH opcode for a value based on its size."""
-    if value == 0:
-        return Op.PUSH0
-    # Calculate byte length needed
-    byte_len = (value.bit_length() + 7) // 8
-    if byte_len <= 1:
-        return Op.PUSH1(value)
-    elif byte_len <= 2:
-        return Op.PUSH2(value)
-    elif byte_len <= 4:
-        return Op.PUSH4(value)
-    elif byte_len <= 8:
-        return Op.PUSH8(value)
-    elif byte_len <= 16:
-        return Op.PUSH16(value)
-    else:
-        return Op.PUSH32(value)
-
-
-def generate_marginal_program(
-    config: MarginalOpcodeConfig,
-    op_count: int,
-) -> Bytecode:
-    """
-    Generate a marginal program for the given opcode configuration.
-
-    Following the gas-cost-estimator approach, there are two strategies:
-
-    1. For opcodes that RETURN values (outputs_per_op > 0):
-       - Push "empty" values first to ensure POPs always have something
-       - Push all arguments upfront
-       - Interleave opcodes with result POPs
-       - Total POPs = max_op_count * outputs_per_op (CONSTANT)
-
-    2. For opcodes that DON'T return values (outputs_per_op == 0):
-       - Use "noop" padding instead of POPs
-       - For op_count executions: push args + execute opcode
-       - For remaining (max_op_count - op_count): just push args (no opcode)
-       - This keeps total PUSH count constant while varying only opcode count
-
-    Args:
-        config: The opcode configuration
-        op_count: Number of times to execute the opcode
-
-    Returns:
-        Bytecode for the marginal program
-    """
-    assert 0 <= op_count <= config.max_op_count
-
-    code = Bytecode()
-
-    # 1. Optional setup code (e.g., memory initialization)
-    if config.setup_code is not None:
-        code += config.setup_code
-
-    if config.outputs_per_op > 0:
-        # ================================================================
-        # Strategy 1: POP-based padding for opcodes that return values
-        # ================================================================
-        
-        # 2. Push "empty" values to ensure there's always something to POP
-        total_result_pops = config.max_op_count * config.outputs_per_op
-        for _ in range(total_result_pops):
-            code += Op.PUSH0
-
-        # 3. Push stack arguments for ALL potential opcode instances
-        for _ in range(config.max_op_count):
-            for arg in config.stack_args:
-                code += push_value(arg)
-
-        # 4. Execute opcodes with interleaved POPs
-        if op_count == 0:
-            # No opcodes, just POP all the empty values
-            for _ in range(total_result_pops):
-                code += Op.POP
-        else:
-            # Execute first opcode
-            code += config.opcode
-            # Interleave remaining opcodes with result POPs
-            interleaved_count = op_count - 1
-            for _ in range(interleaved_count):
-                for _ in range(config.outputs_per_op):
-                    code += Op.POP
-                code += config.opcode
-            # POP remaining results at the end
-            end_pops = total_result_pops - interleaved_count * config.outputs_per_op
-            for _ in range(end_pops):
-                code += Op.POP
-    else:
-        # ================================================================
-        # Strategy 2: Noop-based padding for non-returning opcodes
-        # (Following gas-cost-estimator's MSTORE/CALLDATACOPY approach)
-        # ================================================================
-        
-        # Structure (matching gas-cost-estimator):
-        # 1. For op_count iterations: PUSH args + OPCODE
-        # 2. For (max_op_count - op_count) iterations: PUSH args only (no opcode)
-        #
-        # This ensures:
-        # - Total PUSH count is constant (max_op_count * len(stack_args))
-        # - Only the opcode execution count varies
-        # - Stack may be unbalanced at end (that's OK - STOP doesn't require it)
-        
-        # 1. Real operations: push args + execute opcode
-        for _ in range(op_count):
-            for arg in config.stack_args:
-                code += push_value(arg)
-            code += config.opcode
-        
-        # 2. Noops: just push args (no opcode, no pop)
-        # These values stay on stack - that's fine
-        noop_count = config.max_op_count - op_count
-        for _ in range(noop_count):
-            for arg in config.stack_args:
-                code += push_value(arg)
-
-    # 5. Write success marker to storage (proves execution didn't revert)
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-
-    # 6. Stop execution
-    code += Op.STOP
-
-    return code
-
-
-def generate_op_counts(max_op_count: int, step: int) -> List[int]:
-    """Generate list of op_counts from 0 to max_op_count with given step."""
-    counts = list(range(0, max_op_count + 1, step))
-    # Ensure max_op_count is included even if not aligned with step
-    if counts[-1] != max_op_count:
-        counts.append(max_op_count)
-    return counts
-
-
-# ============================================================================
-# CALLER-CONTRACT APPROACH
-# ============================================================================
-# The caller-contract pattern amplifies op_count by having a caller contract
-# call a target contract N times. This allows much higher effective op_counts
-# while keeping individual contract sizes within limits.
-#
-# Effective op_count = num_calls × op_count_per_call
-#
-# Each opcode has its own num_calls value calculated to achieve >= 500K max gas.
-# ============================================================================
-
-# Legacy constant for backward compatibility (new tests use config.num_calls)
-NUM_CALLS = 100
-CALLER_GAS_LIMIT = 500_000_000  # High gas limit for scaled benchmarking (500M)
-
-
-def generate_target_contract_code(
-    config: MarginalOpcodeConfig,
-    op_count: int,
-) -> Bytecode:
-    """
-    Generate a target contract for caller-contract approach.
-    
-    Same as generate_marginal_program but WITHOUT SSTORE (since it's called
-    via STATICCALL which doesn't allow state changes). Just ends with STOP.
-    """
-    assert 0 <= op_count <= config.max_op_count
-
-    code = Bytecode()
-
-    # 1. Optional setup code (e.g., memory initialization)
-    if config.setup_code is not None:
-        code += config.setup_code
-
-    if config.outputs_per_op > 0:
-        # Strategy 1: POP-based padding for opcodes that push results onto stack.
-        # Interleave POPs to consume results and prevent stack overflow.
-        # This applies to PUSH, arithmetic ops (ADD, MUL, etc.), and others.
-        total_result_pops = config.max_op_count * config.outputs_per_op
-        for _ in range(total_result_pops):
-            code += Op.PUSH0
-
-        for _ in range(config.max_op_count):
-            for arg in config.stack_args:
-                code += push_value(arg)
-
-        if op_count == 0:
-            for _ in range(total_result_pops):
-                code += Op.POP
-        else:
-            code += config.opcode
-            interleaved_count = op_count - 1
-            for _ in range(interleaved_count):
-                for _ in range(config.outputs_per_op):
-                    code += Op.POP
-                code += config.opcode
-            end_pops = total_result_pops - interleaved_count * config.outputs_per_op
-            for _ in range(end_pops):
-                code += Op.POP
-    else:
-        # Strategy 2: Noop-based padding for non-returning opcodes
-        for _ in range(op_count):
-            for arg in config.stack_args:
-                code += push_value(arg)
-            code += config.opcode
-        
-        noop_count = config.max_op_count - op_count
-        for _ in range(noop_count):
-            for arg in config.stack_args:
-                code += push_value(arg)
-
-    code += Op.STOP
-
-    return code
-
-
-def generate_caller_contract_code(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate caller contract that calls target num_calls times using a loop to
-    amplify the op_count. The loop overhead is constant across all test variants,
-    so it gets eliminated in the marginal cost regression.
-
-    Structure:
-        PUSH num_calls          ; Initialize counter
-        JUMPDEST (loop_start)   ; Loop label
-        CALL to target          ; Call target contract
-        PUSH2 continue          ; Push continue offset
-        JUMPI                   ; Jump if success (non-zero)
-        REVERT                  ; Revert if call failed
-        JUMPDEST (continue)     ; Continue if success
-        PUSH 1                  ;
-        SWAP1                   ;
-        SUB                     ; counter -= 1
-        DUP1                    ; Duplicate counter for check
-        PUSH2 loop_start        ;
-        JUMPI                   ; Jump if counter > 0
-        POP                     ; Pop counter (now 0)
-        SSTORE + STOP           ; Success marker
-    """
-    code = Bytecode()
-
-    # Push loop counter (use appropriate PUSH based on num_calls size)
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-
-    # Loop start - we need to calculate the offset for JUMPDEST
-    # The PUSH for counter takes 2-4 bytes, JUMPDEST is at that offset
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-
-    # Call target contract (CALL: gas, addr, value, argsOffset, argsSize, retOffset, retSize)
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH1(0)                   # value (no ETH transfer)
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas (forward all)
-    code += Op.CALL                       # Returns success flag on stack
-
-    # Check success and revert if call failed
-    current_pc = len(bytes(code))
-    continue_offset = current_pc + 9      # PUSH2(3) + JUMPI(1) + PUSH1(2) + PUSH1(2) + REVERT(1)
-    code += Op.PUSH2(continue_offset)     # Push continue offset
-    code += Op.JUMPI                      # Jump if success (non-zero)
-    # Revert path (only executed if CALL returned 0)
-    code += Op.PUSH1(0)                   # revert data size
-    code += Op.PUSH1(0)                   # revert data offset
-    code += Op.REVERT                     # Revert immediately on failure
-    code += Op.JUMPDEST                   # Continue path
-
-    # Decrement counter: counter -= 1
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-
-    # Check if counter > 0 and loop
-    code += Op.DUP1                       # Duplicate counter for JUMPI check
-    code += Op.PUSH2(loop_start_offset)   # Push loop start offset
-    code += Op.JUMPI                      # Jump back if counter > 0
-
-    # Counter is 0, pop it and write success marker
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-
-    return code
-
-
-TargetGenerator = Callable[[int, int], Bytecode]
-"""Target generator signature: (op_count, max_op_count) -> Bytecode."""
-
-CallerGenerator = Callable[[Address, int], Bytecode]
-"""Caller generator signature: (target_address, num_calls) -> Bytecode."""
-
-
-def _create_caller_test(
-    cfg: MarginalOpcodeConfig | CustomTargetConfig,
-    target_generator: TargetGenerator | None = None,
-):
-    """
-    Single factory for all caller-contract marginal tests.
-
-    - If cfg is MarginalOpcodeConfig: defaults to generate_target_contract_code(cfg, op_count)
-    - If cfg is CustomTargetConfig: requires target_generator(op_count, max_op_count)
-    """
-    if isinstance(cfg, MarginalOpcodeConfig):
-        max_op_count = cfg.max_op_count
-        step = cfg.step
-        num_calls = cfg.num_calls
-        if target_generator is None:
-            target_generator = lambda oc, _moc: generate_target_contract_code(cfg, oc)
-    elif isinstance(cfg, CustomTargetConfig):
-        max_op_count = cfg.max_op_count
-        step = cfg.step
-        num_calls = cfg.num_calls
-        if target_generator is None:
-            raise ValueError("CustomTargetConfig requires a target_generator")
-    else:
-        raise TypeError(f"Unsupported config type: {type(cfg)}")
-
-    caller_gen: CallerGenerator = generate_caller_contract_code
-
-    op_counts = generate_op_counts(max_op_count, step)
-
-    @pytest.mark.valid_from("Prague")
-    @pytest.mark.parametrize(
-        "op_count",
-        op_counts,
-        ids=lambda x: f"op_count_{x * num_calls}",
-    )
-    def test_func(
-        state_test: StateTestFiller,
-        pre: Alloc,
-        op_count: int,
-    ) -> None:
-        target_code = target_generator(op_count, max_op_count)
-        target_contract = pre.deploy_contract(code=target_code)
-
-        caller_code = caller_gen(target_contract, num_calls)
-        caller_contract = pre.deploy_contract(code=caller_code)
-
-        sender = pre.fund_eoa()
-
-        tx = Transaction(
-            to=caller_contract,
-            gas_limit=CALLER_GAS_LIMIT,
-            sender=sender,
-        )
-
-        post = {caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-
-        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-    
-    return test_func
-
-
-# ============================================================================
-# NOTE
-# Most opcodes in this file use the caller-contract pattern:
-#   - a target contract whose opcode count varies with op_count
-#   - a caller contract that loops num_calls times (amplifies total work)
-# This keeps marginal regression well-conditioned for low-gas opcodes.
-# ============================================================================
-
-
 # ============================================================================
 # ENVIRONMENT OPCODES - Return context/environment info (no input, push 1)
 # ============================================================================
@@ -1130,7 +763,7 @@ SELFBALANCE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=1000, 
+    num_calls=1000,
 )
 
 BASEFEE_CONFIG = MarginalOpcodeConfig(
@@ -1284,7 +917,6 @@ MCOPY_CONFIG = MarginalOpcodeConfig(
     setup_code=Op.MSTORE(0, MAX_U256) + Op.MSTORE(4096, 0),  # Pre-expand memory regions
 )
 
-
 # ============================================================================
 # DATA ACCESS OPCODES
 # ============================================================================
@@ -1324,24 +956,6 @@ BLOBHASH_CONFIG = MarginalOpcodeConfig(
     outputs_per_op=1,
     num_calls=3000,
 )
-
-
-@pytest.mark.skip(reason="BLOCKHASH requires proper block history in test environment")
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(BLOCKHASH_CONFIG.max_op_count, BLOCKHASH_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
-)
-def test_marginal_blockhash(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for BLOCKHASH opcode."""
-    code = generate_marginal_program(BLOCKHASH_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
 
 # ============================================================================
 # STORAGE OPCODES - SLOAD, SSTORE, TLOAD, TSTORE
@@ -1402,7 +1016,6 @@ TSTORE_CONFIG = MarginalOpcodeConfig(
     num_calls=2000,  # Scaled for 150M cycles target
 )
 
-
 # ============================================================================
 # CONTROL FLOW OPCODES
 # ============================================================================
@@ -1432,964 +1045,6 @@ PC_CONFIG = MarginalOpcodeConfig(
     outputs_per_op=1,
     num_calls=4000,
 )
-
-
-# ============================================================================
-# JUMP / JUMPI - Special handling required (control flow opcodes)
-# These cannot use generate_marginal_program directly since they change control flow.
-# We use a loop-based approach where we control the iteration count.
-# ============================================================================
-
-def generate_jump_program(op_count: int, max_op_count: int) -> Bytecode:
-    """
-    Generate a JUMP program following gas-cost-estimator's approach EXACTLY.
-    
-    Each combo is self-contained - JUMP jumps to its own JUMPDEST:
-    - Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes, gas = 3+8+1 = 12
-      (dest points to the JUMPDEST in this same combo)
-    - Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes, gas = 3+1 = 4
-      (dest points to the JUMPDEST in this combo, no JUMP executed)
-    
-    Note: Combo sizes differ (6 vs 5 bytes), but positions are calculated dynamically.
-    Marginal gas = 12 - 4 = 8 (exactly JUMP gas!)
-    """
-    # Build bytecode by calculating positions dynamically (like gas-cost-estimator)
-    bytecode_hex = ""
-    
-    for i in range(max_op_count):
-        current_pc = len(bytecode_hex) // 2
-        
-        if i < op_count:
-            # Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes
-            # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) + 1 (JUMP) = current_pc + 5
-            jumpdest_pc = current_pc + 1 + 3 + 1
-            # PUSH3 = 0x62, JUMP = 0x56, JUMPDEST = 0x5b
-            bytecode_hex += f"62{jumpdest_pc:06x}565b"
-        else:
-            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes (no JUMP!)
-            # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) = current_pc + 4
-            jumpdest_pc = current_pc + 1 + 3
-            bytecode_hex += f"62{jumpdest_pc:06x}5b"
-    
-    # Add epilogue as hex:
-    # SSTORE(SUCCESS_SLOT=0, SUCCESS_MARKER=0xdead)
-    # PUSH2 0xdead = 61dead, PUSH1 0 = 6000, SSTORE = 55, STOP = 00
-    bytecode_hex += "61dead60005500"
-    
-    # Return as raw bytes wrapped in Bytecode container
-    # For raw bytes, must specify stack items (0 pops, 0 pushes for complete program)
-    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
-
-
-def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
-    """
-    Generate a JUMPI program with CONSTANT overhead (true marginal).
-    
-    Following gas-cost-estimator's approach:
-    - Push max_op_count conditions upfront (CONSTANT)
-    - Each JUMPI consumes one condition
-    - Unused conditions stay on stack (fine for gas measurement)
-    
-    Structure:
-    1. Push max_op_count conditions (CONSTANT)
-    2. Run max_op_count combos:
-       - Real combo (i < op_count): PUSH3(dest) + JUMPI + JUMPDEST
-       - Noop combo (i >= op_count): PUSH3(dest) + JUMPDEST
-    
-    Gas breakdown:
-      Condition pushes: max_op_count * PUSH1(3) = CONSTANT
-      Real combo: PUSH3(3) + JUMPI(10) + JUMPDEST(1) = 14 gas
-      Noop combo: PUSH3(3) + JUMPDEST(1) = 4 gas
-      
-      op_count=0:  max*3 (conditions) + max*4 (noops) = constant
-      op_count=N:  max*3 (conditions) + N*14 + (max-N)*4
-                 = max*3 + N*14 + max*4 - N*4
-                 = max*3 + max*4 + N*10
-                 
-      Marginal = N*10 / N = 10 gas per JUMPI ✓
-    """
-    bytecode_hex = ""
-    
-    # 1. Push max_op_count conditions upfront (CONSTANT overhead)
-    for _ in range(max_op_count):
-        bytecode_hex += "6001"  # PUSH1 1 (true condition)
-    
-    # 2. Run combos
-    for i in range(max_op_count):
-        current_pc = len(bytecode_hex) // 2
-        
-        if i < op_count:
-            # Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
-            jumpdest_pc = current_pc + 1 + 3 + 1
-            bytecode_hex += f"62{jumpdest_pc:06x}575b"
-        else:
-            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
-            jumpdest_pc = current_pc + 1 + 3
-            bytecode_hex += f"62{jumpdest_pc:06x}5b"
-    
-    # 3. Epilogue (POPs for unused conditions not needed - stack cleanup is optional)
-    bytecode_hex += "61dead60005500"
-    
-    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
-
-
-def generate_jump_target(op_count: int, max_op_count: int) -> Bytecode:
-    """
-    Generate JUMP target contract for caller-contract approach.
-    Similar to generate_jump_program but without SSTORE (compatible with STATICCALL).
-    """
-    bytecode_hex = ""
-    
-    for i in range(max_op_count):
-        current_pc = len(bytecode_hex) // 2
-        
-        if i < op_count:
-            # Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes
-            jumpdest_pc = current_pc + 1 + 3 + 1
-            bytecode_hex += f"62{jumpdest_pc:06x}565b"
-        else:
-            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
-            jumpdest_pc = current_pc + 1 + 3
-            bytecode_hex += f"62{jumpdest_pc:06x}5b"
-    
-    # Just STOP (no SSTORE - called via STATICCALL)
-    bytecode_hex += "00"
-    
-    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
-
-
-def generate_jumpi_target(op_count: int, max_op_count: int) -> Bytecode:
-    """
-    Generate JUMPI target contract for caller-contract approach.
-    Similar to generate_jumpi_program but without SSTORE (compatible with STATICCALL).
-    """
-    bytecode_hex = ""
-    
-    # Push max_op_count conditions upfront
-    for _ in range(max_op_count):
-        bytecode_hex += "6001"  # PUSH1 1 (true condition)
-    
-    for i in range(max_op_count):
-        current_pc = len(bytecode_hex) // 2
-        
-        if i < op_count:
-            # Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
-            jumpdest_pc = current_pc + 1 + 3 + 1
-            bytecode_hex += f"62{jumpdest_pc:06x}575b"
-        else:
-            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
-            jumpdest_pc = current_pc + 1 + 3
-            bytecode_hex += f"62{jumpdest_pc:06x}5b"
-    
-    # Just STOP (no SSTORE - called via STATICCALL)
-    bytecode_hex += "00"
-    
-    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
-
-
-# ============================================================================
-# LOG OPCODES - LOG0 through LOG4
-# Gas: 375 + 8*size + 375*num_topics
-# ============================================================================
-
-# LOG opcodes with 1KB data for worst-case (aligned with gas-cost-estimator)
-def _generate_log_setup() -> Bytecode:
-    """Generate setup code that fills memory with 1KB (32 x 32 bytes) of data."""
-    code = Bytecode()
-    for i in range(32):
-        offset = i * 32
-        code += Op.MSTORE(offset, MAX_U256)
-    return code
-
-
-def generate_log_program(
-    opcode: Op,
-    num_topics: int,
-    op_count: int,
-    max_op_count: int,
-) -> Bytecode:
-    """
-    Generate a LOG program EXACTLY like gas-cost-estimator's pg_marginal.py.
-    
-    Structure:
-    1. Fill 32 bytes of memory: PUSH32 0xff...ff, PUSH1 0, MSTORE
-    2. Push arguments for ALL max_op_count operations:
-       - For each: (PUSH1 0xff) * num_topics + PUSH1 0x20 (size) + PUSH1 0x00 (offset)
-    3. Execute op_count LOG opcodes
-    4. STOP
-    
-    Note: No success marker - we verify via gas_used instead.
-    """
-    code = Bytecode()
-    
-    # 1. Fill first 32 bytes of memory with 0xff
-    code += Op.MSTORE(0, MAX_U256)
-    
-    # 2. Push arguments for ALL max_op_count operations
-    # LOG* takes: offset, size, topic0, topic1, ... (bottom to top on stack)
-    # So we push: offset, size, topics (in that order)
-    # Each LOG will pop from top: topics first, then size, then offset
-    for _ in range(max_op_count):
-        code += Op.PUSH1[0]      # offset = 0
-        code += Op.PUSH1[32]     # size = 32 bytes
-        for _ in range(num_topics):
-            code += Op.PUSH1[0xFF]  # topic = 0xff
-    
-    # 3. Execute op_count LOG opcodes
-    for _ in range(op_count):
-        code += opcode
-    
-    # 4. Just STOP - remaining stack values are fine
-    code += Op.STOP
-    
-    return code
-
-
-def generate_dup_program(
-    dup_n: int,
-    op_count: int,
-    max_op_count: int,
-) -> Bytecode:
-    """
-    Generate a DUP program following gas-cost-estimator's approach EXACTLY.
-    
-    Structure (matching gas-cost-estimator):
-    1. Push empty_push_count values (max_op_count POPs worth) as padding
-    2. Push dup_n initial values onto stack (for DUP to work on)
-    3. Interleaved: [DUP] + ([POP] + [DUP]) * (op_count - 1) if op_count >= 1
-       OR just POPs if op_count == 0
-    4. End with remaining POPs to balance stack
-    
-    Key insight: Total POPs is CONSTANT (max_op_count), only DUP count varies.
-    Marginal gas = DUP gas (3 gas)
-    """
-    code = Bytecode()
-    
-    nreturns = 1  # DUP returns 1 value
-    total_pop_count = max_op_count * nreturns  # Constant number of POPs
-    
-    # 1. Push padding values so POPs have something to pop
-    for _ in range(total_pop_count):
-        code += Op.PUSH0
-    
-    # 2. Push dup_n initial values for DUP to duplicate from
-    for i in range(dup_n):
-        code += Op.PUSH1[i]
-    
-    dup_opcode = getattr(Op, f"DUP{dup_n}")
-    
-    # 3. Interleaved DUP + POP pattern (matching gas-cost-estimator)
-    if op_count == 0:
-        # No DUPs, just all POPs
-        for _ in range(total_pop_count):
-            code += Op.POP
-    else:
-        # Pattern: DUP + (POP + DUP) * (op_count - 1) + end_pops
-        interleaved_count = op_count - 1
-        end_pop_count = total_pop_count - interleaved_count * nreturns
-        
-        # First DUP
-        code += dup_opcode
-        
-        # Interleaved POP + DUP
-        for _ in range(interleaved_count):
-            code += Op.POP
-            code += dup_opcode
-        
-        # End POPs (balance the stack)
-        for _ in range(end_pop_count):
-            code += Op.POP
-    
-    # 4. Pop the dup_n initial values
-    for _ in range(dup_n):
-        code += Op.POP
-    
-    # 5. Write success marker
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
-
-
-def generate_swap_program(
-    swap_n: int,
-    op_count: int,
-    max_op_count: int,
-) -> Bytecode:
-    """
-    Generate a SWAP program following gas-cost-estimator's approach.
-    
-    Structure:
-    1. Push swap_n+1 initial values onto stack
-    2. For op_count iterations: execute SWAP (swaps don't change stack size)
-    3. Pop the initial values
-    4. Write success marker
-    
-    SWAP doesn't change stack size, so we can do many iterations.
-    """
-    code = Bytecode()
-    
-    # 1. Push swap_n+1 initial values
-    for i in range(swap_n + 1):
-        code += Op.PUSH1[i]
-    
-    # 2. Execute op_count SWAP operations
-    swap_opcode = getattr(Op, f"SWAP{swap_n}")
-    for _ in range(op_count):
-        code += swap_opcode
-    
-    # 3. Pop the initial values
-    for _ in range(swap_n + 1):
-        code += Op.POP
-    
-    # 4. Write success marker
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
-
-
-# ============================================================================
-# EXTERNAL CALL OPCODES - CALL, CALLCODE, DELEGATECALL, STATICCALL
-# These call other contracts/addresses
-# ============================================================================
-
-
-def _generate_call_target_code() -> Bytecode:
-    """
-    Generate simple target contract code that just returns immediately.
-    The target stores a value and returns, minimal gas consumption.
-    """
-    return Op.STOP
-
-
-def generate_call_program(op_count: int, call_opcode: Op, max_op_count: int) -> Bytecode:
-    """
-    Generate a program that executes CALL-type opcode op_count times.
-    
-    Uses noop-based padding similar to other non-returning opcodes:
-    - For op_count executions: push args + execute call + pop result
-    - For remaining (max_op_count - op_count): just push args (no call)
-    
-    The target is a simple contract that just STOPs.
-    """
-    code = Bytecode()
-    
-    # Note: We'll need to set target_address later when deploying
-    # For now, use placeholder - will be replaced in test function
-    
-    noop_count = max_op_count - op_count
-    
-    # Execute op_count real calls
-    for _ in range(op_count):
-        if call_opcode == Op.CALL or call_opcode == Op.CALLCODE:
-            # CALL(gas, addr, value, argsOffset, argsSize, retOffset, retSize)
-            code += Op.POP(
-                call_opcode(Op.GAS, 0xCAFE, 0, 0, 0, 0, 0)  # 0xCAFE = placeholder
-            )
-        else:
-            # DELEGATECALL/STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize)
-            code += Op.POP(
-                call_opcode(Op.GAS, 0xCAFE, 0, 0, 0, 0)  # 0xCAFE = placeholder
-            )
-    
-    # Execute noop_count "noops" (same pushes, no call)
-    for _ in range(noop_count):
-        if call_opcode == Op.CALL or call_opcode == Op.CALLCODE:
-            # Push 7 values (CALL/CALLCODE args) and pop them
-            for _ in range(7):
-                code += Op.PUSH0
-            for _ in range(7):
-                code += Op.POP
-        else:
-            # Push 6 values (DELEGATECALL/STATICCALL args) and pop them
-            for _ in range(6):
-                code += Op.PUSH0
-            for _ in range(6):
-                code += Op.POP
-    
-    # Write success marker
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
-
-
-# ============================================================================
-# CALL-FAMILY OPCODES - Using loop-based caller contract approach
-# CALL, CALLCODE, DELEGATECALL, STATICCALL
-# ============================================================================
-
-# Loop-based caller contracts for each CALL variant
-# These use a fixed-size loop structure, allowing much higher call counts
-
-def generate_caller_with_call(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate caller contract that uses CALL in a loop.
-    CALL(gas, addr, value, argsOffset, argsSize, retOffset, retSize) -> success
-    """
-    code = Bytecode()
-    
-    # Push loop counter
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-    
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-    
-    # CALL: gas, addr, value, argsOffset, argsSize, retOffset, retSize
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH1(0)                   # value
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas
-    code += Op.CALL
-
-    # Check success and revert if call failed
-    current_pc = len(bytes(code))
-    continue_offset = current_pc + 9      # PUSH2(3) + JUMPI(1) + PUSH1(2) + PUSH1(2) + REVERT(1)
-    code += Op.PUSH2(continue_offset)
-    code += Op.JUMPI                      # Jump if success (non-zero)
-    code += Op.PUSH1(0)
-    code += Op.PUSH1(0)
-    code += Op.REVERT
-    code += Op.JUMPDEST
-
-    # Decrement counter
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-    
-    # Loop back if counter > 0
-    code += Op.DUP1
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-    
-    # Done - write success marker
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
-
-
-def generate_caller_with_callcode(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate caller contract that uses CALLCODE in a loop.
-    CALLCODE(gas, addr, value, argsOffset, argsSize, retOffset, retSize) -> success
-    """
-    code = Bytecode()
-    
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-    
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-    
-    # CALLCODE: gas, addr, value, argsOffset, argsSize, retOffset, retSize
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH1(0)                   # value
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas
-    code += Op.CALLCODE
-
-    # Check success and revert if call failed
-    current_pc = len(bytes(code))
-    continue_offset = current_pc + 9
-    code += Op.PUSH2(continue_offset)
-    code += Op.JUMPI
-    code += Op.PUSH1(0)
-    code += Op.PUSH1(0)
-    code += Op.REVERT
-    code += Op.JUMPDEST
-
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-    
-    code += Op.DUP1
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-    
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
-
-
-def generate_caller_with_delegatecall(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate caller contract that uses DELEGATECALL in a loop.
-    DELEGATECALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
-    """
-    code = Bytecode()
-    
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-    
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-    
-    # DELEGATECALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas
-    code += Op.DELEGATECALL
-
-    # Check success and revert if call failed
-    current_pc = len(bytes(code))
-    continue_offset = current_pc + 9
-    code += Op.PUSH2(continue_offset)
-    code += Op.JUMPI
-    code += Op.PUSH1(0)
-    code += Op.PUSH1(0)
-    code += Op.REVERT
-    code += Op.JUMPDEST
-
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-    
-    code += Op.DUP1
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-    
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
-
-
-def generate_caller_with_staticcall(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate caller contract that uses STATICCALL in a loop.
-    STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
-    """
-    code = Bytecode()
-    
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-    
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-    
-    # STATICCALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas
-    code += Op.STATICCALL
-
-    # Check success and revert if call failed
-    current_pc = len(bytes(code))
-    continue_offset = current_pc + 9
-    code += Op.PUSH2(continue_offset)
-    code += Op.JUMPI
-    code += Op.PUSH1(0)
-    code += Op.PUSH1(0)
-    code += Op.REVERT
-    code += Op.JUMPDEST
-
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-    
-    code += Op.DUP1
-    code += Op.PUSH2(loop_start_offset)
-    code += Op.JUMPI
-    
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
-
-
-# Configuration for CALL-family opcodes with simplified noop approach
-# Stack-limited but caller-amplified for high total op counts
-# Stack limit: 1024, each noop leaves +5 or +6 items
-# Safe max_op_count: ~150 (with buffer), caller amplifies to 150 × N total ops
-CALL_NUM_CALLS = 500  # Number of caller loop iterations
-CALL_MAX_OP_COUNT = 99  # Target contract executes up to 99 CALLs per invocation
-CALL_STEP = 33  # 4 data points
-
-
-def _generate_target_with_inner_calls(
-    inner_target: Address, op_count: int, max_op_count: int, call_op
-) -> Bytecode:
-    """
-    Generate a target contract that makes op_count calls to inner_target,
-    with simplified noop padding to ensure perfect marginal property.
-    
-    NEW APPROACH (simplified, perfect gas marginality):
-    - Noops: Push args + POP one (stack accumulates, but no call)
-    - Real calls: Push args + CALL + POP result
-    
-    Gas analysis:
-    - Noop:      PUSH×6/7 (18/21 gas) + POP (2 gas) = 20/23 gas
-    - Real call: PUSH×6/7 (18/21 gas) + CALL (100 gas) + POP (2 gas) = 120/123 gas
-    - Marginal:  100 gas (exactly the CALL cost!)
-    
-    Stack analysis:
-    - Each noop leaves +5 items (STATICCALL/DELEGATECALL) or +6 items (CALL/CALLCODE)
-    - Stack limit = 1024, so max noops ≈ 150-170
-    - With caller amplification, total ops = max_op_count × CALL_NUM_CALLS
-    """
-    code = Bytecode()
-    
-    # Calculate noop count
-    noop_count = max_op_count - op_count
-    
-    # Determine arg count based on call type
-    if call_op in (Op.CALL, Op.CALLCODE):
-        args_count = 7  # gas, addr, value, argsOffset, argsSize, retOffset, retSize
-    else:
-        args_count = 6  # gas, addr, argsOffset, argsSize, retOffset, retSize
-    
-    # ========== NOOPS (push args + pop one, stack accumulates) ==========
-    for _ in range(noop_count):
-        # Push same arguments as real call
-        if call_op in (Op.CALL, Op.CALLCODE):
-            code += Op.PUSH1(0)                   # retSize
-            code += Op.PUSH1(0)                   # retOffset  
-            code += Op.PUSH1(0)                   # argsSize
-            code += Op.PUSH1(0)                   # argsOffset
-            code += Op.PUSH1(0)                   # value
-            code += Op.PUSH20(inner_target)       # address
-            code += Op.GAS                        # gas
-        else:
-            code += Op.PUSH1(0)                   # retSize
-            code += Op.PUSH1(0)                   # retOffset  
-            code += Op.PUSH1(0)                   # argsSize
-            code += Op.PUSH1(0)                   # argsOffset
-            code += Op.PUSH20(inner_target)       # address
-            code += Op.GAS                        # gas
-        
-        # Just pop one item - NO call, stack accumulates
-        code += Op.POP
-    
-    # ========== REAL CALLS (push args + call + pop result) ==========
-    for _ in range(op_count):
-        if call_op in (Op.CALL, Op.CALLCODE):
-            code += Op.PUSH1(0)                   # retSize
-            code += Op.PUSH1(0)                   # retOffset  
-            code += Op.PUSH1(0)                   # argsSize
-            code += Op.PUSH1(0)                   # argsOffset
-            code += Op.PUSH1(0)                   # value
-            code += Op.PUSH20(inner_target)       # address
-            code += Op.GAS                        # gas
-            code += call_op                       # CALL/CALLCODE
-        else:
-            code += Op.PUSH1(0)                   # retSize
-            code += Op.PUSH1(0)                   # retOffset  
-            code += Op.PUSH1(0)                   # argsSize
-            code += Op.PUSH1(0)                   # argsOffset
-            code += Op.PUSH20(inner_target)       # address
-            code += Op.GAS                        # gas
-            code += call_op                       # STATICCALL/DELEGATECALL
-        
-        code += Op.POP  # pop success flag
-    
-    code += Op.STOP
-    return code
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
-    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
-)
-def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CALL opcode using loop-based caller."""
-    # Inner target: just stops
-    inner_target = pre.deploy_contract(code=Op.STOP)
-    
-    # Target contract: makes op_count CALLs to inner_target per invocation
-    # With noop padding for proper marginality
-    target_code = _generate_target_with_inner_calls(
-        inner_target, op_count, CALL_MAX_OP_COUNT, Op.CALL
-    )
-    target = pre.deploy_contract(code=target_code)
-    
-    # Caller contract: loops CALL_NUM_CALLS times, calling target
-    caller_code = generate_caller_with_call(target, CALL_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
-    
-    sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
-    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
-)
-def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CALLCODE opcode using loop-based caller."""
-    inner_target = pre.deploy_contract(code=Op.STOP)
-    # With noop padding for proper marginality
-    target_code = _generate_target_with_inner_calls(
-        inner_target, op_count, CALL_MAX_OP_COUNT, Op.CALLCODE
-    )
-    target = pre.deploy_contract(code=target_code)
-    caller_code = generate_caller_with_callcode(target, CALL_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
-    
-    sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
-    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
-)
-def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for DELEGATECALL opcode using loop-based caller."""
-    inner_target = pre.deploy_contract(code=Op.STOP)
-    # With noop padding for proper marginality
-    target_code = _generate_target_with_inner_calls(
-        inner_target, op_count, CALL_MAX_OP_COUNT, Op.DELEGATECALL
-    )
-    target = pre.deploy_contract(code=target_code)
-    caller_code = generate_caller_with_delegatecall(target, CALL_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
-    
-    sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
-    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
-)
-def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for STATICCALL opcode using loop-based caller."""
-    inner_target = pre.deploy_contract(code=Op.STOP)
-    # With noop padding for proper marginality
-    target_code = _generate_target_with_inner_calls(
-        inner_target, op_count, CALL_MAX_OP_COUNT, Op.STATICCALL
-    )
-    target = pre.deploy_contract(code=target_code)
-    caller_code = generate_caller_with_staticcall(target, CALL_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
-    
-    sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
-
-# ============================================================================
-# CREATE OPCODES - CREATE, CREATE2 (simplified noop approach)
-# These deploy new contracts
-# ============================================================================
-
-# For CREATE: Each call to target increments nonce, so each CREATE gets unique address
-# For CREATE2: We use a storage counter as salt to generate unique addresses
-
-# Stack-limited: each noop leaves +2 items (3 pushed, 1 popped)
-# Safe max_op_count: ~400 (with buffer), caller amplifies total
-CREATE_NUM_CALLS = 400
-CREATE_MAX_OP_COUNT = 21  # Target executes up to 21 CREATEs per call
-CREATE_STEP = 7  # 4 data points
-
-
-def _generate_target_with_creates(op_count: int, max_op_count: int) -> Bytecode:
-    """
-    Generate a target contract that executes op_count CREATE operations,
-    with simplified noop padding to ensure perfect marginal property.
-    
-    NEW APPROACH (simplified, perfect gas marginality):
-    - Noops: Push 3 args + POP one (stack accumulates, but no CREATE)
-    - Real calls: Push 3 args + CREATE + POP result
-    
-    Gas analysis:
-    - Noop:   PUSH×3 (9 gas) + POP (2 gas) = 11 gas
-    - Real:   PUSH×3 (9 gas) + CREATE (32000 gas) + POP (2 gas) = 32011 gas
-    - Marginal: 32000 gas (exactly the CREATE cost!)
-    
-    Stack analysis:
-    - Each noop leaves +2 items (3 pushed, 1 popped)
-    - Stack limit = 1024, so max noops ≈ 500
-    """
-    code = Bytecode()
-    
-    # Store minimal initcode in memory: 0x600080f3 (PUSH1 0, DUP1, RETURN)
-    code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
-    
-    noop_count = max_op_count - op_count
-    
-    # ========== NOOPS (push args + pop one, stack accumulates) ==========
-    for _ in range(noop_count):
-        # Push same arguments as real CREATE
-        code += Op.PUSH1(4)                   # size
-        code += Op.PUSH1(0)                   # offset
-        code += Op.PUSH1(0)                   # value
-        # Just pop one item - NO CREATE, stack accumulates
-        code += Op.POP
-    
-    # ========== REAL CREATEs (push args + CREATE + pop result) ==========
-    for _ in range(op_count):
-        code += Op.PUSH1(4)                   # size
-        code += Op.PUSH1(0)                   # offset
-        code += Op.PUSH1(0)                   # value
-        code += Op.CREATE                     # CREATE(value, offset, size) -> address
-        code += Op.POP                        # pop created address
-    
-    code += Op.STOP
-    return code
-
-
-def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode:
-    """
-    Generate a target contract that executes op_count CREATE2 operations,
-    with simplified noop padding to ensure perfect marginal property.
-    
-    NEW APPROACH (real ops first, then noops):
-    - Real CREATE2s first (while stack is clean, DUP1 works correctly)
-    - Then update salt counter (before noops pollute the stack)
-    - Then noops (push 4 args + POP one, stack accumulates but unused)
-    
-    Gas analysis:
-    - Noop:   PUSH×4 (12 gas) + POP (2 gas) = 14 gas
-    - Real:   PUSH×4 (12 gas) + CREATE2 (32000 gas) + POP (2 gas) = 32014 gas
-    - Marginal: 32000 gas (exactly the CREATE2 cost!)
-    
-    Stack analysis:
-    - Each noop leaves +3 items (4 pushed, 1 popped)
-    - Stack limit = 1024, so max noops ≈ 340
-    
-    Uses a storage slot as a counter for unique salts.
-    """
-    code = Bytecode()
-    
-    # Store minimal initcode in memory
-    code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
-    
-    # Load current salt counter from storage slot 0x100
-    salt_slot = 0x100
-    code += Op.SLOAD(salt_slot)  # salt counter on stack
-    
-    noop_count = max_op_count - op_count
-    
-    # ========== REAL CREATE2s FIRST (while stack is clean) ==========
-    for i in range(op_count):
-        # CREATE2(value, offset, size, salt) -> address
-        code += Op.DUP1                       # duplicate salt counter (works while stack is clean)
-        code += Op.PUSH2(i)                   # add offset for unique salt
-        code += Op.ADD                        # salt = counter + i
-        code += Op.PUSH1(4)                   # size
-        code += Op.PUSH1(0)                   # offset
-        code += Op.PUSH1(0)                   # value
-        code += Op.CREATE2                    # Uses unique salt
-        code += Op.POP                        # pop created address
-    
-    # Update salt counter NOW (while stack still has just salt_counter on top)
-    code += Op.PUSH2(max_op_count)
-    code += Op.ADD                            # new counter = old + max_op_count
-    code += Op.PUSH2(salt_slot)
-    code += Op.SSTORE                         # save updated counter
-    
-    # ========== NOOPS AFTER (push args + pop one, stack accumulates but unused) ==========
-    for i in range(noop_count):
-        # Push same arguments as real CREATE2
-        # Salt value doesn't matter for noops, just push dummy values
-        code += Op.PUSH2(op_count + i)        # dummy salt
-        code += Op.PUSH1(4)                   # size
-        code += Op.PUSH1(0)                   # offset
-        code += Op.PUSH1(0)                   # value
-        # Just pop one item - NO CREATE2, stack accumulates (but we're done after this)
-        code += Op.POP
-    
-    code += Op.STOP
-    return code
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(CREATE_MAX_OP_COUNT, CREATE_STEP),
-    ids=lambda x: f"op_count_{x * CREATE_NUM_CALLS}",
-)
-def test_marginal_create(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CREATE opcode using loop-based caller."""
-    # Target contract executes op_count CREATEs per call
-    # With noop padding for proper marginality
-    target_code = _generate_target_with_creates(op_count, CREATE_MAX_OP_COUNT)
-    target = pre.deploy_contract(code=target_code)
-    
-    # Caller loops CREATE_NUM_CALLS times, calling target
-    caller_code = generate_caller_with_call(target, CREATE_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
-    
-    sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(CREATE_MAX_OP_COUNT, CREATE_STEP),
-    ids=lambda x: f"op_count_{x * CREATE_NUM_CALLS}",
-)
-def test_marginal_create2(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for CREATE2 opcode using loop-based caller."""
-    # Target contract executes op_count CREATE2s per call with unique salts
-    # With noop padding for proper marginality
-    target_code = _generate_target_with_create2s(op_count, CREATE_MAX_OP_COUNT)
-    target = pre.deploy_contract(code=target_code)
-    
-    # Caller loops CREATE_NUM_CALLS times, calling target
-    caller_code = generate_caller_with_call(target, CREATE_NUM_CALLS)
-    caller = pre.deploy_contract(code=caller_code)
-    
-    sender = pre.fund_eoa()
-    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
-    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
 
 # ============================================================================
 # EXTERNAL ACCOUNT OPCODES - BALANCE, EXTCODESIZE, EXTCODEHASH, EXTCODECOPY
@@ -2454,6 +1109,1337 @@ EXTCODECOPY_CONFIG = MarginalOpcodeConfig(
     num_calls=2000,  # Scaled for 150M cycles target
     setup_code=Op.MSTORE(0, 0) + Op.POP(Op.EXTCODESIZE(0xDEAD)),  # Pre-expand memory + warm up address
 )
+
+
+def push_value(value: int) -> Bytecode:
+    """Generate appropriate PUSH opcode for a value based on its size."""
+    if value == 0:
+        return Op.PUSH0
+    # Calculate byte length needed
+    byte_len = (value.bit_length() + 7) // 8
+    if byte_len <= 1:
+        return Op.PUSH1(value)
+    elif byte_len <= 2:
+        return Op.PUSH2(value)
+    elif byte_len <= 4:
+        return Op.PUSH4(value)
+    elif byte_len <= 8:
+        return Op.PUSH8(value)
+    elif byte_len <= 16:
+        return Op.PUSH16(value)
+    else:
+        return Op.PUSH32(value)
+
+
+def generate_marginal_program(
+    config: MarginalOpcodeConfig,
+    op_count: int,
+) -> Bytecode:
+    """
+    Generate a marginal program for the given opcode configuration.
+
+    Following the gas-cost-estimator approach, there are two strategies:
+
+    1. For opcodes that RETURN values (outputs_per_op > 0):
+       - Push "empty" values first to ensure POPs always have something
+       - Push all arguments upfront
+       - Interleave opcodes with result POPs
+       - Total POPs = max_op_count * outputs_per_op (CONSTANT)
+
+    2. For opcodes that DON'T return values (outputs_per_op == 0):
+       - Use "noop" padding instead of POPs
+       - For op_count executions: push args + execute opcode
+       - For remaining (max_op_count - op_count): just push args (no opcode)
+       - This keeps total PUSH count constant while varying only opcode count
+
+    Args:
+        config: The opcode configuration
+        op_count: Number of times to execute the opcode
+
+    Returns:
+        Bytecode for the marginal program
+    """
+    assert 0 <= op_count <= config.max_op_count
+
+    code = Bytecode()
+
+    # 1. Optional setup code (e.g., memory initialization)
+    if config.setup_code is not None:
+        code += config.setup_code
+
+    if config.outputs_per_op > 0:
+        # ================================================================
+        # Strategy 1: POP-based padding for opcodes that return values
+        # ================================================================
+
+        # 2. Push "empty" values to ensure there's always something to POP
+        total_result_pops = config.max_op_count * config.outputs_per_op
+        for _ in range(total_result_pops):
+            code += Op.PUSH0
+
+        # 3. Push stack arguments for ALL potential opcode instances
+        for _ in range(config.max_op_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
+
+        # 4. Execute opcodes with interleaved POPs
+        if op_count == 0:
+            # No opcodes, just POP all the empty values
+            for _ in range(total_result_pops):
+                code += Op.POP
+        else:
+            # Execute first opcode
+            code += config.opcode
+            # Interleave remaining opcodes with result POPs
+            interleaved_count = op_count - 1
+            for _ in range(interleaved_count):
+                for _ in range(config.outputs_per_op):
+                    code += Op.POP
+                code += config.opcode
+            # POP remaining results at the end
+            end_pops = total_result_pops - interleaved_count * config.outputs_per_op
+            for _ in range(end_pops):
+                code += Op.POP
+    else:
+        # ================================================================
+        # Strategy 2: Noop-based padding for non-returning opcodes
+        # (Following gas-cost-estimator's MSTORE/CALLDATACOPY approach)
+        # ================================================================
+
+        # Structure (matching gas-cost-estimator):
+        # 1. For op_count iterations: PUSH args + OPCODE
+        # 2. For (max_op_count - op_count) iterations: PUSH args only (no opcode)
+        #
+        # This ensures:
+        # - Total PUSH count is constant (max_op_count * len(stack_args))
+        # - Only the opcode execution count varies
+        # - Stack may be unbalanced at end (that's OK - STOP doesn't require it)
+
+        # 1. Real operations: push args + execute opcode
+        for _ in range(op_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
+            code += config.opcode
+
+        # 2. Noops: just push args (no opcode, no pop)
+        # These values stay on stack - that's fine
+        noop_count = config.max_op_count - op_count
+        for _ in range(noop_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
+
+    # 5. Write success marker to storage (proves execution didn't revert)
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+
+    # 6. Stop execution
+    code += Op.STOP
+
+    return code
+
+
+def generate_op_counts(max_op_count: int, step: int) -> List[int]:
+    """Generate list of op_counts from 0 to max_op_count with given step."""
+    counts = list(range(0, max_op_count + 1, step))
+    # Ensure max_op_count is included even if not aligned with step
+    if counts[-1] != max_op_count:
+        counts.append(max_op_count)
+    return counts
+
+
+# ============================================================================
+# CALLER-CONTRACT APPROACH
+# ============================================================================
+# The caller-contract pattern amplifies op_count by having a caller contract
+# call a target contract N times. This allows much higher effective op_counts
+# while keeping individual contract sizes within limits.
+#
+# Effective op_count = num_calls × op_count_per_call
+#
+# Each opcode has its own num_calls value calculated to achieve >= 500K max gas.
+# ============================================================================
+
+# Legacy constant for backward compatibility (new tests use config.num_calls)
+NUM_CALLS = 100
+CALLER_GAS_LIMIT = 500_000_000  # High gas limit for scaled benchmarking (500M)
+
+
+def generate_target_contract_code(
+    config: MarginalOpcodeConfig,
+    op_count: int,
+) -> Bytecode:
+    """
+    Generate a target contract for caller-contract approach.
+
+    Same as generate_marginal_program but WITHOUT SSTORE (since it's called
+    via STATICCALL which doesn't allow state changes). Just ends with STOP.
+    """
+    assert 0 <= op_count <= config.max_op_count
+
+    code = Bytecode()
+
+    # 1. Optional setup code (e.g., memory initialization)
+    if config.setup_code is not None:
+        code += config.setup_code
+
+    if config.outputs_per_op > 0:
+        # Strategy 1: POP-based padding for opcodes that push results onto stack.
+        # Interleave POPs to consume results and prevent stack overflow.
+        # This applies to PUSH, arithmetic ops (ADD, MUL, etc.), and others.
+        total_result_pops = config.max_op_count * config.outputs_per_op
+        for _ in range(total_result_pops):
+            code += Op.PUSH0
+
+        for _ in range(config.max_op_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
+
+        if op_count == 0:
+            for _ in range(total_result_pops):
+                code += Op.POP
+        else:
+            code += config.opcode
+            interleaved_count = op_count - 1
+            for _ in range(interleaved_count):
+                for _ in range(config.outputs_per_op):
+                    code += Op.POP
+                code += config.opcode
+            end_pops = total_result_pops - interleaved_count * config.outputs_per_op
+            for _ in range(end_pops):
+                code += Op.POP
+    else:
+        # Strategy 2: Noop-based padding for non-returning opcodes
+        for _ in range(op_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
+            code += config.opcode
+
+        noop_count = config.max_op_count - op_count
+        for _ in range(noop_count):
+            for arg in config.stack_args:
+                code += push_value(arg)
+
+    code += Op.STOP
+
+    return code
+
+
+def generate_caller_contract_code(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract that calls target num_calls times using a loop to
+    amplify the op_count. The loop overhead is constant across all test variants,
+    so it gets eliminated in the marginal cost regression.
+
+    Structure:
+        PUSH num_calls          ; Initialize counter
+        JUMPDEST (loop_start)   ; Loop label
+        CALL to target          ; Call target contract
+        PUSH2 continue          ; Push continue offset
+        JUMPI                   ; Jump if success (non-zero)
+        REVERT                  ; Revert if call failed
+        JUMPDEST (continue)     ; Continue if success
+        PUSH 1                  ;
+        SWAP1                   ;
+        SUB                     ; counter -= 1
+        DUP1                    ; Duplicate counter for check
+        PUSH2 loop_start        ;
+        JUMPI                   ; Jump if counter > 0
+        POP                     ; Pop counter (now 0)
+        SSTORE + STOP           ; Success marker
+    """
+    code = Bytecode()
+
+    # Push loop counter (use appropriate PUSH based on num_calls size)
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+
+    # Loop start - we need to calculate the offset for JUMPDEST
+    # The PUSH for counter takes 2-4 bytes, JUMPDEST is at that offset
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+
+    # Call target contract (CALL: gas, addr, value, argsOffset, argsSize, retOffset, retSize)
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH1(0)                   # value (no ETH transfer)
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas (forward all)
+    code += Op.CALL                       # Returns success flag on stack
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9      # PUSH2(3) + JUMPI(1) + PUSH1(2) + PUSH1(2) + REVERT(1)
+    code += Op.PUSH2(continue_offset)     # Push continue offset
+    code += Op.JUMPI                      # Jump if success (non-zero)
+    # Revert path (only executed if CALL returned 0)
+    code += Op.PUSH1(0)                   # revert data size
+    code += Op.PUSH1(0)                   # revert data offset
+    code += Op.REVERT                     # Revert immediately on failure
+    code += Op.JUMPDEST                   # Continue path
+
+    # Decrement counter: counter -= 1
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+
+    # Check if counter > 0 and loop
+    code += Op.DUP1                       # Duplicate counter for JUMPI check
+    code += Op.PUSH2(loop_start_offset)   # Push loop start offset
+    code += Op.JUMPI                      # Jump back if counter > 0
+
+    # Counter is 0, pop it and write success marker
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+
+    return code
+
+
+TargetGenerator = Callable[[int, int], Bytecode]
+"""Target generator signature: (op_count, max_op_count) -> Bytecode."""
+
+CallerGenerator = Callable[[Address, int], Bytecode]
+"""Caller generator signature: (target_address, num_calls) -> Bytecode."""
+
+
+def _create_caller_test(
+    cfg: MarginalOpcodeConfig | CustomTargetConfig,
+    target_generator: TargetGenerator | None = None,
+):
+    """
+    Single factory for all caller-contract marginal tests.
+
+    - If cfg is MarginalOpcodeConfig: defaults to generate_target_contract_code(cfg, op_count)
+    - If cfg is CustomTargetConfig: requires target_generator(op_count, max_op_count)
+    """
+    if isinstance(cfg, MarginalOpcodeConfig):
+        max_op_count = cfg.max_op_count
+        step = cfg.step
+        num_calls = cfg.num_calls
+        if target_generator is None:
+            target_generator = lambda oc, _moc: generate_target_contract_code(cfg, oc)
+    elif isinstance(cfg, CustomTargetConfig):
+        max_op_count = cfg.max_op_count
+        step = cfg.step
+        num_calls = cfg.num_calls
+        if target_generator is None:
+            raise ValueError("CustomTargetConfig requires a target_generator")
+    else:
+        raise TypeError(f"Unsupported config type: {type(cfg)}")
+
+    caller_gen: CallerGenerator = generate_caller_contract_code
+
+    op_counts = generate_op_counts(max_op_count, step)
+
+    @pytest.mark.valid_from("Prague")
+    @pytest.mark.parametrize(
+        "op_count",
+        op_counts,
+        ids=lambda x: f"op_count_{x * num_calls}",
+    )
+    def test_func(
+        state_test: StateTestFiller,
+        pre: Alloc,
+        op_count: int,
+    ) -> None:
+        target_code = target_generator(op_count, max_op_count)
+        target_contract = pre.deploy_contract(code=target_code)
+
+        caller_code = caller_gen(target_contract, num_calls)
+        caller_contract = pre.deploy_contract(code=caller_code)
+
+        sender = pre.fund_eoa()
+
+        tx = Transaction(
+            to=caller_contract,
+            gas_limit=CALLER_GAS_LIMIT,
+            sender=sender,
+        )
+
+        post = {caller_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+
+        state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+
+    return test_func
+
+
+@pytest.mark.skip(reason="BLOCKHASH requires proper block history in test environment")
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(BLOCKHASH_CONFIG.max_op_count, BLOCKHASH_CONFIG.step),
+    ids=lambda x: f"op_count_{x}",
+)
+def test_marginal_blockhash(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for BLOCKHASH opcode."""
+    code = generate_marginal_program(BLOCKHASH_CONFIG, op_count)
+    contract = pre.deploy_contract(code=code)
+    sender = pre.fund_eoa()
+    tx = Transaction(to=contract, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# JUMP / JUMPI - Special handling required (control flow opcodes)
+# These cannot use generate_marginal_program directly since they change control flow.
+# We use a loop-based approach where we control the iteration count.
+# ============================================================================
+
+def generate_jump_program(op_count: int, max_op_count: int) -> Bytecode:
+    """
+    Generate a JUMP program following gas-cost-estimator's approach EXACTLY.
+
+    Each combo is self-contained - JUMP jumps to its own JUMPDEST:
+    - Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes, gas = 3+8+1 = 12
+      (dest points to the JUMPDEST in this same combo)
+    - Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes, gas = 3+1 = 4
+      (dest points to the JUMPDEST in this combo, no JUMP executed)
+
+    Note: Combo sizes differ (6 vs 5 bytes), but positions are calculated dynamically.
+    Marginal gas = 12 - 4 = 8 (exactly JUMP gas!)
+    """
+    # Build bytecode by calculating positions dynamically (like gas-cost-estimator)
+    bytecode_hex = ""
+
+    for i in range(max_op_count):
+        current_pc = len(bytecode_hex) // 2
+
+        if i < op_count:
+            # Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes
+            # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) + 1 (JUMP) = current_pc + 5
+            jumpdest_pc = current_pc + 1 + 3 + 1
+            # PUSH3 = 0x62, JUMP = 0x56, JUMPDEST = 0x5b
+            bytecode_hex += f"62{jumpdest_pc:06x}565b"
+        else:
+            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes (no JUMP!)
+            # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) = current_pc + 4
+            jumpdest_pc = current_pc + 1 + 3
+            bytecode_hex += f"62{jumpdest_pc:06x}5b"
+
+    # Add epilogue as hex:
+    # SSTORE(SUCCESS_SLOT=0, SUCCESS_MARKER=0xdead)
+    # PUSH2 0xdead = 61dead, PUSH1 0 = 6000, SSTORE = 55, STOP = 00
+    bytecode_hex += "61dead60005500"
+
+    # Return as raw bytes wrapped in Bytecode container
+    # For raw bytes, must specify stack items (0 pops, 0 pushes for complete program)
+    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
+
+
+def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
+    """
+    Generate a JUMPI program with CONSTANT overhead (true marginal).
+
+    Following gas-cost-estimator's approach:
+    - Push max_op_count conditions upfront (CONSTANT)
+    - Each JUMPI consumes one condition
+    - Unused conditions stay on stack (fine for gas measurement)
+
+    Structure:
+    1. Push max_op_count conditions (CONSTANT)
+    2. Run max_op_count combos:
+       - Real combo (i < op_count): PUSH3(dest) + JUMPI + JUMPDEST
+       - Noop combo (i >= op_count): PUSH3(dest) + JUMPDEST
+
+    Gas breakdown:
+      Condition pushes: max_op_count * PUSH1(3) = CONSTANT
+      Real combo: PUSH3(3) + JUMPI(10) + JUMPDEST(1) = 14 gas
+      Noop combo: PUSH3(3) + JUMPDEST(1) = 4 gas
+
+      op_count=0:  max*3 (conditions) + max*4 (noops) = constant
+      op_count=N:  max*3 (conditions) + N*14 + (max-N)*4
+                 = max*3 + N*14 + max*4 - N*4
+                 = max*3 + max*4 + N*10
+
+      Marginal = N*10 / N = 10 gas per JUMPI ✓
+    """
+    bytecode_hex = ""
+
+    # 1. Push max_op_count conditions upfront (CONSTANT overhead)
+    for _ in range(max_op_count):
+        bytecode_hex += "6001"  # PUSH1 1 (true condition)
+
+    # 2. Run combos
+    for i in range(max_op_count):
+        current_pc = len(bytecode_hex) // 2
+
+        if i < op_count:
+            # Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
+            jumpdest_pc = current_pc + 1 + 3 + 1
+            bytecode_hex += f"62{jumpdest_pc:06x}575b"
+        else:
+            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
+            jumpdest_pc = current_pc + 1 + 3
+            bytecode_hex += f"62{jumpdest_pc:06x}5b"
+
+    # 3. Epilogue (POPs for unused conditions not needed - stack cleanup is optional)
+    bytecode_hex += "61dead60005500"
+
+    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
+
+
+def generate_jump_target(op_count: int, max_op_count: int) -> Bytecode:
+    """
+    Generate JUMP target contract for caller-contract approach.
+    Similar to generate_jump_program but without SSTORE (compatible with STATICCALL).
+    """
+    bytecode_hex = ""
+
+    for i in range(max_op_count):
+        current_pc = len(bytecode_hex) // 2
+
+        if i < op_count:
+            # Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes
+            jumpdest_pc = current_pc + 1 + 3 + 1
+            bytecode_hex += f"62{jumpdest_pc:06x}565b"
+        else:
+            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
+            jumpdest_pc = current_pc + 1 + 3
+            bytecode_hex += f"62{jumpdest_pc:06x}5b"
+
+    # Just STOP (no SSTORE - called via STATICCALL)
+    bytecode_hex += "00"
+
+    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
+
+
+def generate_jumpi_target(op_count: int, max_op_count: int) -> Bytecode:
+    """
+    Generate JUMPI target contract for caller-contract approach.
+    Similar to generate_jumpi_program but without SSTORE (compatible with STATICCALL).
+    """
+    bytecode_hex = ""
+
+    # Push max_op_count conditions upfront
+    for _ in range(max_op_count):
+        bytecode_hex += "6001"  # PUSH1 1 (true condition)
+
+    for i in range(max_op_count):
+        current_pc = len(bytecode_hex) // 2
+
+        if i < op_count:
+            # Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
+            jumpdest_pc = current_pc + 1 + 3 + 1
+            bytecode_hex += f"62{jumpdest_pc:06x}575b"
+        else:
+            # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
+            jumpdest_pc = current_pc + 1 + 3
+            bytecode_hex += f"62{jumpdest_pc:06x}5b"
+
+    # Just STOP (no SSTORE - called via STATICCALL)
+    bytecode_hex += "00"
+
+    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
+
+
+# ============================================================================
+# LOG OPCODES - LOG0 through LOG4
+# Gas: 375 + 8*size + 375*num_topics
+# ============================================================================
+
+# LOG opcodes with 1KB data for worst-case (aligned with gas-cost-estimator)
+def _generate_log_setup() -> Bytecode:
+    """Generate setup code that fills memory with 1KB (32 x 32 bytes) of data."""
+    code = Bytecode()
+    for i in range(32):
+        offset = i * 32
+        code += Op.MSTORE(offset, MAX_U256)
+    return code
+
+
+def generate_log_program(
+    opcode: Op,
+    num_topics: int,
+    op_count: int,
+    max_op_count: int,
+) -> Bytecode:
+    """
+    Generate a LOG program EXACTLY like gas-cost-estimator's pg_marginal.py.
+
+    Structure:
+    1. Fill 32 bytes of memory: PUSH32 0xff...ff, PUSH1 0, MSTORE
+    2. Push arguments for ALL max_op_count operations:
+       - For each: (PUSH1 0xff) * num_topics + PUSH1 0x20 (size) + PUSH1 0x00 (offset)
+    3. Execute op_count LOG opcodes
+    4. STOP
+
+    Note: No success marker - we verify via gas_used instead.
+    """
+    code = Bytecode()
+
+    # 1. Fill first 32 bytes of memory with 0xff
+    code += Op.MSTORE(0, MAX_U256)
+
+    # 2. Push arguments for ALL max_op_count operations
+    # LOG* takes: offset, size, topic0, topic1, ... (bottom to top on stack)
+    # So we push: offset, size, topics (in that order)
+    # Each LOG will pop from top: topics first, then size, then offset
+    for _ in range(max_op_count):
+        code += Op.PUSH1[0]      # offset = 0
+        code += Op.PUSH1[32]     # size = 32 bytes
+        for _ in range(num_topics):
+            code += Op.PUSH1[0xFF]  # topic = 0xff
+
+    # 3. Execute op_count LOG opcodes
+    for _ in range(op_count):
+        code += opcode
+
+    # 4. Just STOP - remaining stack values are fine
+    code += Op.STOP
+
+    return code
+
+
+def generate_dup_program(
+    dup_n: int,
+    op_count: int,
+    max_op_count: int,
+) -> Bytecode:
+    """
+    Generate a DUP program following gas-cost-estimator's approach EXACTLY.
+
+    Structure (matching gas-cost-estimator):
+    1. Push empty_push_count values (max_op_count POPs worth) as padding
+    2. Push dup_n initial values onto stack (for DUP to work on)
+    3. Interleaved: [DUP] + ([POP] + [DUP]) * (op_count - 1) if op_count >= 1
+       OR just POPs if op_count == 0
+    4. End with remaining POPs to balance stack
+
+    Key insight: Total POPs is CONSTANT (max_op_count), only DUP count varies.
+    Marginal gas = DUP gas (3 gas)
+    """
+    code = Bytecode()
+
+    nreturns = 1  # DUP returns 1 value
+    total_pop_count = max_op_count * nreturns  # Constant number of POPs
+
+    # 1. Push padding values so POPs have something to pop
+    for _ in range(total_pop_count):
+        code += Op.PUSH0
+
+    # 2. Push dup_n initial values for DUP to duplicate from
+    for i in range(dup_n):
+        code += Op.PUSH1[i]
+
+    dup_opcode = getattr(Op, f"DUP{dup_n}")
+
+    # 3. Interleaved DUP + POP pattern (matching gas-cost-estimator)
+    if op_count == 0:
+        # No DUPs, just all POPs
+        for _ in range(total_pop_count):
+            code += Op.POP
+    else:
+        # Pattern: DUP + (POP + DUP) * (op_count - 1) + end_pops
+        interleaved_count = op_count - 1
+        end_pop_count = total_pop_count - interleaved_count * nreturns
+
+        # First DUP
+        code += dup_opcode
+
+        # Interleaved POP + DUP
+        for _ in range(interleaved_count):
+            code += Op.POP
+            code += dup_opcode
+
+        # End POPs (balance the stack)
+        for _ in range(end_pop_count):
+            code += Op.POP
+
+    # 4. Pop the dup_n initial values
+    for _ in range(dup_n):
+        code += Op.POP
+
+    # 5. Write success marker
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+
+    return code
+
+
+def generate_swap_program(
+    swap_n: int,
+    op_count: int,
+    max_op_count: int,
+) -> Bytecode:
+    """
+    Generate a SWAP program following gas-cost-estimator's approach.
+
+    Structure:
+    1. Push swap_n+1 initial values onto stack
+    2. For op_count iterations: execute SWAP (swaps don't change stack size)
+    3. Pop the initial values
+    4. Write success marker
+
+    SWAP doesn't change stack size, so we can do many iterations.
+    """
+    code = Bytecode()
+
+    # 1. Push swap_n+1 initial values
+    for i in range(swap_n + 1):
+        code += Op.PUSH1[i]
+
+    # 2. Execute op_count SWAP operations
+    swap_opcode = getattr(Op, f"SWAP{swap_n}")
+    for _ in range(op_count):
+        code += swap_opcode
+
+    # 3. Pop the initial values
+    for _ in range(swap_n + 1):
+        code += Op.POP
+
+    # 4. Write success marker
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+
+    return code
+
+
+# ============================================================================
+# EXTERNAL CALL OPCODES - CALL, CALLCODE, DELEGATECALL, STATICCALL
+# These call other contracts/addresses
+# ============================================================================
+
+
+def _generate_call_target_code() -> Bytecode:
+    """
+    Generate simple target contract code that just returns immediately.
+    The target stores a value and returns, minimal gas consumption.
+    """
+    return Op.STOP
+
+
+def generate_call_program(op_count: int, call_opcode: Op, max_op_count: int) -> Bytecode:
+    """
+    Generate a program that executes CALL-type opcode op_count times.
+
+    Uses noop-based padding similar to other non-returning opcodes:
+    - For op_count executions: push args + execute call + pop result
+    - For remaining (max_op_count - op_count): just push args (no call)
+
+    The target is a simple contract that just STOPs.
+    """
+    code = Bytecode()
+
+    # Note: We'll need to set target_address later when deploying
+    # For now, use placeholder - will be replaced in test function
+
+    noop_count = max_op_count - op_count
+
+    # Execute op_count real calls
+    for _ in range(op_count):
+        if call_opcode == Op.CALL or call_opcode == Op.CALLCODE:
+            # CALL(gas, addr, value, argsOffset, argsSize, retOffset, retSize)
+            code += Op.POP(
+                call_opcode(Op.GAS, 0xCAFE, 0, 0, 0, 0, 0)  # 0xCAFE = placeholder
+            )
+        else:
+            # DELEGATECALL/STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize)
+            code += Op.POP(
+                call_opcode(Op.GAS, 0xCAFE, 0, 0, 0, 0)  # 0xCAFE = placeholder
+            )
+
+    # Execute noop_count "noops" (same pushes, no call)
+    for _ in range(noop_count):
+        if call_opcode == Op.CALL or call_opcode == Op.CALLCODE:
+            # Push 7 values (CALL/CALLCODE args) and pop them
+            for _ in range(7):
+                code += Op.PUSH0
+            for _ in range(7):
+                code += Op.POP
+        else:
+            # Push 6 values (DELEGATECALL/STATICCALL args) and pop them
+            for _ in range(6):
+                code += Op.PUSH0
+            for _ in range(6):
+                code += Op.POP
+
+    # Write success marker
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+
+    return code
+
+
+# ============================================================================
+# CALL-FAMILY OPCODES - Using loop-based caller contract approach
+# CALL, CALLCODE, DELEGATECALL, STATICCALL
+# ============================================================================
+
+# Loop-based caller contracts for each CALL variant
+# These use a fixed-size loop structure, allowing much higher call counts
+
+def generate_caller_with_call(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract that uses CALL in a loop.
+    CALL(gas, addr, value, argsOffset, argsSize, retOffset, retSize) -> success
+    """
+    code = Bytecode()
+
+    # Push loop counter
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+
+    # CALL: gas, addr, value, argsOffset, argsSize, retOffset, retSize
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH1(0)                   # value
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas
+    code += Op.CALL
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9      # PUSH2(3) + JUMPI(1) + PUSH1(2) + PUSH1(2) + REVERT(1)
+    code += Op.PUSH2(continue_offset)
+    code += Op.JUMPI                      # Jump if success (non-zero)
+    code += Op.PUSH1(0)
+    code += Op.PUSH1(0)
+    code += Op.REVERT
+    code += Op.JUMPDEST
+
+    # Decrement counter
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+
+    # Loop back if counter > 0
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+
+    # Done - write success marker
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+
+    return code
+
+
+def generate_caller_with_callcode(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract that uses CALLCODE in a loop.
+    CALLCODE(gas, addr, value, argsOffset, argsSize, retOffset, retSize) -> success
+    """
+    code = Bytecode()
+
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+
+    # CALLCODE: gas, addr, value, argsOffset, argsSize, retOffset, retSize
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH1(0)                   # value
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas
+    code += Op.CALLCODE
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9
+    code += Op.PUSH2(continue_offset)
+    code += Op.JUMPI
+    code += Op.PUSH1(0)
+    code += Op.PUSH1(0)
+    code += Op.REVERT
+    code += Op.JUMPDEST
+
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+
+    return code
+
+
+def generate_caller_with_delegatecall(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract that uses DELEGATECALL in a loop.
+    DELEGATECALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
+    """
+    code = Bytecode()
+
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+
+    # DELEGATECALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas
+    code += Op.DELEGATECALL
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9
+    code += Op.PUSH2(continue_offset)
+    code += Op.JUMPI
+    code += Op.PUSH1(0)
+    code += Op.PUSH1(0)
+    code += Op.REVERT
+    code += Op.JUMPDEST
+
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+
+    return code
+
+
+def generate_caller_with_staticcall(target_address: Address, num_calls: int) -> Bytecode:
+    """
+    Generate caller contract that uses STATICCALL in a loop.
+    STATICCALL(gas, addr, argsOffset, argsSize, retOffset, retSize) -> success
+    """
+    code = Bytecode()
+
+    if num_calls <= 0xFF:
+        code += Op.PUSH1(num_calls)
+    elif num_calls <= 0xFFFF:
+        code += Op.PUSH2(num_calls)
+    else:
+        code += Op.PUSH3(num_calls)
+
+    loop_start_offset = len(bytes(code))
+    code += Op.JUMPDEST
+
+    # STATICCALL: gas, addr, argsOffset, argsSize, retOffset, retSize (no value!)
+    code += Op.PUSH1(0)                   # retSize
+    code += Op.PUSH1(0)                   # retOffset
+    code += Op.PUSH1(0)                   # argsSize
+    code += Op.PUSH1(0)                   # argsOffset
+    code += Op.PUSH20(target_address)     # address
+    code += Op.GAS                        # gas
+    code += Op.STATICCALL
+
+    # Check success and revert if call failed
+    current_pc = len(bytes(code))
+    continue_offset = current_pc + 9
+    code += Op.PUSH2(continue_offset)
+    code += Op.JUMPI
+    code += Op.PUSH1(0)
+    code += Op.PUSH1(0)
+    code += Op.REVERT
+    code += Op.JUMPDEST
+
+    code += Op.PUSH1(1)
+    code += Op.SWAP1
+    code += Op.SUB
+
+    code += Op.DUP1
+    code += Op.PUSH2(loop_start_offset)
+    code += Op.JUMPI
+
+    code += Op.POP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
+
+    return code
+
+
+# Configuration for CALL-family opcodes with simplified noop approach
+# Stack-limited but caller-amplified for high total op counts
+# Stack limit: 1024, each noop leaves +5 or +6 items
+# Safe max_op_count: ~150 (with buffer), caller amplifies to 150 × N total ops
+CALL_NUM_CALLS = 500  # Number of caller loop iterations
+CALL_MAX_OP_COUNT = 99  # Target contract executes up to 99 CALLs per invocation
+CALL_STEP = 33  # 4 data points
+
+
+def _generate_target_with_inner_calls(
+    inner_target: Address, op_count: int, max_op_count: int, call_op
+) -> Bytecode:
+    """
+    Generate a target contract that makes op_count calls to inner_target,
+    with simplified noop padding to ensure perfect marginal property.
+
+    NEW APPROACH (simplified, perfect gas marginality):
+    - Noops: Push args + POP one (stack accumulates, but no call)
+    - Real calls: Push args + CALL + POP result
+
+    Gas analysis:
+    - Noop:      PUSH×6/7 (18/21 gas) + POP (2 gas) = 20/23 gas
+    - Real call: PUSH×6/7 (18/21 gas) + CALL (100 gas) + POP (2 gas) = 120/123 gas
+    - Marginal:  100 gas (exactly the CALL cost!)
+
+    Stack analysis:
+    - Each noop leaves +5 items (STATICCALL/DELEGATECALL) or +6 items (CALL/CALLCODE)
+    - Stack limit = 1024, so max noops ≈ 150-170
+    - With caller amplification, total ops = max_op_count × CALL_NUM_CALLS
+    """
+    code = Bytecode()
+
+    # Calculate noop count
+    noop_count = max_op_count - op_count
+
+    # Determine arg count based on call type
+    if call_op in (Op.CALL, Op.CALLCODE):
+        args_count = 7  # gas, addr, value, argsOffset, argsSize, retOffset, retSize
+    else:
+        args_count = 6  # gas, addr, argsOffset, argsSize, retOffset, retSize
+
+    # ========== NOOPS (push args + pop one, stack accumulates) ==========
+    for _ in range(noop_count):
+        # Push same arguments as real call
+        if call_op in (Op.CALL, Op.CALLCODE):
+            code += Op.PUSH1(0)                   # retSize
+            code += Op.PUSH1(0)                   # retOffset
+            code += Op.PUSH1(0)                   # argsSize
+            code += Op.PUSH1(0)                   # argsOffset
+            code += Op.PUSH1(0)                   # value
+            code += Op.PUSH20(inner_target)       # address
+            code += Op.GAS                        # gas
+        else:
+            code += Op.PUSH1(0)                   # retSize
+            code += Op.PUSH1(0)                   # retOffset
+            code += Op.PUSH1(0)                   # argsSize
+            code += Op.PUSH1(0)                   # argsOffset
+            code += Op.PUSH20(inner_target)       # address
+            code += Op.GAS                        # gas
+
+        # Just pop one item - NO call, stack accumulates
+        code += Op.POP
+
+    # ========== REAL CALLS (push args + call + pop result) ==========
+    for _ in range(op_count):
+        if call_op in (Op.CALL, Op.CALLCODE):
+            code += Op.PUSH1(0)                   # retSize
+            code += Op.PUSH1(0)                   # retOffset
+            code += Op.PUSH1(0)                   # argsSize
+            code += Op.PUSH1(0)                   # argsOffset
+            code += Op.PUSH1(0)                   # value
+            code += Op.PUSH20(inner_target)       # address
+            code += Op.GAS                        # gas
+            code += call_op                       # CALL/CALLCODE
+        else:
+            code += Op.PUSH1(0)                   # retSize
+            code += Op.PUSH1(0)                   # retOffset
+            code += Op.PUSH1(0)                   # argsSize
+            code += Op.PUSH1(0)                   # argsOffset
+            code += Op.PUSH20(inner_target)       # address
+            code += Op.GAS                        # gas
+            code += call_op                       # STATICCALL/DELEGATECALL
+
+        code += Op.POP  # pop success flag
+
+    code += Op.STOP
+    return code
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
+    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
+)
+def test_marginal_call(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CALL opcode using loop-based caller."""
+    # Inner target: just stops
+    inner_target = pre.deploy_contract(code=Op.STOP)
+
+    # Target contract: makes op_count CALLs to inner_target per invocation
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_inner_calls(
+        inner_target, op_count, CALL_MAX_OP_COUNT, Op.CALL
+    )
+    target = pre.deploy_contract(code=target_code)
+
+    # Caller contract: loops CALL_NUM_CALLS times, calling target
+    caller_code = generate_caller_with_call(target, CALL_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
+    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
+)
+def test_marginal_callcode(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CALLCODE opcode using loop-based caller."""
+    inner_target = pre.deploy_contract(code=Op.STOP)
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_inner_calls(
+        inner_target, op_count, CALL_MAX_OP_COUNT, Op.CALLCODE
+    )
+    target = pre.deploy_contract(code=target_code)
+    caller_code = generate_caller_with_callcode(target, CALL_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
+    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
+)
+def test_marginal_delegatecall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for DELEGATECALL opcode using loop-based caller."""
+    inner_target = pre.deploy_contract(code=Op.STOP)
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_inner_calls(
+        inner_target, op_count, CALL_MAX_OP_COUNT, Op.DELEGATECALL
+    )
+    target = pre.deploy_contract(code=target_code)
+    caller_code = generate_caller_with_delegatecall(target, CALL_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CALL_MAX_OP_COUNT, CALL_STEP),
+    ids=lambda x: f"op_count_{x * CALL_NUM_CALLS}",
+)
+def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for STATICCALL opcode using loop-based caller."""
+    inner_target = pre.deploy_contract(code=Op.STOP)
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_inner_calls(
+        inner_target, op_count, CALL_MAX_OP_COUNT, Op.STATICCALL
+    )
+    target = pre.deploy_contract(code=target_code)
+    caller_code = generate_caller_with_staticcall(target, CALL_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+
+
+# ============================================================================
+# CREATE OPCODES - CREATE, CREATE2 (simplified noop approach)
+# These deploy new contracts
+# ============================================================================
+
+# For CREATE: Each call to target increments nonce, so each CREATE gets unique address
+# For CREATE2: We use a storage counter as salt to generate unique addresses
+
+# Stack-limited: each noop leaves +2 items (3 pushed, 1 popped)
+# Safe max_op_count: ~400 (with buffer), caller amplifies total
+CREATE_NUM_CALLS = 400
+CREATE_MAX_OP_COUNT = 21  # Target executes up to 21 CREATEs per call
+CREATE_STEP = 7  # 4 data points
+
+
+def _generate_target_with_creates(op_count: int, max_op_count: int) -> Bytecode:
+    """
+    Generate a target contract that executes op_count CREATE operations,
+    with simplified noop padding to ensure perfect marginal property.
+
+    NEW APPROACH (simplified, perfect gas marginality):
+    - Noops: Push 3 args + POP one (stack accumulates, but no CREATE)
+    - Real calls: Push 3 args + CREATE + POP result
+
+    Gas analysis:
+    - Noop:   PUSH×3 (9 gas) + POP (2 gas) = 11 gas
+    - Real:   PUSH×3 (9 gas) + CREATE (32000 gas) + POP (2 gas) = 32011 gas
+    - Marginal: 32000 gas (exactly the CREATE cost!)
+
+    Stack analysis:
+    - Each noop leaves +2 items (3 pushed, 1 popped)
+    - Stack limit = 1024, so max noops ≈ 500
+    """
+    code = Bytecode()
+
+    # Store minimal initcode in memory: 0x600080f3 (PUSH1 0, DUP1, RETURN)
+    code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
+
+    noop_count = max_op_count - op_count
+
+    # ========== NOOPS (push args + pop one, stack accumulates) ==========
+    for _ in range(noop_count):
+        # Push same arguments as real CREATE
+        code += Op.PUSH1(4)                   # size
+        code += Op.PUSH1(0)                   # offset
+        code += Op.PUSH1(0)                   # value
+        # Just pop one item - NO CREATE, stack accumulates
+        code += Op.POP
+
+    # ========== REAL CREATEs (push args + CREATE + pop result) ==========
+    for _ in range(op_count):
+        code += Op.PUSH1(4)                   # size
+        code += Op.PUSH1(0)                   # offset
+        code += Op.PUSH1(0)                   # value
+        code += Op.CREATE                     # CREATE(value, offset, size) -> address
+        code += Op.POP                        # pop created address
+
+    code += Op.STOP
+    return code
+
+
+def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode:
+    """
+    Generate a target contract that executes op_count CREATE2 operations,
+    with simplified noop padding to ensure perfect marginal property.
+
+    NEW APPROACH (real ops first, then noops):
+    - Real CREATE2s first (while stack is clean, DUP1 works correctly)
+    - Then update salt counter (before noops pollute the stack)
+    - Then noops (push 4 args + POP one, stack accumulates but unused)
+
+    Gas analysis:
+    - Noop:   PUSH×4 (12 gas) + POP (2 gas) = 14 gas
+    - Real:   PUSH×4 (12 gas) + CREATE2 (32000 gas) + POP (2 gas) = 32014 gas
+    - Marginal: 32000 gas (exactly the CREATE2 cost!)
+
+    Stack analysis:
+    - Each noop leaves +3 items (4 pushed, 1 popped)
+    - Stack limit = 1024, so max noops ≈ 340
+
+    Uses a storage slot as a counter for unique salts.
+    """
+    code = Bytecode()
+
+    # Store minimal initcode in memory
+    code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
+
+    # Load current salt counter from storage slot 0x100
+    salt_slot = 0x100
+    code += Op.SLOAD(salt_slot)  # salt counter on stack
+
+    noop_count = max_op_count - op_count
+
+    # ========== REAL CREATE2s FIRST (while stack is clean) ==========
+    for i in range(op_count):
+        # CREATE2(value, offset, size, salt) -> address
+        code += Op.DUP1                       # duplicate salt counter (works while stack is clean)
+        code += Op.PUSH2(i)                   # add offset for unique salt
+        code += Op.ADD                        # salt = counter + i
+        code += Op.PUSH1(4)                   # size
+        code += Op.PUSH1(0)                   # offset
+        code += Op.PUSH1(0)                   # value
+        code += Op.CREATE2                    # Uses unique salt
+        code += Op.POP                        # pop created address
+
+    # Update salt counter NOW (while stack still has just salt_counter on top)
+    code += Op.PUSH2(max_op_count)
+    code += Op.ADD                            # new counter = old + max_op_count
+    code += Op.PUSH2(salt_slot)
+    code += Op.SSTORE                         # save updated counter
+
+    # ========== NOOPS AFTER (push args + pop one, stack accumulates but unused) ==========
+    for i in range(noop_count):
+        # Push same arguments as real CREATE2
+        # Salt value doesn't matter for noops, just push dummy values
+        code += Op.PUSH2(op_count + i)        # dummy salt
+        code += Op.PUSH1(4)                   # size
+        code += Op.PUSH1(0)                   # offset
+        code += Op.PUSH1(0)                   # value
+        # Just pop one item - NO CREATE2, stack accumulates (but we're done after this)
+        code += Op.POP
+
+    code += Op.STOP
+    return code
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CREATE_MAX_OP_COUNT, CREATE_STEP),
+    ids=lambda x: f"op_count_{x * CREATE_NUM_CALLS}",
+)
+def test_marginal_create(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CREATE opcode using loop-based caller."""
+    # Target contract executes op_count CREATEs per call
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_creates(op_count, CREATE_MAX_OP_COUNT)
+    target = pre.deploy_contract(code=target_code)
+
+    # Caller loops CREATE_NUM_CALLS times, calling target
+    caller_code = generate_caller_with_call(target, CREATE_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "op_count",
+    generate_op_counts(CREATE_MAX_OP_COUNT, CREATE_STEP),
+    ids=lambda x: f"op_count_{x * CREATE_NUM_CALLS}",
+)
+def test_marginal_create2(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
+    """Marginal cost test for CREATE2 opcode using loop-based caller."""
+    # Target contract executes op_count CREATE2s per call with unique salts
+    # With noop padding for proper marginality
+    target_code = _generate_target_with_create2s(op_count, CREATE_MAX_OP_COUNT)
+    target = pre.deploy_contract(code=target_code)
+
+    # Caller loops CREATE_NUM_CALLS times, calling target
+    caller_code = generate_caller_with_call(target, CREATE_NUM_CALLS)
+    caller = pre.deploy_contract(code=caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(to=caller, gas_limit=CALLER_GAS_LIMIT, sender=sender)
+    post = {caller: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
+    state_test(env=Environment(gas_limit=CALLER_GAS_LIMIT), pre=pre, post=post, tx=tx)
 
 
 # ============================================================================
@@ -2611,34 +2597,34 @@ test_log4 = _create_caller_test(
 def generate_dup_target(dup_n: int, op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate DUP target with CONSTANT overhead (true marginal).
-    
+
     Following gas-cost-estimator's approach:
     - TOTAL PUSHES = constant (max_op_count empty + dup_n initial)
     - TOTAL POPS = constant (max_op_count for DUP results + dup_n for cleanup)
     - Only DUP count varies
-    
-    Pattern: 
+
+    Pattern:
       1. Pre-push max_op_count zeros (CONSTANT)
       2. Push dup_n values (CONSTANT)
       3. DUP + (POP + DUP)*(op_count-1) - op_count DUPs with interleaved POPs
       4. End POPs to reach constant total
       5. Pop dup_n initial values (CONSTANT)
-    
+
     Gas calculation:
       op_count=0:  constant pushes + 0 DUPs + constant pops
       op_count=N:  constant pushes + N DUPs + constant pops
       Marginal = N*3 / N = 3 gas per DUP ✓
     """
     code = Bytecode()
-    
+
     # 1. ALWAYS pre-push max_op_count zeros (CONSTANT overhead)
     for _ in range(max_op_count):
         code += Op.PUSH0
-    
+
     # 2. ALWAYS push dup_n initial values (CONSTANT overhead)
     for i in range(dup_n):
         code += Op.PUSH1[i]
-    
+
     # 3. Execute DUP operations with interleaved POPs
     # Pattern: DUP + (POP + DUP) * (op_count-1)
     interleaved_pops = max(op_count - 1, 0)
@@ -2648,16 +2634,16 @@ def generate_dup_target(dup_n: int, op_count: int, max_op_count: int) -> Bytecod
         for _ in range(interleaved_pops):
             code += Op.POP
             code += dup_opcode
-    
+
     # 4. End POPs = max_op_count - interleaved_pops (to reach CONSTANT total)
     end_pops = max_op_count - interleaved_pops
     for _ in range(end_pops):
         code += Op.POP
-    
+
     # 5. ALWAYS pop dup_n initial values (CONSTANT overhead)
     for _ in range(dup_n):
         code += Op.POP
-    
+
     code += Op.STOP
     return code
 
@@ -2665,19 +2651,19 @@ def generate_dup_target(dup_n: int, op_count: int, max_op_count: int) -> Bytecod
 def generate_swap_target(swap_n: int, op_count: int, max_op_count: int) -> Bytecode:
     """Generate SWAP target for caller (no SSTORE, just STOP)."""
     code = Bytecode()
-    
+
     # Push swap_n+1 initial values
     for i in range(swap_n + 1):
         code += Op.PUSH1[i]
-    
+
     # Execute op_count SWAP operations
     swap_opcode = getattr(Op, f"SWAP{swap_n}")
     for _ in range(op_count):
         code += swap_opcode
-    
+
     # Pop the initial values
     for _ in range(swap_n + 1):
         code += Op.POP
-    
+
     code += Op.STOP
     return code
