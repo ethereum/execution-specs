@@ -1669,19 +1669,8 @@ def _generate_target_with_creates(op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate a target contract that executes op_count CREATE operations,
     with simplified noop padding to ensure perfect marginal property.
-
-    NEW APPROACH (simplified, perfect gas marginality):
     - Noops: Push 3 args + POP one (stack accumulates, but no CREATE)
     - Real calls: Push 3 args + CREATE + POP result
-
-    Gas analysis:
-    - Noop:   PUSH×3 (9 gas) + POP (2 gas) = 11 gas
-    - Real:   PUSH×3 (9 gas) + CREATE (32000 gas) + POP (2 gas) = 32011 gas
-    - Marginal: 32000 gas (exactly the CREATE cost!)
-
-    Stack analysis:
-    - Each noop leaves +2 items (3 pushed, 1 popped)
-    - Stack limit = 1024, so max noops ≈ 500
     """
     code = Bytecode()
 
@@ -1714,23 +1703,12 @@ def _generate_target_with_creates(op_count: int, max_op_count: int) -> Bytecode:
 def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate a target contract that executes op_count CREATE2 operations,
-    with simplified noop padding to ensure perfect marginal property.
-
-    NEW APPROACH (real ops first, then noops):
-    - Real CREATE2s first (while stack is clean, DUP1 works correctly)
-    - Then update salt counter (before noops pollute the stack)
-    - Then noops (push 4 args + POP one, stack accumulates but unused)
-
-    Gas analysis:
-    - Noop:   PUSH×4 (12 gas) + POP (2 gas) = 14 gas
-    - Real:   PUSH×4 (12 gas) + CREATE2 (32000 gas) + POP (2 gas) = 32014 gas
-    - Marginal: 32000 gas (exactly the CREATE2 cost!)
-
-    Stack analysis:
-    - Each noop leaves +3 items (4 pushed, 1 popped)
-    - Stack limit = 1024, so max noops ≈ 340
-
-    Uses a storage slot as a counter for unique salts.
+    with noop padding to ensure perfect marginal property.
+    Structure:
+    - Load salt counter (kept on stack throughout)
+    - Noops first (same overhead as real CREATE2, pop salt instead of CREATE2)
+    - Real CREATE2s (execute the opcode)
+    - Update and save salt counter
     """
     code = Bytecode()
 
@@ -1743,34 +1721,34 @@ def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode
 
     noop_count = max_op_count - op_count
 
-    # ========== REAL CREATE2s FIRST (while stack is clean) ==========
+    # ========== NOOPS FIRST (same overhead as real CREATE2, just pop instead of CREATE2) ==========
+    for i in range(noop_count):
+        code += Op.DUP1                       # duplicate salt counter (same as real)
+        code += Op.PUSH2(i)                   # add offset (same as real)
+        code += Op.ADD                        # salt = counter + i (same as real)
+        code += Op.PUSH1(4)                   # size
+        code += Op.PUSH1(0)                   # offset
+        code += Op.PUSH1(0)                   # value
+        # Pop the calculated salt instead of CREATE2
+        # This leaves the 3 args (value, offset, size) on stack
+        code += Op.POP                        # pop salt (matches the POP in real CREATE2 that pops address)
+
+    # ========== REAL CREATE2s ==========
     for i in range(op_count):
-        # CREATE2(value, offset, size, salt) -> address
-        code += Op.DUP1                       # duplicate salt counter (works while stack is clean)
-        code += Op.PUSH2(i)                   # add offset for unique salt
+        code += Op.DUP1                       # duplicate salt counter
+        code += Op.PUSH2(noop_count + i)      # add offset for unique salt
         code += Op.ADD                        # salt = counter + i
         code += Op.PUSH1(4)                   # size
         code += Op.PUSH1(0)                   # offset
         code += Op.PUSH1(0)                   # value
-        code += Op.CREATE2                    # Uses unique salt
+        code += Op.CREATE2                    # CREATE2(value, offset, size, salt) -> address
         code += Op.POP                        # pop created address
 
-    # Update salt counter NOW (while stack still has just salt_counter on top)
+    # Update salt counter (still on stack)
     code += Op.PUSH2(max_op_count)
     code += Op.ADD                            # new counter = old + max_op_count
     code += Op.PUSH2(salt_slot)
     code += Op.SSTORE                         # save updated counter
-
-    # ========== NOOPS AFTER (push args + pop one, stack accumulates but unused) ==========
-    for i in range(noop_count):
-        # Push same arguments as real CREATE2
-        # Salt value doesn't matter for noops, just push dummy values
-        code += Op.PUSH2(op_count + i)        # dummy salt
-        code += Op.PUSH1(4)                   # size
-        code += Op.PUSH1(0)                   # offset
-        code += Op.PUSH1(0)                   # value
-        # Just pop one item - NO CREATE2, stack accumulates (but we're done after this)
-        code += Op.POP
 
     code += Op.STOP
     return code
