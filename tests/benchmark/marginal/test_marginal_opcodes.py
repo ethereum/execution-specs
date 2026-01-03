@@ -1754,6 +1754,86 @@ def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode
     return code
 
 
+# ============================================================================
+# DUP/SWAP TARGET GENERATORS
+# ============================================================================
+
+
+def generate_dup_target(dup_n: int, op_count: int, max_op_count: int) -> Bytecode:
+    """
+    Generate DUP target with CONSTANT overhead (true marginal).
+
+    Following gas-cost-estimator's approach:
+    - TOTAL PUSHES = constant (max_op_count empty + dup_n initial)
+    - TOTAL POPS = constant (max_op_count for DUP results + dup_n for cleanup)
+    - Only DUP count varies
+
+    Pattern:
+      1. Pre-push max_op_count zeros (CONSTANT)
+      2. Push dup_n values (CONSTANT)
+      3. DUP + (POP + DUP)*(op_count-1) - op_count DUPs with interleaved POPs
+      4. End POPs to reach constant total
+      5. Pop dup_n initial values (CONSTANT)
+
+    Gas calculation:
+      op_count=0:  constant pushes + 0 DUPs + constant pops
+      op_count=N:  constant pushes + N DUPs + constant pops
+      Marginal = N*3 / N = 3 gas per DUP ✓
+    """
+    code = Bytecode()
+
+    # 1. ALWAYS pre-push max_op_count zeros (CONSTANT overhead)
+    for _ in range(max_op_count):
+        code += Op.PUSH0
+
+    # 2. ALWAYS push dup_n initial values (CONSTANT overhead)
+    for i in range(dup_n):
+        code += Op.PUSH1[i]
+
+    # 3. Execute DUP operations with interleaved POPs
+    # Pattern: DUP + (POP + DUP) * (op_count-1)
+    interleaved_pops = max(op_count - 1, 0)
+    dup_opcode = getattr(Op, f"DUP{dup_n}")
+    if op_count >= 1:
+        code += dup_opcode  # First DUP
+        for _ in range(interleaved_pops):
+            code += Op.POP
+            code += dup_opcode
+
+    # 4. End POPs = max_op_count - interleaved_pops (to reach CONSTANT total)
+    end_pops = max_op_count - interleaved_pops
+    for _ in range(end_pops):
+        code += Op.POP
+
+    # 5. ALWAYS pop dup_n initial values (CONSTANT overhead)
+    for _ in range(dup_n):
+        code += Op.POP
+
+    code += Op.STOP
+    return code
+
+
+def generate_swap_target(swap_n: int, op_count: int, max_op_count: int) -> Bytecode:
+    """Generate SWAP target for amplifier (no SSTORE, just STOP)."""
+    code = Bytecode()
+
+    # Push swap_n+1 initial values
+    for i in range(swap_n + 1):
+        code += Op.PUSH1[i]
+
+    # Execute op_count SWAP operations
+    swap_opcode = getattr(Op, f"SWAP{swap_n}")
+    for _ in range(op_count):
+        code += swap_opcode
+
+    # Pop the initial values
+    for _ in range(swap_n + 1):
+        code += Op.POP
+
+    code += Op.STOP
+    return code
+
+
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "op_count",
@@ -1936,82 +2016,3 @@ test_log1 = _create_amplifier_test(LOG1_CONFIG)
 test_log2 = _create_amplifier_test(LOG2_CONFIG)
 test_log3 = _create_amplifier_test(LOG3_CONFIG)
 test_log4 = _create_amplifier_test(LOG4_CONFIG)
-
-
-# ============================================================================
-# HELPER FUNCTIONS FOR DUP/SWAP TARGET GENERATION
-# ============================================================================
-
-def generate_dup_target(dup_n: int, op_count: int, max_op_count: int) -> Bytecode:
-    """
-    Generate DUP target with CONSTANT overhead (true marginal).
-
-    Following gas-cost-estimator's approach:
-    - TOTAL PUSHES = constant (max_op_count empty + dup_n initial)
-    - TOTAL POPS = constant (max_op_count for DUP results + dup_n for cleanup)
-    - Only DUP count varies
-
-    Pattern:
-      1. Pre-push max_op_count zeros (CONSTANT)
-      2. Push dup_n values (CONSTANT)
-      3. DUP + (POP + DUP)*(op_count-1) - op_count DUPs with interleaved POPs
-      4. End POPs to reach constant total
-      5. Pop dup_n initial values (CONSTANT)
-
-    Gas calculation:
-      op_count=0:  constant pushes + 0 DUPs + constant pops
-      op_count=N:  constant pushes + N DUPs + constant pops
-      Marginal = N*3 / N = 3 gas per DUP ✓
-    """
-    code = Bytecode()
-
-    # 1. ALWAYS pre-push max_op_count zeros (CONSTANT overhead)
-    for _ in range(max_op_count):
-        code += Op.PUSH0
-
-    # 2. ALWAYS push dup_n initial values (CONSTANT overhead)
-    for i in range(dup_n):
-        code += Op.PUSH1[i]
-
-    # 3. Execute DUP operations with interleaved POPs
-    # Pattern: DUP + (POP + DUP) * (op_count-1)
-    interleaved_pops = max(op_count - 1, 0)
-    dup_opcode = getattr(Op, f"DUP{dup_n}")
-    if op_count >= 1:
-        code += dup_opcode  # First DUP
-        for _ in range(interleaved_pops):
-            code += Op.POP
-            code += dup_opcode
-
-    # 4. End POPs = max_op_count - interleaved_pops (to reach CONSTANT total)
-    end_pops = max_op_count - interleaved_pops
-    for _ in range(end_pops):
-        code += Op.POP
-
-    # 5. ALWAYS pop dup_n initial values (CONSTANT overhead)
-    for _ in range(dup_n):
-        code += Op.POP
-
-    code += Op.STOP
-    return code
-
-
-def generate_swap_target(swap_n: int, op_count: int, max_op_count: int) -> Bytecode:
-    """Generate SWAP target for amplifier (no SSTORE, just STOP)."""
-    code = Bytecode()
-
-    # Push swap_n+1 initial values
-    for i in range(swap_n + 1):
-        code += Op.PUSH1[i]
-
-    # Execute op_count SWAP operations
-    swap_opcode = getattr(Op, f"SWAP{swap_n}")
-    for _ in range(op_count):
-        code += swap_opcode
-
-    # Pop the initial values
-    for _ in range(swap_n + 1):
-        code += Op.POP
-
-    code += Op.STOP
-    return code
