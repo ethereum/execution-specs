@@ -1131,112 +1131,6 @@ def push_value(value: int) -> Bytecode:
         return Op.PUSH32(value)
 
 
-def generate_marginal_program(
-    config: MarginalOpcodeConfig,
-    op_count: int,
-) -> Bytecode:
-    """
-    Generate a marginal program for the given opcode configuration.
-
-    Following the gas-cost-estimator approach, there are two strategies:
-
-    1. For opcodes that RETURN values (outputs_per_op > 0):
-       - Push "empty" values first to ensure POPs always have something
-       - Push all arguments upfront
-       - Interleave opcodes with result POPs
-       - Total POPs = max_op_count * outputs_per_op (CONSTANT)
-
-    2. For opcodes that DON'T return values (outputs_per_op == 0):
-       - Use "noop" padding instead of POPs
-       - For op_count executions: push args + execute opcode
-       - For remaining (max_op_count - op_count): just push args (no opcode)
-       - This keeps total PUSH count constant while varying only opcode count
-
-    Args:
-        config: The opcode configuration
-        op_count: Number of times to execute the opcode
-
-    Returns:
-        Bytecode for the marginal program
-    """
-    assert 0 <= op_count <= config.max_op_count
-
-    code = Bytecode()
-
-    # 1. Optional setup code (e.g., memory initialization)
-    if config.setup_code is not None:
-        code += config.setup_code
-
-    if config.outputs_per_op > 0:
-        # ================================================================
-        # Strategy 1: POP-based padding for opcodes that return values
-        # ================================================================
-
-        # 2. Push "empty" values to ensure there's always something to POP
-        total_result_pops = config.max_op_count * config.outputs_per_op
-        for _ in range(total_result_pops):
-            code += Op.PUSH0
-
-        # 3. Push stack arguments for ALL potential opcode instances
-        for _ in range(config.max_op_count):
-            for arg in config.stack_args:
-                code += push_value(arg)
-
-        # 4. Execute opcodes with interleaved POPs
-        if op_count == 0:
-            # No opcodes, just POP all the empty values
-            for _ in range(total_result_pops):
-                code += Op.POP
-        else:
-            # Execute first opcode
-            code += config.opcode
-            # Interleave remaining opcodes with result POPs
-            interleaved_count = op_count - 1
-            for _ in range(interleaved_count):
-                for _ in range(config.outputs_per_op):
-                    code += Op.POP
-                code += config.opcode
-            # POP remaining results at the end
-            end_pops = total_result_pops - interleaved_count * config.outputs_per_op
-            for _ in range(end_pops):
-                code += Op.POP
-    else:
-        # ================================================================
-        # Strategy 2: Noop-based padding for non-returning opcodes
-        # (Following gas-cost-estimator's MSTORE/CALLDATACOPY approach)
-        # ================================================================
-
-        # Structure (matching gas-cost-estimator):
-        # 1. For op_count iterations: PUSH args + OPCODE
-        # 2. For (max_op_count - op_count) iterations: PUSH args only (no opcode)
-        #
-        # This ensures:
-        # - Total PUSH count is constant (max_op_count * len(stack_args))
-        # - Only the opcode execution count varies
-        # - Stack may be unbalanced at end (that's OK - STOP doesn't require it)
-
-        # 1. Real operations: push args + execute opcode
-        for _ in range(op_count):
-            for arg in config.stack_args:
-                code += push_value(arg)
-            code += config.opcode
-
-        # 2. Noops: just push args (no opcode, no pop)
-        # These values stay on stack - that's fine
-        noop_count = config.max_op_count - op_count
-        for _ in range(noop_count):
-            for arg in config.stack_args:
-                code += push_value(arg)
-
-    # 5. Write success marker to storage (proves execution didn't revert)
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-
-    # 6. Stop execution
-    code += Op.STOP
-
-    return code
-
-
 def generate_op_counts(max_op_count: int, step: int) -> List[int]:
     """Generate list of op_counts from 0 to max_op_count with given step."""
     counts = list(range(0, max_op_count + 1, step))
@@ -1270,8 +1164,8 @@ def generate_target_contract_code(
     """
     Generate a target contract for amplifier-target approach.
 
-    Same as generate_marginal_program but WITHOUT SSTORE (since it's called
-    via STATICCALL which doesn't allow state changes). Just ends with STOP.
+    Uses the same marginal testing strategies (POP-based or noop-based padding)
+    but WITHOUT SSTORE (since it's called via CALL from amplifier). Just ends with STOP.
     """
     assert 0 <= op_count <= config.max_op_count
 
@@ -1468,26 +1362,9 @@ def _create_amplifier_test(
     return test_func
 
 
-@pytest.mark.skip(reason="BLOCKHASH requires proper block history in test environment")
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "op_count",
-    generate_op_counts(BLOCKHASH_CONFIG.max_op_count, BLOCKHASH_CONFIG.step),
-    ids=lambda x: f"op_count_{x}",
-)
-def test_marginal_blockhash(state_test: StateTestFiller, pre: Alloc, op_count: int) -> None:
-    """Marginal cost test for BLOCKHASH opcode."""
-    code = generate_marginal_program(BLOCKHASH_CONFIG, op_count)
-    contract = pre.deploy_contract(code=code)
-    sender = pre.fund_eoa()
-    tx = Transaction(to=contract, gas_limit=AMPLIFIER_GAS_LIMIT, sender=sender)
-    post = {contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
-    state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
-
-
 # ============================================================================
 # JUMP / JUMPI - Special handling required (control flow opcodes)
-# These cannot use generate_marginal_program directly since they change control flow.
+# These require custom target generators since they change control flow.
 # We use a loop-based approach where we control the iteration count.
 # ============================================================================
 
@@ -2532,7 +2409,7 @@ test_balance = _create_amplifier_test(BALANCE_CONFIG)
 test_extcodesize = _create_amplifier_test(EXTCODESIZE_CONFIG)
 test_extcodehash = _create_amplifier_test(EXTCODEHASH_CONFIG)
 test_extcodecopy = _create_amplifier_test(EXTCODECOPY_CONFIG)
-# Note: BLOCKHASH amplifier test omitted - fails with high op_count due to large bytecode
+test_blockhash = _create_amplifier_test(BLOCKHASH_CONFIG)
 test_blobhash = _create_amplifier_test(BLOBHASH_CONFIG)
 
 # Hash opcodes
