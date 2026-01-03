@@ -1381,32 +1381,30 @@ def generate_jump_program(op_count: int, max_op_count: int) -> Bytecode:
     Note: Combo sizes differ (6 vs 5 bytes), but positions are calculated dynamically.
     Marginal gas = 12 - 4 = 8 (exactly JUMP gas)
     """
-    # Build bytecode by calculating positions dynamically (like gas-cost-estimator)
-    bytecode_hex = ""
+    code = Bytecode()
 
     for i in range(max_op_count):
-        current_pc = len(bytecode_hex) // 2
+        current_pc = len(bytes(code))
 
         if i < op_count:
             # Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes
             # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) + 1 (JUMP) = current_pc + 5
             jumpdest_pc = current_pc + 1 + 3 + 1
-            # PUSH3 = 0x62, JUMP = 0x56, JUMPDEST = 0x5b
-            bytecode_hex += f"62{jumpdest_pc:06x}565b"
+            code += Op.PUSH3(jumpdest_pc)
+            code += Op.JUMP
+            code += Op.JUMPDEST
         else:
             # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes (no JUMP!)
             # JUMPDEST is at: current_pc + 1 (PUSH3 opcode) + 3 (value) = current_pc + 4
             jumpdest_pc = current_pc + 1 + 3
-            bytecode_hex += f"62{jumpdest_pc:06x}5b"
+            code += Op.PUSH3(jumpdest_pc)
+            code += Op.JUMPDEST
 
-    # Add epilogue as hex:
-    # SSTORE(SUCCESS_SLOT=0, SUCCESS_MARKER=0xdead)
-    # PUSH2 0xdead = 61dead, PUSH1 0 = 6000, SSTORE = 55, STOP = 00
-    bytecode_hex += "61dead60005500"
+    # Add epilogue: SSTORE(SUCCESS_SLOT, SUCCESS_MARKER) + STOP
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
 
-    # Return as raw bytes wrapped in Bytecode container
-    # For raw bytes, must specify stack items (0 pops, 0 pushes for complete program)
-    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
+    return code
 
 
 def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
@@ -1424,83 +1422,94 @@ def generate_jumpi_program(op_count: int, max_op_count: int) -> Bytecode:
        - Real combo (i < op_count): PUSH3(dest) + JUMPI + JUMPDEST
        - Noop combo (i >= op_count): PUSH3(dest) + JUMPDEST
     """
-    bytecode_hex = ""
+    code = Bytecode()
 
     # 1. Push max_op_count conditions upfront (CONSTANT overhead)
     for _ in range(max_op_count):
-        bytecode_hex += "6001"  # PUSH1 1 (true condition)
+        code += Op.PUSH1(1)  # Push true condition
 
     # 2. Run combos
     for i in range(max_op_count):
-        current_pc = len(bytecode_hex) // 2
+        current_pc = len(bytes(code))
 
         if i < op_count:
             # Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
             jumpdest_pc = current_pc + 1 + 3 + 1
-            bytecode_hex += f"62{jumpdest_pc:06x}575b"
+            code += Op.PUSH3(jumpdest_pc)
+            code += Op.JUMPI
+            code += Op.JUMPDEST
         else:
             # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
             jumpdest_pc = current_pc + 1 + 3
-            bytecode_hex += f"62{jumpdest_pc:06x}5b"
+            code += Op.PUSH3(jumpdest_pc)
+            code += Op.JUMPDEST
 
-    # 3. Epilogue (POPs for unused conditions not needed - stack cleanup is optional)
-    bytecode_hex += "61dead60005500"
+    # 3. Epilogue: SSTORE(SUCCESS_SLOT, SUCCESS_MARKER) + STOP
+    # Note: Unused conditions stay on stack (fine for gas measurement)
+    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
+    code += Op.STOP
 
-    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
+    return code
 
 
 def generate_jump_target(op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate JUMP target contract for amplifier-target approach.
-    Similar to generate_jump_program but without SSTORE (compatible with STATICCALL).
+    Similar to generate_jump_program but without SSTORE (called via CALL from amplifier).
     """
-    bytecode_hex = ""
+    code = Bytecode()
 
     for i in range(max_op_count):
-        current_pc = len(bytecode_hex) // 2
+        current_pc = len(bytes(code))
 
         if i < op_count:
             # Real combo: PUSH3(dest) + JUMP + JUMPDEST = 6 bytes
             jumpdest_pc = current_pc + 1 + 3 + 1
-            bytecode_hex += f"62{jumpdest_pc:06x}565b"
+            code += Op.PUSH3(jumpdest_pc)
+            code += Op.JUMP
+            code += Op.JUMPDEST
         else:
             # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
             jumpdest_pc = current_pc + 1 + 3
-            bytecode_hex += f"62{jumpdest_pc:06x}5b"
+            code += Op.PUSH3(jumpdest_pc)
+            code += Op.JUMPDEST
 
-    # Just STOP (no SSTORE - called via STATICCALL)
-    bytecode_hex += "00"
+    # Just STOP (no SSTORE - called via CALL from amplifier)
+    code += Op.STOP
 
-    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
+    return code
 
 
 def generate_jumpi_target(op_count: int, max_op_count: int) -> Bytecode:
     """
     Generate JUMPI target contract for amplifier-target approach.
-    Similar to generate_jumpi_program but without SSTORE (compatible with STATICCALL).
+    Similar to generate_jumpi_program but without SSTORE (called via CALL from amplifier).
     """
-    bytecode_hex = ""
+    code = Bytecode()
 
     # Push max_op_count conditions upfront
     for _ in range(max_op_count):
-        bytecode_hex += "6001"  # PUSH1 1 (true condition)
+        code += Op.PUSH1(1)  # Push true condition
 
     for i in range(max_op_count):
-        current_pc = len(bytecode_hex) // 2
+        current_pc = len(bytes(code))
 
         if i < op_count:
             # Real combo: PUSH3(dest) + JUMPI + JUMPDEST = 6 bytes
             jumpdest_pc = current_pc + 1 + 3 + 1
-            bytecode_hex += f"62{jumpdest_pc:06x}575b"
+            code += Op.PUSH3(jumpdest_pc)
+            code += Op.JUMPI
+            code += Op.JUMPDEST
         else:
             # Noop combo: PUSH3(dest) + JUMPDEST = 5 bytes
             jumpdest_pc = current_pc + 1 + 3
-            bytecode_hex += f"62{jumpdest_pc:06x}5b"
+            code += Op.PUSH3(jumpdest_pc)
+            code += Op.JUMPDEST
 
-    # Just STOP (no SSTORE - called via STATICCALL)
-    bytecode_hex += "00"
+    # Just STOP (no SSTORE - called via CALL from amplifier)
+    code += Op.STOP
 
-    return Bytecode(bytes.fromhex(bytecode_hex), popped_stack_items=0, pushed_stack_items=0, terminating=True)
+    return code
 
 
 # ============================================================================
