@@ -90,10 +90,6 @@ class CustomTargetConfig:
     topic_count: int = 0
     """For LOG0-4, specifies number of topics."""
 
-    # Whether target needs CALL instead of STATICCALL (e.g., LOG modifies state)
-    needs_call: bool = False
-    """If True, use CALL instead of STATICCALL for the caller contract."""
-
 
 # ============================================================================
 # ARITHMETIC OPCODES
@@ -564,19 +560,19 @@ SWAP16_CONFIG = CustomTargetConfig(
 )
 
 LOG0_CONFIG = CustomTargetConfig(
-    name="LOG0", max_op_count=100, step=20, num_calls=2400, topic_count=0, needs_call=True
+    name="LOG0", max_op_count=100, step=20, num_calls=2400, topic_count=0
 )
 LOG1_CONFIG = CustomTargetConfig(
-    name="LOG1", max_op_count=81, step=27, num_calls=2000, topic_count=1, needs_call=True
+    name="LOG1", max_op_count=81, step=27, num_calls=2000, topic_count=1
 )
 LOG2_CONFIG = CustomTargetConfig(
-    name="LOG2", max_op_count=60, step=20, num_calls=2100, topic_count=2, needs_call=True
+    name="LOG2", max_op_count=60, step=20, num_calls=2100, topic_count=2
 )
 LOG3_CONFIG = CustomTargetConfig(
-    name="LOG3", max_op_count=51, step=17, num_calls=1400, topic_count=3, needs_call=True
+    name="LOG3", max_op_count=51, step=17, num_calls=1400, topic_count=3
 )
 LOG4_CONFIG = CustomTargetConfig(
-    name="LOG4", max_op_count=39, step=13, num_calls=1400, topic_count=4, needs_call=True
+    name="LOG4", max_op_count=39, step=13, num_calls=1400, topic_count=4
 )
 
 JUMP_CONFIG = CustomTargetConfig(
@@ -804,11 +800,11 @@ def generate_caller_contract_code(target_address: Address, num_calls: int) -> By
     Generate caller contract that calls target num_calls times using a loop to
     amplify the op_count. The loop overhead is constant across all test variants,
     so it gets eliminated in the marginal cost regression.
-    
+
     Structure:
         PUSH num_calls          ; Initialize counter
         JUMPDEST (loop_start)   ; Loop label
-        STATICCALL to target    ; Call target contract
+        CALL to target          ; Call target contract
         PUSH2 continue          ; Push continue offset
         JUMPI                   ; Jump if success (non-zero)
         REVERT                  ; Revert if call failed
@@ -823,7 +819,7 @@ def generate_caller_contract_code(target_address: Address, num_calls: int) -> By
         SSTORE + STOP           ; Success marker
     """
     code = Bytecode()
-    
+
     # Push loop counter (use appropriate PUSH based on num_calls size)
     if num_calls <= 0xFF:
         code += Op.PUSH1(num_calls)
@@ -831,69 +827,9 @@ def generate_caller_contract_code(target_address: Address, num_calls: int) -> By
         code += Op.PUSH2(num_calls)
     else:
         code += Op.PUSH3(num_calls)
-    
+
     # Loop start - we need to calculate the offset for JUMPDEST
     # The PUSH for counter takes 2-4 bytes, JUMPDEST is at that offset
-    loop_start_offset = len(bytes(code))
-    code += Op.JUMPDEST
-    
-    # Call target contract (STATICCALL: gas, addr, argsOffset, argsSize, retOffset, retSize)
-    code += Op.PUSH1(0)                   # retSize
-    code += Op.PUSH1(0)                   # retOffset
-    code += Op.PUSH1(0)                   # argsSize
-    code += Op.PUSH1(0)                   # argsOffset
-    code += Op.PUSH20(target_address)     # address
-    code += Op.GAS                        # gas (forward all)
-    code += Op.STATICCALL                 # Returns success flag on stack
-
-    # Check success and revert if call failed
-    current_pc = len(bytes(code))
-    continue_offset = current_pc + 9      # PUSH2(3) + JUMPI(1) + PUSH1(2) + PUSH1(2) + REVERT(1)
-    code += Op.PUSH2(continue_offset)     # Push continue offset
-    code += Op.JUMPI                      # Jump if success (non-zero)
-    # Revert path (only executed if STATICCALL returned 0)
-    code += Op.PUSH1(0)                   # revert data size
-    code += Op.PUSH1(0)                   # revert data offset
-    code += Op.REVERT                     # Revert immediately on failure
-    code += Op.JUMPDEST                   # Continue path
-
-    # Decrement counter: counter -= 1
-    code += Op.PUSH1(1)
-    code += Op.SWAP1
-    code += Op.SUB
-    
-    # Check if counter > 0 and loop
-    code += Op.DUP1                       # Duplicate counter for JUMPI check
-    code += Op.PUSH2(loop_start_offset)   # Push loop start offset
-    code += Op.JUMPI                      # Jump back if counter > 0
-    
-    # Counter is 0, pop it and write success marker
-    code += Op.POP
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-    
-    return code
-
-
-def generate_caller_contract_code_call(target_address: Address, num_calls: int) -> Bytecode:
-    """
-    Generate caller contract using CALL instead of STATICCALL.
-    Required for state-modifying opcodes (SSTORE, TSTORE, LOG).
-    
-    Same structure as generate_caller_contract_code but uses CALL (with value=0)
-    instead of STATICCALL to allow state modifications in the target.
-    """
-    code = Bytecode()
-
-    # Push loop counter
-    if num_calls <= 0xFF:
-        code += Op.PUSH1(num_calls)
-    elif num_calls <= 0xFFFF:
-        code += Op.PUSH2(num_calls)
-    else:
-        code += Op.PUSH3(num_calls)
-
-    # Loop start
     loop_start_offset = len(bytes(code))
     code += Op.JUMPDEST
 
@@ -946,16 +882,12 @@ CallerGenerator = Callable[[Address, int], Bytecode]
 def _create_caller_test(
     cfg: MarginalOpcodeConfig | CustomTargetConfig,
     target_generator: TargetGenerator | None = None,
-    *,
-    needs_call: bool | None = None,
 ):
     """
     Single factory for all caller-contract marginal tests.
 
     - If cfg is MarginalOpcodeConfig: defaults to generate_target_contract_code(cfg, op_count)
     - If cfg is CustomTargetConfig: requires target_generator(op_count, max_op_count)
-
-    `needs_call=True` forces using CALL-based caller (required for state-modifying opcodes).
     """
     if isinstance(cfg, MarginalOpcodeConfig):
         max_op_count = cfg.max_op_count
@@ -963,22 +895,16 @@ def _create_caller_test(
         num_calls = cfg.num_calls
         if target_generator is None:
             target_generator = lambda oc, _moc: generate_target_contract_code(cfg, oc)
-        if needs_call is None:
-            needs_call = False
     elif isinstance(cfg, CustomTargetConfig):
         max_op_count = cfg.max_op_count
         step = cfg.step
         num_calls = cfg.num_calls
         if target_generator is None:
             raise ValueError("CustomTargetConfig requires a target_generator")
-        if needs_call is None:
-            needs_call = cfg.needs_call
     else:
         raise TypeError(f"Unsupported config type: {type(cfg)}")
 
-    caller_gen: CallerGenerator = (
-        generate_caller_contract_code_call if needs_call else generate_caller_contract_code
-    )
+    caller_gen: CallerGenerator = generate_caller_contract_code
 
     op_counts = generate_op_counts(max_op_count, step)
 
@@ -2634,9 +2560,9 @@ test_exp = _create_caller_test(EXP_CONFIG)
 test_jump = _create_caller_test(JUMP_CONFIG, generate_jump_target)
 test_jumpi = _create_caller_test(JUMPI_CONFIG, generate_jumpi_target)
 
-# State-modifying opcodes (require CALL instead of STATICCALL)
-test_sstore = _create_caller_test(SSTORE_CONFIG, needs_call=True)
-test_tstore = _create_caller_test(TSTORE_CONFIG, needs_call=True)
+# State-modifying opcodes
+test_sstore = _create_caller_test(SSTORE_CONFIG)
+test_tstore = _create_caller_test(TSTORE_CONFIG)
 
 # DUP opcodes
 test_dup1 = _create_caller_test(
