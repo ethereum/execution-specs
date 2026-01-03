@@ -559,20 +559,60 @@ SWAP16_CONFIG = CustomTargetConfig(
     name="SWAP16", max_op_count=300, step=100, num_calls=2000, variant=16
 )
 
-LOG0_CONFIG = CustomTargetConfig(
-    name="LOG0", max_op_count=100, step=20, num_calls=2400, topic_count=0
+LOG0_CONFIG = MarginalOpcodeConfig(
+    name="LOG0",
+    opcode=Op.LOG0,
+    max_op_count=100,
+    step=20,
+    stack_args=[0, 32],  # offset, size
+    inputs_per_op=2,
+    outputs_per_op=0,
+    num_calls=2400,
+    setup_code=Op.MSTORE(0, MAX_U256),  # Fill memory with data to log
 )
-LOG1_CONFIG = CustomTargetConfig(
-    name="LOG1", max_op_count=81, step=27, num_calls=2000, topic_count=1
+LOG1_CONFIG = MarginalOpcodeConfig(
+    name="LOG1",
+    opcode=Op.LOG1,
+    max_op_count=81,
+    step=27,
+    stack_args=[0, 32, 0xFF],  # offset, size, topic0
+    inputs_per_op=3,
+    outputs_per_op=0,
+    num_calls=2000,
+    setup_code=Op.MSTORE(0, MAX_U256),
 )
-LOG2_CONFIG = CustomTargetConfig(
-    name="LOG2", max_op_count=60, step=20, num_calls=2100, topic_count=2
+LOG2_CONFIG = MarginalOpcodeConfig(
+    name="LOG2",
+    opcode=Op.LOG2,
+    max_op_count=60,
+    step=20,
+    stack_args=[0, 32, 0xFF, 0xFF],  # offset, size, topic0, topic1
+    inputs_per_op=4,
+    outputs_per_op=0,
+    num_calls=2100,
+    setup_code=Op.MSTORE(0, MAX_U256),
 )
-LOG3_CONFIG = CustomTargetConfig(
-    name="LOG3", max_op_count=51, step=17, num_calls=1400, topic_count=3
+LOG3_CONFIG = MarginalOpcodeConfig(
+    name="LOG3",
+    opcode=Op.LOG3,
+    max_op_count=51,
+    step=17,
+    stack_args=[0, 32, 0xFF, 0xFF, 0xFF],  # offset, size, topic0, topic1, topic2
+    inputs_per_op=5,
+    outputs_per_op=0,
+    num_calls=1400,
+    setup_code=Op.MSTORE(0, MAX_U256),
 )
-LOG4_CONFIG = CustomTargetConfig(
-    name="LOG4", max_op_count=39, step=13, num_calls=1400, topic_count=4
+LOG4_CONFIG = MarginalOpcodeConfig(
+    name="LOG4",
+    opcode=Op.LOG4,
+    max_op_count=39,
+    step=13,
+    stack_args=[0, 32, 0xFF, 0xFF, 0xFF, 0xFF],  # offset, size, topic0-3
+    inputs_per_op=6,
+    outputs_per_op=0,
+    num_calls=1400,
+    setup_code=Op.MSTORE(0, MAX_U256),
 )
 
 JUMP_CONFIG = CustomTargetConfig(
@@ -1513,166 +1553,6 @@ def generate_jumpi_target(op_count: int, max_op_count: int) -> Bytecode:
 
 
 # ============================================================================
-# LOG OPCODES - LOG0 through LOG4
-# Gas: 375 + 8*size + 375*num_topics
-# ============================================================================
-
-# LOG opcodes with 1KB data for worst-case (aligned with gas-cost-estimator)
-def _generate_log_setup() -> Bytecode:
-    """Generate setup code that fills memory with 1KB (32 x 32 bytes) of data."""
-    code = Bytecode()
-    for i in range(32):
-        offset = i * 32
-        code += Op.MSTORE(offset, MAX_U256)
-    return code
-
-
-def generate_log_program(
-    opcode: Op,
-    num_topics: int,
-    op_count: int,
-    max_op_count: int,
-) -> Bytecode:
-    """
-    Generate a LOG program following gas-cost-estimator's approach.
-
-    Structure:
-    1. Fill 32 bytes of memory: PUSH32 0xff...ff, PUSH1 0, MSTORE
-    2. Push arguments for ALL max_op_count operations:
-       - For each: (PUSH1 0xff) * num_topics + PUSH1 0x20 (size) + PUSH1 0x00 (offset)
-    3. Execute op_count LOG opcodes
-    4. STOP
-
-    """
-    code = Bytecode()
-
-    # 1. Fill first 32 bytes of memory with 0xff
-    code += Op.MSTORE(0, MAX_U256)
-
-    # 2. Push arguments for ALL max_op_count operations
-    # LOG* takes: offset, size, topic0, topic1, ... (bottom to top on stack)
-    # So we push: offset, size, topics (in that order)
-    # Each LOG will pop from top: topics first, then size, then offset
-    for _ in range(max_op_count):
-        code += Op.PUSH1[0]      # offset = 0
-        code += Op.PUSH1[32]     # size = 32 bytes
-        for _ in range(num_topics):
-            code += Op.PUSH1[0xFF]  # topic = 0xff
-
-    # 3. Execute op_count LOG opcodes
-    for _ in range(op_count):
-        code += opcode
-
-    # 4. Just STOP - remaining stack values are fine
-    code += Op.STOP
-
-    return code
-
-
-def generate_dup_program(
-    dup_n: int,
-    op_count: int,
-    max_op_count: int,
-) -> Bytecode:
-    """
-    Generate a DUP program following gas-cost-estimator's approach.
-
-    Structure (matching gas-cost-estimator):
-    1. Push empty_push_count values (max_op_count POPs worth) as padding
-    2. Push dup_n initial values onto stack (for DUP to work on)
-    3. Interleaved: [DUP] + ([POP] + [DUP]) * (op_count - 1) if op_count >= 1
-       OR just POPs if op_count == 0
-    4. End with remaining POPs to balance stack
-
-    Key insight: Total POPs is CONSTANT (max_op_count), only DUP count varies.
-    """
-    code = Bytecode()
-
-    nreturns = 1  # DUP returns 1 value
-    total_pop_count = max_op_count * nreturns  # Constant number of POPs
-
-    # 1. Push padding values so POPs have something to pop
-    for _ in range(total_pop_count):
-        code += Op.PUSH0
-
-    # 2. Push dup_n initial values for DUP to duplicate from
-    for i in range(dup_n):
-        code += Op.PUSH1[i]
-
-    dup_opcode = getattr(Op, f"DUP{dup_n}")
-
-    # 3. Interleaved DUP + POP pattern (matching gas-cost-estimator)
-    if op_count == 0:
-        # No DUPs, just all POPs
-        for _ in range(total_pop_count):
-            code += Op.POP
-    else:
-        # Pattern: DUP + (POP + DUP) * (op_count - 1) + end_pops
-        interleaved_count = op_count - 1
-        end_pop_count = total_pop_count - interleaved_count * nreturns
-
-        # First DUP
-        code += dup_opcode
-
-        # Interleaved POP + DUP
-        for _ in range(interleaved_count):
-            code += Op.POP
-            code += dup_opcode
-
-        # End POPs (balance the stack)
-        for _ in range(end_pop_count):
-            code += Op.POP
-
-    # 4. Pop the dup_n initial values
-    for _ in range(dup_n):
-        code += Op.POP
-
-    # 5. Write success marker
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-
-    return code
-
-
-def generate_swap_program(
-    swap_n: int,
-    op_count: int,
-    max_op_count: int,
-) -> Bytecode:
-    """
-    Generate a SWAP program following gas-cost-estimator's approach.
-
-    Structure:
-    1. Push swap_n+1 initial values onto stack
-    2. For op_count iterations: execute SWAP (swaps don't change stack size)
-    3. Pop the initial values
-    4. Write success marker
-
-    SWAP doesn't change stack size, so we can do many iterations.
-    """
-    code = Bytecode()
-
-    # 1. Push swap_n+1 initial values
-    for i in range(swap_n + 1):
-        code += Op.PUSH1[i]
-
-    # 2. Execute op_count SWAP operations
-    swap_opcode = getattr(Op, f"SWAP{swap_n}")
-    for _ in range(op_count):
-        code += swap_opcode
-
-    # 3. Pop the initial values
-    for _ in range(swap_n + 1):
-        code += Op.POP
-
-    # 4. Write success marker
-    code += Op.SSTORE(SUCCESS_SLOT, SUCCESS_MARKER)
-    code += Op.STOP
-
-    return code
-
-
-# ============================================================================
 # EXTERNAL CALL OPCODES - CALL, CALLCODE, DELEGATECALL, STATICCALL
 # These call other contracts/addresses
 # ============================================================================
@@ -2445,21 +2325,11 @@ test_swap16 = _create_amplifier_test(
 )
 
 # LOG opcodes (require CALL instead of STATICCALL)
-test_log0 = _create_amplifier_test(
-    LOG0_CONFIG, lambda oc, moc: generate_log_program(Op.LOG0, LOG0_CONFIG.topic_count, oc, moc)
-)
-test_log1 = _create_amplifier_test(
-    LOG1_CONFIG, lambda oc, moc: generate_log_program(Op.LOG1, LOG1_CONFIG.topic_count, oc, moc)
-)
-test_log2 = _create_amplifier_test(
-    LOG2_CONFIG, lambda oc, moc: generate_log_program(Op.LOG2, LOG2_CONFIG.topic_count, oc, moc)
-)
-test_log3 = _create_amplifier_test(
-    LOG3_CONFIG, lambda oc, moc: generate_log_program(Op.LOG3, LOG3_CONFIG.topic_count, oc, moc)
-)
-test_log4 = _create_amplifier_test(
-    LOG4_CONFIG, lambda oc, moc: generate_log_program(Op.LOG4, LOG4_CONFIG.topic_count, oc, moc)
-)
+test_log0 = _create_amplifier_test(LOG0_CONFIG)
+test_log1 = _create_amplifier_test(LOG1_CONFIG)
+test_log2 = _create_amplifier_test(LOG2_CONFIG)
+test_log3 = _create_amplifier_test(LOG3_CONFIG)
+test_log4 = _create_amplifier_test(LOG4_CONFIG)
 
 
 # ============================================================================
