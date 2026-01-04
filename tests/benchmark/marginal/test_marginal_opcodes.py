@@ -19,7 +19,9 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Bytes,
     Environment,
+    Hash,
     Op,
     StateTestFiller,
     Transaction,
@@ -979,7 +981,7 @@ BLOCKHASH_CONFIG = MarginalOpcodeConfig(
     opcode=Op.BLOCKHASH,
     max_op_count=300,
     step=100,  # 4 data points
-    stack_args=[0],  # Block 0 (will return 0 but still executes)
+    stack_args=[0],  # Block 0
     inputs_per_op=1,
     outputs_per_op=1,
     num_calls=400,  # Keep at 100
@@ -1397,7 +1399,17 @@ def _create_amplifier_test(
 
         post = {amplifier_contract: Account(storage={SUCCESS_SLOT: SUCCESS_MARKER})}
 
-        state_test(env=Environment(gas_limit=AMPLIFIER_GAS_LIMIT), pre=pre, post=post, tx=tx)
+        # Provide realistic block hashes for BLOCKHASH opcode
+        # Generate hash for block 0 using keccak256
+        block_hashes = {
+            0: Bytes(b"block_0").keccak256(),
+        }
+        env = Environment(
+            gas_limit=AMPLIFIER_GAS_LIMIT,
+            block_hashes=block_hashes,
+        )
+
+        state_test(env=env, pre=pre, post=post, tx=tx)
 
     return test_func
 
