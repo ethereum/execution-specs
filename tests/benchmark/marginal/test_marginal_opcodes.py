@@ -1704,38 +1704,39 @@ def _generate_target_with_create2s(op_count: int, max_op_count: int) -> Bytecode
     """
     Generate a target contract that executes op_count CREATE2 operations,
     with noop padding to ensure perfect marginal property.
+
+    Key insight: Load salt AFTER noops so it sits on top of accumulated junk,
+    making it accessible via DUP1 for real CREATE2s.
+
     Structure:
-    - Load salt counter (kept on stack throughout)
-    - Noops first (same overhead as real CREATE2, pop salt instead of CREATE2)
-    - Real CREATE2s (execute the opcode)
-    - Update and save salt counter
+    - Noops first
+    - Real CREATE2s
     """
     code = Bytecode()
 
     # Store minimal initcode in memory
     code += Op.MSTORE(0, 0x600080f3 << (28 * 8))
 
-    # Load current salt counter from storage slot 0x100
     salt_slot = 0x100
-    code += Op.SLOAD(salt_slot)  # salt counter on stack
-
     noop_count = max_op_count - op_count
 
-    # ========== NOOPS FIRST (same overhead as real CREATE2, just pop instead of CREATE2) ==========
+    # ========== NOOPS FIRST ==========
     for i in range(noop_count):
-        code += Op.DUP1                       # duplicate salt counter (same as real)
+        code += Op.PUSH2(0)                   # dummy base (3 gas, same as DUP1)
         code += Op.PUSH2(i)                   # add offset (same as real)
-        code += Op.ADD                        # salt = counter + i (same as real)
+        code += Op.ADD                        # calculate dummy salt (same overhead)
         code += Op.PUSH1(4)                   # size
         code += Op.PUSH1(0)                   # offset
         code += Op.PUSH1(0)                   # value
-        # Pop the calculated salt instead of CREATE2
-        # This leaves the 3 args (value, offset, size) on stack
-        code += Op.POP                        # pop salt (matches the POP in real CREATE2 that pops address)
+        # Pop calculated value (no CREATE2)
+        code += Op.POP                        # leaves 3 args on stack
+
+    # ========== LOAD SALT ==========
+    code += Op.SLOAD(salt_slot)
 
     # ========== REAL CREATE2s ==========
     for i in range(op_count):
-        code += Op.DUP1                       # duplicate salt counter
+        code += Op.DUP1                       # duplicate salt
         code += Op.PUSH2(noop_count + i)      # add offset for unique salt
         code += Op.ADD                        # salt = counter + i
         code += Op.PUSH1(4)                   # size
