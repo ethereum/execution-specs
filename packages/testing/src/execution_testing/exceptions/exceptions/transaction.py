@@ -129,7 +129,7 @@ class TransactionException(ExceptionBase):
     """Transaction's max-fee-per-gas is lower than the block base-fee."""
     PRIORITY_OVERFLOW = auto()
     """
-    Transaction's max-priority-fee-per-gas is exceeds 2^256-1 maximum value.
+    Transaction's max-priority-fee-per-gas exceeds 2^256-1 maximum value.
     """
     PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS = auto()
     """

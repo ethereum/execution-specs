@@ -86,7 +86,7 @@ class BlockException(ExceptionBase):
     from previous block.
     """
     INVALID_BASEFEE_PER_GAS = auto()
-    """Block header's base_fee_per_gas field is calculated incorrect."""
+    """Block header's base_fee_per_gas field is calculated incorrectly."""
     INVALID_GAS_USED = auto()
     """
     Block header's actual gas used does not match the provided header's value
