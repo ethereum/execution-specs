@@ -157,8 +157,6 @@ def set_delegation(message: Message) -> U256:
     ----------
     message :
         Transaction specific items.
-    env :
-        External items required for EVM execution.
 
     Returns
     -------
