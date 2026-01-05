@@ -1,4 +1,4 @@
-"""Fixtures for the EIP-7002 deposit tests."""
+"""Fixtures for the EIP-7002 withdrawal tests."""
 
 from itertools import zip_longest
 from typing import List
