@@ -47,9 +47,12 @@ from tests.benchmark.compute.helpers import XOR_TABLE
         Op.CALLCODE,
         Op.DELEGATECALL,
         Op.STATICCALL,
+        Op.EXTCODESIZE,
+        Op.EXTCODEHASH,
+        Op.EXTCODECOPY,
     ],
 )
-def test_xcall(
+def test_unchunkified_bytecode(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -57,7 +60,7 @@ def test_xcall(
     gas_benchmark_value: int,
     tx_gas_limit: int,
 ) -> None:
-    """Benchmark a system execution where a single opcode execution."""
+    """Benchmark scenario of accessing max-code size bytecode."""
     # The attack gas limit represents the transaction gas limit cap or
     # the block gas limit. If eip-7825 is applied, the test will create
     # multiple transactions for contract deployment. It should account
