@@ -375,7 +375,12 @@ class Alloc(BaseAlloc):
                 new_bytes=len(initcode)
             )
             deploy_gas_limit += calldata_gas_calculator(data=initcode)
-            deploy_gas_limit = min(deploy_gas_limit * 2, 30_000_000)
+            deploy_gas_limit = deploy_gas_limit * 2
+            tx_gas_limit_cap = self._fork.transaction_gas_limit_cap()
+            if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
+                raise ValueError(
+                    f"deterministic deploy gas limit exceeds the transaction gas limit cap: {deploy_gas_limit} > {tx_gas_limit_cap}"
+                )
             deploy_tx = self._add_pending_tx(
                 action="deterministic_deploy_contract",
                 target=label,
@@ -517,8 +522,12 @@ class Alloc(BaseAlloc):
 
         deploy_gas_limit += calldata_gas_calculator(data=prepared_initcode)
 
-        # Limit the gas limit
-        deploy_gas_limit = min(deploy_gas_limit * 2, 30_000_000)
+        deploy_gas_limit = deploy_gas_limit * 2
+        tx_gas_limit_cap = self._fork.transaction_gas_limit_cap()
+        if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
+            raise ValueError(
+                f"deploy gas limit exceeds the transaction gas limit cap: {deploy_gas_limit} > {tx_gas_limit_cap}"
+            )
 
         deploy_tx = self._add_pending_tx(
             action="deploy_contract",
