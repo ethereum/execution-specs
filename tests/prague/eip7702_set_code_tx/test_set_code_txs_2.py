@@ -38,8 +38,13 @@ REFERENCE_SPEC_VERSION = ref_spec_7702.version
 
 
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_contract_pointer_loop(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """
     Tx -> call -> pointer A -> contract A -> pointer B -> contract loop C.
@@ -50,8 +55,17 @@ def test_pointer_contract_pointer_loop(
     """
     env = Environment()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
+
     pointer_b = pre.fund_eoa()
 
     storage: Storage = Storage()
@@ -68,6 +82,14 @@ def test_pointer_contract_pointer_loop(
         + Op.CALL(gas=1_000_000, address=pointer_a)
         + Op.STOP,
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
+
     tx = Transaction(
         to=pointer_a,
         gas_limit=1_000_000,
@@ -77,7 +99,7 @@ def test_pointer_contract_pointer_loop(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             ),
             AuthorizationTuple(
@@ -96,7 +118,14 @@ def test_pointer_contract_pointer_loop(
 
 
 @pytest.mark.valid_from("Prague")
-def test_pointer_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
+def test_pointer_to_pointer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+) -> None:
     """
     Tx -> call -> pointer A -> pointer B.
 
@@ -106,14 +135,30 @@ def test_pointer_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
 
     storage: Storage = Storage()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
+
     pointer_b = pre.fund_eoa()
 
     contract_a = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(0, "contract_a_worked"), 0x1)
         + Op.CALL(gas=1_000_000, address=pointer_b)
         + Op.STOP,
+    )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
     )
 
     tx = Transaction(
@@ -125,7 +170,7 @@ def test_pointer_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
         authorization_list=[
             AuthorizationTuple(
                 address=pointer_b,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             ),
             AuthorizationTuple(
@@ -135,13 +180,24 @@ def test_pointer_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
             ),
         ],
     )
-    post = {pointer_a: Account(storage=storage)}
+
+    # The delegation is set despite OOG in call.
+    post = {
+        pointer_a: Account(
+            storage=storage, code=Spec.delegation_designation(pointer_b)
+        )
+    }
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_normal(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """
     Tx -> call -> pointer A -> contract.
@@ -153,14 +209,23 @@ def test_pointer_normal(
 
     storage: Storage = Storage()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     slot_worked = storage.store_next(3, "contract_a_worked")
     contract_a = pre.deploy_contract(
         code=Op.SSTORE(slot_worked, Op.ADD(1, Op.SLOAD(slot_worked)))
         + Op.STOP,
     )
+    nonce = 1 if sender_delegated else 0
 
     tx = Transaction(
         to=pointer_a,
@@ -171,7 +236,7 @@ def test_pointer_normal(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
-                nonce=0,
+                nonce=(nonce := nonce + 1) if sender_is_auth_signer else 0,
                 signer=pointer_a,
             )
         ],
@@ -184,6 +249,7 @@ def test_pointer_normal(
         data=b"",
         value=0,
         sender=sender,
+        nonce=(nonce := nonce + 1),
     )
 
     # Event from another block
@@ -193,6 +259,7 @@ def test_pointer_normal(
         data=b"",
         value=0,
         sender=sender,
+        nonce=(nonce := nonce + 1),
     )
 
     post = {pointer_a: Account(storage=storage)}
@@ -364,8 +431,14 @@ def test_pointer_measurements(
 
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_call_to_precompile_in_pointer_context(
-    state_test: StateTestFiller, pre: Alloc, precompile: int
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+    precompile: int,
 ) -> None:
     """
     Tx -> call -> pointer A -> precompile contract.
@@ -377,8 +450,16 @@ def test_call_to_precompile_in_pointer_context(
 
     storage: Storage = Storage()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_test = pre.deploy_contract(
         code=Op.MSTORE(1000, Op.GAS())
@@ -412,6 +493,14 @@ def test_call_to_precompile_in_pointer_context(
         + Op.SSTORE(storage.store_next(1, "tx_worked"), 1)
     )
 
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
+
     tx = Transaction(
         to=contract_a,
         gas_limit=3_000_000,
@@ -421,7 +510,7 @@ def test_call_to_precompile_in_pointer_context(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_test,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -438,8 +527,14 @@ def test_call_to_precompile_in_pointer_context(
 
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_to_precompile(
-    state_test: StateTestFiller, pre: Alloc, precompile: int
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+    precompile: int,
 ) -> None:
     """
     Tx -> call -> pointer A -> precompile contract.
@@ -456,8 +551,16 @@ def test_pointer_to_precompile(
 
     storage: Storage = Storage()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_test_normal = pre.deploy_contract(
         code=Op.MSTORE(
@@ -498,6 +601,13 @@ def test_pointer_to_precompile(
             storage.store_next(1, "pointer_call_result"), Op.MLOAD(1000)
         )
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
 
     tx = Transaction(
         to=contract_a,
@@ -508,7 +618,7 @@ def test_pointer_to_precompile(
         authorization_list=[
             AuthorizationTuple(
                 address=precompile,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -881,7 +991,14 @@ def test_pointer_call_followed_by_direct_call(
 
 
 @pytest.mark.valid_from("Prague")
-def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
+def test_pointer_to_static(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+) -> None:
     """
     Tx -> call -> pointer A -> static -> static violation.
 
@@ -889,8 +1006,17 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
     """
     env = Environment()
     storage: Storage = Storage()
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_b = pre.deploy_contract(code=Op.SSTORE(0, 5))
     contract_a = pre.deploy_contract(
@@ -906,6 +1032,13 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
         )
         + Op.SSTORE(storage.store_next(1, "call_worked"), 1)
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
 
     tx = Transaction(
         to=pointer_a,
@@ -916,7 +1049,7 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -935,7 +1068,14 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
 
 
 @pytest.mark.valid_from("Prague")
-def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
+def test_static_to_pointer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+) -> None:
     """
     Tx -> staticcall -> pointer A -> static violation.
 
@@ -943,8 +1083,17 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
     """
     env = Environment()
     storage: Storage = Storage()
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_b = pre.deploy_contract(code=Op.SSTORE(0, 5))
     contract_a = pre.deploy_contract(
@@ -960,6 +1109,13 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
         )
         + Op.SSTORE(storage.store_next(1, "call_worked"), 1)
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
 
     tx = Transaction(
         to=contract_a,
@@ -970,7 +1126,7 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
         authorization_list=[
             AuthorizationTuple(
                 address=contract_b,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -1036,8 +1192,13 @@ def test_pointer_to_eof(state_test: StateTestFiller, pre: Alloc) -> None:
 
 
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_to_static_reentry(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """
     Tx call -> pointer A -> static -> code -> pointer A -> static violation
@@ -1045,8 +1206,17 @@ def test_pointer_to_static_reentry(
     """
     env = Environment()
     storage: Storage = Storage()
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_b = pre.deploy_contract(
         code=Op.MSTORE(0, Op.ADD(1, Op.CALLDATALOAD(0)))
@@ -1086,6 +1256,13 @@ def test_pointer_to_static_reentry(
             ),
         )
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
 
     tx = Transaction(
         to=pointer_a,
@@ -1096,7 +1273,7 @@ def test_pointer_to_static_reentry(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -1398,8 +1575,14 @@ def test_eoa_init_as_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
 
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize("call_return", [Op.RETURN, Op.REVERT, Macros.OOG])
+@pytest.mark.parametrize("sender_delegated", [False, True])
+@pytest.mark.parametrize("sender_is_auth_signer", [False, True])
 def test_call_pointer_to_created_from_create_after_oog_call_again(
-    state_test: StateTestFiller, pre: Alloc, call_return: Op
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_return: Op,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """
     Set pointer to account that we are about to create.
@@ -1419,8 +1602,17 @@ def test_call_pointer_to_created_from_create_after_oog_call_again(
     env = Environment()
 
     storage_pointer = Storage()
-    pointer = pre.fund_eoa()
-    sender = pre.fund_eoa()
+
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer = sender
+    else:
+        pointer = pre.fund_eoa()
 
     storage_contract = Storage()
     slot_create_res = storage_contract.store_next(1, "create_result")
@@ -1450,6 +1642,15 @@ def test_call_pointer_to_created_from_create_after_oog_call_again(
         Op.ADD(1, Op.SLOAD(slot_pointer_calls)),
     )
     storage_create = Storage()
+
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
+
     tx = Transaction(
         to=contract_main,
         gas_limit=800_000,
@@ -1465,7 +1666,7 @@ def test_call_pointer_to_created_from_create_after_oog_call_again(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_create,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer,
             )
         ],
@@ -1519,6 +1720,8 @@ valid_combinations = [
 @pytest.mark.parametrize(
     "call_order", [CallOrder.CONTRACT_POINTER, CallOrder.POINTER_CONTRACT]
 )
+@pytest.mark.parametrize("sender_delegated", [False, True])
+@pytest.mark.parametrize("sender_is_auth_signer", [False, True])
 def test_pointer_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1526,10 +1729,20 @@ def test_pointer_reverts(
     second_revert: bool,
     final_revert: bool,
     call_order: CallOrder,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """Pointer do operations then revert."""
-    sender = pre.fund_eoa()
-    pointer = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer = sender
+    else:
+        pointer = pre.fund_eoa()
 
     contract_storage = Storage()
     contract_calls = (
@@ -1584,6 +1797,14 @@ def test_pointer_reverts(
             if_false=Op.RETURN(0, 32),
         )
     )
+
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
     tx = Transaction(
         to=contract_main,
         gas_limit=800_000,
@@ -1593,7 +1814,7 @@ def test_pointer_reverts(
         authorization_list=[
             AuthorizationTuple(
                 address=contract,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer,
             )
         ],
