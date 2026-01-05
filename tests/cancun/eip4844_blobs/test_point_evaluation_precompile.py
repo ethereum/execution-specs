@@ -1,7 +1,7 @@
 """
 Tests point evaluation precompile for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
 
-Note: Adding a new test Add a function that is named `test_<test_name>` and
+Note: To add a new test, add a function that is named `test_<test_name>` and
 takes at least the following arguments.
 
 Required arguments:
