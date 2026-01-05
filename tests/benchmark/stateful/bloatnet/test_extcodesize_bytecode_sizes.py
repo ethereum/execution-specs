@@ -75,6 +75,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Conditional,
     Fork,
     Op,
     Transaction,
@@ -164,9 +165,10 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
         )
         # Check if call succeeded (STATICCALL returns 1 on success)
         # Stack: [starting_salt, success]
-        + Op.ISZERO
-        + Op.PUSH2(0x1000)  # Jump to end if failed
-        + Op.JUMPI
+        + Conditional(
+            condition=Op.ISZERO,  # If call failed (success=0)
+            if_true=Op.REVERT(0, 0),  # Revert with no data
+        )
         # Stack: [starting_salt]
         # Load results from memory
         # Memory[96:128] = num_deployed_contracts
@@ -221,8 +223,6 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
             ),
         )
         + Op.POP  # Clean up remaining counter
-        # === End ===
-        + Op.JUMPDEST  # 0x1000 - error/end handler
         + Op.STOP
     )
 
