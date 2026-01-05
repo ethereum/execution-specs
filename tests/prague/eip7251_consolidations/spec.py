@@ -46,7 +46,7 @@ class Spec:
     )
     # The start memory slot of the in-state consolidation request message queue
     CONSOLIDATION_REQUEST_QUEUE_STORAGE_OFFSET = 4
-    # Maximum number of consolidation requests that can be de-queued into block
+    # Max number of consolidation requests that can be de-queued into a block
     MAX_CONSOLIDATION_REQUESTS_PER_BLOCK = 2
     TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK = 1
     MIN_CONSOLIDATION_REQUEST_FEE = 1
