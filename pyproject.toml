@@ -380,22 +380,35 @@ ignore = [
 ]
 
 [tool.codespell]
-builtin = "clear,code,usage"    # Built-in dictionaries to use
-skip = [                        # Don't check these files/folders
-    ".git/*",
-    ".tox/*",
-    ".venv/*",
-    "build/*",
-    "dist/*",
-    "*.pyc",
-    "ethereum_execution.egg-info/*",
-    "*.coverage*",
-    "__pycache__",
+builtin = "clear,code,usage"
+# Version control & tooling, build artifacts, data files, test fixtures, temp files, lock files
+skip = [
+    ".git",
+    ".tox",
+    ".venv",
     ".ruff_cache",
-    "fixtures.*",
+    ".mypy_cache",
+    ".pytest_cache",
+    "__pycache__",
+    "*.pyc",
+    "build",
+    "cov",
+    "dist",
+    "logs",
+    "site",
+    "*.egg-info",
+    "*.json",
+    "*.log",
+    "*.xml",
+    "*.csv",
+    "*.tar.gz",
+    "*.png",
     "tests/fixtures",
     "tests/json_infra/fixtures",
-    "src/ethereum_spec_tools/evm_tools/t8n" # Temporary while being re-written
+    "fixtures.*",
+    "tmp",
+    "*.coverage*",
+    "uv.lock",
 ]
 ignore-words = "whitelist.txt"  # Custom whitelist file
 count = true                    # Display counts of errors
