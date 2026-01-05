@@ -116,11 +116,11 @@ def test_extra_logs(
     """
     Test deposit contract emitting more log event types than the ones in
     mainnet.
-    """
-    # Supplant mainnet contract with a variant that emits a `Transfer`` log If
-    # `include_deposit_event` is `True``, it will also emit a `DepositEvent`
-    # log`
 
+    Supplants the mainnet contract with a variant that emits a `Transfer` log.
+    If `include_deposit_event` is `True`, it will also emit a `DepositEvent`
+    log.
+    """
     # ERC20 token transfer log (Sepolia)
     # https://sepolia.etherscan.io/tx/
     #   0x2d71f3085a796a0539c9cc28acd9073a67cf862260a41475f000dd101279f94f
