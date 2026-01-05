@@ -58,7 +58,7 @@ def test_calldatasize(
     calldata = (
         b"\x00" * calldata_size
         if zero_data
-        else Bytes([i ^ 256 for i in range(calldata_size)])
+        else Bytes([i % 256 for i in range(calldata_size)])
     )
 
     benchmark_test(
