@@ -122,8 +122,7 @@ def calculate_gas_per_iteration(gas_costs: GasCosts) -> int:
         + gas_costs.G_KECCAK_256_WORD * 3  # Dynamic cost (3 * 6 = 18)
         # EXTCODESIZE cold access
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # 2600
-        # Stack and memory operations for address extraction
-        + gas_costs.G_VERY_LOW * 2  # PUSH20 + AND for address extraction (6)
+        # Note: No masking needed - EVM auto-truncates to 20 bytes
         # Loop overhead: increment salt, decrement counter, check condition
         + gas_costs.G_LOW  # MLOAD salt (3)
         + gas_costs.G_VERY_LOW  # ADD (3)
@@ -203,10 +202,7 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
             body=(
                 # CREATE2 address: keccak256(0xFF ++ factory ++ salt ++ hash)
                 Op.SHA3(11, 85)  # 85 bytes from offset 11
-                # Result is 32-byte hash, address is last 20 bytes (low bits)
-                # AND with address mask to extract address from hash
-                + Op.PUSH20(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-                + Op.AND
+                # Hash result - EVM auto-truncates to 20-byte address
                 # Call EXTCODESIZE and discard result (no storage writes!)
                 + Op.EXTCODESIZE
                 + Op.POP
@@ -252,8 +248,7 @@ def calculate_verification_gas(gas_costs: GasCosts, intrinsic_gas: int) -> int:
         # SHA3 for CREATE2 address (85 bytes = 3 words)
         + gas_costs.G_KECCAK_256  # 30
         + gas_costs.G_KECCAK_256_WORD * 3  # 18
-        # SHR for address extraction
-        + gas_costs.G_VERY_LOW  # 3
+        # Note: No masking needed - EVM auto-truncates to 20 bytes
         # EXTCODESIZE (cold access to target contract)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # 2600
         # SSTORE (cold slot, zero-to-nonzero)
@@ -300,9 +295,7 @@ def build_verification_contract(
         + Op.MSTORE
         # Generate CREATE2 address
         + Op.SHA3(11, 85)
-        # Address is last 20 bytes (low bits) of hash
-        + Op.PUSH20(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-        + Op.AND
+        # Result is 32-byte hash - EVM auto-truncates to 20-byte address
         # Call EXTCODESIZE
         + Op.EXTCODESIZE
         # Store result in storage slot 0
