@@ -498,8 +498,11 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_OSAKA_TIMESTAMP": 0,
         "HIVE_BPO1_TIMESTAMP": 0,
         "HIVE_BPO2_TIMESTAMP": 0,
-        "HIVE_BPO3_TIMESTAMP": 0,
-        "HIVE_BPO4_TIMESTAMP": 0,
+        # TODO: So far only BPOs 1 and 2 are active. This may have to be
+        #  tweaked as more BPOs get activated and the Amsterdam fork
+        #  starts inheriting these params.
+        # "HIVE_BPO3_TIMESTAMP": 0,
+        # "HIVE_BPO4_TIMESTAMP": 0,
         "HIVE_AMSTERDAM_TIMESTAMP": 0,
         **get_blob_schedule_entries(Amsterdam),
     },
