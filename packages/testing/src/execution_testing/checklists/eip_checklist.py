@@ -256,7 +256,7 @@ class EIPChecklist:
                     """
                     If the opcode contains variables in its data portion, for
                     each variable `n` of the opcode that accesses the nth stack
-                    item, test `n` being.
+                    item, test `n` being:
                     """
 
                     class Top(ChecklistItem):
