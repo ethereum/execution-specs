@@ -391,13 +391,18 @@ class Alloc(BaseAlloc):
         deploy_code: BytesConvertible,
         salt: Hash | int = 0,
         initcode: BytesConvertible | None = None,
-        minimum_balance: NumberConvertible = 0,
-        setup_calldata: BytesConvertible | None = None,
         label: str | None = None,
     ) -> Address:
         """
         Deploy a contract to the allocation at a deterministic location
         using a deterministic deployment proxy.
+
+        Args:
+            deploy_code: Contract code to deploy
+            salt: Salt to use for deterministic deployment
+            initcode: Initcode to use for deterministic deployment.
+                        Can be `None` and `Initcode` will be used to derive it.
+            label: Label to use for the contract
         """
         raise NotImplementedError(
             "deterministic_deploy_contract is not implemented in the base class"

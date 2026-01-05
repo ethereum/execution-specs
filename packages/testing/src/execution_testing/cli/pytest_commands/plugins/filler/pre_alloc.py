@@ -155,8 +155,6 @@ class Alloc(BaseAlloc):
         deploy_code: BytesConvertible,
         salt: Hash | int = 0,
         initcode: BytesConvertible | None = None,
-        minimum_balance: NumberConvertible = 0,
-        setup_calldata: BytesConvertible | None = None,
         label: str | None = None,
     ) -> Address:
         """
@@ -173,16 +171,20 @@ class Alloc(BaseAlloc):
         contract_address = compute_deterministic_create2_address(
             salt=salt, initcode=initcode
         )
+        if contract_address in self:
+            raise ValueError(
+                f"contract address already in pre-alloc: {contract_address}"
+            )
         max_code_size = self._fork.max_code_size()
-        assert len(deploy_code) <= max_code_size, (
-            f"code too large: {len(deploy_code)} > {max_code_size}"
-        )
+        if len(deploy_code) > max_code_size:
+            raise ValueError(
+                f"code too large: {len(deploy_code)} > {max_code_size}"
+            )
 
         super().__setitem__(
             contract_address,
             Account(
                 nonce=1,
-                balance=minimum_balance,
                 code=deploy_code,
                 storage={},
             ),

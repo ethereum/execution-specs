@@ -7,9 +7,10 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Hash,
     Op,
-    StateTestFiller,
     Transaction,
 )
 
@@ -21,7 +22,7 @@ REFERENCE_SPEC_VERSION = ref_spec_1014.version
 
 @pytest.mark.valid_from("Constantinople")
 def test_deterministic_deployment(
-    state_test: StateTestFiller,
+    blockchain_test: BlockchainTestFiller,
     pre: Alloc,
 ) -> None:
     """
@@ -31,15 +32,18 @@ def test_deterministic_deployment(
     deploy_code = Op.SSTORE(1, Op.CALLDATALOAD(0))
 
     contract_address = pre.deterministic_deploy_contract(
-        deploy_code=deploy_code,
-        # A setup transaction is sent after deployment with `Hash(0)` as
-        # calldata to restore the contract's storage.
-        setup_calldata=Hash(0),
+        deploy_code=deploy_code
     )
 
     sender = pre.fund_eoa()
 
-    tx = Transaction(
+    reset_tx = Transaction(
+        sender=sender,
+        to=contract_address,
+        data=Hash(0),
+        gas_limit=100_000,
+    )
+    set_tx = Transaction(
         sender=sender,
         to=contract_address,
         data=Hash(1),
@@ -55,4 +59,4 @@ def test_deterministic_deployment(
         ),
     }
 
-    state_test(pre=pre, post=post, tx=tx)
+    blockchain_test(pre=pre, post=post, blocks=[Block(txs=[reset_tx, set_tx])])

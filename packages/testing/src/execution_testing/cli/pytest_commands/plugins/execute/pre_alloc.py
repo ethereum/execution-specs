@@ -299,8 +299,6 @@ class Alloc(BaseAlloc):
         deploy_code: BytesConvertible,
         salt: Hash | int = 0,
         initcode: BytesConvertible | None = None,
-        minimum_balance: NumberConvertible = 0,
-        setup_calldata: BytesConvertible | None = None,
         label: str | None = None,
     ) -> Address:
         """
@@ -320,7 +318,6 @@ class Alloc(BaseAlloc):
             initcode = Initcode(deploy_code=deploy_code)
         elif not isinstance(initcode, Bytes):
             initcode = Bytes(initcode)
-        minimum_balance = Number(minimum_balance)
         salt = Hash(salt)
         contract_address = compute_deterministic_create2_address(
             salt=salt, initcode=initcode
@@ -384,14 +381,12 @@ class Alloc(BaseAlloc):
                 target=label,
                 to=DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
                 data=Bytes(salt) + Bytes(initcode),
-                value=minimum_balance,
                 gas_limit=deploy_gas_limit,
             )
             logger.info(
                 f"Contract deployment tx created (label={label}): "
                 f"tx_nonce={deploy_tx.nonce}, gas_limit={deploy_gas_limit}, "
-                f"code_size={len(deploy_code)} bytes, initcode_size={len(initcode)} bytes, "
-                f"balance={Number(minimum_balance) / 10**18:.18f} ETH"
+                f"code_size={len(deploy_code)} bytes, initcode_size={len(initcode)} bytes"
             )
 
             logger.debug(
@@ -412,27 +407,6 @@ class Alloc(BaseAlloc):
                 storage={},
             ),
         )
-
-        if setup_calldata is not None:
-            value = 0
-            if balance < minimum_balance:
-                value = minimum_balance - balance
-            self._add_pending_tx(
-                action="deterministic_deploy_contract",
-                target=label,
-                value=value,
-                to=contract_address,
-                data=setup_calldata,
-                gas_limit=100_000,
-            )
-        elif balance < minimum_balance:
-            self._add_pending_tx(
-                action="deterministic_deploy_contract",
-                target=label,
-                value=minimum_balance - balance,
-                to=contract_address,
-                gas_limit=100_000,
-            )
 
         contract_address.label = label
         return contract_address
