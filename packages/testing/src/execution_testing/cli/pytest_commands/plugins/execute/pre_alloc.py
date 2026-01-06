@@ -725,7 +725,7 @@ class Alloc(BaseAlloc):
         added to its existing balance.
         """
         current_balance = self._eth_rpc.get_balance(address)
-        fund_amount = Number(amount)
+        fund_amount = int(Number(amount))
 
         if minimum_balance:
             if current_balance >= fund_amount:
