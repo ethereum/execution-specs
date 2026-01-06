@@ -114,7 +114,7 @@ exclude = ["*tests*"]
 "execution_testing.test_types" = ["kzg_trusted_setup.txt"]
 
 [tool.ruff]
-line-length = 79
+extend = "../../pyproject.toml"
 
 [tool.codespell]
 skip = ".venv,__pycache__,.git,build,dist,*.pyc,*.lock"
