@@ -50,7 +50,7 @@ def test_memory_access(
     opcode: Op,
     offset: int,
     offset_initialized: bool,
-    mem_size: bool,
+    mem_size: int,
 ) -> None:
     """Benchmark memory access instructions."""
     setup = Bytecode()
