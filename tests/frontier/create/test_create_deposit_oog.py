@@ -3,6 +3,7 @@ Test CREATE's behavior when running out of gas for code deposit.
 """
 
 import pytest
+
 from execution_testing import (
     Account,
     Alloc,
@@ -12,7 +13,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Byzantium, Frontier
+from execution_testing.forks import Frontier, SpuriousDragon, TangerineWhistle
 
 SLOT_CREATE_RESULT = 1
 SLOT_CREATE_RESULT_PRE = 0xDEADBEEF
@@ -63,7 +64,7 @@ def test_create_deposit_oog(
     create_gas = return_code.gas_cost(fork) + expand_memory_code.gas_cost(fork)
     if not enough_gas:
         create_gas -= 1
-    if fork >= Byzantium:
+    if fork >= TangerineWhistle:
         # Increment the gas for the 63/64 rule
         create_gas = (create_gas * 64) // 63
     call_gas = create_gas + factory_code.gas_cost(fork)
@@ -86,7 +87,7 @@ def test_create_deposit_oog(
         gas_limit=10_000_000,
         to=caller_address,
         sender=sender,
-        protected=fork >= Byzantium,
+        protected=fork >= SpuriousDragon,
     )
 
     created_account: Account | None = Account(code=b"\x00" * deposited_len)

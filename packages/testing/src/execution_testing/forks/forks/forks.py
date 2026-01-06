@@ -1472,7 +1472,7 @@ class DAOFork(Homestead, ignore=True):
     pass
 
 
-class TangerineWhistle(DAOFork):
+class TangerineWhistle(DAOFork, ignore=True):
     """TangerineWhistle fork (EIP-150)."""
 
     pass

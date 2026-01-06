@@ -19,7 +19,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Byzantium
+from execution_testing.forks import SpuriousDragon
 
 
 class Operation(IntEnum):
@@ -147,7 +147,7 @@ def test_create_suicide_store(
         to=create_contract,
         data=suicide_initcode,
         sender=sender,
-        protected=fork >= Byzantium,
+        protected=fork >= SpuriousDragon,
     )
 
     post = {

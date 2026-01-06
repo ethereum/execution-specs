@@ -5,12 +5,13 @@ from execution_testing import (
     Account,
     Alloc,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
-from execution_testing.forks import Frontier, Homestead
+from execution_testing.forks import SpuriousDragon
 
 
 @pytest.mark.parametrize(
@@ -38,7 +39,7 @@ from execution_testing.forks import Frontier, Homestead
 @pytest.mark.with_all_evm_code_types
 def test_dup(
     state_test: StateTestFiller,
-    fork: str,
+    fork: Fork,
     dup_opcode: Op,
     pre: Alloc,
 ) -> None:
@@ -71,7 +72,7 @@ def test_dup(
         ty=0x0,
         to=account,
         gas_limit=500000,
-        protected=False if fork in [Frontier, Homestead] else True,
+        protected=fork >= SpuriousDragon,
         sender=sender,
     )
 
