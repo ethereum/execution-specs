@@ -120,7 +120,6 @@ def generic_create(
     evm.accessed_addresses.add(contract_address)
 
     track_address(evm.state_changes, contract_address)
-
     if account_has_code_or_nonce(
         state, contract_address
     ) or account_has_storage(state, contract_address):
@@ -640,7 +639,8 @@ def selfdestruct(evm: Evm) -> None:
     state = evm.message.block_env.state
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
-        track_address(evm.state_changes, beneficiary)
+
+    track_address(evm.state_changes, beneficiary)
 
     if (
         not is_account_alive(state, beneficiary)

@@ -14,7 +14,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Byzantium, Frontier, Homestead
+from execution_testing.forks import Frontier, Homestead, SpuriousDragon
 
 SLOT_CREATE_RESULT = 1
 SLOT_CREATE_RESULT_PRE = 0xDEADBEEF
@@ -65,7 +65,7 @@ def test_create_deposit_oog(
         gas_limit=tx_gas_limit,
         to=code,
         sender=sender,
-        protected=fork >= Byzantium,
+        protected=fork >= SpuriousDragon,
     )
 
     post = {
