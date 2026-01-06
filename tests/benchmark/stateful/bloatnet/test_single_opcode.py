@@ -129,6 +129,17 @@ def test_sload_empty_erc20_balanceof(
     # Calculate gas costs
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
 
+    # Per-contract fixed overhead (setup + teardown for each contract's loop)
+    overhead_per_contract = (
+        gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
+        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
+        + gas_costs.G_LOW  # MLOAD for While condition check (3)
+        + gas_costs.G_BASE  # ISZERO (2)
+        + gas_costs.G_BASE  # ISZERO (2)
+        + gas_costs.G_MID  # JUMPI (8)
+        + gas_costs.G_BASE  # POP to clean up counter at end (2)
+    )
+
     # Fixed overhead per iteration (loop mechanics, independent of warm/cold)
     loop_overhead = (
         # Attack contract loop overhead
@@ -167,7 +178,10 @@ def test_sload_empty_erc20_balanceof(
     num_txs = max(1, gas_benchmark_value // tx_gas_limit)
 
     # Calculate gas budget per contract per transaction
-    available_gas_per_tx = tx_gas_limit - intrinsic_gas
+    total_overhead_per_tx = intrinsic_gas + (
+        overhead_per_contract * num_contracts
+    )
+    available_gas_per_tx = tx_gas_limit - total_overhead_per_tx
     gas_per_contract_per_tx = available_gas_per_tx // num_contracts
 
     # Solve for calls_per_contract per tx:
@@ -194,6 +208,7 @@ def test_sload_empty_erc20_balanceof(
         f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas. "
         f"Tx gas limit: {tx_gas_limit / 1_000_000:.1f}M gas. "
         f"Number of txs: {num_txs}. "
+        f"Overhead per contract: {overhead_per_contract}. "
         f"~{gas_per_contract_per_tx / 1_000_000:.2f}M gas/contract/tx, "
         f"{calls_per_contract} balanceOf calls/contract/tx."
     )
