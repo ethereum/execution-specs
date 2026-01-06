@@ -22,8 +22,24 @@ Helper functions
 DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS = Address(
     0x4E59B44847B379578588920CA78FBF26C0B4956C
 )
-DETERMINISTIC_DEPLOYMENT_BYTECODE = Bytes(
-    "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
+DETERMINISTIC_DEPLOYMENT_BYTECODE = (
+    Op.ADD(Op.CALLDATASIZE, 2**256 - 32)
+    + Op.PUSH1[0x0]
+    + Op.CALLDATACOPY(dest_offset=Op.DUP3, offset=0x20, size=Op.DUP2)
+    + Op.CREATE2(
+        value=Op.CALLVALUE,
+        offset=Op.DUP3,
+        size=Op.DUP3,
+        salt=Op.CALLDATALOAD(Op.DUP1),
+    )
+    + Op.JUMPI(pc=0x39, condition=Op.ISZERO(Op.ISZERO(Op.DUP1)))
+    + Op.REVERT(offset=Op.DUP3, size=Op.DUP2)
+    + Op.JUMPDEST
+    + Op.MSTORE(offset=Op.DUP3, value=Op.DUP1)
+    + Op.POP
+    + Op.POP
+    + Op.POP
+    + Op.RETURN(offset=0xC, size=0x14)
 )
 
 
