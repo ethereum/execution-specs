@@ -196,7 +196,6 @@ def set_delegation(message: Message) -> U256:
 
         authority_account = get_account(state, authority)
         authority_code = authority_account.code
-
         track_address(message.tx_env.state_changes, authority)
 
         if authority_code and not is_valid_delegation(authority_code):

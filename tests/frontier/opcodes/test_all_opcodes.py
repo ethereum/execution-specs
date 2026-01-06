@@ -21,7 +21,7 @@ from execution_testing import (
     UndefinedOpcodes,
     gas_test,
 )
-from execution_testing.forks import Byzantium
+from execution_testing.forks import SpuriousDragon
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -183,7 +183,7 @@ def test_stack_overflow(
         gas_limit=100_000,
         to=contract,
         sender=pre.fund_eoa(),
-        protected=fork >= Byzantium,
+        protected=fork >= SpuriousDragon,
     )
     expected_storage = {
         slot_code_worked: value_code_failed if fails else value_code_worked

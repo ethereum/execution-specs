@@ -13,7 +13,7 @@ from execution_testing import (
     TransactionException,
 )
 from execution_testing import Opcodes as Op
-from execution_testing.forks import Byzantium
+from execution_testing.forks import SpuriousDragon
 
 from .spec import ref_spec_2930
 
@@ -62,7 +62,7 @@ def test_eip2930_tx_validity(
         sender=sender,
         gas_limit=100_000,
         access_list=[],
-        protected=fork >= Byzantium,
+        protected=fork >= SpuriousDragon,
         error=TransactionException.TYPE_1_TX_PRE_FORK if not valid else None,
     )
 
