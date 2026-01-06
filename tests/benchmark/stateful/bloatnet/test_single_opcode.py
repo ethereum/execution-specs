@@ -128,6 +128,17 @@ def test_sload_empty_erc20_balanceof(
     # Calculate gas costs
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
 
+    # Per-contract fixed overhead (setup + teardown for each contract's loop)
+    overhead_per_contract = (
+        gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
+        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
+        + gas_costs.G_LOW  # MLOAD for While condition check (3)
+        + gas_costs.G_BASE  # ISZERO (2)
+        + gas_costs.G_BASE  # ISZERO (2)
+        + gas_costs.G_MID  # JUMPI (8)
+        + gas_costs.G_BASE  # POP to clean up counter at end (2)
+    )
+
     # Fixed overhead per iteration (loop mechanics, independent of warm/cold)
     loop_overhead = (
         # Attack contract loop overhead
@@ -155,7 +166,8 @@ def test_sload_empty_erc20_balanceof(
     )
 
     # Calculate gas budget per contract
-    available_gas = gas_benchmark_value - intrinsic_gas
+    total_overhead = intrinsic_gas + (overhead_per_contract * num_contracts)
+    available_gas = gas_benchmark_value - total_overhead
     gas_per_contract = available_gas // num_contracts
 
     # For each contract: first call is COLD (2600), subsequent are WARM (100)
@@ -188,6 +200,7 @@ def test_sload_empty_erc20_balanceof(
     # Log test requirements
     print(
         f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas. "
+        f"Overhead per contract: {overhead_per_contract}. "
         f"~{gas_per_contract / 1_000_000:.1f}M gas per contract, "
         f"{calls_per_contract} balanceOf calls per contract."
     )
