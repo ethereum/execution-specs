@@ -357,7 +357,11 @@ class Alloc(BaseAlloc):
         return eoa
 
     def fund_address(
-        self, address: Address, amount: NumberConvertible
+        self,
+        address: Address,
+        amount: NumberConvertible,
+        *,
+        minimum_balance: bool = False,
     ) -> None:
         """
         Fund an address with a given amount.
@@ -369,9 +373,15 @@ class Alloc(BaseAlloc):
             account = self[address]
             if account is not None:
                 current_balance = account.balance or 0
-                account.balance = ZeroPaddedHexNumber(
-                    current_balance + Number(amount)
-                )
+                fund_amount = Number(amount)
+                if minimum_balance:
+                    if current_balance >= fund_amount:
+                        return
+                    account.balance = ZeroPaddedHexNumber(fund_amount)
+                else:
+                    account.balance = ZeroPaddedHexNumber(
+                        current_balance + fund_amount
+                    )
                 return
         super().__setitem__(address, Account(balance=amount))
 

@@ -444,13 +444,24 @@ class Alloc(BaseAlloc):
         )
 
     def fund_address(
-        self, address: Address, amount: NumberConvertible
+        self,
+        address: Address,
+        amount: NumberConvertible,
+        *,
+        minimum_balance: bool = False,
     ) -> None:
         """
         Fund an address with a given amount.
 
         If the address is already present in the pre-alloc the amount will be
         added to its existing balance.
+
+        Args:
+            address: Address to fund
+            amount: Amount to fund in Wei
+            minimum_balance: If set to True, account will be checked to have a
+                minimum balance of `amount` and only fund if the balance is
+                insufficient
         """
         raise NotImplementedError(
             "fund_address is not implemented in the base class"

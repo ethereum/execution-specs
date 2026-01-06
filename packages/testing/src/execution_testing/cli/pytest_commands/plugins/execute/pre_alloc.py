@@ -330,6 +330,9 @@ class Alloc(BaseAlloc):
                 f"Expected: {deploy_code}, "
                 f"Current: {chain_code}"
             )
+            logger.info(
+                f"Contract already deployed at {contract_address} (label={label})"
+            )
         else:
             # 2) Determine if the deployment contract is already on chain
             deployment_contract_code = self._eth_rpc.get_code(
@@ -386,6 +389,7 @@ class Alloc(BaseAlloc):
                 to=DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
                 data=Bytes(salt) + Bytes(initcode),
                 gas_limit=deploy_gas_limit,
+                value=0,
             )
             logger.info(
                 f"Contract deployment tx created (label={label}): "
@@ -708,7 +712,11 @@ class Alloc(BaseAlloc):
         return eoa
 
     def fund_address(
-        self, address: Address, amount: NumberConvertible
+        self,
+        address: Address,
+        amount: NumberConvertible,
+        *,
+        minimum_balance: bool = False,
     ) -> None:
         """
         Fund an address with a given amount.
@@ -716,29 +724,62 @@ class Alloc(BaseAlloc):
         If the address is already present in the pre-alloc the amount will be
         added to its existing balance.
         """
-        logger.debug(
-            f"Funding address {address} (label={address.label}): "
-            f"{Number(amount) / 10**18:.18f} ETH"
-        )
-        self._add_pending_tx(
-            action="fund_address",
-            target=address.label,
-            to=address,
-            value=amount,
-        )
+        current_balance = self._eth_rpc.get_balance(address)
+        fund_amount = Number(amount)
+
+        if minimum_balance:
+            if current_balance >= fund_amount:
+                logger.info(
+                    f"Skipping funding for address {address} (label={address.label}): "
+                    f"current balance {current_balance / 10**18:.18f} ETH >= "
+                    f"minimum {fund_amount / 10**18:.18f} ETH"
+                )
+                if address in self:
+                    account = self[address]
+                    if account is not None:
+                        account.balance = ZeroPaddedHexNumber(current_balance)
+                else:
+                    super().__setitem__(
+                        address, Account(balance=current_balance)
+                    )
+                return
+            logger.debug(
+                f"Funding address to minimum balance {address} (label={address.label}): "
+                f"{fund_amount / 10**18:.18f} ETH"
+            )
+            self._add_pending_tx(
+                action="fund_address",
+                target=address.label,
+                to=address,
+                value=fund_amount - current_balance,
+            )
+            new_balance = fund_amount
+        else:
+            logger.debug(
+                f"Funding address {address} (label={address.label}): "
+                f"{fund_amount / 10**18:.18f} ETH"
+            )
+            self._add_pending_tx(
+                action="fund_address",
+                target=address.label,
+                to=address,
+                value=amount,
+            )
+            new_balance = current_balance + fund_amount
+
         if address in self:
             account = self[address]
             if account is not None:
-                current_balance = account.balance or 0
-                new_balance = current_balance + Number(amount)
                 account.balance = ZeroPaddedHexNumber(new_balance)
                 logger.debug(
                     f"Updated balance for existing address {address}: "
                     f"{current_balance / 10**18:.18f} ETH -> {new_balance / 10**18:.18f} ETH"
                 )
-                return
+            else:
+                super().__setitem__(address, Account(balance=new_balance))
+        else:
+            super().__setitem__(address, Account(balance=new_balance))
 
-        super().__setitem__(address, Account(balance=amount))
         logger.info(
             f"Address {address} funding tx created (label={address.label}): "
             f"{Number(amount) / 10**18:.18f} ETH"
@@ -793,10 +834,15 @@ class Alloc(BaseAlloc):
             if tx.value is None:
                 # WARN: This currently fails if there's an account with `pre.fund_eoa()` that
                 # never sends a transaction during the test.
-                assert tx.to in sender_balances, (
-                    "Sender balance must be set before sending"
-                    f"{tx.model_dump_json()}"
-                )
+                if tx.to not in sender_balances:
+                    error_message = (
+                        "Sender balance must be set before sending:"
+                        f"\nTransaction: {tx.model_dump_json(indent=2)}"
+                    )
+                    if tx.metadata is not None:
+                        error_message += f"\nMetadata: {tx.metadata.model_dump_json(indent=2)}"
+                    logger.error(error_message)
+                    raise ValueError(error_message)
                 sender_balance = sender_balances[tx.to]
                 logger.info(
                     f"Deferred EOA balance for {tx.to} set to {sender_balance / 10**18:.18f} ETH"
