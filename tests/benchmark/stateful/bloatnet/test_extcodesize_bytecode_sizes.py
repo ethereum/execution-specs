@@ -86,9 +86,6 @@ from execution_testing.forks.gas_costs import GasCosts
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
 
-# Fusaka transaction gas limit (16M gas)
-FUSAKA_TX_GAS_LIMIT = 16_000_000
-
 
 def get_factory_stub_name(size_kb: float) -> str:
     """Generate stub name for factory based on size."""
@@ -326,10 +323,11 @@ def test_extcodesize_bytecode_sizes(
     2. Reads factory state to get deployed count and init code hash
     3. Generates CREATE2 addresses dynamically during execution
     4. Calls EXTCODESIZE on as many contracts as gas allows (cold access)
-    5. Fills block with transactions close to FUSAKA_TX_GAS_LIMIT (16M gas)
+    5. Fills block with transactions up to the fork's tx gas limit cap
     6. Verifies that contracts exist by checking a sample contract's size
     """
     gas_costs = fork.gas_costs()
+    tx_gas_limit = fork.transaction_gas_limit_cap()
     expected_size_bytes = int(bytecode_size_kb * 1024)
 
     # Calculate intrinsic transaction cost
@@ -362,16 +360,13 @@ def test_extcodesize_bytecode_sizes(
     setup_gas = 5000  # Approximate gas for factory call and memory setup
     cleanup_gas = 1000  # Reserve for loop exit and cleanup
     available_gas_per_tx = (
-        FUSAKA_TX_GAS_LIMIT
-        - intrinsic_gas_with_calldata
-        - setup_gas
-        - cleanup_gas
+        tx_gas_limit - intrinsic_gas_with_calldata - setup_gas - cleanup_gas
     )
     iterations_per_tx = available_gas_per_tx // gas_per_iteration
 
     # Calculate how many transactions we need to fill the block
     # gas_benchmark_value is the total block gas budget
-    num_attack_txs = gas_benchmark_value // FUSAKA_TX_GAS_LIMIT
+    num_attack_txs = gas_benchmark_value // tx_gas_limit
     if num_attack_txs == 0:
         num_attack_txs = 1
 
@@ -415,7 +410,7 @@ def test_extcodesize_bytecode_sizes(
         # Encode starting salt as 32-byte big-endian
         salt_calldata = starting_salt.to_bytes(32, "big")
         attack_tx = Transaction(
-            gas_limit=FUSAKA_TX_GAS_LIMIT,
+            gas_limit=tx_gas_limit,
             to=attack_address,
             sender=sender,
             data=salt_calldata,
