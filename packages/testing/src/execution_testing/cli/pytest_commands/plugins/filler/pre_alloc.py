@@ -31,6 +31,8 @@ from execution_testing.fixtures import LabeledFixtureFormat
 from execution_testing.forks import Fork
 from execution_testing.specs import BaseTest
 from execution_testing.test_types import (
+    DETERMINISTIC_DEPLOYMENT_BYTECODE,
+    DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
     EOA,
     compute_deterministic_create2_address,
 )
@@ -155,6 +157,7 @@ class Alloc(BaseAlloc):
         deploy_code: BytesConvertible,
         salt: Hash | int = 0,
         initcode: BytesConvertible | None = None,
+        storage: Storage | StorageRootType | None = None,
         label: str | None = None,
     ) -> Address:
         """
@@ -167,6 +170,8 @@ class Alloc(BaseAlloc):
             initcode = Initcode(deploy_code=deploy_code)
         elif not isinstance(initcode, Bytes):
             initcode = Bytes(initcode)
+        if storage is None:
+            storage = {}
         salt = Hash(salt)
         contract_address = compute_deterministic_create2_address(
             salt=salt, initcode=initcode
@@ -181,12 +186,22 @@ class Alloc(BaseAlloc):
                 f"code too large: {len(deploy_code)} > {max_code_size}"
             )
 
+        if DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS not in self:
+            super().__setitem__(
+                DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
+                Account(
+                    nonce=1,
+                    code=DETERMINISTIC_DEPLOYMENT_BYTECODE,
+                    storage={},
+                ),
+            )
+
         super().__setitem__(
             contract_address,
             Account(
                 nonce=1,
                 code=deploy_code,
-                storage={},
+                storage=storage,
             ),
         )
         if label is None:

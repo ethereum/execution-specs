@@ -52,6 +52,7 @@ from .specs import (
     TransactionTestFiller,
 )
 from .test_types import (
+    DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
     EOA,
     Alloc,
     AuthorizationTuple,
@@ -117,6 +118,7 @@ from .vm import (
 )
 
 __all__ = (
+    "DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS",
     "AccessList",
     "Account",
     "Address",

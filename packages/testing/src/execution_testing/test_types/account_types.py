@@ -391,6 +391,7 @@ class Alloc(BaseAlloc):
         deploy_code: BytesConvertible,
         salt: Hash | int = 0,
         initcode: BytesConvertible | None = None,
+        storage: Storage | StorageRootType | None = None,
         label: str | None = None,
     ) -> Address:
         """
@@ -400,8 +401,9 @@ class Alloc(BaseAlloc):
         Args:
             deploy_code: Contract code to deploy
             salt: Salt to use for deterministic deployment
-            initcode: Initcode to use for deterministic deployment.
-                        Can be `None` and `Initcode` will be used to derive it.
+            initcode: Initcode to use for deterministic deployment
+                        Can be `None` and `Initcode` will be used to derive it
+            storage: Set the storage during test filling
             label: Label to use for the contract
         """
         raise NotImplementedError(

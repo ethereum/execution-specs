@@ -20,6 +20,8 @@ from .block_types import (
 )
 from .chain_config_types import ChainConfig, ChainConfigDefaults
 from .helpers import (
+    DETERMINISTIC_DEPLOYMENT_BYTECODE,
+    DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
     TestParameterGroup,
     add_kzg_version,
     ceiling_division,
@@ -47,6 +49,8 @@ from .transaction_types import (
 from .utils import Removable, keccak256
 
 __all__ = (
+    "DETERMINISTIC_DEPLOYMENT_BYTECODE",
+    "DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS",
     "Alloc",
     "AuthorizationTuple",
     "BalAccountChange",

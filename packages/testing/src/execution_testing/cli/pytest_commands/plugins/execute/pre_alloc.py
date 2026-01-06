@@ -31,6 +31,7 @@ from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.rpc.rpc_types import TransactionByHashResponse
 from execution_testing.test_types import (
+    DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
     EOA,
     AuthorizationTuple,
     ChainConfig,
@@ -46,9 +47,6 @@ from execution_testing.vm import Bytecode, EVMCodeType, Op
 MAX_BYTECODE_SIZE = 24576
 MAX_INITCODE_SIZE = MAX_BYTECODE_SIZE * 2
 
-DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS = Address(
-    0x4E59B44847B379578588920CA78FBF26C0B4956C
-)
 DETERMINISTIC_DEPLOYMENT_SIGNER_ADDRESS = Address(
     0x3FAB184622DC19B6109349B94811493BF2A45362
 )
@@ -299,6 +297,7 @@ class Alloc(BaseAlloc):
         deploy_code: BytesConvertible,
         salt: Hash | int = 0,
         initcode: BytesConvertible | None = None,
+        storage: Storage | StorageRootType | None = None,
         label: str | None = None,
     ) -> Address:
         """

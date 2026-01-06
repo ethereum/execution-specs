@@ -22,6 +22,9 @@ Helper functions
 DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS = Address(
     0x4E59B44847B379578588920CA78FBF26C0B4956C
 )
+DETERMINISTIC_DEPLOYMENT_BYTECODE = Bytes(
+    "0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
+)
 
 
 def ceiling_division(a: int, b: int) -> int:
