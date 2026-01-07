@@ -40,12 +40,14 @@ def deploy_deterministic_factory_contract(
     gas_price: int,
 ) -> None:
     """Deploy the deterministic deployment contract."""
+    deploy_tx_gas_price = 0x174876E800
+    deploy_tx_gas_limit = 0x0186A0
     deploy_tx = Transaction(
         ty=0,
         protected=False,
         nonce=0,
-        gas_price=0x174876E800,
-        gas_limit=0x0186A0,
+        gas_price=deploy_tx_gas_price,
+        gas_limit=deploy_tx_gas_limit,
         to=None,
         value=0,
         data=(
@@ -57,19 +59,20 @@ def deploy_deterministic_factory_contract(
         r=0x2222222222222222222222222222222222222222222222222222222222222222,
         s=0x2222222222222222222222222222222222222222222222222222222222222222,
     ).with_signature_and_sender()
-
-    required_deployer_balance = deploy_tx.gas_price * deploy_tx.gas_limit
-    current_balance = eth_rpc.get_balance(deploy_tx.sender)
+    deploy_tx_sender = deploy_tx.sender
+    assert deploy_tx_sender is not None
+    required_deployer_balance = deploy_tx_gas_price * deploy_tx_gas_limit
+    current_balance = eth_rpc.get_balance(deploy_tx_sender)
     if current_balance < required_deployer_balance:
         # Add transaction to fund the deployer.
         fund_amount = required_deployer_balance - current_balance
         logger.info(
             "Funding deterministic factory deployer address "
-            f"{deploy_tx.sender} with "
+            f"{deploy_tx_sender} with "
             f"{fund_amount / 10**18:.18f} ETH"
         )
         fund_tx = Transaction(
-            to=deploy_tx.sender,
+            to=deploy_tx_sender,
             value=fund_amount,
             gas_price=gas_price,
             sender=seed_key,

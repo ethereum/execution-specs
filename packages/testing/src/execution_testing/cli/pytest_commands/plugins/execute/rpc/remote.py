@@ -146,9 +146,11 @@ def rpc_endpoint(request: pytest.FixtureRequest) -> str:
     Return remote RPC endpoint to be used to make requests to the execution
     client.
     """
-    return request.config.getoption("rpc_endpoint") or os.environ.get(
+    rpc_endpoint = request.config.getoption("rpc_endpoint") or os.environ.get(
         "RPC_ENDPOINT"
     )
+    assert rpc_endpoint is not None
+    return rpc_endpoint
 
 
 @pytest.fixture(autouse=True, scope="session")

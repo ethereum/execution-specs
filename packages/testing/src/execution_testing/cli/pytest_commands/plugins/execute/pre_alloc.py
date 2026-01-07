@@ -244,8 +244,8 @@ class Alloc(BaseAlloc):
     _sender: EOA = PrivateAttr()
     _eth_rpc: EthRPC = PrivateAttr()
     _pending_txs: List[PendingTransaction] = PrivateAttr(default_factory=list)
-    _deployed_contracts: List[Tuple[Address, Bytes]] = PrivateAttr(
-        default_factory=list
+    _deployed_contracts: List[Tuple[Address, Bytes | Bytecode | Container]] = (
+        PrivateAttr(default_factory=list)
     )
     _funded_eoa: List[EOA] = PrivateAttr(default_factory=list)
     _evm_code_type: EVMCodeType | None = PrivateAttr(None)

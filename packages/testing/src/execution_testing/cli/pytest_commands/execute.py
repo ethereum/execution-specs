@@ -91,9 +91,7 @@ recover = _create_execute_subcommand(
         "--start-eoa-index=1",
         "--destination=0x0000000000000000000000000000000000000000",
     ],
-    command_logic_test_paths=[
-        EXECUTE_PATH / "execute_recover.py"
-    ],
+    command_logic_test_paths=[EXECUTE_PATH / "execute_recover.py"],
 )
 
 deploy_required_contracts = _create_execute_subcommand(
