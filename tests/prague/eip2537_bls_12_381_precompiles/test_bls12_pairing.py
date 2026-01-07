@@ -159,7 +159,8 @@ def test_valid_multi_inf(
         fork.transaction_intrinsic_cost_calculator()
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    extra_gas = 100_000
+    gas_costs = fork.gas_costs()
+    extra_gas = 70_000 + gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD
 
     tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     max_gas_limit = (
@@ -383,7 +384,8 @@ def test_invalid_multi_inf(
         fork.transaction_intrinsic_cost_calculator()
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    extra_gas = 100_000
+    gas_costs = fork.gas_costs()
+    extra_gas = 70_000 + gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD
 
     tx_gas_limit_cap = fork.transaction_gas_limit_cap()
     max_gas_limit = (

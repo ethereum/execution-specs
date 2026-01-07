@@ -172,7 +172,10 @@ def tx_gas_limit_calculator(
         fork.transaction_intrinsic_cost_calculator()
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    extra_gas = 22_500 * len(precompile_gas_list)
+    gas_costs = fork.gas_costs()
+    extra_gas = (
+        10_000 + gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD
+    ) * len(precompile_gas_list)
     return (
         extra_gas
         + intrinsic_gas_cost_calculator()
