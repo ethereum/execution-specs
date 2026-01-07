@@ -343,6 +343,16 @@ def test_bal_4788_query(
         ]
         if is_valid
         else [],
+        # if value > 0 and invalid, no balance is sent to beacon root so
+        # is kept in the query contract
+        balance_changes=[
+            BalBalanceChange(
+                block_access_index=1,
+                post_balance=value,
+            )
+        ]
+        if not is_valid and value > 0
+        else [],
     )
 
     block2 = Block(
