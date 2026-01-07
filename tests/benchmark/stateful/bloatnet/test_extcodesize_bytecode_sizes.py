@@ -1,49 +1,45 @@
 r"""
 Test EXTCODESIZE with parametrized bytecode sizes using CREATE2 factory.
 
-This test executes EXTCODESIZE operations against pre-deployed contracts
-via factories, measuring the performance impact of different contract
-sizes on EXTCODESIZE operations.
-Designed for execute mode only - contracts must be pre-deployed.
-
-The test maximizes cold EXTCODESIZE calls to stress client state loading:
-1. Using CREATE2 address derivation to access many unique contracts
-2. Filling block gas with transactions close to FUSAKA_TX_GAS_LIMIT (16M)
-3. Verifying contracts exist by checking the last accessed contract's size
-
 This benchmark measures the performance impact of `EXTCODESIZE` operations
 on contracts of varying sizes (0.5KB to 24KB).
 It stresses client state loading by maximizing **cold** EXTCODESIZE calls.
 
-## Overview
+Designed for execute mode only - contracts must be pre-deployed.
 
-The test deploys attack contracts that loop through thousands of unique
-contract addresses, calling `EXTCODESIZE` on each.
-By using CREATE2 address derivation, the test accesses pre-deployed
-contracts without storing their addresses, maximizing the number of cold
-state accesses per block.
+## Gas-Based Loop Strategy
+
+The attack contract uses a gas-based loop exit (per Jochem's suggestion):
+1. Reads current salt from storage slot 0
+2. Loops while gas > 50K, calling EXTCODESIZE on CREATE2 addresses
+3. Saves final salt to storage slot 0 when exiting
+4. Next TX automatically resumes from where previous left off
+
+This eliminates manual gas calculations - the contract self-regulates.
+
+## Test Block Structure
 
 ┌───────────────────────────────────────────────────────────────┐
 │                        Test Block                             │
 ├───────────────────────────────────────────────────────────────┤
 │  TX1: Verification (~30K gas)                                 │
-│    └─> Calls EXTCODESIZE on last contract, stores result      │
+│    └─> Calls EXTCODESIZE on salt 0, stores result             │
 │                                                               │
 │  TX2: Attack (~16M gas)                                       │
-│    └─> Loops EXTCODESIZE on salts 0..5,878                    │
+│    └─> Loops EXTCODESIZE until gas < 50K, saves salt          │
 │                                                               │
 │  TX3: Attack (~16M gas)                                       │
-│    └─> Loops EXTCODESIZE on salts 5,879..11,757               │
+│    └─> Resumes from TX2's salt, continues looping             │
 │                                                               │
 │  TX4: Attack (~16M gas)                                       │
-│    └─> Loops EXTCODESIZE on salts 11,758..17,636              │
+│    └─> Resumes from TX3's salt, continues looping             │
 └───────────────────────────────────────────────────────────────┘
 
 ### Execute a Single Size
 
 ```bash
 uv run execute remote \\
-  --fork Prague \\
+  --fork Osaka \\
   --rpc-endpoint http://127.0.0.1:8545 \\
   --rpc-seed-key <SEED_KEY> \\
   --rpc-chain-id 1337 \\
@@ -57,7 +53,7 @@ uv run execute remote \\
 
 ```bash
 uv run execute remote \\
-  --fork Prague \\
+  --fork Osaka \\
   --rpc-endpoint http://127.0.0.1:8545 \\
   --rpc-seed-key <SEED_KEY> \\
   --rpc-chain-id 1337 \\
@@ -105,51 +101,33 @@ def get_factory_stub_name(size_kb: float) -> str:
         raise ValueError(f"Unsupported size: {size_kb}KB")
 
 
-def calculate_gas_per_iteration(gas_costs: GasCosts) -> int:
-    """
-    Calculate gas cost per EXTCODESIZE loop iteration.
-
-    Each iteration:
-    1. Generate CREATE2 address via SHA3
-    2. Cold EXTCODESIZE access
-    3. Increment salt and loop overhead
-    """
-    return (
-        # SHA3 for CREATE2 address generation (85 bytes = 3 words)
-        gas_costs.G_KECCAK_256  # Static cost (30)
-        + gas_costs.G_KECCAK_256_WORD * 3  # Dynamic cost (3 * 6 = 18)
-        # EXTCODESIZE cold access
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # 2600
-        # Note: No masking needed - EVM auto-truncates to 20 bytes
-        # Loop overhead: increment salt, decrement counter, check condition
-        + gas_costs.G_LOW  # MLOAD salt (3)
-        + gas_costs.G_VERY_LOW  # ADD (3)
-        + gas_costs.G_LOW  # MSTORE salt (3)
-        + gas_costs.G_VERY_LOW * 3  # Counter decrement ops (9)
-        + gas_costs.G_BASE * 2  # ISZERO checks (4)
-        + gas_costs.G_MID  # JUMPI (8)
-        + gas_costs.G_JUMPDEST  # Loop start (1)
-        # POP the EXTCODESIZE result
-        + gas_costs.G_BASE  # POP (2)
-    )
-
-
 def build_attack_contract(factory_address: Address) -> Bytecode:
     """
     Build an attack contract that maximizes EXTCODESIZE calls.
 
-    The contract reads a starting salt from calldata (32 bytes) and:
-    1. Calls factory.getConfig() to get (num_deployed, init_code_hash)
-    2. Sets up memory for CREATE2 address derivation
-    3. Loops through salts starting_salt..starting_salt+N calling EXTCODESIZE
-    4. Does NOT write to storage (pure computation for maximum efficiency)
+    Uses a gas-based loop exit strategy (per Jochem's suggestion):
+    1. Reads current salt from storage slot 0 (resumes from previous TX)
+    2. Calls factory.getConfig() to get (num_deployed, init_code_hash)
+    3. Loops while gas > GAS_RESERVE, calling EXTCODESIZE on each address
+    4. Saves final salt to storage slot 0 for next TX to resume
+    5. Saves last EXTCODESIZE result to storage slot 1 for verification
 
-    Calldata format: 32 bytes for the starting salt (big-endian uint256)
+    Storage layout:
+    - Slot 0: Current/final salt (used for resuming across TXs)
+    - Slot 1: Last EXTCODESIZE result (used for verification)
+
+    This eliminates manual gas calculations - the contract self-regulates.
+    Each TX automatically continues from where the previous one left off.
     """
+    # Gas reserve for 2x SSTORE + cleanup
+    # - Slot 0: warm (after SLOAD), ~5K worst case
+    # - Slot 1: cold on first TX (~22K), warm after (~3K)
+    # - 50K provides safe margin for both cases
+    gas_reserve = 50_000
+
     return (
-        # === Step 0: Load starting salt from calldata ===
-        # CALLDATALOAD(0) reads 32 bytes from calldata offset 0
-        Op.CALLDATALOAD(0)  # Stack: [starting_salt]
+        # === Step 0: Load current salt from storage slot 0 ===
+        Op.SLOAD(0)  # Stack: [current_salt]
         # === Step 1: Get factory configuration ===
         # Call factory.getConfig() -> (num_deployed, init_code_hash)
         + Op.STATICCALL(
@@ -161,17 +139,17 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
             ret_size=64,  # 64 bytes for 2 uint256s
         )
         # Check if call succeeded (STATICCALL returns 1 on success)
-        # Stack: [starting_salt, success]
+        # Stack: [current_salt, success]
         + Conditional(
             condition=Op.ISZERO,  # If call failed (success=0)
             if_true=Op.REVERT(0, 0),  # Revert with no data
         )
-        # Stack: [starting_salt]
+        # Stack: [current_salt]
         # Load results from memory
         # Memory[96:128] = num_deployed_contracts
         # Memory[128:160] = init_code_hash
-        + Op.MLOAD(96)  # Stack: [starting_salt, num_deployed]
-        + Op.MLOAD(128)  # Stack: [starting_salt, num_deployed, init_code_hash]
+        + Op.MLOAD(96)  # Stack: [current_salt, num_deployed]
+        + Op.MLOAD(128)  # Stack: [current_salt, num_deployed, init_code_hash]
         # === Step 2: Setup CREATE2 address generation in memory ===
         # Memory layout at offset 0:
         # [0x00-0x0A]: padding (11 bytes)
@@ -185,41 +163,61 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
         # Store 0xFF marker at position 11 (before the address)
         + Op.MSTORE8(11, 0xFF)
         # Store init_code_hash at memory[64]
-        # Stack: [starting_salt, num_deployed, init_code_hash]
+        # Stack: [current_salt, num_deployed, init_code_hash]
         + Op.PUSH1(64)
         + Op.MSTORE  # Stores init_code_hash at memory[64]
-        # Stack: [starting_salt, num_deployed]
-        # Store starting salt at memory[32]
-        + Op.SWAP1  # Stack: [num_deployed, starting_salt]
-        + Op.DUP1  # Stack: [num_deployed, starting_salt, starting_salt]
+        # Stack: [current_salt, num_deployed]
+        # Store current salt at memory[32]
+        + Op.SWAP1  # Stack: [num_deployed, current_salt]
+        + Op.DUP1  # Stack: [num_deployed, current_salt, current_salt]
         + Op.PUSH1(32)
-        + Op.MSTORE  # Store starting_salt at memory[32]
-        # Stack: [num_deployed, starting_salt]
+        + Op.MSTORE  # Store current_salt at memory[32]
+        # Stack: [num_deployed, current_salt]
         + Op.POP  # Stack: [num_deployed]
-        # === Step 3: Main loop - EXTCODESIZE operations ===
+        # Initialize last_size at memory[160] to 0
+        + Op.PUSH1(0)
+        + Op.PUSH2(160)
+        + Op.MSTORE  # memory[160] = 0 (last_size)
+        # === Step 3: Main loop - gas-based exit ===
+        # Loop while gas > gas_reserve AND salt < num_deployed
         + While(
             body=(
+                # Stack: [num_deployed]
                 # CREATE2 address: keccak256(0xFF ++ factory ++ salt ++ hash)
                 Op.SHA3(11, 85)  # 85 bytes from offset 11
                 # Hash result - EVM auto-truncates to 20-byte address
-                # Call EXTCODESIZE and discard result (no storage writes!)
+                # Call EXTCODESIZE and store result in memory[160]
                 + Op.EXTCODESIZE
-                + Op.POP
+                + Op.PUSH2(160)
+                + Op.MSTORE  # Store size at memory[160] for verification
                 # Increment salt for next iteration
                 + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
             ),
-            # Continue while counter > 0
-            # Decrement counter and check if non-zero
+            # Continue while: gas > gas_reserve AND salt < num_deployed
             condition=(
-                Op.PUSH1(1)
-                + Op.SWAP1
-                + Op.SUB
-                + Op.DUP1
-                + Op.ISZERO
-                + Op.ISZERO  # Convert to boolean: 1 if counter > 0
+                # Check gas > gas_reserve
+                Op.GAS
+                + Op.PUSH3(gas_reserve)
+                + Op.GT  # gas > gas_reserve
+                # Check salt < num_deployed (num_deployed > salt)
+                + Op.DUP2  # Stack: [..., (gas>reserve), num_deployed]
+                + Op.MLOAD(32)  # Stack: [..., (gas>res), num_deployed, salt]
+                + Op.GT  # Stack: [..., (gas>reserve), (num_deployed > salt)]
+                # Both conditions must be true
+                + Op.AND  # (gas > reserve) AND (salt < num_deployed)
             ),
         )
-        + Op.POP  # Clean up remaining counter
+        # === Step 4: Save state to storage for next TX and verification ===
+        # Stack: [num_deployed]
+        + Op.POP  # Clean up stack
+        # Save final salt to slot 0
+        + Op.MLOAD(32)  # Load final salt from memory
+        + Op.PUSH1(0)
+        + Op.SSTORE  # SSTORE(0, final_salt)
+        # Save last EXTCODESIZE result to slot 1 for verification
+        + Op.MLOAD(160)  # Load last_size from memory
+        + Op.PUSH1(1)
+        + Op.SSTORE  # SSTORE(1, last_size)
         + Op.STOP
     )
 
@@ -318,23 +316,22 @@ def test_extcodesize_bytecode_sizes(
     """
     Execute EXTCODESIZE benchmark against pre-deployed contracts.
 
-    This test:
-    1. Uses factory addresses passed via stubs (one factory per size)
-    2. Reads factory state to get deployed count and init code hash
-    3. Generates CREATE2 addresses dynamically during execution
-    4. Calls EXTCODESIZE on as many contracts as gas allows (cold access)
-    5. Fills block with transactions up to the fork's tx gas limit cap
-    6. Verifies that contracts exist by checking a sample contract's size
+    Uses a gas-based loop exit strategy (per Jochem's suggestion):
+    1. Attack contract reads/writes salt from storage slot 0
+    2. Loop exits when gas < 50K, saves salt for next TX
+    3. Each TX automatically resumes from where previous left off
+    4. No manual gas calculations needed - contract self-regulates
+
+    Verification TX checks that contracts exist by calling EXTCODESIZE
+    on salt 0 (first contract) and storing the result.
     """
     gas_costs = fork.gas_costs()
-    tx_gas_limit = fork.transaction_gas_limit_cap()
+    # Use fork's TX gas limit cap, or 16M fallback for pre-Osaka forks
+    tx_gas_limit = fork.transaction_gas_limit_cap() or 16_000_000
     expected_size_bytes = int(bytecode_size_kb * 1024)
 
-    # Calculate intrinsic transaction cost
+    # Calculate intrinsic transaction cost (no calldata needed)
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
-
-    # Calculate gas per EXTCODESIZE iteration
-    gas_per_iteration = calculate_gas_per_iteration(gas_costs)
 
     # Get factory stub name for this size
     factory_stub = get_factory_stub_name(bytecode_size_kb)
@@ -345,38 +342,20 @@ def test_extcodesize_bytecode_sizes(
         stub=factory_stub,
     )
 
-    # Build and deploy the attack contract
+    # Build and deploy the attack contract with storage initialized
     attack_code = build_attack_contract(factory_address)
-    attack_address = pre.deploy_contract(code=attack_code)
-
-    # Calculate intrinsic cost with 32 bytes of calldata (starting salt)
-    calldata_for_attack = b"\x00" * 32  # 32 zero bytes for salt
-    intrinsic_gas_with_calldata = fork.transaction_intrinsic_cost_calculator()(
-        calldata=calldata_for_attack
+    attack_address = pre.deploy_contract(
+        code=attack_code,
+        storage={0: 0},  # Initialize salt counter to 0
     )
-
-    # Calculate how many iterations fit in one transaction
-    # Reserve gas for: intrinsic + setup (getConfig, memory) + cleanup
-    setup_gas = 5000  # Approximate gas for factory call and memory setup
-    cleanup_gas = 1000  # Reserve for loop exit and cleanup
-    available_gas_per_tx = (
-        tx_gas_limit - intrinsic_gas_with_calldata - setup_gas - cleanup_gas
-    )
-    iterations_per_tx = available_gas_per_tx // gas_per_iteration
 
     # Calculate how many transactions we need to fill the block
-    # gas_benchmark_value is the total block gas budget
     num_attack_txs = gas_benchmark_value // tx_gas_limit
     if num_attack_txs == 0:
         num_attack_txs = 1
 
-    # Total iterations across all transactions (each tx uses unique contracts)
-    total_iterations = iterations_per_tx * num_attack_txs
-
-    # For verification, check the last contract accessed by the last attack tx
-    # Last tx starts at salt (num_attack_txs - 1) * iterations_per_tx
-    # and ends at salt (num_attack_txs * iterations_per_tx - 1)
-    verification_salt = total_iterations - 1 if total_iterations > 0 else 0
+    # Verification: check salt 0 (first contract, always accessed)
+    verification_salt = 0
 
     # Build and deploy verification contract
     verification_code = build_verification_contract(
@@ -403,17 +382,14 @@ def test_extcodesize_bytecode_sizes(
     )
     txs.append(verification_tx)
 
-    # Attack transactions: fill remaining block gas with ~16M gas txs
-    # Each tx uses a different starting salt to access unique contracts
-    for tx_index in range(num_attack_txs):
-        starting_salt = tx_index * iterations_per_tx
-        # Encode starting salt as 32-byte big-endian
-        salt_calldata = starting_salt.to_bytes(32, "big")
+    # Attack transactions: all identical, no calldata needed
+    # Each TX reads salt from storage, loops until gas low, saves salt back
+    for _ in range(num_attack_txs):
         attack_tx = Transaction(
             gas_limit=tx_gas_limit,
             to=attack_address,
             sender=sender,
-            data=salt_calldata,
+            data=b"",  # No calldata - salt comes from storage
             value=0,
         )
         txs.append(attack_tx)
@@ -423,30 +399,30 @@ def test_extcodesize_bytecode_sizes(
     print(f"EXTCODESIZE Benchmark: {bytecode_size_kb}KB contracts")
     print(f"{'=' * 60}")
     print(f"Block gas budget: {gas_benchmark_value:,}")
-    print(f"Gas per iteration: ~{gas_per_iteration}")
-    print(f"Iterations per tx (16M gas): ~{iterations_per_tx:,}")
+    print(f"TX gas limit: {tx_gas_limit:,}")
     print(f"Number of attack txs: {num_attack_txs}")
-    print(f"Total unique EXTCODESIZE calls: ~{total_iterations:,}")
-    print("Salt ranges per tx:")
-    for i in range(num_attack_txs):
-        start = i * iterations_per_tx
-        end = (i + 1) * iterations_per_tx - 1
-        print(f"  TX{i + 1}: salts {start:,} - {end:,}")
     print(f"Verification tx gas: {verification_gas:,}")
-    print(f"Verification salt: {verification_salt:,} (last contract accessed)")
     print(f"Expected contract size: {expected_size_bytes} bytes")
-    print(f"Contracts required: {total_iterations:,}")
+    print("Note: Using gas-based loop - each TX auto-resumes from storage")
     print(f"{'=' * 60}\n")
 
     # Create block with all transactions
     block = Block(txs=txs)
 
     # Post-state verification:
-    # Verify that the verification contract stored the expected size
+    # 1. Verify that verification contract stored expected size (salt 0)
+    # 2. Verify attack contract's last EXTCODESIZE returns expected size
+    #    (proves the gas-based loop ran and accessed real contracts)
     post = {
         verification_address: Account(
             storage={
-                0: expected_size_bytes,  # EXTCODESIZE returns expected size
+                0: expected_size_bytes,  # EXTCODESIZE on salt 0
+            }
+        ),
+        attack_address: Account(
+            storage={
+                # Slot 1: last EXTCODESIZE result should match expected size
+                1: expected_size_bytes,
             }
         ),
     }
