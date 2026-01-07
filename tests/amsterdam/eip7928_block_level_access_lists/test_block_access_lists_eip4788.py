@@ -226,8 +226,11 @@ def test_bal_4788_empty_block(
 @pytest.mark.parametrize(
     "timestamp,beacon_root,query_timestamp,expected_result,is_valid",
     [
-        pytest.param(12, Hash(0xABCDEF), 12, Hash(0xABCDEF), True, id="valid"),
-        pytest.param(12, Hash(0xABCDEF), 0, 0, False, id="invalid"),
+        pytest.param(
+            12, Hash(0xABCDEF), 12, Hash(0xABCDEF), True, id="valid_timestamp"
+        ),
+        pytest.param(12, Hash(0xABCDEF), 42, 0, False, id="invalid_timestamp"),
+        pytest.param(12, Hash(0xABCDEF), 0, 0, False, id="zero_timestamp"),
     ],
 )
 @pytest.mark.parametrize(
@@ -304,7 +307,11 @@ def test_bal_4788_query(
 
     # Invalid timestamp should read timestamp and revert.
     account_expectations[BEACON_ROOTS_ADDRESS].storage_reads = (
-        [timestamp_slot, root_slot] if is_valid else [timestamp_slot]
+        []
+        if query_timestamp == 0  # Reverts early if timestamp is zero
+        else [timestamp_slot, root_slot]
+        if is_valid
+        else [timestamp_slot]
     )
 
     # Add balance changes if value is transferred
@@ -319,7 +326,9 @@ def test_bal_4788_query(
     )
 
     account_expectations[query_contract] = BalAccountExpectation(
-        # Record implicit read if contract reverts
+        # If the call to beacon root contract reverts
+        # a no-op write happens and an implicit read is
+        # recorded.
         storage_reads=[] if is_valid else [0],
         # Write reverts if invalid
         storage_changes=[
