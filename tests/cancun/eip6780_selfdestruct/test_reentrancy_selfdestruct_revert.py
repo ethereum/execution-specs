@@ -152,6 +152,7 @@ def test_reentrancy_selfdestruct_revert(
     executor_contract_address: Address,
     executor_contract_init_balance: int,
     selfdestruct_recipient_address: Address,
+    fork_extra_gas: int,
 ) -> None:
     """
     Suicide reentrancy scenario.
@@ -223,7 +224,7 @@ def test_reentrancy_selfdestruct_revert(
     tx = Transaction(
         sender=sender,
         to=executor_contract_address,
-        gas_limit=500_000,
+        gas_limit=500_000 + fork_extra_gas,
         value=0,
     )
 
