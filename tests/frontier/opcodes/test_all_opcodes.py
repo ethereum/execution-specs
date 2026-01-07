@@ -87,13 +87,14 @@ def test_all_opcodes(
         )
 
     # EVM code to make the call and store the result
+    subcall_gas = 35_000
     contract_address = pre.deploy_contract(
         code=sum(
             Op.SSTORE(
                 Op.PUSH1(opcode.int()),
                 # Limit gas to limit the gas consumed by the exceptional aborts
                 # in each subcall that uses an undefined opcode.
-                Op.CALL(35_000, opcode_address, 0, 0, 0, 0, 0),
+                Op.CALL(subcall_gas, opcode_address, 0, 0, 0, 0, 0),
             )
             for opcode, opcode_address in code_contract.items()
         )
@@ -113,9 +114,19 @@ def test_all_opcodes(
         ),
     }
 
+    gas_costs = fork.gas_costs()
+    sstore_cost = (len(code_contract) + 1) * (
+        gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD
+    )
+    access_cost = len(code_contract) * gas_costs.G_COLD_ACCOUNT_ACCESS
+
+    subcall_cost = (
+        len(code_contract) - len(fork.valid_opcodes())
+    ) * subcall_gas
+
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=9_000_000,
+        gas_limit=50_000 + sstore_cost + access_cost + subcall_cost,
         to=contract_address,
         protected=fork.supports_protected_txs(),
     )
