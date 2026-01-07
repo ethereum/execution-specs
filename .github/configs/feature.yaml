@@ -9,11 +9,11 @@ develop:
 
 benchmark:
   evm-type: benchmark
-  fill-params: --fork=Prague --gas-benchmark-values 1,10,30,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
+  fill-params: --fork=Prague --gas-benchmark-values 1,5,10,30,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
 
 benchmark_develop:
   evm-type: benchmark
-  fill-params: --fork=Osaka --gas-benchmark-values 1,10,30,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
+  fill-params: --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
   feature_only: true
 
 benchmark_fast:
