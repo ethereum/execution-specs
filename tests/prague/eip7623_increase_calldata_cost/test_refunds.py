@@ -148,7 +148,7 @@ def contract_creating_tx() -> bool:
 
 
 @pytest.fixture
-def intrinsic_gas_data_floor_minimum_delta() -> int:
+def intrinsic_gas_data_floor_minimum_delta(fork: Fork) -> int:
     """
     Induce a minimum delta between the transaction intrinsic gas cost and the
     floor data gas cost.
@@ -162,7 +162,14 @@ def intrinsic_gas_data_floor_minimum_delta() -> int:
     This value has been set as of Prague and should be adjusted if the gas
     costs change.
     """
-    return 250
+    gas_costs = fork.gas_costs()
+    extra = 50
+    return (
+        gas_costs.G_COLD_SLOAD
+        + gas_costs.G_STORAGE_RESET
+        + extra
+        - gas_costs.R_STORAGE_CLEAR
+    )
 
 
 @pytest.fixture
