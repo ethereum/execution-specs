@@ -257,8 +257,6 @@ class PreAllocGroup(PreAllocGroupBuilder):
     pre-allocation group optimization.
     """
 
-    # Allow both field names and aliases
-    model_config = {"populate_by_name": True}
     pre: GroupPreAlloc
     genesis: FixtureHeader
     pre_account_count: int

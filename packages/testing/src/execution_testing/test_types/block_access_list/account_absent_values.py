@@ -74,8 +74,6 @@ class BalAccountAbsentValues(CamelModel):
 
     """
 
-    model_config = CamelModel.model_config | {"extra": "forbid"}
-
     nonce_changes: List[BalNonceChange] = Field(
         default_factory=list,
         description="List of nonce changes that should NOT exist in the BAL. "

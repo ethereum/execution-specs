@@ -49,6 +49,10 @@ class ClientFile(RootModel, YAMLModel):
 class HiveInfo(CamelModel):
     """Hive instance information."""
 
+    # Allow extra fields: HiveInfo parses external hive API responses which
+    # may include fields not defined in this model.
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
     command: List[str]
     client_file: ClientFile = Field(
         default_factory=lambda: ClientFile(root=[])

@@ -32,8 +32,6 @@ class BalAccountExpectation(CamelModel):
     used for expectations.
     """
 
-    model_config = CamelModel.model_config | {"extra": "forbid"}
-
     nonce_changes: List[BalNonceChange] = Field(
         default_factory=list, description="List of expected nonce changes"
     )
@@ -118,8 +116,6 @@ class BlockAccessListExpectation(CamelModel):
         )
 
     """
-
-    model_config = CamelModel.model_config | {"extra": "forbid"}
 
     account_expectations: Dict[Address, BalAccountExpectation | None] = Field(
         default_factory=dict,

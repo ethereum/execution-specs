@@ -23,7 +23,6 @@ import pytest
 from ethereum_types.numeric import Uint
 from pydantic import (
     AliasChoices,
-    ConfigDict,
     Field,
     PlainSerializer,
     computed_field,
@@ -146,7 +145,7 @@ class FixtureHeader(CamelModel):
 
     # Allow extra fields: FixtureHeader is constructed from merged Result and
     # Environment data via model_dump(), which includes fields not in this model.
-    model_config = ConfigDict(extra="ignore")
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     parent_hash: Hash = Hash(0)
     ommers_hash: Hash = Field(Hash(EmptyOmmersRoot), alias="uncleHash")
@@ -702,6 +701,10 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     Uses pre-allocation groups (and a single client instance) for efficient
     test execution without client restarts.
     """
+
+    # Allow extra fields: BlockchainEngineXFixture is constructed from shared
+    # fixture_data that includes fields for other fixture formats (e.g. genesis).
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     format_name: ClassVar[str] = "blockchain_test_engine_x"
     description: ClassVar[str] = (

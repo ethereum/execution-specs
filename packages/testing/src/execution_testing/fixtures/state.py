@@ -2,7 +2,7 @@
 
 from typing import ClassVar, List, Mapping, Sequence
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from execution_testing.base_types import (
     AccessList,
@@ -30,7 +30,7 @@ class FixtureEnvironment(EnvironmentGeneric[ZeroPaddedHexNumber]):
 
     # Allow extra fields: FixtureEnvironment is constructed from Environment
     # via model_dump(), which includes many fields not in EnvironmentGeneric.
-    model_config = ConfigDict(extra="ignore")
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     prev_randao: Hash | None = Field(None, alias="currentRandom")  # type: ignore
 
@@ -40,7 +40,7 @@ class FixtureTransaction(TransactionFixtureConverter):
 
     # Allow extra fields: FixtureTransaction is constructed from Transaction
     # via model_dump(), which includes many fields not in this model.
-    model_config = ConfigDict(extra="ignore")
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     nonce: ZeroPaddedHexNumber
     gas_price: ZeroPaddedHexNumber | None = None

@@ -77,6 +77,7 @@ class TraceLine(CamelModel):
     refund: int
     op_name: str
     error: str | None = None
+    return_data: str | None = None
 
     def are_equivalent(self, other: Self) -> bool:
         """Return True if the only difference is the gas counter."""

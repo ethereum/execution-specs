@@ -181,7 +181,10 @@ class Header(CamelModel):
     ```
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        **CamelModel.model_config,
+        arbitrary_types_allowed=True,
+    )
 
     @model_serializer(mode="wrap", when_used="json")
     def _serialize_model(self, serializer: Any, info: Any) -> Dict[str, Any]:
