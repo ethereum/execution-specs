@@ -80,29 +80,55 @@ def test_bloatnet_balance_extcodesize(
     # Calculate gas costs
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
 
+    # Setup overhead (before loop): STATICCALL + result handling + memory setup
+    setup_overhead = (
+        gas_costs.G_COLD_ACCOUNT_ACCESS  # STATICCALL to factory (2600)
+        + 100  # STATICCALL base cost
+        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # PUSH2 (3)
+        + gas_costs.G_MID  # JUMPI (10)
+        + gas_costs.G_LOW * 2  # MLOAD × 2 for factory results (3 * 2)
+        + gas_costs.G_LOW * 3  # MSTORE × 3 for memory setup (3 * 3)
+        + gas_costs.G_VERY_LOW  # MSTORE8 for 0xFF prefix (3)
+        + gas_costs.G_VERY_LOW  # PUSH1 for memory position (3)
+    )
+
+    # Cleanup overhead (after loop)
+    cleanup_overhead = gas_costs.G_BASE  # POP counter (2)
+
+    # While loop condition overhead per iteration
+    loop_condition_overhead = (
+        gas_costs.G_BASE  # DUP1 (3)
+        + gas_costs.G_VERY_LOW  # PUSH1 (3)
+        + gas_costs.G_VERY_LOW  # SWAP1 (3)
+        + gas_costs.G_VERY_LOW  # SUB (3)
+        + gas_costs.G_BASE  # DUP1 (3)
+        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_MID  # JUMPI (10)
+    )
+
     # Cost per contract access with CREATE2 address generation
     cost_per_contract = (
         gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
-        + gas_costs.G_KECCAK_256_WORD
-        * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
+        + gas_costs.G_KECCAK_256_WORD * 3  # SHA3 dynamic (85 bytes = 3 words)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.G_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
         + gas_costs.G_BASE  # POP second result (2)
-        + gas_costs.G_BASE  # DUP1 before first op (3)
-        + gas_costs.G_VERY_LOW * 4  # PUSH1 operations (4 * 3)
+        + gas_costs.G_BASE  # DUP1 before first op (2)
         + gas_costs.G_LOW  # MLOAD for salt (3)
         + gas_costs.G_VERY_LOW  # ADD for increment (3)
         + gas_costs.G_LOW  # MSTORE salt back (3)
-        + 10  # While loop overhead
+        + loop_condition_overhead  # While loop condition
     )
 
     # Calculate how many transactions we need to fill the block
     num_txs = max(1, gas_benchmark_value // tx_gas_limit)
 
     # Calculate how many contracts to access per transaction
-    # Reserve 1000 gas for cleanup
-    available_gas_per_tx = tx_gas_limit - intrinsic_gas - 1000
+    total_overhead = setup_overhead + cleanup_overhead
+    available_gas_per_tx = tx_gas_limit - intrinsic_gas - total_overhead
     contracts_per_tx = int(available_gas_per_tx // cost_per_contract)
 
     # Deploy factory using stub contract - NO HARDCODED VALUES
@@ -244,29 +270,56 @@ def test_bloatnet_balance_extcodecopy(
     # Calculate costs
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
 
+    # Setup overhead (before loop): STATICCALL + result handling + memory setup
+    setup_overhead = (
+        gas_costs.G_COLD_ACCOUNT_ACCESS  # STATICCALL to factory (2600)
+        + 100  # STATICCALL base cost
+        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # PUSH2 (3)
+        + gas_costs.G_MID  # JUMPI (10)
+        + gas_costs.G_LOW * 2  # MLOAD × 2 for factory results (3 * 2)
+        + gas_costs.G_LOW * 3  # MSTORE × 3 for memory setup (3 * 3)
+        + gas_costs.G_VERY_LOW  # MSTORE8 for 0xFF prefix (3)
+        + gas_costs.G_VERY_LOW  # PUSH1 for memory position (3)
+    )
+
+    # Cleanup overhead (after loop)
+    cleanup_overhead = gas_costs.G_BASE  # POP counter (2)
+
+    # While loop condition overhead per iteration
+    loop_condition_overhead = (
+        gas_costs.G_BASE  # DUP1 (3)
+        + gas_costs.G_VERY_LOW  # PUSH1 (3)
+        + gas_costs.G_VERY_LOW  # SWAP1 (3)
+        + gas_costs.G_VERY_LOW  # SUB (3)
+        + gas_costs.G_BASE  # DUP1 (3)
+        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_MID  # JUMPI (10)
+    )
+
     # Cost per contract with EXTCODECOPY and CREATE2 address generation
     cost_per_contract = (
         gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
-        + gas_costs.G_KECCAK_256_WORD
-        * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
+        + gas_costs.G_KECCAK_256_WORD * 3  # SHA3 dynamic (85 bytes = 3 words)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.G_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access base (100)
         + gas_costs.G_COPY * 1  # Copy cost for 1 byte (3)
         + gas_costs.G_BASE * 2  # DUP1 before first op, DUP4 for address (6)
-        + gas_costs.G_VERY_LOW * 8  # PUSH operations (8 * 3 = 24)
         + gas_costs.G_LOW * 2  # MLOAD for salt twice (6)
         + gas_costs.G_VERY_LOW * 2  # ADD operations (6)
         + gas_costs.G_LOW  # MSTORE salt back (3)
         + gas_costs.G_BASE  # POP after second op (2)
-        + 10  # While loop overhead
+        + loop_condition_overhead  # While loop condition
     )
 
     # Calculate how many transactions we need to fill the block
     num_txs = max(1, gas_benchmark_value // tx_gas_limit)
 
     # Calculate how many contracts to access per transaction
-    available_gas_per_tx = tx_gas_limit - intrinsic_gas - 1000
+    total_overhead = setup_overhead + cleanup_overhead
+    available_gas_per_tx = tx_gas_limit - intrinsic_gas - total_overhead
     contracts_per_tx = int(available_gas_per_tx // cost_per_contract)
 
     # Deploy factory using stub contract - NO HARDCODED VALUES
@@ -414,29 +467,55 @@ def test_bloatnet_balance_extcodehash(
     # Calculate gas costs
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
 
+    # Setup overhead (before loop): STATICCALL + result handling + memory setup
+    setup_overhead = (
+        gas_costs.G_COLD_ACCOUNT_ACCESS  # STATICCALL to factory (2600)
+        + 100  # STATICCALL base cost
+        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # PUSH2 (3)
+        + gas_costs.G_MID  # JUMPI (10)
+        + gas_costs.G_LOW * 2  # MLOAD × 2 for factory results (3 * 2)
+        + gas_costs.G_LOW * 3  # MSTORE × 3 for memory setup (3 * 3)
+        + gas_costs.G_VERY_LOW  # MSTORE8 for 0xFF prefix (3)
+        + gas_costs.G_VERY_LOW  # PUSH1 for memory position (3)
+    )
+
+    # Cleanup overhead (after loop)
+    cleanup_overhead = gas_costs.G_BASE  # POP counter (2)
+
+    # While loop condition overhead per iteration
+    loop_condition_overhead = (
+        gas_costs.G_BASE  # DUP1 (3)
+        + gas_costs.G_VERY_LOW  # PUSH1 (3)
+        + gas_costs.G_VERY_LOW  # SWAP1 (3)
+        + gas_costs.G_VERY_LOW  # SUB (3)
+        + gas_costs.G_BASE  # DUP1 (3)
+        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_MID  # JUMPI (10)
+    )
+
     # Cost per contract access with CREATE2 address generation
     cost_per_contract = (
         gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
-        + gas_costs.G_KECCAK_256_WORD
-        * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
+        + gas_costs.G_KECCAK_256_WORD * 3  # SHA3 dynamic (85 bytes = 3 words)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.G_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
         + gas_costs.G_BASE  # POP second result (2)
-        + gas_costs.G_BASE  # DUP1 before first op (3)
-        + gas_costs.G_VERY_LOW * 4  # PUSH1 operations (4 * 3)
+        + gas_costs.G_BASE  # DUP1 before first op (2)
         + gas_costs.G_LOW  # MLOAD for salt (3)
         + gas_costs.G_VERY_LOW  # ADD for increment (3)
         + gas_costs.G_LOW  # MSTORE salt back (3)
-        + 10  # While loop overhead
+        + loop_condition_overhead  # While loop condition
     )
 
     # Calculate how many transactions we need to fill the block
     num_txs = max(1, gas_benchmark_value // tx_gas_limit)
 
     # Calculate how many contracts to access per transaction
-    # Reserve 1000 gas for cleanup
-    available_gas_per_tx = tx_gas_limit - intrinsic_gas - 1000
+    total_overhead = setup_overhead + cleanup_overhead
+    available_gas_per_tx = tx_gas_limit - intrinsic_gas - total_overhead
     contracts_per_tx = int(available_gas_per_tx // cost_per_contract)
 
     # Deploy factory using stub contract
