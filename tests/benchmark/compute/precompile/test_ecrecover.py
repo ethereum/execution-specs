@@ -12,6 +12,7 @@ from execution_testing import (
 from tests.benchmark.compute.helpers import concatenate_parameters
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "precompile_address,calldata",
     [
@@ -28,7 +29,6 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="ecrecover",
-            marks=pytest.mark.repricing,
         )
     ],
 )
