@@ -398,13 +398,19 @@ class Alloc(BaseAlloc):
         Deploy a contract to the allocation at a deterministic location
         using a deterministic deployment proxy.
 
+        The initcode is not executed during test filling; it is executed only
+        when the tests run on live networks. Therefore, if the initcode
+        performs modifications to the storage, these must be specified using
+        the `storage` parameter.
+
         Args:
-            deploy_code: Contract code to deploy
-            salt: Salt to use for deterministic deployment
-            initcode: Initcode to use for deterministic deployment
-                        Can be `None` and `Initcode` will be used to derive it
-            storage: Set the storage during test filling
-            label: Label to use for the contract
+            deploy_code: Contract code to deploy.
+            salt: Salt to use for deterministic deployment.
+            initcode: Initcode to use for deterministic deployment.
+                      If `None`, the initcode is derived from `deploy_code`.
+            storage: The expected storage state of the deployed contract after
+                     initcode execution.
+            label: Label to use for the contract.
         """
         raise NotImplementedError(
             "deterministic_deploy_contract is not implemented in the base class"
