@@ -1,5 +1,6 @@
 """Pytest plugin to run the execute in remote-rpc-mode."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
     remote_rpc_group.addoption(
         "--rpc-endpoint",
-        required=True,
+        required=False,
         action="store",
         dest="rpc_endpoint",
         help="RPC endpoint to an execution client",
@@ -81,7 +82,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     """Check if a chain ID configuration is provided."""
     # Verify the chain ID configuration is consistent with the remote RPC endpoint
-    rpc_endpoint = config.getoption("rpc_endpoint")
+    rpc_endpoint = config.getoption("rpc_endpoint") or os.environ.get(
+        "RPC_ENDPOINT"
+    )
+    if rpc_endpoint is None:
+        pytest.fail(
+            "RPC endpoint must be provided with the --rpc-endpoint flag or "
+            "the RPC_ENDPOINT environment variable."
+        )
     eth_rpc = EthRPC(rpc_endpoint)
     remote_chain_id = eth_rpc.chain_id()
     if remote_chain_id != ChainConfigDefaults.chain_id:
@@ -138,7 +146,9 @@ def rpc_endpoint(request: pytest.FixtureRequest) -> str:
     Return remote RPC endpoint to be used to make requests to the execution
     client.
     """
-    return request.config.getoption("rpc_endpoint")
+    return request.config.getoption("rpc_endpoint") or os.environ.get(
+        "RPC_ENDPOINT"
+    )
 
 
 @pytest.fixture(autouse=True, scope="session")

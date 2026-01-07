@@ -1,5 +1,7 @@
 """Plugin that handles correct setting of chain-id and rpc-chain-id."""
 
+import os
+
 import pytest
 
 from execution_testing.test_types.chain_config_types import ChainConfigDefaults
@@ -47,17 +49,31 @@ def pytest_configure(config: pytest.Config) -> None:
     chain_id = config.getoption("chain_id")
     rpc_chain_id = config.getoption("rpc_chain_id")
 
-    if not ((chain_id is None) ^ (rpc_chain_id is None)):  # XOR
+    if chain_id is None and rpc_chain_id is None:
+        # Try to get the chain ID from the environment variable
+        chain_id = os.environ.get("CHAIN_ID")
+        if chain_id is None:
+            chain_id = os.environ.get("RPC_CHAIN_ID")
+        if chain_id is not None:
+            chain_id = int(chain_id)
+
+    elif not ((chain_id is None) ^ (rpc_chain_id is None)):  # XOR
         pytest.exit(
             "ERROR: you must either pass --chain-id or --rpc-chain-id, "
             "but not both!\n"
             f"You passed: chain-id={chain_id}, rpc-chain-id={rpc_chain_id}",
             returncode=4,
         )
+    else:
+        # Use rpc_chain_id if chain_id is not provided (for backwards compatibility)
+        if not chain_id:
+            chain_id = rpc_chain_id
 
-    # Use rpc_chain_id if chain_id is not provided (for backwards compatibility)
-    if not chain_id:
-        chain_id = rpc_chain_id
+    if chain_id is None:
+        pytest.exit(
+            "Chain ID must be provided with the --chain-id/--rpc-chain-id flags or "
+            "the CHAIN_ID/RPC_CHAIN_ID environment variables."
+        )
 
     # write to config
     ChainConfigDefaults.chain_id = chain_id

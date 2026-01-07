@@ -10,6 +10,7 @@ from execution_testing.base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
 )
+from execution_testing.forks import Fork
 from execution_testing.vm import Op
 
 from .account_types import EOA
@@ -19,10 +20,10 @@ from .utils import int_to_bytes
 Helper functions
 """
 
-DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS = Address(
+DETERMINISTIC_FACTORY_ADDRESS = Address(
     0x4E59B44847B379578588920CA78FBF26C0B4956C
 )
-DETERMINISTIC_DEPLOYMENT_BYTECODE = (
+DETERMINISTIC_FACTORY_BYTECODE = (
     Op.ADD(Op.CALLDATASIZE, 2**256 - 32)
     + Op.PUSH1[0x0]
     + Op.CALLDATACOPY(dest_offset=Op.DUP3, offset=0x20, size=Op.DUP2)
@@ -96,15 +97,21 @@ def compute_create2_address(
 
 
 def compute_deterministic_create2_address(
+    *,
     salt: FixedSizeBytesConvertible,
     initcode: BytesConvertible,
+    fork: Fork,
 ) -> Address:
     """
     Compute address of the resulting contract created using the `CREATE2`
-    opcode using the `DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS`.
+    opcode using the `DETERMINISTIC_FACTORY_ADDRESS`.
     """
+    factory_address = (
+        fork.deterministic_factory_predeploy_address()
+        or DETERMINISTIC_FACTORY_ADDRESS
+    )
     return compute_create2_address(
-        address=DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
+        address=factory_address,
         salt=salt,
         initcode=initcode,
     )

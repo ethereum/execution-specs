@@ -95,3 +95,16 @@ recover = _create_execute_subcommand(
         Path("cli/pytest_commands/plugins/execute/execute_recover.py")
     ],
 )
+
+deploy_required_contracts = _create_execute_subcommand(
+    "deploy-required-contracts",
+    "pytest-execute-deploy-required-contracts.ini",
+    "Deploy required contracts (deterministic deployment proxy) to a network.",
+    required_args=[
+        "--rpc-endpoint=http://localhost:8545",
+        "--chain-id=1",
+    ],
+    command_logic_test_paths=[
+        Path("cli/pytest_commands/plugins/execute/execute_deploy_required_contracts.py")
+    ],
+)

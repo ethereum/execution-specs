@@ -7,6 +7,7 @@ from typing import Any, Dict, Generator, Iterator, List, Literal, Self, Tuple
 
 import pytest
 import yaml
+from filelock import FileLock
 from pydantic import PrivateAttr
 
 from execution_testing.base_types import (
@@ -31,7 +32,7 @@ from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.rpc.rpc_types import TransactionByHashResponse
 from execution_testing.test_types import (
-    DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
+    DETERMINISTIC_FACTORY_ADDRESS,
     EOA,
     AuthorizationTuple,
     ChainConfig,
@@ -44,12 +45,14 @@ from execution_testing.test_types.eof.v1 import Container
 from execution_testing.tools import Initcode
 from execution_testing.vm import Bytecode, EVMCodeType, Op
 
+from .contracts import (
+    check_deterministic_factory_deployment,
+    deploy_deterministic_factory_contract,
+)
+
 MAX_BYTECODE_SIZE = 24576
 MAX_INITCODE_SIZE = MAX_BYTECODE_SIZE * 2
 
-DETERMINISTIC_DEPLOYMENT_SIGNER_ADDRESS = Address(
-    0x3FAB184622DC19B6109349B94811493BF2A45362
-)
 
 logger = get_logger(__name__)
 
@@ -185,6 +188,45 @@ def eoa_iterator(request: pytest.FixtureRequest) -> Iterator[EOA]:
     return iter(EOA(key=i, nonce=0) for i in count(start=eoa_start))
 
 
+@pytest.fixture(scope="session", autouse=True)
+def execute_required_contracts(
+    session_fork: Fork,
+    session_worker_key: EOA,
+    eth_rpc: EthRPC,
+    sender_funding_transactions_gas_price: int,
+    session_temp_folder: Path,
+) -> None:
+    """
+    Deploy required contracts for the execute command:
+
+    - Deterministic deployment proxy
+    """
+    base_lock_file = session_temp_folder / "execute_required_contracts.lock"
+    with FileLock(base_lock_file):
+        logger.info(
+            "Checking if deterministic factory contract is already deployed"
+        )
+        if (
+            check_deterministic_factory_deployment(
+                eth_rpc=eth_rpc, fork=session_fork
+            )
+            is None
+        ):
+            try:
+                deploy_deterministic_factory_contract(
+                    eth_rpc=eth_rpc,
+                    seed_key=session_worker_key,
+                    gas_price=sender_funding_transactions_gas_price,
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Error deploying deterministic deployment contract:\n{e}"
+                    "\nTry deploying the contract manually using a different "
+                    "RPC endpoint with the following command:\n"
+                    "uv run execute deploy-required-contracts"
+                ) from e
+
+
 class PendingTransaction(Transaction):
     """
     Custom transaction class that defines a transaction that is yet to be sent.
@@ -193,7 +235,6 @@ class PendingTransaction(Transaction):
     """
 
     value: HexNumber | None = None  # type: ignore
-    requires_predecessor: bool = False
 
 
 class Alloc(BaseAlloc):
@@ -316,7 +357,7 @@ class Alloc(BaseAlloc):
             initcode = Bytes(initcode)
         salt = Hash(salt)
         contract_address = compute_deterministic_create2_address(
-            salt=salt, initcode=initcode
+            salt=salt, initcode=initcode, fork=self._fork
         )
         # 1) Determine if this contract already exists
         chain_code = self._eth_rpc.get_code(contract_address)
@@ -331,39 +372,15 @@ class Alloc(BaseAlloc):
                 f"Contract already deployed at {contract_address} (label={label})"
             )
         else:
-            # 2) Determine if the deployment contract is already on chain
-            deployment_contract_code = self._eth_rpc.get_code(
-                DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS
-            )
-            if deployment_contract_code == b"":
-                # 2b) Add transaction to fund the deployer.
-                self._add_pending_tx(
-                    action="deterministic_deploy_contract",
-                    target=f"{DETERMINISTIC_DEPLOYMENT_SIGNER_ADDRESS}",
-                    to=DETERMINISTIC_DEPLOYMENT_SIGNER_ADDRESS,
-                    value=10**16,
+            # Assert the deployment contract is already on chain
+            assert (
+                check_deterministic_factory_deployment(
+                    eth_rpc=self._eth_rpc, fork=self._fork
                 )
-                # 2c) Add deployment transaction.
-                self._add_pending_tx(
-                    action="deterministic_deploy_contract",
-                    target=f"{DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS}",
-                    ty=0,
-                    protected=False,
-                    nonce=0,
-                    gas_price=0x174876E800,
-                    gas_limit=0x0186A0,
-                    to=None,
-                    value=0,
-                    data=Bytes(
-                        "0x604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
-                    ),
-                    v=0x1B,
-                    r=0x2222222222222222222222222222222222222222222222222222222222222222,
-                    s=0x2222222222222222222222222222222222222222222222222222222222222222,
-                    requires_predecessor=True,
-                )
+                is not None
+            ), "Deployment contract code is not found"
 
-            # 3) Deploy the actual contract.
+            # Deploy the actual contract.
             deploy_gas_limit = (
                 gas_costs.G_TRANSACTION + gas_costs.G_TRANSACTION_CREATE
             )
@@ -383,7 +400,7 @@ class Alloc(BaseAlloc):
             deploy_tx = self._add_pending_tx(
                 action="deterministic_deploy_contract",
                 target=label,
-                to=DETERMINISTIC_DEPLOYMENT_CONTRACT_ADDRESS,
+                to=DETERMINISTIC_FACTORY_ADDRESS,
                 data=Bytes(salt) + Bytes(initcode),
                 gas_limit=deploy_gas_limit,
                 value=0,
@@ -440,8 +457,6 @@ class Alloc(BaseAlloc):
         calldata_gas_calculator = self._fork.calldata_gas_calculator(
             block_number=0, timestamp=0
         )
-        if not isinstance(code, Bytes):
-            code = Bytes(code)
 
         if not isinstance(storage, Storage):
             storage = Storage(storage)  # type: ignore
@@ -864,11 +879,12 @@ class Alloc(BaseAlloc):
         )
         transaction_batches: List[List[PendingTransaction]] = []
         last_tx_batch: List[PendingTransaction] = []
+        MAX_TXS_PER_BATCH = 100
         for tx in self._pending_txs:
             assert tx.value is not None, (
                 "Transaction value must be set before sending them to the RPC."
             )
-            if tx.requires_predecessor and last_tx_batch:
+            if len(last_tx_batch) >= MAX_TXS_PER_BATCH:
                 transaction_batches.append(last_tx_batch)
                 last_tx_batch = []
             last_tx_batch.append(tx)
