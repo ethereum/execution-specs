@@ -28,6 +28,7 @@ from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
                 ]
             ),
             id="point_evaluation",
+            marks=pytest.mark.repricing,
         ),
     ],
 )

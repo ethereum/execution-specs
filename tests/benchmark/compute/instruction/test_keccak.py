@@ -19,7 +19,6 @@ from execution_testing import (
 KECCAK_RATE = 136
 
 
-@pytest.mark.repricing
 def test_keccak_max_permutations(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
@@ -90,6 +89,7 @@ def test_keccak(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
 @pytest.mark.parametrize("msg_size", [0, 32, 256, 1024])
 def test_keccak_diff_mem_msg_sizes(

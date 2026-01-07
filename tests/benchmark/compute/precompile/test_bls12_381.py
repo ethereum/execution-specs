@@ -25,6 +25,7 @@ from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
                 ]
             ),
             id="bls12_g1add",
+            marks=pytest.mark.repricing,
         ),
         pytest.param(
             bls12381_spec.Spec.G1MSM,
@@ -48,6 +49,7 @@ from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
                 ]
             ),
             id="bls12_g2add",
+            marks=pytest.mark.repricing,
         ),
         pytest.param(
             bls12381_spec.Spec.G2MSM,
@@ -84,6 +86,7 @@ from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
                 ]
             ),
             id="bls12_fp_to_g1",
+            marks=pytest.mark.repricing,
         ),
         pytest.param(
             bls12381_spec.Spec.MAP_FP2_TO_G2,
@@ -95,6 +98,7 @@ from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
                 ]
             ),
             id="bls12_fp_to_g2",
+            marks=pytest.mark.repricing,
         ),
     ],
 )

@@ -71,7 +71,6 @@ def test_codesize(
     )
 
 
-@pytest.mark.repricing(max_code_size_ratio=0, fixed_src_dst=True)
 @pytest.mark.parametrize(
     "max_code_size_ratio",
     [
@@ -114,6 +113,7 @@ def test_codecopy(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
 @pytest.mark.parametrize("code_size", [0, 32, 256, 1024, 24576])
 def test_codecopy_benchmark(

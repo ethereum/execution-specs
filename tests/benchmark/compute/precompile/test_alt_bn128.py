@@ -30,6 +30,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_add",
+            marks=pytest.mark.repricing,
         ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L326
@@ -44,6 +45,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_add_infinities",
+            marks=pytest.mark.repricing,
         ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L329
@@ -95,6 +97,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_mul_infinities_32_byte_scalar",
+            marks=pytest.mark.repricing,
         ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L341
@@ -134,6 +137,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_mul_32_byte_coord_and_2_scalar",
+            marks=pytest.mark.repricing,
         ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L350
@@ -147,6 +151,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_mul_32_byte_coord_and_scalar",
+            marks=pytest.mark.repricing,
         ),
         pytest.param(
             0x08,

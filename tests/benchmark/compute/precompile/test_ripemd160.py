@@ -43,6 +43,7 @@ def test_ripemd160(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("size", [0, 32, 256, 1024])
 def test_ripemd160_fixed_size(
     benchmark_test: BenchmarkTestFiller, size: int

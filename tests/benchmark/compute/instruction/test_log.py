@@ -18,12 +18,6 @@ from execution_testing import (
 )
 
 
-@pytest.mark.repricing(
-    size=0,
-    non_zero_data=True,
-    zeros_topic=0,
-    fixed_offset=False,
-)
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -90,6 +84,7 @@ def test_log(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [

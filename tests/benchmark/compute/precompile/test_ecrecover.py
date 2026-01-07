@@ -28,6 +28,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="ecrecover",
+            marks=pytest.mark.repricing,
         )
     ],
 )
