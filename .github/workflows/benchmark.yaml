@@ -10,8 +10,6 @@ on:
       - "tests/benchmark/**"
       - "packages/testing/src/execution_testing/benchmark/**"
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/**"
-      - ".github/configs/**"
-      - ".github/actions/**"
       - ".github/workflows/benchmark.yaml"
   pull_request:
   workflow_dispatch:
