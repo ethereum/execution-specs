@@ -80,6 +80,19 @@ def clz_parameters() -> list:
     return test_cases
 
 
+def generous_gas(fork: Fork, sstore_count: int = 1) -> int:
+    """
+    Return generous parametrized gas to always be enough.
+    """
+    gas_costs = fork.gas_costs()
+    sstore_cost = sstore_count * (
+        gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD
+    )
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()()
+    access_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+    return access_cost + sstore_cost + intrinsic_cost + 50_000
+
+
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.parametrize(
     "test_id,value,expected_clz",
@@ -95,6 +108,7 @@ def test_clz_opcode_scenarios(
     test_id: str,
     value: int,
     expected_clz: int,
+    fork: Fork,
 ) -> None:
     """
     Test CLZ opcode functionality.
@@ -117,7 +131,7 @@ def test_clz_opcode_scenarios(
     tx = Transaction(
         to=contract_address,
         sender=sender,
-        gas_limit=200_000,
+        gas_limit=generous_gas(fork),
     )
     post = {
         contract_address: Account(storage={"0x00": expected_clz}),
@@ -142,7 +156,9 @@ def test_clz_gas_cost(
         storage={"0x00": "0xdeadbeef"},
     )
     sender = pre.fund_eoa()
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=200_000)
+    tx = Transaction(
+        to=contract_address, sender=sender, gas_limit=generous_gas(fork)
+    )
     post = {
         contract_address: Account(  # Cost measured is CLZ + PUSH1
             storage={"0x00": Op.CLZ.gas_cost(fork)}
@@ -181,7 +197,11 @@ def test_clz_gas_cost_boundary(
         storage={"0x00": "0xdeadbeef"},
     )
 
-    tx = Transaction(to=call_address, sender=pre.fund_eoa(), gas_limit=200_000)
+    tx = Transaction(
+        to=call_address,
+        sender=pre.fund_eoa(),
+        gas_limit=generous_gas(fork),
+    )
 
     post = {
         call_address: Account(storage={"0x00": 0 if gas_cost_delta < 0 else 1})
@@ -193,7 +213,9 @@ def test_clz_gas_cost_boundary(
 @EIPChecklist.Opcode.Test.StackUnderflow()
 @EIPChecklist.Opcode.Test.StackComplexOperations.StackHeights.Zero()
 @pytest.mark.valid_from("Osaka")
-def test_clz_stack_underflow(state_test: StateTestFiller, pre: Alloc) -> None:
+def test_clz_stack_underflow(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
+) -> None:
     """
     Test CLZ opcode with empty stack (should revert due to stack underflow).
     """
@@ -208,7 +230,7 @@ def test_clz_stack_underflow(state_test: StateTestFiller, pre: Alloc) -> None:
     tx = Transaction(
         to=caller_address,
         sender=sender,
-        gas_limit=200_000,
+        gas_limit=generous_gas(fork),
     )
     post = {
         caller_address: Account(
@@ -242,7 +264,7 @@ def test_clz_stack_not_overflow(
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=6_000_000,
+        gas_limit=generous_gas(fork, sstore_count=256),
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -250,7 +272,7 @@ def test_clz_stack_not_overflow(
 
 @pytest.mark.valid_from("Osaka")
 def test_clz_push_operation_same_value(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """Test CLZ opcode returns the same value via different push operations."""
     storage = {}
@@ -270,7 +292,7 @@ def test_clz_push_operation_same_value(
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=12_000_000,
+        gas_limit=generous_gas(fork, sstore_count=32 * (32 + 1) // 2),
     )
 
     post = {
@@ -286,7 +308,9 @@ def test_clz_push_operation_same_value(
 @EIPChecklist.Opcode.Test.ForkTransition.At()
 @pytest.mark.valid_at_transition_to("Osaka")
 def test_clz_fork_transition(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test CLZ opcode behavior at fork transition."""
     sender = pre.fund_eoa()
@@ -308,7 +332,7 @@ def test_clz_fork_transition(
                     to=caller_address,
                     sender=sender,
                     nonce=0,
-                    gas_limit=200_000,
+                    gas_limit=generous_gas(fork),
                 )
             ],
         ),
@@ -319,7 +343,7 @@ def test_clz_fork_transition(
                     to=caller_address,
                     sender=sender,
                     nonce=1,
-                    gas_limit=200_000,
+                    gas_limit=generous_gas(fork),
                 )
             ],
         ),
@@ -330,7 +354,7 @@ def test_clz_fork_transition(
                     to=caller_address,
                     sender=sender,
                     nonce=2,
-                    gas_limit=200_000,
+                    gas_limit=generous_gas(fork),
                 )
             ],
         ),
@@ -372,6 +396,7 @@ def test_clz_jump_operation(
     valid_jump: bool,
     jumpi_condition: bool,
     bits: int,
+    fork: Fork,
 ) -> None:
     """Test CLZ opcode with valid and invalid jump."""
     if opcode == Op.JUMP and not jumpi_condition:
@@ -399,7 +424,7 @@ def test_clz_jump_operation(
     tx = Transaction(
         to=caller_address,
         sender=pre.fund_eoa(),
-        gas_limit=200_000,
+        gas_limit=generous_gas(fork, sstore_count=2) + 0xFFFF,
     )
 
     expected_clz = 255 - bits
@@ -424,6 +449,7 @@ auth_account_start_balance = 0
 def test_clz_from_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test the address opcode in a set-code transaction."""
     storage = Storage()
@@ -440,7 +466,7 @@ def test_clz_from_set_code(
     set_code_to_address = pre.deploy_contract(set_code)
 
     tx = Transaction(
-        gas_limit=200_000,
+        gas_limit=generous_gas(fork, sstore_count=4),
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -472,7 +498,7 @@ def test_clz_from_set_code(
 @pytest.mark.parametrize("bits", [0, 64, 255])
 @pytest.mark.parametrize("opcode", [Op.CODECOPY, Op.EXTCODECOPY])
 def test_clz_code_copy_operation(
-    state_test: StateTestFiller, pre: Alloc, bits: int, opcode: Op
+    state_test: StateTestFiller, pre: Alloc, bits: int, opcode: Op, fork: Fork
 ) -> None:
     """Test CLZ opcode with code copy operation."""
     storage = Storage()
@@ -517,7 +543,7 @@ def test_clz_code_copy_operation(
     tx = Transaction(
         to=clz_contract_address,
         sender=pre.fund_eoa(),
-        gas_limit=200_000,
+        gas_limit=generous_gas(fork),
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -527,7 +553,11 @@ def test_clz_code_copy_operation(
 @pytest.mark.parametrize("bits", [0, 64, 255])
 @pytest.mark.parametrize("opcode", [Op.CODECOPY, Op.EXTCODECOPY])
 def test_clz_with_memory_operation(
-    state_test: StateTestFiller, pre: Alloc, bits: int, opcode: Op
+    state_test: StateTestFiller,
+    pre: Alloc,
+    bits: int,
+    opcode: Op,
+    fork: Fork,
 ) -> None:
     """Test CLZ opcode with memory operation."""
     storage = Storage()
@@ -580,7 +610,7 @@ def test_clz_with_memory_operation(
     tx = Transaction(
         to=clz_contract_address,
         sender=pre.fund_eoa(),
-        gas_limit=200_000,
+        gas_limit=generous_gas(fork, sstore_count=2),
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -588,7 +618,9 @@ def test_clz_with_memory_operation(
 
 @EIPChecklist.Opcode.Test.ExecutionContext.Initcode.Behavior.Tx()
 @pytest.mark.valid_from("Osaka")
-def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc) -> None:
+def test_clz_initcode_context(
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
+) -> None:
     """Test CLZ opcode behavior when creating a contract."""
     bits = [0, 1, 64, 128, 255]
 
@@ -604,7 +636,7 @@ def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc) -> None:
 
     tx = Transaction(
         to=None,
-        gas_limit=6_000_000,
+        gas_limit=generous_gas(fork, sstore_count=len(bits)),
         data=init_code,
         sender=sender_address,
     )
@@ -620,7 +652,7 @@ def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc) -> None:
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 def test_clz_initcode_create(
-    state_test: StateTestFiller, pre: Alloc, opcode: Op
+    state_test: StateTestFiller, pre: Alloc, opcode: Op, fork: Fork
 ) -> None:
     """Test CLZ opcode behavior when creating a contract."""
     bits = [0, 1, 64, 128, 255]  # expected values: [255, 254, 191, 127, 0]
@@ -650,7 +682,7 @@ def test_clz_initcode_create(
 
     tx = Transaction(
         to=factory_contract_address,
-        gas_limit=200_000,
+        gas_limit=generous_gas(fork, sstore_count=len(bits)),
         data=ext_code,
         sender=sender_address,
     )
@@ -697,6 +729,7 @@ def test_clz_call_operation(
     pre: Alloc,
     opcode: Op,
     context: CallingContext,
+    fork: Fork,
 ) -> None:
     """Test CLZ opcode with call operation."""
     test_cases = [0, 64, 255]
@@ -740,7 +773,7 @@ def test_clz_call_operation(
     tx = Transaction(
         to=caller_address,
         sender=pre.fund_eoa(),
-        gas_limit=200_000,
+        gas_limit=generous_gas(fork, sstore_count=len(test_cases)),
     )
 
     post = {}
