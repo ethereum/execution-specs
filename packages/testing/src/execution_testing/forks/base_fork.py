@@ -625,6 +625,18 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         pass
 
     @classmethod
+    @abstractmethod
+    def deterministic_factory_predeploy_address(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Address | None:
+        """
+        Return the address of the deterministic factory predeploy at a
+        given fork. Return `None` if the fork does not support deterministic
+        deployment.
+        """
+        pass
+
+    @classmethod
     @prefer_transition_to_method
     @abstractmethod
     def pre_allocation(

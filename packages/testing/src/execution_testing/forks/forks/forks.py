@@ -601,6 +601,14 @@ class Frontier(BaseFork, solc_name="homestead"):
         return []
 
     @classmethod
+    def deterministic_factory_predeploy_address(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Address | None:
+        """At Genesis, no deterministic factory predeploy is present."""
+        del block_number, timestamp
+        return None
+
+    @classmethod
     def evm_code_types(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[EVMCodeType]:
