@@ -78,16 +78,16 @@ def create_test_header(gas_used: int) -> FixtureHeader:
         number="0x1",
         gas_limit=hex(BLOCK_GAS_LIMIT),
         timestamp=hex(HEADER_TIMESTAMP),
-        coinbase="0x" + "00" * 20,
+        fee_recipient="0x" + "00" * 20,
         parent_hash="0x" + "00" * 32,
-        uncle_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+        ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
         state_root="0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
         transactions_trie="0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        receiptTrie="0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        bloom="0x" + "00" * 256,
+        receipts_root="0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+        logs_bloom="0x" + "00" * 256,
         gas_used=hex(gas_used),
         extra_data=EXTRA_DATA_AT_LIMIT.hex(),
-        mix_hash="0x" + "00" * 32,
+        prev_randao="0x" + "00" * 32,
         nonce="0x0000000000000042",
         base_fee_per_gas="0x0",
         withdrawals_root="0x" + "00" * 32,
@@ -132,9 +132,7 @@ def get_block_rlp_size(
             )
             for w in withdrawals
         ]
-    test_block = FixtureBlockBase(
-        blockHeader=header, withdrawals=block_withdrawals
-    )
+    test_block = FixtureBlockBase(header=header, withdrawals=block_withdrawals)
     return len(test_block.with_rlp(txs=transactions).rlp)
 
 

@@ -12,7 +12,6 @@ from execution_testing import (
     Alloc,
     Block,
     Fork,
-    Header,
     Requests,
     Transaction,
     generate_system_contract_deploy_test,
@@ -68,7 +67,5 @@ def test_system_contract_deployment(
 
     yield Block(
         txs=[test_transaction],
-        header=Header(
-            requests_hash=Requests(consolidation_request),
-        ),
+        requests_hash=Requests(consolidation_request),
     )

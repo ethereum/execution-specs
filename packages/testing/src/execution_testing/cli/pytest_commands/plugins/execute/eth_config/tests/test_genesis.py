@@ -76,28 +76,44 @@ def genesis_contents(genesis_file_name: str) -> str:
                 ),
                 blob_schedule={
                     Cancun: ForkConfigBlobSchedule(
-                        target=3, max=6, baseFeeUpdateFraction=3338477
+                        target_blobs_per_block=3,
+                        max_blobs_per_block=6,
+                        base_fee_update_fraction=3338477,
                     ),
                     Prague: ForkConfigBlobSchedule(
-                        target=6, max=9, baseFeeUpdateFraction=5007716
+                        target_blobs_per_block=6,
+                        max_blobs_per_block=9,
+                        base_fee_update_fraction=5007716,
                     ),
                     Osaka: ForkConfigBlobSchedule(
-                        target=6, max=9, baseFeeUpdateFraction=5007716
+                        target_blobs_per_block=6,
+                        max_blobs_per_block=9,
+                        base_fee_update_fraction=5007716,
                     ),
                     BPO1: ForkConfigBlobSchedule(
-                        target=9, max=12, baseFeeUpdateFraction=5007716
+                        target_blobs_per_block=9,
+                        max_blobs_per_block=12,
+                        base_fee_update_fraction=5007716,
                     ),
                     BPO2: ForkConfigBlobSchedule(
-                        target=12, max=15, baseFeeUpdateFraction=5007716
+                        target_blobs_per_block=12,
+                        max_blobs_per_block=15,
+                        base_fee_update_fraction=5007716,
                     ),
                     BPO3: ForkConfigBlobSchedule(
-                        target=15, max=18, baseFeeUpdateFraction=5007716
+                        target_blobs_per_block=15,
+                        max_blobs_per_block=18,
+                        base_fee_update_fraction=5007716,
                     ),
                     BPO4: ForkConfigBlobSchedule(
-                        target=6, max=9, baseFeeUpdateFraction=5007716
+                        target_blobs_per_block=6,
+                        max_blobs_per_block=9,
+                        base_fee_update_fraction=5007716,
                     ),
                     BPO5: ForkConfigBlobSchedule(
-                        target=15, max=20, baseFeeUpdateFraction=5007716
+                        target_blobs_per_block=15,
+                        max_blobs_per_block=20,
+                        base_fee_update_fraction=5007716,
                     ),
                 },
             ),

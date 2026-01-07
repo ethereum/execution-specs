@@ -300,7 +300,19 @@ class Transaction(
 ):
     """Generic object that can represent all Ethereum transaction types."""
 
-    gas_limit: HexNumber = Field(HexNumber(21_000), serialization_alias="gas")
+    @model_validator(mode="before")
+    @classmethod
+    def strip_hash_from_t8n_output(cls, data: Any) -> Any:
+        """Strip the hash field which may be included in t8n tool output."""
+        if isinstance(data, dict):
+            data.pop("hash", None)
+        return data
+
+    gas_limit: HexNumber = Field(
+        HexNumber(21_000),
+        serialization_alias="gas",
+        validation_alias=AliasChoices("gas_limit", "gasLimit", "gas"),
+    )
     to: Address | None = Field(Address(0xAA))
     data: Bytes = Field(Bytes(b""), alias="input")
 

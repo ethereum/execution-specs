@@ -396,7 +396,7 @@ fixture_header_ones = FixtureHeader(
                     blob_gas_used=17,
                     excess_blob_gas=18,
                 ),
-                transactions=[
+                txs=[
                     FixtureTransaction.from_transaction(
                         Transaction().with_signature_and_sender()
                     )
@@ -470,7 +470,7 @@ fixture_header_ones = FixtureHeader(
                     blob_gas_used=17,
                     excess_blob_gas=18,
                 ),
-                transactions=[
+                txs=[
                     FixtureTransaction.from_transaction(
                         Transaction(to=None).with_signature_and_sender()
                     )

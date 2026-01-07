@@ -3095,7 +3095,7 @@ def test_eoa_tx_after_set_code(
             follow_up_eoa_txs.extend(
                 [
                     Transaction(
-                        type=tx_type,
+                        ty=tx_type,
                         sender=auth_signer,
                         gas_limit=500_000,
                         to=auth_signer,
@@ -3103,7 +3103,7 @@ def test_eoa_tx_after_set_code(
                         protected=True,
                     ),
                     Transaction(
-                        type=tx_type,
+                        ty=tx_type,
                         sender=auth_signer,
                         gas_limit=500_000,
                         to=auth_signer,
@@ -3115,7 +3115,7 @@ def test_eoa_tx_after_set_code(
         case 1:
             follow_up_eoa_txs.append(
                 Transaction(
-                    type=tx_type,
+                    ty=tx_type,
                     sender=auth_signer,
                     gas_limit=500_000,
                     to=auth_signer,
@@ -3131,7 +3131,7 @@ def test_eoa_tx_after_set_code(
         case 2:
             follow_up_eoa_txs.append(
                 Transaction(
-                    type=tx_type,
+                    ty=tx_type,
                     sender=auth_signer,
                     gas_limit=500_000,
                     to=auth_signer,
@@ -3143,7 +3143,7 @@ def test_eoa_tx_after_set_code(
         case 3:
             follow_up_eoa_txs.append(
                 Transaction(
-                    type=tx_type,
+                    ty=tx_type,
                     sender=auth_signer,
                     gas_limit=500_000,
                     to=auth_signer,

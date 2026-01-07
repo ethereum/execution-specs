@@ -73,7 +73,7 @@ def test_init_collision_create_tx(
     """
     tx = Transaction(
         sender=pre.fund_eoa(),
-        type=tx_type,
+        ty=tx_type,
         to=None,
         data=initcode,
         gas_limit=200_000,

@@ -86,8 +86,8 @@ class TestFillingSession:
             pre=Alloc().model_dump(mode="json"),
             environment=Environment()
             .set_fork_requirements(Prague)
-            .model_dump(mode="json"),
-            network=Prague.name(),
+            .model_dump(mode="json", exclude={"parent_hash"}),
+            fork=Prague.name(),
         )
         test_group = test_group_builder.build()
         mock_groups = PreAllocGroups(root={"test_hash": test_group})
@@ -171,8 +171,8 @@ class TestFillingSession:
             pre=Alloc().model_dump(mode="json"),
             environment=Environment()
             .set_fork_requirements(Prague)
-            .model_dump(mode="json"),
-            network=Prague.name(),
+            .model_dump(mode="json", exclude={"parent_hash"}),
+            fork=Prague.name(),
         )
         test_group = test_group_builder.build()
         mock_groups = PreAllocGroups(root={"test_hash": test_group})
@@ -239,8 +239,8 @@ class TestFillingSession:
             pre=Alloc().model_dump(mode="json"),
             environment=Environment()
             .set_fork_requirements(Prague)
-            .model_dump(mode="json"),
-            network=Prague.name(),
+            .model_dump(mode="json", exclude={"parent_hash"}),
+            fork=Prague.name(),
         )
         session.update_pre_alloc_group_builder("test_hash", test_group_builder)
 
@@ -265,8 +265,8 @@ class TestFillingSession:
             pre=Alloc().model_dump(mode="json"),
             environment=Environment()
             .set_fork_requirements(Prague)
-            .model_dump(mode="json"),
-            network=Prague.name(),
+            .model_dump(mode="json", exclude={"parent_hash"}),
+            fork=Prague.name(),
         )
         with pytest.raises(
             ValueError,
@@ -291,8 +291,8 @@ class TestFillingSession:
             pre=Alloc().model_dump(mode="json"),
             environment=Environment()
             .set_fork_requirements(Prague)
-            .model_dump(mode="json"),
-            network=Prague.name(),
+            .model_dump(mode="json", exclude={"parent_hash"}),
+            fork=Prague.name(),
         )
         session.update_pre_alloc_group_builder("test_hash", test_group_builder)
 

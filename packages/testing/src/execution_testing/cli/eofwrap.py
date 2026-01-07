@@ -355,8 +355,8 @@ class EofWrapper:
                     fixture_tx_dump.pop("ty")
                     fixture_tx_dump.pop("data")
                     tx = Transaction(
-                        type=fixture_tx.ty,
-                        input=fixture_tx.data,
+                        ty=fixture_tx.ty,
+                        data=fixture_tx.data,
                         **fixture_tx_dump,
                     )
                     block.txs.append(tx)

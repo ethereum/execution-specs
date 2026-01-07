@@ -278,7 +278,7 @@ def test_scenarios(
         )
 
         post[runner_contract] = Account(storage=post_storage)
-        blocks.append(Block(txs=[tx], post=post))
+        blocks.append(Block(txs=[tx], expected_post_state=post))
 
     if tests > 0:
         blockchain_test(

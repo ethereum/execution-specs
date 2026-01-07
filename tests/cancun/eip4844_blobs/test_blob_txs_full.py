@@ -179,7 +179,6 @@ def txs(  # noqa: D103
             access_list=[],
             blob_versioned_hashes=tx_versioned_hashes,
             error=tx_error,
-            wrapped_blob_transaction=tx_wrapped_blobs,
         )
         if tx_wrapped_blobs:
             network_wrapped_tx = NetworkWrappedTransaction(

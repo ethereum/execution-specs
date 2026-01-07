@@ -11,7 +11,7 @@ from ..transaction import FixtureResult, TransactionFixture
 def test_json_dict() -> None:
     """Test that the json_dict property does not include the info field."""
     fixture = TransactionFixture(
-        txbytes="0x1234",
+        transaction="0x1234",
         result={"Paris": FixtureResult(intrinsic_gas=0)},
     )
     assert "_info" not in fixture.json_dict, (

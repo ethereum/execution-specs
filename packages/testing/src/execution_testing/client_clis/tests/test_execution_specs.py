@@ -198,9 +198,6 @@ def test_evm_t8n(
             for key in missing_receipt_fields:
                 for i, _ in enumerate(expected.get("result")["receipts"]):
                     del expected.get("result")["receipts"][i][key]
-            for i, receipt in enumerate(expected.get("result")["receipts"]):
-                if int(receipt["logsBloom"], 16) == 0:
-                    del expected.get("result")["receipts"][i]["logsBloom"]
 
             t8n_result = to_json(t8n_output.result)
             for i, _ in enumerate(expected.get("result")["rejected"]):

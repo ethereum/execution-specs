@@ -32,7 +32,14 @@ class CopyValidateModel(EthereumTestBaseModel):
         """
         Create a copy of the model with the updated fields that are validated.
         """
-        return self.__class__(**(self.model_dump(exclude_unset=True) | kwargs))
+        # Only include actual model fields, not computed fields
+        model_field_names = set(self.__class__.model_fields.keys())
+        dumped = {
+            k: v
+            for k, v in self.model_dump(exclude_unset=True).items()
+            if k in model_field_names
+        }
+        return self.__class__(**(dumped | kwargs))
 
 
 class CamelModel(CopyValidateModel):
@@ -47,4 +54,5 @@ class CamelModel(CopyValidateModel):
         alias_generator=to_camel,
         populate_by_name=True,
         validate_default=True,
+        extra="forbid",
     )

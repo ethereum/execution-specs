@@ -1,8 +1,8 @@
 """Common types used to define multiple fixture types."""
 
-from typing import Dict
+from typing import Any, Dict
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 
 from execution_testing.base_types import (
     BlobSchedule,
@@ -51,6 +51,10 @@ class FixtureAuthorizationTuple(
 ):
     """Authorization tuple for fixture transactions."""
 
+    # Allow extra fields: FixtureAuthorizationTuple is constructed from
+    # AuthorizationTuple via model_dump(), which includes fields not in this model.
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
     v: ZeroPaddedHexNumber = Field(
         validation_alias=AliasChoices("v", "yParity")
     )
@@ -59,12 +63,26 @@ class FixtureAuthorizationTuple(
 
     signer: Address | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def strip_y_parity_duplicate(cls, data: Any) -> Any:
+        """
+        Strip yParity if v is present since yParity is added as a duplicate
+        during serialization for compatibility.
+        """
+        if isinstance(data, dict) and "v" in data and "yParity" in data:
+            data.pop("yParity")
+        return data
+
     @classmethod
     def from_authorization_tuple(
         cls, auth_tuple: AuthorizationTupleGeneric
     ) -> "FixtureAuthorizationTuple":
         """Return FixtureAuthorizationTuple from an AuthorizationTuple."""
-        return cls(**auth_tuple.model_dump())
+        # Exclude fields that don't exist in FixtureAuthorizationTuple
+        auth_dump = auth_tuple.model_dump()
+        auth_dump.pop("secret_key", None)
+        return cls(**auth_dump)
 
     def sign(self) -> None:
         """Sign the current object for further serialization."""
