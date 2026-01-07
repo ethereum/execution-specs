@@ -147,7 +147,7 @@ def test_something_with_all_evm_code_types(
     pass
 ```
 
-In this example, the test will be parameterized for parameter `evm_code_type` only with value `[EVMCodeType.LEGACY]` starting on fork Frontier, and eventually it will be parametrized with with values `[EVMCodeType.LEGACY, EVMCodeType.EOF_V1]` on the EOF activation fork.
+In this example, the test will be parameterized for parameter `evm_code_type` only with value `[EVMCodeType.LEGACY]` starting on fork Frontier, and eventually it will be parametrized with values `[EVMCodeType.LEGACY, EVMCodeType.EOF_V1]` on the EOF activation fork.
 
 In all calls to `pre.deploy_contract`, if the code parameter is `Bytecode` type, and `evm_code_type==EVMCodeType.EOF_V1`, the bytecode will be automatically wrapped in an EOF V1 container.
 
@@ -202,7 +202,7 @@ def test_something_with_all_call_opcodes(
     pass
 ```
 
-In this example, the test will be parametrized for parameter `call_opcode` with values `[Op.CALL, Op.CALLCODE]` starting on fork Frontier, `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL]` on fork Homestead, `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]` on fork Byzantium, and eventually it will be parametrized with with values `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL, Op.EXTCALL, Op.EXTSTATICCALL, Op.EXTDELEGATECALL]` on the EOF activation fork.
+In this example, the test will be parametrized for parameter `call_opcode` with values `[Op.CALL, Op.CALLCODE]` starting on fork Frontier, `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL]` on fork Homestead, `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]` on fork Byzantium, and eventually it will be parametrized with values `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL, Op.EXTCALL, Op.EXTSTATICCALL, Op.EXTDELEGATECALL]` on the EOF activation fork.
 
 Parameter `evm_code_type` will also be parametrized with the correct EVM code type for the opcode under test.
 
@@ -226,7 +226,7 @@ def test_something_with_all_create_opcodes(
     pass
 ```
 
-In this example, the test will be parametrized for parameter `create_opcode` with values `[Op.CREATE]` starting on fork Frontier, `[Op.CREATE, Op.CREATE2]` starting on fork Constantinople, and eventually it will be parametrized with with values `[Op.CREATE, Op.CREATE2, Op.EOFCREATE]` on the EOF activation fork.
+In this example, the test will be parametrized for parameter `create_opcode` with values `[Op.CREATE]` starting on fork Frontier, `[Op.CREATE, Op.CREATE2]` starting on fork Constantinople, and eventually it will be parametrized with values `[Op.CREATE, Op.CREATE2, Op.EOFCREATE]` on the EOF activation fork.
 
 Parameter `evm_code_type` will also be parametrized with the correct EVM code type for the opcode under test.
 
