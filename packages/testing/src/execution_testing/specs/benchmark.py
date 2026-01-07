@@ -210,9 +210,9 @@ class BenchmarkCodeGenerator(ABC):
             )
         # Pad the code to the maximum code size.
         if self.code_padding_opcode is not None:
-            padding_size = max_code_size - len(code)
+            padding_size = max_code_size - len(code) - 1
             if padding_size > 0:
-                code += self.code_padding_opcode * padding_size
+                code += Op.STOP + self.code_padding_opcode * padding_size
         self._validate_code_size(code, fork)
 
         return code
