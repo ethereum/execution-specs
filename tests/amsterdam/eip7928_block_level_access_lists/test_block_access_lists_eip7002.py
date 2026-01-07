@@ -45,7 +45,7 @@ Note:
 """
 
 
-# ---- Small, reusable helpers -----------------------------------------#
+# --- helpers --- #
 def _encode_pubkey_amount_slot(withdrawal_request: WithdrawalRequest) -> bytes:
     """
     Encode slot +2: 32 bytes containing last 16 bytes of pubkey followed by
@@ -157,7 +157,7 @@ def _build_incremental_changes(
     return changes
 
 
-# ------------ tests ---------------------------------------------------#
+# --- tests --- #
 
 
 @pytest.mark.parametrize(
@@ -273,7 +273,7 @@ def test_bal_7002_clean_sweep(
         post={
             alice: Account(nonce=1),
             Spec7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS: Account(
-                balance_changes=withdrawal_request.fee,
+                balance=withdrawal_request.fee,
                 storage=_extract_post_storage_from_queue_writes(queue_writes),
             ),
         },
@@ -445,7 +445,7 @@ def test_bal_7002_partial_sweep(
         post={
             **{sender: Account(nonce=1) for sender in senders},
             eip7002_address: Account(
-                balance_changes=fee * num_requests,
+                balance=fee * num_requests,
                 storage=post_storage,
             ),
         },
