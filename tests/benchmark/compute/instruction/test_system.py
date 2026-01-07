@@ -40,7 +40,6 @@ from execution_testing import (
 from tests.benchmark.compute.helpers import XOR_TABLE
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -686,7 +685,6 @@ def test_selfdestruct_existing(
     )
 
 
-@pytest.mark.repricing(value_bearing=True)
 @pytest.mark.parametrize("value_bearing", [True, False])
 def test_selfdestruct_created(
     benchmark_test: BenchmarkTestFiller,
@@ -818,7 +816,6 @@ def test_selfdestruct_created(
     )
 
 
-@pytest.mark.repricing(value_bearing=False)
 @pytest.mark.parametrize("value_bearing", [True, False])
 def test_selfdestruct_initcode(
     benchmark_test: BenchmarkTestFiller,
