@@ -255,13 +255,17 @@ def test_bal_4788_query(
     Ensure BAL captures storage reads when querying beacon root.
 
     Test scenarios:
-    1. Valid query (timestamp matches): Beacon root contract reads both
-       timestamp and root slots, query contract writes returned value
-    2. Invalid query (timestamp mismatch): Beacon root contract reads
-       only timestamp slot then reverts, query contract has implicit
-       read recorded.
-    3. With value transfer: BAL captures balance changes in addition
-       to storage operations
+    1. Valid query (timestamp=12, matches stored timestamp): Beacon root
+       contract reads both timestamp and root slots, query contract writes
+       returned value
+    2. Invalid query with non-zero timestamp (timestamp=42, no match):
+       Beacon root contract reads only timestamp slot then reverts, query
+       contract has implicit read recorded
+    3. Invalid query with zero timestamp (timestamp=0): Beacon root
+       contract reverts immediately before any storage access, query
+       contract has implicit read recorded
+    4. With value transfer: BAL captures balance changes in addition
+       to storage operations (only when query is valid)
     """
     # Block 1: Store beacon root
     block1 = build_beacon_root_setup_block(timestamp, beacon_root)
@@ -305,7 +309,10 @@ def test_bal_4788_query(
     # Add storage reads for the query
     timestamp_slot, root_slot = get_beacon_root_slots(query_timestamp)
 
-    # Invalid timestamp should read timestamp and revert.
+    # Storage access depends on query validity:
+    # - Zero timestamp: reverts immediately (no storage access)
+    # - Valid timestamp: reads both timestamp and root slots
+    # - Invalid non-zero timestamp: reads only timestamp slot before reverting
     account_expectations[BEACON_ROOTS_ADDRESS].storage_reads = (
         []
         if query_timestamp == 0  # Reverts early if timestamp is zero
