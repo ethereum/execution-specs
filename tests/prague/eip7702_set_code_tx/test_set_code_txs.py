@@ -554,6 +554,167 @@ def test_set_code_to_self_destruct(
 
 
 @pytest.mark.with_all_create_opcodes
+def test_creating_tx_to_contract_creator(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    create_opcode: Op,
+) -> None:
+    """
+    Test executing a contract-creating opcode in a 7702-context called from a
+    creating transaction.
+    """
+    creator_storage = Storage()
+    initcode_storage = Storage()
+
+    inner_create_result_slot = creator_storage.peek_slot()
+    creator_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(
+        creator_storage.store_next(0, hint="inner create result"),
+        create_opcode(value=0, offset=0, size=Op.CALLDATASIZE),
+    )
+
+    creator_code_address = pre.deploy_contract(creator_code)
+
+    auth_signer = pre.fund_eoa(delegation=creator_code_address)
+
+    deployed_code = Op.STOP
+    # pad right to ensure code size is multiple of 32 bytes to MSTORE
+    inner_initcode = Initcode(deploy_code=deployed_code)
+    inner_initcode_bytes = inner_initcode + b"\x00" * (
+        32 - (len(inner_initcode) % 32)
+    )
+
+    test_bytes = b"\xde" * 32
+
+    initcode = (
+        Op.SSTORE(initcode_storage.store_next(1, hint="outer code worked"), 1)
+        + Op.MSTORE(0, Op.PUSH32(bytes(inner_initcode_bytes)))
+        + Op.SSTORE(
+            initcode_storage.store_next(1, hint="outer call result"),
+            Op.CALL(address=auth_signer, args_size=len(inner_initcode_bytes)),
+        )
+        + Op.MSTORE(32, Op.PUSH32(test_bytes))
+        + Op.RETURN(32, len(test_bytes))
+    )
+
+    tx = Transaction(
+        gas_limit=10_000_000,
+        to=None,
+        value=0,
+        data=initcode,
+        sender=auth_signer,
+    )
+
+    deployed_contract_address = tx.created_contract
+
+    inner_create_code_address = compute_create_address(
+        address=auth_signer,
+        nonce=2,
+        initcode=inner_initcode_bytes,
+        opcode=create_opcode,
+    )
+    creator_storage[inner_create_result_slot] = inner_create_code_address
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            creator_code_address: Account(storage={}),
+            auth_signer: Account(
+                nonce=3,
+                code=Spec.delegation_designation(creator_code_address),
+                storage=creator_storage,
+            ),
+            deployed_contract_address: Account(
+                code=test_bytes, storage=initcode_storage
+            ),
+            inner_create_code_address: Account(code=deployed_code),
+        },
+    )
+
+
+@pytest.mark.with_all_contract_creating_tx_types()
+def test_delegated_eoa_can_send_creating_tx(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_type: int,
+    fork: Fork,
+) -> None:
+    """
+    Test the executing a delegated EOA can send creating tx, with correct
+    context.
+    """
+    storage = Storage()
+
+    delegation_code = Op.STOP
+    delegation_address = pre.deploy_contract(delegation_code)
+    designation = Spec.delegation_designation(delegation_address)
+
+    auth_signer = pre.fund_eoa(delegation=delegation_address)
+
+    test_bytes = b"\xde" * 32
+
+    deployed_address = compute_create_address(
+        address=auth_signer,
+        nonce=1,
+    )
+
+    initcode_len = 72
+    initcode = (
+        Op.SSTORE(storage.store_next(1, hint="outer code worked"), 1)
+        # verify that the sender being delegated doesn't affect context values
+        + Op.SSTORE(storage.store_next(auth_signer, hint="sender"), Op.CALLER)
+        + Op.SSTORE(storage.store_next(auth_signer, hint="origin"), Op.ORIGIN)
+        + Op.SSTORE(
+            storage.store_next(deployed_address, hint="address"), Op.ADDRESS
+        )
+        + Op.SSTORE(
+            storage.store_next(initcode_len, hint="codesize"), Op.CODESIZE
+        )
+        + Op.SSTORE(
+            storage.store_next(Bytes().keccak256(), hint="codehash_address"),
+            Op.EXTCODEHASH(Op.ADDRESS),
+        )
+        + Op.SSTORE(
+            storage.store_next(
+                designation.keccak256(), hint="codehash_origin"
+            ),
+            Op.EXTCODEHASH(Op.ORIGIN),
+        )
+        # deploy
+        + Op.MSTORE(0, Op.PUSH32(test_bytes))
+        + Op.RETURN(0, len(test_bytes))
+    )
+    assert initcode_len == len(initcode)
+
+    gas_costs = fork.gas_costs()
+
+    tx = Transaction(
+        ty=tx_type,
+        gas_limit=200_000
+        + (gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD) * 7,
+        to=None,
+        value=0,
+        data=initcode,
+        sender=auth_signer,
+    )
+
+    assert deployed_address == tx.created_contract
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                nonce=2,
+                code=Spec.delegation_designation(delegation_address),
+                storage={},
+            ),
+            deployed_address: Account(code=test_bytes, storage=storage),
+        },
+    )
+
+
+@pytest.mark.with_all_create_opcodes
 @pytest.mark.slow()
 def test_set_code_to_contract_creator(
     state_test: StateTestFiller,
