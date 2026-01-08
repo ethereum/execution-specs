@@ -47,7 +47,7 @@ class GasCosts:
     G_TRANSACTION: int
     G_TRANSACTION_CREATE: int
 
-    G_LOG: int
+    GAS_LOG: int
     GAS_LOG_DATA: int
     G_LOG_TOPIC: int
 
