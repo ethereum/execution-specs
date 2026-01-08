@@ -314,7 +314,7 @@ def test_block_full_access_list_and_data(
         # Access list gas costs from fork's gas_costs
         gas_costs = fork.gas_costs()
         gas_per_address = gas_costs.TX_ACCESS_LIST_ADDRESS_COST
-        gas_per_storage_key = gas_costs.G_ACCESS_LIST_STORAGE
+        gas_per_storage_key = gas_costs.TX_ACCESS_LIST_STORAGE_KEY_COST
 
         # Calculate number of storage keys we can fit
         gas_after_address = gas_for_access_list - gas_per_address
