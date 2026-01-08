@@ -113,7 +113,7 @@ def prefix_code_gas(fork: Fork, refund_type: RefundType) -> int:
         # Minimum code to generate a storage clear is Op.SSTORE(0, 0).
         gas_costs = fork.gas_costs()
         return (
-            gas_costs.G_COLD_SLOAD
+            gas_costs.GAS_COLD_SLOAD
             + gas_costs.G_STORAGE_RESET
             + (gas_costs.GAS_VERY_LOW * 2)
         )

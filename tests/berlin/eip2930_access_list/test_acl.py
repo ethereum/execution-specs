@@ -71,7 +71,7 @@ def test_account_storage_warm_cold_state(
         expected_gas_cost += gas_costs.GAS_WARM_ACCESS
         access_list_storage_key = Hash(1)
     else:
-        expected_gas_cost += gas_costs.G_COLD_SLOAD
+        expected_gas_cost += gas_costs.GAS_COLD_SLOAD
 
     access_lists: List[AccessList] = [
         AccessList(

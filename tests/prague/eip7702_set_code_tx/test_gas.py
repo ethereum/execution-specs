@@ -890,7 +890,7 @@ def test_gas_cost(
     push_opcode_count = (2 * (sstore_opcode_count)) - 1
     push_opcode_cost = gas_costs.GAS_VERY_LOW * push_opcode_count
     sstore_opcode_cost = gas_costs.G_STORAGE_SET * sstore_opcode_count
-    cold_storage_cost = gas_costs.G_COLD_SLOAD * sstore_opcode_count
+    cold_storage_cost = gas_costs.GAS_COLD_SLOAD * sstore_opcode_count
 
     execution_gas = (
         gas_opcode_cost

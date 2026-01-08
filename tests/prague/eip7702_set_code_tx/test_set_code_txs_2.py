@@ -710,7 +710,7 @@ def test_gas_diff_pointer_vs_direct_call(
             gas_costs.G_WARM_ACCOUNT_ACCESS + gas_costs.GAS_WARM_ACCESS
             if access_list_rule
             in [AccessListCall.IN_NORMAL_TX_ONLY, AccessListCall.IN_BOTH_TX]
-            else gas_costs.G_COLD_ACCOUNT_ACCESS + gas_costs.G_COLD_SLOAD
+            else gas_costs.G_COLD_ACCOUNT_ACCESS + gas_costs.GAS_COLD_SLOAD
         )
         + opcodes_price
     )
@@ -762,7 +762,7 @@ def test_gas_diff_pointer_vs_direct_call(
                 ]
                 and access_list_to == AccessListTo.POINTER_ADDRESS
             )
-            else gas_costs.G_COLD_SLOAD
+            else gas_costs.GAS_COLD_SLOAD
         )
         # contract address access
         + (
@@ -926,14 +926,14 @@ def test_pointer_call_followed_by_direct_call(
         gas_costs.G_STORAGE_SET
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # pointer is warm
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # contract is cold
-        + gas_costs.G_COLD_SLOAD  # storage access under pointer call is cold
+        + gas_costs.GAS_COLD_SLOAD  # storage access under pointer call is cold
         + opcodes_price
     )
     direct_call_gas = (
         gas_costs.G_STORAGE_SET
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # since previous pointer call,
         # contract is now warm
-        + gas_costs.G_COLD_SLOAD  # but storage is cold, because it's
+        + gas_costs.GAS_COLD_SLOAD  # but storage is cold, because it's
         # contract's direct
         + opcodes_price
     )

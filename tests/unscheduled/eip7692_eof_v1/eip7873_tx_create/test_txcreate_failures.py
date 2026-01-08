@@ -995,7 +995,7 @@ def test_invalid_container_deployment(
         factory_gas_cost = (
             7 * fork_gas_costs.GAS_VERY_LOW
             + fork_gas_costs.G_STORAGE_SET
-            + fork_gas_costs.G_COLD_SLOAD
+            + fork_gas_costs.GAS_COLD_SLOAD
             + fork_gas_costs.G_CREATE
         )
         initcode_gas_cost = 2 * fork_gas_costs.GAS_VERY_LOW
@@ -1010,7 +1010,7 @@ def test_invalid_container_deployment(
         factory_gas_cost = (
             7 * fork_gas_costs.GAS_VERY_LOW
             + fork_gas_costs.G_STORAGE_SET
-            + fork_gas_costs.G_COLD_SLOAD
+            + fork_gas_costs.GAS_COLD_SLOAD
             + fork_gas_costs.G_CREATE
         )
         initcode_gas_cost = (

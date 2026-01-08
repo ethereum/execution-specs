@@ -154,7 +154,7 @@ def test_storage_access_cold(
     gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
-    loop_cost = gas_costs.G_COLD_SLOAD  # All accesses are always cold
+    loop_cost = gas_costs.GAS_COLD_SLOAD  # All accesses are always cold
     if storage_action == StorageAction.WRITE_NEW_VALUE:
         if not absent_slots:
             loop_cost += gas_costs.G_STORAGE_RESET
@@ -166,7 +166,7 @@ def test_storage_access_cold(
         else:
             loop_cost += gas_costs.GAS_WARM_ACCESS
     elif storage_action == StorageAction.READ:
-        loop_cost += 0  # Only G_COLD_SLOAD is charged
+        loop_cost += 0  # Only GAS_COLD_SLOAD is charged
 
     # Contract code
     execution_code_body = Bytecode()

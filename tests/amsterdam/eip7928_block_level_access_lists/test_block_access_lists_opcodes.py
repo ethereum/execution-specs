@@ -88,8 +88,8 @@ def test_bal_sstore_and_oog(
 
     # Costs:
     # - PUSH1 (value and slot) = GAS_VERY_LOW * 2
-    # - SSTORE cold (to zero slot) = G_STORAGE_SET + G_COLD_SLOAD
-    sload_cost = gas_costs.G_COLD_SLOAD
+    # - SSTORE cold (to zero slot) = G_STORAGE_SET + GAS_COLD_SLOAD
+    sload_cost = gas_costs.GAS_COLD_SLOAD
     sstore_cost = gas_costs.G_STORAGE_SET
     sstore_cold_cost = sstore_cost + sload_cost
     push_cost = gas_costs.GAS_VERY_LOW * 2
@@ -186,9 +186,9 @@ def test_bal_sload_and_oog(
 
     # Costs:
     # - PUSH1 (slot) = GAS_VERY_LOW
-    # - SLOAD cold = G_COLD_SLOAD
+    # - SLOAD cold = GAS_COLD_SLOAD
     push_cost = gas_costs.GAS_VERY_LOW
-    sload_cold_cost = gas_costs.G_COLD_SLOAD
+    sload_cold_cost = gas_costs.GAS_COLD_SLOAD
     tx_gas_limit = intrinsic_gas_cost + push_cost + sload_cold_cost
 
     if fails_at_sload:

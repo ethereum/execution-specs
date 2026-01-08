@@ -332,7 +332,7 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
             # Add the cost of accessing the send all destination account.
             cold_gas += gas_costs.G_COLD_ACCOUNT_ACCESS
         elif opcode == Op.SLOAD:
-            cold_gas = gas_costs.G_COLD_SLOAD
+            cold_gas = gas_costs.GAS_COLD_SLOAD
         yield pytest.param(opcode, warm_gas, cold_gas, id=f"{opcode}")
 
 
