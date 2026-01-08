@@ -188,7 +188,7 @@ def test_storage_access_cold(
     loop_cost += (
         gas_costs.GAS_JUMPDEST  # Prefix Jumpdest
         + gas_costs.GAS_VERY_LOW * 7  # ISZEROs, PUSHs, SWAPs, SUB, DUP
-        + gas_costs.G_HIGH  # JUMPI
+        + gas_costs.GAS_HIGH  # JUMPI
     )
 
     prefix_cost = (
