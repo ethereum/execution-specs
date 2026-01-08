@@ -252,9 +252,9 @@ def test_bal_balance_and_oog(
 
     # Costs:
     # - PUSH20 = GAS_VERY_LOW
-    # - BALANCE cold = G_COLD_ACCOUNT_ACCESS
+    # - BALANCE cold = GAS_COLD_ACCOUNT_ACCESS
     push_cost = gas_costs.GAS_VERY_LOW
-    balance_cold_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+    balance_cold_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
     tx_gas_limit = intrinsic_gas_cost + push_cost + balance_cold_cost
 
     if fails_at_balance:
@@ -327,9 +327,9 @@ def test_bal_extcodesize_and_oog(
 
     # Costs:
     # - PUSH20 = GAS_VERY_LOW
-    # - EXTCODESIZE cold = G_COLD_ACCOUNT_ACCESS
+    # - EXTCODESIZE cold = GAS_COLD_ACCOUNT_ACCESS
     push_cost = gas_costs.GAS_VERY_LOW
-    extcodesize_cold_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+    extcodesize_cold_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
     tx_gas_limit = intrinsic_gas_cost + push_cost + extcodesize_cold_cost
 
     if fails_at_extcodesize:
@@ -402,9 +402,9 @@ def test_bal_call_and_oog(
 
     # Costs:
     # - 7 PUSH operations = GAS_VERY_LOW * 7
-    # - CALL cold = G_COLD_ACCOUNT_ACCESS (minimum for account access)
+    # - CALL cold = GAS_COLD_ACCOUNT_ACCESS (minimum for account access)
     push_cost = gas_costs.GAS_VERY_LOW * 7
-    call_cold_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+    call_cold_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
     tx_gas_limit = intrinsic_gas_cost + push_cost + call_cold_cost
 
     if fails_at_call:
@@ -484,9 +484,9 @@ def test_bal_delegatecall_and_oog(
 
     # Costs:
     # - 6 PUSH operations = GAS_VERY_LOW * 6
-    # - DELEGATECALL cold = G_COLD_ACCOUNT_ACCESS
+    # - DELEGATECALL cold = GAS_COLD_ACCOUNT_ACCESS
     push_cost = gas_costs.GAS_VERY_LOW * 6
-    delegatecall_cold_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+    delegatecall_cold_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
     tx_gas_limit = intrinsic_gas_cost + push_cost + delegatecall_cold_cost
 
     if fails_at_delegatecall:
@@ -564,11 +564,11 @@ def test_bal_extcodecopy_and_oog(
 
     # Costs:
     # - 4 PUSH operations = GAS_VERY_LOW * 4
-    # - EXTCODECOPY cold = G_COLD_ACCOUNT_ACCESS + (GAS_COPY * words)
+    # - EXTCODECOPY cold = GAS_COLD_ACCOUNT_ACCESS + (GAS_COPY * words)
     #   where words = ceil32(size) // 32 = ceil32(0) // 32 = 0
     push_cost = gas_costs.GAS_VERY_LOW * 4
     extcodecopy_cold_cost = (
-        gas_costs.G_COLD_ACCOUNT_ACCESS
+        gas_costs.GAS_COLD_ACCOUNT_ACCESS
     )  # + (GAS_COPY * 0) = 0
     tx_gas_limit = intrinsic_gas_cost + push_cost + extcodecopy_cold_cost
 

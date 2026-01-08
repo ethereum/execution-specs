@@ -84,7 +84,7 @@ def test_bloatnet_balance_extcodesize(
         gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
         + gas_costs.G_KECCAK_256_WORD
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.GAS_BASE  # POP first result (2)
         + gas_costs.GAS_WARM_ACCESS  # Warm access (100)
         + gas_costs.GAS_BASE  # POP second result (2)
@@ -240,7 +240,7 @@ def test_bloatnet_balance_extcodecopy(
         gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
         + gas_costs.G_KECCAK_256_WORD
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.GAS_BASE  # POP first result (2)
         + gas_costs.GAS_WARM_ACCESS  # Warm access base (100)
         + gas_costs.GAS_COPY * 1  # Copy cost for 1 byte (3)
@@ -401,7 +401,7 @@ def test_bloatnet_balance_extcodehash(
         gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
         + gas_costs.G_KECCAK_256_WORD
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.GAS_BASE  # POP first result (2)
         + gas_costs.GAS_WARM_ACCESS  # Warm access (100)
         + gas_costs.GAS_BASE  # POP second result (2)
@@ -658,7 +658,7 @@ def test_mixed_sload_sstore(
         + sload_erc20_internal
     )
     cold_warm_diff = (
-        gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.GAS_WARM_ACCESS
+        gas_costs.GAS_COLD_ACCOUNT_ACCESS - gas_costs.GAS_WARM_ACCESS
     )
     sload_calls_per_contract = int(
         (sload_gas_per_contract - cold_warm_diff) // sload_warm_cost

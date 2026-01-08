@@ -1260,7 +1260,7 @@ def test_call_to_pre_authorized_oog(
     tx_gas_limit = (
         intrinsic_gas_cost_calculator()
         + len(call_opcode.kwargs) * gas_costs.GAS_VERY_LOW
-        + (gas_costs.G_COLD_ACCOUNT_ACCESS * 2)
+        + (gas_costs.GAS_COLD_ACCOUNT_ACCESS * 2)
         - 1
     )
     tx = Transaction(

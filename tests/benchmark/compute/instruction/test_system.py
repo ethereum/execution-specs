@@ -75,7 +75,7 @@ def test_xcall(
         + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
         # cost for CREATE2
         + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # Opcode cost
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Opcode cost
         + 30  # ~Gluing opcodes
     )
     # Calculate an upper bound of the number of contracts to be targeted
@@ -533,7 +533,7 @@ def test_selfdestruct_existing(
         + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
         # cost for CREATE2
         + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
         + gas_costs.GAS_BASE
         + gas_costs.G_SELF_DESTRUCT
         + 88  # ~Gluing opcodes

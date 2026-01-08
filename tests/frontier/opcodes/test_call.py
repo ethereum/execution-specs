@@ -60,7 +60,7 @@ def test_call_large_offset_mstore(
     )
 
     # this call cost is just the address_access_cost
-    call_cost = gsc.G_COLD_ACCOUNT_ACCESS
+    call_cost = gsc.GAS_COLD_ACCOUNT_ACCESS
 
     memory_expansion_gas_calc = fork.memory_expansion_gas_calculator()
     # mstore cost: base cost + expansion cost
@@ -140,7 +140,7 @@ def test_call_memory_expands_on_early_revert(
     # call cost:
     #   address_access_cost+new_acc_cost+memory_expansion_cost+value-stipend
     call_cost = (
-        gsc.G_COLD_ACCOUNT_ACCESS
+        gsc.GAS_COLD_ACCOUNT_ACCESS
         + gsc.G_NEW_ACCOUNT
         + memory_expansion_gas_calc(new_bytes=ret_size)
         + gsc.G_CALL_VALUE
@@ -203,7 +203,7 @@ def test_call_large_args_offset_size_zero(
     )
 
     # this call cost is just the address_access_cost
-    call_cost = gsc.G_COLD_ACCOUNT_ACCESS
+    call_cost = gsc.GAS_COLD_ACCOUNT_ACCESS
 
     state_test(
         env=Environment(),

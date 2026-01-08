@@ -710,7 +710,7 @@ def test_gas_diff_pointer_vs_direct_call(
             gas_costs.GAS_WARM_ACCESS + gas_costs.GAS_WARM_ACCESS
             if access_list_rule
             in [AccessListCall.IN_NORMAL_TX_ONLY, AccessListCall.IN_BOTH_TX]
-            else gas_costs.G_COLD_ACCOUNT_ACCESS + gas_costs.GAS_COLD_SLOAD
+            else gas_costs.GAS_COLD_ACCOUNT_ACCESS + gas_costs.GAS_COLD_SLOAD
         )
         + opcodes_price
     )
@@ -749,7 +749,7 @@ def test_gas_diff_pointer_vs_direct_call(
                 ]
                 and access_list_to == AccessListTo.POINTER_ADDRESS
             )
-            else gas_costs.G_COLD_ACCOUNT_ACCESS
+            else gas_costs.GAS_COLD_ACCOUNT_ACCESS
         )
         # storage access
         + (
@@ -775,7 +775,7 @@ def test_gas_diff_pointer_vs_direct_call(
                 ]
                 and access_list_to == AccessListTo.CONTRACT_ADDRESS
             )
-            else gas_costs.G_COLD_ACCOUNT_ACCESS
+            else gas_costs.GAS_COLD_ACCOUNT_ACCESS
         )
         + opcodes_price
     )
@@ -925,7 +925,7 @@ def test_pointer_call_followed_by_direct_call(
     pointer_call_gas = (
         gas_costs.GAS_STORAGE_SET
         + gas_costs.GAS_WARM_ACCESS  # pointer is warm
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # contract is cold
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # contract is cold
         + gas_costs.GAS_COLD_SLOAD  # storage access under pointer call is cold
         + opcodes_price
     )
@@ -2222,7 +2222,7 @@ def test_delegation_replacement_call_previous_contract(
         tx=tx,
         post={
             auth_signer: Account(
-                storage={0: gsc.G_COLD_ACCOUNT_ACCESS},
+                storage={0: gsc.GAS_COLD_ACCOUNT_ACCESS},
             )
         },
     )

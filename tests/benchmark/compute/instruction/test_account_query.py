@@ -185,7 +185,7 @@ def test_extcode_ops(
         + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
         # cost for CREATE2
         + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # Opcode cost
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Opcode cost
         + 30  # ~Gluing opcodes
     )
     # Calculate the number of contracts to be targeted
@@ -492,7 +492,7 @@ def test_ext_account_query_cold(
     # transaction runs out of gas.
     num_target_accounts = (
         attack_gas_limit - intrinsic_gas_cost_calc()
-    ) // gas_costs.G_COLD_ACCOUNT_ACCESS
+    ) // gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
     blocks = []
     post = {}
@@ -505,7 +505,7 @@ def test_ext_account_query_cold(
 
     if not absent_accounts:
         account_creation_gas = (
-            gas_costs.G_COLD_ACCOUNT_ACCESS
+            gas_costs.GAS_COLD_ACCOUNT_ACCESS
             + gas_costs.G_CALL_VALUE
             + gas_costs.G_NEW_ACCOUNT
         )
@@ -582,7 +582,7 @@ def test_ext_account_query_cold(
     with TestPhaseManager.execution():
         max_target_per_tx = (
             tx_gas_limit - intrinsic_gas_cost_calc()
-        ) // gas_costs.G_COLD_ACCOUNT_ACCESS
+        ) // gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
         num_execution_txs = math.ceil(num_target_accounts / max_target_per_tx)
         gas_used = 0
