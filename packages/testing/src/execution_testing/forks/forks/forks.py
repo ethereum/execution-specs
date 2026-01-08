@@ -133,7 +133,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             G_SELF_DESTRUCT=5_000,
             G_CREATE=32_000,
             G_CODE_DEPOSIT_BYTE=200,
-            G_INITCODE_WORD=2,
+            GAS_INIT_CODE_WORD_COST=2,
             G_CALL_VALUE=9_000,
             G_CALL_STIPEND=2_300,
             G_NEW_ACCOUNT=25_000,
@@ -298,7 +298,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             intrinsic_cost: int = gas_costs.G_TRANSACTION
 
             if contract_creation:
-                intrinsic_cost += gas_costs.G_INITCODE_WORD * ceiling_division(
+                intrinsic_cost += gas_costs.GAS_INIT_CODE_WORD_COST * ceiling_division(
                     len(Bytes(calldata)), 32
                 )
 

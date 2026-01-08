@@ -721,7 +721,7 @@ def test_selfdestruct_created(
         + gas_costs.G_CREATE
         + gas_costs.GAS_VERY_LOW * 3  # Create Parameter PUSHs
         + gas_costs.G_CODE_DEPOSIT_BYTE * 2
-        + gas_costs.G_INITCODE_WORD
+        + gas_costs.GAS_INIT_CODE_WORD_COST
     )
     call_costs = (
         gas_costs.GAS_WARM_ACCESS
@@ -843,7 +843,7 @@ def test_selfdestruct_initcode(
         initcode_costs
         + gas_costs.G_CREATE
         + gas_costs.GAS_VERY_LOW * 3  # Create Parameter PUSHs
-        + gas_costs.G_INITCODE_WORD
+        + gas_costs.GAS_INIT_CODE_WORD_COST
     )
     extra_costs = (
         gas_costs.GAS_BASE * 2  # POP, GAS
