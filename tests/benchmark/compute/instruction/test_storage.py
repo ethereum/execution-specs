@@ -164,7 +164,7 @@ def test_storage_access_cold(
         if absent_slots:
             loop_cost += gas_costs.G_STORAGE_SET
         else:
-            loop_cost += gas_costs.G_WARM_SLOAD
+            loop_cost += gas_costs.GAS_WARM_ACCESS
     elif storage_action == StorageAction.READ:
         loop_cost += 0  # Only G_COLD_SLOAD is charged
 

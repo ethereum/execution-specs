@@ -707,7 +707,7 @@ def test_gas_diff_pointer_vs_direct_call(
         + (
             # access account price
             # If storage and account is declared in access list then discount
-            gas_costs.G_WARM_ACCOUNT_ACCESS + gas_costs.G_WARM_SLOAD
+            gas_costs.G_WARM_ACCOUNT_ACCESS + gas_costs.GAS_WARM_ACCESS
             if access_list_rule
             in [AccessListCall.IN_NORMAL_TX_ONLY, AccessListCall.IN_BOTH_TX]
             else gas_costs.G_COLD_ACCOUNT_ACCESS + gas_costs.G_COLD_SLOAD
@@ -753,7 +753,7 @@ def test_gas_diff_pointer_vs_direct_call(
         )
         # storage access
         + (
-            gas_costs.G_WARM_SLOAD
+            gas_costs.GAS_WARM_ACCESS
             if (
                 access_list_rule
                 in [
