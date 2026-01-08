@@ -143,7 +143,7 @@ def test_call_memory_expands_on_early_revert(
         gsc.GAS_COLD_ACCOUNT_ACCESS
         + gsc.G_NEW_ACCOUNT
         + memory_expansion_gas_calc(new_bytes=ret_size)
-        + gsc.G_CALL_VALUE
+        + gsc.GAS_CALL_VALUE
         - gsc.GAS_CALL_STIPEND
     )
 

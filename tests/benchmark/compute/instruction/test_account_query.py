@@ -506,7 +506,7 @@ def test_ext_account_query_cold(
     if not absent_accounts:
         account_creation_gas = (
             gas_costs.GAS_COLD_ACCOUNT_ACCESS
-            + gas_costs.G_CALL_VALUE
+            + gas_costs.GAS_CALL_VALUE
             + gas_costs.G_NEW_ACCOUNT
         )
         # To avoid brittle/tight gas calculations of glue opcodes, we take
