@@ -407,7 +407,7 @@ def append_storage(
 
                 if read:
                     # Append to storage_reads
-                    new_account.storage_reads.append(slot)
+                    new_account.storage_reads.append(ZeroPaddedHexNumber(slot))
                 elif change is not None:
                     # Find if slot already exists
                     slot_found = False
