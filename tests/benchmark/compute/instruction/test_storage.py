@@ -174,31 +174,31 @@ def test_storage_access_cold(
         # All the storage slots in the contract are initialized to their index.
         # That is, storage slot `i` is initialized to `i`.
         execution_code_body = Op.SSTORE(Op.DUP1, Op.DUP1)
-        loop_cost += gas_costs.G_VERY_LOW * 2
+        loop_cost += gas_costs.GAS_VERY_LOW * 2
     elif storage_action == StorageAction.WRITE_NEW_VALUE:
         # The new value 2^256-1 is guaranteed to be different from the initial
         # value.
         execution_code_body = Op.SSTORE(Op.DUP2, Op.NOT(0))
-        loop_cost += gas_costs.G_VERY_LOW * 3
+        loop_cost += gas_costs.GAS_VERY_LOW * 3
     elif storage_action == StorageAction.READ:
         execution_code_body = Op.POP(Op.SLOAD(Op.DUP1))
-        loop_cost += gas_costs.G_VERY_LOW + gas_costs.GAS_BASE
+        loop_cost += gas_costs.GAS_VERY_LOW + gas_costs.GAS_BASE
 
     # Add costs jump-logic costs
     loop_cost += (
         gas_costs.GAS_JUMPDEST  # Prefix Jumpdest
-        + gas_costs.G_VERY_LOW * 7  # ISZEROs, PUSHs, SWAPs, SUB, DUP
+        + gas_costs.GAS_VERY_LOW * 7  # ISZEROs, PUSHs, SWAPs, SUB, DUP
         + gas_costs.G_HIGH  # JUMPI
     )
 
     prefix_cost = (
-        gas_costs.G_VERY_LOW  # Target slots push
+        gas_costs.GAS_VERY_LOW  # Target slots push
     )
 
     suffix_cost = 0
     if tx_result == TransactionResult.REVERT:
         suffix_cost = (
-            gas_costs.G_VERY_LOW * 2  # Revert PUSHs
+            gas_costs.GAS_VERY_LOW * 2  # Revert PUSHs
         )
 
     num_target_slots = (

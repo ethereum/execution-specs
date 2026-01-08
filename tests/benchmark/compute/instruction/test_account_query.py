@@ -184,14 +184,14 @@ def test_extcode_ops(
         gas_costs.G_KECCAK_256  # KECCAK static cost
         + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
         # cost for CREATE2
-        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
+        + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Opcode cost
         + 30  # ~Gluing opcodes
     )
     # Calculate the number of contracts to be targeted
     num_contracts = (
         # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
+        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.GAS_VERY_LOW * 4
     ) // loop_cost
 
     # Set the block gas limit to a relative high value to ensure the code

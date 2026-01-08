@@ -131,9 +131,9 @@ def test_sload_empty_erc20_balanceof(
     # Fixed overhead per iteration (loop mechanics, independent of warm/cold)
     loop_overhead = (
         # Attack contract loop overhead
-        gas_costs.G_VERY_LOW * 2  # MLOAD counter (3*2)
-        + gas_costs.G_VERY_LOW * 2  # MSTORE selector (3*2)
-        + gas_costs.G_VERY_LOW * 3  # MLOAD + MSTORE address (3*3)
+        gas_costs.GAS_VERY_LOW * 2  # MLOAD counter (3*2)
+        + gas_costs.GAS_VERY_LOW * 2  # MSTORE selector (3*2)
+        + gas_costs.GAS_VERY_LOW * 3  # MLOAD + MSTORE address (3*3)
         + gas_costs.GAS_BASE  # POP (2)
         + gas_costs.GAS_BASE * 3  # SUB + MLOAD + MSTORE counter decrement
         + gas_costs.GAS_BASE * 2  # ISZERO * 2 for loop condition (2*2)
@@ -142,15 +142,15 @@ def test_sload_empty_erc20_balanceof(
 
     # ERC20 internal gas (same for all calls)
     erc20_internal_gas = (
-        gas_costs.G_VERY_LOW  # PUSH4 selector (3)
+        gas_costs.GAS_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.GAS_BASE  # EQ selector match (2)
         + gas_costs.G_MID  # JUMPI to function (8)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
-        + gas_costs.G_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
+        + gas_costs.GAS_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
         + gas_costs.G_KECCAK_256  # keccak256 static (30)
         + gas_costs.G_KECCAK_256_WORD * 2  # keccak256 dynamic 64 bytes
         + gas_costs.G_COLD_SLOAD  # Cold SLOAD - always cold
-        + gas_costs.G_VERY_LOW * 3  # MSTORE result + RETURN setup (3*3)
+        + gas_costs.GAS_VERY_LOW * 3  # MSTORE result + RETURN setup (3*3)
         # RETURN costs 0 gas
     )
 
@@ -302,7 +302,7 @@ def test_sstore_erc20_approve(
     # Per-contract fixed overhead (setup + teardown)
     memory_expansion_cost = 15  # Memory expansion to 160 bytes (5 words)
     overhead_per_contract = (
-        gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
+        gas_costs.GAS_VERY_LOW  # MSTORE to initialize counter (3)
         + memory_expansion_cost  # Memory expansion (15)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at loop start (1)
         + gas_costs.G_LOW  # MLOAD for While condition check (5)
@@ -315,15 +315,15 @@ def test_sstore_erc20_approve(
     # Fixed overhead per iteration (loop mechanics, independent of warm/cold)
     loop_overhead = (
         # Attack contract loop body operations
-        gas_costs.G_VERY_LOW  # MSTORE selector at memory[32] (3)
+        gas_costs.GAS_VERY_LOW  # MSTORE selector at memory[32] (3)
         + gas_costs.G_LOW  # MLOAD counter (5)
-        + gas_costs.G_VERY_LOW  # MSTORE spender at memory[64] (3)
+        + gas_costs.GAS_VERY_LOW  # MSTORE spender at memory[64] (3)
         + gas_costs.GAS_BASE  # POP call result (2)
         # Counter decrement: MSTORE(0, SUB(MLOAD(0), 1))
         + gas_costs.G_LOW  # MLOAD counter (5)
-        + gas_costs.G_VERY_LOW  # PUSH1 1 (3)
-        + gas_costs.G_VERY_LOW  # SUB (3)
-        + gas_costs.G_VERY_LOW  # MSTORE counter back (3)
+        + gas_costs.GAS_VERY_LOW  # PUSH1 1 (3)
+        + gas_costs.GAS_VERY_LOW  # SUB (3)
+        + gas_costs.GAS_VERY_LOW  # MSTORE counter back (3)
         # While loop condition check
         + gas_costs.G_LOW  # MLOAD counter (5)
         + gas_costs.GAS_BASE  # ISZERO (2)
@@ -335,21 +335,21 @@ def test_sstore_erc20_approve(
     # Note: SSTORE cost is 22100 for cold slot, zero-to-non-zero
     # (20000 base + 2100 cold access)
     erc20_internal_gas = (
-        gas_costs.G_VERY_LOW  # PUSH4 selector (3)
+        gas_costs.GAS_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.GAS_BASE  # EQ selector match (2)
         + gas_costs.G_MID  # JUMPI to function (8)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
-        + gas_costs.G_VERY_LOW  # CALLDATALOAD spender (3)
-        + gas_costs.G_VERY_LOW  # CALLDATALOAD amount (3)
+        + gas_costs.GAS_VERY_LOW  # CALLDATALOAD spender (3)
+        + gas_costs.GAS_VERY_LOW  # CALLDATALOAD amount (3)
         + gas_costs.G_KECCAK_256  # keccak256 static (30)
         + gas_costs.G_KECCAK_256_WORD * 2  # keccak256 dynamic 64 bytes
         + gas_costs.G_COLD_SLOAD  # Cold SLOAD for allowance check (2100)
         + gas_costs.G_STORAGE_SET  # SSTORE base cost (20000)
         + gas_costs.G_COLD_SLOAD  # Additional cold storage access (2100)
-        + gas_costs.G_VERY_LOW  # PUSH1 1 for return value (3)
-        + gas_costs.G_VERY_LOW  # MSTORE return value (3)
-        + gas_costs.G_VERY_LOW  # PUSH1 32 for return size (3)
-        + gas_costs.G_VERY_LOW  # PUSH1 0 for return offset (3)
+        + gas_costs.GAS_VERY_LOW  # PUSH1 1 for return value (3)
+        + gas_costs.GAS_VERY_LOW  # MSTORE return value (3)
+        + gas_costs.GAS_VERY_LOW  # PUSH1 32 for return size (3)
+        + gas_costs.GAS_VERY_LOW  # PUSH1 0 for return offset (3)
         # RETURN costs 0 gas
     )
 

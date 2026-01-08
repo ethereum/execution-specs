@@ -2191,7 +2191,7 @@ def test_delegation_replacement_call_previous_contract(
     sender = pre.fund_eoa()
 
     gsc = fork.gas_costs()
-    overhead_cost = gsc.G_VERY_LOW * len(Op.CALL.kwargs)
+    overhead_cost = gsc.GAS_VERY_LOW * len(Op.CALL.kwargs)
     set_code = CodeGasMeasure(
         code=Op.CALL(gas=0, address=pre_set_delegation_address),
         overhead_cost=overhead_cost,

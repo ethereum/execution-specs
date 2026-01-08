@@ -117,7 +117,7 @@ class Frontier(BaseFork, solc_name="homestead"):
         return GasCosts(
             GAS_JUMPDEST=1,
             GAS_BASE=2,
-            G_VERY_LOW=3,
+            GAS_VERY_LOW=3,
             G_LOW=5,
             G_MID=8,
             G_HIGH=10,

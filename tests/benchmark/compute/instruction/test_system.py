@@ -74,14 +74,14 @@ def test_xcall(
         gas_costs.G_KECCAK_256  # KECCAK static cost
         + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
         # cost for CREATE2
-        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
+        + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Opcode cost
         + 30  # ~Gluing opcodes
     )
     # Calculate an upper bound of the number of contracts to be targeted
     num_contracts = (
         # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
+        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.GAS_VERY_LOW * 4
     ) // loop_cost
 
     initcode, factory_address, factory_caller_address = (
@@ -154,7 +154,7 @@ def test_xcall(
         num_targeted_contracts_per_full_tx = (
             # Base available gas:
             # TX_GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-            tx_gas_limit - intrinsic_gas_cost_calc() - gas_costs.G_VERY_LOW * 4
+            tx_gas_limit - intrinsic_gas_cost_calc() - gas_costs.GAS_VERY_LOW * 4
         ) // loop_cost
         contract_start_index = 0
         opcode_txs = []
@@ -532,15 +532,15 @@ def test_selfdestruct_existing(
         gas_costs.G_KECCAK_256  # KECCAK static cost
         + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
         # cost for CREATE2
-        + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
+        + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
         + gas_costs.GAS_BASE
         + gas_costs.G_SELF_DESTRUCT
         + 88  # ~Gluing opcodes
     )
     final_storage_gas = (
-        gas_costs.G_VERY_LOW  # ADD
-        + gas_costs.G_VERY_LOW * 3  # PUSHs
+        gas_costs.GAS_VERY_LOW  # ADD
+        + gas_costs.GAS_VERY_LOW * 3  # PUSHs
         + gas_costs.G_COLD_SLOAD  # SSTORE cold
         + gas_costs.G_STORAGE_RESET  # SSTORE new value
     )
@@ -549,7 +549,7 @@ def test_selfdestruct_existing(
     )
     base_costs = (
         intrinsic_gas_cost_calc()
-        + (gas_costs.G_VERY_LOW * 12)  # 8 PUSHs + 4 MSTOREs
+        + (gas_costs.GAS_VERY_LOW * 12)  # 8 PUSHs + 4 MSTOREs
         + final_storage_gas
         + memory_expansion_cost
     )
@@ -713,13 +713,13 @@ def test_selfdestruct_created(
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
     initcode_costs = (
-        gas_costs.G_VERY_LOW * 8  # MSTOREs, PUSHs
+        gas_costs.GAS_VERY_LOW * 8  # MSTOREs, PUSHs
         + memory_expansion_calc(new_bytes=2)  # return into memory
     )
     create_costs = (
         initcode_costs
         + gas_costs.G_CREATE
-        + gas_costs.G_VERY_LOW * 3  # Create Parameter PUSHs
+        + gas_costs.GAS_VERY_LOW * 3  # Create Parameter PUSHs
         + gas_costs.G_CODE_DEPOSIT_BYTE * 2
         + gas_costs.G_INITCODE_WORD
     )
@@ -727,25 +727,25 @@ def test_selfdestruct_created(
         gas_costs.G_WARM_ACCOUNT_ACCESS
         + gas_costs.GAS_BASE  # COINBASE
         + gas_costs.G_SELF_DESTRUCT
-        + gas_costs.G_VERY_LOW * 5  # CALL Parameter PUSHs
+        + gas_costs.GAS_VERY_LOW * 5  # CALL Parameter PUSHs
         + gas_costs.GAS_BASE  #  Parameter GAS
     )
     extra_costs = (
         gas_costs.GAS_BASE * 2  # POP, GAS
-        + gas_costs.G_VERY_LOW * 5  # PUSHs, ADD, DUP, GT
+        + gas_costs.GAS_VERY_LOW * 5  # PUSHs, ADD, DUP, GT
         + gas_costs.G_HIGH  # JUMPI
         + gas_costs.GAS_JUMPDEST
     )
     loop_cost = create_costs + call_costs + extra_costs
 
     prefix_cost = (
-        gas_costs.G_VERY_LOW * 3
+        gas_costs.GAS_VERY_LOW * 3
         + gas_costs.GAS_BASE
         + memory_expansion_calc(new_bytes=32)
     )
     suffix_cost = (
-        gas_costs.G_VERY_LOW
-        + gas_costs.G_VERY_LOW * 3
+        gas_costs.GAS_VERY_LOW
+        + gas_costs.GAS_VERY_LOW * 3
         + gas_costs.G_COLD_SLOAD
         + gas_costs.G_STORAGE_RESET
     )
@@ -842,25 +842,25 @@ def test_selfdestruct_initcode(
     create_costs = (
         initcode_costs
         + gas_costs.G_CREATE
-        + gas_costs.G_VERY_LOW * 3  # Create Parameter PUSHs
+        + gas_costs.GAS_VERY_LOW * 3  # Create Parameter PUSHs
         + gas_costs.G_INITCODE_WORD
     )
     extra_costs = (
         gas_costs.GAS_BASE * 2  # POP, GAS
-        + gas_costs.G_VERY_LOW * 5  # PUSHs, ADD, GT
+        + gas_costs.GAS_VERY_LOW * 5  # PUSHs, ADD, GT
         + gas_costs.G_HIGH  # JUMPI
         + gas_costs.GAS_JUMPDEST
     )
     loop_cost = create_costs + extra_costs
 
     prefix_cost = (
-        gas_costs.G_VERY_LOW * 3
+        gas_costs.GAS_VERY_LOW * 3
         + gas_costs.GAS_BASE
         + memory_expansion_calc(new_bytes=32)
     )
     suffix_cost = (
-        gas_costs.G_VERY_LOW
-        + gas_costs.G_VERY_LOW * 3
+        gas_costs.GAS_VERY_LOW
+        + gas_costs.GAS_VERY_LOW * 3
         + gas_costs.G_COLD_SLOAD
         + gas_costs.G_STORAGE_RESET
     )

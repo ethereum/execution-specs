@@ -254,7 +254,7 @@ def test_maximum_gas_refund(
 
     # Base Operation: SSTORE(slot, 0)
     iteration_cost = (
-        gas_costs.G_STORAGE_RESET + gas_costs.GAS_BASE + gas_costs.G_VERY_LOW
+        gas_costs.G_STORAGE_RESET + gas_costs.GAS_BASE + gas_costs.GAS_VERY_LOW
     )
     gas_refund = gas_costs.R_STORAGE_CLEAR
 

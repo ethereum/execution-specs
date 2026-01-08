@@ -43,7 +43,7 @@ def test_call_insufficient_balance(
         # Measure the gas cost for BALANCE operation
         + CodeGasMeasure(
             code=Op.BALANCE(destination),
-            overhead_cost=gas_costs.G_VERY_LOW,  # PUSH20 costs 3 gas
+            overhead_cost=gas_costs.GAS_VERY_LOW,  # PUSH20 costs 3 gas
             extra_stack_items=1,  # BALANCE puts balance on stack
             sstore_key=1,
         ),

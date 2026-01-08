@@ -350,7 +350,7 @@ def generate_system_contract_error_test(
                 gas_used_per_storage = (
                     gas_costs.G_STORAGE_SET
                     + gas_costs.G_COLD_SLOAD
-                    + (gas_costs.G_VERY_LOW * 2)
+                    + (gas_costs.GAS_VERY_LOW * 2)
                 )
                 modified_system_contract_code += sum(
                     Op.SSTORE(i, 1)
@@ -490,7 +490,7 @@ def gas_test(
     gas_costs = fork.gas_costs()
     OPCODE_GAS_COST = gas_costs.GAS_BASE
     OPCODE_POP_COST = gas_costs.GAS_BASE
-    OPCODE_PUSH_COST = gas_costs.G_VERY_LOW
+    OPCODE_PUSH_COST = gas_costs.GAS_VERY_LOW
     gas_single_gas_run = (
         2 * OPCODE_GAS_COST
         + OPCODE_POP_COST

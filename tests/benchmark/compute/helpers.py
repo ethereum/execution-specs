@@ -174,8 +174,8 @@ def calculate_optimal_input_length(
             gsc.GAS_BASE  # PUSH0 = arg offset
             + gsc.GAS_BASE  # PUSH0 = arg size
             + gsc.GAS_BASE  # PUSH0 = arg size
-            + gsc.G_VERY_LOW  # PUSH0 = arg offset
-            + gsc.G_VERY_LOW  # PUSHN = address
+            + gsc.GAS_VERY_LOW  # PUSH0 = arg offset
+            + gsc.GAS_VERY_LOW  # PUSHN = address
             + gsc.GAS_BASE  # GAS
         )
         iteration_gas_cost = (
