@@ -141,7 +141,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_EXPONENTIATION_PER_BYTE=50,
             GAS_MEMORY=3,
             TX_DATA_COST_PER_ZERO=4,
-            G_TX_DATA_NON_ZERO=68,
+            TX_DATA_COST_PER_NON_ZERO=68,
             STANDARD_CALLDATA_TOKEN_COST=0,
             FLOOR_CALLDATA_COST=0,
             TX_BASE_COST=21_000,
@@ -202,7 +202,7 @@ class Frontier(BaseFork, solc_name="homestead"):
                 if b == 0:
                     cost += gas_costs.TX_DATA_COST_PER_ZERO
                 else:
-                    cost += gas_costs.G_TX_DATA_NON_ZERO
+                    cost += gas_costs.TX_DATA_COST_PER_NON_ZERO
             return cost
 
         return fn
@@ -1103,7 +1103,7 @@ class Istanbul(ConstantinopleFix):
             super(Istanbul, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
-            G_TX_DATA_NON_ZERO=16,  # https://eips.ethereum.org/EIPS/eip-2028
+            TX_DATA_COST_PER_NON_ZERO=16,  # https://eips.ethereum.org/EIPS/eip-2028
             # https://eips.ethereum.org/EIPS/eip-1108
             G_PRECOMPILE_ECADD=150,
             G_PRECOMPILE_ECMUL=6000,

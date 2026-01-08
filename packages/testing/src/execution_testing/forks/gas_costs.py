@@ -40,7 +40,7 @@ class GasCosts:
     GAS_MEMORY: int
 
     TX_DATA_COST_PER_ZERO: int
-    G_TX_DATA_NON_ZERO: int
+    TX_DATA_COST_PER_NON_ZERO: int
     STANDARD_CALLDATA_TOKEN_COST: int
     FLOOR_CALLDATA_COST: int
 
