@@ -41,7 +41,7 @@ def test_keccak_max_permutations(
     for i in range(1, 1_000_000, 32):
         iteration_gas_cost = (
             2 * gsc.GAS_VERY_LOW  # PUSHN + PUSH1
-            + gsc.G_KECCAK_256  # KECCAK256 static cost
+            + gsc.GAS_KECCAK256  # KECCAK256 static cost
             + math.ceil(i / 32) * gsc.G_KECCAK_256_WORD  # KECCAK256 dynamic
             # cost
             + gsc.GAS_BASE  # POP

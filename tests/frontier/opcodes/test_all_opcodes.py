@@ -242,7 +242,7 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         Op.SHR: gas_costs.GAS_VERY_LOW,
         Op.SAR: gas_costs.GAS_VERY_LOW,
         Op.CLZ: gas_costs.GAS_LOW,
-        Op.SHA3: gas_costs.G_KECCAK_256,
+        Op.SHA3: gas_costs.GAS_KECCAK256,
         Op.ADDRESS: gas_costs.GAS_BASE,
         Op.BALANCE: gas_costs.GAS_WARM_ACCESS,
         Op.ORIGIN: gas_costs.GAS_BASE,

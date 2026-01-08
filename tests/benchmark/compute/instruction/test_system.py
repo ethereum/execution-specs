@@ -71,7 +71,7 @@ def test_xcall(
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
     # Calculate the loop cost of the attacker to query one address
     loop_cost = (
-        gas_costs.G_KECCAK_256  # KECCAK static cost
+        gas_costs.GAS_KECCAK256  # KECCAK static cost
         + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
         # cost for CREATE2
         + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
@@ -529,7 +529,7 @@ def test_selfdestruct_existing(
     gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
     loop_cost = (
-        gas_costs.G_KECCAK_256  # KECCAK static cost
+        gas_costs.GAS_KECCAK256  # KECCAK static cost
         + math.ceil(85 / 32) * gas_costs.G_KECCAK_256_WORD  # KECCAK dynamic
         # cost for CREATE2
         + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs

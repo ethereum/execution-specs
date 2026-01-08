@@ -81,7 +81,7 @@ def test_bloatnet_balance_extcodesize(
 
     # Cost per contract access with CREATE2 address generation
     cost_per_contract = (
-        gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
+        gas_costs.GAS_KECCAK256  # SHA3 static cost for address generation (30)
         + gas_costs.G_KECCAK_256_WORD
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Cold access (2600)
@@ -237,7 +237,7 @@ def test_bloatnet_balance_extcodecopy(
 
     # Cost per contract with EXTCODECOPY and CREATE2 address generation
     cost_per_contract = (
-        gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
+        gas_costs.GAS_KECCAK256  # SHA3 static cost for address generation (30)
         + gas_costs.G_KECCAK_256_WORD
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Cold access (2600)
@@ -398,7 +398,7 @@ def test_bloatnet_balance_extcodehash(
 
     # Cost per contract access with CREATE2 address generation
     cost_per_contract = (
-        gas_costs.G_KECCAK_256  # SHA3 static cost for address generation (30)
+        gas_costs.GAS_KECCAK256  # SHA3 static cost for address generation (30)
         + gas_costs.G_KECCAK_256_WORD
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # Cold access (2600)
@@ -597,7 +597,7 @@ def test_mixed_sload_sstore(
         + gas_costs.GAS_MID  # JUMPI to function (8)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.GAS_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
-        + gas_costs.G_KECCAK_256  # keccak256 static (30)
+        + gas_costs.GAS_KECCAK256  # keccak256 static (30)
         + gas_costs.G_KECCAK_256_WORD * 2  # keccak256 dynamic 64 bytes
         + gas_costs.GAS_COLD_SLOAD  # Cold SLOAD - always cold
         + gas_costs.GAS_VERY_LOW * 3  # MSTORE result + RETURN setup (3*3)
@@ -631,7 +631,7 @@ def test_mixed_sload_sstore(
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.GAS_VERY_LOW  # CALLDATALOAD spender (3)
         + gas_costs.GAS_VERY_LOW  # CALLDATALOAD amount (3)
-        + gas_costs.G_KECCAK_256  # keccak256 static (30)
+        + gas_costs.GAS_KECCAK256  # keccak256 static (30)
         + gas_costs.G_KECCAK_256_WORD * 2  # keccak256 dynamic 64 bytes
         + gas_costs.GAS_COLD_SLOAD  # Cold SLOAD for allowance check (2100)
         + gas_costs.GAS_STORAGE_SET  # SSTORE base cost (20000)

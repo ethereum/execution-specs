@@ -51,7 +51,7 @@ class GasCosts:
     G_LOG_DATA: int
     G_LOG_TOPIC: int
 
-    G_KECCAK_256: int
+    GAS_KECCAK256: int
     G_KECCAK_256_WORD: int
 
     GAS_COPY: int
