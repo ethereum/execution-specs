@@ -996,7 +996,7 @@ def test_invalid_container_deployment(
             7 * fork_gas_costs.GAS_VERY_LOW
             + fork_gas_costs.GAS_STORAGE_SET
             + fork_gas_costs.GAS_COLD_SLOAD
-            + fork_gas_costs.G_CREATE
+            + fork_gas_costs.GAS_CREATE
         )
         initcode_gas_cost = 2 * fork_gas_costs.GAS_VERY_LOW
         tx_gas_limit = (
@@ -1011,7 +1011,7 @@ def test_invalid_container_deployment(
             7 * fork_gas_costs.GAS_VERY_LOW
             + fork_gas_costs.GAS_STORAGE_SET
             + fork_gas_costs.GAS_COLD_SLOAD
-            + fork_gas_costs.G_CREATE
+            + fork_gas_costs.GAS_CREATE
         )
         initcode_gas_cost = (
             # Code deposit gas cost

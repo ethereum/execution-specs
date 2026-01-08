@@ -419,7 +419,7 @@ def test_creates_collisions(
     gas_costs = fork.gas_costs()
     # The CALL to the proxy contract needs at a minimum gas corresponding to
     # the CREATE(2) plus extra required PUSH0s for arguments.
-    min_gas_required = gas_costs.G_CREATE + gas_costs.GAS_BASE * (
+    min_gas_required = gas_costs.GAS_CREATE + gas_costs.GAS_BASE * (
         3 if opcode == Op.CREATE else 4
     )
     setup = Op.PUSH20(proxy_contract) + Op.PUSH3(min_gas_required)
@@ -438,7 +438,7 @@ def test_creates_collisions(
         pre.deploy_contract(address=addr, code=Op.INVALID)
     else:
         # Heuristic to have an upper bound.
-        max_contract_count = 2 * gas_benchmark_value // gas_costs.G_CREATE
+        max_contract_count = 2 * gas_benchmark_value // gas_costs.GAS_CREATE
         for nonce in range(max_contract_count):
             addr = compute_create_address(address=proxy_contract, nonce=nonce)
             pre.deploy_contract(address=addr, code=Op.INVALID)
@@ -598,7 +598,7 @@ def test_selfdestruct_existing(
 
     # The deployed code length is two-bytes. The dominant factor
     # is the static cost, plus a few glue opcodes/memory-expansion costs.
-    estimated_gas_per_creation = gas_costs.G_CREATE + 3_000
+    estimated_gas_per_creation = gas_costs.GAS_CREATE + 3_000
     max_creations_per_tx = int(tx_gas_limit // estimated_gas_per_creation)
     num_setup_txs = math.ceil(num_contracts / max_creations_per_tx)
 
@@ -718,7 +718,7 @@ def test_selfdestruct_created(
     )
     create_costs = (
         initcode_costs
-        + gas_costs.G_CREATE
+        + gas_costs.GAS_CREATE
         + gas_costs.GAS_VERY_LOW * 3  # Create Parameter PUSHs
         + gas_costs.GAS_CODE_DEPOSIT * 2
         + gas_costs.GAS_INIT_CODE_WORD_COST
@@ -841,7 +841,7 @@ def test_selfdestruct_initcode(
     )
     create_costs = (
         initcode_costs
-        + gas_costs.G_CREATE
+        + gas_costs.GAS_CREATE
         + gas_costs.GAS_VERY_LOW * 3  # Create Parameter PUSHs
         + gas_costs.GAS_INIT_CODE_WORD_COST
     )
