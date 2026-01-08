@@ -19,7 +19,10 @@ def exp_gas(fork: Fork, exponent: int) -> int:
     """Calculate gas cost for EXP opcode given the exponent."""
     gas_costs = fork.gas_costs()
     byte_len = (exponent.bit_length() + 7) // 8
-    return gas_costs.GAS_EXPONENTIATION + gas_costs.GAS_EXPONENTIATION_PER_BYTE * byte_len
+    return (
+        gas_costs.GAS_EXPONENTIATION
+        + gas_costs.GAS_EXPONENTIATION_PER_BYTE * byte_len
+    )
 
 
 @pytest.mark.valid_from("Berlin")

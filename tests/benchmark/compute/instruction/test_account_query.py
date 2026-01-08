@@ -191,7 +191,9 @@ def test_extcode_ops(
     # Calculate the number of contracts to be targeted
     num_contracts = (
         # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.GAS_VERY_LOW * 4
+        attack_gas_limit
+        - intrinsic_gas_cost_calc()
+        - gas_costs.GAS_VERY_LOW * 4
     ) // loop_cost
 
     # Set the block gas limit to a relative high value to ensure the code

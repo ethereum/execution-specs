@@ -653,9 +653,7 @@ def test_mixed_sload_sstore(
     # Account for cold/warm transitions in CALL costs
     # First SLOAD call is COLD (2600), rest are WARM (100)
     sload_warm_cost = (
-        sload_loop_overhead
-        + gas_costs.GAS_WARM_ACCESS
-        + sload_erc20_internal
+        sload_loop_overhead + gas_costs.GAS_WARM_ACCESS + sload_erc20_internal
     )
     cold_warm_diff = (
         gas_costs.GAS_COLD_ACCOUNT_ACCESS - gas_costs.GAS_WARM_ACCESS

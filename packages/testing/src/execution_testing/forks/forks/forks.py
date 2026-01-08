@@ -125,7 +125,6 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_COLD_ACCOUNT_ACCESS=2_600,
             TX_ACCESS_LIST_ADDRESS_COST=2_400,
             TX_ACCESS_LIST_STORAGE_KEY_COST=1_900,
-            GAS_WARM_ACCESS=100,
             GAS_COLD_SLOAD=2_100,
             GAS_STORAGE_SET=20_000,
             GAS_STORAGE_UPDATE=2_900,
@@ -298,8 +297,9 @@ class Frontier(BaseFork, solc_name="homestead"):
             intrinsic_cost: int = gas_costs.TX_BASE_COST
 
             if contract_creation:
-                intrinsic_cost += gas_costs.GAS_INIT_CODE_WORD_COST * ceiling_division(
-                    len(Bytes(calldata)), 32
+                intrinsic_cost += (
+                    gas_costs.GAS_INIT_CODE_WORD_COST
+                    * ceiling_division(len(Bytes(calldata)), 32)
                 )
 
             return intrinsic_cost + calldata_gas_calculator(data=calldata)
@@ -1174,7 +1174,9 @@ class Berlin(Istanbul):
                 for access in access_list:
                     intrinsic_cost += gas_costs.TX_ACCESS_LIST_ADDRESS_COST
                     for _ in access.storage_keys:
-                        intrinsic_cost += gas_costs.TX_ACCESS_LIST_STORAGE_KEY_COST
+                        intrinsic_cost += (
+                            gas_costs.TX_ACCESS_LIST_STORAGE_KEY_COST
+                        )
             return intrinsic_cost
 
         return fn
@@ -2004,7 +2006,8 @@ class Prague(Cancun):
                         authorization_list_or_count
                     )
                 intrinsic_cost += (
-                    authorization_list_or_count * gas_costs.PER_EMPTY_ACCOUNT_COST
+                    authorization_list_or_count
+                    * gas_costs.PER_EMPTY_ACCOUNT_COST
                 )
 
             if return_cost_deducted_prior_execution:

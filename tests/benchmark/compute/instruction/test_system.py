@@ -81,7 +81,9 @@ def test_xcall(
     # Calculate an upper bound of the number of contracts to be targeted
     num_contracts = (
         # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-        attack_gas_limit - intrinsic_gas_cost_calc() - gas_costs.GAS_VERY_LOW * 4
+        attack_gas_limit
+        - intrinsic_gas_cost_calc()
+        - gas_costs.GAS_VERY_LOW * 4
     ) // loop_cost
 
     initcode, factory_address, factory_caller_address = (
@@ -154,7 +156,9 @@ def test_xcall(
         num_targeted_contracts_per_full_tx = (
             # Base available gas:
             # TX_GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-            tx_gas_limit - intrinsic_gas_cost_calc() - gas_costs.GAS_VERY_LOW * 4
+            tx_gas_limit
+            - intrinsic_gas_cost_calc()
+            - gas_costs.GAS_VERY_LOW * 4
         ) // loop_cost
         contract_start_index = 0
         opcode_txs = []
@@ -533,7 +537,7 @@ def test_selfdestruct_existing(
         + math.ceil(85 / 32) * gas_costs.GAS_KECCAK256_WORD  # KECCAK dynamic
         # cost for CREATE2
         + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
-        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
+        + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # CALL self-destructing contract
         + gas_costs.GAS_BASE
         + gas_costs.GAS_SELF_DESTRUCT
         + 88  # ~Gluing opcodes
