@@ -157,7 +157,7 @@ def test_storage_access_cold(
     loop_cost = gas_costs.GAS_COLD_SLOAD  # All accesses are always cold
     if storage_action == StorageAction.WRITE_NEW_VALUE:
         if not absent_slots:
-            loop_cost += gas_costs.G_STORAGE_RESET
+            loop_cost += gas_costs.GAS_STORAGE_UPDATE
         else:
             loop_cost += gas_costs.G_STORAGE_SET
     elif storage_action == StorageAction.WRITE_SAME_VALUE:

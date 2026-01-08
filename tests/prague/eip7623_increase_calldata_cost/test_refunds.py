@@ -114,7 +114,7 @@ def prefix_code_gas(fork: Fork, refund_type: RefundType) -> int:
         gas_costs = fork.gas_costs()
         return (
             gas_costs.GAS_COLD_SLOAD
-            + gas_costs.G_STORAGE_RESET
+            + gas_costs.GAS_STORAGE_UPDATE
             + (gas_costs.GAS_VERY_LOW * 2)
         )
     return 0

@@ -542,7 +542,7 @@ def test_selfdestruct_existing(
         gas_costs.GAS_VERY_LOW  # ADD
         + gas_costs.GAS_VERY_LOW * 3  # PUSHs
         + gas_costs.GAS_COLD_SLOAD  # SSTORE cold
-        + gas_costs.G_STORAGE_RESET  # SSTORE new value
+        + gas_costs.GAS_STORAGE_UPDATE  # SSTORE new value
     )
     memory_expansion_cost = fork().memory_expansion_gas_calculator()(
         new_bytes=96
@@ -747,7 +747,7 @@ def test_selfdestruct_created(
         gas_costs.GAS_VERY_LOW
         + gas_costs.GAS_VERY_LOW * 3
         + gas_costs.GAS_COLD_SLOAD
-        + gas_costs.G_STORAGE_RESET
+        + gas_costs.GAS_STORAGE_UPDATE
     )
 
     base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
@@ -862,7 +862,7 @@ def test_selfdestruct_initcode(
         gas_costs.GAS_VERY_LOW
         + gas_costs.GAS_VERY_LOW * 3
         + gas_costs.GAS_COLD_SLOAD
-        + gas_costs.G_STORAGE_RESET
+        + gas_costs.GAS_STORAGE_UPDATE
     )
 
     base_costs = prefix_cost + suffix_cost + intrinsic_gas_cost_calc()
