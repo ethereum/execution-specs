@@ -156,7 +156,7 @@ def test_sload_empty_erc20_balanceof(
     erc20_internal_gas = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.G_BASE  # EQ selector match (2)
-        + gas_costs.G_MID  # JUMPI to function (8)
+        + gas_costs.G_HIGH  # JUMPI to function (10)
         + gas_costs.G_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
         + gas_costs.G_KECCAK_256  # keccak256 static (30)
@@ -363,7 +363,7 @@ def test_sstore_erc20_approve(
     erc20_internal_gas = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.G_BASE  # EQ selector match (2)
-        + gas_costs.G_MID  # JUMPI to function (8)
+        + gas_costs.G_HIGH  # JUMPI to function (10)
         + gas_costs.G_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD spender (3)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD amount (3)
