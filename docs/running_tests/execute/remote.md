@@ -36,8 +36,8 @@ If a test uses `pre.deterministic_deploy_contract`, the `execute` command first 
 
 The address of `DETERMINISTIC_FACTORY_ADDRESS` depends on the currently active fork:
 
-- If EIP-7997 active in the current fork, the address of the predeploy will be used.
-- Otherwise, address `0x4E59B44847B379578588920CA78FBF26C0B4956C` will be used (see https://github.com/Arachnid/deterministic-deployment-proxy for details on how this address is computed).
+- If EIP-7997 active in the current fork, the address of the predeploy will be used
+- Otherwise, address `0x4E59B44847B379578588920CA78FBF26C0B4956C` will be used (see https://github.com/Arachnid/deterministic-deployment-proxy for details on how this address is computed)
 
 The transactions are collected and only sent after the test function finishes execution. This is done in order to perform optimizations based on the transactions that the test requires to perform its verifications.
 
