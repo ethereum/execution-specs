@@ -20,6 +20,10 @@ from .utils import int_to_bytes
 Helper functions
 """
 
+# Default deterministic factory address and bytecode for forks that do not
+# support EIP-7997.
+# See https://github.com/Arachnid/deterministic-deployment-proxy for more
+# details.
 DETERMINISTIC_FACTORY_ADDRESS = Address(
     0x4E59B44847B379578588920CA78FBF26C0B4956C
 )
