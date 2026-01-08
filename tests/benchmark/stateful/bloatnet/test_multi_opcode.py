@@ -84,11 +84,11 @@ def test_bloatnet_balance_extcodesize(
     setup_overhead = (
         gas_costs.G_COLD_ACCOUNT_ACCESS  # STATICCALL to factory (2600)
         + 100  # STATICCALL base cost
-        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
         + gas_costs.G_VERY_LOW  # PUSH2 (3)
-        + gas_costs.G_MID  # JUMPI (10)
-        + gas_costs.G_LOW * 2  # MLOAD × 2 for factory results (3 * 2)
-        + gas_costs.G_LOW * 3  # MSTORE × 3 for memory setup (3 * 3)
+        + gas_costs.G_HIGH  # JUMPI (10)
+        + gas_costs.G_VERY_LOW * 2  # MLOAD × 2 for factory results (3 * 2)
+        + gas_costs.G_VERY_LOW * 3  # MSTORE × 3 for memory setup (3 * 3)
         + gas_costs.G_VERY_LOW  # MSTORE8 for 0xFF prefix (3)
         + gas_costs.G_VERY_LOW  # PUSH1 for memory position (3)
     )
@@ -98,14 +98,14 @@ def test_bloatnet_balance_extcodesize(
 
     # While loop condition overhead per iteration
     loop_condition_overhead = (
-        gas_costs.G_BASE  # DUP1 (3)
+        gas_costs.G_VERY_LOW  # DUP1 (3)
         + gas_costs.G_VERY_LOW  # PUSH1 (3)
         + gas_costs.G_VERY_LOW  # SWAP1 (3)
         + gas_costs.G_VERY_LOW  # SUB (3)
-        + gas_costs.G_BASE  # DUP1 (3)
-        + gas_costs.G_BASE  # ISZERO (3)
-        + gas_costs.G_BASE  # ISZERO (3)
-        + gas_costs.G_MID  # JUMPI (10)
+        + gas_costs.G_VERY_LOW  # DUP1 (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI (10)
     )
 
     # Cost per contract access with CREATE2 address generation
@@ -116,10 +116,10 @@ def test_bloatnet_balance_extcodesize(
         + gas_costs.G_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
         + gas_costs.G_BASE  # POP second result (2)
-        + gas_costs.G_BASE  # DUP1 before first op (2)
-        + gas_costs.G_LOW  # MLOAD for salt (3)
+        + gas_costs.G_VERY_LOW  # DUP1 before first op (3)
+        + gas_costs.G_VERY_LOW  # MLOAD for salt (3)
         + gas_costs.G_VERY_LOW  # ADD for increment (3)
-        + gas_costs.G_LOW  # MSTORE salt back (3)
+        + gas_costs.G_VERY_LOW  # MSTORE salt back (3)
         + loop_condition_overhead  # While loop condition
     )
 
@@ -274,11 +274,11 @@ def test_bloatnet_balance_extcodecopy(
     setup_overhead = (
         gas_costs.G_COLD_ACCOUNT_ACCESS  # STATICCALL to factory (2600)
         + 100  # STATICCALL base cost
-        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
         + gas_costs.G_VERY_LOW  # PUSH2 (3)
-        + gas_costs.G_MID  # JUMPI (10)
-        + gas_costs.G_LOW * 2  # MLOAD × 2 for factory results (3 * 2)
-        + gas_costs.G_LOW * 3  # MSTORE × 3 for memory setup (3 * 3)
+        + gas_costs.G_HIGH  # JUMPI (10)
+        + gas_costs.G_VERY_LOW * 2  # MLOAD × 2 for factory results (3 * 2)
+        + gas_costs.G_VERY_LOW * 3  # MSTORE × 3 for memory setup (3 * 3)
         + gas_costs.G_VERY_LOW  # MSTORE8 for 0xFF prefix (3)
         + gas_costs.G_VERY_LOW  # PUSH1 for memory position (3)
     )
@@ -288,14 +288,14 @@ def test_bloatnet_balance_extcodecopy(
 
     # While loop condition overhead per iteration
     loop_condition_overhead = (
-        gas_costs.G_BASE  # DUP1 (3)
+        gas_costs.G_VERY_LOW  # DUP1 (3)
         + gas_costs.G_VERY_LOW  # PUSH1 (3)
         + gas_costs.G_VERY_LOW  # SWAP1 (3)
         + gas_costs.G_VERY_LOW  # SUB (3)
-        + gas_costs.G_BASE  # DUP1 (3)
-        + gas_costs.G_BASE  # ISZERO (3)
-        + gas_costs.G_BASE  # ISZERO (3)
-        + gas_costs.G_MID  # JUMPI (10)
+        + gas_costs.G_VERY_LOW  # DUP1 (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI (10)
     )
 
     # Cost per contract with EXTCODECOPY and CREATE2 address generation
@@ -306,10 +306,10 @@ def test_bloatnet_balance_extcodecopy(
         + gas_costs.G_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access base (100)
         + gas_costs.G_COPY * 1  # Copy cost for 1 byte (3)
-        + gas_costs.G_BASE * 2  # DUP1 before first op, DUP4 for address (6)
-        + gas_costs.G_LOW * 2  # MLOAD for salt twice (6)
+        + gas_costs.G_VERY_LOW * 2  # DUP1 + DUP4 for address (6)
+        + gas_costs.G_VERY_LOW * 2  # MLOAD for salt twice (6)
         + gas_costs.G_VERY_LOW * 2  # ADD operations (6)
-        + gas_costs.G_LOW  # MSTORE salt back (3)
+        + gas_costs.G_VERY_LOW  # MSTORE salt back (3)
         + gas_costs.G_BASE  # POP after second op (2)
         + loop_condition_overhead  # While loop condition
     )
@@ -471,11 +471,11 @@ def test_bloatnet_balance_extcodehash(
     setup_overhead = (
         gas_costs.G_COLD_ACCOUNT_ACCESS  # STATICCALL to factory (2600)
         + 100  # STATICCALL base cost
-        + gas_costs.G_BASE  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
         + gas_costs.G_VERY_LOW  # PUSH2 (3)
-        + gas_costs.G_MID  # JUMPI (10)
-        + gas_costs.G_LOW * 2  # MLOAD × 2 for factory results (3 * 2)
-        + gas_costs.G_LOW * 3  # MSTORE × 3 for memory setup (3 * 3)
+        + gas_costs.G_HIGH  # JUMPI (10)
+        + gas_costs.G_VERY_LOW * 2  # MLOAD × 2 for factory results (3 * 2)
+        + gas_costs.G_VERY_LOW * 3  # MSTORE × 3 for memory setup (3 * 3)
         + gas_costs.G_VERY_LOW  # MSTORE8 for 0xFF prefix (3)
         + gas_costs.G_VERY_LOW  # PUSH1 for memory position (3)
     )
@@ -485,14 +485,14 @@ def test_bloatnet_balance_extcodehash(
 
     # While loop condition overhead per iteration
     loop_condition_overhead = (
-        gas_costs.G_BASE  # DUP1 (3)
+        gas_costs.G_VERY_LOW  # DUP1 (3)
         + gas_costs.G_VERY_LOW  # PUSH1 (3)
         + gas_costs.G_VERY_LOW  # SWAP1 (3)
         + gas_costs.G_VERY_LOW  # SUB (3)
-        + gas_costs.G_BASE  # DUP1 (3)
-        + gas_costs.G_BASE  # ISZERO (3)
-        + gas_costs.G_BASE  # ISZERO (3)
-        + gas_costs.G_MID  # JUMPI (10)
+        + gas_costs.G_VERY_LOW  # DUP1 (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI (10)
     )
 
     # Cost per contract access with CREATE2 address generation
@@ -503,10 +503,10 @@ def test_bloatnet_balance_extcodehash(
         + gas_costs.G_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
         + gas_costs.G_BASE  # POP second result (2)
-        + gas_costs.G_BASE  # DUP1 before first op (2)
-        + gas_costs.G_LOW  # MLOAD for salt (3)
+        + gas_costs.G_VERY_LOW  # DUP1 before first op (3)
+        + gas_costs.G_VERY_LOW  # MLOAD for salt (3)
         + gas_costs.G_VERY_LOW  # ADD for increment (3)
-        + gas_costs.G_LOW  # MSTORE salt back (3)
+        + gas_costs.G_VERY_LOW  # MSTORE salt back (3)
         + loop_condition_overhead  # While loop condition
     )
 
@@ -690,9 +690,9 @@ def test_mixed_sload_sstore(
         + gas_costs.G_VERY_LOW * 2  # MSTORE selector (3*2)
         + gas_costs.G_VERY_LOW * 3  # MLOAD + MSTORE address (3*3)
         + gas_costs.G_BASE  # POP (2)
-        + gas_costs.G_BASE * 3  # SUB + MLOAD + MSTORE counter decrement
-        + gas_costs.G_BASE * 2  # ISZERO * 2 for loop condition (2*2)
-        + gas_costs.G_MID  # JUMPI (8)
+        + gas_costs.G_VERY_LOW * 3  # SUB + MLOAD + MSTORE decrement (3*3)
+        + gas_costs.G_VERY_LOW * 2  # ISZERO * 2 for loop condition (3*2)
+        + gas_costs.G_HIGH  # JUMPI (10)
     )
 
     # ERC20 balanceOf internal gas
@@ -712,19 +712,19 @@ def test_mixed_sload_sstore(
     sstore_loop_overhead = (
         # Attack contract loop body operations
         gas_costs.G_VERY_LOW  # MSTORE selector at memory[32] (3)
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.G_VERY_LOW  # MLOAD counter (3)
         + gas_costs.G_VERY_LOW  # MSTORE spender at memory[64] (3)
         + gas_costs.G_BASE  # POP call result (2)
         # Counter decrement
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.G_VERY_LOW  # MLOAD counter (3)
         + gas_costs.G_VERY_LOW  # PUSH1 1 (3)
         + gas_costs.G_VERY_LOW  # SUB (3)
         + gas_costs.G_VERY_LOW  # MSTORE counter back (3)
         # While loop condition check
-        + gas_costs.G_LOW  # MLOAD counter (5)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_MID  # JUMPI back to loop start (8)
+        + gas_costs.G_VERY_LOW  # MLOAD counter (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI back to loop start (10)
     )
 
     # ERC20 approve internal gas
