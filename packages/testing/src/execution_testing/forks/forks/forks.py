@@ -142,7 +142,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_MEMORY=3,
             G_TX_DATA_ZERO=4,
             G_TX_DATA_NON_ZERO=68,
-            G_TX_DATA_STANDARD_TOKEN_COST=0,
+            STANDARD_CALLDATA_TOKEN_COST=0,
             FLOOR_CALLDATA_COST=0,
             TX_BASE_COST=21_000,
             TX_CREATE_COST=32_000,
@@ -1870,7 +1870,7 @@ class Prague(Cancun):
             super(Prague, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
-            G_TX_DATA_STANDARD_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
+            STANDARD_CALLDATA_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
             FLOOR_CALLDATA_COST=10,
             G_AUTHORIZATION=25_000,
             R_AUTHORIZATION_EXISTING_AUTHORITY=12_500,
@@ -1937,7 +1937,7 @@ class Prague(Cancun):
                     tokens += 4
             if floor:
                 return tokens * gas_costs.FLOOR_CALLDATA_COST
-            return tokens * gas_costs.G_TX_DATA_STANDARD_TOKEN_COST
+            return tokens * gas_costs.STANDARD_CALLDATA_TOKEN_COST
 
         return fn
 

@@ -41,7 +41,7 @@ class GasCosts:
 
     G_TX_DATA_ZERO: int
     G_TX_DATA_NON_ZERO: int
-    G_TX_DATA_STANDARD_TOKEN_COST: int
+    STANDARD_CALLDATA_TOKEN_COST: int
     FLOOR_CALLDATA_COST: int
 
     TX_BASE_COST: int
