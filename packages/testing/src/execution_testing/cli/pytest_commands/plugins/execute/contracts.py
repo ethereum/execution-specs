@@ -43,6 +43,8 @@ def deploy_deterministic_factory_contract(
     deploy_tx_gas_price = 0x174876E800
     deploy_tx_gas_limit = 0x0186A0
     deploy_tx = Transaction(
+        # See https://github.com/Arachnid/deterministic-deployment-proxy for
+        # more details on these values.
         ty=0,
         protected=False,
         nonce=0,
