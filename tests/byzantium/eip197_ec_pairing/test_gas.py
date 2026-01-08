@@ -8,7 +8,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.base_types.base_types import Address
-from execution_testing.forks import SpuriousDragon
 from execution_testing.forks.helpers import Fork
 from execution_testing.vm import Opcodes as Op
 
@@ -49,7 +48,7 @@ def test_gas_costs(
         to=account,
         sender=pre.fund_eoa(),
         gas_limit=100_0000,
-        protected=fork >= SpuriousDragon,
+        protected=fork.supports_protected_txs(),
     )
 
     post = {account: Account(storage={0: 1 if enough_gas else 0})}
