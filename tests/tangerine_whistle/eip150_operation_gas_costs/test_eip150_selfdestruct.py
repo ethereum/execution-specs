@@ -128,7 +128,7 @@ def setup_selfdestruct_test(
         sender=alice,
         to=caller,
         gas_limit=500_000,
-        protected=fork >= SpuriousDragon,
+        protected=fork.supports_protected_txs(),
         access_list=access_list,
     )
 
@@ -875,7 +875,7 @@ def test_selfdestruct_to_self(
         sender=alice,
         to=caller,
         gas_limit=500_000,
-        protected=fork >= SpuriousDragon,
+        protected=fork.supports_protected_txs(),
     )
 
     # Build BAL expectations

@@ -55,7 +55,6 @@ from execution_testing.forks.forks.forks import (
     Berlin,
     Byzantium,
     Homestead,
-    SpuriousDragon,
 )
 from execution_testing.forks.helpers import Fork
 
@@ -201,7 +200,7 @@ def caller_tx(sender: EOA, caller_address: Address, fork: Fork) -> Transaction:
         value=1,
         gas_limit=500_000,
         sender=sender,
-        protected=fork >= SpuriousDragon,
+        protected=fork.supports_protected_txs(),
     )
 
 

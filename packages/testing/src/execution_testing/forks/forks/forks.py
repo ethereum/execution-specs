@@ -569,6 +569,13 @@ class Frontier(BaseFork, solc_name="homestead"):
         return 5_000_000_000_000_000_000
 
     @classmethod
+    def supports_protected_txs(cls) -> bool:
+        """
+        At Genesis, fork does not have support for EIP-155 protected transactions.
+        """
+        return False
+
+    @classmethod
     def tx_types(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[int]:
@@ -944,7 +951,12 @@ class TangerineWhistle(DAOFork, ignore=True):
 class SpuriousDragon(TangerineWhistle, ignore=True):
     """SpuriousDragon fork."""
 
-    pass
+    @classmethod
+    def supports_protected_txs(cls) -> bool:
+        """
+        At Genesis, supports EIP-155 protected transactions.
+        """
+        return True
 
 
 class Byzantium(SpuriousDragon):

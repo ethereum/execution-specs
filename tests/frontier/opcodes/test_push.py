@@ -18,7 +18,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import SpuriousDragon
 
 
 def get_input_for_push_opcode(opcode: Op) -> bytes:
@@ -77,7 +76,7 @@ def test_push(
         sender=pre.fund_eoa(),
         to=contract,
         gas_limit=500_000,
-        protected=fork >= SpuriousDragon,
+        protected=fork.supports_protected_txs(),
     )
 
     post = {}
@@ -149,7 +148,7 @@ def test_stack_overflow(
         sender=pre.fund_eoa(),
         to=contract,
         gas_limit=500_000,
-        protected=fork >= SpuriousDragon,
+        protected=fork.supports_protected_txs(),
     )
 
     post = {}

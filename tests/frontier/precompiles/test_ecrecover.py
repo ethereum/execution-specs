@@ -8,7 +8,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks.forks.forks import SpuriousDragon
 from execution_testing.forks.helpers import Fork
 from execution_testing.vm import Opcodes as Op
 
@@ -388,7 +387,7 @@ def test_precompiles(
         to=account,
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,
-        protected=fork >= SpuriousDragon,
+        protected=fork.supports_protected_txs(),
     )
 
     post = {account: Account(storage={0: output})}
