@@ -22,7 +22,7 @@ class GasCosts:
     G_STORAGE_SET: int
     GAS_STORAGE_UPDATE: int
 
-    R_STORAGE_CLEAR: int
+    GAS_STORAGE_CLEAR_REFUND: int
 
     G_SELF_DESTRUCT: int
     G_CREATE: int
