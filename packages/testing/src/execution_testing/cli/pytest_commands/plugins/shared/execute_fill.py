@@ -179,6 +179,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "mainnet: Specialty tests crafted for running on mainnet and sanity checking.",
     )
+    config.addinivalue_line(
+        "markers",
+        "fully_tagged: Marks a static test as fully tagged with all metadata.",
+    )
 
 
 @pytest.fixture(scope="function")
