@@ -68,4 +68,4 @@ class GasCosts:
 
     # Refund constants
 
-    R_AUTHORIZATION_EXISTING_AUTHORITY: int
+    PER_AUTH_BASE_COST: int

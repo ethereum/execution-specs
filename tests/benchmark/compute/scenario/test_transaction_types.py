@@ -460,7 +460,7 @@ def test_auth_transaction(
                 tx_gas_used // 5,
                 (
                     gas_costs.PER_EMPTY_ACCOUNT_COST
-                    - gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+                    - gas_costs.PER_AUTH_BASE_COST
                 )
                 * auths_in_this_tx,
             )

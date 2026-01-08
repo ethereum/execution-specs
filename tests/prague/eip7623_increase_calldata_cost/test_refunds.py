@@ -99,7 +99,7 @@ def max_refund(fork: Fork, refund_type: RefundType) -> int:
         else 0
     )
     max_refund += (
-        gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+        gas_costs.PER_AUTH_BASE_COST
         if RefundType.AUTHORIZATION_EXISTING_AUTHORITY in refund_type
         else 0
     )

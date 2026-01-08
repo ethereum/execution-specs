@@ -154,7 +154,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_COPY=3,
             GAS_BLOCK_HASH=20,
             PER_EMPTY_ACCOUNT_COST=0,
-            R_AUTHORIZATION_EXISTING_AUTHORITY=0,
+            PER_AUTH_BASE_COST=0,
         )
 
     @classmethod
@@ -1873,7 +1873,7 @@ class Prague(Cancun):
             STANDARD_CALLDATA_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
             FLOOR_CALLDATA_COST=10,
             PER_EMPTY_ACCOUNT_COST=25_000,
-            R_AUTHORIZATION_EXISTING_AUTHORITY=12_500,
+            PER_AUTH_BASE_COST=12_500,
         )
 
     @classmethod
