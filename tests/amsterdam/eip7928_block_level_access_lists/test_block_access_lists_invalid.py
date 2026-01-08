@@ -4,6 +4,8 @@ Test cases for invalid Block Access Lists.
 These tests verify that clients properly reject blocks with corrupted BALs.
 """
 
+from typing import Callable
+
 import pytest
 from execution_testing import (
     Account,
@@ -11,6 +13,7 @@ from execution_testing import (
     BalAccountChange,
     BalAccountExpectation,
     BalBalanceChange,
+    BalCodeChange,
     BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
@@ -24,6 +27,8 @@ from execution_testing import (
 )
 from execution_testing.test_types.block_access_list.modifiers import (
     append_account,
+    append_change,
+    append_storage,
     duplicate_account,
     modify_balance,
     modify_nonce,
@@ -638,6 +643,194 @@ def test_bal_invalid_balance_value(
                 ).modify(
                     modify_balance(
                         receiver, block_access_index=1, balance=999999
+                    )
+                ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            lambda idx, **actors: append_change(
+                account=actors["oracle"],
+                change=BalNonceChange(block_access_index=idx, post_nonce=999),
+            ),
+            id="extra_nonce",
+        ),
+        pytest.param(
+            lambda idx, **actors: append_account(
+                BalAccountChange(
+                    address=actors["charlie"],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=idx, post_balance=999
+                        )
+                    ],
+                )
+            ),
+            id="extra_balance",
+        ),
+        pytest.param(
+            lambda idx, **actors: append_change(
+                account=actors["oracle"],
+                change=BalCodeChange(
+                    block_access_index=idx, new_code=b"Amsterdam"
+                ),
+            ),
+            id="extra_code",
+        ),
+        pytest.param(
+            lambda idx, **actors: append_storage(
+                address=actors["oracle"],
+                slot=0,
+                change=BalStorageChange(
+                    block_access_index=idx, post_value=0xCAFE
+                ),
+            ),
+            id="extra_storage_write_touched",
+        ),
+        pytest.param(
+            lambda idx, **actors: append_storage(
+                address=actors["oracle"],
+                slot=1,
+                change=BalStorageChange(
+                    block_access_index=idx, post_value=0xCAFE
+                ),
+            ),
+            id="extra_storage_write_untouched",
+        ),
+        pytest.param(
+            lambda idx, **actors: append_account(
+                BalAccountChange(
+                    address=actors["charlie"],
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=idx,
+                                    post_value=0xDEAD,
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ),
+            id="extra_storage_write_uninvolved_account",
+        ),
+        pytest.param(
+            lambda idx, **actors: append_account(  # noqa: ARG005
+                BalAccountChange(
+                    address=actors["charlie"],
+                )
+            ),
+            id="extra_account_access",
+        ),
+        pytest.param(
+            lambda idx, **actors: append_storage(  # noqa: ARG005
+                address=actors["oracle"],
+                slot=999,
+                read=True,
+            ),
+            id="extra_storage_read",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "bal_index",
+    [
+        pytest.param(1, id="same_tx"),
+        pytest.param(2, id="system_tx"),
+        pytest.param(3, id="out_of_bounds"),
+    ],
+)
+def test_bal_invalid_extraneous_entries(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    modifier: Callable,
+    bal_index: int,
+) -> None:
+    """
+    Test that clients reject blocks where BAL contains extraneous entries.
+
+    Alice sends 100 wei to Oracle (1 transaction). Oracle reads storage slot 0.
+    Charlie is uninvolved in this transaction.
+    A valid BAL is created containing nonce change for Alice, balance change
+    and storage read for Oracle which is further modified as:
+
+    - extra_nonce: Extra nonce change for Oracle.
+    - extra_balance: Extra balance change for uninvolved Charlie.
+    - extra_code: Extra code change for Oracle.
+    - extra_storage_write_touched: Extra storage write for an already read slot
+      (slot 0) for Oracle.
+    - extra_storage_write_untouched: Extra storage write for an unread slot
+      (slot 1) for Oracle.
+    - extra_storage_write_uninvolved_account: Extra storage write for
+      uninvolved account (Charlie) that isn't accessed at all.
+    - extra_account_access: Uninvolved account (Charlie) added to BAL entirely.
+    - extra_storage_read: Extra storage read for Oracle (slot 999).
+
+    BAL is corrupted with extraneous entries at various block_access_index
+    values:
+    - bal_index=1: current transaction
+    - bal_index=2: system transaction (tx_count + 1)
+    - bal_index=3: beyond system transaction (tx_count + 2)
+    """
+    transfer_value = 100
+
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(code=Op.SLOAD(0), storage={0: 42})
+    charlie = pre.fund_eoa(amount=0)
+
+    tx = Transaction(
+        sender=alice,
+        to=oracle,
+        value=transfer_value,
+        gas_limit=1_000_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        # The block reverts and the post state remains unchanged.
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
+                expected_block_access_list=BlockAccessListExpectation(
+                    # Valid BAL expectation: nonce change for Alice,
+                    # balance change and storage read for Oracle.
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1, post_nonce=1
+                                )
+                            ],
+                        ),
+                        oracle: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=transfer_value,
+                                )
+                            ],
+                            storage_reads=[0],
+                        ),
+                    }
+                ).modify(
+                    # The parameterized modifier is applied to the BAL
+                    # which adds an extraneous entry.
+                    modifier(
+                        idx=bal_index,
+                        alice=alice,
+                        oracle=oracle,
+                        charlie=charlie,
                     )
                 ),
             )
