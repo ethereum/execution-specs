@@ -507,7 +507,7 @@ def test_ext_account_query_cold(
         account_creation_gas = (
             gas_costs.GAS_COLD_ACCOUNT_ACCESS
             + gas_costs.GAS_CALL_VALUE
-            + gas_costs.G_NEW_ACCOUNT
+            + gas_costs.GAS_NEW_ACCOUNT
         )
         # To avoid brittle/tight gas calculations of glue opcodes, we take
         # 90% of the maximum tx capacity. Even if this calculation fails

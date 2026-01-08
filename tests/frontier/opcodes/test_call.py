@@ -141,7 +141,7 @@ def test_call_memory_expands_on_early_revert(
     #   address_access_cost+new_acc_cost+memory_expansion_cost+value-stipend
     call_cost = (
         gsc.GAS_COLD_ACCOUNT_ACCESS
-        + gsc.G_NEW_ACCOUNT
+        + gsc.GAS_NEW_ACCOUNT
         + memory_expansion_gas_calc(new_bytes=ret_size)
         + gsc.GAS_CALL_VALUE
         - gsc.GAS_CALL_STIPEND

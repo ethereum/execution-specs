@@ -32,7 +32,7 @@ class GasCosts:
 
     GAS_CALL_VALUE: int
     GAS_CALL_STIPEND: int
-    G_NEW_ACCOUNT: int
+    GAS_NEW_ACCOUNT: int
 
     G_EXP: int
     G_EXP_BYTE: int
