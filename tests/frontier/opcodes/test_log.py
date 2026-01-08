@@ -24,7 +24,7 @@ def log_gas(fork: Fork, topics: int, data_size: int) -> int:
     return (
         gas_costs.G_LOG
         + gas_costs.G_LOG_TOPIC * topics
-        + gas_costs.G_LOG_DATA * data_size
+        + gas_costs.GAS_LOG_DATA * data_size
     )
 
 
