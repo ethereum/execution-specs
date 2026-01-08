@@ -57,7 +57,7 @@ class GasCosts:
     GAS_COPY: int
     GAS_BLOCK_HASH: int
 
-    G_AUTHORIZATION: int
+    PER_EMPTY_ACCOUNT_COST: int
 
     # Precompiled contract gas constants
 

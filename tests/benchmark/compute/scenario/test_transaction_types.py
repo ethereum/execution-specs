@@ -415,11 +415,11 @@ def test_auth_transaction(
 
     max_auths_per_tx = (
         tx_gas_limit - intrinsic_cost
-    ) // gas_costs.G_AUTHORIZATION
+    ) // gas_costs.PER_EMPTY_ACCOUNT_COST
 
     total_auth_count = (
         gas_benchmark_value - intrinsic_cost
-    ) // gas_costs.G_AUTHORIZATION
+    ) // gas_costs.PER_EMPTY_ACCOUNT_COST
 
     num_txs = math.ceil(total_auth_count / max_auths_per_tx)
 
@@ -459,7 +459,7 @@ def test_auth_transaction(
             total_refund += min(
                 tx_gas_used // 5,
                 (
-                    gas_costs.G_AUTHORIZATION
+                    gas_costs.PER_EMPTY_ACCOUNT_COST
                     - gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
                 )
                 * auths_in_this_tx,

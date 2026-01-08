@@ -153,7 +153,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_KECCAK256_WORD=6,
             GAS_COPY=3,
             GAS_BLOCK_HASH=20,
-            G_AUTHORIZATION=0,
+            PER_EMPTY_ACCOUNT_COST=0,
             R_AUTHORIZATION_EXISTING_AUTHORITY=0,
         )
 
@@ -1872,7 +1872,7 @@ class Prague(Cancun):
             ),
             STANDARD_CALLDATA_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
             FLOOR_CALLDATA_COST=10,
-            G_AUTHORIZATION=25_000,
+            PER_EMPTY_ACCOUNT_COST=25_000,
             R_AUTHORIZATION_EXISTING_AUTHORITY=12_500,
         )
 
@@ -2004,7 +2004,7 @@ class Prague(Cancun):
                         authorization_list_or_count
                     )
                 intrinsic_cost += (
-                    authorization_list_or_count * gas_costs.G_AUTHORIZATION
+                    authorization_list_or_count * gas_costs.PER_EMPTY_ACCOUNT_COST
                 )
 
             if return_cost_deducted_prior_execution:
