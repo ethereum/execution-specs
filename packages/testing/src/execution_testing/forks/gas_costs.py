@@ -52,7 +52,7 @@ class GasCosts:
     G_LOG_TOPIC: int
 
     GAS_KECCAK256: int
-    G_KECCAK_256_WORD: int
+    GAS_KECCAK256_WORD: int
 
     GAS_COPY: int
     G_BLOCKHASH: int

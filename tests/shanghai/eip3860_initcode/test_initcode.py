@@ -542,7 +542,7 @@ class TestCreateInitcode:
 
         gas_costs = fork.gas_costs()
         return (
-            ceiling_division(len(initcode), 32) * gas_costs.G_KECCAK_256_WORD
+            ceiling_division(len(initcode), 32) * gas_costs.GAS_KECCAK256_WORD
         )
 
     @pytest.mark.xdist_group(name="bigmem")
