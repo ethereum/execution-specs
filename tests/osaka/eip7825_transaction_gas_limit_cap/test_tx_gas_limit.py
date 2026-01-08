@@ -484,7 +484,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
     gas_available = tx_gas_limit_cap - intrinsic_cost()
 
     gas_costs = fork.gas_costs()
-    gas_per_address = gas_costs.G_ACCESS_LIST_ADDRESS
+    gas_per_address = gas_costs.TX_ACCESS_LIST_ADDRESS_COST
     gas_per_storage_key = gas_costs.G_ACCESS_LIST_STORAGE
 
     gas_after_address = gas_available - gas_per_address
@@ -569,7 +569,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
     gas_available = tx_gas_limit_cap - intrinsic_cost()
 
     gas_costs = fork.gas_costs()
-    gas_per_address = gas_costs.G_ACCESS_LIST_ADDRESS
+    gas_per_address = gas_costs.TX_ACCESS_LIST_ADDRESS_COST
     gas_per_storage_key = gas_costs.G_ACCESS_LIST_STORAGE
 
     account_num = gas_available // (
@@ -646,7 +646,7 @@ def test_tx_gas_limit_cap_authorized_tx(
     gas_available = tx_gas_limit_cap - intrinsic_cost()
 
     gas_costs = fork.gas_costs()
-    gas_per_address = gas_costs.G_ACCESS_LIST_ADDRESS
+    gas_per_address = gas_costs.TX_ACCESS_LIST_ADDRESS_COST
 
     per_empty_account_cost = 25_000
     auth_list_length = gas_available // (

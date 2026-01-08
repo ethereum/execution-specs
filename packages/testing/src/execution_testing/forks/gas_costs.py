@@ -15,7 +15,7 @@ class GasCosts:
     GAS_HIGH: int
     GAS_WARM_ACCESS: int
     GAS_COLD_ACCOUNT_ACCESS: int
-    G_ACCESS_LIST_ADDRESS: int
+    TX_ACCESS_LIST_ADDRESS_COST: int
     G_ACCESS_LIST_STORAGE: int
     GAS_WARM_ACCESS: int
     GAS_COLD_SLOAD: int
