@@ -724,7 +724,7 @@ def test_selfdestruct_created(
         + gas_costs.G_INITCODE_WORD
     )
     call_costs = (
-        gas_costs.G_WARM_ACCOUNT_ACCESS
+        gas_costs.GAS_WARM_ACCESS
         + gas_costs.GAS_BASE  # COINBASE
         + gas_costs.G_SELF_DESTRUCT
         + gas_costs.GAS_VERY_LOW * 5  # CALL Parameter PUSHs

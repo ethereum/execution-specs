@@ -163,10 +163,10 @@ def test_sload_empty_erc20_balanceof(
     # gas_per_contract = cold_call + (calls-1) * warm_call
     # Simplifies to: gas = cold_warm_diff + calls * warm_call_cost
     warm_call_cost = (
-        loop_overhead + gas_costs.G_WARM_ACCOUNT_ACCESS + erc20_internal_gas
+        loop_overhead + gas_costs.GAS_WARM_ACCESS + erc20_internal_gas
     )
     cold_warm_diff = (
-        gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.G_WARM_ACCOUNT_ACCESS
+        gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.GAS_WARM_ACCESS
     )
 
     calls_per_contract = int(
@@ -360,10 +360,10 @@ def test_sstore_erc20_approve(
     # For each contract: first call is COLD (2600), subsequent are WARM (100)
     # Solve for calls per contract accounting for cold/warm transition
     warm_call_cost = (
-        loop_overhead + gas_costs.G_WARM_ACCOUNT_ACCESS + erc20_internal_gas
+        loop_overhead + gas_costs.GAS_WARM_ACCESS + erc20_internal_gas
     )
     cold_warm_diff = (
-        gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.G_WARM_ACCOUNT_ACCESS
+        gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.GAS_WARM_ACCESS
     )
 
     # Per contract: gas_available = cold_warm_diff + calls * warm_call_cost

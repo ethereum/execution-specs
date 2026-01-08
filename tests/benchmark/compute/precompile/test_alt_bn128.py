@@ -461,7 +461,7 @@ def test_bn128_pairings_amortized(
         # This is ignoring "glue" opcodes, but helps to have a rough idea of
         # the right cutting point.
         approx_gas_cost_per_call = (
-            gsc.G_WARM_ACCOUNT_ACCESS + base_cost + i * pairing_cost
+            gsc.GAS_WARM_ACCESS + base_cost + i * pairing_cost
         )
 
         num_precompile_calls = (

@@ -57,7 +57,7 @@ def test_modexp_fork_transition(
 
     gas_costs = fork.gas_costs()
     extra_gas = (
-        gas_costs.G_WARM_ACCOUNT_ACCESS
+        gas_costs.GAS_WARM_ACCESS
         + (gas_costs.GAS_VERY_LOW * (len(Op.CALL.kwargs) - 2))
         + (gas_costs.GAS_BASE * 3)
     )

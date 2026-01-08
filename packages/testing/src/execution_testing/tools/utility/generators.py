@@ -494,7 +494,7 @@ def gas_test(
     gas_single_gas_run = (
         2 * OPCODE_GAS_COST
         + OPCODE_POP_COST
-        + gas_costs.G_WARM_ACCOUNT_ACCESS
+        + gas_costs.GAS_WARM_ACCESS
         + 6 * OPCODE_PUSH_COST
     )
     address_legacy_harness = pre.deploy_contract(

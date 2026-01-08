@@ -63,7 +63,7 @@ def test_account_storage_warm_cold_state(
     access_list_address = Address(0)
     access_list_storage_key = Hash(0)
     if account_warm:
-        expected_gas_cost += gas_costs.G_WARM_ACCOUNT_ACCESS
+        expected_gas_cost += gas_costs.GAS_WARM_ACCESS
         access_list_address = storage_reader_contract
     else:
         expected_gas_cost += gas_costs.G_COLD_ACCOUNT_ACCESS
@@ -327,7 +327,7 @@ def test_repeated_address_acl(
         ],
     )
 
-    sload_cost = gsc.G_WARM_ACCOUNT_ACCESS
+    sload_cost = gsc.GAS_WARM_ACCESS
 
     state_test(
         env=Environment(),

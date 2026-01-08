@@ -86,7 +86,7 @@ def test_bloatnet_balance_extcodesize(
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.GAS_BASE  # POP first result (2)
-        + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
+        + gas_costs.GAS_WARM_ACCESS  # Warm access (100)
         + gas_costs.GAS_BASE  # POP second result (2)
         + gas_costs.GAS_BASE  # DUP1 before first op (3)
         + gas_costs.GAS_VERY_LOW * 4  # PUSH1 operations (4 * 3)
@@ -242,7 +242,7 @@ def test_bloatnet_balance_extcodecopy(
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.GAS_BASE  # POP first result (2)
-        + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access base (100)
+        + gas_costs.GAS_WARM_ACCESS  # Warm access base (100)
         + gas_costs.GAS_COPY * 1  # Copy cost for 1 byte (3)
         + gas_costs.GAS_BASE * 2  # DUP1 before first op, DUP4 for address (6)
         + gas_costs.GAS_VERY_LOW * 8  # PUSH operations (8 * 3 = 24)
@@ -403,7 +403,7 @@ def test_bloatnet_balance_extcodehash(
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.GAS_BASE  # POP first result (2)
-        + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
+        + gas_costs.GAS_WARM_ACCESS  # Warm access (100)
         + gas_costs.GAS_BASE  # POP second result (2)
         + gas_costs.GAS_BASE  # DUP1 before first op (3)
         + gas_costs.GAS_VERY_LOW * 4  # PUSH1 operations (4 * 3)
@@ -654,11 +654,11 @@ def test_mixed_sload_sstore(
     # First SLOAD call is COLD (2600), rest are WARM (100)
     sload_warm_cost = (
         sload_loop_overhead
-        + gas_costs.G_WARM_ACCOUNT_ACCESS
+        + gas_costs.GAS_WARM_ACCESS
         + sload_erc20_internal
     )
     cold_warm_diff = (
-        gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.G_WARM_ACCOUNT_ACCESS
+        gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.GAS_WARM_ACCESS
     )
     sload_calls_per_contract = int(
         (sload_gas_per_contract - cold_warm_diff) // sload_warm_cost
@@ -667,7 +667,7 @@ def test_mixed_sload_sstore(
     # First SSTORE call is COLD (2600), rest are WARM (100)
     sstore_warm_cost = (
         sstore_loop_overhead
-        + gas_costs.G_WARM_ACCOUNT_ACCESS
+        + gas_costs.GAS_WARM_ACCESS
         + sstore_erc20_internal
     )
     sstore_calls_per_contract = int(

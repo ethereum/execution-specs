@@ -63,7 +63,7 @@ def test_call_insufficient_balance(
         contract_address: Account(
             storage={
                 0: 0,  # The CALL is aborted
-                1: gas_costs.G_WARM_ACCOUNT_ACCESS,  # Warm access cost
+                1: gas_costs.GAS_WARM_ACCESS,  # Warm access cost
             },
         ),
     }

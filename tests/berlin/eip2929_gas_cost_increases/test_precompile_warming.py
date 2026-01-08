@@ -162,7 +162,7 @@ def test_precompile_warming(
 
     def get_expected_gas(precompile_present: bool, fork: Fork) -> int:
         gas_costs = fork.gas_costs()
-        warm_access_cost = gas_costs.G_WARM_ACCOUNT_ACCESS
+        warm_access_cost = gas_costs.GAS_WARM_ACCESS
         cold_access_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
         extra_cost = gas_costs.GAS_BASE * 2 + gas_costs.GAS_VERY_LOW
         if precompile_present:
