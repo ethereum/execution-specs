@@ -243,7 +243,7 @@ def test_bloatnet_balance_extcodecopy(
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
         + gas_costs.GAS_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access base (100)
-        + gas_costs.G_COPY * 1  # Copy cost for 1 byte (3)
+        + gas_costs.GAS_COPY * 1  # Copy cost for 1 byte (3)
         + gas_costs.GAS_BASE * 2  # DUP1 before first op, DUP4 for address (6)
         + gas_costs.GAS_VERY_LOW * 8  # PUSH operations (8 * 3 = 24)
         + gas_costs.G_LOW * 2  # MLOAD for salt twice (6)

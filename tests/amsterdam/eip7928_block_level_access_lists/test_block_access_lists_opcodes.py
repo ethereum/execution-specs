@@ -564,12 +564,12 @@ def test_bal_extcodecopy_and_oog(
 
     # Costs:
     # - 4 PUSH operations = GAS_VERY_LOW * 4
-    # - EXTCODECOPY cold = G_COLD_ACCOUNT_ACCESS + (G_COPY * words)
+    # - EXTCODECOPY cold = G_COLD_ACCOUNT_ACCESS + (GAS_COPY * words)
     #   where words = ceil32(size) // 32 = ceil32(0) // 32 = 0
     push_cost = gas_costs.GAS_VERY_LOW * 4
     extcodecopy_cold_cost = (
         gas_costs.G_COLD_ACCOUNT_ACCESS
-    )  # + (G_COPY * 0) = 0
+    )  # + (GAS_COPY * 0) = 0
     tx_gas_limit = intrinsic_gas_cost + push_cost + extcodecopy_cold_cost
 
     if fails_at_extcodecopy:
