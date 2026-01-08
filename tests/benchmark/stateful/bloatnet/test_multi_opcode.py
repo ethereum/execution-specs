@@ -587,14 +587,14 @@ def test_mixed_sload_sstore(
         + gas_costs.GAS_BASE  # POP (2)
         + gas_costs.GAS_BASE * 3  # SUB + MLOAD + MSTORE counter decrement
         + gas_costs.GAS_BASE * 2  # ISZERO * 2 for loop condition (2*2)
-        + gas_costs.G_MID  # JUMPI (8)
+        + gas_costs.GAS_MID  # JUMPI (8)
     )
 
     # ERC20 balanceOf internal gas
     sload_erc20_internal = (
         gas_costs.GAS_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.GAS_BASE  # EQ selector match (2)
-        + gas_costs.G_MID  # JUMPI to function (8)
+        + gas_costs.GAS_MID  # JUMPI to function (8)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.GAS_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
         + gas_costs.G_KECCAK_256  # keccak256 static (30)
@@ -619,7 +619,7 @@ def test_mixed_sload_sstore(
         + gas_costs.GAS_LOW  # MLOAD counter (5)
         + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.GAS_BASE  # ISZERO (2)
-        + gas_costs.G_MID  # JUMPI back to loop start (8)
+        + gas_costs.GAS_MID  # JUMPI back to loop start (8)
     )
 
     # ERC20 approve internal gas
@@ -627,7 +627,7 @@ def test_mixed_sload_sstore(
     sstore_erc20_internal = (
         gas_costs.GAS_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.GAS_BASE  # EQ selector match (2)
-        + gas_costs.G_MID  # JUMPI to function (8)
+        + gas_costs.GAS_MID  # JUMPI to function (8)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.GAS_VERY_LOW  # CALLDATALOAD spender (3)
         + gas_costs.GAS_VERY_LOW  # CALLDATALOAD amount (3)
