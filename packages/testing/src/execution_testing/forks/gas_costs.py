@@ -24,7 +24,7 @@ class GasCosts:
 
     GAS_STORAGE_CLEAR_REFUND: int
 
-    G_SELF_DESTRUCT: int
+    GAS_SELF_DESTRUCT: int
     GAS_CREATE: int
 
     GAS_CODE_DEPOSIT: int

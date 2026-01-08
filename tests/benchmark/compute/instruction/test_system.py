@@ -535,7 +535,7 @@ def test_selfdestruct_existing(
         + gas_costs.GAS_VERY_LOW * 3  # ~MSTOREs+ADDs
         + gas_costs.GAS_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
         + gas_costs.GAS_BASE
-        + gas_costs.G_SELF_DESTRUCT
+        + gas_costs.GAS_SELF_DESTRUCT
         + 88  # ~Gluing opcodes
     )
     final_storage_gas = (
@@ -726,7 +726,7 @@ def test_selfdestruct_created(
     call_costs = (
         gas_costs.GAS_WARM_ACCESS
         + gas_costs.GAS_BASE  # COINBASE
-        + gas_costs.G_SELF_DESTRUCT
+        + gas_costs.GAS_SELF_DESTRUCT
         + gas_costs.GAS_VERY_LOW * 5  # CALL Parameter PUSHs
         + gas_costs.GAS_BASE  #  Parameter GAS
     )
@@ -837,7 +837,7 @@ def test_selfdestruct_initcode(
 
     initcode_costs = (
         gas_costs.GAS_BASE  # COINBASE
-        + gas_costs.G_SELF_DESTRUCT
+        + gas_costs.GAS_SELF_DESTRUCT
     )
     create_costs = (
         initcode_costs

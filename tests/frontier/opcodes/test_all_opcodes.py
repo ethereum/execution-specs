@@ -296,7 +296,7 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         Op.DELEGATECALL: gas_costs.GAS_WARM_ACCESS,
         Op.CREATE2: gas_costs.G_TRANSACTION_CREATE,
         Op.STATICCALL: gas_costs.GAS_WARM_ACCESS,
-        Op.SELFDESTRUCT: gas_costs.G_SELF_DESTRUCT,
+        Op.SELFDESTRUCT: gas_costs.GAS_SELF_DESTRUCT,
         Op.STOP: 0,
         Op.RETURN: 0,
         Op.REVERT: 0,
