@@ -50,10 +50,6 @@ from .contracts import (
     deploy_deterministic_factory_contract,
 )
 
-MAX_BYTECODE_SIZE = 24576
-MAX_INITCODE_SIZE = MAX_BYTECODE_SIZE * 2
-
-
 logger = get_logger(__name__)
 
 
@@ -381,6 +377,16 @@ class Alloc(BaseAlloc):
             ), "Deployment contract code is not found"
 
             # Deploy the actual contract.
+            max_code_size = self._fork.max_code_size()
+            if len(deploy_code) > max_code_size:
+                raise ValueError(
+                    f"code too large: {len(deploy_code)} > {max_code_size}"
+                )
+            max_initcode_size = self._fork.max_initcode_size()
+            if len(initcode) > max_initcode_size:
+                raise ValueError(
+                    f"initcode too large {len(initcode)} > {max_initcode_size}"
+                )
             deploy_gas_limit = (
                 gas_costs.G_TRANSACTION + gas_costs.G_TRANSACTION_CREATE
             )
@@ -510,9 +516,9 @@ class Alloc(BaseAlloc):
         )
         code = self.code_pre_processor(code, evm_code_type=evm_code_type)
 
-        assert len(code) <= MAX_BYTECODE_SIZE, (
-            f"code too large: {len(code)} > {MAX_BYTECODE_SIZE}"
-        )
+        max_code_size = self._fork.max_code_size()
+        if len(code) > max_code_size:
+            raise ValueError(f"code too large: {len(code)} > {max_code_size}")
 
         deploy_gas_limit += len(code) * gas_costs.G_CODE_DEPOSIT_BYTE
 
@@ -531,9 +537,11 @@ class Alloc(BaseAlloc):
                 new_bytes=len(bytes(prepared_initcode))
             )
 
-        assert len(prepared_initcode) <= MAX_INITCODE_SIZE, (
-            f"initcode too large {len(prepared_initcode)} > {MAX_INITCODE_SIZE}"
-        )
+        max_initcode_size = self._fork.max_initcode_size()
+        if len(prepared_initcode) > max_initcode_size:
+            raise ValueError(
+                f"initcode too large {len(prepared_initcode)} > {max_initcode_size}"
+            )
 
         deploy_gas_limit += calldata_gas_calculator(data=prepared_initcode)
 
