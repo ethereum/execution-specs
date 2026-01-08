@@ -174,7 +174,7 @@ def test_extcode_ops(
         new_bytes=len(bytes(max_contract_size))
     )
     code_deposit_gas_minimum = (
-        fork.gas_costs().G_CODE_DEPOSIT_BYTE * max_contract_size
+        fork.gas_costs().GAS_CODE_DEPOSIT * max_contract_size
         + memory_gas_minimum
     )
 

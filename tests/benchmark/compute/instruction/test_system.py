@@ -95,7 +95,7 @@ def test_xcall(
         # The goal is to involve the minimum amount of gas pricing to avoid
         # complexity and potential brittleness.
         num_contracts_per_tx = int(tx_gas_limit * 0.9) // (
-            gas_costs.G_CODE_DEPOSIT_BYTE * max_contract_size
+            gas_costs.GAS_CODE_DEPOSIT * max_contract_size
         )
         if num_contracts_per_tx == 0:
             pytest.skip("tx_gas_limit too low to deploy max-size contract")
@@ -720,7 +720,7 @@ def test_selfdestruct_created(
         initcode_costs
         + gas_costs.G_CREATE
         + gas_costs.GAS_VERY_LOW * 3  # Create Parameter PUSHs
-        + gas_costs.G_CODE_DEPOSIT_BYTE * 2
+        + gas_costs.GAS_CODE_DEPOSIT * 2
         + gas_costs.GAS_INIT_CODE_WORD_COST
     )
     call_costs = (

@@ -1015,7 +1015,7 @@ def test_invalid_container_deployment(
         )
         initcode_gas_cost = (
             # Code deposit gas cost
-            len(deployed_container) * fork_gas_costs.G_CODE_DEPOSIT_BYTE
+            len(deployed_container) * fork_gas_costs.GAS_CODE_DEPOSIT
             # Two push opcodes
             + 2 * fork_gas_costs.GAS_VERY_LOW
         )
