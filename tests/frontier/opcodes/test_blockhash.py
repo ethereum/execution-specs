@@ -9,7 +9,6 @@ from execution_testing import (
     Op,
     Transaction,
 )
-from execution_testing.forks import SpuriousDragon
 from execution_testing.forks.helpers import Fork
 
 
@@ -60,7 +59,7 @@ def test_genesis_hash_available(
                         sender=sender,
                         to=contract,
                         gas_limit=100_000,
-                        protected=fork >= SpuriousDragon,
+                        protected=fork.supports_protected_txs(),
                     )
                 ]
                 if not setup_blocks_empty
@@ -76,7 +75,7 @@ def test_genesis_hash_available(
                         sender=sender,
                         to=contract,
                         gas_limit=100_000,
-                        protected=fork >= SpuriousDragon,
+                        protected=fork.supports_protected_txs(),
                     )
                 ]
             )

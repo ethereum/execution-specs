@@ -13,7 +13,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Frontier, SpuriousDragon, TangerineWhistle
+from execution_testing.forks import Frontier, TangerineWhistle
 
 SLOT_CREATE_RESULT = 1
 SLOT_CREATE_RESULT_PRE = 0xDEADBEEF
@@ -87,7 +87,7 @@ def test_create_deposit_oog(
         gas_limit=10_000_000,
         to=caller_address,
         sender=sender,
-        protected=fork >= SpuriousDragon,
+        protected=fork.supports_protected_txs(),
     )
 
     created_account: Account | None = Account(code=b"\x00" * deposited_len)

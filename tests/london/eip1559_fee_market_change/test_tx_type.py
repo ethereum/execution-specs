@@ -13,7 +13,6 @@ from execution_testing import (
     TransactionException,
 )
 from execution_testing import Opcodes as Op
-from execution_testing.forks import SpuriousDragon
 
 from .spec import ref_spec_1559
 
@@ -62,7 +61,7 @@ def test_eip1559_tx_validity(
         sender=sender,
         gas_limit=100_000,
         max_priority_fee_per_gas=1,
-        protected=fork >= SpuriousDragon,
+        protected=fork.supports_protected_txs(),
         error=TransactionException.TYPE_2_TX_PRE_FORK if not valid else None,
     )
 

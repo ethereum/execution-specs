@@ -11,7 +11,6 @@ from execution_testing import (
     Storage,
     Transaction,
 )
-from execution_testing.forks import SpuriousDragon
 
 
 @pytest.mark.parametrize(
@@ -72,7 +71,9 @@ def test_dup(
         ty=0x0,
         to=account,
         gas_limit=500000,
-        protected=fork >= SpuriousDragon,
+        gas_price=10,
+        protected=fork.supports_protected_txs(),
+        data="",
         sender=sender,
     )
 
