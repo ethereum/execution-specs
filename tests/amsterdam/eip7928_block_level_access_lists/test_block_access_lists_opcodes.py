@@ -88,9 +88,9 @@ def test_bal_sstore_and_oog(
 
     # Costs:
     # - PUSH1 (value and slot) = GAS_VERY_LOW * 2
-    # - SSTORE cold (to zero slot) = G_STORAGE_SET + GAS_COLD_SLOAD
+    # - SSTORE cold (to zero slot) = GAS_STORAGE_SET + GAS_COLD_SLOAD
     sload_cost = gas_costs.GAS_COLD_SLOAD
-    sstore_cost = gas_costs.G_STORAGE_SET
+    sstore_cost = gas_costs.GAS_STORAGE_SET
     sstore_cold_cost = sstore_cost + sload_cost
     push_cost = gas_costs.GAS_VERY_LOW * 2
     stipend = gas_costs.G_CALL_STIPEND

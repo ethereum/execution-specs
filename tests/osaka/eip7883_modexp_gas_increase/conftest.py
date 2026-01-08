@@ -60,7 +60,7 @@ def total_tx_gas_needed(
         fork.transaction_intrinsic_cost_calculator()
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    sstore_gas = fork.gas_costs().G_STORAGE_SET * (len(modexp_expected) // 32)
+    sstore_gas = fork.gas_costs().GAS_STORAGE_SET * (len(modexp_expected) // 32)
     extra_gas = 100_000
 
     return (

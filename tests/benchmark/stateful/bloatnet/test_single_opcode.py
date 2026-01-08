@@ -344,7 +344,7 @@ def test_sstore_erc20_approve(
         + gas_costs.G_KECCAK_256  # keccak256 static (30)
         + gas_costs.G_KECCAK_256_WORD * 2  # keccak256 dynamic 64 bytes
         + gas_costs.GAS_COLD_SLOAD  # Cold SLOAD for allowance check (2100)
-        + gas_costs.G_STORAGE_SET  # SSTORE base cost (20000)
+        + gas_costs.GAS_STORAGE_SET  # SSTORE base cost (20000)
         + gas_costs.GAS_COLD_SLOAD  # Additional cold storage access (2100)
         + gas_costs.GAS_VERY_LOW  # PUSH1 1 for return value (3)
         + gas_costs.GAS_VERY_LOW  # MSTORE return value (3)

@@ -19,7 +19,7 @@ class GasCosts:
     G_ACCESS_LIST_STORAGE: int
     GAS_WARM_ACCESS: int
     GAS_COLD_SLOAD: int
-    G_STORAGE_SET: int
+    GAS_STORAGE_SET: int
     GAS_STORAGE_UPDATE: int
 
     GAS_STORAGE_CLEAR_REFUND: int
