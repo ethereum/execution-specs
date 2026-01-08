@@ -26,6 +26,9 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing import (
+    Macros as Om,
+)
 from execution_testing.forks import Berlin, Cancun, SpuriousDragon
 from execution_testing.forks.helpers import Fork
 
@@ -91,23 +94,17 @@ def setup_selfdestruct_test(
         initcode = Initcode(deploy_code=victim_code)
         initcode_len = len(initcode)
 
-        # Pre-deploy initcode at separate address, then use EXTCODECOPY
-        initcode_address = pre.deploy_contract(initcode)
-
-        factory_address = next(pre._contract_address_iterator)  # type: ignore
-        victim = compute_create_address(address=factory_address, nonce=1)
-
-        factory_code = (
-            Op.EXTCODECOPY(initcode_address, 0, 0, initcode_len)
-            + Op.CREATE(value=originator_balance, offset=0, size=initcode_len)
-            + Op.POP
-            + Op.CALL(gas=inner_call_gas, address=victim)
+        factory_code = Om.MSTORE(initcode, 0) + Op.CALL(
+            gas=inner_call_gas,
+            address=Op.CREATE(
+                value=originator_balance, offset=0, size=initcode_len
+            ),
         )
         caller = pre.deploy_contract(
-            address=factory_address,
             code=factory_code,
             balance=originator_balance,
         )
+        victim = compute_create_address(address=caller, nonce=1)
     else:
         # Pre-existing contract
         victim = pre.deploy_contract(
@@ -847,22 +844,17 @@ def test_selfdestruct_to_self(
         initcode = Initcode(deploy_code=victim_code)
         initcode_len = len(initcode)
 
-        initcode_address = pre.deploy_contract(initcode)
-
-        factory_address = next(pre._contract_address_iterator)  # type: ignore
-        victim = compute_create_address(address=factory_address, nonce=1)
-
-        factory_code = (
-            Op.EXTCODECOPY(initcode_address, 0, 0, initcode_len)
-            + Op.CREATE(value=originator_balance, offset=0, size=initcode_len)
-            + Op.POP
-            + Op.CALL(gas=inner_call_gas, address=victim)
+        factory_code = Om.MSTORE(initcode, 0) + Op.CALL(
+            gas=inner_call_gas,
+            address=Op.CREATE(
+                value=originator_balance, offset=0, size=initcode_len
+            ),
         )
         caller = pre.deploy_contract(
-            address=factory_address,
             code=factory_code,
             balance=originator_balance,
         )
+        victim = compute_create_address(address=caller, nonce=1)
     else:
         # Pre-existing contract
         victim = pre.deploy_contract(
@@ -887,51 +879,33 @@ def test_selfdestruct_to_self(
                 victim_expectation = BalAccountExpectation.empty()
             else:
                 # OOG: CREATE succeeded but SELFDESTRUCT failed
-                if originator_balance > 0:
-                    victim_expectation = BalAccountExpectation(
-                        nonce_changes=[
-                            BalNonceChange(block_access_index=1, post_nonce=1)
-                        ],
-                        balance_changes=[
-                            BalBalanceChange(
-                                block_access_index=1,
-                                post_balance=originator_balance,
-                            )
-                        ],
-                        code_changes=[
-                            BalCodeChange(
-                                block_access_index=1,
-                                new_code=bytes(victim_code),
-                            )
-                        ],
-                    )
-                else:
-                    victim_expectation = BalAccountExpectation(
-                        nonce_changes=[
-                            BalNonceChange(block_access_index=1, post_nonce=1)
-                        ],
-                        code_changes=[
-                            BalCodeChange(
-                                block_access_index=1,
-                                new_code=bytes(victim_code),
-                            )
-                        ],
-                    )
-
-            if originator_balance > 0:
-                caller_expectation = BalAccountExpectation(
+                victim_expectation = BalAccountExpectation(
                     nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=2)
+                        BalNonceChange(block_access_index=1, post_nonce=1)
                     ],
-                    balance_changes=[
-                        BalBalanceChange(block_access_index=1, post_balance=0)
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=bytes(victim_code),
+                        )
                     ],
                 )
-            else:
-                caller_expectation = BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=2)
-                    ],
+                if originator_balance > 0:
+                    victim_expectation.balance_changes.append(
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=originator_balance,
+                        )
+                    )
+
+            caller_expectation = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=2)
+                ],
+            )
+            if originator_balance > 0:
+                caller_expectation.balance_changes.append(
+                    BalBalanceChange(block_access_index=1, post_balance=0)
                 )
         else:
             # Pre-existing: victim in BAL
