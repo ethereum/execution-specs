@@ -139,7 +139,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             G_NEW_ACCOUNT=25_000,
             G_EXP=10,
             G_EXP_BYTE=50,
-            G_MEMORY=3,
+            GAS_MEMORY=3,
             G_TX_DATA_ZERO=4,
             G_TX_DATA_NON_ZERO=68,
             G_TX_DATA_STANDARD_TOKEN_COST=0,
@@ -176,7 +176,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             previous_words = ceiling_division(previous_bytes, 32)
 
             def c(w: int) -> int:
-                return (gas_costs.G_MEMORY * w) + ((w * w) // 512)
+                return (gas_costs.GAS_MEMORY * w) + ((w * w) // 512)
 
             return c(new_words) - c(previous_words)
 

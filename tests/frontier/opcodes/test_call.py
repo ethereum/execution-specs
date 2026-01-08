@@ -64,7 +64,7 @@ def test_call_large_offset_mstore(
 
     memory_expansion_gas_calc = fork.memory_expansion_gas_calculator()
     # mstore cost: base cost + expansion cost
-    mstore_cost = gsc.G_MEMORY + memory_expansion_gas_calc(
+    mstore_cost = gsc.GAS_MEMORY + memory_expansion_gas_calc(
         new_bytes=mem_offset + 1
     )
     state_test(
@@ -149,7 +149,7 @@ def test_call_memory_expands_on_early_revert(
 
     # mstore cost: base cost. No memory expansion cost needed, it was expanded
     # on CALL.
-    mstore_cost = gsc.G_MEMORY
+    mstore_cost = gsc.GAS_MEMORY
     state_test(
         env=Environment(),
         pre=pre,

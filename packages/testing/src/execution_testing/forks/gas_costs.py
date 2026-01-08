@@ -37,7 +37,7 @@ class GasCosts:
     G_EXP: int
     G_EXP_BYTE: int
 
-    G_MEMORY: int
+    GAS_MEMORY: int
 
     G_TX_DATA_ZERO: int
     G_TX_DATA_NON_ZERO: int
