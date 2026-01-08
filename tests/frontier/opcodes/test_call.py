@@ -144,7 +144,7 @@ def test_call_memory_expands_on_early_revert(
         + gsc.G_NEW_ACCOUNT
         + memory_expansion_gas_calc(new_bytes=ret_size)
         + gsc.G_CALL_VALUE
-        - gsc.G_CALL_STIPEND
+        - gsc.GAS_CALL_STIPEND
     )
 
     # mstore cost: base cost. No memory expansion cost needed, it was expanded

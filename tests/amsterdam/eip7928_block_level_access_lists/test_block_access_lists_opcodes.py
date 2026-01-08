@@ -93,7 +93,7 @@ def test_bal_sstore_and_oog(
     sstore_cost = gas_costs.GAS_STORAGE_SET
     sstore_cold_cost = sstore_cost + sload_cost
     push_cost = gas_costs.GAS_VERY_LOW * 2
-    stipend = gas_costs.G_CALL_STIPEND
+    stipend = gas_costs.GAS_CALL_STIPEND
 
     if out_of_gas_at == OutOfGasAt.EIP_2200_STIPEND:
         # 2300 after PUSHes (fails stipend check: 2300 <= 2300)

@@ -31,7 +31,7 @@ class GasCosts:
     GAS_INIT_CODE_WORD_COST: int
 
     G_CALL_VALUE: int
-    G_CALL_STIPEND: int
+    GAS_CALL_STIPEND: int
     G_NEW_ACCOUNT: int
 
     G_EXP: int
