@@ -335,6 +335,112 @@ def append_account(
     return transform
 
 
+def append_change(
+    account: Address,
+    change: BalNonceChange | BalBalanceChange | BalCodeChange,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Append a change to an account's field list.
+
+    Generic function to add extraneous entries to nonce_changes, balance_changes,
+    or code_changes fields. The field is inferred from the change type.
+    """
+    # Infer field name from change type
+    if isinstance(change, BalNonceChange):
+        field = "nonce_changes"
+    elif isinstance(change, BalBalanceChange):
+        field = "balance_changes"
+    elif isinstance(change, BalCodeChange):
+        field = "code_changes"
+    else:
+        raise TypeError(f"Unsupported change type: {type(change)}")
+
+    found_address = False
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        nonlocal found_address
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == account:
+                found_address = True
+                new_account = account_change.model_copy(deep=True)
+                # Get the field list and append the change
+                field_list = getattr(new_account, field)
+                field_list.append(change)
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+
+        if not found_address:
+            raise ValueError(
+                f"Address {account} not found in BAL to append change to {field}"
+            )
+
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
+def append_storage(
+    address: Address,
+    slot: int,
+    change: Optional[BalStorageChange] = None,
+    read: bool = False,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Append storage-related entries to an account.
+
+    Generic function for all storage operations:
+    - If read=True: appends to storage_reads
+    - If change provided and slot exists: appends to existing slot's slot_changes
+    - If change provided and slot new: creates new BalStorageSlot
+    """
+    found_address = False
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        nonlocal found_address
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == address:
+                found_address = True
+                new_account = account_change.model_copy(deep=True)
+
+                if read:
+                    # Append to storage_reads
+                    new_account.storage_reads.append(ZeroPaddedHexNumber(slot))
+                elif change is not None:
+                    # Find if slot already exists
+                    slot_found = False
+                    for storage_slot in new_account.storage_changes:
+                        if storage_slot.slot == slot:
+                            # Append to existing slot's slot_changes
+                            storage_slot.slot_changes.append(change)
+                            slot_found = True
+                            break
+
+                    if not slot_found:
+                        # Create new BalStorageSlot
+                        from . import BalStorageSlot
+
+                        new_storage_slot = BalStorageSlot(
+                            slot=slot, slot_changes=[change]
+                        )
+                        new_account.storage_changes.append(new_storage_slot)
+
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+
+        if not found_address:
+            raise ValueError(
+                f"Address {address} not found in BAL to append storage entry"
+            )
+
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
 def duplicate_account(
     address: Address,
 ) -> Callable[[BlockAccessList], BlockAccessList]:
@@ -433,6 +539,8 @@ __all__ = [
     # Account-level modifiers
     "remove_accounts",
     "append_account",
+    "append_change",
+    "append_storage",
     "duplicate_account",
     "reverse_accounts",
     "keep_only",
