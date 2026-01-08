@@ -305,7 +305,7 @@ def test_sstore_erc20_approve(
         gas_costs.GAS_VERY_LOW  # MSTORE to initialize counter (3)
         + memory_expansion_cost  # Memory expansion (15)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at loop start (1)
-        + gas_costs.G_LOW  # MLOAD for While condition check (5)
+        + gas_costs.GAS_LOW  # MLOAD for While condition check (5)
         + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.G_MID  # JUMPI (8)
@@ -316,16 +316,16 @@ def test_sstore_erc20_approve(
     loop_overhead = (
         # Attack contract loop body operations
         gas_costs.GAS_VERY_LOW  # MSTORE selector at memory[32] (3)
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.GAS_LOW  # MLOAD counter (5)
         + gas_costs.GAS_VERY_LOW  # MSTORE spender at memory[64] (3)
         + gas_costs.GAS_BASE  # POP call result (2)
         # Counter decrement: MSTORE(0, SUB(MLOAD(0), 1))
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.GAS_LOW  # MLOAD counter (5)
         + gas_costs.GAS_VERY_LOW  # PUSH1 1 (3)
         + gas_costs.GAS_VERY_LOW  # SUB (3)
         + gas_costs.GAS_VERY_LOW  # MSTORE counter back (3)
         # While loop condition check
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.GAS_LOW  # MLOAD counter (5)
         + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.G_MID  # JUMPI back to loop start (8)

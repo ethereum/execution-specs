@@ -90,9 +90,9 @@ def test_bloatnet_balance_extcodesize(
         + gas_costs.GAS_BASE  # POP second result (2)
         + gas_costs.GAS_BASE  # DUP1 before first op (3)
         + gas_costs.GAS_VERY_LOW * 4  # PUSH1 operations (4 * 3)
-        + gas_costs.G_LOW  # MLOAD for salt (3)
+        + gas_costs.GAS_LOW  # MLOAD for salt (3)
         + gas_costs.GAS_VERY_LOW  # ADD for increment (3)
-        + gas_costs.G_LOW  # MSTORE salt back (3)
+        + gas_costs.GAS_LOW  # MSTORE salt back (3)
         + 10  # While loop overhead
     )
 
@@ -246,9 +246,9 @@ def test_bloatnet_balance_extcodecopy(
         + gas_costs.GAS_COPY * 1  # Copy cost for 1 byte (3)
         + gas_costs.GAS_BASE * 2  # DUP1 before first op, DUP4 for address (6)
         + gas_costs.GAS_VERY_LOW * 8  # PUSH operations (8 * 3 = 24)
-        + gas_costs.G_LOW * 2  # MLOAD for salt twice (6)
+        + gas_costs.GAS_LOW * 2  # MLOAD for salt twice (6)
         + gas_costs.GAS_VERY_LOW * 2  # ADD operations (6)
-        + gas_costs.G_LOW  # MSTORE salt back (3)
+        + gas_costs.GAS_LOW  # MSTORE salt back (3)
         + gas_costs.GAS_BASE  # POP after second op (2)
         + 10  # While loop overhead
     )
@@ -407,9 +407,9 @@ def test_bloatnet_balance_extcodehash(
         + gas_costs.GAS_BASE  # POP second result (2)
         + gas_costs.GAS_BASE  # DUP1 before first op (3)
         + gas_costs.GAS_VERY_LOW * 4  # PUSH1 operations (4 * 3)
-        + gas_costs.G_LOW  # MLOAD for salt (3)
+        + gas_costs.GAS_LOW  # MLOAD for salt (3)
         + gas_costs.GAS_VERY_LOW  # ADD for increment (3)
-        + gas_costs.G_LOW  # MSTORE salt back (3)
+        + gas_costs.GAS_LOW  # MSTORE salt back (3)
         + 10  # While loop overhead
     )
 
@@ -607,16 +607,16 @@ def test_mixed_sload_sstore(
     sstore_loop_overhead = (
         # Attack contract loop body operations
         gas_costs.GAS_VERY_LOW  # MSTORE selector at memory[32] (3)
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.GAS_LOW  # MLOAD counter (5)
         + gas_costs.GAS_VERY_LOW  # MSTORE spender at memory[64] (3)
         + gas_costs.GAS_BASE  # POP call result (2)
         # Counter decrement
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.GAS_LOW  # MLOAD counter (5)
         + gas_costs.GAS_VERY_LOW  # PUSH1 1 (3)
         + gas_costs.GAS_VERY_LOW  # SUB (3)
         + gas_costs.GAS_VERY_LOW  # MSTORE counter back (3)
         # While loop condition check
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.GAS_LOW  # MLOAD counter (5)
         + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.G_MID  # JUMPI back to loop start (8)

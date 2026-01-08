@@ -10,7 +10,7 @@ class GasCosts:
     GAS_JUMPDEST: int
     GAS_BASE: int
     GAS_VERY_LOW: int
-    G_LOW: int
+    GAS_LOW: int
     G_MID: int
     G_HIGH: int
     G_WARM_ACCOUNT_ACCESS: int

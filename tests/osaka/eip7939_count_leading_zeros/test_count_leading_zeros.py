@@ -145,7 +145,7 @@ def test_clz_gas_cost(
     tx = Transaction(to=contract_address, sender=sender, gas_limit=200_000)
     post = {
         contract_address: Account(  # Cost measured is CLZ + PUSH1
-            storage={"0x00": fork.gas_costs().G_LOW}
+            storage={"0x00": fork.gas_costs().GAS_LOW}
         ),
     }
     state_test(pre=pre, post=post, tx=tx)
