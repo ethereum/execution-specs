@@ -359,8 +359,8 @@ def generate_system_contract_error_test(
                 # If the gas limit is not divisible by the gas used per
                 # storage, we need to add some NO-OP (JUMPDEST) to the code
                 # that each consume 1 gas.
-                assert gas_costs.G_JUMPDEST == 1, (
-                    f"JUMPDEST gas cost should be 1, but got {gas_costs.G_JUMPDEST}. "
+                assert gas_costs.GAS_JUMPDEST == 1, (
+                    f"JUMPDEST gas cost should be 1, but got {gas_costs.GAS_JUMPDEST}. "
                     "Generator `generate_system_contract_error_test` needs to be updated."
                 )
                 modified_system_contract_code += sum(

@@ -186,7 +186,7 @@ def test_storage_access_cold(
 
     # Add costs jump-logic costs
     loop_cost += (
-        gas_costs.G_JUMPDEST  # Prefix Jumpdest
+        gas_costs.GAS_JUMPDEST  # Prefix Jumpdest
         + gas_costs.G_VERY_LOW * 7  # ISZEROs, PUSHs, SWAPs, SUB, DUP
         + gas_costs.G_HIGH  # JUMPI
     )

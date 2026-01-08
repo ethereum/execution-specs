@@ -115,7 +115,7 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         del block_number, timestamp
         return GasCosts(
-            G_JUMPDEST=1,
+            GAS_JUMPDEST=1,
             G_BASE=2,
             G_VERY_LOW=3,
             G_LOW=5,

@@ -280,7 +280,7 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         Op.PC: gas_costs.G_BASE,
         Op.MSIZE: gas_costs.G_BASE,
         Op.GAS: gas_costs.G_BASE,
-        Op.JUMPDEST: gas_costs.G_JUMPDEST,
+        Op.JUMPDEST: gas_costs.GAS_JUMPDEST,
         Op.TLOAD: gas_costs.G_WARM_SLOAD,
         Op.TSTORE: gas_costs.G_WARM_SLOAD,
         Op.MCOPY: gas_costs.G_VERY_LOW,

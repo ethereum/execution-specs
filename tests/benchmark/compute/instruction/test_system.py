@@ -734,7 +734,7 @@ def test_selfdestruct_created(
         gas_costs.G_BASE * 2  # POP, GAS
         + gas_costs.G_VERY_LOW * 5  # PUSHs, ADD, DUP, GT
         + gas_costs.G_HIGH  # JUMPI
-        + gas_costs.G_JUMPDEST
+        + gas_costs.GAS_JUMPDEST
     )
     loop_cost = create_costs + call_costs + extra_costs
 
@@ -849,7 +849,7 @@ def test_selfdestruct_initcode(
         gas_costs.G_BASE * 2  # POP, GAS
         + gas_costs.G_VERY_LOW * 5  # PUSHs, ADD, GT
         + gas_costs.G_HIGH  # JUMPI
-        + gas_costs.G_JUMPDEST
+        + gas_costs.GAS_JUMPDEST
     )
     loop_cost = create_costs + extra_costs
 

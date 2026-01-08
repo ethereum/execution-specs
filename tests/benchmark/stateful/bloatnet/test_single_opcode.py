@@ -145,7 +145,7 @@ def test_sload_empty_erc20_balanceof(
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.G_BASE  # EQ selector match (2)
         + gas_costs.G_MID  # JUMPI to function (8)
-        + gas_costs.G_JUMPDEST  # JUMPDEST at function start (1)
+        + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
         + gas_costs.G_KECCAK_256  # keccak256 static (30)
         + gas_costs.G_KECCAK_256_WORD * 2  # keccak256 dynamic 64 bytes
@@ -304,7 +304,7 @@ def test_sstore_erc20_approve(
     overhead_per_contract = (
         gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
         + memory_expansion_cost  # Memory expansion (15)
-        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
+        + gas_costs.GAS_JUMPDEST  # JUMPDEST at loop start (1)
         + gas_costs.G_LOW  # MLOAD for While condition check (5)
         + gas_costs.G_BASE  # ISZERO (2)
         + gas_costs.G_BASE  # ISZERO (2)
@@ -338,7 +338,7 @@ def test_sstore_erc20_approve(
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.G_BASE  # EQ selector match (2)
         + gas_costs.G_MID  # JUMPI to function (8)
-        + gas_costs.G_JUMPDEST  # JUMPDEST at function start (1)
+        + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD spender (3)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD amount (3)
         + gas_costs.G_KECCAK_256  # keccak256 static (30)
