@@ -299,8 +299,8 @@ def _pairing_gas_from_costs(
     def calc(input_length: int) -> int:
         k = input_length // Spec.LEN_PER_PAIR
         return (
-            gas_costs.G_PRECOMPILE_BLS_PAIRING_PER_PAIR * k
-            + gas_costs.G_PRECOMPILE_BLS_PAIRING_BASE
+            gas_costs.GAS_PRECOMPILE_BLS_PAIRING_PER_PAIR * k
+            + gas_costs.GAS_PRECOMPILE_BLS_PAIRING_BASE
         )
 
     return calc
@@ -311,19 +311,19 @@ def build_gas_calculation_function_map(
 ) -> Dict[int, Callable[[int], int]]:
     """Build a gas calculation function map from fork gas costs."""
     return {
-        Spec.G1ADD: lambda _: gas_costs.G_PRECOMPILE_BLS_G1ADD,
+        Spec.G1ADD: lambda _: gas_costs.GAS_PRECOMPILE_BLS_G1ADD,
         Spec.G1MSM: msm_gas_func_gen(
             BLS12Group.G1,
             len(PointG1() + Scalar()),
-            gas_costs.G_PRECOMPILE_BLS_G1MUL,
+            gas_costs.GAS_PRECOMPILE_BLS_G1MUL,
         ),
-        Spec.G2ADD: lambda _: gas_costs.G_PRECOMPILE_BLS_G2ADD,
+        Spec.G2ADD: lambda _: gas_costs.GAS_PRECOMPILE_BLS_G2ADD,
         Spec.G2MSM: msm_gas_func_gen(
             BLS12Group.G2,
             len(PointG2() + Scalar()),
-            gas_costs.G_PRECOMPILE_BLS_G2MUL,
+            gas_costs.GAS_PRECOMPILE_BLS_G2MUL,
         ),
         Spec.PAIRING: _pairing_gas_from_costs(gas_costs),
-        Spec.MAP_FP_TO_G1: lambda _: gas_costs.G_PRECOMPILE_BLS_G1MAP,
-        Spec.MAP_FP2_TO_G2: lambda _: gas_costs.G_PRECOMPILE_BLS_G2MAP,
+        Spec.MAP_FP_TO_G1: lambda _: gas_costs.GAS_PRECOMPILE_BLS_G1MAP,
+        Spec.MAP_FP2_TO_G2: lambda _: gas_costs.GAS_PRECOMPILE_BLS_G2MAP,
     }

@@ -34,7 +34,7 @@ Base cost of a transaction in gas units. This is the minimum amount of gas
 required to execute a transaction.
 """
 
-FLOOR_CALLDATA_COST = Uint(10)
+TX_DATA_FLOOR_TOKEN_COST = Uint(10)
 """
 Minimum gas cost per byte of calldata as per [EIP-7623]. Used to calculate
 the minimum gas cost for transactions that include calldata.
@@ -42,7 +42,7 @@ the minimum gas cost for transactions that include calldata.
 [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
 """
 
-STANDARD_CALLDATA_TOKEN_COST = Uint(4)
+TX_DATA_STANDARD_TOKEN_COST = Uint(4)
 """
 Gas cost per byte of calldata as per [EIP-7623]. Used to calculate the
 gas cost for transactions that include calldata.
@@ -595,7 +595,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     gas cost of the transaction and the minimum gas cost used by the
     transaction based on the calldata size.
     """
-    from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST
+    from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT_COST
     from .vm.gas import init_code_cost
 
     zero_bytes = 0
@@ -606,10 +606,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
     # EIP-7623 floor price (note: no EVM costs)
     calldata_floor_gas_cost = (
-        tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
+        tokens_in_calldata * TX_DATA_FLOOR_TOKEN_COST + TX_BASE_COST
     )
 
-    data_cost = tokens_in_calldata * STANDARD_CALLDATA_TOKEN_COST
+    data_cost = tokens_in_calldata * TX_DATA_STANDARD_TOKEN_COST
 
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST + init_code_cost(ulen(tx.data))
@@ -634,7 +634,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_cost += Uint(PER_EMPTY_ACCOUNT_COST * len(tx.authorizations))
+        auth_cost += Uint(
+            GAS_AUTH_PER_EMPTY_ACCOUNT_COST * len(tx.authorizations)
+        )
 
     return (
         Uint(

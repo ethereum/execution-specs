@@ -800,7 +800,9 @@ def gas_test_parameter_args(
         if execution_gas_allowance:
             # Leave some gas for the execution of the test code.
             max_gas -= 1_000_000
-        many_authorizations_count = max_gas // Spec.PER_EMPTY_ACCOUNT_COST
+        many_authorizations_count = (
+            max_gas // Spec.GAS_AUTH_PER_EMPTY_ACCOUNT_COST
+        )
         cases += [
             pytest.param(
                 {
@@ -876,7 +878,7 @@ def test_gas_cost(
                 seen_authority.add(authority)
 
     discount_gas = (
-        Spec.PER_EMPTY_ACCOUNT_COST - Spec.PER_AUTH_BASE_COST
+        Spec.GAS_AUTH_PER_EMPTY_ACCOUNT_COST - Spec.REFUND_PER_AUTH_BASE_COST
     ) * discounted_authorizations
 
     # We calculate the exact gas required to execute the test code. We add

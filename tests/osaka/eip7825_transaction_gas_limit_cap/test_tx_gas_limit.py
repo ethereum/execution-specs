@@ -279,7 +279,7 @@ def test_maximum_gas_refund(
         + Op.PUSH0
         + Op.PUSH1(0)
     ).gas_cost(fork)
-    gas_refund = gas_costs.R_STORAGE_CLEAR
+    gas_refund = gas_costs.REFUND_STORAGE_CLEAR
 
     # EIP-3529: Reduction in refunds
     storage_count = tx_gas_limit_cap // iteration_cost
@@ -328,7 +328,7 @@ def test_maximum_gas_refund(
 def total_cost_floor_per_token(fork: Fork) -> int:
     """Total cost floor per token."""
     gas_costs = fork.gas_costs()
-    return gas_costs.G_TX_DATA_FLOOR_TOKEN_COST
+    return gas_costs.TX_DATA_FLOOR_TOKEN_COST
 
 
 @pytest.mark.xdist_group(name="bigmem")
@@ -677,7 +677,8 @@ def test_tx_gas_limit_cap_authorized_tx(
     # EIP-7702 authorization transaction cost:
     # 21000 + 16 * non-zero calldata bytes + 4 * zero calldata bytes + 1900 *
     # access list storage key count + 2400 * access list address count + access
-    # list data cost + PER_EMPTY_ACCOUNT_COST * authorization list length
+    # list data cost + GAS_AUTH_PER_EMPTY_ACCOUNT_COST * authorization list
+    # length
     #
     # There is no calldata and no storage keys in this test case.
     # However, each access-list address includes data bytes that may contribute

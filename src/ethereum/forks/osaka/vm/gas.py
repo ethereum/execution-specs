@@ -29,7 +29,7 @@ GAS_BASE = Uint(2)
 GAS_VERY_LOW = Uint(3)
 GAS_STORAGE_SET = Uint(20000)
 GAS_STORAGE_UPDATE = Uint(5000)
-GAS_STORAGE_CLEAR_REFUND = Uint(4800)
+REFUND_STORAGE_CLEAR = Uint(4800)
 GAS_LOW = Uint(5)
 GAS_MID = Uint(8)
 GAS_HIGH = Uint(10)
@@ -71,10 +71,10 @@ GAS_POINT_EVALUATION = Uint(50000)
 
 GAS_PER_BLOB = U64(2**17)
 BLOB_SCHEDULE_TARGET = U64(6)
-TARGET_BLOB_GAS_PER_BLOCK = GAS_PER_BLOB * BLOB_SCHEDULE_TARGET
+BLOB_TARGET_GAS_PER_BLOCK = GAS_PER_BLOB * BLOB_SCHEDULE_TARGET
 BLOB_BASE_COST = Uint(2**13)
 BLOB_SCHEDULE_MAX = U64(9)
-MIN_BLOB_GASPRICE = Uint(1)
+BLOB_MIN_GASPRICE = Uint(1)
 BLOB_BASE_FEE_UPDATE_FRACTION = Uint(5007716)
 
 GAS_BLS_G1_ADD = Uint(375)
@@ -314,7 +314,7 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
         base_fee_per_gas = parent_header.base_fee_per_gas
 
     parent_blob_gas = excess_blob_gas + blob_gas_used
-    if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
+    if parent_blob_gas < BLOB_TARGET_GAS_PER_BLOCK:
         return U64(0)
 
     target_blob_gas_price = Uint(GAS_PER_BLOB)
@@ -328,7 +328,7 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
             + blob_gas_used * blob_schedule_delta // BLOB_SCHEDULE_MAX
         )
 
-    return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
+    return parent_blob_gas - BLOB_TARGET_GAS_PER_BLOCK
 
 
 def calculate_total_blob_gas(tx: Transaction) -> U64:
@@ -368,7 +368,7 @@ def calculate_blob_gas_price(excess_blob_gas: U64) -> Uint:
 
     """
     return taylor_exponential(
-        MIN_BLOB_GASPRICE,
+        BLOB_MIN_GASPRICE,
         Uint(excess_blob_gas),
         BLOB_BASE_FEE_UPDATE_FRACTION,
     )
