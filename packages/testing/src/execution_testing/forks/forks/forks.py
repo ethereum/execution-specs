@@ -144,7 +144,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             G_TX_DATA_NON_ZERO=68,
             G_TX_DATA_STANDARD_TOKEN_COST=0,
             G_TX_DATA_FLOOR_TOKEN_COST=0,
-            G_TRANSACTION=21_000,
+            TX_BASE_COST=21_000,
             G_TRANSACTION_CREATE=32_000,
             GAS_LOG=375,
             GAS_LOG_DATA=8,
@@ -295,7 +295,7 @@ class Frontier(BaseFork, solc_name="homestead"):
                 f"Authorizations are not supported in {cls.name()}"
             )
 
-            intrinsic_cost: int = gas_costs.G_TRANSACTION
+            intrinsic_cost: int = gas_costs.TX_BASE_COST
 
             if contract_creation:
                 intrinsic_cost += gas_costs.GAS_INIT_CODE_WORD_COST * ceiling_division(
@@ -1959,7 +1959,7 @@ class Prague(Cancun):
         def fn(*, data: BytesConvertible) -> int:
             return (
                 calldata_gas_calculator(data=data, floor=True)
-                + gas_costs.G_TRANSACTION
+                + gas_costs.TX_BASE_COST
             )
 
         return fn

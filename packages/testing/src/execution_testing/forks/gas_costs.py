@@ -44,7 +44,7 @@ class GasCosts:
     G_TX_DATA_STANDARD_TOKEN_COST: int
     G_TX_DATA_FLOOR_TOKEN_COST: int
 
-    G_TRANSACTION: int
+    TX_BASE_COST: int
     G_TRANSACTION_CREATE: int
 
     GAS_LOG: int
