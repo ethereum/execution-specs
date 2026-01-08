@@ -8,7 +8,7 @@ class GasCosts:
     """Class that contains the gas cost constants for any fork."""
 
     GAS_JUMPDEST: int
-    G_BASE: int
+    GAS_BASE: int
     G_VERY_LOW: int
     G_LOW: int
     G_MID: int

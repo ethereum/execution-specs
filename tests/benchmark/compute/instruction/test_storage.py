@@ -182,7 +182,7 @@ def test_storage_access_cold(
         loop_cost += gas_costs.G_VERY_LOW * 3
     elif storage_action == StorageAction.READ:
         execution_code_body = Op.POP(Op.SLOAD(Op.DUP1))
-        loop_cost += gas_costs.G_VERY_LOW + gas_costs.G_BASE
+        loop_cost += gas_costs.G_VERY_LOW + gas_costs.GAS_BASE
 
     # Add costs jump-logic costs
     loop_cost += (

@@ -59,7 +59,7 @@ def test_modexp_fork_transition(
     extra_gas = (
         gas_costs.G_WARM_ACCOUNT_ACCESS
         + (gas_costs.G_VERY_LOW * (len(Op.CALL.kwargs) - 2))
-        + (gas_costs.G_BASE * 3)
+        + (gas_costs.GAS_BASE * 3)
     )
     code = (
         Op.CALLDATACOPY(dest_offset=0, offset=0, size=Op.CALLDATASIZE)

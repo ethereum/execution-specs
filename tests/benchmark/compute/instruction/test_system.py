@@ -419,7 +419,7 @@ def test_creates_collisions(
     gas_costs = fork.gas_costs()
     # The CALL to the proxy contract needs at a minimum gas corresponding to
     # the CREATE(2) plus extra required PUSH0s for arguments.
-    min_gas_required = gas_costs.G_CREATE + gas_costs.G_BASE * (
+    min_gas_required = gas_costs.G_CREATE + gas_costs.GAS_BASE * (
         3 if opcode == Op.CREATE else 4
     )
     setup = Op.PUSH20(proxy_contract) + Op.PUSH3(min_gas_required)
@@ -534,7 +534,7 @@ def test_selfdestruct_existing(
         # cost for CREATE2
         + gas_costs.G_VERY_LOW * 3  # ~MSTOREs+ADDs
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # CALL to self-destructing contract
-        + gas_costs.G_BASE
+        + gas_costs.GAS_BASE
         + gas_costs.G_SELF_DESTRUCT
         + 88  # ~Gluing opcodes
     )
@@ -725,13 +725,13 @@ def test_selfdestruct_created(
     )
     call_costs = (
         gas_costs.G_WARM_ACCOUNT_ACCESS
-        + gas_costs.G_BASE  # COINBASE
+        + gas_costs.GAS_BASE  # COINBASE
         + gas_costs.G_SELF_DESTRUCT
         + gas_costs.G_VERY_LOW * 5  # CALL Parameter PUSHs
-        + gas_costs.G_BASE  #  Parameter GAS
+        + gas_costs.GAS_BASE  #  Parameter GAS
     )
     extra_costs = (
-        gas_costs.G_BASE * 2  # POP, GAS
+        gas_costs.GAS_BASE * 2  # POP, GAS
         + gas_costs.G_VERY_LOW * 5  # PUSHs, ADD, DUP, GT
         + gas_costs.G_HIGH  # JUMPI
         + gas_costs.GAS_JUMPDEST
@@ -740,7 +740,7 @@ def test_selfdestruct_created(
 
     prefix_cost = (
         gas_costs.G_VERY_LOW * 3
-        + gas_costs.G_BASE
+        + gas_costs.GAS_BASE
         + memory_expansion_calc(new_bytes=32)
     )
     suffix_cost = (
@@ -836,7 +836,7 @@ def test_selfdestruct_initcode(
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
     initcode_costs = (
-        gas_costs.G_BASE  # COINBASE
+        gas_costs.GAS_BASE  # COINBASE
         + gas_costs.G_SELF_DESTRUCT
     )
     create_costs = (
@@ -846,7 +846,7 @@ def test_selfdestruct_initcode(
         + gas_costs.G_INITCODE_WORD
     )
     extra_costs = (
-        gas_costs.G_BASE * 2  # POP, GAS
+        gas_costs.GAS_BASE * 2  # POP, GAS
         + gas_costs.G_VERY_LOW * 5  # PUSHs, ADD, GT
         + gas_costs.G_HIGH  # JUMPI
         + gas_costs.GAS_JUMPDEST
@@ -855,7 +855,7 @@ def test_selfdestruct_initcode(
 
     prefix_cost = (
         gas_costs.G_VERY_LOW * 3
-        + gas_costs.G_BASE
+        + gas_costs.GAS_BASE
         + memory_expansion_calc(new_bytes=32)
     )
     suffix_cost = (

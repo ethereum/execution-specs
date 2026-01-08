@@ -1230,7 +1230,7 @@ def test_bal_noop_storage_write(
         + fork.gas_costs().G_COLD_SLOAD
         + fork.gas_costs().G_COLD_ACCOUNT_ACCESS
         + fork.gas_costs().G_STORAGE_SET
-        + fork.gas_costs().G_BASE * 10  # Buffer for push
+        + fork.gas_costs().GAS_BASE * 10  # Buffer for push
     )
 
     tx = Transaction(

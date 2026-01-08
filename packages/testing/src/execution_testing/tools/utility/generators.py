@@ -488,8 +488,8 @@ def gas_test(
     # 2 times GAS, POP, CALL, 6 times PUSH1 - instructions charged for at every
     # gas run
     gas_costs = fork.gas_costs()
-    OPCODE_GAS_COST = gas_costs.G_BASE
-    OPCODE_POP_COST = gas_costs.G_BASE
+    OPCODE_GAS_COST = gas_costs.GAS_BASE
+    OPCODE_POP_COST = gas_costs.GAS_BASE
     OPCODE_PUSH_COST = gas_costs.G_VERY_LOW
     gas_single_gas_run = (
         2 * OPCODE_GAS_COST

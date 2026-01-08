@@ -85,10 +85,10 @@ def test_bloatnet_balance_extcodesize(
         + gas_costs.G_KECCAK_256_WORD
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
-        + gas_costs.G_BASE  # POP first result (2)
+        + gas_costs.GAS_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
-        + gas_costs.G_BASE  # POP second result (2)
-        + gas_costs.G_BASE  # DUP1 before first op (3)
+        + gas_costs.GAS_BASE  # POP second result (2)
+        + gas_costs.GAS_BASE  # DUP1 before first op (3)
         + gas_costs.G_VERY_LOW * 4  # PUSH1 operations (4 * 3)
         + gas_costs.G_LOW  # MLOAD for salt (3)
         + gas_costs.G_VERY_LOW  # ADD for increment (3)
@@ -241,15 +241,15 @@ def test_bloatnet_balance_extcodecopy(
         + gas_costs.G_KECCAK_256_WORD
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
-        + gas_costs.G_BASE  # POP first result (2)
+        + gas_costs.GAS_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access base (100)
         + gas_costs.G_COPY * 1  # Copy cost for 1 byte (3)
-        + gas_costs.G_BASE * 2  # DUP1 before first op, DUP4 for address (6)
+        + gas_costs.GAS_BASE * 2  # DUP1 before first op, DUP4 for address (6)
         + gas_costs.G_VERY_LOW * 8  # PUSH operations (8 * 3 = 24)
         + gas_costs.G_LOW * 2  # MLOAD for salt twice (6)
         + gas_costs.G_VERY_LOW * 2  # ADD operations (6)
         + gas_costs.G_LOW  # MSTORE salt back (3)
-        + gas_costs.G_BASE  # POP after second op (2)
+        + gas_costs.GAS_BASE  # POP after second op (2)
         + 10  # While loop overhead
     )
 
@@ -402,10 +402,10 @@ def test_bloatnet_balance_extcodehash(
         + gas_costs.G_KECCAK_256_WORD
         * 3  # SHA3 dynamic cost (85 bytes = 3 words * 6)
         + gas_costs.G_COLD_ACCOUNT_ACCESS  # Cold access (2600)
-        + gas_costs.G_BASE  # POP first result (2)
+        + gas_costs.GAS_BASE  # POP first result (2)
         + gas_costs.G_WARM_ACCOUNT_ACCESS  # Warm access (100)
-        + gas_costs.G_BASE  # POP second result (2)
-        + gas_costs.G_BASE  # DUP1 before first op (3)
+        + gas_costs.GAS_BASE  # POP second result (2)
+        + gas_costs.GAS_BASE  # DUP1 before first op (3)
         + gas_costs.G_VERY_LOW * 4  # PUSH1 operations (4 * 3)
         + gas_costs.G_LOW  # MLOAD for salt (3)
         + gas_costs.G_VERY_LOW  # ADD for increment (3)
@@ -584,16 +584,16 @@ def test_mixed_sload_sstore(
         gas_costs.G_VERY_LOW * 2  # MLOAD counter (3*2)
         + gas_costs.G_VERY_LOW * 2  # MSTORE selector (3*2)
         + gas_costs.G_VERY_LOW * 3  # MLOAD + MSTORE address (3*3)
-        + gas_costs.G_BASE  # POP (2)
-        + gas_costs.G_BASE * 3  # SUB + MLOAD + MSTORE counter decrement
-        + gas_costs.G_BASE * 2  # ISZERO * 2 for loop condition (2*2)
+        + gas_costs.GAS_BASE  # POP (2)
+        + gas_costs.GAS_BASE * 3  # SUB + MLOAD + MSTORE counter decrement
+        + gas_costs.GAS_BASE * 2  # ISZERO * 2 for loop condition (2*2)
         + gas_costs.G_MID  # JUMPI (8)
     )
 
     # ERC20 balanceOf internal gas
     sload_erc20_internal = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
-        + gas_costs.G_BASE  # EQ selector match (2)
+        + gas_costs.GAS_BASE  # EQ selector match (2)
         + gas_costs.G_MID  # JUMPI to function (8)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
@@ -609,7 +609,7 @@ def test_mixed_sload_sstore(
         gas_costs.G_VERY_LOW  # MSTORE selector at memory[32] (3)
         + gas_costs.G_LOW  # MLOAD counter (5)
         + gas_costs.G_VERY_LOW  # MSTORE spender at memory[64] (3)
-        + gas_costs.G_BASE  # POP call result (2)
+        + gas_costs.GAS_BASE  # POP call result (2)
         # Counter decrement
         + gas_costs.G_LOW  # MLOAD counter (5)
         + gas_costs.G_VERY_LOW  # PUSH1 1 (3)
@@ -617,8 +617,8 @@ def test_mixed_sload_sstore(
         + gas_costs.G_VERY_LOW  # MSTORE counter back (3)
         # While loop condition check
         + gas_costs.G_LOW  # MLOAD counter (5)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_BASE  # ISZERO (2)
+        + gas_costs.GAS_BASE  # ISZERO (2)
+        + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.G_MID  # JUMPI back to loop start (8)
     )
 
@@ -626,7 +626,7 @@ def test_mixed_sload_sstore(
     # Cold SSTORE: 22100 = 20000 base + 2100 cold access
     sstore_erc20_internal = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
-        + gas_costs.G_BASE  # EQ selector match (2)
+        + gas_costs.GAS_BASE  # EQ selector match (2)
         + gas_costs.G_MID  # JUMPI to function (8)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD spender (3)

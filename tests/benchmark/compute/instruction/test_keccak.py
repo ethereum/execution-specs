@@ -44,7 +44,7 @@ def test_keccak_max_permutations(
             + gsc.G_KECCAK_256  # KECCAK256 static cost
             + math.ceil(i / 32) * gsc.G_KECCAK_256_WORD  # KECCAK256 dynamic
             # cost
-            + gsc.G_BASE  # POP
+            + gsc.GAS_BASE  # POP
         )
         # From the available gas, we subtract the mem expansion costs
         # considering we know the current input size length i.

@@ -48,7 +48,7 @@ def test_account_storage_warm_cold_state(
     overhead_cost = (
         gas_costs.G_VERY_LOW
         * (Op.CALL.popped_stack_items - 1)  # Call stack items
-        + gas_costs.G_BASE  # Call gas
+        + gas_costs.GAS_BASE  # Call gas
         + gas_costs.G_VERY_LOW  # SLOAD Push
     )
     contract_address = pre.deploy_contract(

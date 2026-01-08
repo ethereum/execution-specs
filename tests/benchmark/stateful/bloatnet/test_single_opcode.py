@@ -134,16 +134,16 @@ def test_sload_empty_erc20_balanceof(
         gas_costs.G_VERY_LOW * 2  # MLOAD counter (3*2)
         + gas_costs.G_VERY_LOW * 2  # MSTORE selector (3*2)
         + gas_costs.G_VERY_LOW * 3  # MLOAD + MSTORE address (3*3)
-        + gas_costs.G_BASE  # POP (2)
-        + gas_costs.G_BASE * 3  # SUB + MLOAD + MSTORE counter decrement
-        + gas_costs.G_BASE * 2  # ISZERO * 2 for loop condition (2*2)
+        + gas_costs.GAS_BASE  # POP (2)
+        + gas_costs.GAS_BASE * 3  # SUB + MLOAD + MSTORE counter decrement
+        + gas_costs.GAS_BASE * 2  # ISZERO * 2 for loop condition (2*2)
         + gas_costs.G_MID  # JUMPI (8)
     )
 
     # ERC20 internal gas (same for all calls)
     erc20_internal_gas = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
-        + gas_costs.G_BASE  # EQ selector match (2)
+        + gas_costs.GAS_BASE  # EQ selector match (2)
         + gas_costs.G_MID  # JUMPI to function (8)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
@@ -306,10 +306,10 @@ def test_sstore_erc20_approve(
         + memory_expansion_cost  # Memory expansion (15)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at loop start (1)
         + gas_costs.G_LOW  # MLOAD for While condition check (5)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_BASE  # ISZERO (2)
+        + gas_costs.GAS_BASE  # ISZERO (2)
+        + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.G_MID  # JUMPI (8)
-        + gas_costs.G_BASE  # POP to clean up counter at end (2)
+        + gas_costs.GAS_BASE  # POP to clean up counter at end (2)
     )  # = 38
 
     # Fixed overhead per iteration (loop mechanics, independent of warm/cold)
@@ -318,7 +318,7 @@ def test_sstore_erc20_approve(
         gas_costs.G_VERY_LOW  # MSTORE selector at memory[32] (3)
         + gas_costs.G_LOW  # MLOAD counter (5)
         + gas_costs.G_VERY_LOW  # MSTORE spender at memory[64] (3)
-        + gas_costs.G_BASE  # POP call result (2)
+        + gas_costs.GAS_BASE  # POP call result (2)
         # Counter decrement: MSTORE(0, SUB(MLOAD(0), 1))
         + gas_costs.G_LOW  # MLOAD counter (5)
         + gas_costs.G_VERY_LOW  # PUSH1 1 (3)
@@ -326,8 +326,8 @@ def test_sstore_erc20_approve(
         + gas_costs.G_VERY_LOW  # MSTORE counter back (3)
         # While loop condition check
         + gas_costs.G_LOW  # MLOAD counter (5)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_BASE  # ISZERO (2)
+        + gas_costs.GAS_BASE  # ISZERO (2)
+        + gas_costs.GAS_BASE  # ISZERO (2)
         + gas_costs.G_MID  # JUMPI back to loop start (8)
     )
 
@@ -336,7 +336,7 @@ def test_sstore_erc20_approve(
     # (20000 base + 2100 cold access)
     erc20_internal_gas = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
-        + gas_costs.G_BASE  # EQ selector match (2)
+        + gas_costs.GAS_BASE  # EQ selector match (2)
         + gas_costs.G_MID  # JUMPI to function (8)
         + gas_costs.GAS_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD spender (3)

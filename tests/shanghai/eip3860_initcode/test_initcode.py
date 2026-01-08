@@ -513,9 +513,9 @@ class TestCreateInitcode:
         gas_costs = fork.gas_costs()
 
         create_contract_base_gas = gas_costs.G_CREATE
-        gas_opcode_gas = gas_costs.G_BASE
+        gas_opcode_gas = gas_costs.GAS_BASE
         push_dup_opcode_gas = gas_costs.G_VERY_LOW
-        calldatasize_opcode_gas = gas_costs.G_BASE
+        calldatasize_opcode_gas = gas_costs.GAS_BASE
         contract_creation_gas_usage = (
             create_contract_base_gas
             + gas_opcode_gas

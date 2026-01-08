@@ -59,7 +59,7 @@ def test_eip_7702(
     execution_cost = (
         (gas_costs.G_COLD_SLOAD + gas_costs.G_STORAGE_SET) * 3
         + (gas_costs.G_VERY_LOW * 3)
-        + (gas_costs.G_BASE * 3)
+        + (gas_costs.GAS_BASE * 3)
     )
 
     tx = Transaction(

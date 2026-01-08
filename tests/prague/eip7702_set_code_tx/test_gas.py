@@ -885,7 +885,7 @@ def test_gas_cost(
     # fifth (EIP-3529) of the total gas used, so we can see the full discount
     # being reflected in most of the tests.
     gas_costs = fork.gas_costs()
-    gas_opcode_cost = gas_costs.G_BASE
+    gas_opcode_cost = gas_costs.GAS_BASE
     sstore_opcode_count = 10
     push_opcode_count = (2 * (sstore_opcode_count)) - 1
     push_opcode_cost = gas_costs.G_VERY_LOW * push_opcode_count
