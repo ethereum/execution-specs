@@ -1,5 +1,13 @@
 """
 Utility functions used in this specification.
+
+This package contains utility modules for common operations:
+
+- `address`: Address validation, conversion, and checksumming utilities
+- `byte`: Byte string padding and manipulation
+- `hexadecimal`: Hex string parsing and conversion
+- `numeric`: Numeric operations and conversions
+- `validation`: Data validation utilities for Ethereum types
 """
 
 from dataclasses import fields
