@@ -683,6 +683,26 @@ def test_mixed_sload_sstore(
     # Calculate gas costs
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
 
+    # Per-contract fixed overhead (setup + teardown for each contract's loops)
+    # Each contract has two loops: SLOAD (balanceOf) and SSTORE (approve)
+    overhead_per_contract = (
+        # SLOAD loop setup/teardown
+        gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
+        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
+        + gas_costs.G_VERY_LOW  # MLOAD for While condition (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI (10)
+        # SSTORE loop setup/teardown
+        + gas_costs.G_VERY_LOW  # MSTORE selector (3)
+        + gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
+        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
+        + gas_costs.G_VERY_LOW  # MLOAD for While condition (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI (10)
+    )
+
     # Fixed overhead for SLOAD loop
     sload_loop_overhead = (
         # Attack contract loop overhead
@@ -699,7 +719,7 @@ def test_mixed_sload_sstore(
     sload_erc20_internal = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.G_BASE  # EQ selector match (2)
-        + gas_costs.G_MID  # JUMPI to function (8)
+        + gas_costs.G_HIGH  # JUMPI to function (10)
         + gas_costs.G_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
         + gas_costs.G_KECCAK_256  # keccak256 static (30)
@@ -732,7 +752,7 @@ def test_mixed_sload_sstore(
     sstore_erc20_internal = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.G_BASE  # EQ selector match (2)
-        + gas_costs.G_MID  # JUMPI to function (8)
+        + gas_costs.G_HIGH  # JUMPI to function (10)
         + gas_costs.G_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD spender (3)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD amount (3)
