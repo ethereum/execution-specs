@@ -683,6 +683,26 @@ def test_mixed_sload_sstore(
     # Calculate gas costs
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
 
+    # Per-contract fixed overhead (setup + teardown for each contract's loops)
+    # Each contract has two loops: SLOAD (balanceOf) and SSTORE (approve)
+    overhead_per_contract = (
+        # SLOAD loop setup/teardown
+        gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
+        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
+        + gas_costs.G_VERY_LOW  # MLOAD for While condition (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI (10)
+        # SSTORE loop setup/teardown
+        + gas_costs.G_VERY_LOW  # MSTORE selector (3)
+        + gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
+        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
+        + gas_costs.G_VERY_LOW  # MLOAD for While condition (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI (10)
+    )
+
     # Fixed overhead for SLOAD loop
     sload_loop_overhead = (
         # Attack contract loop overhead
@@ -751,7 +771,10 @@ def test_mixed_sload_sstore(
     num_txs = max(1, gas_benchmark_value // tx_gas_limit)
 
     # Calculate gas budget per contract per transaction
-    available_gas_per_tx = tx_gas_limit - intrinsic_gas
+    total_overhead_per_tx = intrinsic_gas + (
+        overhead_per_contract * num_contracts
+    )
+    available_gas_per_tx = tx_gas_limit - total_overhead_per_tx
     gas_per_contract_per_tx = available_gas_per_tx // num_contracts
 
     # For each contract, split gas by percentage
