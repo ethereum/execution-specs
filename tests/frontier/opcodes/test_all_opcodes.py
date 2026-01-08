@@ -259,7 +259,7 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         Op.RETURNDATASIZE: gas_costs.GAS_BASE,
         Op.RETURNDATACOPY: gas_costs.GAS_COPY,
         Op.EXTCODEHASH: gas_costs.GAS_WARM_ACCESS,
-        Op.BLOCKHASH: gas_costs.G_BLOCKHASH,
+        Op.BLOCKHASH: gas_costs.GAS_BLOCK_HASH,
         Op.COINBASE: gas_costs.GAS_BASE,
         Op.TIMESTAMP: gas_costs.GAS_BASE,
         Op.NUMBER: gas_costs.GAS_BASE,

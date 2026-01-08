@@ -152,7 +152,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_KECCAK256=30,
             GAS_KECCAK256_WORD=6,
             GAS_COPY=3,
-            G_BLOCKHASH=20,
+            GAS_BLOCK_HASH=20,
             G_AUTHORIZATION=0,
             R_AUTHORIZATION_EXISTING_AUTHORITY=0,
         )

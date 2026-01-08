@@ -55,7 +55,7 @@ class GasCosts:
     GAS_KECCAK256_WORD: int
 
     GAS_COPY: int
-    G_BLOCKHASH: int
+    GAS_BLOCK_HASH: int
 
     G_AUTHORIZATION: int
 
