@@ -140,7 +140,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_EXPONENTIATION=10,
             GAS_EXPONENTIATION_PER_BYTE=50,
             GAS_MEMORY=3,
-            G_TX_DATA_ZERO=4,
+            TX_DATA_COST_PER_ZERO=4,
             G_TX_DATA_NON_ZERO=68,
             STANDARD_CALLDATA_TOKEN_COST=0,
             FLOOR_CALLDATA_COST=0,
@@ -200,7 +200,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             cost = 0
             for b in Bytes(data):
                 if b == 0:
-                    cost += gas_costs.G_TX_DATA_ZERO
+                    cost += gas_costs.TX_DATA_COST_PER_ZERO
                 else:
                     cost += gas_costs.G_TX_DATA_NON_ZERO
             return cost
