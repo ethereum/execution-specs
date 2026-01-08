@@ -49,7 +49,7 @@ class GasCosts:
 
     GAS_LOG: int
     GAS_LOG_DATA: int
-    G_LOG_TOPIC: int
+    GAS_LOG_TOPIC: int
 
     GAS_KECCAK256: int
     GAS_KECCAK256_WORD: int
