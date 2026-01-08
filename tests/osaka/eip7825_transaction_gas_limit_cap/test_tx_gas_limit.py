@@ -305,7 +305,7 @@ def test_maximum_gas_refund(
 def total_cost_floor_per_token(fork: Fork) -> int:
     """Total cost floor per token."""
     gas_costs = fork.gas_costs()
-    return gas_costs.G_TX_DATA_FLOOR_TOKEN_COST
+    return gas_costs.FLOOR_CALLDATA_COST
 
 
 @pytest.mark.xdist_group(name="bigmem")
