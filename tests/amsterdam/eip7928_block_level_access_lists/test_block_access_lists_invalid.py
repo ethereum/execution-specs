@@ -771,8 +771,8 @@ def test_bal_invalid_extraneous_entries(
       (slot 0) for Oracle.
     - extra_storage_write_untouched: Extra storage write for an unread slot
       (slot 1) for Oracle.
-    - extra_storage_write_uninvolved_account: Extra storage write for uninvolved
-      account (Charlie) that isn't accessed at all.
+    - extra_storage_write_uninvolved_account: Extra storage write for
+      uninvolved account (Charlie) that isn't accessed at all.
     - extra_account_access: Uninvolved account (Charlie) added to BAL entirely.
     - extra_storage_read: Extra storage read for Oracle (slot 999).
 
