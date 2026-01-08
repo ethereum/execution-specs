@@ -133,10 +133,10 @@ def test_sload_empty_erc20_balanceof(
     overhead_per_contract = (
         gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
         + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
-        + gas_costs.G_LOW  # MLOAD for While condition check (3)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_MID  # JUMPI (8)
+        + gas_costs.G_VERY_LOW  # MLOAD for While condition check (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI (10)
         + gas_costs.G_BASE  # POP to clean up counter at end (2)
     )
 
@@ -147,9 +147,9 @@ def test_sload_empty_erc20_balanceof(
         + gas_costs.G_VERY_LOW * 2  # MSTORE selector (3*2)
         + gas_costs.G_VERY_LOW * 3  # MLOAD + MSTORE address (3*3)
         + gas_costs.G_BASE  # POP (2)
-        + gas_costs.G_BASE * 3  # SUB + MLOAD + MSTORE counter decrement
-        + gas_costs.G_BASE * 2  # ISZERO * 2 for loop condition (2*2)
-        + gas_costs.G_MID  # JUMPI (8)
+        + gas_costs.G_VERY_LOW * 3  # SUB + MLOAD + MSTORE decrement (3*3)
+        + gas_costs.G_VERY_LOW * 2  # ISZERO * 2 for loop condition (3*2)
+        + gas_costs.G_HIGH  # JUMPI (10)
     )
 
     # ERC20 internal gas (same for all calls)
@@ -331,30 +331,30 @@ def test_sstore_erc20_approve(
         gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
         + memory_expansion_cost  # Memory expansion (15)
         + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
-        + gas_costs.G_LOW  # MLOAD for While condition check (5)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_MID  # JUMPI (8)
+        + gas_costs.G_VERY_LOW  # MLOAD for While condition check (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI (10)
         + gas_costs.G_BASE  # POP to clean up counter at end (2)
-    )  # = 38
+    )  # = 40
 
     # Fixed overhead per iteration (loop mechanics, independent of warm/cold)
     loop_overhead = (
         # Attack contract loop body operations
         gas_costs.G_VERY_LOW  # MSTORE selector at memory[32] (3)
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.G_VERY_LOW  # MLOAD counter (3)
         + gas_costs.G_VERY_LOW  # MSTORE spender at memory[64] (3)
         + gas_costs.G_BASE  # POP call result (2)
         # Counter decrement: MSTORE(0, SUB(MLOAD(0), 1))
-        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.G_VERY_LOW  # MLOAD counter (3)
         + gas_costs.G_VERY_LOW  # PUSH1 1 (3)
         + gas_costs.G_VERY_LOW  # SUB (3)
         + gas_costs.G_VERY_LOW  # MSTORE counter back (3)
         # While loop condition check
-        + gas_costs.G_LOW  # MLOAD counter (5)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_MID  # JUMPI back to loop start (8)
+        + gas_costs.G_VERY_LOW  # MLOAD counter (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_VERY_LOW  # ISZERO (3)
+        + gas_costs.G_HIGH  # JUMPI back to loop start (10)
     )
 
     # ERC20 internal gas (same for all calls)
