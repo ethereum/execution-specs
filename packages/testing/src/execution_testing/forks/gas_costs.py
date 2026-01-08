@@ -34,7 +34,7 @@ class GasCosts:
     GAS_CALL_STIPEND: int
     GAS_NEW_ACCOUNT: int
 
-    G_EXP: int
+    GAS_EXPONENTIATION: int
     G_EXP_BYTE: int
 
     GAS_MEMORY: int
