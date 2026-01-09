@@ -236,3 +236,73 @@ def test_invalid_validity_markers(
         errors=1,
     )
     assert error_string in "\n".join(result.stdout.lines)
+
+
+# --- Tests for param-level marker errors --- #
+
+
+param_level_marker_error_test_cases = (
+    (
+        "param_level_valid_from_with_function_level_valid_from",
+        (
+            """
+            import pytest
+            @pytest.mark.parametrize(
+                "value",
+                [
+                    pytest.param(True, marks=pytest.mark.valid_from("Paris")),
+                ],
+            )
+            @pytest.mark.valid_from("Berlin")
+            def test_case(state_test, value):
+                assert 1
+            """,
+            "Too many 'valid_from' markers applied to test",
+        ),
+    ),
+    (
+        "param_level_valid_until_with_function_level_valid_until",
+        (
+            """
+            import pytest
+            @pytest.mark.parametrize(
+                "value",
+                [
+                    pytest.param(True, marks=pytest.mark.valid_until("Cancun")),
+                ],
+            )
+            @pytest.mark.valid_until("Prague")
+            def test_case(state_test, value):
+                assert 1
+            """,
+            "Too many 'valid_until' markers applied to test",
+        ),
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "test_function, error_string",
+    [test_case for _, test_case in param_level_marker_error_test_cases],
+    ids=[test_id for test_id, _ in param_level_marker_error_test_cases],
+)
+def test_param_level_marker_errors(
+    pytester: pytest.Pytester, error_string: str, test_function: str
+) -> None:
+    """
+    Test that combining function-level and param-level validity markers
+    of the same type produces an error.
+
+    Unlike function-level errors (caught during test generation), param-level
+    errors are caught during collection and cause pytest to exit immediately.
+    """
+    pytester.makepyfile(test_function)
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = pytester.runpytest("-c", "pytest-fill.ini")
+
+    # pytest.exit() causes the run to terminate with no test outcomes
+    assert result.ret != 0, "Expected non-zero exit code"
+    stdout = "\n".join(result.stdout.lines)
+    assert error_string in stdout, f"Expected '{error_string}' in output"
