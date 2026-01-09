@@ -11,6 +11,7 @@ from .tools_code import (
     Initcode,
     Switch,
     While,
+    Create2Addr,
 )
 from .utility.generators import (
     DeploymentTestType,
@@ -31,6 +32,7 @@ __all__ = (
     "ParameterSet",
     "Switch",
     "While",
+    "Create2Addr",
     "extend_with_defaults",
     "gas_test",
     "generate_system_contract_deploy_test",

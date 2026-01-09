@@ -13,6 +13,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Create2Addr,
     Fork,
     Hash,
     Op,
@@ -109,24 +110,22 @@ def test_unchunkified_bytecode(
         )
         post[deployed_contract_address] = Account(nonce=1)
 
+    create2_addr = Create2Addr(
+        factory_address=factory_address,
+        salt=0,
+        init_code_hash=initcode.keccak256(),
+    )
     attack_call = Bytecode()
     if opcode == Op.EXTCODECOPY:
         attack_call = Op.EXTCODECOPY(
-            address=Op.SHA3(32 - 20 - 1, 85), dest_offset=96, size=1000
+            address=create2_addr.compute, dest_offset=96, size=1000
         )
     else:
         # For the rest of the opcodes, we can use the same generic attack call
         # since all only minimally need the `address` of the target.
-        attack_call = Op.POP(opcode(address=Op.SHA3(32 - 20 - 1, 85)))
+        attack_call = Op.POP(opcode(address=create2_addr.compute))
     attack_code = (
-        # Setup memory for later CREATE2 address generation loop.
-        # 0xFF+[Address(20bytes)]+[seed(32bytes)]+[initcode keccak(32bytes)]
-        Op.MSTORE(0, factory_address)
-        + Op.MSTORE8(32 - 20 - 1, 0xFF)
-        + Op.MSTORE(
-            32, Op.CALLDATALOAD(0)
-        )  # Calldata is the starting value of the CREATE2 salt
-        + Op.MSTORE(64, initcode.keccak256())
+        create2_addr
         # Main loop
         + While(
             body=attack_call + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),

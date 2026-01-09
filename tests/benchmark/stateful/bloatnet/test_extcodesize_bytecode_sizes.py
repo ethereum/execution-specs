@@ -71,6 +71,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Conditional,
+    Create2Addr,
     Op,
     Storage,
     Transaction,
@@ -128,15 +129,17 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
             ),
             if_false=Op.REVERT(0, 0),
         )
-        # Setup CREATE2 memory: keccak256(0xFF ++ factory ++ salt ++ hash)
-        + Op.MSTORE(0, factory_address)
-        + Op.MSTORE8(11, 0xFF)
-        + Op.MSTORE(32, Op.SLOAD(0))  # Load salt directly to memory
-        + Op.MSTORE(64, Op.MLOAD(128))  # init_code_hash
+        + (
+            create2_addr := Create2Addr(
+                factory_address=factory_address,
+                salt=Op.SLOAD(0),
+                init_code_hash=Op.MLOAD(128),
+            )
+        )
         + Op.MSTORE(160, 0)  # Initialize last_size
         + While(
             body=(
-                Op.MSTORE(160, Op.EXTCODESIZE(Op.SHA3(11, 85)))
+                Op.MSTORE(160, Op.EXTCODESIZE(create2_addr.compute))
                 + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
             ),
             condition=(

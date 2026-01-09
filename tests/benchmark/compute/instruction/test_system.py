@@ -22,6 +22,7 @@ from execution_testing import (
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    Create2Addr,
     Environment,
     ExtCallGenerator,
     Fork,
@@ -387,15 +388,16 @@ def test_selfdestruct_existing(
             )
 
     code = (
-        # Setup memory for later CREATE2 address generation loop.
-        # 0xFF+[Address(20bytes)]+[seed(32bytes)]+[initcode keccak(32bytes)]
-        Op.MSTORE(0, factory_address)
-        + Op.MSTORE8(32 - 20 - 1, 0xFF)
-        + Op.MSTORE(32, Op.CALLDATALOAD(0))  # Starting address from calldata
-        + Op.MSTORE(64, initcode.keccak256())
+        (
+            create2_addr := Create2Addr(
+                factory_address=factory_address,
+                salt=Op.CALLDATALOAD(0),
+                init_code_hash=initcode.keccak256(),
+            )
+        )
         # Main loop
         + While(
-            body=Op.POP(Op.CALL(address=Op.SHA3(32 - 20 - 1, 85)))
+            body=Op.POP(Op.CALL(address=create2_addr.compute))
             + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
             # Loop while we have enough gas AND within target count
             condition=Op.GT(Op.GAS, final_storage_gas + loop_cost),

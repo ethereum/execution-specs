@@ -8,6 +8,7 @@ from .generators import (
     Initcode,
     Switch,
     While,
+    Create2Addr,
 )
 from .yul import Solc, Yul, YulCompiler
 
@@ -22,4 +23,5 @@ __all__ = (
     "While",
     "Yul",
     "YulCompiler",
+    "Create2Addr",
 )

@@ -13,6 +13,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Create2Addr,
     Fork,
     Op,
     Transaction,
@@ -175,24 +176,19 @@ def test_bloatnet_balance_extcodesize(
         # Load results from memory
         # Memory[96:128] = num_deployed_contracts
         # Memory[128:160] = init_code_hash
-        + Op.MLOAD(96)  # Load num_deployed_contracts
-        + Op.MLOAD(128)  # Load init_code_hash
-        # Setup memory for CREATE2 address generation
-        # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
-        + Op.MSTORE(
-            0, factory_address
-        )  # Store factory address at memory position 0
-        + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
-        + Op.MSTORE(32, 0)  # Store salt at position 32
-        # Stack now has: [num_contracts, init_code_hash]
-        + Op.PUSH1(64)  # Push memory position
-        + Op.MSTORE  # Store init_code_hash at memory[64]
-        # Stack now has: [num_contracts]
+        + Op.MLOAD(96)  # Load num_deployed_contracts to stack
+        + (
+            create2_addr := Create2Addr(
+                factory_address=factory_address,
+                salt=0,
+                init_code_hash=Op.MLOAD(128),
+            )
+        )
         # Main attack loop - iterate through all deployed contracts
         + While(
             body=(
                 # Generate CREATE2 addr: keccak256(0xFF+factory+salt+hash)
-                Op.SHA3(11, 85)  # Generate CREATE2 address from memory[11:96]
+                create2_addr.compute  # Generate CREATE2 address from memory
                 # The address is now on the stack
                 + Op.DUP1  # Duplicate for second operation
                 + benchmark_ops  # Execute operations in specified order
@@ -372,24 +368,19 @@ def test_bloatnet_balance_extcodecopy(
         # Load results from memory
         # Memory[96:128] = num_deployed_contracts
         # Memory[128:160] = init_code_hash
-        + Op.MLOAD(96)  # Load num_deployed_contracts
-        + Op.MLOAD(128)  # Load init_code_hash
-        # Setup memory for CREATE2 address generation
-        # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
-        + Op.MSTORE(
-            0, factory_address
-        )  # Store factory address at memory position 0
-        + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
-        + Op.MSTORE(32, 0)  # Store salt at position 32
-        # Stack now has: [num_contracts, init_code_hash]
-        + Op.PUSH1(64)  # Push memory position
-        + Op.MSTORE  # Store init_code_hash at memory[64]
-        # Stack now has: [num_contracts]
+        + Op.MLOAD(96)  # Load num_deployed_contracts to stack
+        + (
+            create2_addr := Create2Addr(
+                factory_address=factory_address,
+                salt=0,
+                init_code_hash=Op.MLOAD(128),
+            )
+        )
         # Main attack loop - iterate through all deployed contracts
         + While(
             body=(
                 # Generate CREATE2 address
-                Op.SHA3(11, 85)  # Generate CREATE2 address from memory[11:96]
+                create2_addr.compute
                 # The address is now on the stack
                 + Op.DUP1  # Duplicate for later operations
                 + benchmark_ops  # Execute operations in specified order
@@ -554,19 +545,19 @@ def test_bloatnet_balance_extcodehash(
         + Op.PUSH2(0x1000)  # Jump to error handler if failed
         + Op.JUMPI
         # Load results from memory
-        + Op.MLOAD(96)  # Load num_deployed_contracts
-        + Op.MLOAD(128)  # Load init_code_hash
-        # Setup memory for CREATE2 address generation
-        + Op.MSTORE(0, factory_address)
-        + Op.MSTORE8(11, 0xFF)
-        + Op.MSTORE(32, 0)  # Initial salt
-        + Op.PUSH1(64)
-        + Op.MSTORE  # Store init_code_hash
+        + Op.MLOAD(96)  # Load num_deployed_contracts to stack
+        + (
+            create2_addr := Create2Addr(
+                factory_address=factory_address,
+                salt=0,
+                init_code_hash=Op.MLOAD(128),
+            )
+        )
         # Main attack loop
         + While(
             body=(
                 # Generate CREATE2 address
-                Op.SHA3(11, 85)
+                create2_addr.compute
                 + Op.DUP1  # Duplicate for second operation
                 + benchmark_ops  # Execute operations in specified order
                 # Increment salt
