@@ -23,7 +23,7 @@ Contract sources:
 """
 
 from pathlib import Path
-from typing import Any, List, Self
+from typing import Any, Callable, List, Self
 
 import pytest
 from execution_testing import (
@@ -38,11 +38,9 @@ from execution_testing import (
     Bytes,
     Fork,
     Hash,
-    Initcode,
     Op,
     Transaction,
     While,
-    compute_deterministic_create2_address,
 )
 from pydantic import BaseModel, Field
 
@@ -195,7 +193,20 @@ class Attack(BaseModel):
     value: int
     start: int
     end: int
-    initcode_hash: Hash
+    fork: Fork
+    mined_contract_file: MinedContractFile
+    attack_orchestrator_address: Address
+
+    def next(self) -> Self:
+        """Create a copy of the instance with the next salt as the new end."""
+        return self.__class__(
+            value=self.value,
+            start=self.start,
+            end=self.end + 1,
+            fork=self.fork,
+            mined_contract_file=self.mined_contract_file,
+            attack_orchestrator_address=self.attack_orchestrator_address,
+        )
 
     def calldata(self) -> bytes:
         """Return the calldata that needs to be passed to the orchestrator."""
@@ -203,13 +214,13 @@ class Attack(BaseModel):
             self.value.to_bytes(32, "big")
             + self.start.to_bytes(32, "big")
             + self.end.to_bytes(32, "big")
-            + self.initcode_hash
+            + self.mined_contract_file.initcode_hash
         )
 
-    def calculate_inner_call_cost(self, fork: Fork) -> int:
+    def calculate_inner_call_cost(self) -> int:
         """Calculate the exact gas this inner call would use."""
-        gas_costs = fork.gas_costs()
-        mem_expand_calc = fork.memory_expansion_gas_calculator()
+        gas_costs = self.fork.gas_costs()
+        mem_expand_calc = self.fork.memory_expansion_gas_calculator()
         inner_call_cost = (
             mem_expand_calc(new_bytes=96)
             + 17 * gas_costs.G_VERY_LOW  # PUSHN operations
@@ -238,11 +249,13 @@ class Attack(BaseModel):
         )
         return inner_call_cost
 
-    def calculate_gas(self, fork: Fork) -> int:
+    def calculate_gas(self) -> int:
         """Calculate the exact gas this attack transaction will use."""
-        tx_intrinsic_gas_calc = fork.transaction_intrinsic_cost_calculator()
-        gas_costs = fork.gas_costs()
-        mem_expand_calc = fork.memory_expansion_gas_calculator()
+        tx_intrinsic_gas_calc = (
+            self.fork.transaction_intrinsic_cost_calculator()
+        )
+        gas_costs = self.fork.gas_costs()
+        mem_expand_calc = self.fork.memory_expansion_gas_calculator()
         tx_overhead = tx_intrinsic_gas_calc(
             calldata=self.calldata(),
             return_cost_deducted_prior_execution=True,
@@ -253,7 +266,7 @@ class Attack(BaseModel):
             + 10 * gas_costs.G_VERY_LOW  # PUSH operations
             + 3 * gas_costs.G_VERY_LOW  # CALLDATALOAD operations
         )
-        inner_call_cost = self.calculate_inner_call_cost(fork)
+        inner_call_cost = self.calculate_inner_call_cost()
         gas_per_attack = (
             1 * gas_costs.G_JUMPDEST  # JUMPDEST operations
             + 15 * gas_costs.G_VERY_LOW  # PUSH operations
@@ -280,112 +293,58 @@ class Attack(BaseModel):
         )
         return call_count * gas_per_attack + setup_gas + tx_overhead
 
-    def calculate_tx_gas_limit(self, fork: Fork) -> int:
+    def calculate_tx_gas_limit(self) -> int:
         """Calculate the gas limit required for the transaction."""
-        gas_cost = self.calculate_gas(fork)
+        gas_cost = self.calculate_gas()
         # Add the 63/64 margin for the last inner call.
-        inner_call_cost = self.calculate_inner_call_cost(fork)
+        inner_call_cost = self.calculate_inner_call_cost()
         return gas_cost + ((inner_call_cost * 64 // 63) - inner_call_cost)
 
-    def generate_transaction(self, fork: Fork, sender: EOA) -> Transaction:
+    def generate_transaction(self, *, sender: EOA) -> Transaction:
         """Generate the transaction to perform the attack."""
-        attack_orchestrator_address = compute_deterministic_create2_address(
-            salt=Hash(0),
-            initcode=Initcode(deploy_code=attack_orchestrator_bytecode(fork)),
-            fork=fork,
-        )
         return Transaction(
-            to=attack_orchestrator_address,
-            gas_limit=self.calculate_tx_gas_limit(fork),
+            to=self.attack_orchestrator_address,
+            gas_limit=self.calculate_tx_gas_limit(),
             sender=sender,
             data=self.calldata(),
         )
 
-    def add_post_verification(
-        self, post: Alloc, mined_contract_file: MinedContractFile
-    ) -> None:
+    def add_post_verification(self, *, post: Alloc) -> None:
         """Add the post-verification transaction to the post-state."""
-        contract = mined_contract_file.contracts[self.end]
-        storage = dict.fromkeys(mined_contract_file.storage_keys, 1)
-        storage[mined_contract_file.storage_keys[-1]] = self.value
+        contract = self.mined_contract_file.contracts[self.end]
+        storage = dict.fromkeys(self.mined_contract_file.storage_keys, 1)
+        storage[self.mined_contract_file.storage_keys[-1]] = self.value
         post[contract.contract_address] = Account(storage=storage)
 
 
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "storage_depth,account_depth",
-    [
-        (10, 6),  # From .worst_case_miner/mined_assets
-    ],
-)
-def test_worst_depth_stateroot_recomp(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    gas_benchmark_value: int,
+@pytest.fixture
+def mined_contract_file(
     storage_depth: int,
     account_depth: int,
-) -> None:
-    """
-    BloatNet worst-case SSTORE attack benchmark with pre-deployed contracts.
-
-    This test:
-    1. Derives CREATE2 addresses from initcode_hash + Nick's deployer
-    2. Deploys AttackOrchestrator that calls attack() on each target
-    3. Fills blocks with 16M gas transactions attacking contracts
-    4. Adds a verification transaction at the end to confirm success
-
-    Args:
-        blockchain_test: The blockchain test filler
-        pre: Pre-state allocation
-        fork: The fork to test on
-        env: Environment object that will be used to fill/execute
-        gas_benchmark_value: Gas budget for benchmark
-        storage_depth: Depth of storage slots in the contract
-        account_depth: Account address prefix sharing depth
-
-    """
-    # Dynamically calculate number of contracts based on gas budget
-    print("\nTesting with pre-deployed contracts:")
-    print(f"  Storage depth: {storage_depth}")
-    print(f"  Account depth: {account_depth}")
-    print(f"  Gas benchmark value: {gas_benchmark_value:,}")
-
-    # Load the CREATE2 data to get the init code hash
+) -> MinedContractFile:
+    """Return the correct file for the given test."""
     mined_contract_file = MinedContractFile.load(storage_depth, account_depth)
-    initcode_hash = mined_contract_file.initcode_hash
-
-    # Verify we have enough contracts in the JSON
+    # Verify we have contracts in the JSON
     available_contracts = len(mined_contract_file.contracts)
     if available_contracts == 0:
         json_name = f"s{storage_depth}_acc{account_depth}.json"
         raise ValueError(f"No contracts available in {json_name}")
+    return mined_contract_file
 
-    # Create an EOA with funds for the deployer
-    sender = pre.fund_eoa()
 
-    # Deploy orchestrator to deterministic address
-    orchestrator_address = pre.deterministic_deploy_contract(
-        deploy_code=attack_orchestrator_bytecode(fork)
-    )
-    print(f"  Orchestrator will be deployed at: {orchestrator_address}")
+@pytest.fixture
+def mined_contract_deployer(
+    pre: Alloc,
+    mined_contract_file: MinedContractFile,
+) -> Callable[[int], None]:
+    """Return a helper to deploy a contract for a given salt when needed."""
 
-    # Build attack transactions
-    attack_txs: list[Transaction] = []
-    attack_value = DEFAULT_ATTACK_VALUE
-    accrued_tx_gas_usage = 0
-    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-    post = Alloc({})
-
-    current_attack_batch = Attack(
-        value=attack_value,
-        start=0,
-        end=0,
-        initcode_hash=initcode_hash,
-    )
-
-    # Create a helper to deploy a contract for a given salt when needed.
-    def deploy_mined_contract(salt: int) -> None:
+    def _mined_contract_deployer(salt: int) -> None:
+        if salt >= len(mined_contract_file.contracts):
+            raise RuntimeError(
+                f"Requested salt {salt} but only "
+                f"{len(mined_contract_file.contracts)} available"
+            )
         salted_contract_info = mined_contract_file.contracts[salt]
         assert salted_contract_info.salt == salt, (
             f"Salt out of order: {salted_contract_info.salt} != {salt}"
@@ -408,50 +367,98 @@ def test_worst_depth_stateroot_recomp(
                 address=auxiliary_account, amount=1, minimum_balance=True
             )
 
+    return _mined_contract_deployer
+
+
+@pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize(
+    "storage_depth,account_depth",
+    [
+        (10, 6),  # From .worst_case_miner/mined_assets
+    ],
+)
+def test_worst_depth_stateroot_recomp(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    mined_contract_file: MinedContractFile,
+    mined_contract_deployer: Callable[[int], None],
+) -> None:
+    """
+    BloatNet worst-case SSTORE attack benchmark with pre-deployed contracts.
+
+    This test:
+    1. Derives CREATE2 addresses from initcode_hash + Nick's deployer
+    2. Deploys AttackOrchestrator that calls attack() on each target
+    3. Fills blocks with 16M gas transactions attacking contracts
+    4. Adds a verification transaction at the end to confirm success
+
+    Args:
+        blockchain_test: The blockchain test filler
+        pre: Pre-state allocation
+        fork: The fork to test on
+        env: Environment object that will be used to fill/execute
+        gas_benchmark_value: Gas budget for benchmark
+        mined_contract_file: The mined contract file
+        mined_contract_deployer: A function to deploy a mined contract
+
+    """
+    # Deploy orchestrator to deterministic address
+    attack_orchestrator_address = pre.deterministic_deploy_contract(
+        deploy_code=attack_orchestrator_bytecode(fork)
+    )
+    print(f"  Orchestrator will be deployed at: {attack_orchestrator_address}")
+
+    # Create an EOA with funds for the deployer
+    sender = pre.fund_eoa()
+
+    # Build attack transactions
+    attack_txs: list[Transaction] = []
+    accrued_tx_gas_usage = 0
+    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
+    post = Alloc({})
+
+    # Create the starting attack
+    current_attack_batch = Attack(
+        value=DEFAULT_ATTACK_VALUE,
+        start=0,
+        end=0,
+        fork=fork,
+        mined_contract_file=mined_contract_file,
+        attack_orchestrator_address=attack_orchestrator_address,
+    )
+
     # Deploy the starting contract
-    deploy_mined_contract(current_attack_batch.start)
+    mined_contract_deployer(current_attack_batch.start)
 
     while True:
-        next_attack_batch = Attack(
-            value=attack_value,
-            start=current_attack_batch.start,
-            end=current_attack_batch.end + 1,
-            initcode_hash=initcode_hash,
-        )
-        next_batch_cost = next_attack_batch.calculate_tx_gas_limit(fork=fork)
+        next_attack_batch = current_attack_batch.next()
+        next_batch_cost = next_attack_batch.calculate_tx_gas_limit()
 
         if next_batch_cost + accrued_tx_gas_usage > gas_benchmark_value:
             # Next contract cost would go above benchmark limit, we are done.
             attack_txs.append(
-                current_attack_batch.generate_transaction(fork, sender)
+                current_attack_batch.generate_transaction(sender=sender)
             )
-            current_attack_batch.add_post_verification(
-                post, mined_contract_file
-            )
-            accrued_tx_gas_usage += current_attack_batch.calculate_gas(fork)
+            current_attack_batch.add_post_verification(post=post)
+            accrued_tx_gas_usage += current_attack_batch.calculate_gas()
             break
 
         # Next contract would not go above limit, but we need to check
         # whether we have gone above the tx limit.
 
         # We are going to use the next contract regardless
-        if next_attack_batch.end > available_contracts:
-            raise RuntimeError(
-                f"Requested {next_attack_batch.end} contracts but only "
-                f"{available_contracts} available, using {available_contracts}"
-            )
-        deploy_mined_contract(next_attack_batch.end)
+        mined_contract_deployer(next_attack_batch.end)
 
         if tx_gas_limit_cap is not None and next_batch_cost > tx_gas_limit_cap:
             # Adding a contract would go above the transaction gas limit cap,
             # make the cut here.
             attack_txs.append(
-                current_attack_batch.generate_transaction(fork, sender)
+                current_attack_batch.generate_transaction(sender=sender)
             )
-            current_attack_batch.add_post_verification(
-                post, mined_contract_file
-            )
-            accrued_tx_gas_usage += current_attack_batch.calculate_gas(fork)
+            current_attack_batch.add_post_verification(post=post)
+            accrued_tx_gas_usage += current_attack_batch.calculate_gas()
 
             next_attack_batch.start = next_attack_batch.end
 
