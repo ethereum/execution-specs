@@ -52,7 +52,7 @@ def test_deterministic_deployment(
 
     post = {
         contract_address: Account(
-            deploy_code=deploy_code,
+            code=deploy_code,
             storage={
                 1: 1,
             },
