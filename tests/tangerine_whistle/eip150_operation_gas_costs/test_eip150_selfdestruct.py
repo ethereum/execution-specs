@@ -1,7 +1,7 @@
 """
 Tests for EIP-150 SELFDESTRUCT operation gas costs.
 
-EIP-150 introduced the 5000 gas cost for SELFDESTRUCT and precise gas
+EIP-150 introduced G_SELF_DESTRUCT for SELFDESTRUCT and precise gas
 boundaries for state access during the operation.
 """
 
@@ -50,8 +50,9 @@ def calculate_selfdestruct_gas(
     """Calculate exact gas needed for SELFDESTRUCT."""
     gas_costs = fork.gas_costs()
     gas = (
+        # PUSH + SELFDESTRUCT
         gas_costs.G_VERY_LOW + gas_costs.G_SELF_DESTRUCT
-    )  # PUSH + SELFDESTRUCT
+    )
 
     # Cold access cost (>=Berlin only)
     if fork >= Berlin and not beneficiary_warm:
@@ -101,8 +102,7 @@ def setup_selfdestruct_test(
             ),
         )
         caller = pre.deploy_contract(
-            code=factory_code,
-            balance=originator_balance,
+            code=factory_code, balance=originator_balance
         )
         victim = compute_create_address(address=caller, nonce=1)
     else:
@@ -110,8 +110,9 @@ def setup_selfdestruct_test(
         victim = pre.deploy_contract(
             code=victim_code, balance=originator_balance
         )
-        caller_code = Op.CALL(gas=inner_call_gas, address=victim)
-        caller = pre.deploy_contract(code=caller_code)
+        caller = pre.deploy_contract(
+            code=Op.CALL(gas=inner_call_gas, address=victim)
+        )
 
     # Warm beneficiary via access list (>=Berlin only,
     # doesn't add to BAL >= Amsterdam)
@@ -177,33 +178,21 @@ def build_bal_expectations(
         else:
             # OOG: CREATE succeeded but SELFDESTRUCT failed
             # Only include balance_changes if originator_balance > 0
+            victim_expectation = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+                code_changes=[
+                    BalCodeChange(
+                        block_access_index=1, new_code=bytes(victim_code)
+                    )
+                ],
+            )
             if originator_balance > 0:
-                victim_expectation = BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1)
-                    ],
-                    balance_changes=[
-                        BalBalanceChange(
-                            block_access_index=1,
-                            post_balance=originator_balance,
-                        )
-                    ],
-                    code_changes=[
-                        BalCodeChange(
-                            block_access_index=1, new_code=bytes(victim_code)
-                        )
-                    ],
-                )
-            else:
-                victim_expectation = BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1)
-                    ],
-                    code_changes=[
-                        BalCodeChange(
-                            block_access_index=1, new_code=bytes(victim_code)
-                        )
-                    ],
+                victim_expectation.balance_changes.append(
+                    BalBalanceChange(
+                        block_access_index=1, post_balance=originator_balance
+                    )
                 )
     else:
         if success and originator_balance > 0:
@@ -217,36 +206,27 @@ def build_bal_expectations(
 
     # Caller expectation
     if same_tx:
-        # Only include balance_changes if originator_balance > 0
+        caller_expectation = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=2)],
+        )
         if originator_balance > 0:
-            caller_expectation = BalAccountExpectation(
-                nonce_changes=[
-                    BalNonceChange(block_access_index=1, post_nonce=2)
-                ],
-                balance_changes=[
-                    BalBalanceChange(block_access_index=1, post_balance=0)
-                ],
-            )
-        else:
-            caller_expectation = BalAccountExpectation(
-                nonce_changes=[
-                    BalNonceChange(block_access_index=1, post_nonce=2)
-                ],
+            caller_expectation.balance_changes.append(
+                BalBalanceChange(block_access_index=1, post_balance=0)
             )
     else:
         caller_expectation = BalAccountExpectation.empty()
 
-    account_expectations: Dict[Address, BalAccountExpectation | None] = {
-        alice: BalAccountExpectation(
-            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)],
-        ),
-        caller: caller_expectation,
-        victim: victim_expectation,
-        beneficiary: beneficiary_expectation,
-    }
-
     return BlockAccessListExpectation(
-        account_expectations=account_expectations
+        account_expectations={
+            alice: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            ),
+            caller: caller_expectation,
+            victim: victim_expectation,
+            beneficiary: beneficiary_expectation,
+        }
     )
 
 
@@ -312,6 +292,9 @@ def build_post_state(
             }
 
     return post
+
+
+# --- tests --- #
 
 
 @pytest.mark.parametrize(
@@ -787,7 +770,152 @@ def test_selfdestruct_to_precompile_state_access_boundary(
     )
 
 
-# --- SELFDESTRUCT to self tests --- #
+@pytest.mark.parametrize(
+    "is_success", [True, False], ids=["exact_gas", "exact_gas_minus_1"]
+)
+@pytest.mark.with_all_system_contracts
+@pytest.mark.parametrize(
+    "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
+)
+@pytest.mark.parametrize(
+    "originator_balance",
+    [0, 1],
+    ids=["no_balance", "has_balance"],
+)
+@pytest.mark.valid_from("Cancun")
+def test_selfdestruct_to_system_contract(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    is_success: bool,
+    system_contract: Address,
+    same_tx: bool,
+    originator_balance: int,
+) -> None:
+    """
+    Test SELFDESTRUCT success boundary for system contract beneficiaries.
+
+    System contracts are always warm (no cold access charge) and always have
+    code (so beneficiary is never dead, no G_NEW_ACCOUNT charge).
+
+    - exact_gas: succeeds, balance transferred
+    - exact_gas_minus_1: OOG, operation fails
+    """
+    # Calculate exact gas for success
+    # System contracts are always warm and never dead (have code)
+    inner_call_gas = calculate_selfdestruct_gas(
+        fork,
+        beneficiary_warm=True,
+        beneficiary_dead=False,
+        originator_balance=originator_balance,
+    )
+    if not is_success:
+        inner_call_gas -= 1
+
+    alice, caller, victim, tx = setup_selfdestruct_test(
+        pre,
+        fork,
+        system_contract,
+        originator_balance,
+        same_tx,
+        beneficiary_warm=True,
+        inner_call_gas=inner_call_gas,
+    )
+
+    # Build minimal BAL expectations for test-specific accounts only
+    expected_bal: BlockAccessListExpectation | None = None
+    if fork.header_bal_hash_required():
+        account_expectations: Dict[Address, BalAccountExpectation | None] = {
+            alice: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            ),
+        }
+
+        # Victim expectation
+        if same_tx:
+            if is_success:
+                # Created and destroyed in same tx - no net changes
+                victim_expectation = BalAccountExpectation.empty()
+            else:
+                # OOG: contract created but selfdestruct failed
+                victim_expectation = BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=bytes(Op.SELFDESTRUCT(system_contract)),
+                        )
+                    ],
+                )
+                if originator_balance > 0:
+                    victim_expectation.balance_changes.append(
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=originator_balance,
+                        )
+                    )
+            # Caller nonce incremented for CREATE
+            caller_expectation = BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=2)
+                ],
+            )
+            if originator_balance > 0 and is_success:
+                caller_expectation.balance_changes.append(
+                    BalBalanceChange(block_access_index=1, post_balance=0)
+                )
+            account_expectations[caller] = caller_expectation
+        else:
+            # Pre-existing victim
+            if is_success and originator_balance > 0:
+                victim_expectation = BalAccountExpectation(
+                    balance_changes=[
+                        BalBalanceChange(block_access_index=1, post_balance=0)
+                    ],
+                )
+            else:
+                victim_expectation = BalAccountExpectation.empty()
+            account_expectations[caller] = BalAccountExpectation.empty()
+
+        account_expectations[victim] = victim_expectation
+
+        # System contract receives balance if success and originator
+        # had balance
+        if is_success and originator_balance > 0:
+            account_expectations[system_contract] = BalAccountExpectation(
+                balance_changes=[
+                    BalBalanceChange(
+                        block_access_index=1, post_balance=originator_balance
+                    )
+                ],
+            )
+
+        expected_bal = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
+
+    post = build_post_state(
+        fork,
+        alice,
+        caller,
+        victim,
+        system_contract,
+        originator_balance,
+        beneficiary_initial_balance=0,
+        same_tx=same_tx,
+        success=is_success,
+        beneficiary_has_code=True,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx], expected_block_access_list=expected_bal)],
+        post=post,
+    )
 
 
 @pytest.mark.parametrize(
@@ -817,7 +945,7 @@ def test_selfdestruct_to_self(
 
     Key characteristics:
     - Beneficiary is always warm (it's the executing contract)
-    - Beneficiary is always alive (has code)
+    - Beneficiary is always alive (EIP-161 nonce=1)
     - No G_NEW_ACCOUNT charge
     - No cold access charge (>=Berlin)
     - Balance is "transferred" to self (no net change until destruction)
@@ -834,7 +962,7 @@ def test_selfdestruct_to_self(
     victim_code = Op.SELFDESTRUCT(Op.ADDRESS)
 
     # Gas: ADDRESS + SELFDESTRUCT (no cold access, no G_NEW_ACCOUNT)
-    # Note: ADDRESS opcode costs G_BASE (2), not G_VERY_LOW (3) like PUSH
+    # Note: ADDRESS opcode costs G_BASE, not G_VERY_LOW like PUSH
     gas_costs = fork.gas_costs()
     base_gas = gas_costs.G_BASE + gas_costs.G_SELF_DESTRUCT
     inner_call_gas = base_gas if is_success else base_gas - 1
@@ -970,6 +1098,91 @@ def test_selfdestruct_to_self(
                 caller: Account(nonce=caller_nonce),
                 victim: Account(balance=originator_balance, code=victim_code),
             }
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx], expected_block_access_list=expected_bal)],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "originator_balance",
+    [0, 1],
+    ids=["no_balance", "has_balance"],
+)
+@pytest.mark.valid_from("TangerineWhistle")
+def test_initcode_selfdestruct_to_self(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    originator_balance: int,
+) -> None:
+    """
+    Test SELFDESTRUCT during initcode execution where beneficiary is self.
+
+    Unlike test_selfdestruct_to_self, this tests the case where the initcode
+    itself executes SELFDESTRUCT(ADDRESS) during contract creation, before
+    any code is deployed.
+
+    Key characteristics:
+    - During initcode, the contract has no code yet
+    - Contract has nonce=1 (post-EIP-161) making it non-empty
+    - Beneficiary is always warm (it's the executing contract)
+    - No G_NEW_ACCOUNT charge (contract has nonce > 0)
+    - No cold access charge (>=Berlin)
+
+    Note: Gas boundary testing not possible for initcode since CREATE
+    doesn't accept a gas parameter - it uses all available gas.
+    """
+    alice = pre.fund_eoa()
+    initcode = Op.SELFDESTRUCT(Op.ADDRESS)
+    initcode_len = len(initcode)
+
+    factory_code = Om.MSTORE(initcode, 0) + Op.CREATE(
+        value=originator_balance, offset=0, size=initcode_len
+    )
+    caller = pre.deploy_contract(code=factory_code, balance=originator_balance)
+    victim = compute_create_address(address=caller, nonce=1)
+
+    tx = Transaction(
+        sender=alice,
+        to=caller,
+        gas_limit=500_000,
+        protected=fork.supports_protected_txs(),
+    )
+
+    # Build BAL expectations
+    expected_bal: BlockAccessListExpectation | None = None
+    if fork.header_bal_hash_required():
+        # Contract created and immediately destroyed - no net changes
+        # for victim
+        caller_expectation = BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=2)],
+        )
+        if originator_balance > 0:
+            caller_expectation.balance_changes.append(
+                BalBalanceChange(block_access_index=1, post_balance=0)
+            )
+
+        expected_bal = BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                ),
+                caller: caller_expectation,
+                victim: BalAccountExpectation.empty(),
+            }
+        )
+
+    # Contract was created and destroyed in same tx
+    post: dict = {
+        alice: Account(nonce=1),
+        caller: Account(nonce=2),
+        victim: Account.NONEXISTENT,
+    }
 
     blockchain_test(
         pre=pre,
