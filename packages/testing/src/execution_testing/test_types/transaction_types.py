@@ -305,7 +305,10 @@ class Transaction(
     def strip_hash_from_t8n_output(cls, data: Any) -> Any:
         """Strip the hash field which may be included in t8n tool output."""
         if isinstance(data, dict):
-            data.pop("hash", None)
+            # If the class has a transaction_hash, keep it. This is likely
+            # an internal RPC class that extends from Transaction.
+            if "transaction_hash" not in cls.model_fields:
+                data.pop("hash", None)
         return data
 
     gas_limit: HexNumber = Field(

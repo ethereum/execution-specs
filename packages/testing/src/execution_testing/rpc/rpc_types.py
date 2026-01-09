@@ -57,6 +57,8 @@ class JSONRPCError(Exception):
 class TransactionByHashResponse(Transaction):
     """Represents the response of a transaction by hash request."""
 
+    model_config = Transaction.model_config | {"extra": "ignore"}
+
     block_hash: Hash | None = None
     block_number: HexNumber | None = None
 
