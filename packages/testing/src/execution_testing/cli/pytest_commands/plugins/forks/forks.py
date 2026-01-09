@@ -1208,3 +1208,54 @@ def parametrize_fork(
     metafunc.parametrize(
         param_names, param_values, scope="function", indirect=indirect
     )
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: List[pytest.Item]
+) -> None:
+    """
+    Filter tests based on param-level validity markers.
+
+    The pytest_generate_tests hook only considers function-level validity markers.
+    This hook runs after parametrization and can access all markers including
+    param-level ones, allowing us to properly filter tests based on param-level
+    valid_from/valid_until markers.
+    """
+    items_to_remove = []
+
+    for i, item in enumerate(items):
+        # Get fork from params if available
+        params = None
+        if hasattr(item, "callspec"):
+            params = item.callspec.params
+        elif hasattr(item, "params"):
+            params = item.params
+
+        if not params or "fork" not in params or params["fork"] is None:
+            continue
+
+        fork: Fork = params["fork"]
+
+        # Get all markers including param-level ones
+        markers = item.iter_markers()
+
+        # Calculate valid fork set from all markers
+        # If this raises (e.g., duplicate markers from combining function-level
+        # and param-level), exit immediately with error
+        try:
+            valid_fork_set = ValidityMarker.get_test_fork_set_from_markers(
+                markers
+            )
+        except Exception as e:
+            pytest.exit(
+                f"Error in test '{item.name}': {e}",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
+
+        # If the fork is not in the valid set, mark for removal
+        if fork not in valid_fork_set:
+            items_to_remove.append(i)
+
+    # Remove items in reverse order to maintain indices
+    for i in reversed(items_to_remove):
+        del items[i]

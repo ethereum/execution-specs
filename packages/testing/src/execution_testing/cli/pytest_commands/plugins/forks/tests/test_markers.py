@@ -222,3 +222,182 @@ def test_fork_markers(
         *pytest_args,
     )
     result.assert_outcomes(**outcomes)
+
+
+# --- Tests for param-level validity markers --- #
+
+
+def generate_param_level_marker_test() -> str:
+    """Generate a test function with param-level fork validity markers."""
+    return """
+import pytest
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(
+            True,
+            id="from_tangerine",
+            marks=pytest.mark.valid_from("TangerineWhistle"),
+        ),
+        pytest.param(
+            False,
+            id="from_paris",
+            marks=pytest.mark.valid_from("Paris"),
+        ),
+    ],
+)
+@pytest.mark.state_test_only
+def test_param_level_valid_from(state_test, value):
+    pass
+"""
+
+
+def generate_param_level_valid_until_test() -> str:
+    """Generate a test function with param-level valid_until markers."""
+    return """
+import pytest
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(
+            True,
+            id="until_cancun",
+            marks=pytest.mark.valid_until("Cancun"),
+        ),
+        pytest.param(
+            False,
+            id="until_paris",
+            marks=pytest.mark.valid_until("Paris"),
+        ),
+    ],
+)
+@pytest.mark.state_test_only
+def test_param_level_valid_until(state_test, value):
+    pass
+"""
+
+
+def generate_param_level_mixed_test() -> str:
+    """Generate a test with both function-level and param-level markers."""
+    return """
+import pytest
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(
+            True,
+            id="all_forks",
+            marks=pytest.mark.valid_from("TangerineWhistle"),
+        ),
+        pytest.param(
+            False,
+            id="paris_only",
+            marks=pytest.mark.valid_from("Paris"),
+        ),
+    ],
+)
+@pytest.mark.valid_until("Cancun")
+@pytest.mark.state_test_only
+def test_mixed_function_and_param_markers(state_test, value):
+    pass
+"""
+
+
+@pytest.mark.parametrize(
+    "test_function,pytest_args,outcomes",
+    [
+        pytest.param(
+            generate_param_level_marker_test(),
+            ["--from=Paris", "--until=Cancun"],
+            # from_tangerine: Paris, Shanghai, Cancun = 3 forks
+            # from_paris: Paris, Shanghai, Cancun = 3 forks
+            # Total: 6 tests
+            {"passed": 6, "failed": 0, "skipped": 0, "errors": 0},
+            id="param_level_valid_from_paris_to_cancun",
+        ),
+        pytest.param(
+            generate_param_level_marker_test(),
+            ["--from=Berlin", "--until=Shanghai"],
+            # from_tangerine: Berlin, London, Paris, Shanghai = 4 forks
+            # from_paris: Paris, Shanghai = 2 forks
+            # Total: 6 tests
+            {"passed": 6, "failed": 0, "skipped": 0, "errors": 0},
+            id="param_level_valid_from_berlin_to_shanghai",
+        ),
+        pytest.param(
+            generate_param_level_marker_test(),
+            ["--from=Berlin", "--until=London"],
+            # from_tangerine: Berlin, London = 2 forks
+            # from_paris: none (Paris > London)
+            # Total: 2 tests
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            id="param_level_valid_from_berlin_to_london",
+        ),
+        pytest.param(
+            generate_param_level_valid_until_test(),
+            ["--from=Paris", "--until=Prague"],
+            # until_cancun: Paris, Shanghai, Cancun = 3 forks
+            # until_paris: Paris = 1 fork
+            # Total: 4 tests
+            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
+            id="param_level_valid_until_paris_to_prague",
+        ),
+        pytest.param(
+            generate_param_level_valid_until_test(),
+            ["--from=Shanghai", "--until=Prague"],
+            # until_cancun: Shanghai, Cancun = 2 forks
+            # until_paris: none (Shanghai > Paris)
+            # Total: 2 tests
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
+            id="param_level_valid_until_shanghai_to_prague",
+        ),
+        pytest.param(
+            generate_param_level_mixed_test(),
+            ["--from=Berlin", "--until=Prague"],
+            # Function marker: valid_until("Cancun") limits to <= Cancun
+            # all_forks (TangerineWhistle): Berlin, London, Paris, Shanghai, Cancun = 5
+            # paris_only: Paris, Shanghai, Cancun = 3
+            # Total: 8 tests
+            {"passed": 8, "failed": 0, "skipped": 0, "errors": 0},
+            id="mixed_markers_berlin_to_prague",
+        ),
+        pytest.param(
+            generate_param_level_mixed_test(),
+            ["--from=Paris", "--until=Shanghai"],
+            # Function marker: valid_until("Cancun") limits to <= Cancun
+            # Command line: --until=Shanghai further limits to <= Shanghai
+            # all_forks: Paris, Shanghai = 2 forks
+            # paris_only: Paris, Shanghai = 2 forks
+            # Total: 4 tests
+            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
+            id="mixed_markers_paris_to_shanghai",
+        ),
+    ],
+)
+def test_param_level_validity_markers(
+    pytester: pytest.Pytester,
+    test_function: str,
+    outcomes: dict,
+    pytest_args: List[str],
+) -> None:
+    """
+    Test param-level validity markers (valid_from, valid_until on pytest.param).
+
+    The pytest_collection_modifyitems hook filters tests based on param-level
+    markers after parametrization, allowing different parameter values to have
+    different fork validity ranges.
+    """
+    pytester.makepyfile(test_function)
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "-v",
+        *pytest_args,
+    )
+    result.assert_outcomes(**outcomes)
