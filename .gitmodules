@@ -1,0 +1,4 @@
+[submodule "tests/benchmark/stateful/bloatnet/depth_benchmarks/.worst_case_miner"]
+    path = tests/benchmark/stateful/bloatnet/depth_benchmarks/.worst_case_miner
+    url = https://github.com/CPerezz/worst_case_miner
+    branch = master
