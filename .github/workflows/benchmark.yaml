@@ -3,7 +3,6 @@ name: Benchmarking
 on:
   push:
     branches:
-      - master
       - mainnet
       - "forks/**"
     paths:
