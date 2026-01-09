@@ -24,10 +24,6 @@ from .spec import ref_spec_214
 REFERENCE_SPEC_GIT_PATH = ref_spec_214.git_path
 REFERENCE_SPEC_VERSION = ref_spec_214.version
 
-pytestmark = [
-    pytest.mark.valid_from("Byzantium"),
-]
-
 
 def _issue683_legacy_bytecode() -> bytes:
     """
@@ -104,10 +100,10 @@ def _issue683_legacy_bytecode() -> bytes:
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stStaticFlagEnabled/StaticcallForPrecompilesIssue683Filler.yml"
     ],  # noqa: E501
 )
+@pytest.mark.valid_from("Byzantium")
 def test_staticcall_reentrant_call_with_value_to_precompile_issue683(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
 ) -> None:
     """
     Regression test for ethereum/tests#683.
@@ -128,7 +124,7 @@ def test_staticcall_reentrant_call_with_value_to_precompile_issue683(
         to=target,
         gas_limit=1_000_000,
         value=tx_value,
-        protected=fork >= Byzantium,
+        protected=True,
     )
 
     blockchain_test(
@@ -147,6 +143,7 @@ def test_staticcall_reentrant_call_with_value_to_precompile_issue683(
 @pytest.mark.parametrize(
     "call_value", [0, 2], ids=["zero_value", "nonzero_value"]
 )
+@pytest.mark.valid_from("Byzantium")
 def test_staticcall_reentrant_call_with_value_to_precompile(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -196,7 +193,7 @@ def test_staticcall_reentrant_call_with_value_to_precompile(
         to=target,
         gas_limit=1_000_000,
         value=tx_value,
-        protected=fork >= Byzantium,
+        protected=True,
     )
 
     blockchain_test(
@@ -221,6 +218,7 @@ def test_staticcall_reentrant_call_with_value_to_precompile(
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stStaticFlagEnabled/CallWithNOTZeroValueToPrecompileFromTransactionFiller.yml",
     ],
 )
+@pytest.mark.valid_from("Byzantium")
 def test_staticcall_call_to_precompile(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -267,7 +265,7 @@ def test_staticcall_call_to_precompile(
                         to=contract_a,
                         gas_limit=500_000,
                         value=tx_value,
-                        protected=fork >= Byzantium,
+                        protected=True,
                     )
                 ]
             )
@@ -297,6 +295,7 @@ def test_staticcall_call_to_precompile(
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stStaticFlagEnabled/CallWithNOTZeroValueToPrecompileFromCalledContractFiller.yml",
     ],
 )
+@pytest.mark.valid_from("Byzantium")
 def test_staticcall_nested_call_to_precompile(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -392,7 +391,11 @@ def test_staticcall_nested_call_to_precompile(
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stStaticFlagEnabled/CallWithNOTZeroValueToPrecompileFromContractInitializationFiller.yml",
     ],
 )
-@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
+@pytest.mark.parametrize("create_opcode", [
+        pytest.param(Op.CREATE, marks=pytest.mark.valid_from("Byzantium")),
+        pytest.param(Op.CREATE2, marks=pytest.mark.valid_from("Constantinople")),
+    ],
+)
 def test_staticcall_call_to_precompile_from_contract_init(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
