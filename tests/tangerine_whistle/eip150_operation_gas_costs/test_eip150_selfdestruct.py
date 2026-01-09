@@ -29,7 +29,11 @@ from execution_testing import (
 from execution_testing import (
     Macros as Om,
 )
-from execution_testing.forks import Berlin, Cancun, SpuriousDragon
+from execution_testing.forks import (
+    Berlin,
+    Cancun,
+    SpuriousDragon,
+)
 from execution_testing.forks.helpers import Fork
 
 from .spec import ref_spec_150
@@ -306,7 +310,9 @@ def build_post_state(
 @pytest.mark.parametrize(
     "warm",
     [
-        pytest.param(False, id="cold"),
+        pytest.param(
+            False, id="cold", marks=pytest.mark.valid_from("TangerineWhistle")
+        ),
         pytest.param(True, id="warm", marks=pytest.mark.valid_from("Berlin")),
     ],
 )
@@ -323,7 +329,6 @@ def build_post_state(
     [0, 1],
     ids=["dead_beneficiary", "alive_beneficiary"],
 )
-@pytest.mark.valid_from("TangerineWhistle")
 def test_selfdestruct_to_account(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -429,7 +434,9 @@ def test_selfdestruct_to_account(
 @pytest.mark.parametrize(
     "warm",
     [
-        pytest.param(False, id="cold"),
+        pytest.param(
+            False, id="cold", marks=pytest.mark.valid_from("TangerineWhistle")
+        ),
         pytest.param(True, id="warm", marks=pytest.mark.valid_from("Berlin")),
     ],
 )
@@ -446,7 +453,6 @@ def test_selfdestruct_to_account(
     [0, 1],
     ids=["dead_beneficiary", "alive_beneficiary"],
 )
-@pytest.mark.valid_from("TangerineWhistle")
 def test_selfdestruct_state_access_boundary(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
