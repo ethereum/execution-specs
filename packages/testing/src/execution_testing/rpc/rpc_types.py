@@ -6,7 +6,12 @@ from enum import Enum
 from hashlib import sha256
 from typing import Annotated, Any, Dict, List, Protocol, Self
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    ValidatorFunctionWrapHandler,
+    model_validator,
+)
 
 from execution_testing.base_types import (
     Address,
@@ -59,9 +64,16 @@ class TransactionByHashResponse(Transaction):
 
     block_hash: Hash | None = None
     block_number: HexNumber | None = None
+    transaction_index: HexNumber | None = None
 
     gas_limit: HexNumber = Field(HexNumber(21_000), alias="gas")
-    transaction_hash: Hash = Field(..., alias="hash")
+    # Use validation_alias with _preserved_hash as fallback because parent's
+    # strip_hash_from_t8n_output validator removes "hash" before we can use it.
+    transaction_hash: Hash = Field(
+        ...,
+        alias="hash",
+        validation_alias=AliasChoices("hash", "_preserved_hash"),
+    )
     sender: EOA | None = Field(None, alias="from")
 
     # The to field can have different names in different clients, so we use
@@ -72,18 +84,32 @@ class TransactionByHashResponse(Transaction):
 
     v: HexNumber = Field(0, validation_alias=AliasChoices("v", "yParity"))  # type: ignore
 
-    @model_validator(mode="before")
+    @model_validator(mode="wrap")
     @classmethod
-    def adapt_clients_response(cls, data: Any) -> Any:
+    def adapt_clients_response(
+        cls, data: Any, handler: ValidatorFunctionWrapHandler
+    ) -> "TransactionByHashResponse":
         """
         Perform modifications necessary to adapt the response returned by
         clients so it can be parsed by our model.
+
+        Uses mode="wrap" to run BEFORE parent's strip_hash_from_t8n_output
+        validator which would otherwise remove the hash field we need.
         """
         if isinstance(data, dict):
+            # Preserve hash under a different key because parent's
+            # strip_hash_from_t8n_output will remove "hash".
+            if "hash" in data:
+                data["_preserved_hash"] = data["hash"]
+
             if "gasPrice" in data and "maxFeePerGas" in data:
                 # Keep only one of the gas price fields.
                 del data["gasPrice"]
-        return data
+            # Modern clients return both 'v' and 'yParity' for EIP-1559+ txs.
+            # Remove 'yParity' since we parse 'v' (which uses AliasChoices for both).
+            if "yParity" in data and "v" in data:
+                del data["yParity"]
+        return handler(data)
 
     def model_post_init(self, __context: Any) -> None:
         """
