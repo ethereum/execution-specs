@@ -15,7 +15,6 @@ The test measures the performance impact of state root recomputation and IO when
 
 ## Contract Sources
 
-- **AttackOrchestrator.sol** and **Verifier.sol**: https://gist.github.com/CPerezz/8686da933fa5c045fbdf7c31e20e6c71
 - **Pre-mined assets** (depth_*.sol, s*_acc*.json): https://github.com/CPerezz/worst_case_miner/tree/master/mined_assets
 
 For complete deployment setup and instructions, see the gist: https://gist.github.com/CPerezz/44d521c0f9e6adf7d84187a4f2c11978
@@ -24,7 +23,7 @@ For complete deployment setup and instructions, see the gist: https://gist.githu
 
 - Python with `uv` package manager
 - Anvil (Ethereum node implementation) or another EVM client
-- Nick's factory deployed at `0x4e59b44847b379578588920ca78fbf26c0b4956c`
+- Nick's factory deployed at `0x4e59b44847b379578588920ca78fbf26c0b4956c` (automatically deployed by `execute` otherwise)
 
 ## Workflow
 
@@ -35,25 +34,11 @@ For complete deployment setup and instructions, see the gist: https://gist.githu
 anvil --hardfork prague --block-time 6 --steps-tracing --gas-limit 500000000 --balance 99999999999999 --port 8545
 ```
 
-### Step 2: Deploy Contracts
-
-Deploy contracts using the provided script with batched transactions:
+### Step 2: Obtain the mined assets
 
 ```bash
-# Deploy contracts (example for depth 10, account depth 6)
-uv run python deploy_deep_branches.py \
-  --rpc-url http://localhost:8546 \
-  --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-  --storage-depth 10 \
-  --account-depth 6 \
-  --num-contracts 1000 \
-  --output deployed_contracts.json
+git submodule update --init --recursive
 ```
-
-The script:
-- Funds auxiliary accounts in batches
-- Deploys contracts via CREATE2 for deterministic addresses
-- Dynamically calculates batch sizes based on network gas limit
 
 ### Step 3: Run Attack Test
 
@@ -61,23 +46,15 @@ Execute the worst-case depth attack test:
 
 ```bash
 # Run the attack test
+export RPC_ENDPOINT=<RPC endpoint>
+export RPC_SEED_KEY=<Account with funds>
+export RPC_CHAIN_ID=<RPC chain ID>
 uv run execute remote \
-  --rpc-endpoint=http://localhost:8546 \
-  --rpc-seed-key=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-  --rpc-chain-id=31337 \
   --gas-benchmark-values 60 \
   --fork Prague \
   -m stateful \
-  deep_branch_testing.py::test_worst_depth_stateroot_recomp
+  tests/benchmark/stateful/bloatnet/depth_benchmarks/test_deep_branch.py
 ```
-
-## Asset Downloads
-
-The test automatically downloads required assets from GitHub:
-- `s{storage_depth}_acc{account_depth}.json` - Pre-mined CREATE2 addresses and auxiliary accounts
-- `depth_{storage_depth}.sol` - Solidity contract source (used to extract deep storage slot)
-
-Downloaded assets are cached locally in `.cache/` directory.
 
 ## Available Configurations
 
