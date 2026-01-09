@@ -67,6 +67,8 @@ class RejectedTransaction(CamelModel):
 class TraceLine(CamelModel):
     """Single trace line contained in the traces output."""
 
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
     pc: int
     op: int
     gas: HexNumber
