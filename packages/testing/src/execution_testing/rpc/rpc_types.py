@@ -64,6 +64,7 @@ class TransactionByHashResponse(Transaction):
 
     gas_limit: HexNumber = Field(HexNumber(21_000), alias="gas")
     transaction_hash: Hash = Field(..., alias="hash")
+    transaction_index: HexNumber | None = None
     sender: EOA | None = Field(None, alias="from")
 
     # The to field can have different names in different clients, so we use
