@@ -314,7 +314,7 @@ def track_code_change(
 
 
 def track_selfdestruct(
-    state_changes: StateChanges,
+    tx_frame: StateChanges,
     address: Address,
 ) -> None:
     """
@@ -325,30 +325,42 @@ def track_selfdestruct(
 
     Parameters
     ----------
-    state_changes :
-        The state changes tracker.
+    tx_frame :
+        The state changes tracker. Should be a transaction frame.
     address :
         The address that self-destructed.
 
     """
-    idx = state_changes.block_access_index
+    # Has to be a transaction frame
+    assert tx_frame.parent is not None and tx_frame.parent.parent is None
+
+    idx = tx_frame.block_access_index
 
     # Remove nonce changes from current transaction
-    state_changes.nonce_changes = {
+    tx_frame.nonce_changes = {
         (addr, i, nonce)
-        for addr, i, nonce in state_changes.nonce_changes
+        for addr, i, nonce in tx_frame.nonce_changes
         if not (addr == address and i == idx)
     }
 
+    # Remove balance changes from current transaction
+    if (address, idx) in tx_frame.balance_changes:
+        pre_balance = tx_frame.pre_balances[address]
+        if pre_balance == U256(0):
+            # Post balance will be U256(0) after deletion.
+            # So no change and hence bal does not need to
+            # capture anything.
+            del tx_frame.balance_changes[(address, idx)]
+
     # Remove code changes from current transaction
-    if (address, idx) in state_changes.code_changes:
-        del state_changes.code_changes[(address, idx)]
+    if (address, idx) in tx_frame.code_changes:
+        del tx_frame.code_changes[(address, idx)]
 
     # Convert storage writes from current transaction to reads
-    for addr, key, i in list(state_changes.storage_writes.keys()):
+    for addr, key, i in list(tx_frame.storage_writes.keys()):
         if addr == address and i == idx:
-            del state_changes.storage_writes[(addr, key, i)]
-            state_changes.storage_reads.add((addr, key))
+            del tx_frame.storage_writes[(addr, key, i)]
+            tx_frame.storage_reads.add((addr, key))
 
 
 def merge_on_success(child_frame: StateChanges) -> None:

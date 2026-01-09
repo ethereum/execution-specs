@@ -1091,15 +1091,11 @@ def process_transaction(
 
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
+        track_selfdestruct(tx_env.state_changes, address)
 
     # EIP-7928: Commit transaction frame (includes net-zero filtering).
     # Must happen AFTER destroy_account so filtering sees correct state.
     commit_transaction_frame(tx_env.state_changes)
-
-    # EIP-7928: Track in-transaction self-destruct normalization AFTER merge
-    # Convert storage writes to reads and remove nonce/code changes
-    for address in tx_output.accounts_to_delete:
-        track_selfdestruct(block_env.state_changes, address)
 
 
 def process_withdrawals(
