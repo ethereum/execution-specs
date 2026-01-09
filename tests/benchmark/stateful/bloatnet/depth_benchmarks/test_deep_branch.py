@@ -11,13 +11,11 @@ Key features:
 - Each contract has deep storage slots with configurable trie depth
 - Executes optimized attack bytecode with multiple SSTORE operations
 - Respects Fusaka tx gas limit (16M gas) and fills blocks fully
-- Verifies attack success via a verification transaction at block end
+- Verifies attack success via a storage check in each of the attack contracts
 
 Test parameters:
 - storage_depth: Depth of storage slots (e.g., 10, 11)
 - account_depth: Account address prefix sharing depth (e.g., 6, 7)
-- NUM_CONTRACTS: Dynamically computed based on gas_benchmark_value
-- Gas per attack call: ~8,050 gas (~2,742 overhead + 5,300 forwarded)
 
 Contract sources:
 - Pre-mined assets (depth_*.sol, s*_acc*.json):
