@@ -158,10 +158,10 @@ ECRECOVER_CONFIG = MarginalPrecompileConfig(
     name="ECRECOVER",
     address=ECRECOVER_ADDRESS,
     max_op_count=200,  # 3000 gas/call
-    step=40,  # 6 data points
+    step=20,  # 11 data points
     input_data=ECRECOVER_INPUT,
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
-    num_calls=2,
+    num_calls=2,  # Keep num_calls for proving time
 )
 
 # ============================================================================
@@ -222,7 +222,7 @@ MODEXP_CONFIG = MarginalPrecompileConfig(
     name="MODEXP",
     address=MODEXP_ADDRESS,
     max_op_count=36,
-    step=12,
+    step=6,  # 7 data points
     input_data=MODEXP_INPUT,
     input_size=len(MODEXP_INPUT),  # 96 + 512 + 1 + 512 = 1121 bytes
     num_calls=1,
@@ -262,7 +262,7 @@ RIPEMD160_CONFIG = MarginalPrecompileConfig(
     name="RIPEMD160",
     address=RIPEMD160_ADDRESS,
     max_op_count=1000,  # Reduced to fit 24KB limit with noop padding
-    step=333,  # 4 data points
+    step=100,  # 11 data points
     input_data=RIPEMD160_INPUT,
     input_size=len(RIPEMD160_INPUT),  # 1024 bytes
     num_calls=3,  # Compensates for reduced max_op_count (24KB limit)
@@ -287,10 +287,10 @@ BN128_ADD_CONFIG = MarginalPrecompileConfig(
     name="BN128_ADD",
     address=BN128_ADD_ADDRESS,
     max_op_count=801,
-    step=200,  # 5 data points
+    step=80,  # 11 data points
     input_data=BN128_ADD_INPUT,
     input_size=len(BN128_ADD_INPUT),  # 128 bytes
-    num_calls=5,
+    num_calls=3,  # Reduced for faster benchmarking
 )
 
 # ============================================================================
@@ -310,10 +310,10 @@ BN128_MUL_CONFIG = MarginalPrecompileConfig(
     name="BN128_MUL",
     address=BN128_MUL_ADDRESS,
     max_op_count=72,  # 6000 gas/call
-    step=24,  # 4 data points
+    step=12,  # 7 data points
     input_data=BN128_MUL_INPUT,
     input_size=len(BN128_MUL_INPUT),  # 96 bytes
-    num_calls=2,
+    num_calls=2,  # Keep for proving time
 )
 
 # ============================================================================
@@ -342,10 +342,10 @@ BN128_PAIRING_CONFIG = MarginalPrecompileConfig(
     name="BN128_PAIRING",
     address=BN128_PAIRING_ADDRESS,
     max_op_count=8,  # 113K gas/call
-    step=2,
+    step=2,  # 5 data points
     input_data=BN128_PAIRING_INPUT,
     input_size=len(BN128_PAIRING_INPUT),  # 384 bytes (2 pairs * 192)
-    num_calls=2,
+    num_calls=2,  # Keep for proving time
 )
 
 # ============================================================================
@@ -376,7 +376,7 @@ BLAKE2F_CONFIG = MarginalPrecompileConfig(
     name="BLAKE2F",
     address=BLAKE2F_ADDRESS,
     max_op_count=12,  # 65K gas/call
-    step=4,  # ~5 data points
+    step=2,  # 7 data points
     input_data=BLAKE2F_INPUT,
     input_size=len(BLAKE2F_INPUT),  # 213 bytes
     num_calls=1,
@@ -406,7 +406,7 @@ POINT_EVALUATION_CONFIG = MarginalPrecompileConfig(
     name="POINT_EVALUATION",
     address=POINT_EVALUATION_ADDRESS,
     max_op_count=9,  # 50K gas/call
-    step=3,
+    step=2,  # 5 data points
     input_data=POINT_EVALUATION_INPUT,
     input_size=len(POINT_EVALUATION_INPUT),  # 192 bytes
     num_calls=1,
@@ -428,7 +428,7 @@ BLS12_G1ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1ADD",
     address=BLS12_G1ADD_ADDRESS,
     max_op_count=771,  # 375 gas/call
-    step=257,  # 4 data points
+    step=80,  # 10 data points
     input_data=BLS12_G1ADD_INPUT,
     input_size=len(BLS12_G1ADD_INPUT),  # 256 bytes
     num_calls=1,
@@ -447,7 +447,7 @@ BLS12_G1MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1MSM",
     address=BLS12_G1MSM_ADDRESS,
     max_op_count=39,  # Reduced to fit within 1M gas limit (39 × ~22500 = 877K)
-    step=13,  # 4 data points
+    step=6,  # 7 data points
     input_data=BLS12_G1MSM_INPUT,
     input_size=len(BLS12_G1MSM_INPUT),  # 320 bytes (2 × 160)
     num_calls=1,
@@ -484,7 +484,7 @@ BLS12_G2MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G2MSM",
     address=BLS12_G2MSM_ADDRESS,
     max_op_count=24,
-    step=8,  # 4 data points
+    step=4,  # 7 data points
     input_data=BLS12_G2MSM_INPUT,
     input_size=len(BLS12_G2MSM_INPUT),  # 576 bytes (2 × 288)
     num_calls=1,
@@ -503,7 +503,7 @@ BLS12_PAIRING_CONFIG = MarginalPrecompileConfig(
     name="BLS12_PAIRING",
     address=BLS12_PAIRING_ADDRESS,
     max_op_count=9,  # Variable gas, k=2
-    step=3,
+    step=2,  # 5 data points
     input_data=BLS12_PAIRING_INPUT,
     input_size=len(BLS12_PAIRING_INPUT),  # 768 bytes (2 × 384)
     num_calls=1,
@@ -521,7 +521,7 @@ BLS12_MAP_FP_TO_G1_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP_TO_G1",
     address=BLS12_MAP_FP_TO_G1_ADDRESS,
     max_op_count=75,  # 5500 gas/call
-    step=25,  # ~5 data points
+    step=10,  # 8 data points
     input_data=BLS12_MAP_FP_TO_G1_INPUT,
     input_size=len(BLS12_MAP_FP_TO_G1_INPUT),  # 64 bytes
     num_calls=1,
@@ -539,7 +539,7 @@ BLS12_MAP_FP2_TO_G2_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP2_TO_G2",
     address=BLS12_MAP_FP2_TO_G2_ADDRESS,
     max_op_count=27,
-    step=9,
+    step=5,  # 6 data points
     input_data=BLS12_MAP_FP2_TO_G2_INPUT,
     input_size=len(BLS12_MAP_FP2_TO_G2_INPUT),  # 128 bytes
     num_calls=1,
@@ -730,10 +730,10 @@ IDENTITY_CONFIG = MarginalPrecompileConfig(
     name="IDENTITY",
     address=IDENTITY_ADDRESS,
     max_op_count=300,
-    step=50,  # 7 data points
+    step=25,  # 13 data points
     input_data=IDENTITY_INPUT,
     input_size=len(IDENTITY_INPUT),  # 128 bytes
-    num_calls=10000,
+    num_calls=500,  # Reduced for faster benchmarking (was 10000)
     gas_limit=500_000_000,  # High gas limit for many calls
 )
 
