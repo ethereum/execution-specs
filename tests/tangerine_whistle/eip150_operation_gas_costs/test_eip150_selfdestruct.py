@@ -565,7 +565,6 @@ def test_selfdestruct_state_access_boundary(
     "is_success", [True, False], ids=["exact_gas", "exact_gas_minus_1"]
 )
 @pytest.mark.with_all_precompiles
-@pytest.mark.pre_alloc_group("precompile_funding")
 @pytest.mark.parametrize(
     "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
 )
@@ -576,8 +575,22 @@ def test_selfdestruct_state_access_boundary(
 )
 @pytest.mark.parametrize(
     "beneficiary_initial_balance",
-    [0, 1],
-    ids=["dead_beneficiary", "alive_beneficiary"],
+    [
+        pytest.param(
+            0,
+            id="dead_beneficiary",
+            marks=pytest.mark.pre_alloc_group(
+                "eip150_selfdestruct_precompile_dead"
+            ),
+        ),
+        pytest.param(
+            1,
+            id="alive_beneficiary",
+            marks=pytest.mark.pre_alloc_group(
+                "eip150_selfdestruct_precompile_alive"
+            ),
+        ),
+    ],
 )
 @pytest.mark.valid_from("TangerineWhistle")
 def test_selfdestruct_to_precompile(
@@ -673,7 +686,6 @@ def test_selfdestruct_to_precompile(
     "is_success", [True, False], ids=["exact_gas", "exact_gas_minus_1"]
 )
 @pytest.mark.with_all_precompiles
-@pytest.mark.pre_alloc_group("precompile_funding")
 @pytest.mark.parametrize(
     "same_tx", [False, True], ids=["pre_deploy", "same_tx"]
 )
@@ -684,8 +696,22 @@ def test_selfdestruct_to_precompile(
 )
 @pytest.mark.parametrize(
     "beneficiary_initial_balance",
-    [0, 1],
-    ids=["dead_beneficiary", "alive_beneficiary"],
+    [
+        pytest.param(
+            0,
+            id="dead_beneficiary",
+            marks=pytest.mark.pre_alloc_group(
+                "eip150_selfdestruct_precompile_boundary_dead"
+            ),
+        ),
+        pytest.param(
+            1,
+            id="alive_beneficiary",
+            marks=pytest.mark.pre_alloc_group(
+                "eip150_selfdestruct_precompile_boundary_alive"
+            ),
+        ),
+    ],
 )
 @pytest.mark.valid_from("TangerineWhistle")
 def test_selfdestruct_to_precompile_state_access_boundary(
