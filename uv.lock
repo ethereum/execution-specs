@@ -836,6 +836,11 @@ optimized = [
 ]
 
 [package.dev-dependencies]
+actionlint = [
+    { name = "actionlint-py" },
+    { name = "pyflakes" },
+    { name = "shellcheck-py" },
+]
 dev = [
     { name = "actionlint-py" },
     { name = "cairosvg" },
@@ -882,12 +887,9 @@ doc = [
     { name = "mistletoe" },
 ]
 lint = [
-    { name = "actionlint-py" },
     { name = "codespell" },
     { name = "mypy" },
-    { name = "pyflakes" },
     { name = "ruff" },
-    { name = "shellcheck-py" },
     { name = "types-requests" },
     { name = "vulture" },
 ]
@@ -940,6 +942,11 @@ requires-dist = [
 provides-extras = ["optimized"]
 
 [package.metadata.requires-dev]
+actionlint = [
+    { name = "actionlint-py", specifier = ">=1.7" },
+    { name = "pyflakes", specifier = ">=3.0" },
+    { name = "shellcheck-py", specifier = ">=0.10" },
+]
 dev = [
     { name = "actionlint-py", specifier = ">=1.7" },
     { name = "cairosvg", specifier = ">=2.7.0,<3" },
@@ -987,12 +994,9 @@ doc = [
     { name = "mistletoe", specifier = ">=1.5.0,<2" },
 ]
 lint = [
-    { name = "actionlint-py", specifier = ">=1.7" },
     { name = "codespell", specifier = "==2.4.1" },
     { name = "mypy", specifier = "==1.17.0" },
-    { name = "pyflakes", specifier = ">=3.0" },
     { name = "ruff", specifier = "==0.13.2" },
-    { name = "shellcheck-py", specifier = ">=0.10" },
     { name = "types-requests", specifier = ">=2.31,<2.33" },
     { name = "vulture", specifier = "==2.14.0" },
 ]
