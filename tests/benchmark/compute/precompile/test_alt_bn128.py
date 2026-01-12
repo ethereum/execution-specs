@@ -495,3 +495,30 @@ def test_bn128_pairings_amortized(
             },
         ),
     )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
+def test_alt_bn128_benchmark(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    num_pairs: int,
+) -> None:
+    """Benchmark BN128 pairings precompile with varying number of pairs."""
+    if 0x08 not in fork.precompiles():
+        pytest.skip("Precompile not enabled")
+
+    calldata = _generate_bn128_pairs(num_pairs, seed=42)
+
+    attack_block = Op.POP(
+        Op.STATICCALL(gas=Op.GAS, address=0x08, args_size=Op.CALLDATASIZE),
+    )
+
+    benchmark_test(
+        target_opcode=Op.STATICCALL,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=attack_block,
+            tx_kwargs={"data": calldata},
+        ),
+    )

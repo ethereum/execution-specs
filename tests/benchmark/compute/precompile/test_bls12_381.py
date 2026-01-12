@@ -4,6 +4,7 @@ import pytest
 from execution_testing import (
     Address,
     BenchmarkTestFiller,
+    Bytes,
     Fork,
     JumpLoopGenerator,
     Op,
@@ -111,6 +112,107 @@ def test_bls12_381(
     """Benchmark BLS12_381 precompile."""
     if precompile_address not in fork.precompiles():
         pytest.skip("Precompile not enabled")
+
+    attack_block = Op.POP(
+        Op.STATICCALL(
+            gas=Op.GAS, address=precompile_address, args_size=Op.CALLDATASIZE
+        ),
+    )
+
+    benchmark_test(
+        target_opcode=Op.STATICCALL,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=attack_block,
+            tx_kwargs={"data": calldata},
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("k", [1, 16, 64, 128])
+def test_bls12_g1_msm(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    k: int,
+) -> None:
+    """Benchmark BLS12_G1_MSM precompile with varying number of points."""
+    precompile_address = bls12381_spec.Spec.G1MSM
+    if precompile_address not in fork.precompiles():
+        pytest.skip("BLS12_G1_MSM precompile not enabled")
+
+    # Generate k pairs of (point, scalar)
+    calldata = Bytes(
+        (bls12381_spec.Spec.P1 + bls12381_spec.Scalar(bls12381_spec.Spec.Q))
+        * k
+    )
+
+    attack_block = Op.POP(
+        Op.STATICCALL(
+            gas=Op.GAS, address=precompile_address, args_size=Op.CALLDATASIZE
+        ),
+    )
+
+    benchmark_test(
+        target_opcode=Op.STATICCALL,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=attack_block,
+            tx_kwargs={"data": calldata},
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("k", [1, 16, 64, 128])
+def test_bls12_g2_msm(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    k: int,
+) -> None:
+    """Benchmark BLS12_G2_MSM precompile with varying number of points."""
+    precompile_address = bls12381_spec.Spec.G2MSM
+    if precompile_address not in fork.precompiles():
+        pytest.skip("BLS12_G2_MSM precompile not enabled")
+
+    # Generate k pairs of (point, scalar)
+    calldata = Bytes(
+        (bls12381_spec.Spec.P2 + bls12381_spec.Scalar(bls12381_spec.Spec.Q))
+        * k
+    )
+
+    attack_block = Op.POP(
+        Op.STATICCALL(
+            gas=Op.GAS, address=precompile_address, args_size=Op.CALLDATASIZE
+        ),
+    )
+
+    benchmark_test(
+        target_opcode=Op.STATICCALL,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=attack_block,
+            tx_kwargs={"data": calldata},
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
+def test_bls12_pairing(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    num_pairs: int,
+) -> None:
+    """Benchmark BLS12_PAIRING precompile with varying number of pairs."""
+    precompile_address = bls12381_spec.Spec.PAIRING
+    if precompile_address not in fork.precompiles():
+        pytest.skip("BLS12_PAIRING precompile not enabled")
+
+    # Generate num_pairs pairs of (G1, G2) points
+    calldata = Bytes(
+        (bls12381_spec.Spec.G1 + bls12381_spec.Spec.G2) * num_pairs
+    )
 
     attack_block = Op.POP(
         Op.STATICCALL(
