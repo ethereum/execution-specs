@@ -681,7 +681,7 @@ def process_system_transaction(
 
     # Commit system transaction changes to block frame
     # System transactions always succeed (or block is invalid)
-    commit_transaction_frame(tx_env.state_changes, block_env.state)
+    commit_transaction_frame(tx_env.state_changes)
 
     return system_tx_output
 
@@ -1091,15 +1091,11 @@ def process_transaction(
 
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
+        track_selfdestruct(tx_env.state_changes, address)
 
     # EIP-7928: Commit transaction frame (includes net-zero filtering).
     # Must happen AFTER destroy_account so filtering sees correct state.
-    commit_transaction_frame(tx_env.state_changes, block_env.state)
-
-    # EIP-7928: Track in-transaction self-destruct normalization AFTER merge
-    # Convert storage writes to reads and remove nonce/code changes
-    for address in tx_output.accounts_to_delete:
-        track_selfdestruct(block_env.state_changes, address)
+    commit_transaction_frame(tx_env.state_changes)
 
 
 def process_withdrawals(
@@ -1140,7 +1136,7 @@ def process_withdrawals(
             destroy_account(block_env.state, wd.address)
 
     # EIP-7928: Filter net-zero balance changes for withdrawals
-    filter_net_zero_frame_changes(block_env.state_changes, block_env.state)
+    filter_net_zero_frame_changes(block_env.state_changes)
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:

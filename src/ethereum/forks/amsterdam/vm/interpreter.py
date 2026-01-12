@@ -47,6 +47,7 @@ from ..state import (
 from ..state_tracker import (
     StateChanges,
     capture_pre_balance,
+    capture_pre_code,
     merge_on_failure,
     merge_on_success,
     track_address,
@@ -212,6 +213,8 @@ def process_create_message(message: Message) -> Evm:
         message.current_target,
         U64(nonce_after),
     )
+
+    capture_pre_code(message.tx_env.state_changes, message.current_target, b"")
 
     evm = process_message(message)
     if not evm.error:
