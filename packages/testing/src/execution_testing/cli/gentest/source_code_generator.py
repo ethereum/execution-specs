@@ -84,22 +84,23 @@ def format_code(code: str) -> str:
         # Call ruff to format the file
         config_path = AppConfig().ROOT_DIR.parent / "pyproject.toml"
 
-        try:
-            subprocess.run(
-                [
-                    str(formatter_path),
-                    "format",
-                    str(input_file_path),
-                    "--quiet",
-                    "--config",
-                    str(config_path),
-                ],
-                check=True,
-            )
-        except subprocess.CalledProcessError as e:
+        result = subprocess.run(
+            [
+                str(formatter_path),
+                "format",
+                str(input_file_path),
+                "--quiet",
+                "--config",
+                str(config_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
             raise Exception(
-                f"Error formatting code using formatter '{formatter_path}'"
-            ) from e
+                f"Error formatting code using formatter '{formatter_path}': "
+                f"{result.stderr}"
+            )
 
         # Return the formatted source code
         return input_file_path.read_text()
