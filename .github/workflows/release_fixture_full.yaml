@@ -19,7 +19,7 @@ jobs:
         run: |
           # Get all features without `feature_only: true`
           grep -Po "^[0-9a-zA-Z_\-]+" ./.github/configs/feature.yaml | \
-          while read feature; do
+          while read -r feature; do
             if ! awk "/^$feature:/{flag=1; next} /^[[:alnum:]]/{flag=0} flag && /feature_only:.*true/{exit 1}" \
                   ./.github/configs/feature.yaml; then
               continue

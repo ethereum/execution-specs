@@ -1,4 +1,5 @@
 name: Build and Package Fixture Release
+description: Build test fixtures and package them for release
 inputs:
   release_name:
     description: "Name of the fixture release"
