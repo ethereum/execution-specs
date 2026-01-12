@@ -345,14 +345,9 @@ def test_extcode_ops(
     )
 
 
-@pytest.mark.repricing(copied_size=512)
 @pytest.mark.parametrize(
-    "copied_size",
-    [
-        pytest.param(512, id="512"),
-        pytest.param(1024, id="1KiB"),
-        pytest.param(5 * 1024, id="5KiB"),
-    ],
+    "copy_size",
+    [0, 32, 256, 512, 1024],
 )
 def test_extcodecopy_warm(
     benchmark_test: BenchmarkTestFiller,

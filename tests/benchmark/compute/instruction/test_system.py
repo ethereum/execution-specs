@@ -925,3 +925,23 @@ def test_selfdestruct_initcode(
         ],
         expected_benchmark_gas_used=expected_benchmark_gas_used,
     )
+
+
+@pytest.mark.parametrize("value_bearing", [True, False])
+def test_selfdestruct_until_oog(
+    benchmark_test: BenchmarkTestFiller,
+    value_bearing: bool,
+    pre: Alloc,
+    env: Environment,
+) -> None:
+    """Benchmark SELFDESTRUCT instruction destruct itself."""
+    fee_recipient = pre.fund_eoa(amount=1)
+    env.fee_recipient = fee_recipient
+
+    benchmark_test(
+        target_opcode=Op.SELFDESTRUCT,
+        code_generator=JumpLoopGenerator(
+            attack_block=Op.SELFDESTRUCT(Op.ADDRESS),
+            contract_balance=1_000_000_000 if value_bearing else 0,
+        ),
+    )

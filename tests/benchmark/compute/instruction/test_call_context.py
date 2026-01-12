@@ -142,14 +142,7 @@ def test_calldataload(
 @pytest.mark.repricing(fixed_src_dst=True)
 @pytest.mark.parametrize(
     "mem_size",
-    [
-        pytest.param(0, id="0 bytes"),
-        pytest.param(32, id="32 bytes"),
-        pytest.param(256, id="256 bytes"),
-        pytest.param(1024, id="1KiB"),
-        pytest.param(10 * 1024, id="10KiB"),
-        pytest.param(1024 * 1024, id="1MiB"),
-    ],
+    [0, 32, 256, 1024, 10 * 1024, 1024 * 1024],
 )
 @pytest.mark.parametrize(
     "fixed_src_dst",
@@ -339,14 +332,7 @@ def test_returndatasize_zero(
 @pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
 @pytest.mark.parametrize(
     "return_size",
-    [
-        pytest.param(0, id="0 bytes"),
-        pytest.param(32, id="32 bytes"),
-        pytest.param(256, id="256 bytes"),
-        pytest.param(1024, id="1024 bytes"),
-        pytest.param(10 * 1024, id="10KiB"),
-        pytest.param(1024 * 1024, id="1MiB"),
-    ],
+    [0, 32, 256, 1024, 10 * 1024, 1024 * 1024],
 )
 @pytest.mark.parametrize(
     "fixed_dst",

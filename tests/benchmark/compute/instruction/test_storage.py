@@ -91,9 +91,6 @@ def test_tstore(
     )
 
 
-@pytest.mark.repricing(
-    storage_action=StorageAction.WRITE_SAME_VALUE, absent_slots=False
-)
 @pytest.mark.parametrize(
     "storage_action,tx_result",
     [
@@ -292,7 +289,42 @@ def test_storage_access_cold(
     )
 
 
-@pytest.mark.repricing(storage_action=StorageAction.WRITE_SAME_VALUE)
+@pytest.mark.repricing
+@pytest.mark.parametrize(
+    "storage_action",
+    [
+        pytest.param(StorageAction.READ, id="SLOAD"),
+        pytest.param(StorageAction.WRITE_SAME_VALUE, id="SSTORE_same"),
+        pytest.param(StorageAction.WRITE_NEW_VALUE, id="SSTORE_new"),
+    ],
+)
+def test_storage_access_cold_benchmark(
+    benchmark_test: BenchmarkTestFiller,
+    storage_action: StorageAction,
+) -> None:
+    """
+    Benchmark cold storage slot accesses using code generator.
+
+    Each iteration accesses a different storage slot (incrementing key)
+    to ensure cold access costs are measured.
+    """
+    if storage_action == StorageAction.READ:
+        attack_block = Op.SLOAD(Op.GAS)
+    elif storage_action == StorageAction.WRITE_SAME_VALUE:
+        attack_block = Op.SSTORE(Op.GAS, Op.PUSH0)
+    elif storage_action == StorageAction.WRITE_NEW_VALUE:
+        attack_block = Op.SSTORE(Op.GAS, Op.GAS)
+
+    benchmark_test(
+        target_opcode=Op.SLOAD
+        if storage_action == StorageAction.READ
+        else Op.SSTORE,
+        code_generator=ExtCallGenerator(
+            attack_block=attack_block,
+        ),
+    )
+
+
 @pytest.mark.parametrize(
     "storage_action",
     [
@@ -305,9 +337,7 @@ def test_storage_access_warm(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     storage_action: StorageAction,
-    fork: Fork,
     gas_benchmark_value: int,
-    env: Environment,
     tx_gas_limit: int,
 ) -> None:
     """
@@ -370,3 +400,40 @@ def test_storage_access_warm(
         blocks.append(Block(txs=txs))
 
     benchmark_test(blocks=blocks)
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize(
+    "storage_action",
+    [
+        pytest.param(StorageAction.READ, id="SLOAD"),
+        pytest.param(StorageAction.WRITE_SAME_VALUE, id="SSTORE same value"),
+        pytest.param(StorageAction.WRITE_NEW_VALUE, id="SSTORE new value"),
+    ],
+)
+def test_storage_access_warm_benchmark(
+    benchmark_test: BenchmarkTestFiller,
+    storage_action: StorageAction,
+) -> None:
+    """
+    Benchmark warm storage slot accesses using code generator.
+
+    Each iteration accesses a different storage slot (incrementing key)
+    to ensure cold access costs are measured.
+    """
+    attack_block = Bytecode()
+    if storage_action == StorageAction.WRITE_SAME_VALUE:
+        attack_block = Op.SSTORE(Op.PUSH0, Op.PUSH0)
+    elif storage_action == StorageAction.WRITE_NEW_VALUE:
+        attack_block = Op.SSTORE(Op.PUSH0, Op.GAS)
+    elif storage_action == StorageAction.READ:
+        attack_block = Op.SLOAD(Op.PUSH0)
+
+    benchmark_test(
+        target_opcode=Op.SLOAD
+        if storage_action == StorageAction.READ
+        else Op.SSTORE,
+        code_generator=ExtCallGenerator(
+            attack_block=attack_block,
+        ),
+    )

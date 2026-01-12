@@ -46,7 +46,6 @@ def test_pc_op(
     )
 
 
-@pytest.mark.repricing
 def test_jumps(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -60,6 +59,19 @@ def test_jumps(
     benchmark_test(
         target_opcode=Op.JUMP,
         tx=tx,
+    )
+
+
+def test_jump_benchmark(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+) -> None:
+    """Benchmark JUMP instruction with different dest."""
+    benchmark_test(
+        target_opcode=Op.JUMP,
+        code_generator=JumpLoopGenerator(
+            attack_block=Op.JUMP(Op.ADD(Op.PC, 3)) + Op.JUMPDEST
+        ),
     )
 
 
