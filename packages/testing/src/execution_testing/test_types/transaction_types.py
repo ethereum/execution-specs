@@ -842,6 +842,37 @@ class Transaction(
         else:
             return gas_price * gas_limit + self.value
 
+    def _format_field_value(self, value: Any) -> str:
+        """
+        Format a field value for string representation.
+
+        Uses hex encoding for any value that supports it
+        (Address, Bytes, Hash, HexNumber, etc).
+        """
+        if value is None:
+            return "None"
+        elif hasattr(value, "hex"):
+            return value.hex()
+        else:
+            return repr(value)
+
+    def __repr__(self) -> str:
+        """
+        Return string representation with hex-encoded values for
+        applicable fields.
+        """
+        field_strs = []
+        for field_name in self.__class__.model_fields:
+            value = getattr(self, field_name)
+            formatted_value = self._format_field_value(value)
+            field_strs.append(f"{field_name}={formatted_value}")
+
+        return f"{self.__class__.__name__}({', '.join(field_strs)})"
+
+    def __str__(self) -> str:
+        """Return the repr string representation."""
+        return self.__repr__()
+
 
 class NetworkWrappedTransaction(CamelModel, RLPSerializable):
     """
