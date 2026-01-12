@@ -33,6 +33,18 @@ jobs:
           pip install 'tox>=4.11,<5' requests
       - name: Run static checks
         run: tox -e static
+      - name: Setup uv
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
+      - name: Validate workflow config variables
+        run: |
+          cat >> .github/actionlint.yaml << 'EOF'
+
+          # CI-only: validate vars.* references
+          config-variables:
+            - DEFAULT_PYTHON_VERSION
+            - UV_VERSION
+          EOF
+          uvx --from actionlint-py actionlint
 
   py3:
     runs-on: [self-hosted-ghr, size-xl-x64]
