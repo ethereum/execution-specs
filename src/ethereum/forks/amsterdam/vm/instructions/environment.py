@@ -37,7 +37,6 @@ from ..gas import (
     calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
-    check_gas,
 )
 from ..stack import pop, push
 
@@ -81,9 +80,9 @@ def balance(evm: Evm) -> None:
     # GAS
     is_cold_access = address not in evm.accessed_addresses
     gas_cost = GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
-    check_gas(evm, gas_cost)
     if is_cold_access:
         evm.accessed_addresses.add(address)
+
     charge_gas(evm, gas_cost)
 
     # OPERATION
@@ -351,9 +350,9 @@ def extcodesize(evm: Evm) -> None:
     access_gas_cost = (
         GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
     )
-    check_gas(evm, access_gas_cost)
     if is_cold_access:
         evm.accessed_addresses.add(address)
+
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
@@ -397,9 +396,9 @@ def extcodecopy(evm: Evm) -> None:
     )
     total_gas_cost = access_gas_cost + copy_gas_cost + extend_memory.cost
 
-    check_gas(evm, total_gas_cost)
     if is_cold_access:
         evm.accessed_addresses.add(address)
+
     charge_gas(evm, total_gas_cost)
 
     # OPERATION
@@ -491,9 +490,9 @@ def extcodehash(evm: Evm) -> None:
     access_gas_cost = (
         GAS_COLD_ACCOUNT_ACCESS if is_cold_access else GAS_WARM_ACCESS
     )
-    check_gas(evm, access_gas_cost)
     if is_cold_access:
         evm.accessed_addresses.add(address)
+
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
