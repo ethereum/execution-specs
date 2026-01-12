@@ -90,6 +90,7 @@ def format_code(code: str) -> str:
                 "format",
                 str(input_file_path),
                 "--quiet",
+                "--no-cache",
                 "--config",
                 str(config_path),
             ],
