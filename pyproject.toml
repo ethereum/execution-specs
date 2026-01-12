@@ -176,9 +176,12 @@ test = [
     "ethereum-execution-testing",
 ]
 lint = [
+    "actionlint-py>=1.7",
     "codespell==2.4.1",
     "mypy==1.17.0",
+    "pyflakes>=3.0",
     "ruff==0.13.2",
+    "shellcheck-py>=0.10",
     "vulture==2.14.0",
     "types-requests>=2.31,<2.33",
 ]
