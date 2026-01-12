@@ -12,16 +12,13 @@ first-write-wins semantics and are stored at the transaction frame level.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, Optional, Set, Tuple
+from typing import Dict, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
 from .block_access_lists.rlp_types import BlockAccessIndex
 from .fork_types import Address
-
-if TYPE_CHECKING:
-    from .state import State
 
 
 @dataclass
@@ -135,28 +132,11 @@ def capture_pre_balance(
         The current balance value.
 
     """
+    # Only capture pre-values in a transaction level
+    # or block level frame
+    assert tx_frame.parent is None or tx_frame.parent.parent is None
     if address not in tx_frame.pre_balances:
         tx_frame.pre_balances[address] = balance
-
-
-def capture_pre_nonce(
-    tx_frame: StateChanges, address: Address, nonce: U64
-) -> None:
-    """
-    Capture pre-nonce if not already captured (first-write-wins).
-
-    Parameters
-    ----------
-    tx_frame :
-        The transaction-level frame.
-    address :
-        The address whose nonce to capture.
-    nonce :
-        The current nonce value.
-
-    """
-    if address not in tx_frame.pre_nonces:
-        tx_frame.pre_nonces[address] = nonce
 
 
 def capture_pre_storage(
@@ -177,6 +157,9 @@ def capture_pre_storage(
         The current storage value.
 
     """
+    # Only capture pre-values in a transaction level
+    # or block level frame
+    assert tx_frame.parent is None or tx_frame.parent.parent is None
     slot = (address, key)
     if slot not in tx_frame.pre_storage:
         tx_frame.pre_storage[slot] = value
@@ -198,6 +181,9 @@ def capture_pre_code(
         The current code value.
 
     """
+    # Only capture pre-values in a transaction level
+    # or block level frame
+    assert tx_frame.parent is None or tx_frame.parent.parent is None
     if address not in tx_frame.pre_code:
         tx_frame.pre_code[address] = code
 
@@ -328,7 +314,7 @@ def track_code_change(
 
 
 def track_selfdestruct(
-    state_changes: StateChanges,
+    tx_frame: StateChanges,
     address: Address,
 ) -> None:
     """
@@ -339,30 +325,42 @@ def track_selfdestruct(
 
     Parameters
     ----------
-    state_changes :
-        The state changes tracker.
+    tx_frame :
+        The state changes tracker. Should be a transaction frame.
     address :
         The address that self-destructed.
 
     """
-    idx = state_changes.block_access_index
+    # Has to be a transaction frame
+    assert tx_frame.parent is not None and tx_frame.parent.parent is None
+
+    idx = tx_frame.block_access_index
 
     # Remove nonce changes from current transaction
-    state_changes.nonce_changes = {
+    tx_frame.nonce_changes = {
         (addr, i, nonce)
-        for addr, i, nonce in state_changes.nonce_changes
+        for addr, i, nonce in tx_frame.nonce_changes
         if not (addr == address and i == idx)
     }
 
+    # Remove balance changes from current transaction
+    if (address, idx) in tx_frame.balance_changes:
+        pre_balance = tx_frame.pre_balances[address]
+        if pre_balance == U256(0):
+            # Post balance will be U256(0) after deletion.
+            # So no change and hence bal does not need to
+            # capture anything.
+            del tx_frame.balance_changes[(address, idx)]
+
     # Remove code changes from current transaction
-    if (address, idx) in state_changes.code_changes:
-        del state_changes.code_changes[(address, idx)]
+    if (address, idx) in tx_frame.code_changes:
+        del tx_frame.code_changes[(address, idx)]
 
     # Convert storage writes from current transaction to reads
-    for addr, key, i in list(state_changes.storage_writes.keys()):
+    for addr, key, i in list(tx_frame.storage_writes.keys()):
         if addr == address and i == idx:
-            del state_changes.storage_writes[(addr, key, i)]
-            state_changes.storage_reads.add((addr, key))
+            del tx_frame.storage_writes[(addr, key, i)]
+            tx_frame.storage_reads.add((addr, key))
 
 
 def merge_on_success(child_frame: StateChanges) -> None:
@@ -436,10 +434,7 @@ def merge_on_failure(child_frame: StateChanges) -> None:
     # merged on failure - they are discarded
 
 
-def commit_transaction_frame(
-    tx_frame: StateChanges,
-    state: "State",
-) -> None:
+def commit_transaction_frame(tx_frame: StateChanges) -> None:
     """
     Commit transaction frame to block frame.
 
@@ -450,15 +445,13 @@ def commit_transaction_frame(
     ----------
     tx_frame :
         The transaction frame to commit.
-    state :
-        The current state (used for net-zero filtering).
 
     """
     assert tx_frame.parent is not None
     block_frame = tx_frame.parent
 
     # Filter net-zero changes before committing
-    filter_net_zero_frame_changes(tx_frame, state)
+    filter_net_zero_frame_changes(tx_frame)
 
     # Merge address accesses
     block_frame.touched_addresses.update(tx_frame.touched_addresses)
@@ -506,10 +499,7 @@ def create_child_frame(parent: StateChanges) -> StateChanges:
     )
 
 
-def filter_net_zero_frame_changes(
-    tx_frame: StateChanges,
-    state: "State",
-) -> None:
+def filter_net_zero_frame_changes(tx_frame: StateChanges) -> None:
     """
     Filter net-zero changes from transaction frame before commit.
 
@@ -521,44 +511,50 @@ def filter_net_zero_frame_changes(
     ----------
     tx_frame :
         The transaction-level state changes frame.
-    state :
-        The current state to read final values from.
 
     """
-    # Import locally to avoid circular import
-    from .state import get_account
-
     idx = tx_frame.block_access_index
 
     # Filter storage: compare against pre_storage, convert net-zero to reads
-    for addr, key, i in list(tx_frame.storage_writes.keys()):
-        if i != idx:
-            continue
-        final_value = tx_frame.storage_writes[(addr, key, i)]
+    addresses_to_check_storage = [
+        (addr, key)
+        for (addr, key, i) in tx_frame.storage_writes.keys()
+        if i == idx
+    ]
+    for addr, key in addresses_to_check_storage:
+        # For any (address, key) whose balance has changed, its
+        # pre-value should have been captured
+        assert (addr, key) in tx_frame.pre_storage
+        pre_value = tx_frame.pre_storage[(addr, key)]
+        post_value = tx_frame.storage_writes[(addr, key, idx)]
         if (addr, key) in tx_frame.pre_storage:
-            if tx_frame.pre_storage[(addr, key)] == final_value:
+            if pre_value == post_value:
                 # Net-zero write - convert to read
-                del tx_frame.storage_writes[(addr, key, i)]
+                del tx_frame.storage_writes[(addr, key, idx)]
                 tx_frame.storage_reads.add((addr, key))
 
     # Filter balance: compare pre vs post, remove if equal
-    addresses_to_check = [
+    addresses_to_check_balance = [
         addr for (addr, i) in tx_frame.balance_changes.keys() if i == idx
     ]
-    for addr in addresses_to_check:
-        if addr in tx_frame.pre_balances:
-            pre_balance = tx_frame.pre_balances[addr]
-            post_balance = get_account(state, addr).balance
-            if pre_balance == post_balance:
-                del tx_frame.balance_changes[(addr, idx)]
+    for addr in addresses_to_check_balance:
+        # For any account whose balance has changed, its
+        # pre-balance should have been captured
+        assert addr in tx_frame.pre_balances
+        pre_balance = tx_frame.pre_balances[addr]
+        post_balance = tx_frame.balance_changes[(addr, idx)]
+        if pre_balance == post_balance:
+            del tx_frame.balance_changes[(addr, idx)]
 
     # Filter code: compare pre vs post, remove if equal
-    for addr, i in list(tx_frame.code_changes.keys()):
-        if i != idx:
-            continue
-        final_code = tx_frame.code_changes[(addr, i)]
-        pre_code = tx_frame.pre_code.get(addr, b"")
-        if pre_code == final_code:
-            del tx_frame.code_changes[(addr, i)]
+    addresses_to_check_code = [
+        addr for (addr, i) in tx_frame.code_changes.keys() if i == idx
+    ]
+    for addr in addresses_to_check_code:
+        assert addr in tx_frame.pre_code
+        pre_code = tx_frame.pre_code[addr]
+        post_code = tx_frame.code_changes[(addr, idx)]
+        if pre_code == post_code:
+            del tx_frame.code_changes[(addr, idx)]
 
     # Nonces: no filtering needed (nonces only increment, never net-zero)
