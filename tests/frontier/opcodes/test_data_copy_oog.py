@@ -85,8 +85,8 @@ COPY_SIZE = 0x400  # 1024 bytes = 32 words
             id="sufficient_gas",
         ),
         pytest.param(
-            # Enough for: MSTORE + memory expansion to COPY_SIZE + static CALLDATACOPY
-            # But NOT enough for word copy cost
+            # Enough for: MSTORE + memory expansion + static CALLDATACOPY
+            # But NOT enough for word copy cost (3 gas per 32-byte word)
             150,
             False,
             id="insufficient_gas_for_word_copy_cost",
