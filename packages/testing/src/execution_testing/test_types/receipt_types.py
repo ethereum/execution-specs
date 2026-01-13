@@ -49,6 +49,9 @@ class TransactionReceipt(CamelModel):
             # t8n tool may return 'post_state' which is not part of this model
             data.pop("post_state", None)
             data.pop("postState", None)
+            # geth (1.16+) returns extra fields in receipts
+            data.pop("type", None)
+            data.pop("blockNumber", None)
         return data
 
     transaction_hash: Hash | None = None
