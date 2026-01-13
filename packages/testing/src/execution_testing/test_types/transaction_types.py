@@ -1,8 +1,10 @@
 """Transaction-related types for Ethereum tests."""
 
 from dataclasses import dataclass
+import decimal
 from enum import IntEnum
 from functools import cached_property
+import numbers
 from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
 
 import ethereum_rlp as eth_rlp
@@ -851,10 +853,21 @@ class Transaction(
         """
         if value is None:
             return "None"
-        elif hasattr(value, "hex"):
+
+        # fields like 'value' should be shown as decimal number
+        if isinstance(value, numbers.Number):
+            if isinstance(value, decimal.Decimal):
+                # Convert to string to avoid scientific notation (1E-9)
+                # while removing unnecessary trailing zeros (100.000000 -> 100)
+                return "{:f}".format(value).rstrip("0").rstrip(".")
+
+            return str(value)
+
+        # fields like 'to' should be shown as hex string
+        if hasattr(value, "hex") and callable(value.hex):
             return f'"{value.hex()}"'
-        else:
-            return repr(value)
+
+        return repr(value)
 
     def __repr__(self) -> str:
         """
