@@ -164,7 +164,16 @@ def test_bls12_g1_msm(
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("k", [1, 16, 64, 128])
+@pytest.mark.parametrize(
+    "k",
+    [
+        1,
+        16,
+        64,
+        # G2 MSM k=128 costs 1.5M gas
+        pytest.param(128, marks=pytest.mark.slow),
+    ],
+)
 def test_bls12_g2_msm(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
