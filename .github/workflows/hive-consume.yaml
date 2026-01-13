@@ -1,4 +1,4 @@
-name: Hive Consume Tests
+name: Hive Consume
 
 on:
   push:
@@ -60,16 +60,16 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - name: consume-engine
+          - name: Engine
             mode: simulator
             simulator: ethereum/eels/consume-engine
-          - name: consume-rlp
+          - name: RLP
             mode: simulator
             simulator: ethereum/eels/consume-rlp
-          - name: consume-sync
+          - name: Sync
             mode: simulator
             simulator: ethereum/eels/consume-sync
-          - name: dev-mode
+          - name: Dev Mode
             mode: dev
             consume_command: engine
     steps:
