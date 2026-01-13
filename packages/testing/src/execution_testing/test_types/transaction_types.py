@@ -856,11 +856,6 @@ class Transaction(
 
         # fields like 'value' should be shown as decimal number
         if isinstance(value, numbers.Number):
-            if isinstance(value, decimal.Decimal):
-                # Convert to string to avoid scientific notation (1E-9)
-                # while removing unnecessary trailing zeros (100.000000 -> 100)
-                return "{:f}".format(value).rstrip("0").rstrip(".")
-
             # Force decimal representation for int subclasses like HexNumber
             if isinstance(value, int):
                 return str(int(value))
