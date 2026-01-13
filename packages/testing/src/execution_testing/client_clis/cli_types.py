@@ -62,6 +62,7 @@ class RejectedTransaction(CamelModel):
         TransactionExceptionWithMessage | UndefinedException,
         ExceptionMapperValidator,
     ]
+    hash: Hash | None = None
 
 
 class TraceLine(CamelModel):
