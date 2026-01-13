@@ -36,8 +36,11 @@ from ...vm.eoa_delegation import (
     calculate_delegation_cost,
 )
 from .. import (
+    CALL_SUCCESS,
     Evm,
     Message,
+    emit_selfdestruct_log,
+    emit_transfer_log,
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
@@ -338,7 +341,7 @@ def generic_call(
     else:
         incorporate_child_on_success(evm, child_evm)
         evm.return_data = child_evm.output
-        push(evm.stack, U256(1))
+        push(evm.stack, CALL_SUCCESS)
 
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
@@ -427,8 +430,11 @@ def call(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-
+    if evm.message.is_static and value != U256(0):
+        raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
+
+    # OPERATION
     sender_balance = get_account(tx_state, evm.message.current_target).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
@@ -605,6 +611,14 @@ def selfdestruct(evm: Evm) -> None:
 
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
+
+    # EIP-7708: Emit appropriate log based on beneficiary
+    if beneficiary == originator:
+        # Self-destruct to self burns the balance
+        emit_selfdestruct_log(evm, originator, originator_balance)
+    else:
+        # Transfer to different beneficiary
+        emit_transfer_log(evm, originator, beneficiary, originator_balance)
 
     # register account for deletion only if it was created
     # in the same transaction
