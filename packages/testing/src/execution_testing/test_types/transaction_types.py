@@ -848,8 +848,8 @@ class Transaction(
         """
         Format a field value for string representation.
 
-        Uses hex encoding for any value that supports it
-        (Address, Bytes, Hash, HexNumber, etc).
+        Uses decimal for numeric values (int, HexNumber, etc.) and
+        hex encoding for Address, Bytes, Hash, etc.
         """
         if value is None:
             return "None"
