@@ -76,11 +76,12 @@ def get_deployed_forks() -> List[Type[BaseFork]]:
     """
     Return list of all the fork classes implemented by `execution_testing.forks`
     that have been deployed to mainnet, chronologically ordered by deployment.
+    BPO (Blob Parameter Only) forks are excluded as they are handled separately.
     """
     return [
         fork
         for fork in get_forks()
-        if fork.is_deployed() and not fork.ignore()
+        if fork.is_deployed() and not fork.ignore() and not fork.bpo_fork()
     ]
 
 

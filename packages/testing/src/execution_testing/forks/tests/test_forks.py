@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from execution_testing.base_types import BlobSchedule
 
 from ..forks.forks import (
+    Amsterdam,
     BPO1,
     BPO2,
     BPO3,
@@ -49,9 +50,9 @@ from ..helpers import (
 from ..transition_base_fork import transition_fork
 
 FIRST_DEPLOYED = Frontier
-LAST_DEPLOYED = Prague
-LAST_DEVELOPMENT = Osaka
-DEVELOPMENT_FORKS = [Osaka]
+LAST_DEPLOYED = Osaka
+LAST_DEVELOPMENT = Amsterdam
+DEVELOPMENT_FORKS = [Amsterdam]
 
 
 def test_transition_forks() -> None:

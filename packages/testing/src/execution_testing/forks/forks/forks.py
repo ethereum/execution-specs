@@ -2212,14 +2212,6 @@ class Osaka(Prague, solc_name="cancun"):
         return max_block_size - safety_margin
 
     @classmethod
-    def is_deployed(cls) -> bool:
-        """
-        Flag that the fork has not been deployed to mainnet; it is under active
-        development.
-        """
-        return False
-
-    @classmethod
     def valid_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Opcodes]:
@@ -2404,6 +2396,11 @@ class BPO3(BPO2, bpo_fork=True):
     Pseudo BPO3 fork - Blob Parameter Only fork 3.
     For testing purposes only.
     """
+
+    @classmethod
+    def is_deployed(cls) -> bool:
+        """BPO3 is a pseudo fork for testing, not deployed to mainnet."""
+        return False
 
     @classmethod
     def blob_base_fee_update_fraction(
