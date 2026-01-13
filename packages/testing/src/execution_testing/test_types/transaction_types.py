@@ -1,7 +1,6 @@
 """Transaction-related types for Ethereum tests."""
 
 from dataclasses import dataclass
-import decimal
 from enum import IntEnum
 from functools import cached_property
 import numbers
