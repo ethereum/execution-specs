@@ -190,7 +190,6 @@ def post(  # noqa: D103
         "from_empty_memory",
     ],
 )
-@pytest.mark.with_all_evm_code_types
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_memory_expansion(
     state_test: StateTestFiller,
@@ -248,7 +247,6 @@ def test_mcopy_memory_expansion(
         "from_empty_memory",
     ],
 )
-@pytest.mark.with_all_evm_code_types
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_huge_memory_expansion(
     state_test: StateTestFiller,

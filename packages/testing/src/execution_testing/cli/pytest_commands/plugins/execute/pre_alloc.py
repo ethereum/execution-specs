@@ -41,9 +41,8 @@ from execution_testing.test_types import (
     compute_deterministic_create2_address,
 )
 from execution_testing.test_types import Alloc as BaseAlloc
-from execution_testing.test_types.eof.v1 import Container
 from execution_testing.tools import Initcode
-from execution_testing.vm import Bytecode, EVMCodeType, Op
+from execution_testing.vm import Bytecode, Op
 
 from .contracts import (
     check_deterministic_factory_deployment,
@@ -112,15 +111,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=randint(0, 2**256),
         type=int,
         help="The start private key from which tests will deploy EOAs.",
-    )
-    pre_alloc_group.addoption(
-        "--evm-code-type",
-        action="store",
-        dest="evm_code_type",
-        default=None,
-        type=EVMCodeType,
-        choices=list(EVMCodeType),
-        help="Type of EVM code to deploy in each test by default.",
     )
     pre_alloc_group.addoption(
         "--skip-cleanup",
@@ -240,11 +230,10 @@ class Alloc(BaseAlloc):
     _sender: EOA = PrivateAttr()
     _eth_rpc: EthRPC = PrivateAttr()
     _pending_txs: List[PendingTransaction] = PrivateAttr(default_factory=list)
-    _deployed_contracts: List[Tuple[Address, Bytes | Bytecode | Container]] = (
-        PrivateAttr(default_factory=list)
+    _deployed_contracts: List[Tuple[Address, Bytes | Bytecode]] = PrivateAttr(
+        default_factory=list
     )
     _funded_eoa: List[EOA] = PrivateAttr(default_factory=list)
-    _evm_code_type: EVMCodeType | None = PrivateAttr(None)
     _chain_id: int = PrivateAttr()
     _node_id: str = PrivateAttr("")
     _address_stubs: AddressStubs = PrivateAttr()
@@ -257,7 +246,6 @@ class Alloc(BaseAlloc):
         eth_rpc: EthRPC,
         eoa_iterator: Iterator[EOA],
         chain_id: int,
-        evm_code_type: EVMCodeType | None = None,
         node_id: str = "",
         address_stubs: AddressStubs | None = None,
         **kwargs: Any,
@@ -268,7 +256,6 @@ class Alloc(BaseAlloc):
         self._sender = sender
         self._eth_rpc = eth_rpc
         self._eoa_iterator = eoa_iterator
-        self._evm_code_type = evm_code_type
         self._chain_id = chain_id
         self._node_id = node_id
         self._address_stubs = address_stubs or AddressStubs(root={})
@@ -283,20 +270,8 @@ class Alloc(BaseAlloc):
             "Tests are not allowed to set pre-alloc items in execute mode"
         )
 
-    def code_pre_processor(
-        self,
-        code: Bytecode | Container,
-        *,
-        evm_code_type: EVMCodeType | None,
-    ) -> Bytecode | Container:
+    def code_pre_processor(self, code: Bytecode) -> Bytecode:
         """Pre-processes the code before setting it."""
-        if evm_code_type is None:
-            evm_code_type = self._evm_code_type
-        if evm_code_type == EVMCodeType.EOF_V1:
-            if not isinstance(code, Container):
-                if isinstance(code, Bytecode) and not code.terminating:
-                    return Container.Code(code + Op.STOP)
-                return Container.Code(code)
         return code
 
     def _add_pending_tx(
@@ -447,7 +422,6 @@ class Alloc(BaseAlloc):
         balance: NumberConvertible = 0,
         nonce: NumberConvertible = 1,
         address: Address | None = None,
-        evm_code_type: EVMCodeType | None = None,
         label: str | None = None,
         stub: str | None = None,
     ) -> Address:
@@ -511,10 +485,10 @@ class Alloc(BaseAlloc):
             )
             deploy_gas_limit += len(storage.root) * 22_600
 
-        assert isinstance(code, Bytecode) or isinstance(code, Container), (
+        assert isinstance(code, Bytecode), (
             f"incompatible code type: {type(code)}"
         )
-        code = self.code_pre_processor(code, evm_code_type=evm_code_type)
+        code = self.code_pre_processor(code)
 
         max_code_size = self._fork.max_code_size()
         if len(code) > max_code_size:
@@ -522,20 +496,12 @@ class Alloc(BaseAlloc):
 
         deploy_gas_limit += len(code) * gas_costs.G_CODE_DEPOSIT_BYTE
 
-        prepared_initcode: Bytecode | Container
-
-        if evm_code_type == EVMCodeType.EOF_V1:
-            assert isinstance(code, Container)
-            prepared_initcode = Container.Init(
-                deploy_container=code, initcode_prefix=initcode_prefix
-            )
-        else:
-            prepared_initcode = Initcode(
-                deploy_code=code, initcode_prefix=initcode_prefix
-            )
-            deploy_gas_limit += memory_expansion_gas_calculator(
-                new_bytes=len(bytes(prepared_initcode))
-            )
+        prepared_initcode = Initcode(
+            deploy_code=code, initcode_prefix=initcode_prefix
+        )
+        deploy_gas_limit += memory_expansion_gas_calculator(
+            new_bytes=len(bytes(prepared_initcode))
+        )
 
         max_initcode_size = self._fork.max_initcode_size()
         if len(prepared_initcode) > max_initcode_size:
@@ -923,27 +889,12 @@ class Alloc(BaseAlloc):
         return responses
 
 
-@pytest.fixture(autouse=True)
-def evm_code_type(request: pytest.FixtureRequest) -> EVMCodeType:
-    """Return default EVM code type for all tests (LEGACY)."""
-    parameter_evm_code_type = request.config.getoption("evm_code_type")
-    if parameter_evm_code_type is not None:
-        assert type(parameter_evm_code_type) is EVMCodeType, (
-            "Invalid EVM code type"
-        )
-        logger.info(f"Using EVM code type: {parameter_evm_code_type}")
-        return parameter_evm_code_type
-    logger.debug(f"Using default EVM code type: {EVMCodeType.LEGACY}")
-    return EVMCodeType.LEGACY
-
-
 @pytest.fixture(autouse=True, scope="function")
 def pre(
     fork: Fork,
     worker_key: EOA,
     eoa_iterator: Iterator[EOA],
     eth_rpc: EthRPC,
-    evm_code_type: EVMCodeType,
     chain_config: ChainConfig,
     address_stubs: AddressStubs | None,
     skip_cleanup: bool,
@@ -962,15 +913,13 @@ def pre(
     # Prepare the pre-alloc
     logger.debug(
         f"Initializing pre-alloc for test {request.node.nodeid} "
-        f"(fork={actual_fork}, chain_id={chain_config.chain_id}, "
-        f"evm_code_type={evm_code_type})"
+        f"(fork={actual_fork}, chain_id={chain_config.chain_id})"
     )
     pre = Alloc(
         fork=actual_fork,
         sender=worker_key,
         eth_rpc=eth_rpc,
         eoa_iterator=eoa_iterator,
-        evm_code_type=evm_code_type,
         chain_id=chain_config.chain_id,
         node_id=request.node.nodeid,
         address_stubs=address_stubs,

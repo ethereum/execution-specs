@@ -132,87 +132,6 @@ from ..opcodes import Opcodes as Op
             id="OOG()",
         ),
         pytest.param(
-            Op.RJUMPV[1, 2, 3](Op.ORIGIN),
-            bytes(
-                [
-                    Op.ORIGIN.int(),
-                    Op.RJUMPV.int(),
-                    0x02,  # Data portion, defined by the [1, 2, 3] argument
-                    0x00,
-                    0x01,
-                    0x00,
-                    0x02,
-                    0x00,
-                    0x03,
-                ]
-            ),
-            id="RJUMPV[1, 2, 3](ORIGIN)",
-        ),
-        pytest.param(
-            Op.RJUMPV[b"\x00"],
-            bytes(
-                [
-                    Op.RJUMPV.int(),
-                    0x00,
-                ]
-            ),
-            id="RJUMPV[b'\\x00']",
-        ),
-        pytest.param(
-            Op.RJUMPV[-1, -2, -3],
-            bytes(
-                [
-                    Op.RJUMPV.int(),
-                    0x02,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFE,
-                    0xFF,
-                    0xFD,
-                ]
-            ),
-            id="RJUMPV[-1, -2, -3]",
-        ),
-        pytest.param(
-            Op.RJUMPV[range(5)],  # TODO: on Python 3.11+: Op.RJUMPV[*range(5)]
-            bytes(
-                [
-                    Op.RJUMPV.int(),
-                    0x04,
-                    0x00,
-                    0x00,
-                    0x00,
-                    0x01,
-                    0x00,
-                    0x02,
-                    0x00,
-                    0x03,
-                    0x00,
-                    0x04,
-                ]
-            ),
-            id="RJUMPV[range(5)]",
-        ),
-        pytest.param(
-            Op.RJUMPV[1, 2, 3](Op.ORIGIN) + Op.STOP,
-            bytes(
-                [
-                    Op.ORIGIN.int(),
-                    Op.RJUMPV.int(),
-                    0x02,  # Data portion, defined by the [1, 2, 3] argument
-                    0x00,
-                    0x01,
-                    0x00,
-                    0x02,
-                    0x00,
-                    0x03,
-                    Op.STOP.int(),
-                ]
-            ),
-            id="RJUMPV[1, 2, 3](ORIGIN) + STOP",
-        ),
-        pytest.param(
             Op.STOP * 2,
             bytes(
                 [
@@ -221,39 +140,6 @@ from ..opcodes import Opcodes as Op
                 ]
             ),
             id="STOP * 2",
-        ),
-        pytest.param(
-            Op.RJUMPV[0, 3, 6, 9],
-            bytes.fromhex("e2030000000300060009"),
-            id="RJUMPV[0, 3, 6, 9]",
-        ),
-        pytest.param(
-            Op.RJUMPV[2, 0], bytes.fromhex("e20100020000"), id="RJUMPV[2, 0]"
-        ),
-        pytest.param(
-            Op.RJUMPV[b"\x02\x00\x02\xff\xff"],
-            bytes.fromhex("e2020002ffff"),
-            id="RJUMPV[b'\\x02\\x00\\x02\\xFF\\xFF']",
-        ),
-        pytest.param(
-            Op.EXCHANGE[0x2 + 0x0, 0x3 + 0x0],
-            bytes.fromhex("e800"),
-            id="EXCHANGE[0x2 + 0x0, 0x3 + 0x0]",
-        ),
-        pytest.param(
-            Op.EXCHANGE[0x2 + 0x0, 0x3 + 0xF],
-            bytes.fromhex("e80f"),
-            id="EXCHANGE[0x2 + 0x0, 0x3 + 0xF]",
-        ),
-        pytest.param(
-            Op.EXCHANGE[0x2 + 0xF, 0x3 + 0xF + 0x0],
-            bytes.fromhex("e8f0"),
-            id="EXCHANGE[0x2 + 0xF, 0x3 + 0xF + 0x0]",
-        ),
-        pytest.param(
-            Op.EXCHANGE[0x2 + 0xF, 0x3 + 0xF + 0xF],
-            bytes.fromhex("e8ff"),
-            id="EXCHANGE[0x2 + 0xF, 0x3 + 0xF + 0xF]",
         ),
         pytest.param(Op.PUSH0 * 0, bytes(), id="PUSH0 * 0"),
         pytest.param(
@@ -285,21 +171,6 @@ from ..opcodes import Opcodes as Op
             Op.DELEGATECALL(address=1),
             b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5a\xf4",
             id="Op.DELEGATECALL(address=1)",
-        ),
-        pytest.param(
-            Op.EXTCALL(address=1),
-            b"\x60\x00\x60\x00\x60\x00\x60\x01\xf8",
-            id="Op.EXTCALL(address=1)",
-        ),
-        pytest.param(
-            Op.EXTSTATICCALL(address=1),
-            b"\x60\x00\x60\x00\x60\x01\xfb",
-            id="Op.EXTSTATICCALL(address=1)",
-        ),
-        pytest.param(
-            Op.EXTDELEGATECALL(address=1),
-            b"\x60\x00\x60\x00\x60\x01\xf9",
-            id="Op.EXTDELEGATECALL(address=1)",
         ),
         pytest.param(
             Om.MSTORE(b""),
@@ -360,8 +231,6 @@ def test_opcodes_repr() -> None:
     assert f"{Op.DELEGATECALL}" == "DELEGATECALL"
     assert f"{Om.OOG}" == "OOG"
     assert str(Op.ADD) == "ADD"
-    assert f"{Op.DUPN[1]}" == "DUPN_0x01"
-    assert f"{Op.DATALOADN[1]}" == "DATALOADN_0x0001"
 
 
 def test_macros() -> None:

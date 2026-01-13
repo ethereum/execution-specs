@@ -35,7 +35,6 @@ from execution_testing import (
     ],
     ids=lambda op: str(op),
 )
-@pytest.mark.with_all_evm_code_types
 def test_dup(
     state_test: StateTestFiller,
     fork: Fork,

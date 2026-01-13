@@ -7,7 +7,7 @@ from typing_extensions import Self
 
 from execution_testing.base_types import Bytes
 from execution_testing.test_types import ceiling_division
-from execution_testing.vm import Bytecode, EVMCodeType, Op
+from execution_testing.vm import Bytecode, Op
 
 GAS_PER_DEPLOYED_CODE_BYTE = 0xC8
 
@@ -200,7 +200,6 @@ class Conditional(Bytecode):
         condition: Bytecode | Op,
         if_true: Bytecode | Op | None = None,
         if_false: Bytecode | Op | None = None,
-        evm_code_type: EVMCodeType = EVMCodeType.LEGACY,
     ) -> Self:
         """
         Assemble the conditional bytecode by generating the necessary jump and
@@ -214,29 +213,20 @@ class Conditional(Bytecode):
         if if_false is None:
             if_false = Bytecode()
 
-        if evm_code_type == EVMCodeType.LEGACY:
-            # First we append a jumpdest to the start of the true branch
-            if_true = Op.JUMPDEST + if_true
+        # First we append a jumpdest to the start of the true branch
+        if_true = Op.JUMPDEST + if_true
 
-            # Then we append the unconditional jump to the end of the false
-            # branch, used to skip the true branch
-            if_false += Op.JUMP(Op.ADD(Op.PC, len(if_true) + 3))
+        # Then we append the unconditional jump to the end of the false
+        # branch, used to skip the true branch
+        if_false += Op.JUMP(Op.ADD(Op.PC, len(if_true) + 3))
 
-            # Then we need to do the conditional jump by skipping the false
-            # branch
-            condition = Op.JUMPI(Op.ADD(Op.PC, len(if_false) + 3), condition)
+        # Then we need to do the conditional jump by skipping the false
+        # branch
+        condition = Op.JUMPI(Op.ADD(Op.PC, len(if_false) + 3), condition)
 
-            # Finally we append the condition, false and true branches, plus
-            # the jumpdest at the very end
-            bytecode = condition + if_false + if_true + Op.JUMPDEST
-
-        elif evm_code_type == EVMCodeType.EOF_V1:
-            if not if_false.terminating:
-                if_false += Op.RJUMP[len(if_true)]
-            condition = Op.RJUMPI[len(if_false)](condition)
-
-            # Finally we append the condition, false and true branches
-            bytecode = condition + if_false + if_true
+        # Finally we append the condition, false and true branches, plus
+        # the jumpdest at the very end
+        bytecode = condition + if_false + if_true + Op.JUMPDEST
 
         return super().__new__(cls, bytecode)
 
@@ -249,7 +239,6 @@ class While(Bytecode):
         *,
         body: Bytecode | Op,
         condition: Bytecode | Op | None = None,
-        evm_code_type: EVMCodeType = EVMCodeType.LEGACY,
     ) -> Self:
         """
         Assemble the loop bytecode.
@@ -257,18 +246,15 @@ class While(Bytecode):
         The condition nor the body can leave a stack item on the stack.
         """
         bytecode = Bytecode()
-        if evm_code_type == EVMCodeType.LEGACY:
-            bytecode += Op.JUMPDEST
-            bytecode += body
-            if condition is not None:
-                bytecode += Op.JUMPI(
-                    Op.SUB(Op.PC, Op.PUSH4[len(body) + len(condition) + 6]),
-                    condition,
-                )
-            else:
-                bytecode += Op.JUMP(Op.SUB(Op.PC, Op.PUSH4[len(body) + 6]))
-        elif evm_code_type == EVMCodeType.EOF_V1:
-            raise NotImplementedError("EOF while loops are not implemented")
+        bytecode += Op.JUMPDEST
+        bytecode += body
+        if condition is not None:
+            bytecode += Op.JUMPI(
+                Op.SUB(Op.PC, Op.PUSH4[len(body) + len(condition) + 6]),
+                condition,
+            )
+        else:
+            bytecode += Op.JUMP(Op.SUB(Op.PC, Op.PUSH4[len(body) + 6]))
         return super().__new__(cls, bytecode)
 
 
@@ -340,17 +326,11 @@ class Switch(Bytecode):
     evaluates to a non-zero value is the one that is executed.
     """
 
-    evm_code_type: EVMCodeType
-    """
-    The EVM code type to use for the switch-case bytecode.
-    """
-
     def __new__(
         cls,
         *,
         default_action: Bytecode | Op | None = None,
         cases: List[Case],
-        evm_code_type: EVMCodeType = EVMCodeType.LEGACY,
     ) -> Self:
         """
         Assemble the bytecode by looping over the list of cases and adding the
@@ -369,28 +349,11 @@ class Switch(Bytecode):
 
         # All conditions get prepended to this bytecode; if none are met, we
         # reach the default
-        if evm_code_type == EVMCodeType.LEGACY:
-            action_jump_length = (
-                sum(len(case.action) + 6 for case in cases) + 3
-            )
-            bytecode = default_action + Op.JUMP(
-                Op.ADD(Op.PC, action_jump_length)
-            )
-            # The length required to jump over the default action and its JUMP
-            # bytecode
-            condition_jump_length = len(bytecode) + 3
-        elif evm_code_type == EVMCodeType.EOF_V1:
-            action_jump_length = sum(
-                len(case.action)
-                + (len(Op.RJUMP[0]) if not case.is_terminating else 0)
-                for case in cases
-                # On not terminating cases, we need to add 3 bytes for the
-                # RJUMP
-            )
-            bytecode = default_action + Op.RJUMP[action_jump_length]
-            # The length required to jump over the default action and its JUMP
-            # bytecode
-            condition_jump_length = len(bytecode)
+        action_jump_length = sum(len(case.action) + 6 for case in cases) + 3
+        bytecode = default_action + Op.JUMP(Op.ADD(Op.PC, action_jump_length))
+        # The length required to jump over the default action and its JUMP
+        # bytecode
+        condition_jump_length = len(bytecode) + 3
 
         # Reversed: first case in the list has priority; it will become the
         # outer-most onion layer. We build up layers around the default_action,
@@ -411,23 +374,15 @@ class Switch(Bytecode):
         # + JUMPDEST + case[0].action + JUMP()
         for case in reversed(cases):
             action = case.action
-            if evm_code_type == EVMCodeType.LEGACY:
-                action_jump_length -= len(action) + 6
-                action = (
-                    Op.JUMPDEST
-                    + action
-                    + Op.JUMP(Op.ADD(Op.PC, action_jump_length))
-                )
-                condition = Op.JUMPI(
-                    Op.ADD(Op.PC, condition_jump_length), case.condition
-                )
-            elif evm_code_type == EVMCodeType.EOF_V1:
-                action_jump_length -= len(action) + (
-                    len(Op.RJUMP[0]) if not case.is_terminating else 0
-                )
-                if not case.is_terminating:
-                    action += Op.RJUMP[action_jump_length]
-                condition = Op.RJUMPI[condition_jump_length](case.condition)
+            action_jump_length -= len(action) + 6
+            action = (
+                Op.JUMPDEST
+                + action
+                + Op.JUMP(Op.ADD(Op.PC, action_jump_length))
+            )
+            condition = Op.JUMPI(
+                Op.ADD(Op.PC, condition_jump_length), case.condition
+            )
             # wrap the current case around the onion as its next layer
             bytecode = condition + bytecode + action
             condition_jump_length += len(condition) + len(action)

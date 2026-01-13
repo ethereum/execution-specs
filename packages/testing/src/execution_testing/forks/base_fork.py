@@ -14,7 +14,6 @@ from typing import (
     Protocol,
     Set,
     Sized,
-    Tuple,
     Type,
     Union,
 )
@@ -29,7 +28,6 @@ from execution_testing.base_types import (
 )
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.vm import (
-    EVMCodeType,
     ForkOpcodeInterface,
     OpcodeBase,
     Opcodes,
@@ -829,14 +827,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     # EVM information abstract methods
     @classmethod
     @abstractmethod
-    def evm_code_types(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[EVMCodeType]:
-        """Return list of EVM code types supported by the fork."""
-        pass
-
-    @classmethod
-    @abstractmethod
     def max_code_size(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> int:
@@ -869,11 +859,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def call_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
-        """
-        Return list of tuples with the call opcodes and its corresponding EVM
-        code type.
-        """
+    ) -> List[Opcodes]:
+        """Return list of call opcodes supported by the fork."""
         pass
 
     @classmethod
@@ -888,11 +875,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def create_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
-        """
-        Return list of tuples with the create opcodes and its corresponding EVM
-        code type.
-        """
+    ) -> List[Opcodes]:
+        """Return list of create opcodes supported by the fork."""
         pass
 
     @classmethod

@@ -29,7 +29,6 @@ from execution_testing import (
     TransactionException,
     compute_create_address,
 )
-from execution_testing.test_types.eof.v1 import Container, Section
 
 from .spec import Spec, ref_spec_7702
 
@@ -1136,53 +1135,6 @@ def test_static_to_pointer(
         contract_a: Account(storage=storage),
         pointer_a: Account(storage={0: 0}),
     }
-    state_test(
-        env=env,
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
-
-
-@pytest.mark.valid_from("EOFv1")
-def test_pointer_to_eof(state_test: StateTestFiller, pre: Alloc) -> None:
-    """
-    Tx -> call -> pointer A -> EOF.
-
-    Pointer to eof contract works.
-    """
-    env = Environment()
-    storage: Storage = Storage()
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
-
-    contract_a = pre.deploy_contract(
-        code=Container(
-            sections=[
-                Section.Code(
-                    code=Op.SSTORE(storage.store_next(5, "eof_call_result"), 5)
-                    + Op.STOP,
-                )
-            ]
-        )
-    )
-
-    tx = Transaction(
-        to=pointer_a,
-        gas_limit=3_000_000,
-        data=b"",
-        value=0,
-        sender=sender,
-        authorization_list=[
-            AuthorizationTuple(
-                address=contract_a,
-                nonce=0,
-                signer=pointer_a,
-            )
-        ],
-    )
-
-    post = {pointer_a: Account(storage=storage)}
     state_test(
         env=env,
         pre=pre,

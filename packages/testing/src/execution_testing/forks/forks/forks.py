@@ -15,12 +15,10 @@ from typing import (
     Mapping,
     Optional,
     Sized,
-    Tuple,
 )
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import FixtureHeader
-
 
 from execution_testing.base_types import (
     AccessList,
@@ -32,7 +30,6 @@ from execution_testing.base_types import (
 )
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.vm import (
-    EVMCodeType,
     OpcodeBase,
     OpcodeGasCalculator,
     Opcodes,
@@ -1144,14 +1141,6 @@ class Frontier(BaseFork, solc_name="homestead"):
         return None
 
     @classmethod
-    def evm_code_types(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[EVMCodeType]:
-        """At Genesis, only legacy EVM code is supported."""
-        del block_number, timestamp
-        return [EVMCodeType.LEGACY]
-
-    @classmethod
     def max_code_size(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> int:
@@ -1187,13 +1176,10 @@ class Frontier(BaseFork, solc_name="homestead"):
     @classmethod
     def call_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+    ) -> List[Opcodes]:
         """Return list of call opcodes supported by the fork."""
         del block_number, timestamp
-        return [
-            (Opcodes.CALL, EVMCodeType.LEGACY),
-            (Opcodes.CALLCODE, EVMCodeType.LEGACY),
-        ]
+        return [Opcodes.CALL, Opcodes.CALLCODE]
 
     @classmethod
     def valid_opcodes(
@@ -1336,12 +1322,10 @@ class Frontier(BaseFork, solc_name="homestead"):
     @classmethod
     def create_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+    ) -> List[Opcodes]:
         """At Genesis, only `CREATE` opcode is supported."""
         del block_number, timestamp
-        return [
-            (Opcodes.CREATE, EVMCodeType.LEGACY),
-        ]
+        return [Opcodes.CREATE]
 
     @classmethod
     def max_refund_quotient(
@@ -1455,11 +1439,11 @@ class Homestead(Frontier):
     @classmethod
     def call_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+    ) -> List[Opcodes]:
         """At Homestead, DELEGATECALL opcode was introduced."""
-        return [(Opcodes.DELEGATECALL, EVMCodeType.LEGACY)] + super(
-            Homestead, cls
-        ).call_opcodes(block_number=block_number, timestamp=timestamp)
+        return [Opcodes.DELEGATECALL] + super(Homestead, cls).call_opcodes(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
     def opcode_gas_map(
@@ -1622,11 +1606,11 @@ class Byzantium(SpuriousDragon):
     @classmethod
     def call_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+    ) -> List[Opcodes]:
         """At Byzantium, STATICCALL opcode was introduced."""
-        return [(Opcodes.STATICCALL, EVMCodeType.LEGACY)] + super(
-            Byzantium, cls
-        ).call_opcodes(block_number=block_number, timestamp=timestamp)
+        return [Opcodes.STATICCALL] + super(Byzantium, cls).call_opcodes(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
     def opcode_gas_map(
@@ -1718,11 +1702,11 @@ class Constantinople(Byzantium):
     @classmethod
     def create_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+    ) -> List[Opcodes]:
         """At Constantinople, `CREATE2` opcode is added."""
-        return [(Opcodes.CREATE2, EVMCodeType.LEGACY)] + super(
-            Constantinople, cls
-        ).create_opcodes(block_number=block_number, timestamp=timestamp)
+        return [Opcodes.CREATE2] + super(Constantinople, cls).create_opcodes(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
     def opcode_gas_map(
@@ -3383,38 +3367,3 @@ class Amsterdam(BPO2):
         """
         del block_number, timestamp
         return True
-
-
-class EOFv1(Prague, solc_name="cancun"):
-    """EOF fork."""
-
-    @classmethod
-    def evm_code_types(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[EVMCodeType]:
-        """EOF V1 is supported starting from Osaka."""
-        return super(EOFv1, cls).evm_code_types(
-            block_number=block_number,
-            timestamp=timestamp,
-        ) + [EVMCodeType.EOF_V1]
-
-    @classmethod
-    def call_opcodes(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
-        """EOF V1 introduces EXTCALL, EXTSTATICCALL, EXTDELEGATECALL."""
-        return [
-            (Opcodes.EXTCALL, EVMCodeType.EOF_V1),
-            (Opcodes.EXTSTATICCALL, EVMCodeType.EOF_V1),
-            (Opcodes.EXTDELEGATECALL, EVMCodeType.EOF_V1),
-        ] + super(EOFv1, cls).call_opcodes(
-            block_number=block_number, timestamp=timestamp
-        )
-
-    @classmethod
-    def is_deployed(cls) -> bool:
-        """
-        Flag that the fork has not been deployed to mainnet; it is under active
-        development.
-        """
-        return False

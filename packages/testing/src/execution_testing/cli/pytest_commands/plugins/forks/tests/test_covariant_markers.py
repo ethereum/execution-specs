@@ -171,20 +171,6 @@ import pytest
         pytest.param(
             """
             import pytest
-            @pytest.mark.with_all_evm_code_types()
-            @pytest.mark.valid_from("Cancun")
-            @pytest.mark.valid_until("Cancun")
-            @pytest.mark.state_test_only
-            def test_case(state_test, evm_code_type):
-                pass
-            """,
-            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
-            None,
-            id="with_all_evm_code_types",
-        ),
-        pytest.param(
-            """
-            import pytest
             @pytest.mark.with_all_call_opcodes()
             @pytest.mark.valid_from("Cancun")
             @pytest.mark.valid_until("Cancun")
@@ -195,23 +181,6 @@ import pytest
             {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_call_opcodes",
-        ),
-        pytest.param(
-            """
-            import pytest
-            from execution_testing import  EVMCodeType
-            @pytest.mark.with_all_call_opcodes(
-                selector=(lambda _, evm_code_type: evm_code_type == EVMCodeType.LEGACY)
-            )
-            @pytest.mark.valid_from("Cancun")
-            @pytest.mark.valid_until("Cancun")
-            @pytest.mark.state_test_only
-            def test_case(state_test, call_opcode):
-                pass
-            """,
-            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
-            None,
-            id="with_all_call_opcodes_with_selector_for_evm_code_type",
         ),
         pytest.param(
             """

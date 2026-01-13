@@ -414,25 +414,18 @@ fork_covariant_decorators: List[Type[CovariantDecorator]] = [
         argnames=["precompile"],
     ),
     covariant_decorator(
-        marker_name="with_all_evm_code_types",
-        description="marks a test to be parametrized for all EVM code types at parameter named"
-        " `evm_code_type` of type `EVMCodeType`, such as `LEGACY` and `EOF_V1`",
-        fork_attribute_name="evm_code_types",
-        argnames=["evm_code_type"],
-    ),
-    covariant_decorator(
         marker_name="with_all_call_opcodes",
         description="marks a test to be parametrized for all *CALL opcodes at parameter named"
-        " call_opcode, and also the appropriate EVM code type at parameter named evm_code_type",
+        " call_opcode",
         fork_attribute_name="call_opcodes",
-        argnames=["call_opcode", "evm_code_type"],
+        argnames=["call_opcode"],
     ),
     covariant_decorator(
         marker_name="with_all_create_opcodes",
         description="marks a test to be parametrized for all *CREATE* opcodes at parameter named"
-        " create_opcode, and also the appropriate EVM code type at parameter named evm_code_type",
+        " create_opcode",
         fork_attribute_name="create_opcodes",
-        argnames=["create_opcode", "evm_code_type"],
+        argnames=["create_opcode"],
     ),
     covariant_decorator(
         marker_name="with_all_system_contracts",

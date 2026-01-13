@@ -452,7 +452,6 @@ class TestDocsGenerator:
             if not valid_from_marker:
                 valid_from_fork = "Frontier"
             else:
-                # NOTE: The EOF tests cases contain two fork names in their
                 # valid_from marker, separated by a comma. Take the last.
                 valid_from_fork = valid_from_marker.args[0].split(",")[-1]
 
@@ -583,8 +582,7 @@ class TestDocsGenerator:
                     str(directory), branch_or_commit_or_tag=self.ref
                 ),
                 # TODO: This won't work in all cases; should be from the
-                # development fork Currently breaks for
-                # `tests/unscheduled/eip7692_eof_v1/index.md`
+                # development fork
                 target_or_valid_fork=fork.capitalize() if fork else "Unknown",
                 # init.py will be used for docstrings
                 package_name=get_import_path(directory),
@@ -670,8 +668,6 @@ class TestDocsGenerator:
 
             - ("Test Case Reference",) -> tests/index.md
             - ("Test Case Reference", "Berlin") -> tests/berlin/index.md
-            - ("Test Case Reference", "EIP-7692 EOF V1", tracker.md")
-            tests/unscheduled/eip7692_eof_v1/tracker.md
             - ("Test Case Reference", "Shanghai", "EIP-3855 PUSH0", "Spec") ->
             tests/shanghai/eip3855_push0/spec.py
 

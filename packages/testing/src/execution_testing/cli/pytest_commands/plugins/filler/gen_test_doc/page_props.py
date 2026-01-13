@@ -44,7 +44,6 @@ def apply_name_filters(input_string: str) -> str:
         "bls12 map fp to g1": "BLS12_MAP_FP_TO_G1",
         "bls12 pairing": "BLS12_PAIRING_CHECK",
         "eips": "EIPs",
-        "eof": "EOF",
         "vm": "VM",
     }
     # adding these is the expensive part

@@ -33,7 +33,6 @@ from execution_testing.base_types.conversions import (
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
-from execution_testing.vm import EVMCodeType
 
 from .trie import (
     EMPTY_TRIE_ROOT,
@@ -424,7 +423,6 @@ class Alloc(BaseAlloc):
         balance: NumberConvertible = 0,
         nonce: NumberConvertible = 1,
         address: Address | None = None,
-        evm_code_type: EVMCodeType | None = None,
         label: str | None = None,
         stub: str | None = None,
     ) -> Address:

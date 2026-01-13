@@ -6,7 +6,6 @@ from .bases import (
     OpcodeGasCalculator,
 )
 from .bytecode import Bytecode
-from .evm_types import EVMCodeType
 from .helpers import MemoryVariable, call_return_code
 from .opcodes import (
     Macro,
@@ -22,7 +21,6 @@ Op = Opcodes
 
 __all__ = (
     "Bytecode",
-    "EVMCodeType",
     "ForkOpcodeInterface",
     "Macro",
     "Macros",

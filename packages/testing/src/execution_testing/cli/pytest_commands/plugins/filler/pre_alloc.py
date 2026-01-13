@@ -37,9 +37,7 @@ from execution_testing.test_types import (
     compute_deterministic_create2_address,
 )
 from execution_testing.test_types import Alloc as BaseAlloc
-from execution_testing.test_types.eof.v1 import Container
 from execution_testing.tools import Initcode
-from execution_testing.vm import Bytecode, EVMCodeType, Opcodes
 
 CONTRACT_START_ADDRESS_DEFAULT = 0x1000000000000000000000000000000000001000
 CONTRACT_ADDRESS_INCREMENTS_DEFAULT = 0x100
@@ -79,15 +77,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=str,
         help="The address increment value for each deployed contract by a test.",
     )
-    pre_alloc_group.addoption(
-        "--evm-code-type",
-        action="store",
-        dest="evm_code_type",
-        default=None,
-        type=EVMCodeType,
-        choices=list(EVMCodeType),
-        help="Type of EVM code to deploy in each test by default.",
-    )
 
 
 class AllocMode(IntEnum):
@@ -107,7 +96,6 @@ class Alloc(BaseAlloc):
     _alloc_mode: AllocMode = PrivateAttr()
     _contract_address_iterator: Iterator[Address] = PrivateAttr()
     _eoa_iterator: Iterator[EOA] = PrivateAttr()
-    _evm_code_type: EVMCodeType | None = PrivateAttr(None)
     _fork: Fork = PrivateAttr()
 
     def __init__(
@@ -117,7 +105,6 @@ class Alloc(BaseAlloc):
         contract_address_iterator: Iterator[Address],
         eoa_iterator: Iterator[EOA],
         fork: Fork,
-        evm_code_type: EVMCodeType | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize allocation with the given properties."""
@@ -125,7 +112,6 @@ class Alloc(BaseAlloc):
         self._alloc_mode = alloc_mode
         self._contract_address_iterator = contract_address_iterator
         self._eoa_iterator = eoa_iterator
-        self._evm_code_type = evm_code_type
         self._fork = fork
 
     def __setitem__(
@@ -138,17 +124,8 @@ class Alloc(BaseAlloc):
             raise ValueError("Cannot set items in strict mode")
         super().__setitem__(address, account)
 
-    def code_pre_processor(
-        self, code: BytesConvertible, *, evm_code_type: EVMCodeType | None
-    ) -> BytesConvertible:
+    def code_pre_processor(self, code: BytesConvertible) -> BytesConvertible:
         """Pre-processes the code before setting it."""
-        if evm_code_type is None:
-            evm_code_type = self._evm_code_type
-        if evm_code_type == EVMCodeType.EOF_V1:
-            if not isinstance(code, Container):
-                if isinstance(code, Bytecode) and not code.terminating:
-                    return Container.Code(code + Opcodes.STOP)
-                return Container.Code(code)
         return code
 
     def deterministic_deploy_contract(
@@ -235,7 +212,6 @@ class Alloc(BaseAlloc):
         balance: NumberConvertible = 0,
         nonce: NumberConvertible = 1,
         address: Address | None = None,
-        evm_code_type: EVMCodeType | None = None,
         label: str | None = None,
         stub: str | None = None,
     ) -> Address:
@@ -266,7 +242,7 @@ class Alloc(BaseAlloc):
                 "impossible to deploy contract with nonce lower than one"
             )
 
-        code = self.code_pre_processor(code, evm_code_type=evm_code_type)
+        code = self.code_pre_processor(code)
         code_bytes = (
             bytes(code) if not isinstance(code, (bytes, str)) else code
         )
@@ -546,24 +522,11 @@ def eoa_iterator(
     return iter(eoa_by_index(i).copy() for i in count())
 
 
-@pytest.fixture(autouse=True)
-def evm_code_type(request: pytest.FixtureRequest) -> EVMCodeType:
-    """Return default EVM code type for all tests (LEGACY)."""
-    parameter_evm_code_type = request.config.getoption("evm_code_type")
-    if parameter_evm_code_type is not None:
-        assert type(parameter_evm_code_type) is EVMCodeType, (
-            "Invalid EVM code type"
-        )
-        return parameter_evm_code_type
-    return EVMCodeType.LEGACY
-
-
 @pytest.fixture(scope="function")
 def pre(
     alloc_mode: AllocMode,
     contract_address_iterator: Iterator[Address],
     eoa_iterator: Iterator[EOA],
-    evm_code_type: EVMCodeType,
     fork: Fork | None,
     request: pytest.FixtureRequest,
 ) -> Alloc:
@@ -579,5 +542,4 @@ def pre(
         contract_address_iterator=contract_address_iterator,
         eoa_iterator=eoa_iterator,
         fork=actual_fork,
-        evm_code_type=evm_code_type,
     )

@@ -9,8 +9,6 @@ from functools import cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import pytest
-
 from execution_testing.exceptions import (
     BlockException,
     ExceptionMapper,
@@ -18,7 +16,6 @@ from execution_testing.exceptions import (
 )
 from execution_testing.fixtures import (
     BlockchainFixture,
-    EOFFixture,
     FixtureFormat,
     StateFixture,
 )
@@ -105,22 +102,11 @@ class Nethtest(EthereumCLI):
         help_command.append("--help")
         return self._run_command(help_command).stdout
 
-    @cache  # noqa
-    def has_eof_support(self) -> bool:
-        """
-        Return True if the `nethtest` binary supports the `--eofTest` flag.
-
-        Currently, nethtest EOF support is only available in nethermind's
-        feature/evm/eof branch
-        https://github.com/NethermindEth/nethermind/tree/feature/evm/eof
-        """
-        return "--eofTest" in self.help()
-
 
 class NethtestFixtureConsumer(
     Nethtest,
     FixtureConsumerTool,
-    fixture_formats=[StateFixture, BlockchainFixture, EOFFixture],
+    fixture_formats=[StateFixture, BlockchainFixture],
 ):
     """Nethermind implementation of the fixture consumer."""
 
@@ -143,8 +129,6 @@ class NethtestFixtureConsumer(
             # TODO: consider using `--filter` here to readily access traces
             # from the output
             pass  # no additional options needed
-        elif fixture_format is EOFFixture:
-            command += ["--eofTest"]
         else:
             raise Exception(
                 f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
@@ -273,69 +257,6 @@ class NethtestFixtureConsumer(
                 f"{' '.join(command)}"
             )
 
-    @cache  # noqa
-    def consume_eof_test_file(
-        self,
-        fixture_path: Path,
-        command: Tuple[str, ...],
-        debug_output_path: Optional[Path] = None,
-    ) -> Tuple[Dict[Any, Any], str, str]:
-        """Consume an entire EOF fixture file."""
-        del fixture_path
-        result = subprocess.run(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-
-        pattern = re.compile(r"^(test_.+?)\s+(PASS|FAIL)$", re.MULTILINE)
-        test_results = {
-            match.group(1): match.group(2) == "PASS"  # Convert "PASS" to True
-            # and "FAIL" to False
-            for match in pattern.finditer(result.stdout)
-        }
-
-        if debug_output_path:
-            self._consume_debug_dump(command, result, debug_output_path)
-
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
-            )
-
-        return test_results, result.stdout, result.stderr
-
-    def consume_eof_test(
-        self,
-        command: Tuple[str, ...],
-        fixture_path: Path,
-        fixture_name: Optional[str],
-        debug_output_path: Optional[Path],
-    ) -> None:
-        """Execute the the EOF fixture at `fixture_path` via `nethtest`."""
-        if not self.has_eof_support():
-            pytest.skip(
-                "This version of nethtest does not support the `--eofTest` flag."
-            )
-        file_results, stdout, stderr = self.consume_eof_test_file(
-            fixture_path=fixture_path,
-            command=command,
-            debug_output_path=debug_output_path,
-        )
-        assert fixture_name, "fixture_name is required for EOF tests"
-        modified_fixture_name = fixture_name.split("::")[-1].replace(
-            "\\x", "/x"
-        )
-        assert modified_fixture_name in file_results, (
-            f"Test result for {fixture_name} missing, available stdout:\n{stdout}.\n"
-            f"Parsed test results: {file_results}"
-        )
-        if stderr:
-            available_stderr = f"Available stderr:\n{stderr}"
-        else:
-            available_stderr = "(No output available.)"
-        assert file_results[modified_fixture_name], (
-            f"EOF test '{fixture_name}' failed. {available_stderr}"
-        )
-
     def consume_fixture(
         self,
         fixture_format: FixtureFormat,
@@ -359,13 +280,6 @@ class NethtestFixtureConsumer(
             )
         elif fixture_format == StateFixture:
             self.consume_state_test(
-                command=command,
-                fixture_path=fixture_path,
-                fixture_name=fixture_name,
-                debug_output_path=debug_output_path,
-            )
-        elif fixture_format == EOFFixture:
-            self.consume_eof_test(
                 command=command,
                 fixture_path=fixture_path,
                 fixture_name=fixture_name,

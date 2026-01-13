@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from execution_testing import Address, Alloc, EVMCodeType, Op, Opcode
+from execution_testing import Address, Alloc, Op, Opcode
 
 from ..common import Scenario, ScenarioEnvironment, ScenarioGeneratorInput
 
@@ -41,11 +41,7 @@ class ScenariosCallCombinations:
 
     def __init__(self, scenario_input: ScenarioGeneratorInput):
         """Define possible call combinations given the fork."""
-        self.first_call_opcodes = [
-            callcode
-            for callcode, evm_type in scenario_input.fork.call_opcodes()
-            if evm_type == EVMCodeType.LEGACY
-        ]
+        self.first_call_opcodes = list(scenario_input.fork.call_opcodes())
         self.second_call_opcodes = self.first_call_opcodes[:]
         self.second_call_opcodes.append(Op.NOOP)
         self.scenario_input = scenario_input

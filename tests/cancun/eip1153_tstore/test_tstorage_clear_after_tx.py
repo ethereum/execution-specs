@@ -1,7 +1,5 @@
 """EIP-1153 Transient Storage tests."""
 
-from typing import Optional
-
 import pytest
 from execution_testing import (
     Account,
@@ -9,12 +7,10 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Environment,
-    EVMCodeType,
     Initcode,
     Op,
     Transaction,
 )
-from execution_testing.test_types.eof.v1 import Container
 
 from .spec import ref_spec_1153
 
@@ -23,11 +19,9 @@ REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
 
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.with_all_evm_code_types
 def test_tstore_clear_after_deployment_tx(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    evm_code_type: EVMCodeType,
 ) -> None:
     """
     First creates a contract, which TSTOREs a value 1 in slot 1. After creating
@@ -40,14 +34,7 @@ def test_tstore_clear_after_deployment_tx(
     init_code = Op.TSTORE(1, 1)
     deploy_code = Op.SSTORE(1, Op.TLOAD(1))
 
-    code: Optional[Container | Initcode] = None
-    if evm_code_type == EVMCodeType.EOF_V1:
-        code = Container.Init(
-            deploy_container=Container.Code(deploy_code + Op.STOP),
-            initcode_prefix=init_code,
-        )
-    else:
-        code = Initcode(deploy_code=deploy_code, initcode_prefix=init_code)
+    code = Initcode(deploy_code=deploy_code, initcode_prefix=init_code)
 
     sender = pre.fund_eoa()
 
@@ -76,7 +63,6 @@ def test_tstore_clear_after_deployment_tx(
 
 
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.with_all_evm_code_types
 def test_tstore_clear_after_tx(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

@@ -955,7 +955,6 @@ def pytest_runtest_makereport(
                     ("evm_dump_dir", item.config.evm_dump_dir)
                 )
             else:
-                # not yet for EOF
                 report.user_properties.append(("evm_dump_dir", "N/A"))
 
 

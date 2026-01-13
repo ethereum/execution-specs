@@ -482,14 +482,6 @@ env
 envvar
 eoa
 EOAs
-eof
-EOF1
-eofcreate
-EOFException
-eofparse
-eoftest
-EOFv
-eofwrap
 epilog
 eq
 ERC
@@ -505,7 +497,6 @@ ethereum's
 EthereumCLI
 EthereumJS
 evm
-EVMCodeType
 Evmone
 evmone
 exc

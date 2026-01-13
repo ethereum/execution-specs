@@ -458,7 +458,7 @@ def gas_test(
     tx_gas: int | None = None,
 ) -> None:
     """
-    Create State Test to check the gas cost of a sequence of EOF code.
+    Create State Test to check the gas cost of a sequence of code.
 
     `setup_code` and `tear_down_code` are called multiple times during the
     test, and MUST NOT have any side-effects which persist across message

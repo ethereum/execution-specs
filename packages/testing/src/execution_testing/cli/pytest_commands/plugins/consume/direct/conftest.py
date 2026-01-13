@@ -14,17 +14,16 @@ from typing import Any, Generator
 import pytest
 
 from execution_testing.base_types import to_json
+from execution_testing.cli.pytest_commands.plugins.consume.consume import (
+    FixturesSource,
+)
 from execution_testing.client_clis.ethereum_cli import EthereumCLI
 from execution_testing.client_clis.fixture_consumer_tool import (
     FixtureConsumerTool,
 )
-from execution_testing.cli.pytest_commands.plugins.consume.consume import (
-    FixturesSource,
-)
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainFixture,
-    EOFFixture,
     StateFixture,
 )
 from execution_testing.fixtures.consume import (
@@ -91,7 +90,6 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     config.supported_fixture_formats = [  # type: ignore[attr-defined]
         StateFixture,
         BlockchainFixture,
-        EOFFixture,
     ]
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):

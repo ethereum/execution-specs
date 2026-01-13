@@ -121,19 +121,6 @@ def compute_deterministic_create2_address(
     )
 
 
-def compute_eofcreate_address(
-    address: FixedSizeBytesConvertible, salt: FixedSizeBytesConvertible
-) -> Address:
-    """
-    Compute address of the resulting contract created using the `EOFCREATE`
-    opcode.
-    """
-    hash_bytes = Bytes(
-        b"\xff" + b"\x00" * 12 + Address(address) + Hash(salt)
-    ).keccak256()
-    return Address(hash_bytes[-20:])
-
-
 def add_kzg_version(
     b_hashes: List[bytes | SupportsBytes | int | str], kzg_version: int
 ) -> List[Hash]:
