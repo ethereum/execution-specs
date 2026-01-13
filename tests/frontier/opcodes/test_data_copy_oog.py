@@ -35,11 +35,6 @@ pytestmark = pytest.mark.valid_from("Byzantium")
 COPY_SIZE = 0x400  # 1024 bytes = 32 words
 
 
-@pytest.mark.ported_from(
-    [
-        "https://github.com/NethermindEth/nethermind/pull/10116",
-    ],
-)
 @pytest.mark.parametrize(
     "subcall_gas,expect_success",
     [
@@ -125,11 +120,6 @@ def test_calldatacopy_word_copy_oog(
     )
 
 
-@pytest.mark.ported_from(
-    [
-        "https://github.com/NethermindEth/nethermind/pull/10116",
-    ],
-)
 @pytest.mark.parametrize(
     "subcall_gas,expect_success",
     [
