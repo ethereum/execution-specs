@@ -1,41 +1,5 @@
 """
 Test data copy OOG regression.
-
-This test is a regression test for:
-https://github.com/NethermindEth/nethermind/pull/10116
-
-The bug was in `ConsumeDataCopyGas` where `UpdateGas` (which returns a bool
-indicating if sufficient gas is available) was called instead of `Consume`
-(which actually consumes gas). Since the bool return value wasn't checked,
-execution would continue even when there wasn't enough gas for the data
-copy word cost.
-
-Key insight: Memory expansion OOG is handled separately and correctly.
-The bug triggers when:
-1. Memory expansion check passes (enough gas for memory expansion)
-2. But NOT enough gas for the data copy word cost (3 gas per 32-byte word)
-
-This affects: CALLDATACOPY, CODECOPY, EXTCODECOPY, RETURNDATACOPY
-
-Only CALLDATACOPY and CODECOPY are tested here. EXTCODECOPY and RETURNDATACOPY
-are omitted because:
-- EXTCODECOPY: Address access costs vary by fork (700 pre-Berlin, 2600 cold /
-  100 warm in Berlin+ per EIP-2929), making gas calibration complex
-- RETURNDATACOPY: Requires nested CALLs to populate return data, adding gas
-  accounting complexity (63/64 rule, call overhead, etc.)
-Since all four opcodes use the same ConsumeDataCopyGas function, testing
-CALLDATACOPY and CODECOPY adequately covers the word copy cost bug.
-
-Test approach: Use a sub-call with controlled gas to isolate the word copy
-cost from intrinsic gas costs that vary across forks.
-
-Why sub-calls work for isolation:
-- Intrinsic gas (21000 base + calldata cost) only applies to top-level tx
-- The 63/64 rule (EIP-150) doesn't reduce gas when passing small amounts
-  with plenty of remaining gas (e.g., passing 150 with 500k remaining)
-- CALL costs (base + address access) are paid by caller, not callee
-- EIP-150 also ensures caller retains 1/64 of gas after CALL; with 500k gas
-  and small subcall amounts, plenty remains for post-call SSTORE (~20k max)
 """
 
 import pytest
