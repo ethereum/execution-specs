@@ -105,9 +105,9 @@ def _make_parser() -> ArgumentParser:
     blob_parameters.add_argument(
         "--min-blob-gasprice",
         type=lambda x: Uint(int(x)),
-        dest="min_blob_gasprice",
+        dest="blob_min_gasprice",
         default=None,
-        help="Set `MIN_BLOB_GASPRICE` in the generated fork",
+        help="Set `BLOB_MIN_GASPRICE` in the generated fork",
     )
 
     blob_parameters.add_argument(
@@ -177,8 +177,8 @@ def main(args: Sequence[str] | None = None) -> None:
     if options.gas_per_blob is not None:
         builder.modify_gas_per_blob(options.gas_per_blob)
 
-    if options.min_blob_gasprice is not None:
-        builder.modify_min_blob_gasprice(options.min_blob_gasprice)
+    if options.blob_min_gasprice is not None:
+        builder.modify_min_blob_gasprice(options.blob_min_gasprice)
 
     if options.blob_base_fee_update_fraction is not None:
         builder.modify_blob_base_fee_update_fraction(

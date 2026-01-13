@@ -503,12 +503,12 @@ class ForkBuilder:
             )
         )
 
-    def modify_min_blob_gasprice(self, min_blob_gasprice: Uint) -> None:
-        """Append a `CodemodArgs` that sets `MIN_BLOB_GASPRICE`."""
+    def modify_min_blob_gasprice(self, blob_min_gasprice: Uint) -> None:
+        """Append a `CodemodArgs` that sets `BLOB_MIN_GASPRICE`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.MIN_BLOB_GASPRICE",
-                repr(min_blob_gasprice),
+                "vm.gas.BLOB_MIN_GASPRICE",
+                repr(blob_min_gasprice),
             )
         )
 
