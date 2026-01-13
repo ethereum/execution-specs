@@ -8,7 +8,7 @@ Each entry must include an explanation of why the test case was missed plus the 
 
 ## List
 
-## 2025-01 - Data Copy Word Cost Gas Calculation - Byzantium+
+## 2026-01 - Data Copy Word Cost Gas Calculation - Byzantium+
 
 ### Description
 
