@@ -136,7 +136,6 @@ def test_codecopy_benchmark(
     )
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -345,6 +344,7 @@ def test_extcode_ops(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "copy_size",
     [0, 32, 256, 512, 1024],

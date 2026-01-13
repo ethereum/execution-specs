@@ -62,9 +62,9 @@ def test_jumps(
     )
 
 
+@pytest.mark.repricing
 def test_jump_benchmark(
     benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
 ) -> None:
     """Benchmark JUMP instruction with different dest."""
     benchmark_test(
