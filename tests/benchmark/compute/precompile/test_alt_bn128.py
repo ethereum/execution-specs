@@ -361,14 +361,10 @@ from tests.benchmark.compute.helpers import concatenate_parameters
 )
 def test_alt_bn128(
     benchmark_test: BenchmarkTestFiller,
-    fork: Fork,
     precompile_address: Address,
     calldata: bytes,
 ) -> None:
     """Benchmark ALT_BN128 precompile."""
-    if precompile_address not in fork.precompiles():
-        pytest.skip("Precompile not enabled")
-
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS, address=precompile_address, args_size=Op.CALLDATASIZE
@@ -501,13 +497,9 @@ def test_bn128_pairings_amortized(
 @pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
 def test_alt_bn128_benchmark(
     benchmark_test: BenchmarkTestFiller,
-    fork: Fork,
     num_pairs: int,
 ) -> None:
     """Benchmark BN128 pairings precompile with varying number of pairs."""
-    if 0x08 not in fork.precompiles():
-        pytest.skip("Precompile not enabled")
-
     calldata = _generate_bn128_pairs(num_pairs, seed=42)
 
     attack_block = Op.POP(
