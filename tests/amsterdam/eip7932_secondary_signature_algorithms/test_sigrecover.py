@@ -13,6 +13,7 @@ from execution_testing import (
 )
 from execution_testing.base_types.base_types import Address
 from execution_testing.base_types.constants import TestAddress
+from execution_testing.checklists import EIPChecklist
 from execution_testing.vm import Op
 
 from ethereum.crypto.hash import keccak256
@@ -113,19 +114,24 @@ test_cases = [
     ),
 ]
 
-
 @pytest.mark.valid_from(EIP7932_FORK_NAME)
 @pytest.mark.parametrize(
     "input_data,expected_address,expected_gas",
     [x[1:] for x in test_cases],
     ids=[x[0] for x in test_cases],
 )
-def test_sigrecover_gas_and_validity(
+@pytest.mark.parametrize(
+    "value",
+    [0, 1],
+    ids=["no_value", "value"]
+)
+def test_sigrecover_gas_and_validity_call(
     state_test: StateTestFiller,
     pre: Alloc,
     input_data: bytes,
     expected_address: Address,
     expected_gas: int,
+    value: int
 ) -> None:
     """
     Test sigrecover for gas & address validity.
@@ -134,7 +140,7 @@ def test_sigrecover_gas_and_validity(
 
     pre.fund_address(
         TestAddress,
-        10000000,
+        10000000000000,
     )
 
     tester_contract = pre.deploy_contract(
@@ -184,8 +190,92 @@ def test_sigrecover_gas_and_validity(
         gas_limit=1000000,
         gas_price=10,
         protected=False,
+        value=value,
     )
 
     post = {}
     post[tester_contract] = Account(storage={0: 0, 1: 1, 2: expected_address})
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+@pytest.mark.valid_from(EIP7932_FORK_NAME)
+@pytest.mark.parametrize(
+    "input_data,expected_address,expected_gas",
+    [x[1:] for x in test_cases],
+    ids=[x[0] for x in test_cases],
+)
+@pytest.mark.parametrize(
+    "value",
+    [0, 1],
+    ids=["no_value", "value"]
+)
+def test_sigrecover_gas_and_validity_staticcall(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    input_data: bytes,
+    expected_address: Address,
+    expected_gas: int,
+    value: int
+) -> None:
+    """
+    Test sigrecover for gas & address validity.
+    """
+    env = Environment()
+
+    pre.fund_address(
+        TestAddress,
+        10000000000000,
+    )
+
+    tester_contract = pre.deploy_contract(
+        (
+            # Copy all the calldata to memory
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            # Store the return code of a bad gas value
+            # to storage slot 0
+            + Op.SSTORE(
+                0,
+                Op.STATICCALL(
+                    Op.SUB(expected_gas, 1),
+                    SIGRECOVER_ADDRESS,
+                    0,
+                    Op.CALLDATASIZE,
+                    Op.CALLDATASIZE,
+                    Op.ADD(Op.CALLDATASIZE, 0x20),
+                ),
+            )
+            # Store the return code of good call
+            # to storage slot 1
+            + Op.SSTORE(
+                1,
+                Op.STATICCALL(
+                    expected_gas,
+                    SIGRECOVER_ADDRESS,
+                    0,
+                    Op.CALLDATASIZE,
+                    Op.CALLDATASIZE,
+                    Op.ADD(Op.CALLDATASIZE, 0x20),
+                ),
+            )
+            # Store the return data to storage slot 2
+            + Op.SSTORE(2, Op.MLOAD(Op.CALLDATASIZE))
+            # Stop
+            + Op.STOP()
+        )
+    )
+
+    tx = Transaction(  # type: ignore
+        ty=0x0,
+        nonce=0,
+        to=tester_contract,
+        input=input_data,
+        gas_limit=1000000,
+        gas_price=10,
+        protected=False,
+        value=value,
+    )
+
+    post = {}
+    post[tester_contract] = Account(storage={0: 0, 1: 1, 2: expected_address})
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
