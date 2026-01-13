@@ -58,7 +58,7 @@ from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Evm
+from . import Evm, emit_transfer_log
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -265,10 +265,10 @@ def process_message(message: Message) -> Evm:
 
     """
     state = message.block_env.state
-    transient_storage = message.tx_env.transient_storage
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
+    transient_storage = message.tx_env.transient_storage
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
     evm = Evm(
@@ -314,6 +314,9 @@ def process_message(message: Message) -> Evm:
         move_ether(
             state, message.caller, message.current_target, message.value
         )
+        emit_transfer_log(
+            evm, message.caller, message.current_target, message.value
+        )
 
         sender_new_balance = get_account(state, message.caller).balance
         recipient_new_balance = get_account(
@@ -331,6 +334,7 @@ def process_message(message: Message) -> Evm:
             U256(recipient_new_balance),
         )
 
+    # Execute message code and handle errors
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
             if not message.disable_precompiles:
