@@ -861,6 +861,10 @@ class Transaction(
                 # while removing unnecessary trailing zeros (100.000000 -> 100)
                 return "{:f}".format(value).rstrip("0").rstrip(".")
 
+            # Force decimal representation for int subclasses like HexNumber
+            if isinstance(value, int):
+                return str(int(value))
+
             return str(value)
 
         # fields like 'to' should be shown as hex string
