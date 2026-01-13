@@ -852,7 +852,7 @@ class Transaction(
         if value is None:
             return "None"
         elif hasattr(value, "hex"):
-            return value.hex()
+            return f'"{value.hex()}"'
         else:
             return repr(value)
 
