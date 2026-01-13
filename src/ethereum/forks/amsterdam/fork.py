@@ -30,6 +30,7 @@ from ethereum.exceptions import (
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff, PreState
+from ethereum.utils.byte import left_pad_zero_bytes
 
 from . import vm
 from .block_access_lists import (
@@ -1083,11 +1084,32 @@ def process_transaction(
     block_output.block_gas_used += block_gas_used_in_tx
     block_output.blob_gas_used += tx_blob_gas_used
 
+    # EIP-7708: Emit selfdestruct logs for remaining balance at finalization.
+    # This handles the case where a contract receives ETH after being flagged
+    # for SELFDESTRUCT but before finalization.
+    finalization_logs: List[Log] = []
+    for address in tx_output.accounts_to_delete:
+        balance = get_account(tx_state, address).balance
+        if balance > U256(0):
+            padded_address = left_pad_zero_bytes(address, 32)
+            finalization_logs.append(
+                Log(
+                    address=vm.SYSTEM_ADDRESS,
+                    topics=(
+                        vm.SELFDESTRUCT_TOPIC,
+                        Hash32(padded_address),
+                    ),
+                    data=balance.to_be_bytes32(),
+                )
+            )
+
+    all_logs = tx_output.logs + tuple(finalization_logs)
+
     receipt = make_receipt(
         tx,
         tx_output.error,
         block_output.cumulative_gas_used,
-        tx_output.logs,
+        all_logs,
     )
 
     receipt_key = rlp.encode(Uint(index))
@@ -1099,7 +1121,7 @@ def process_transaction(
         receipt,
     )
 
-    block_output.block_logs += tx_output.logs
+    block_output.block_logs += all_logs
 
     for address in tx_output.accounts_to_delete:
         destroy_account(tx_state, address)
