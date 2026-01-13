@@ -109,7 +109,7 @@ class ForkCache(AbstractContextManager):
         self,
         template: Hardfork,
         fork_criteria: ByBlockNumber | ByTimestamp | Unscheduled | None = None,
-        target_blob_gas_per_block: U64 | None = None,
+        blob_target_gas_per_block: U64 | None = None,
         gas_per_blob: U64 | None = None,
         min_blob_gasprice: Uint | None = None,
         blob_base_fee_update_fraction: Uint | None = None,
@@ -124,7 +124,7 @@ class ForkCache(AbstractContextManager):
         cache_key = (
             template.short_name,
             fork_criteria,
-            target_blob_gas_per_block,
+            blob_target_gas_per_block,
             gas_per_blob,
             min_blob_gasprice,
             blob_base_fee_update_fraction,
@@ -143,7 +143,7 @@ class ForkCache(AbstractContextManager):
         clone = Hardfork.clone(
             template=template,
             fork_criteria=fork_criteria,
-            target_blob_gas_per_block=target_blob_gas_per_block,
+            blob_target_gas_per_block=blob_target_gas_per_block,
             gas_per_blob=gas_per_blob,
             min_blob_gasprice=min_blob_gasprice,
             blob_base_fee_update_fraction=blob_base_fee_update_fraction,

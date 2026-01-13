@@ -69,7 +69,7 @@ GAS_BLOBHASH_OPCODE = Uint(3)
 GAS_POINT_EVALUATION = Uint(50000)
 
 GAS_PER_BLOB = U64(2**17)
-TARGET_BLOB_GAS_PER_BLOCK = U64(393216)
+BLOB_TARGET_GAS_PER_BLOCK = U64(393216)
 MIN_BLOB_GASPRICE = Uint(1)
 BLOB_BASE_FEE_UPDATE_FRACTION = Uint(3338477)
 
@@ -301,10 +301,10 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
         blob_gas_used = parent_header.blob_gas_used
 
     parent_blob_gas = excess_blob_gas + blob_gas_used
-    if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
+    if parent_blob_gas < BLOB_TARGET_GAS_PER_BLOCK:
         return U64(0)
 
-    return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
+    return parent_blob_gas - BLOB_TARGET_GAS_PER_BLOCK
 
 
 def calculate_total_blob_gas(tx: Transaction) -> U64:

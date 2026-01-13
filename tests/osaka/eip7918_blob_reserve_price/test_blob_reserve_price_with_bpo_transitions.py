@@ -388,7 +388,7 @@ class BlobSchedule:
         return None
 
     @property
-    def target_blob_gas_per_block(self) -> int:
+    def blob_target_gas_per_block(self) -> int:
         """Return the target blob gas per block."""
         return self.target * self.blob_gas_per_blob
 

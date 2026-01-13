@@ -196,7 +196,7 @@ class Hardfork:
         fork_criteria: Union[
             "ByBlockNumber", "ByTimestamp", "Unscheduled", None
         ] = None,
-        target_blob_gas_per_block: U64 | None = None,
+        blob_target_gas_per_block: U64 | None = None,
         gas_per_blob: U64 | None = None,
         min_blob_gasprice: Uint | None = None,
         blob_base_fee_update_fraction: Uint | None = None,
@@ -232,9 +232,9 @@ class Hardfork:
             if fork_criteria is not None:
                 builder.fork_criteria = fork_criteria
 
-            if target_blob_gas_per_block is not None:
+            if blob_target_gas_per_block is not None:
                 builder.modify_target_blob_gas_per_block(
-                    target_blob_gas_per_block
+                    blob_target_gas_per_block
                 )
 
             if gas_per_blob is not None:

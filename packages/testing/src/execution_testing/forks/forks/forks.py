@@ -1558,7 +1558,7 @@ class Cancun(Shanghai):
         blob_gas_per_blob = cls.blob_gas_per_blob(
             block_number=block_number, timestamp=timestamp
         )
-        target_blob_gas_per_block = target_blobs_per_block * blob_gas_per_blob
+        blob_target_gas_per_block = target_blobs_per_block * blob_gas_per_blob
 
         def fn(
             *,
@@ -1585,14 +1585,14 @@ class Cancun(Shanghai):
                 parent_blob_gas_used = parent_blob_count * blob_gas_per_blob
             if (
                 parent_excess_blob_gas + parent_blob_gas_used
-                < target_blob_gas_per_block
+                < blob_target_gas_per_block
             ):
                 return 0
             else:
                 return (
                     parent_excess_blob_gas
                     + parent_blob_gas_used
-                    - target_blob_gas_per_block
+                    - blob_target_gas_per_block
                 )
 
         return fn
@@ -1820,7 +1820,7 @@ class Prague(Cancun):
         "MAX_BLOBS_PER_BLOCK": 9,  # but overwrite or add these
         "TARGET_BLOBS_PER_BLOCK": 6,
         "MAX_BLOB_GAS_PER_BLOCK": 1179648,
-        "TARGET_BLOB_GAS_PER_BLOCK": 786432,
+        "BLOB_TARGET_GAS_PER_BLOCK": 786432,
         "BLOB_BASE_FEE_UPDATE_FRACTION": 5007716,
     }
 
@@ -2260,7 +2260,7 @@ class Osaka(Prague, solc_name="cancun"):
         blob_gas_per_blob = cls.blob_gas_per_blob(
             block_number=block_number, timestamp=timestamp
         )
-        target_blob_gas_per_block = target_blobs_per_block * blob_gas_per_blob
+        blob_target_gas_per_block = target_blobs_per_block * blob_gas_per_blob
         max_blobs_per_block = cls.max_blobs_per_block(
             block_number=block_number, timestamp=timestamp
         )
@@ -2288,7 +2288,7 @@ class Osaka(Prague, solc_name="cancun"):
                 parent_blob_gas_used = parent_blob_count * blob_gas_per_blob
             if (
                 parent_excess_blob_gas + parent_blob_gas_used
-                < target_blob_gas_per_block
+                < blob_target_gas_per_block
             ):
                 return 0
 
@@ -2313,7 +2313,7 @@ class Osaka(Prague, solc_name="cancun"):
             return (
                 parent_excess_blob_gas
                 + parent_blob_gas_used
-                - target_blob_gas_per_block
+                - blob_target_gas_per_block
             )
 
         return fn

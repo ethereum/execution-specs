@@ -484,13 +484,13 @@ class ForkBuilder:
             self._commit(package)
 
     def modify_target_blob_gas_per_block(
-        self, target_blob_gas_per_block: U64
+        self, blob_target_gas_per_block: U64
     ) -> None:
-        """Append a `CodemodArgs` that sets `TARGET_BLOB_GAS_PER_BLOCK`."""
+        """Append a `CodemodArgs` that sets `BLOB_TARGET_GAS_PER_BLOCK`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.TARGET_BLOB_GAS_PER_BLOCK",
-                repr(target_blob_gas_per_block),
+                "vm.gas.BLOB_TARGET_GAS_PER_BLOCK",
+                repr(blob_target_gas_per_block),
             )
         )
 
