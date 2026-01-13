@@ -276,9 +276,6 @@ def add_genesis_block(
     if has_field(hardfork.Block, "requests"):
         block_fields["requests"] = ()
 
-    if has_field(hardfork.Block, "block_access_list"):
-        block_fields["block_access_list"] = rlp.encode([])
-
     genesis_block = hardfork.Block(**block_fields)
 
     chain.blocks.append(genesis_block)
