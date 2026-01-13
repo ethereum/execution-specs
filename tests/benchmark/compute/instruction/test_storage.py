@@ -419,7 +419,7 @@ def test_storage_access_warm_benchmark(
     Benchmark warm storage slot accesses using code generator.
 
     Each iteration accesses a different storage slot (incrementing key)
-    to ensure cold access costs are measured.
+    to ensure warm access costs are measured.
     """
     attack_block = Bytecode()
     if storage_action == StorageAction.WRITE_SAME_VALUE:

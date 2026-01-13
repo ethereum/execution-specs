@@ -72,7 +72,7 @@ def test_memory_access(
 @pytest.mark.repricing(fixed_src_dst=True)
 @pytest.mark.parametrize(
     "mem_size",
-    [0, 32, 256, 1024, 10 * 1025, 1024 * 1024],
+    [0, 32, 256, 1024, 10 * 1024, 1024 * 1024],
 )
 @pytest.mark.parametrize("copy_size", [0, 32, 256, 1024])
 @pytest.mark.parametrize(
