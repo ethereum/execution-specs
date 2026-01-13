@@ -9,6 +9,7 @@ from ethereum_types.numeric import U8, Uint
 
 from ethereum.crypto.hash import keccak256
 
+from .exceptions import AlgorithmValidationError
 from .secp256k1 import Secp256k1
 
 __all__ = (
@@ -42,8 +43,11 @@ def validate_signature(signature: Bytes) -> None:
     Ensure that the `signature` is valid by itself,
     this should be called before `verify_signature`.
     """
-    assert len(signature) > 0
-    assert U8(signature[0]) in algorithm_registry
+    if len(signature) == 0:
+        raise AlgorithmValidationError("Bad signature size")
+
+    if U8(signature[0]) not in algorithm_registry:
+        raise AlgorithmValidationError("Algorithm does not exist")
 
     algorithm = algorithm_registry[U8(signature[0])]
 

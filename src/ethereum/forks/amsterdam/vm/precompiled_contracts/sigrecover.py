@@ -63,9 +63,6 @@ def sigrecover(evm: Evm) -> None:
     except exceptions.AlgorithmVerificationError:
         evm.output = left_pad_zero_bytes(b"", 32)
         return
-    except AssertionError:
-        evm.output = left_pad_zero_bytes(b"", 32)
-        return
 
     addr = pubkey_to_address(pubkey, U8(signature[0]))
     evm.output = left_pad_zero_bytes(addr, 32)

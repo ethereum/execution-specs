@@ -11,7 +11,7 @@ from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidSignatureError
 
 from .algorithm import Algorithm
-from .exceptions import AlgorithmValidationError
+from .exceptions import AlgorithmValidationError, AlgorithmVerificationError
 
 __all__ = ("Secp256k1",)
 
@@ -33,9 +33,12 @@ def secp256k1_unpack(  # noqa: D103
 
 def secp256k1_validate(signature: Bytes) -> None:  # noqa: D103
     r, s, y_parity = secp256k1_unpack(signature)
-    assert U256(0) < r < SECP256K1N
-    assert U256(0) < s <= SECP256K1N // U256(2)
-    assert y_parity in (0, 1)
+    if not U256(0) < r < SECP256K1N:
+        raise AlgorithmValidationError("r value zero or too high")
+    if not U256(0) < s <= SECP256K1N // U256(2):
+        raise AlgorithmValidationError("s value zero or too high")
+    if y_parity not in (0, 1):
+        raise AlgorithmValidationError("y_parity value out of bounds (0, 1)")
 
 
 class Secp256k1(Algorithm):  # noqa: D101
@@ -100,4 +103,4 @@ class Secp256k1(Algorithm):  # noqa: D101
                 *secp256k1_unpack(signature[1:]), Bytes32(signing_data)
             )
         except InvalidSignatureError as e:
-            raise AlgorithmValidationError from e
+            raise AlgorithmVerificationError from e

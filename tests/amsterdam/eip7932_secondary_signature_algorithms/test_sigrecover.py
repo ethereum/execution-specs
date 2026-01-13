@@ -13,7 +13,6 @@ from execution_testing import (
 )
 from execution_testing.base_types.base_types import Address
 from execution_testing.base_types.constants import TestAddress
-from execution_testing.checklists import EIPChecklist
 from execution_testing.vm import Op
 
 from ethereum.crypto.hash import keccak256
@@ -114,24 +113,21 @@ test_cases = [
     ),
 ]
 
+
 @pytest.mark.valid_from(EIP7932_FORK_NAME)
 @pytest.mark.parametrize(
     "input_data,expected_address,expected_gas",
     [x[1:] for x in test_cases],
     ids=[x[0] for x in test_cases],
 )
-@pytest.mark.parametrize(
-    "value",
-    [0, 1],
-    ids=["no_value", "value"]
-)
+@pytest.mark.parametrize("value", [0, 1], ids=["no_value", "value"])
 def test_sigrecover_gas_and_validity_call(
     state_test: StateTestFiller,
     pre: Alloc,
     input_data: bytes,
     expected_address: Address,
     expected_gas: int,
-    value: int
+    value: int,
 ) -> None:
     """
     Test sigrecover for gas & address validity.
@@ -196,6 +192,7 @@ def test_sigrecover_gas_and_validity_call(
     post = {}
     post[tester_contract] = Account(storage={0: 0, 1: 1, 2: expected_address})
     state_test(env=env, pre=pre, post=post, tx=tx)
+
 
 @pytest.mark.valid_from(EIP7932_FORK_NAME)
 @pytest.mark.parametrize(
@@ -203,18 +200,14 @@ def test_sigrecover_gas_and_validity_call(
     [x[1:] for x in test_cases],
     ids=[x[0] for x in test_cases],
 )
-@pytest.mark.parametrize(
-    "value",
-    [0, 1],
-    ids=["no_value", "value"]
-)
+@pytest.mark.parametrize("value", [0, 1], ids=["no_value", "value"])
 def test_sigrecover_gas_and_validity_staticcall(
     state_test: StateTestFiller,
     pre: Alloc,
     input_data: bytes,
     expected_address: Address,
     expected_gas: int,
-    value: int
+    value: int,
 ) -> None:
     """
     Test sigrecover for gas & address validity.
@@ -277,5 +270,3 @@ def test_sigrecover_gas_and_validity_staticcall(
     post = {}
     post[tester_contract] = Account(storage={0: 0, 1: 1, 2: expected_address})
     state_test(env=env, pre=pre, post=post, tx=tx)
-
-

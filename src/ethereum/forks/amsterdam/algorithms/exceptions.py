@@ -3,7 +3,7 @@ The exceptions that may be thrown during signature processing.
 """
 
 
-class AlgorithmValidationError(BaseException):
+class AlgorithmValidationError(Exception):
     """
     Thrown when an algorithm has failed to
     validate a signature.
@@ -12,7 +12,7 @@ class AlgorithmValidationError(BaseException):
     pass
 
 
-class AlgorithmVerificationError(BaseException):
+class AlgorithmVerificationError(Exception):
     """
     Thrown when an algorithm has failed to
     verify a signature.
