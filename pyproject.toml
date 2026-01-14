@@ -410,6 +410,7 @@ max-complexity = 7
 builtin = "clear,code,usage"
 # Version control & tooling, build artifacts, data files, test fixtures, temp files, lock files
 skip = [
+    ".devcontainer",
     ".git",
     ".tox",
     ".venv",
@@ -455,6 +456,7 @@ mypy_path = ["src", "packages/testing/src", "packages/testing/stubs"]
 files = ["src", "tests", "packages"]
 exclude = [
     "^\\.cache/",
+    "^\\.devcontainer/",
     "^\\.git/",
     "^\\.pytest_cache/",
     "^\\.ruff_cache/",
