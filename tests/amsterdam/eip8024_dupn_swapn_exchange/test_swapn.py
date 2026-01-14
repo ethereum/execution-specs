@@ -103,7 +103,8 @@ def test_swapn_preserves_other_stack_items(
     code += Op.SWAPN[2]
 
     # Store all values to verify
-    # After swap: top=0x2222, pos2=0x4444, pos3=0x3333, pos4=0x5555, pos5=0x1111
+    # After swap: top=0x2222, pos2=0x4444, pos3=0x3333,
+    # pos4=0x5555, pos5=0x1111
     code += Op.PUSH1(0) + Op.SSTORE  # Slot 0 = new top
     code += Op.PUSH1(1) + Op.SSTORE  # Slot 1 = position 2 (0x4444, unchanged)
     code += Op.PUSH1(2) + Op.SSTORE  # Slot 2 = position 3 (0x3333, unchanged)

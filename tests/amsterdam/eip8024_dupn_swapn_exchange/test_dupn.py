@@ -42,7 +42,8 @@ def test_dupn_basic(
     stack_height = dupn_operand + 1
     expected_value = 0xBEEF + dupn_operand
 
-    # Push values onto stack: the value at position dupn_operand will be expected_value
+    # Push values onto stack: the value at position dupn_operand will
+    # be expected_value
     code = Bytecode()
     for i in range(stack_height):
         if i == 0:
