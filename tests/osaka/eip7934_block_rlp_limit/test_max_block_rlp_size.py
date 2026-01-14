@@ -73,7 +73,6 @@ def block_errors() -> List[BlockException]:
 def get_block_rlp_size(
     fork: Fork,
     transactions: List[Transaction],
-    gas_used: int,
     withdrawals: List[Withdrawal] | None = None,
 ) -> int:
     """
@@ -85,7 +84,6 @@ def get_block_rlp_size(
         timestamp=HEADER_TIMESTAMP,
     )
     header.gas_limit = ZeroPaddedHexNumber(BLOCK_GAS_LIMIT)
-    header.gas_used = ZeroPaddedHexNumber(gas_used)
     header.extra_data = Bytes(EXTRA_DATA_AT_LIMIT)
 
     total_gas = sum((tx.gas_limit or 21000) for tx in transactions)
@@ -303,7 +301,7 @@ def _exact_size_transactions_impl(
         total_gas_used += last_tx.gas_limit
 
     current_size = get_block_rlp_size(
-        fork, transactions, gas_used=total_gas_used, withdrawals=withdrawals
+        fork, transactions, withdrawals=withdrawals
     )
     remaining_bytes = block_size_limit - current_size
     remaining_gas = block_gas_limit - total_gas_used
@@ -322,7 +320,6 @@ def _exact_size_transactions_impl(
         empty_block_size = get_block_rlp_size(
             fork,
             transactions + [empty_tx],
-            gas_used=total_gas_used + empty_tx.gas_limit,
             withdrawals=withdrawals,
         )
         empty_contribution = empty_block_size - current_size
@@ -346,7 +343,6 @@ def _exact_size_transactions_impl(
             test_size = get_block_rlp_size(
                 fork,
                 transactions + [test_tx],
-                gas_used=total_gas_used + target_gas,
                 withdrawals=withdrawals,
             )
 
@@ -381,7 +377,6 @@ def _exact_size_transactions_impl(
                         adjusted_test_size = get_block_rlp_size(
                             fork,
                             transactions + [adjusted_tx],
-                            gas_used=total_gas_used + adjusted_gas,
                             withdrawals=withdrawals,
                         )
 
@@ -406,7 +401,6 @@ def _exact_size_transactions_impl(
     final_size = get_block_rlp_size(
         fork,
         transactions,
-        gas_used=sum(tx.gas_limit for tx in transactions),
         withdrawals=withdrawals,
     )
     final_gas = sum(tx.gas_limit for tx in transactions)
@@ -459,7 +453,7 @@ def test_block_at_rlp_size_limit_boundary(
         pre,
         env.gas_limit,
     )
-    block_rlp_size = get_block_rlp_size(fork, transactions, gas_used=gas_used)
+    block_rlp_size = get_block_rlp_size(fork, transactions)
     assert block_rlp_size == block_size_limit, (
         f"Block RLP size {block_rlp_size} does not exactly match "
         f"limit {block_size_limit}, difference: "
@@ -512,7 +506,7 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
         env.gas_limit,
         specific_transaction_to_include=typed_transaction,
     )
-    block_rlp_size = get_block_rlp_size(fork, transactions, gas_used=gas_used)
+    block_rlp_size = get_block_rlp_size(fork, transactions)
     assert block_rlp_size == block_size_limit, (
         f"Block RLP size {block_rlp_size} does not exactly match limit "
         f"{block_size_limit}, difference: {block_rlp_size - block_size_limit} "
@@ -556,7 +550,7 @@ def test_block_at_rlp_limit_with_logs(
         emit_logs=True,
     )
 
-    block_rlp_size = get_block_rlp_size(fork, transactions, gas_used=gas_used)
+    block_rlp_size = get_block_rlp_size(fork, transactions)
     assert block_rlp_size == block_size_limit, (
         f"Block RLP size {block_rlp_size} does not exactly match limit "
         f"{block_size_limit}, difference: {block_rlp_size - block_size_limit} "
@@ -616,7 +610,7 @@ def test_block_at_rlp_limit_with_withdrawals(
     )
 
     block_rlp_size = get_block_rlp_size(
-        fork, transactions, gas_used=gas_used, withdrawals=withdrawals
+        fork, transactions, withdrawals=withdrawals
     )
     assert block_rlp_size == block_size_limit, (
         f"Block RLP size {block_rlp_size} does not exactly match limit "
@@ -687,12 +681,8 @@ def test_fork_transition_block_rlp_limit(
     )
 
     for fork_block_rlp_size in [
-        get_block_rlp_size(
-            fork, transactions_before, gas_used=gas_used_before
-        ),
-        get_block_rlp_size(
-            fork, transactions_at_fork, gas_used=gas_used_at_fork
-        ),
+        get_block_rlp_size(fork, transactions_before),
+        get_block_rlp_size(fork, transactions_at_fork),
     ]:
         assert fork_block_rlp_size == block_size_limit, (
             f"Block RLP size {fork_block_rlp_size} does not exactly match "

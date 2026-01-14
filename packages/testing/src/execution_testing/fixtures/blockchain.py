@@ -276,7 +276,6 @@ class FixtureHeader(CamelModel):
         """Compute the RLP of the header."""
         return self.rlp.keccak256()
 
-
     @classmethod
     def get_default_from_annotation(
         cls,
@@ -346,7 +345,6 @@ class FixtureHeader(CamelModel):
                 f"with unsupported type '{actual_type}'. "
                 f"Add support for this type or provide a default value explicitly."
             )
-
 
     @classmethod
     def genesis(cls, fork: Fork, env: Environment, state_root: Hash) -> Self:
