@@ -1072,11 +1072,10 @@ def process_transaction(
         destroy_account(block_env.state, block_env.coinbase)
 
     block_output.block_gas_used += tx_gas_used_before_refund
-    block_output.receipt_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
 
     receipt = make_receipt(
-        tx, tx_output.error, block_output.receipt_gas_used, tx_output.logs
+        tx, tx_output.error, block_output.block_gas_used, tx_output.logs
     )
 
     receipt_key = rlp.encode(Uint(index))
