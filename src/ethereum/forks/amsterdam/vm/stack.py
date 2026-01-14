@@ -17,7 +17,11 @@ from typing import List, Tuple
 from ethereum_types.numeric import U256, Uint
 
 from . import Evm
-from .exceptions import StackOverflowError, StackUnderflowError
+from .exceptions import (
+    InvalidParameter,
+    StackOverflowError,
+    StackUnderflowError,
+)
 from .gas import GAS_BASE, GAS_VERY_LOW, charge_gas
 from .memory import buffer_read
 
@@ -36,8 +40,14 @@ def decode_single(x: int) -> int:
     int
         The stack index (17-235).
 
+    Raises
+    ------
+    InvalidParameter
+        If x is in the forbidden range (90 < x < 128).
+
     """
-    assert 0 <= x <= 90 or 128 <= x <= 255
+    if not (0 <= x <= 90 or 128 <= x <= 255):
+        raise InvalidParameter
     if x <= 90:
         return x + 17
     else:
@@ -58,8 +68,14 @@ def decode_pair(x: int) -> Tuple[int, int]:
     Tuple[int, int]
         The two stack indices (n, m).
 
+    Raises
+    ------
+    InvalidParameter
+        If x is in the forbidden range (79 < x < 128).
+
     """
-    assert 0 <= x <= 79 or 128 <= x <= 255
+    if not (0 <= x <= 79 or 128 <= x <= 255):
+        raise InvalidParameter
     k = x if x <= 79 else x - 48
     q, r = divmod(k, 16)
     if q < r:
@@ -371,11 +387,12 @@ def swapn(evm: Evm) -> None:
     # OPERATION
     immediate_data = evm.code[evm.pc + Uint(1)]
     item_number = decode_single(immediate_data)
-    if item_number > len(evm.stack):
+    # SWAPN with decoded value n swaps top (position 1) with position (n+1)
+    if item_number + 1 > len(evm.stack):
         raise StackUnderflowError
-    # stack[-1] is top, stack[-item_number] is the Nth item
-    evm.stack[-1], evm.stack[-item_number] = (
-        evm.stack[-item_number],
+    # stack[-1] is top (position 1), stack[-(item_number+1)] is position (n+1)
+    evm.stack[-1], evm.stack[-(item_number + 1)] = (
+        evm.stack[-(item_number + 1)],
         evm.stack[-1],
     )
 
@@ -404,12 +421,13 @@ def exchange(evm: Evm) -> None:
     # OPERATION
     immediate_data = evm.code[evm.pc + Uint(1)]
     n, m = decode_pair(immediate_data)
-    depth = max(n, m)
+    # EXCHANGE swaps position (n+1) with position (m+1)
+    depth = max(n, m) + 1
     if depth > len(evm.stack):
         raise StackUnderflowError
-    evm.stack[-n], evm.stack[-m] = (
-        evm.stack[-m],
-        evm.stack[-n],
+    evm.stack[-(n + 1)], evm.stack[-(m + 1)] = (
+        evm.stack[-(m + 1)],
+        evm.stack[-(n + 1)],
     )
 
     # PROGRAM COUNTER

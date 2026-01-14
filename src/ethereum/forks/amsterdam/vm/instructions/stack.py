@@ -260,11 +260,12 @@ def swapn(evm: Evm) -> None:
     # OPERATION
     immediate_data = evm.code[evm.pc + Uint(1)]
     item_number = decode_single(immediate_data)
-    if item_number > len(evm.stack):
+    # SWAPN with decoded value n swaps top (position 1) with position (n+1)
+    if item_number + 1 > len(evm.stack):
         raise StackUnderflowError
-    # stack[-1] is top, stack[-item_number] is the Nth item
-    evm.stack[-1], evm.stack[-item_number] = (
-        evm.stack[-item_number],
+    # stack[-1] is top (position 1), stack[-(item_number+1)] is position (n+1)
+    evm.stack[-1], evm.stack[-(item_number + 1)] = (
+        evm.stack[-(item_number + 1)],
         evm.stack[-1],
     )
 
@@ -293,12 +294,13 @@ def exchange(evm: Evm) -> None:
     # OPERATION
     immediate_data = evm.code[evm.pc + Uint(1)]
     n, m = decode_pair(immediate_data)
-    depth = max(n, m)
+    # EXCHANGE swaps position (n+1) with position (m+1)
+    depth = max(n, m) + 1
     if depth > len(evm.stack):
         raise StackUnderflowError
-    evm.stack[-n], evm.stack[-m] = (
-        evm.stack[-m],
-        evm.stack[-n],
+    evm.stack[-(n + 1)], evm.stack[-(m + 1)] = (
+        evm.stack[-(m + 1)],
+        evm.stack[-(n + 1)],
     )
 
     # PROGRAM COUNTER

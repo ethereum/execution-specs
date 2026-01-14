@@ -29,11 +29,11 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 @pytest.mark.parametrize(
     "n,m",
     [
-        (1, 2),  # Swap positions 1 and 2
-        (1, 16),  # Swap positions 1 and 16
-        (1, 29),  # Swap positions 1 and 29 (n + m = 30)
-        (5, 10),  # Swap positions 5 and 10
-        (13, 17),  # Swap positions 13 and 17 (n + m = 30)
+        (1, 2),  # Swap positions 2 and 3
+        (1, 16),  # Swap positions 2 and 17
+        (1, 29),  # Swap positions 2 and 30 (n + m = 30)
+        (5, 10),  # Swap positions 6 and 11
+        (13, 17),  # Swap positions 14 and 18 (n + m = 30)
     ],
     ids=lambda x: f"{x}",
 )
@@ -46,20 +46,20 @@ def test_exchange_basic(
     """Test EXCHANGE with various n and m values."""
     sender = pre.fund_eoa()
 
-    # EXCHANGE swaps position n with position m
-    stack_height = m  # Need at least m items
-    value_at_n = 0xAAAA
-    value_at_m = 0xBBBB
+    # EXCHANGE with decoded (n, m) swaps position (n+1) with position (m+1)
+    stack_height = m + 1  # Need at least m+1 items
+    value_at_n_plus_1 = 0xAAAA
+    value_at_m_plus_1 = 0xBBBB
 
-    # Build stack with known values at swap positions
+    # Build stack with known values at swap positions (n+1) and (m+1)
     code = Bytecode()
     for i in range(stack_height):
         # Stack position is 1-indexed from top, so i=0 is bottom
         stack_pos = stack_height - i  # Position from top (1-indexed)
-        if stack_pos == n:
-            code += Op.PUSH2(value_at_n)
-        elif stack_pos == m:
-            code += Op.PUSH2(value_at_m)
+        if stack_pos == n + 1:
+            code += Op.PUSH2(value_at_n_plus_1)
+        elif stack_pos == m + 1:
+            code += Op.PUSH2(value_at_m_plus_1)
         else:
             code += Op.PUSH2(0x1000 + i)
 
@@ -81,10 +81,10 @@ def test_exchange_basic(
     expected_storage = {}
     for i in range(stack_height):
         stack_pos = i + 1  # Position from top (1-indexed)
-        if stack_pos == n:
-            expected_storage[i] = value_at_m  # Now has value from m
-        elif stack_pos == m:
-            expected_storage[i] = value_at_n  # Now has value from n
+        if stack_pos == n + 1:
+            expected_storage[i] = value_at_m_plus_1  # Now has value from m+1
+        elif stack_pos == m + 1:
+            expected_storage[i] = value_at_n_plus_1  # Now has value from n+1
         else:
             # Original value at this position
             original_i = stack_height - stack_pos
@@ -109,19 +109,20 @@ def test_exchange_valid_immediates(
     sender = pre.fund_eoa()
 
     # Decode the immediate to get the stack indices
+    # EXCHANGE with decoded (n, m) swaps position (n+1) with position (m+1)
     n, m = decode_pair(immediate)
-    stack_height = m  # Need at least m items
-    value_at_n = 0xAAAA
-    value_at_m = 0xBBBB
+    stack_height = m + 1  # Need at least m+1 items
+    value_at_n_plus_1 = 0xAAAA
+    value_at_m_plus_1 = 0xBBBB
 
     # Build stack
     code = Bytecode()
     for i in range(stack_height):
         stack_pos = stack_height - i
-        if stack_pos == n:
-            code += Op.PUSH2(value_at_n)
-        elif stack_pos == m:
-            code += Op.PUSH2(value_at_m)
+        if stack_pos == n + 1:
+            code += Op.PUSH2(value_at_n_plus_1)
+        elif stack_pos == m + 1:
+            code += Op.PUSH2(value_at_m_plus_1)
         else:
             code += Op.PUSH2(0x1000 + i)
 
@@ -141,10 +142,10 @@ def test_exchange_valid_immediates(
     expected_storage = {}
     for i in range(stack_height):
         stack_pos = i + 1
-        if stack_pos == n:
-            expected_storage[i] = value_at_m
-        elif stack_pos == m:
-            expected_storage[i] = value_at_n
+        if stack_pos == n + 1:
+            expected_storage[i] = value_at_m_plus_1
+        elif stack_pos == m + 1:
+            expected_storage[i] = value_at_n_plus_1
         else:
             original_i = stack_height - stack_pos
             expected_storage[i] = 0x1000 + original_i
@@ -161,27 +162,29 @@ def test_exchange_preserves_other_items(
     """Test EXCHANGE only swaps specified items, leaving others unchanged."""
     sender = pre.fund_eoa()
 
-    # Use n=1, m=5 - swaps positions 1 and 5
+    # Use n=1, m=5 - EXCHANGE swaps positions (n+1)=2 and (m+1)=6
     n, m = 1, 5
     immediate = encode_pair(n, m)
 
-    # Create a stack with 5 distinct values
+    # Create a stack with 6 distinct values
     code = Bytecode()
-    code += Op.PUSH2(0x1111)  # Position 5 from top (will be swapped)
-    code += Op.PUSH2(0x2222)  # Position 4 from top
-    code += Op.PUSH2(0x3333)  # Position 3 from top
-    code += Op.PUSH2(0x4444)  # Position 2 from top
-    code += Op.PUSH2(0x5555)  # Position 1 (top, will be swapped)
+    code += Op.PUSH2(0x1111)  # Position 6 from top (will be swapped)
+    code += Op.PUSH2(0x2222)  # Position 5 from top
+    code += Op.PUSH2(0x3333)  # Position 4 from top
+    code += Op.PUSH2(0x4444)  # Position 3 from top
+    code += Op.PUSH2(0x5555)  # Position 2 from top (will be swapped)
+    code += Op.PUSH2(0x6666)  # Position 1 (top)
 
-    # EXCHANGE swaps position 1 with position 5
+    # EXCHANGE swaps position 2 with position 6
     code += Op.EXCHANGE[immediate]
 
     # Store all values
-    code += Op.PUSH1(0) + Op.SSTORE  # Position 1 (was 0x1111)
-    code += Op.PUSH1(1) + Op.SSTORE  # Position 2 (0x4444, unchanged)
-    code += Op.PUSH1(2) + Op.SSTORE  # Position 3 (0x3333, unchanged)
-    code += Op.PUSH1(3) + Op.SSTORE  # Position 4 (0x2222, unchanged)
-    code += Op.PUSH1(4) + Op.SSTORE  # Position 5 (was 0x5555)
+    code += Op.PUSH1(0) + Op.SSTORE  # Position 1 (0x6666, unchanged)
+    code += Op.PUSH1(1) + Op.SSTORE  # Position 2 (was 0x1111, swapped from 6)
+    code += Op.PUSH1(2) + Op.SSTORE  # Position 3 (0x4444, unchanged)
+    code += Op.PUSH1(3) + Op.SSTORE  # Position 4 (0x3333, unchanged)
+    code += Op.PUSH1(4) + Op.SSTORE  # Position 5 (0x2222, unchanged)
+    code += Op.PUSH1(5) + Op.SSTORE  # Position 6 (was 0x5555, swapped from 2)
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
@@ -191,11 +194,12 @@ def test_exchange_preserves_other_items(
     post = {
         contract_address: Account(
             storage={
-                0: 0x1111,  # Was at position 5, now at position 1
-                1: 0x4444,  # Position 2 unchanged
-                2: 0x3333,  # Position 3 unchanged
-                3: 0x2222,  # Position 4 unchanged
-                4: 0x5555,  # Was at position 1, now at position 5
+                0: 0x6666,  # Position 1 unchanged
+                1: 0x1111,  # Was at position 6, now at position 2
+                2: 0x4444,  # Position 3 unchanged
+                3: 0x3333,  # Position 4 unchanged
+                4: 0x2222,  # Position 5 unchanged
+                5: 0x5555,  # Was at position 2, now at position 6
             }
         )
     }
@@ -210,14 +214,15 @@ def test_exchange_stack_underflow(
     """Test EXCHANGE causes transaction failure on stack underflow."""
     sender = pre.fund_eoa()
 
-    # Use n=1, m=5 which needs 5 items, but only push 4
+    # Use n=1, m=5 - EXCHANGE swaps positions 2 and 6, so needs 6 items
+    # Push only 5 to trigger underflow
     n, m = 1, 5
     immediate = encode_pair(n, m)
 
     code = Bytecode()
-    for i in range(4):
+    for i in range(5):
         code += Op.PUSH1(i)
-    code += Op.EXCHANGE[immediate]  # Needs 5 items, should fail
+    code += Op.EXCHANGE[immediate]  # Needs 6 items, should fail
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
