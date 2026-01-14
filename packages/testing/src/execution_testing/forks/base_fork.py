@@ -2,6 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
@@ -17,6 +18,9 @@ from typing import (
     Type,
     Union,
 )
+
+if TYPE_CHECKING:
+    from execution_testing.fixtures.blockchain import FixtureHeader
 
 from execution_testing.base_types import (
     AccessList,
@@ -978,3 +982,13 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     def children(cls) -> Set[Type["BaseFork"]]:
         """Return the children forks."""
         return set(cls._children)
+
+    @classmethod
+    @abstractmethod
+    def build_default_block_header(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> "FixtureHeader":
+        """
+        Build a default block header for this fork with the given attributes.
+        """
+        pass

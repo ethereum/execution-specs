@@ -1,10 +1,13 @@
 """All Ethereum fork class definitions."""
 
+from __future__ import annotations
+
 from dataclasses import replace
 from hashlib import sha256
 from os.path import realpath
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Callable,
     Dict,
     List,
@@ -15,12 +18,17 @@ from typing import (
     Tuple,
 )
 
+if TYPE_CHECKING:
+    from execution_testing.fixtures.blockchain import FixtureHeader
+
+
 from execution_testing.base_types import (
     AccessList,
     Address,
     BlobSchedule,
     Bytes,
     ForkBlobSchedule,
+    ZeroPaddedHexNumber,
 )
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.vm import (
@@ -1374,6 +1382,54 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         del block_number, timestamp
         return {}
+
+    @classmethod
+    def build_default_block_header(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> FixtureHeader:
+        """
+        Build a default block header for this fork with the given attributes.
+
+        This method automatically detects which header fields are required by the fork
+        and assigns appropriate default values. It introspects the FixtureHeader model
+        to find fields with HeaderForkRequirement annotations and automatically includes
+        them if the fork requires them.
+
+        Args:
+            block_number: The block number
+            timestamp: The block timestamp
+
+        Returns:
+            FixtureHeader instance with default values applied based on fork requirements
+
+        Raises:
+            TypeError: If the overrides don't have the correct type.
+        """
+        from execution_testing.fixtures.blockchain import FixtureHeader
+
+        defaults = {
+            "number": ZeroPaddedHexNumber(block_number),
+            "timestamp": ZeroPaddedHexNumber(timestamp),
+            "fork": cls,
+        }
+
+        # Iterate through FixtureHeader fields to populate defaults
+        for field_name, field_info in FixtureHeader.model_fields.items():
+            if field_name in defaults:
+                continue
+
+            # Get default value, checking fork requirements and model defaults
+            default_value = FixtureHeader.get_default_from_annotation(
+                fork=cls,
+                field_name=field_name,
+                field_hint=field_info.annotation,
+                block_number=int(block_number),
+                timestamp=int(timestamp),
+            )
+            if default_value is not None:
+                defaults[field_name] = default_value
+
+        return FixtureHeader(**defaults)
 
 
 class Homestead(Frontier):
