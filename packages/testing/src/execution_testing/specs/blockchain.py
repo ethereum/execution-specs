@@ -87,6 +87,7 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessList,
     BlockAccessListExpectation,
 )
+from execution_testing.test_types.chain_config_types import ChainConfigDefaults
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
@@ -504,7 +505,10 @@ class BlockchainTest(BaseTest):
     post: Alloc
     blocks: List[Block]
     genesis_environment: Environment = Field(default_factory=Environment)
-    chain_id: int = 1
+    chain_id: int = Field(
+        default_factory=lambda: ChainConfigDefaults.chain_id,
+        validate_default=True,
+    )
     include_full_post_state_in_output: bool = True
     """
     Include the post state in the fixture output. Otherwise, the state

@@ -44,7 +44,7 @@ class TransactionLoad:
 
     def json_to_chain_id(self) -> U64:
         """Get chain ID for the transaction."""
-        return U64(1)
+        return hex_to_u64(self.raw.get("chainId", "0x01"))
 
     def json_to_nonce(self) -> U256:
         """Get the nonce for the transaction."""
