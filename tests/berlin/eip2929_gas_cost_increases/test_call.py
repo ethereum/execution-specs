@@ -24,8 +24,8 @@ def test_call_insufficient_balance(
     Test a regular CALL to see if it warms the destination with insufficient
     balance.
     """
-    gas_costs = fork.gas_costs()
     destination = pre.fund_eoa(1)
+    warm_code = Op.BALANCE(destination, address_warm=True)
     contract_address = pre.deploy_contract(
         # Perform the aborted external calls
         Op.SSTORE(
@@ -42,8 +42,7 @@ def test_call_insufficient_balance(
         )
         # Measure the gas cost for BALANCE operation
         + CodeGasMeasure(
-            code=Op.BALANCE(destination),
-            overhead_cost=gas_costs.G_VERY_LOW,  # PUSH20 costs 3 gas
+            code=warm_code,
             extra_stack_items=1,  # BALANCE puts balance on stack
             sstore_key=1,
         ),
@@ -63,7 +62,7 @@ def test_call_insufficient_balance(
         contract_address: Account(
             storage={
                 0: 0,  # The CALL is aborted
-                1: gas_costs.G_WARM_ACCOUNT_ACCESS,  # Warm access cost
+                1: warm_code.gas_cost(fork),
             },
         ),
     }

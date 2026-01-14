@@ -15,19 +15,6 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
-def log_gas(fork: Fork, topics: int, data_size: int) -> int:
-    """
-    Calculate gas cost for LOGx opcodes given the number of topics and data
-    size.
-    """
-    gas_costs = fork.gas_costs()
-    return (
-        gas_costs.G_LOG
-        + gas_costs.G_LOG_TOPIC * topics
-        + gas_costs.G_LOG_DATA * data_size
-    )
-
-
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize(
     "opcode,topics",
@@ -52,8 +39,6 @@ def test_gas(
     fork: Fork,
 ) -> None:
     """Test that LOGx gas works as expected."""
-    gas_cost = log_gas(fork, topics, data_size)
-
     gas_test(
         fork=fork,
         state_test=state_test,
@@ -62,7 +47,5 @@ def test_gas(
         + Op.PUSH1(0) * topics
         + Op.PUSH32(data_size)
         + Op.PUSH1(0),
-        subject_code=opcode,
-        cold_gas=gas_cost,
-        warm_gas=gas_cost,
+        subject_code=opcode(data_size=data_size),
     )

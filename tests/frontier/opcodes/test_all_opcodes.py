@@ -214,139 +214,26 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
     per fork.
     """
     valid_opcodes = set(fork.valid_opcodes())
-    gas_costs = fork.gas_costs()
-    opcode_floor_gas = {
-        Op.ADD: gas_costs.G_VERY_LOW,
-        Op.MUL: gas_costs.G_LOW,
-        Op.SUB: gas_costs.G_VERY_LOW,
-        Op.DIV: gas_costs.G_LOW,
-        Op.SDIV: gas_costs.G_LOW,
-        Op.MOD: gas_costs.G_LOW,
-        Op.SMOD: gas_costs.G_LOW,
-        Op.ADDMOD: gas_costs.G_MID,
-        Op.MULMOD: gas_costs.G_MID,
-        Op.EXP: gas_costs.G_HIGH,
-        Op.SIGNEXTEND: gas_costs.G_LOW,
-        Op.LT: gas_costs.G_VERY_LOW,
-        Op.GT: gas_costs.G_VERY_LOW,
-        Op.SLT: gas_costs.G_VERY_LOW,
-        Op.SGT: gas_costs.G_VERY_LOW,
-        Op.EQ: gas_costs.G_VERY_LOW,
-        Op.ISZERO: gas_costs.G_VERY_LOW,
-        Op.AND: gas_costs.G_VERY_LOW,
-        Op.OR: gas_costs.G_VERY_LOW,
-        Op.XOR: gas_costs.G_VERY_LOW,
-        Op.NOT: gas_costs.G_VERY_LOW,
-        Op.BYTE: gas_costs.G_VERY_LOW,
-        Op.SHL: gas_costs.G_VERY_LOW,
-        Op.SHR: gas_costs.G_VERY_LOW,
-        Op.SAR: gas_costs.G_VERY_LOW,
-        Op.CLZ: gas_costs.G_LOW,
-        Op.SHA3: gas_costs.G_KECCAK_256,
-        Op.ADDRESS: gas_costs.G_BASE,
-        Op.BALANCE: gas_costs.G_WARM_ACCOUNT_ACCESS,
-        Op.ORIGIN: gas_costs.G_BASE,
-        Op.CALLER: gas_costs.G_BASE,
-        Op.CALLVALUE: gas_costs.G_BASE,
-        Op.CALLDATALOAD: gas_costs.G_VERY_LOW,
-        Op.CALLDATASIZE: gas_costs.G_BASE,
-        Op.CALLDATACOPY: gas_costs.G_COPY,
-        Op.CODESIZE: gas_costs.G_BASE,
-        Op.CODECOPY: gas_costs.G_COPY,
-        Op.GASPRICE: gas_costs.G_BASE,
-        Op.EXTCODESIZE: gas_costs.G_WARM_ACCOUNT_ACCESS,
-        Op.EXTCODECOPY: gas_costs.G_WARM_ACCOUNT_ACCESS,
-        Op.RETURNDATASIZE: gas_costs.G_BASE,
-        Op.RETURNDATACOPY: gas_costs.G_COPY,
-        Op.EXTCODEHASH: gas_costs.G_WARM_ACCOUNT_ACCESS,
-        Op.BLOCKHASH: gas_costs.G_BLOCKHASH,
-        Op.COINBASE: gas_costs.G_BASE,
-        Op.TIMESTAMP: gas_costs.G_BASE,
-        Op.NUMBER: gas_costs.G_BASE,
-        Op.PREVRANDAO: gas_costs.G_BASE,
-        Op.GASLIMIT: gas_costs.G_BASE,
-        Op.CHAINID: gas_costs.G_BASE,
-        Op.SELFBALANCE: gas_costs.G_LOW,
-        Op.BASEFEE: gas_costs.G_BASE,
-        Op.BLOBHASH: gas_costs.G_VERY_LOW,
-        Op.BLOBBASEFEE: gas_costs.G_BASE,
-        Op.POP: gas_costs.G_BASE,
-        Op.MLOAD: gas_costs.G_VERY_LOW,
-        Op.MSTORE: gas_costs.G_VERY_LOW,
-        Op.MSTORE8: gas_costs.G_VERY_LOW,
-        Op.SLOAD: gas_costs.G_WARM_SLOAD,
-        Op.JUMP: gas_costs.G_MID,
-        Op.JUMPI: gas_costs.G_HIGH,
-        Op.PC: gas_costs.G_BASE,
-        Op.MSIZE: gas_costs.G_BASE,
-        Op.GAS: gas_costs.G_BASE,
-        Op.JUMPDEST: gas_costs.G_JUMPDEST,
-        Op.TLOAD: gas_costs.G_WARM_SLOAD,
-        Op.TSTORE: gas_costs.G_WARM_SLOAD,
-        Op.MCOPY: gas_costs.G_VERY_LOW,
-        Op.PUSH0: gas_costs.G_BASE,
-        Op.LOG0: gas_costs.G_LOG + (0 * gas_costs.G_LOG_TOPIC),
-        Op.LOG1: gas_costs.G_LOG + (1 * gas_costs.G_LOG_TOPIC),
-        Op.LOG2: gas_costs.G_LOG + (2 * gas_costs.G_LOG_TOPIC),
-        Op.LOG3: gas_costs.G_LOG + (3 * gas_costs.G_LOG_TOPIC),
-        Op.LOG4: gas_costs.G_LOG + (4 * gas_costs.G_LOG_TOPIC),
-        Op.CREATE: gas_costs.G_TRANSACTION_CREATE,
-        Op.CALL: gas_costs.G_WARM_ACCOUNT_ACCESS,
-        Op.CALLCODE: gas_costs.G_WARM_ACCOUNT_ACCESS,
-        Op.DELEGATECALL: gas_costs.G_WARM_ACCOUNT_ACCESS,
-        Op.CREATE2: gas_costs.G_TRANSACTION_CREATE,
-        Op.STATICCALL: gas_costs.G_WARM_ACCOUNT_ACCESS,
-        Op.SELFDESTRUCT: gas_costs.G_SELF_DESTRUCT,
-        Op.STOP: 0,
-        Op.RETURN: 0,
-        Op.REVERT: 0,
-        Op.INVALID: 0,
-    }
-
-    # PUSHx, SWAPx, DUPx have uniform gas costs
-    for opcode in valid_opcodes:
-        if 0x60 <= opcode.int() <= 0x9F:
-            opcode_floor_gas[opcode] = gas_costs.G_VERY_LOW
-
     for opcode in sorted(valid_opcodes):
         # SSTORE - untestable due to 2300 gas stipend rule
         if opcode == Op.SSTORE:
             continue
-        warm_gas = opcode_floor_gas[opcode]
-        if warm_gas == 0:
+        if opcode.gas_cost(fork) == 0:
             # zero constant gas opcodes - untestable
             continue
-        cold_gas = warm_gas
-        if opcode in [
-            Op.BALANCE,
-            Op.EXTCODESIZE,
-            Op.EXTCODECOPY,
-            Op.EXTCODEHASH,
-            Op.CALL,
-            Op.CALLCODE,
-            Op.DELEGATECALL,
-            Op.STATICCALL,
-        ]:
-            cold_gas = gas_costs.G_COLD_ACCOUNT_ACCESS
-        elif opcode == Op.SELFDESTRUCT:
-            # Add the cost of accessing the send all destination account.
-            cold_gas += gas_costs.G_COLD_ACCOUNT_ACCESS
-        elif opcode == Op.SLOAD:
-            cold_gas = gas_costs.G_COLD_SLOAD
-        yield pytest.param(opcode, warm_gas, cold_gas, id=f"{opcode}")
+        yield pytest.param(
+            opcode,
+            id=f"{opcode}",
+        )
 
 
 @pytest.mark.valid_from("Berlin")
-@pytest.mark.parametrize_by_fork(
-    "opcode,warm_gas,cold_gas", constant_gas_opcodes
-)
+@pytest.mark.parametrize_by_fork("opcode", constant_gas_opcodes)
 def test_constant_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    opcode: Op,
+    opcode: Opcode,
     fork: Fork,
-    warm_gas: int,
-    cold_gas: int,
 ) -> None:
     """Test that constant gas opcodes work as expected."""
     # Using Op.GAS as salt to guarantee no address collision on CREATE2.
@@ -357,13 +244,21 @@ def test_constant_gas(
         + prepare_stack_constant_gas_oog(opcode)
         + create2_salt
     )
+    warm_opcode_metadata = {}
+    if "address_warm" in opcode.metadata:
+        warm_opcode_metadata["address_warm"] = True
+    if "key_warm" in opcode.metadata:
+        warm_opcode_metadata["key_warm"] = True
+    if warm_opcode_metadata:
+        warm_opcode = opcode(**warm_opcode_metadata)
+    else:
+        warm_opcode = opcode
     gas_test(
         fork=fork,
         state_test=state_test,
         pre=pre,
         setup_code=setup_code,
         subject_code=opcode,
+        subject_code_warm=warm_opcode,
         tear_down_code=prepare_suffix(opcode),
-        cold_gas=cold_gas,
-        warm_gas=warm_gas,
     )

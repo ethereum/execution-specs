@@ -136,7 +136,7 @@ def test_clz_gas_cost(
             CodeGasMeasure(
                 code=Op.CLZ(Op.PUSH1(1)),
                 extra_stack_items=1,
-                overhead_cost=fork.gas_costs().G_VERY_LOW,
+                overhead_cost=Op.PUSH1.gas_cost(fork),
             ),
         ),
         storage={"0x00": "0xdeadbeef"},
@@ -145,7 +145,7 @@ def test_clz_gas_cost(
     tx = Transaction(to=contract_address, sender=sender, gas_limit=200_000)
     post = {
         contract_address: Account(  # Cost measured is CLZ + PUSH1
-            storage={"0x00": fork.gas_costs().G_LOW}
+            storage={"0x00": Op.CLZ.gas_cost(fork)}
         ),
     }
     state_test(pre=pre, post=post, tx=tx)
@@ -172,9 +172,7 @@ def test_clz_gas_cost_boundary(
     call_code = Op.SSTORE(
         0,
         Op.CALL(
-            gas=fork.gas_costs().G_VERY_LOW
-            + Spec.CLZ_GAS_COST
-            + gas_cost_delta,
+            gas=code.gas_cost(fork) + gas_cost_delta,
             address=contract_address,
         ),
     )

@@ -39,12 +39,21 @@ value_code_worked = 0x2015
 
 
 @pytest.fixture
-def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
+def callee_bytecode(
+    dest: int, src: int, length: int, initial_memory: bytes
+) -> Bytecode:
     """Callee performs a single mcopy operation and then returns."""
     bytecode = Bytecode()
 
     # Copy the initial memory
-    bytecode += Op.CALLDATACOPY(0x00, 0x00, Op.CALLDATASIZE())
+    bytecode += Op.CALLDATACOPY(
+        dest_offset=0x00,
+        offset=0x00,
+        size=Op.CALLDATASIZE,
+        old_memory_size=0,
+        new_memory_size=len(initial_memory),
+        data_size=len(initial_memory),
+    )
 
     # Pushes for the return operation
     bytecode += Op.PUSH1(0x00) + Op.PUSH1(0x00)
@@ -52,7 +61,17 @@ def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
     bytecode += Op.SSTORE(slot_code_worked, value_code_worked)
 
     # Perform the mcopy operation
-    bytecode += Op.MCOPY(dest, src, length)
+    new_memory_size = len(initial_memory)
+    if dest + length > new_memory_size and length > 0:
+        new_memory_size = dest + length
+    bytecode += Op.MCOPY(
+        dest,
+        src,
+        length,
+        old_memory_size=len(initial_memory),
+        new_memory_size=new_memory_size,
+        data_size=length,
+    )
 
     bytecode += Op.RETURN
 
@@ -68,77 +87,33 @@ def tx_access_list() -> List[AccessList]:
 
 
 @pytest.fixture
-def call_exact_cost(
-    fork: Fork,
-    initial_memory: bytes,
-    dest: int,
-    length: int,
-    tx_access_list: List[AccessList],
-) -> int:
-    """
-    Return the exact cost of the subcall, based on the initial memory and the
-    length of the copy.
-    """
-    # Starting from EIP-7623, we need to use an access list to raise the
-    # intrinsic gas cost to be above the floor data cost.
-    cost_memory_bytes = fork.memory_expansion_gas_calculator()
-    gas_costs = fork.gas_costs()
-    tx_intrinsic_gas_cost_calculator = (
-        fork.transaction_intrinsic_cost_calculator()
-    )
-
-    mcopy_cost = 3
-    mcopy_cost += 3 * ((length + 31) // 32)
-    if length > 0 and dest + length > len(initial_memory):
-        mcopy_cost += cost_memory_bytes(
-            new_bytes=dest + length, previous_bytes=len(initial_memory)
-        )
-
-    calldatacopy_cost = 3
-    calldatacopy_cost += 3 * ((len(initial_memory) + 31) // 32)
-    calldatacopy_cost += cost_memory_bytes(new_bytes=len(initial_memory))
-
-    pushes_cost = gas_costs.G_VERY_LOW * 9
-    calldatasize_cost = gas_costs.G_BASE
-
-    sstore_cost = 22100
-    return (
-        tx_intrinsic_gas_cost_calculator(
-            calldata=initial_memory, access_list=tx_access_list
-        )
-        + mcopy_cost
-        + calldatacopy_cost
-        + pushes_cost
-        + calldatasize_cost
-        + sstore_cost
-    )
-
-
-@pytest.fixture
-def block_gas_limit() -> int:  # noqa: D103
-    return 100_000_000
+def block_gas_limit(env: Environment) -> int:  # noqa: D103
+    return env.gas_limit
 
 
 @pytest.fixture
 def tx_gas_limit(  # noqa: D103
     fork: Fork,
-    call_exact_cost: int,
+    callee_bytecode: Bytecode,
     block_gas_limit: int,
     successful: bool,
+    initial_memory: bytes,
+    tx_access_list: List[AccessList],
 ) -> int:
+    tx_intrinsic_gas_cost_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
+    call_exact_cost = callee_bytecode.gas_cost(fork)
     return min(
-        call_exact_cost - (0 if successful else 1),
+        call_exact_cost
+        - (0 if successful else 1)
+        + tx_intrinsic_gas_cost_calculator(
+            calldata=initial_memory, access_list=tx_access_list
+        ),
         # If the transaction gas limit cap is not set (pre-osaka),
         # use the block gas limit
         fork.transaction_gas_limit_cap() or block_gas_limit,
     )
-
-
-@pytest.fixture
-def env(  # noqa: D103
-    block_gas_limit: int,
-) -> Environment:
-    return Environment(gas_limit=block_gas_limit)
 
 
 @pytest.fixture
@@ -261,11 +236,6 @@ def test_mcopy_memory_expansion(
         "half_max_length_expansion",
     ],
 )
-@pytest.mark.parametrize(
-    "call_exact_cost",
-    [2**128 - 1],
-    ids=[""],
-)  # Limit subcall gas, otherwise it would be impossibly large
 @pytest.mark.parametrize("successful", [False])
 @pytest.mark.parametrize(
     "initial_memory",
