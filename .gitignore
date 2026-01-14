@@ -7,7 +7,8 @@
 *$py.class
 
 # AI
-.claude/
+.claude/settings.local.json
+.devcontainer
 
 # Benchmark fixed opcode counts
 .fixed_opcode_counts.json
