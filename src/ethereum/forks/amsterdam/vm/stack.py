@@ -12,7 +12,7 @@ Implementation of the stack operators for the EVM.
 """
 
 from functools import partial
-from typing import List
+from typing import List, Tuple
 
 from ethereum_types.numeric import U256, Uint
 
@@ -21,6 +21,96 @@ from ethereum.forks.amsterdam.vm.gas import GAS_BASE, GAS_VERY_LOW, charge_gas
 from ethereum.forks.amsterdam.vm.memory import buffer_read
 
 from .exceptions import StackOverflowError, StackUnderflowError
+
+
+def decode_single(x: int) -> int:
+    """
+    Decode the immediate byte for DUPN/SWAPN to get the stack index.
+
+    Parameters
+    ----------
+    x : int
+        The immediate byte value (0-90 or 128-255).
+
+    Returns
+    -------
+    int
+        The stack index (17-235).
+    """
+    assert 0 <= x <= 90 or 128 <= x <= 255
+    if x <= 90:
+        return x + 17
+    else:
+        return x - 20
+
+
+def decode_pair(x: int) -> Tuple[int, int]:
+    """
+    Decode the immediate byte for EXCHANGE to get two stack indices.
+
+    Parameters
+    ----------
+    x : int
+        The immediate byte value (0-79 or 128-255).
+
+    Returns
+    -------
+    Tuple[int, int]
+        The two stack indices (n, m).
+    """
+    assert 0 <= x <= 79 or 128 <= x <= 255
+    k = x if x <= 79 else x - 48
+    q, r = divmod(k, 16)
+    if q < r:
+        return q + 1, r + 1
+    else:
+        return r + 1, 29 - q
+
+
+def encode_single(n: int) -> int:
+    """
+    Encode a stack index to the immediate byte for DUPN/SWAPN.
+
+    Parameters
+    ----------
+    n : int
+        The stack index (17-235).
+
+    Returns
+    -------
+    int
+        The immediate byte value.
+    """
+    assert 17 <= n <= 235
+    if n <= 107:
+        return n - 17
+    else:
+        return n + 20
+
+
+def encode_pair(n: int, m: int) -> int:
+    """
+    Encode two stack indices to the immediate byte for EXCHANGE.
+
+    Parameters
+    ----------
+    n : int
+        The first stack index (1-13).
+    m : int
+        The second stack index (must be > n, up to 29, and n + m <= 30).
+
+    Returns
+    -------
+    int
+        The immediate byte value.
+    """
+    assert 1 <= n <= 13 and n < m <= 29 and n + m <= 30
+    if m <= 16:
+        q, r = n - 1, m - 1
+    else:
+        q, r = 29 - m, n - 1
+    k = 16 * q + r
+    return k if k <= 79 else k + 48
 
 
 def pop(stack: List[U256]) -> U256:
@@ -155,7 +245,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
     )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 push0 = partial(push_n, num_bytes=0)
@@ -230,6 +320,8 @@ swap16 = partial(swap_n, item_number=16)
 def dupn(evm: Evm) -> None:
     """
     Duplicate the Nth stack item (from top of the stack) to the top of stack.
+    The item number is read from the immediate byte following the opcode and
+    decoded using the EIP-8024 index shifting rules.
 
     Parameters
     ----------
@@ -244,18 +336,22 @@ def dupn(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    immediate_data = evm.code[evm.pc + 1]
-    item_number = immediate_data + 1
+    immediate_data = evm.code[evm.pc + Uint(1)]
+    item_number = decode_single(immediate_data)
+    if item_number > len(evm.stack):
+        raise StackUnderflowError
     data_to_duplicate = evm.stack[-item_number]
-    evm.stack.push(evm.stack, data_to_duplicate)
+    push(evm.stack, data_to_duplicate)
 
     # PROGRAM COUNTER
-    evm.pc += 2
+    evm.pc += Uint(2)
 
 
 def swapn(evm: Evm) -> None:
     """
-    The n + 1‘th stack item is swapped with the top of the stack.
+    Swap the top stack item with the Nth stack item.
+    The value N is read from the immediate byte following the opcode and
+    decoded using the EIP-8024 index shifting rules.
 
     Parameters
     ----------
@@ -270,20 +366,25 @@ def swapn(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    immediate_data = evm.code[evm.pc + 1]
-    item_number = immediate_data + 1
-    evm.stack[-1], evm.stack[-1 - item_number] = (
-        evm.stack[-1 - item_number],
+    immediate_data = evm.code[evm.pc + Uint(1)]
+    item_number = decode_single(immediate_data)
+    if item_number > len(evm.stack):
+        raise StackUnderflowError
+    # stack[-1] is top, stack[-item_number] is the Nth item
+    evm.stack[-1], evm.stack[-item_number] = (
+        evm.stack[-item_number],
         evm.stack[-1],
     )
 
     # PROGRAM COUNTER
-    evm.pc += 2
+    evm.pc += Uint(2)
 
 
 def exchange(evm: Evm) -> None:
     """
-    Exchange the n+1 th stack item with the n+m+1 th.
+    Exchange the Nth stack item with the Mth stack item.
+    The values N and M are decoded from the immediate byte using the
+    EIP-8024 index shifting rules.
 
     Parameters
     ----------
@@ -298,13 +399,15 @@ def exchange(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    immediate_data = evm.code[evm.pc + 1]
-    n = (immediate_data >> 4) + 1
-    m = (immediate_data & 0x0F) + 1
-    evm.stack[-1 - n], evm.stack[-1 - n - m] = (
-        evm.stack[-1 - n - m],
-        evm.stack[-1 - n],
+    immediate_data = evm.code[evm.pc + Uint(1)]
+    n, m = decode_pair(immediate_data)
+    depth = max(n, m)
+    if depth > len(evm.stack):
+        raise StackUnderflowError
+    evm.stack[-n], evm.stack[-m] = (
+        evm.stack[-m],
+        evm.stack[-n],
     )
 
     # PROGRAM COUNTER
-    evm.pc += 2
+    evm.pc += Uint(2)

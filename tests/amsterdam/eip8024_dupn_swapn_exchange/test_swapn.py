@@ -16,6 +16,8 @@ from execution_testing import (
     Transaction,
 )
 
+from ethereum.forks.amsterdam.vm.stack import decode_single, encode_single
+
 from .spec import ref_spec_8024
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8024.git_path
@@ -25,20 +27,20 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
 @pytest.mark.parametrize(
-    "swapn_operand",
-    [0, 1, 15, 16, 127, 255],
-    ids=lambda x: f"swapn_{x}",
+    "stack_index",
+    [17, 18, 32, 64, 107, 108, 200, 235],
+    ids=lambda x: f"swapn_stack_{x}",
 )
 def test_swapn_basic(
-    swapn_operand: int,
+    stack_index: int,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
-    """Test SWAPN with various immediate operands."""
+    """Test SWAPN with various stack indices (17-235)."""
     sender = pre.fund_eoa()
 
-    # SWAPN[n] swaps position 1 (top) with position n+2 (like SWAP{n+1})
-    stack_height = swapn_operand + 2  # Need n+2 items for SWAPN[n]
+    # SWAPN with immediate x swaps top with the decode_single(x)th stack item
+    stack_height = stack_index
     top_value = 0xAAAA
     swap_target_value = 0xBBBB
 
@@ -46,7 +48,7 @@ def test_swapn_basic(
     code = Bytecode()
     for i in range(stack_height):
         if i == 0:
-            # First push ends up at position (n+2) from top
+            # First push ends up at position stack_index from top
             code += Op.PUSH2(swap_target_value)
         elif i == stack_height - 1:
             # Last push ends up at top
@@ -54,17 +56,18 @@ def test_swapn_basic(
         else:
             code += Op.PUSH2(0x1000 + i)
 
-    # SWAPN[n] swaps top with (n+2)th item
-    code += Op.SWAPN[swapn_operand]
+    # Encode the stack index to the immediate byte
+    immediate = encode_single(stack_index)
+    code += Op.SWAPN[immediate]
 
     # Store both swapped values to verify
     code += Op.PUSH1(0) + Op.SSTORE  # New top (was swap_target_value)
 
     # Pop intermediate values to get to the swapped position
-    for _ in range(swapn_operand):
+    for _ in range(stack_index - 2):
         code += Op.POP
 
-    code += Op.PUSH1(1) + Op.SSTORE  # New (n+2)th position (was top_value)
+    code += Op.PUSH1(1) + Op.SSTORE  # New position (was top_value)
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
@@ -75,7 +78,57 @@ def test_swapn_basic(
         contract_address: Account(
             storage={
                 0: swap_target_value,  # Top now has the swapped value
-                1: top_value,  # Position n+2 now has original top
+                1: top_value,  # Position stack_index now has original top
+            }
+        )
+    }
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "immediate",
+    [0, 45, 90, 128, 200, 255],
+    ids=lambda x: f"swapn_imm_{x}",
+)
+def test_swapn_valid_immediates(
+    immediate: int,
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """Test SWAPN with valid immediate values (0-90 and 128-255)."""
+    sender = pre.fund_eoa()
+
+    # Decode the immediate to get the stack index
+    stack_index = decode_single(immediate)
+    stack_height = stack_index
+    top_value = 0xAAAA
+    swap_target_value = 0xBBBB
+
+    # Build stack
+    code = Bytecode()
+    for i in range(stack_height):
+        if i == 0:
+            code += Op.PUSH2(swap_target_value)
+        elif i == stack_height - 1:
+            code += Op.PUSH2(top_value)
+        else:
+            code += Op.PUSH2(0x1000 + i)
+
+    code += Op.SWAPN[immediate]
+
+    # Store the new top value
+    code += Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+
+    post = {
+        contract_address: Account(
+            storage={
+                0: swap_target_value,  # Top now has the swapped value
             }
         )
     }
@@ -90,43 +143,41 @@ def test_swapn_preserves_other_stack_items(
     """Test SWAPN only swaps the specified items, leaving others unchanged."""
     sender = pre.fund_eoa()
 
-    # Create a stack with 5 distinct values
-    # SWAPN[n] swaps position 1 (top) with position n+2
+    # Use stack index 17 (smallest valid), needs 17 items
+    stack_index = 17
+    immediate = encode_single(stack_index)
+
+    # Create a stack with 17 distinct values
     code = Bytecode()
-    code += Op.PUSH2(0x1111)  # Position 5 from top
-    code += Op.PUSH2(0x2222)  # Position 4 from top (will be swapped)
-    code += Op.PUSH2(0x3333)  # Position 3 from top
-    code += Op.PUSH2(0x4444)  # Position 2 from top
-    code += Op.PUSH2(0x5555)  # Position 1 (top, will be swapped)
+    for i in range(stack_index):
+        code += Op.PUSH2(0x1000 + i)
 
-    # SWAPN[2] swaps position 1 with position 4 (like SWAP3)
-    code += Op.SWAPN[2]
+    # SWAPN swaps top (position 1) with position 17
+    code += Op.SWAPN[immediate]
 
-    # Store all values to verify
-    # After swap: top=0x2222, pos2=0x4444, pos3=0x3333,
-    # pos4=0x5555, pos5=0x1111
-    code += Op.PUSH1(0) + Op.SSTORE  # Slot 0 = new top
-    code += Op.PUSH1(1) + Op.SSTORE  # Slot 1 = position 2 (0x4444, unchanged)
-    code += Op.PUSH1(2) + Op.SSTORE  # Slot 2 = position 3 (0x3333, unchanged)
-    code += Op.PUSH1(3) + Op.SSTORE  # Slot 3 = position 4 (0x5555, swapped)
-    code += Op.PUSH1(4) + Op.SSTORE  # Slot 4 = position 5 (0x1111, unchanged)
+    # Store all values to verify only the swapped ones changed
+    for i in range(stack_index):
+        code += Op.PUSH1(i) + Op.SSTORE
+
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
 
     tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
 
-    post = {
-        contract_address: Account(
-            storage={
-                0: 0x2222,  # Swapped from position 4 to top
-                1: 0x4444,  # Unchanged
-                2: 0x3333,  # Unchanged
-                3: 0x5555,  # Swapped from top to position 4
-                4: 0x1111,  # Unchanged
-            }
-        )
-    }
+    # After swap: position 1 and position 17 are swapped
+    # Original stack (top to bottom): 0x1010, 0x100F, ..., 0x1001, 0x1000
+    # After SWAPN[0]: 0x1000, 0x100F, ..., 0x1001, 0x1010
+    expected_storage = {}
+    for i in range(stack_index):
+        if i == 0:
+            expected_storage[i] = 0x1000  # Was at bottom, now at top
+        elif i == stack_index - 1:
+            expected_storage[i] = 0x1010  # Was at top, now at bottom
+        else:
+            expected_storage[i] = 0x1000 + (stack_index - 1 - i)
+
+    post = {contract_address: Account(storage=expected_storage)}
 
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
@@ -138,11 +189,11 @@ def test_swapn_stack_underflow(
     """Test SWAPN causes transaction failure on stack underflow."""
     sender = pre.fund_eoa()
 
-    # Push only 5 items but try to SWAPN[5] (needs 7 items: top + 6 more)
+    # SWAPN with immediate 0 needs stack index 17, so push only 16 items
     code = Bytecode()
-    for i in range(5):
+    for i in range(16):
         code += Op.PUSH1(i)
-    code += Op.SWAPN[5]  # Should fail - needs 7 items total
+    code += Op.SWAPN[0]  # decode_single(0) = 17, but only 16 items on stack
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)

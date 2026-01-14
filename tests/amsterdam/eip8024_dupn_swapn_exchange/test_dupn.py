@@ -16,6 +16,8 @@ from execution_testing import (
     Transaction,
 )
 
+from ethereum.forks.amsterdam.vm.stack import decode_single, encode_single
+
 from .spec import ref_spec_8024
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8024.git_path
@@ -25,35 +27,36 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
 @pytest.mark.parametrize(
-    "dupn_operand",
-    [0, 1, 15, 16, 127, 255],
-    ids=lambda x: f"dupn_{x}",
+    "stack_index",
+    [17, 18, 32, 64, 107, 108, 200, 235],
+    ids=lambda x: f"dupn_stack_{x}",
 )
 def test_dupn_basic(
-    dupn_operand: int,
+    stack_index: int,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
-    """Test DUPN with various immediate operands."""
+    """Test DUPN with various stack indices (17-235)."""
     sender = pre.fund_eoa()
 
     # Build stack with enough items, then use DUPN to duplicate the nth item
-    # DUPN[n] duplicates the (n+1)th stack item (0-indexed from top)
-    stack_height = dupn_operand + 1
-    expected_value = 0xBEEF + dupn_operand
+    # DUPN with immediate x duplicates the decode_single(x)th stack item
+    stack_height = stack_index
+    expected_value = 0xBEEF + stack_index
 
-    # Push values onto stack: the value at position dupn_operand will
+    # Push values onto stack: the value at the target position will
     # be expected_value
     code = Bytecode()
     for i in range(stack_height):
         if i == 0:
-            # The first push will end up at position dupn_operand from top
+            # The first push will end up at position stack_index from top
             code += Op.PUSH2(expected_value)
         else:
             code += Op.PUSH2(0x1000 + i)
 
-    # DUPN[dupn_operand] should duplicate the (dupn_operand+1)th item
-    code += Op.DUPN[dupn_operand]
+    # Encode the stack index to the immediate byte
+    immediate = encode_single(stack_index)
+    code += Op.DUPN[immediate]
     # Store the duplicated value
     code += Op.PUSH1(0) + Op.SSTORE
     code += Op.STOP
@@ -67,42 +70,41 @@ def test_dupn_basic(
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
 
-def test_dupn_all_valid_immediates(
+@pytest.mark.parametrize(
+    "immediate",
+    [0, 45, 90, 128, 200, 255],
+    ids=lambda x: f"dupn_imm_{x}",
+)
+def test_dupn_valid_immediates(
+    immediate: int,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
-    """Test DUPN with all valid immediate values (0-255)."""
+    """Test DUPN with valid immediate values (0-90 and 128-255)."""
     sender = pre.fund_eoa()
-    n = 256  # All possible immediates
 
-    # Push 256 values onto the stack
+    # Decode the immediate to get the stack index
+    stack_index = decode_single(immediate)
+    stack_height = stack_index
+    expected_value = 0xCAFE + immediate
+
+    # Push values onto stack
     code = Bytecode()
-    for i in range(n):
-        code += Op.PUSH2(0xD00 + i)
+    for i in range(stack_height):
+        if i == 0:
+            code += Op.PUSH2(expected_value)
+        else:
+            code += Op.PUSH2(0x1000 + i)
 
-    # For each position, use DUPN to duplicate and store
-    # We'll just test a subset to avoid huge storage
-    test_positions = [0, 1, 127, 255]
-    for idx, pos in enumerate(test_positions):
-        code += Op.DUPN[pos]
-        code += Op.PUSH1(idx) + Op.SSTORE
-
+    code += Op.DUPN[immediate]
+    code += Op.PUSH1(0) + Op.SSTORE
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
 
     tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
 
-    # The stack is: [0xD00, 0xD01, ..., 0xDFF] with 0xDFF at top
-    # DUPN[0] duplicates top (0xDFF), DUPN[255] duplicates bottom (0xD00)
-    expected_storage = {
-        0: 0xD00 + n - 1,  # DUPN[0] = top = 0xDFF
-        1: 0xD00 + n - 2,  # DUPN[1] = second from top = 0xDFE
-        2: 0xD00 + n - 128,  # DUPN[127]
-        3: 0xD00,  # DUPN[255] = bottom = 0xD00
-    }
-
-    post = {contract_address: Account(storage=expected_storage)}
+    post = {contract_address: Account(storage={0: expected_value})}
 
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
 
@@ -114,11 +116,11 @@ def test_dupn_stack_underflow(
     """Test DUPN causes transaction failure on stack underflow."""
     sender = pre.fund_eoa()
 
-    # Push only 5 items but try to DUPN[5] (needs 6 items)
+    # DUPN with immediate 0 needs stack index 17, so push only 16 items
     code = Bytecode()
-    for i in range(5):
+    for i in range(16):
         code += Op.PUSH1(i)
-    code += Op.DUPN[5]  # Should fail - needs item at position 6
+    code += Op.DUPN[0]  # decode_single(0) = 17, but only 16 items on stack
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)

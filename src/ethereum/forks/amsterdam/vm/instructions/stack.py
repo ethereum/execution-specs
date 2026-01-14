@@ -19,6 +19,7 @@ from .. import Evm, stack
 from ..exceptions import StackUnderflowError
 from ..gas import GAS_BASE, GAS_VERY_LOW, charge_gas
 from ..memory import buffer_read
+from ..stack import decode_pair, decode_single
 
 
 def pop(evm: Evm) -> None:
@@ -211,12 +212,14 @@ swap16 = partial(swap_n, item_number=16)
 def dupn(evm: Evm) -> None:
     """
     Duplicate the Nth stack item (from top of the stack) to the top of stack.
-    The item number is read from the immediate byte following the opcode.
+    The item number is read from the immediate byte following the opcode and
+    decoded using the EIP-8024 index shifting rules.
 
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     pass
@@ -226,7 +229,7 @@ def dupn(evm: Evm) -> None:
 
     # OPERATION
     immediate_data = evm.code[evm.pc + Uint(1)]
-    item_number = immediate_data + 1
+    item_number = decode_single(immediate_data)
     if item_number > len(evm.stack):
         raise StackUnderflowError
     data_to_duplicate = evm.stack[-item_number]
@@ -238,14 +241,15 @@ def dupn(evm: Evm) -> None:
 
 def swapn(evm: Evm) -> None:
     """
-    Swap the top stack item with the (n+2)th stack item.
-    The value n is read from the immediate byte following the opcode.
-    SWAPN[n] is equivalent to SWAP{n+1}.
+    Swap the top stack item with the Nth stack item.
+    The value N is read from the immediate byte following the opcode and
+    decoded using the EIP-8024 index shifting rules.
 
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     pass
@@ -255,13 +259,12 @@ def swapn(evm: Evm) -> None:
 
     # OPERATION
     immediate_data = evm.code[evm.pc + Uint(1)]
-    # SWAPN[n] swaps position 1 with position n+2
-    item_number = immediate_data + 1
-    if item_number + 1 > len(evm.stack):
+    item_number = decode_single(immediate_data)
+    if item_number > len(evm.stack):
         raise StackUnderflowError
-    # stack[-1] is position 1, stack[-1-item_number] is position item_number+1
-    evm.stack[-1], evm.stack[-1 - item_number] = (
-        evm.stack[-1 - item_number],
+    # stack[-1] is top, stack[-item_number] is the Nth item
+    evm.stack[-1], evm.stack[-item_number] = (
+        evm.stack[-item_number],
         evm.stack[-1],
     )
 
@@ -271,14 +274,15 @@ def swapn(evm: Evm) -> None:
 
 def exchange(evm: Evm) -> None:
     """
-    Exchange the (n+1)th stack item with the (n+m+1)th stack item.
-    The values n and m are encoded in the immediate byte: n = high 4 bits + 1,
-    m = low 4 bits + 1.
+    Exchange the Nth stack item with the Mth stack item.
+    The values N and M are decoded from the immediate byte using the
+    EIP-8024 index shifting rules.
 
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     """
     # STACK
     pass
@@ -288,14 +292,13 @@ def exchange(evm: Evm) -> None:
 
     # OPERATION
     immediate_data = evm.code[evm.pc + Uint(1)]
-    n = (immediate_data >> 4) + 1
-    m = (immediate_data & 0x0F) + 1
-    depth = n + m + 1
+    n, m = decode_pair(immediate_data)
+    depth = max(n, m)
     if depth > len(evm.stack):
         raise StackUnderflowError
-    evm.stack[-1 - n], evm.stack[-1 - n - m] = (
-        evm.stack[-1 - n - m],
-        evm.stack[-1 - n],
+    evm.stack[-n], evm.stack[-m] = (
+        evm.stack[-m],
+        evm.stack[-n],
     )
 
     # PROGRAM COUNTER

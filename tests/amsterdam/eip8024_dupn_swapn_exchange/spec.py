@@ -24,11 +24,12 @@ class Spec:
     # Gas cost for DUPN, SWAPN, and EXCHANGE
     GAS_COST: int = 3
 
-    # Maximum immediate value for DUPN and SWAPN (0x00 to 0xFF)
-    MAX_IMMEDIATE: int = 0xFF
+    # DUPN/SWAPN stack index range (after decoding)
+    MIN_STACK_INDEX: int = 17
+    MAX_STACK_INDEX: int = 235
 
-    # EXCHANGE immediate encoding: high 4 bits = n, low 4 bits = m
-    # n ranges from 1 to 16 (encoded as 0-15)
-    # m ranges from 1 to 16 (encoded as 0-15)
-    EXCHANGE_MAX_N: int = 16
-    EXCHANGE_MAX_M: int = 16
+    # EXCHANGE constraints: 1 <= n < m <= 29, n + m <= 30
+    EXCHANGE_MIN_N: int = 1
+    EXCHANGE_MAX_N: int = 13
+    EXCHANGE_MAX_M: int = 29
+    EXCHANGE_MAX_SUM: int = 30
