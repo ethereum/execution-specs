@@ -764,17 +764,6 @@ def test_mixed_sload_sstore(
         + gas_costs.G_VERY_LOW  # PUSH1 0 for return offset (3)
     )
 
-    # Per-contract fixed overhead (setup + teardown for each contract's loop)
-    overhead_per_contract = (
-        gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
-        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
-        + gas_costs.G_VERY_LOW  # MLOAD for While condition check (3)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_HIGH  # JUMPI (10)
-        + gas_costs.G_BASE  # POP to clean up at end (2)
-    )
-
     # Calculate how many transactions we need to fill the block
     num_txs = max(1, gas_benchmark_value // tx_gas_limit)
 
