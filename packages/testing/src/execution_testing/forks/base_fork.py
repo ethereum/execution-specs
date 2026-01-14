@@ -1,8 +1,9 @@
 """Abstract base class for Ethereum forks."""
 
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod
 from typing import (
     Any,
+    Callable,
     ClassVar,
     Dict,
     List,
@@ -23,7 +24,14 @@ from execution_testing.base_types import (
     BlobSchedule,
 )
 from execution_testing.base_types.conversions import BytesConvertible
-from execution_testing.vm import EVMCodeType, Opcodes
+from execution_testing.vm import (
+    EVMCodeType,
+    Opcodes,
+)
+from execution_testing.vm.bytecode import (
+    ForkPrototype,
+    OpcodePrototype,
+)
 
 from .base_decorators import prefer_transition_to_method
 from .gas_costs import GasCosts
@@ -237,7 +245,7 @@ class BaseForkMeta(ABCMeta):
         return cls is other or BaseForkMeta._is_subclass_of(other, cls)
 
 
-class BaseFork(ABC, metaclass=BaseForkMeta):
+class BaseFork(ForkPrototype, metaclass=BaseForkMeta):
     """
     An abstract class representing an Ethereum fork.
 
@@ -353,6 +361,18 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> GasCosts:
         """Return dataclass with the gas costs constants for the fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_gas_map(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Dict[OpcodePrototype, int | Callable[[OpcodePrototype], int]]:
+        """
+        Return a mapping of opcodes to either:
+        - Constants (int): Direct gas cost values from gas_costs()
+        - Callables: Functions that take the opcode instance with metadata and return gas cost
+        """
         pass
 
     @classmethod

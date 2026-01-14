@@ -28,4 +28,8 @@ For help deciding which test format to select, see [Types of Tests](./types_of_t
 - [Gas Optimization](./gas_optimization.md) - Optimize gas limits in your tests for efficiency and compatibility with future forks.
 - [Porting tests](./porting_legacy_tests.md): A guide to porting @ethereum/tests to EEST.
 
+## Advanced Topics
+
+- [Opcode Metadata and Gas Calculations](./opcode_metadata.md) - Calculate gas costs and refunds using opcode metadata (advanced feature for gas-focused tests)
+
 Please check that your code adheres to the repo's coding standards and read the other pages in this section for more background and an explanation of how to implement state transition and blockchain tests.

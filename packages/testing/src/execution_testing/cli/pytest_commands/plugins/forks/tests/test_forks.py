@@ -38,7 +38,11 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
     )
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v")
     all_forks = get_deployed_forks()
-    forks_under_test = forks_from_until(all_forks[0], all_forks[-1])
+    forks_under_test = [
+        f
+        for f in forks_from_until(all_forks[0], all_forks[-1])
+        if not f.ignore()
+    ]
     expected_skipped = 2  # eels doesn't support Constantinople
     expected_passed = (
         len(forks_under_test) * len(StateTest.supported_fixture_formats)

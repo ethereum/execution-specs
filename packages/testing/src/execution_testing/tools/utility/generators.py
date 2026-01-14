@@ -446,8 +446,9 @@ def gas_test(
     pre: Alloc,
     setup_code: Bytecode,
     subject_code: Bytecode,
+    subject_code_warm: Bytecode | None = None,
     tear_down_code: Bytecode | None = None,
-    cold_gas: int,
+    cold_gas: int | None = None,
     warm_gas: int | None = None,
     subject_address: Address | None = None,
     subject_balance: int = 0,
@@ -468,12 +469,18 @@ def gas_test(
             "Gas tests before Berlin are not supported due to CALL gas changes"
         )
 
+    if cold_gas is None:
+        cold_gas = subject_code.gas_cost(fork)
+
     if cold_gas <= 0:
         raise ValueError(
             f"Target gas allocations (cold_gas) must be > 0, got {cold_gas}"
         )
     if warm_gas is None:
-        warm_gas = cold_gas
+        if subject_code_warm is not None:
+            warm_gas = subject_code_warm.gas_cost(fork)
+        else:
+            warm_gas = cold_gas
 
     sender = pre.fund_eoa()
     if tear_down_code is None:

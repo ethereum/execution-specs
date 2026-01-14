@@ -13,6 +13,7 @@ from enum import Enum
 from typing import (
     Any,
     Callable,
+    Dict,
     Iterable,
     List,
     Mapping,
@@ -22,7 +23,7 @@ from typing import (
 
 from execution_testing.base_types import to_bytes
 
-from .bytecode import Bytecode
+from .bytecode import Bytecode, OpcodePrototype
 
 
 def _get_int_size(n: int) -> int:
@@ -78,7 +79,7 @@ def _stack_argument_to_bytecode(
     return new_opcode
 
 
-class Opcode(Bytecode):
+class Opcode(Bytecode, OpcodePrototype):
     """
     Represents a single Opcode instruction in the EVM, with extra
     metadata useful to parametrize tests.
@@ -97,6 +98,8 @@ class Opcode(Bytecode):
     otherwise 0
     - unchecked_stack: whether the bytecode should ignore stack checks
     when being called
+    - metadata: dictionary containing extra metadata about the opcode instance,
+    useful for gas cost calculations and other analysis
 
     """
 
@@ -107,6 +110,7 @@ class Opcode(Bytecode):
     ]
     kwargs: List[str]
     kwargs_defaults: KW_ARGS_DEFAULTS_TYPE
+    original_opcode: Optional["Opcode"] = None
     unchecked_stack: bool = False
 
     def __new__(
@@ -123,11 +127,15 @@ class Opcode(Bytecode):
         unchecked_stack: bool = False,
         terminating: bool = False,
         kwargs: List[str] | None = None,
-        kwargs_defaults: Optional[KW_ARGS_DEFAULTS_TYPE] = None,
+        kwargs_defaults: KW_ARGS_DEFAULTS_TYPE | None = None,
+        metadata: Dict[str, Any] | None = None,
+        original_opcode: Optional["Opcode"] = None,
     ) -> "Opcode":
         """Create new opcode instance."""
         if kwargs_defaults is None:
             kwargs_defaults = {}
+        if metadata is None:
+            metadata = {}
         if type(opcode_or_byte) is Opcode:
             # Required because Enum class calls the base class
             # with the instantiated object as parameter.
@@ -165,6 +173,9 @@ class Opcode(Bytecode):
             else:
                 obj.kwargs = kwargs
             obj.kwargs_defaults = kwargs_defaults
+            obj.metadata = metadata
+            obj.original_opcode = original_opcode
+            obj.opcode_list = [obj]
             return obj
         raise TypeError(
             "Opcode constructor '__new__' didn't return an instance!"
@@ -255,8 +266,58 @@ class Opcode(Bytecode):
             terminating=self.terminating,
             kwargs=self.kwargs,
             kwargs_defaults=self.kwargs_defaults,
+            metadata=self.metadata,
+            original_opcode=self,
         )
+        new_opcode.opcode_list = [new_opcode]
         new_opcode._name_ = f"{self._name_}_0x{data_portion.hex()}"
+        return new_opcode
+
+    def with_metadata(self, **metadata: Any) -> "Opcode":
+        """
+        Create a copy of this opcode with updated metadata.
+
+        Validates metadata keys against metadata and merges with existing metadata.
+
+        Args:
+            **metadata: Metadata key-value pairs to set or update
+
+        Returns:
+            A new Opcode instance with the updated metadata
+
+        Raises:
+            ValueError: If invalid metadata keys are provided
+
+        Example:
+            >>> warm_sstore = Op.SSTORE.with_metadata(key_warm=True, new_value=2)
+        """
+        # Validate metadata keys
+        for key in metadata:
+            if key not in self.metadata:
+                raise ValueError(
+                    f"Invalid metadata key '{key}' for opcode {self._name_}. "
+                    f"Valid metadata keys: {list(self.metadata.keys())}"
+                )
+
+        # Create a new opcode instance with updated metadata
+        new_opcode = Opcode(
+            bytes(self),
+            popped_stack_items=self.popped_stack_items,
+            pushed_stack_items=self.pushed_stack_items,
+            min_stack_height=self.min_stack_height,
+            max_stack_height=self.max_stack_height,
+            data_portion_length=self.data_portion_length,
+            data_portion_formatter=self.data_portion_formatter,
+            unchecked_stack=self.unchecked_stack,
+            terminating=self.terminating,
+            kwargs=self.kwargs,
+            kwargs_defaults=self.kwargs_defaults,
+            # Merge defaults, existing metadata, and new metadata
+            metadata={**self.metadata, **metadata},
+            original_opcode=self,
+        )
+        new_opcode.opcode_list = [new_opcode]
+        new_opcode._name_ = self._name_
         return new_opcode
 
     def __call__(
@@ -264,7 +325,7 @@ class Opcode(Bytecode):
         *args_t: "int | bytes | str | Opcode | Bytecode | Iterable[int]",
         unchecked: bool = False,
         **kwargs: "int | bytes | str | Opcode | Bytecode",
-    ) -> Bytecode:
+    ) -> "Bytecode | Opcode":
         """
         Make all opcode instances callable to return formatted bytecode, which
         constitutes a data portion, that is located after the opcode byte,
@@ -297,50 +358,62 @@ class Opcode(Bytecode):
         args: List["int | bytes | str | Opcode | Bytecode | Iterable[int]"] = (
             list(args_t)
         )
+        opcode = self
 
-        if self.has_data_portion():
+        # handle metadata first
+        metadata = {}
+        for key in opcode.metadata:
+            if key in kwargs:
+                metadata[key] = kwargs.pop(key)
+        if metadata:
+            opcode = opcode.with_metadata(**metadata)
+            if len(args) == 0 and len(kwargs) == 0:
+                # Nothing else to do, return
+                return opcode
+
+        if opcode.has_data_portion():
             if len(args) == 0:
                 raise ValueError(
                     "Opcode with data portion requires at least one argument"
                 )
-            assert type(self) is Opcode
+            assert type(opcode) is Opcode
             get_item_arg = args.pop()
             assert not isinstance(get_item_arg, Bytecode)
-            return self[get_item_arg](*args)
+            return opcode[get_item_arg](*args)
 
-        if self.kwargs is not None and len(kwargs) > 0:
+        if opcode.kwargs is not None and len(kwargs) > 0:
             assert len(args) == 0, (
                 f"Cannot mix positional and keyword arguments {args} {kwargs}"
             )
 
             # Validate that all provided kwargs are valid
-            invalid_kwargs = set(kwargs.keys()) - set(self.kwargs)
+            invalid_kwargs = set(kwargs.keys()) - set(opcode.kwargs)
             if invalid_kwargs:
                 raise ValueError(
                     f"Invalid keyword argument(s) {list(invalid_kwargs)} for opcode "
-                    f"{self._name_}. Valid arguments are: {self.kwargs}"
+                    f"{opcode._name_}. Valid arguments are: {opcode.kwargs}"
                 )
 
-            for kw in self.kwargs:
+            for kw in opcode.kwargs:
                 args.append(
                     kwargs[kw]
                     if kw in kwargs
-                    else self.kwargs_defaults.get(kw, 0)
+                    else opcode.kwargs_defaults.get(kw, 0)
                 )
 
         # The rest of the arguments form the stack.
-        if len(args) != self.popped_stack_items and not (
-            unchecked or self.unchecked_stack
+        if len(args) != opcode.popped_stack_items and not (
+            unchecked or opcode.unchecked_stack
         ):
             raise ValueError(
-                f"Opcode {self._name_} requires {self.popped_stack_items} stack elements, but "
+                f"Opcode {opcode._name_} requires {opcode.popped_stack_items} stack elements, but "
                 f"{len(args)} were provided. Use 'unchecked=True' parameter to ignore this check."
             )
 
         pre_opcode_bytecode = Bytecode()
         while len(args) > 0:
             pre_opcode_bytecode += _stack_argument_to_bytecode(args.pop())
-        return pre_opcode_bytecode + self
+        return pre_opcode_bytecode + opcode
 
     def __lt__(self, other: "Opcode") -> bool:
         """Compare two opcodes by their integer value."""
@@ -349,6 +422,25 @@ class Opcode(Bytecode):
     def __gt__(self, other: "Opcode") -> bool:
         """Compare two opcodes by their integer value."""
         return self.int() > other.int()
+
+    def get_original_opcode(self) -> "Opcode":
+        """Return the original opcode instance."""
+        if self.original_opcode is not None:
+            return self.original_opcode
+        return self
+
+    def __hash__(self) -> int:
+        """Hash the opcode by its integer value."""
+        return hash(self.get_original_opcode().int())
+
+    def __eq__(self, other: object) -> bool:
+        """Compare two opcodes by their integer value."""
+        if isinstance(other, Opcode):
+            return (
+                self.get_original_opcode().int()
+                == other.get_original_opcode().int()
+            )
+        return super().__eq__(other)
 
     def int(self) -> int:
         """Return integer representation of the opcode."""
@@ -360,6 +452,15 @@ class Opcode(Bytecode):
             self.data_portion_length > 0
             or self.data_portion_formatter is not None
         )
+
+    def get_metadata(self) -> Dict[str, Any]:
+        """
+        Get a copy of the current metadata.
+
+        Returns:
+            A dictionary containing the current metadata values
+        """
+        return self.metadata.copy()
 
 
 OpcodeCallArg = int | bytes | str | Bytecode | Iterable[int]
@@ -798,7 +899,12 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#09](https://www.evm.codes/#09)
     """
 
-    EXP = Opcode(0x0A, popped_stack_items=2, pushed_stack_items=1)
+    EXP = Opcode(
+        0x0A,
+        popped_stack_items=2,
+        pushed_stack_items=1,
+        metadata={"exponent": 0},
+    )
     """
     EXP(a, exponent) = a ** exponent
     ----
@@ -824,6 +930,10 @@ class Opcodes(Opcode, Enum):
     ----
     - static_gas = 10
     - dynamic_gas = 50 * exponent_byte_size
+
+    Metadata
+    ----
+    - exponent: the exponent value (default: 0)
 
     Source: [evm.codes/#0A](https://www.evm.codes/#0A)
     """
@@ -1295,6 +1405,7 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=2,
         pushed_stack_items=1,
         kwargs=["offset", "size"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     SHA3(offset, size) = hash
@@ -1322,6 +1433,12 @@ class Opcodes(Opcode, Enum):
     - minimum_word_size = (size + 31) / 32
     - static_gas = 30
     - dynamic_gas = 6 * minimum_word_size + memory_expansion_cost
+
+    Metadata
+    ----
+    - data_size: number of bytes being hashed (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
 
     Source: [evm.codes/#20](https://www.evm.codes/#20)
     """
@@ -1355,7 +1472,11 @@ class Opcodes(Opcode, Enum):
     """
 
     BALANCE = Opcode(
-        0x31, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"]
+        0x31,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["address"],
+        metadata={"address_warm": False},
     )
     """
     BALANCE(address) = balance
@@ -1382,6 +1503,10 @@ class Opcodes(Opcode, Enum):
     ----
     - static_gas = 0
     - dynamic_gas = 100 if warm_address, 2600 if cold_address
+
+    Metadata
+    ----
+    - address_warm: whether the address is already warm (default: False)
 
     Source: [evm.codes/#31](https://www.evm.codes/#31)
     """
@@ -1535,7 +1660,10 @@ class Opcodes(Opcode, Enum):
     """
 
     CALLDATACOPY = Opcode(
-        0x37, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+        0x37,
+        popped_stack_items=3,
+        kwargs=["dest_offset", "offset", "size"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     CALLDATACOPY(dest_offset, offset, size)
@@ -1564,6 +1692,12 @@ class Opcodes(Opcode, Enum):
     - minimum_word_size = (size + 31) / 32
     - static_gas = 3
     - dynamic_gas = 3 * minimum_word_size + memory_expansion_cost
+
+    Metadata
+    ----
+    - data_size: number of bytes being copied (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
 
     Source: [evm.codes/#37](https://www.evm.codes/#37)
     """
@@ -1597,7 +1731,10 @@ class Opcodes(Opcode, Enum):
     """
 
     CODECOPY = Opcode(
-        0x39, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+        0x39,
+        popped_stack_items=3,
+        kwargs=["dest_offset", "offset", "size"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     CODECOPY(dest_offset, offset, size)
@@ -1622,6 +1759,12 @@ class Opcodes(Opcode, Enum):
     - minimum_word_size = (size + 31) / 32
     - static_gas = 3
     - dynamic_gas = 3 * minimum_word_size + memory_expansion_cost
+
+    Metadata
+    ----
+    - data_size: number of bytes being copied (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
 
     Source: [evm.codes/#39](https://www.evm.codes/#39)
     """
@@ -1651,7 +1794,11 @@ class Opcodes(Opcode, Enum):
     """
 
     EXTCODESIZE = Opcode(
-        0x3B, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"]
+        0x3B,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["address"],
+        metadata={"address_warm": False},
     )
     """
     EXTCODESIZE(address) = size
@@ -1678,6 +1825,10 @@ class Opcodes(Opcode, Enum):
     - static_gas = 0
     - dynamic_gas = 100 if warm_address, 2600 if cold_address
 
+    Metadata
+    ----
+    - address_warm: whether the address is already warm (default: False)
+
     Source: [evm.codes/#3B](https://www.evm.codes/#3B)
     """
 
@@ -1685,6 +1836,12 @@ class Opcodes(Opcode, Enum):
         0x3C,
         popped_stack_items=4,
         kwargs=["address", "dest_offset", "offset", "size"],
+        metadata={
+            "address_warm": False,
+            "data_size": 0,
+            "new_memory_size": 0,
+            "old_memory_size": 0,
+        },
     )
     """
     EXTCODECOPY(address, dest_offset, offset, size)
@@ -1716,6 +1873,13 @@ class Opcodes(Opcode, Enum):
     - dynamic_gas = 3 * minimum_word_size +
                     memory_expansion_cost + address_access_cost
 
+    Metadata
+    ----
+    - address_warm: whether the address is already warm (default: False)
+    - data_size: number of bytes being copied (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#3C](https://www.evm.codes/#3C)
     """
 
@@ -1744,7 +1908,10 @@ class Opcodes(Opcode, Enum):
     """
 
     RETURNDATACOPY = Opcode(
-        0x3E, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+        0x3E,
+        popped_stack_items=3,
+        kwargs=["dest_offset", "offset", "size"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     RETURNDATACOPY(dest_offset, offset, size)
@@ -1771,11 +1938,21 @@ class Opcodes(Opcode, Enum):
     - static_gas = 3
     - dynamic_gas = 3 * minimum_word_size + memory_expansion_cost
 
+    Metadata
+    ----
+    - data_size: number of bytes being copied (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#3E](https://www.evm.codes/#3E)
     """
 
     EXTCODEHASH = Opcode(
-        0x3F, popped_stack_items=1, pushed_stack_items=1, kwargs=["address"]
+        0x3F,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["address"],
+        metadata={"address_warm": False},
     )
     """
     EXTCODEHASH(address) = hash
@@ -1803,6 +1980,10 @@ class Opcodes(Opcode, Enum):
     ----
     - static_gas = 0
     - dynamic_gas = 100 if warm_address, 2600 if cold_address
+
+    Metadata
+    ----
+    - address_warm: whether the address is already warm (default: False)
 
     Source: [evm.codes/#3F](https://www.evm.codes/#3F)
     """
@@ -2151,7 +2332,11 @@ class Opcodes(Opcode, Enum):
     """
 
     MLOAD = Opcode(
-        0x51, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"]
+        0x51,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["offset"],
+        metadata={"new_memory_size": 0, "old_memory_size": 0},
     )
     """
     MLOAD(offset) = value
@@ -2179,10 +2364,20 @@ class Opcodes(Opcode, Enum):
     - static_gas = 3
     - dynamic_gas = memory_expansion_cost
 
+    Metadata
+    ----
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#51](https://www.evm.codes/#51)
     """
 
-    MSTORE = Opcode(0x52, popped_stack_items=2, kwargs=["offset", "value"])
+    MSTORE = Opcode(
+        0x52,
+        popped_stack_items=2,
+        kwargs=["offset", "value"],
+        metadata={"new_memory_size": 0, "old_memory_size": 0},
+    )
     """
     MSTORE(offset, value)
     ----
@@ -2209,10 +2404,20 @@ class Opcodes(Opcode, Enum):
     - static_gas = 3
     - dynamic_gas = memory_expansion_cost
 
+    Metadata
+    ----
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#52](https://www.evm.codes/#52)
     """
 
-    MSTORE8 = Opcode(0x53, popped_stack_items=2, kwargs=["offset", "value"])
+    MSTORE8 = Opcode(
+        0x53,
+        popped_stack_items=2,
+        kwargs=["offset", "value"],
+        metadata={"new_memory_size": 0, "old_memory_size": 0},
+    )
     """
     MSTORE8(offset, value)
     ----
@@ -2236,11 +2441,20 @@ class Opcodes(Opcode, Enum):
     - static_gas = 3
     - dynamic_gas = memory_expansion_cost
 
+    Metadata
+    ----
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#53](https://www.evm.codes/#53)
     """
 
     SLOAD = Opcode(
-        0x54, popped_stack_items=1, pushed_stack_items=1, kwargs=["key"]
+        0x54,
+        popped_stack_items=1,
+        pushed_stack_items=1,
+        kwargs=["key"],
+        metadata={"key_warm": False},
     )
     """
     SLOAD(key) = value
@@ -2268,10 +2482,24 @@ class Opcodes(Opcode, Enum):
     - static_gas = 0
     - dynamic_gas = 100 if warm_address, 2600 if cold_address
 
+    Metadata
+    ----
+    - key_warm: whether the storage key is already warm (default: False)
+
     Source: [evm.codes/#54](https://www.evm.codes/#54)
     """
 
-    SSTORE = Opcode(0x55, popped_stack_items=2, kwargs=["key", "value"])
+    SSTORE = Opcode(
+        0x55,
+        popped_stack_items=2,
+        kwargs=["key", "value"],
+        metadata={
+            "key_warm": False,
+            "original_value": 0,
+            "current_value": None,
+            "new_value": 1,
+        },
+    )
     """
     SSTORE(key, value)
     ----
@@ -2314,6 +2542,16 @@ class Opcodes(Opcode, Enum):
     if key is cold:
         base_dynamic_gas += 2100
     ```
+
+    Metadata
+    ----
+    - key_warm: whether the key had already been accessed during the
+        transaction, either by SLOAD or SSTORE (default: False)
+    - original_value: value the storage key had at the beginning of
+        the transaction (default: 0)
+    - current_value: value the storage key holds at the execution
+        of the opcode (default: None, which means same as original_value)
+    - new_value: value being set by the opcode (default: 1)
 
     Source: [evm.codes/#55](https://www.evm.codes/#55)
     """
@@ -2571,7 +2809,10 @@ class Opcodes(Opcode, Enum):
     """
 
     MCOPY = Opcode(
-        0x5E, popped_stack_items=3, kwargs=["dest_offset", "offset", "size"]
+        0x5E,
+        popped_stack_items=3,
+        kwargs=["dest_offset", "offset", "size"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     MCOPY(dest_offset, offset, size)
@@ -2600,6 +2841,12 @@ class Opcodes(Opcode, Enum):
     - minimum_word_size = (size + 31) / 32
     - static_gas = 3
     - dynamic_gas = 3 * minimum_word_size + memory_expansion_cost
+
+    Metadata
+    ----
+    - data_size: number of bytes being copied (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
 
     Source: [EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)
     """
@@ -4696,7 +4943,12 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#9F](https://www.evm.codes/#9F)
     """
 
-    LOG0 = Opcode(0xA0, popped_stack_items=2, kwargs=["offset", "size"])
+    LOG0 = Opcode(
+        0xA0,
+        popped_stack_items=2,
+        kwargs=["offset", "size"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
+    )
     """
     LOG0(offset, size)
     ----
@@ -4723,11 +4975,20 @@ class Opcodes(Opcode, Enum):
     - static_gas = 375
     - dynamic_gas = 375 * topic_count + 8 * size + memory_expansion_cost
 
+    Metadata
+    ----
+    - data_size: number of bytes in the log data (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#A0](https://www.evm.codes/#A0)
     """
 
     LOG1 = Opcode(
-        0xA1, popped_stack_items=3, kwargs=["offset", "size", "topic_1"]
+        0xA1,
+        popped_stack_items=3,
+        kwargs=["offset", "size", "topic_1"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     LOG1(offset, size, topic_1)
@@ -4756,6 +5017,12 @@ class Opcodes(Opcode, Enum):
     - static_gas = 375
     - dynamic_gas = 375 * topic_count + 8 * size + memory_expansion_cost
 
+    Metadata
+    ----
+    - data_size: number of bytes in the log data (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#A1](https://www.evm.codes/#A1)
     """
 
@@ -4763,6 +5030,7 @@ class Opcodes(Opcode, Enum):
         0xA2,
         popped_stack_items=4,
         kwargs=["offset", "size", "topic_1", "topic_2"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     LOG2(offset, size, topic_1, topic_2)
@@ -4792,6 +5060,12 @@ class Opcodes(Opcode, Enum):
     - static_gas = 375
     - dynamic_gas = 375 * topic_count + 8 * size + memory_expansion_cost
 
+    Metadata
+    ----
+    - data_size: number of bytes in the log data (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#A2](https://www.evm.codes/#A2)
     """
 
@@ -4799,6 +5073,7 @@ class Opcodes(Opcode, Enum):
         0xA3,
         popped_stack_items=5,
         kwargs=["offset", "size", "topic_1", "topic_2", "topic_3"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     LOG3(offset, size, topic_1, topic_2, topic_3)
@@ -4829,6 +5104,12 @@ class Opcodes(Opcode, Enum):
     - static_gas = 375
     - dynamic_gas = 375 * topic_count + 8 * size + memory_expansion_cost
 
+    Metadata
+    ----
+    - data_size: number of bytes in the log data (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#A3](https://www.evm.codes/#A3)
     """
 
@@ -4836,6 +5117,7 @@ class Opcodes(Opcode, Enum):
         0xA4,
         popped_stack_items=6,
         kwargs=["offset", "size", "topic_1", "topic_2", "topic_3", "topic_4"],
+        metadata={"data_size": 0, "new_memory_size": 0, "old_memory_size": 0},
     )
     """
     LOG4(offset, size, topic_1, topic_2, topic_3, topic_4)
@@ -4866,6 +5148,12 @@ class Opcodes(Opcode, Enum):
     ----
     - static_gas = 375
     - dynamic_gas = 375 * topic_count + 8 * size + memory_expansion_cost
+
+    Metadata
+    ----
+    - data_size: number of bytes in the log data (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
 
     Source: [evm.codes/#A4](https://www.evm.codes/#A4)
     """
@@ -5407,6 +5695,11 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=3,
         pushed_stack_items=1,
         kwargs=["value", "offset", "size"],
+        metadata={
+            "init_code_size": 0,
+            "new_memory_size": 0,
+            "old_memory_size": 0,
+        },
     )
     """
     CREATE(value, offset, size) = address
@@ -5444,6 +5737,12 @@ class Opcodes(Opcode, Enum):
                   code_deposit_cost
     ```
 
+    Metadata
+    ----
+    - init_code_size: size of the initialization code in bytes (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+
     Source: [evm.codes/#F0](https://www.evm.codes/#F0)
     """
 
@@ -5461,6 +5760,15 @@ class Opcodes(Opcode, Enum):
             "ret_size",
         ],
         kwargs_defaults={"gas": GAS},
+        metadata={
+            "address_warm": False,
+            "value_transfer": False,
+            "account_new": False,
+            "new_memory_size": 0,
+            "old_memory_size": 0,
+            "delegated_address": False,
+            "delegated_address_warm": False,
+        },
     )
     """
     CALL(gas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -5501,6 +5809,18 @@ class Opcodes(Opcode, Enum):
                   value_to_empty_account_cost
     ```
 
+    Metadata
+    ----
+    - address_warm: whether the address is already warm (default: False)
+    - value_transfer: whether value is being transferred (default: False)
+    - account_new: whether creating a new account (default: False)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+    - delegated_address: whether the target is a delegated account
+                          (default: False)
+    - delegated_address_warm: whether the delegated address of the target
+                              is already warm (default: False)
+
     Source: [evm.codes/#F1](https://www.evm.codes/#F1)
     """
 
@@ -5518,6 +5838,15 @@ class Opcodes(Opcode, Enum):
             "ret_size",
         ],
         kwargs_defaults={"gas": GAS},
+        metadata={
+            "address_warm": False,
+            "value_transfer": False,
+            "account_new": False,
+            "new_memory_size": 0,
+            "old_memory_size": 0,
+            "delegated_address": False,
+            "delegated_address_warm": False,
+        },
     )
     """
     CALLCODE(gas, address, value, args_offset, args_size, ret_offset, ret_size)
@@ -5558,11 +5887,31 @@ class Opcodes(Opcode, Enum):
                   address_access_cost + positive_value_cost
     ```
 
+    Metadata
+    ----
+    - address_warm: whether the address is already warm (default: False)
+    - value_transfer: whether value is being transferred (default: False)
+    - account_new: whether creating a new account (default: False)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+    - delegated_address: whether the target is a delegated account
+                          (default: False)
+    - delegated_address_warm: whether the delegated address of the target
+                              is already warm (default: False)
+
     Source: [evm.codes/#F2](https://www.evm.codes/#F2)
     """
 
     RETURN = Opcode(
-        0xF3, popped_stack_items=2, kwargs=["offset", "size"], terminating=True
+        0xF3,
+        popped_stack_items=2,
+        kwargs=["offset", "size"],
+        terminating=True,
+        metadata={
+            "new_memory_size": 0,
+            "old_memory_size": 0,
+            "code_deposit_size": 0,
+        },
     )
     """
     RETURN(offset, size)
@@ -5591,6 +5940,12 @@ class Opcodes(Opcode, Enum):
     - static_gas = 0
     - dynamic_gas = memory_expansion_cost
 
+    Metadata
+    ----
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+    - code_deposit_size: size of bytecode being deployed in bytes (default: 0, only for RETURN in initcode)
+
     Source: [evm.codes/#F3](https://www.evm.codes/#F3)
     """
 
@@ -5607,6 +5962,15 @@ class Opcodes(Opcode, Enum):
             "ret_size",
         ],
         kwargs_defaults={"gas": GAS},
+        metadata={
+            "address_warm": False,
+            "value_transfer": False,
+            "account_new": False,
+            "new_memory_size": 0,
+            "old_memory_size": 0,
+            "delegated_address": False,
+            "delegated_address_warm": False,
+        },
     )
     """
     DELEGATECALL(gas, address, args_offset, args_size, ret_offset, ret_size)
@@ -5644,6 +6008,18 @@ class Opcodes(Opcode, Enum):
     - dynamic_gas = memory_expansion_cost + code_execution_cost +
                     address_access_cost
 
+    Metadata
+    ----
+    - address_warm: whether the address is already warm (default: False)
+    - value_transfer: always False for DELEGATECALL (default: False)
+    - account_new: always False for DELEGATECALL (default: False)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+    - delegated_address: whether the target is a delegated account
+                          (default: False)
+    - delegated_address_warm: whether the delegated address of the target
+                              is already warm (default: False)
+
     Source: [evm.codes/#F4](https://www.evm.codes/#F4)
     """
 
@@ -5652,6 +6028,11 @@ class Opcodes(Opcode, Enum):
         popped_stack_items=4,
         pushed_stack_items=1,
         kwargs=["value", "offset", "size", "salt"],
+        metadata={
+            "init_code_size": 0,
+            "new_memory_size": 0,
+            "old_memory_size": 0,
+        },
     )
     """
     CREATE2(value, offset, size, salt) = address
@@ -5690,6 +6071,12 @@ class Opcodes(Opcode, Enum):
     dynamic_gas = init_code_cost + hash_cost + memory_expansion_cost
         + deployment_code_execution_cost + code_deposit_cost
     ```
+
+    Metadata
+    ----
+    - init_code_size: size of the initialization code in bytes (default: 0)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
 
     Source: [evm.codes/#F5](https://www.evm.codes/#F5)
     """
@@ -5796,6 +6183,13 @@ class Opcodes(Opcode, Enum):
             "ret_size",
         ],
         kwargs_defaults={"gas": GAS},
+        metadata={
+            "address_warm": False,
+            "new_memory_size": 0,
+            "old_memory_size": 0,
+            "delegated_address": False,
+            "delegated_address_warm": False,
+        },
     )
     """
     STATICCALL(gas, address, args_offset, args_size, ret_offset, ret_size)
@@ -5831,6 +6225,18 @@ class Opcodes(Opcode, Enum):
     - static_gas = 0
     - dynamic_gas = memory_expansion_cost + code_execution_cost +
                     address_access_cost
+
+    Metadata
+    ----
+    - address_warm: whether the address is already warm (default: False)
+    - value_transfer: always False for STATICCALL (default: False)
+    - account_new: always False for STATICCALL (default: False)
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
+    - delegated_address: whether the target is a delegated account
+                          (default: False)
+    - delegated_address_warm: whether the delegated address of the target
+                              is already warm (default: False)
 
     Source: [evm.codes/#FA](https://www.evm.codes/#FA)
     """
@@ -5903,7 +6309,11 @@ class Opcodes(Opcode, Enum):
     """
 
     REVERT = Opcode(
-        0xFD, popped_stack_items=2, kwargs=["offset", "size"], terminating=True
+        0xFD,
+        popped_stack_items=2,
+        kwargs=["offset", "size"],
+        terminating=True,
+        metadata={"new_memory_size": 0, "old_memory_size": 0},
     )
     """
     REVERT(offset, size)
@@ -5927,6 +6337,11 @@ class Opcodes(Opcode, Enum):
     ----
     static_gas = 0
     dynamic_gas = memory_expansion_cost
+
+    Metadata
+    ----
+    - new_memory_size: memory size after expansion in bytes (default: 0)
+    - old_memory_size: memory size before expansion in bytes (default: 0)
 
     Source: [evm.codes/#FD](https://www.evm.codes/#FD)
     """
@@ -5959,7 +6374,12 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#FE](https://www.evm.codes/#FE)
     """
 
-    SELFDESTRUCT = Opcode(0xFF, popped_stack_items=1, kwargs=["address"])
+    SELFDESTRUCT = Opcode(
+        0xFF,
+        popped_stack_items=1,
+        kwargs=["address"],
+        metadata={"address_warm": False, "account_new": False},
+    )
     """
     SELFDESTRUCT(address)
     ----
@@ -5979,6 +6399,13 @@ class Opcodes(Opcode, Enum):
     Gas
     ----
     5000
+
+    Metadata
+    ----
+    - address_warm: whether the beneficiary address is already warm
+                    (default: False)
+    - account_new: whether creating a new beneficiary account, requires
+                   non-zero balance in the source account (default: False)
 
     Source: [evm.codes/#FF](https://www.evm.codes/#FF)
     """
