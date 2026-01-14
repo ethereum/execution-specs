@@ -83,7 +83,6 @@ def test_bloatnet_balance_extcodesize(
     # Setup overhead (before loop): STATICCALL + result handling + memory setup
     setup_overhead = (
         gas_costs.G_COLD_ACCOUNT_ACCESS  # STATICCALL to factory (2600)
-        + 100  # STATICCALL base cost
         + gas_costs.G_VERY_LOW  # ISZERO (3)
         + gas_costs.G_VERY_LOW  # PUSH2 (3)
         + gas_costs.G_HIGH  # JUMPI (10)
@@ -273,7 +272,6 @@ def test_bloatnet_balance_extcodecopy(
     # Setup overhead (before loop): STATICCALL + result handling + memory setup
     setup_overhead = (
         gas_costs.G_COLD_ACCOUNT_ACCESS  # STATICCALL to factory (2600)
-        + 100  # STATICCALL base cost
         + gas_costs.G_VERY_LOW  # ISZERO (3)
         + gas_costs.G_VERY_LOW  # PUSH2 (3)
         + gas_costs.G_HIGH  # JUMPI (10)
@@ -470,7 +468,6 @@ def test_bloatnet_balance_extcodehash(
     # Setup overhead (before loop): STATICCALL + result handling + memory setup
     setup_overhead = (
         gas_costs.G_COLD_ACCOUNT_ACCESS  # STATICCALL to factory (2600)
-        + 100  # STATICCALL base cost
         + gas_costs.G_VERY_LOW  # ISZERO (3)
         + gas_costs.G_VERY_LOW  # PUSH2 (3)
         + gas_costs.G_HIGH  # JUMPI (10)
@@ -774,7 +771,7 @@ def test_mixed_sload_sstore(
         + gas_costs.G_VERY_LOW  # MLOAD for While condition check (3)
         + gas_costs.G_BASE  # ISZERO (2)
         + gas_costs.G_BASE  # ISZERO (2)
-        + gas_costs.G_MID  # JUMPI (8)
+        + gas_costs.G_HIGH  # JUMPI (10)
         + gas_costs.G_BASE  # POP to clean up at end (2)
     )
 
