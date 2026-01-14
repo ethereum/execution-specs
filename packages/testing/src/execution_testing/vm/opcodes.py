@@ -5080,6 +5080,116 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#A4](https://www.evm.codes/#A4)
     """
 
+    DUPN = Opcode(
+        0xE6,
+        pushed_stack_items=1,
+        data_portion_length=1,
+        stack_properties_modifier=_dupn_stack_properties_modifier,
+    )
+    """
+    DUPN()
+    ----
+
+    Description
+    ----
+
+    - deduct 3 gas
+    - read uint8 operand imm
+    - n = imm + 1
+    - n'th (1-based) stack item is duplicated at the top of the stack
+    - Stack validation: stack_height >= n
+
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas
+    ----
+    3
+
+    """
+
+    SWAPN = Opcode(
+        0xE7,
+        data_portion_length=1,
+        stack_properties_modifier=_swapn_stack_properties_modifier,
+    )
+    """
+    SWAPN()
+    ----
+
+    Description
+    ----
+
+    - deduct 3 gas
+    - read uint8 operand imm
+    - n = imm + 1
+    - n + 1th stack item is swapped with the top stack item (1-based).
+    - Stack validation: stack_height >= n + 1
+
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas
+    ----
+    3
+
+    """
+
+    EXCHANGE = Opcode(
+        0xE8,
+        data_portion_length=1,
+        data_portion_formatter=_exchange_encoder,
+        stack_properties_modifier=_exchange_stack_properties_modifier,
+    )
+    """
+    EXCHANGE[x, y]
+    ----
+
+    Description
+    ----
+    Exchanges two stack positions.  Two nybbles, n is high 4 bits + 1,
+    then  m is 4 low bits + 1.
+    Exchanges the n+1'th item with the n + m + 1 item.
+
+    Inputs x and y when the opcode is used as `EXCHANGE[x, y]`, are equal to:
+    - x = n + 1
+    - y = n + m + 1
+    Which each equals to 1-based stack positions swapped.
+
+    Inputs
+    ----
+    n + m + 1, or ((imm >> 4) + (imm &0x0F) + 3) from the raw immediate,
+
+    Outputs
+    ----
+    n + m + 1, or ((imm >> 4) + (imm &0x0F) + 3) from the raw immediate,
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas
+    ----
+    3
+
+    """
+
     CREATE = Opcode(
         0xF0,
         popped_stack_items=3,

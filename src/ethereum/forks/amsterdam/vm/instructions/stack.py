@@ -206,3 +206,97 @@ swap13 = partial(swap_n, item_number=13)
 swap14 = partial(swap_n, item_number=14)
 swap15 = partial(swap_n, item_number=15)
 swap16 = partial(swap_n, item_number=16)
+
+
+def dupn(evm: Evm) -> None:
+    """
+    Duplicate the Nth stack item (from top of the stack) to the top of stack.
+    The item number is read from the immediate byte following the opcode.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    immediate_data = evm.code[evm.pc + Uint(1)]
+    item_number = immediate_data + 1
+    if item_number > len(evm.stack):
+        raise StackUnderflowError
+    data_to_duplicate = evm.stack[-item_number]
+    stack.push(evm.stack, data_to_duplicate)
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(2)
+
+
+def swapn(evm: Evm) -> None:
+    """
+    Swap the top stack item with the (n+2)th stack item.
+    The value n is read from the immediate byte following the opcode.
+    SWAPN[n] is equivalent to SWAP{n+1}.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    immediate_data = evm.code[evm.pc + Uint(1)]
+    # SWAPN[n] swaps position 1 with position n+2
+    item_number = immediate_data + 1
+    if item_number + 1 > len(evm.stack):
+        raise StackUnderflowError
+    # stack[-1] is position 1, stack[-1-item_number] is position item_number+1
+    evm.stack[-1], evm.stack[-1 - item_number] = (
+        evm.stack[-1 - item_number],
+        evm.stack[-1],
+    )
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(2)
+
+
+def exchange(evm: Evm) -> None:
+    """
+    Exchange the (n+1)th stack item with the (n+m+1)th stack item.
+    The values n and m are encoded in the immediate byte: n = high 4 bits + 1,
+    m = low 4 bits + 1.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    immediate_data = evm.code[evm.pc + Uint(1)]
+    n = (immediate_data >> 4) + 1
+    m = (immediate_data & 0x0F) + 1
+    depth = n + m + 1
+    if depth > len(evm.stack):
+        raise StackUnderflowError
+    evm.stack[-1 - n], evm.stack[-1 - n - m] = (
+        evm.stack[-1 - n - m],
+        evm.stack[-1 - n],
+    )
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(2)
