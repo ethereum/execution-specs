@@ -16,11 +16,10 @@ from typing import List, Tuple
 
 from ethereum_types.numeric import U256, Uint
 
-from ethereum.forks.amsterdam.vm import Evm
-from ethereum.forks.amsterdam.vm.gas import GAS_BASE, GAS_VERY_LOW, charge_gas
-from ethereum.forks.amsterdam.vm.memory import buffer_read
-
+from . import Evm
 from .exceptions import StackOverflowError, StackUnderflowError
+from .gas import GAS_BASE, GAS_VERY_LOW, charge_gas
+from .memory import buffer_read
 
 
 def decode_single(x: int) -> int:
