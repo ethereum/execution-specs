@@ -36,6 +36,7 @@ def decode_single(x: int) -> int:
     -------
     int
         The stack index (17-235).
+
     """
     assert 0 <= x <= 90 or 128 <= x <= 255
     if x <= 90:
@@ -57,6 +58,7 @@ def decode_pair(x: int) -> Tuple[int, int]:
     -------
     Tuple[int, int]
         The two stack indices (n, m).
+
     """
     assert 0 <= x <= 79 or 128 <= x <= 255
     k = x if x <= 79 else x - 48
@@ -80,6 +82,7 @@ def encode_single(n: int) -> int:
     -------
     int
         The immediate byte value.
+
     """
     assert 17 <= n <= 235
     if n <= 107:
@@ -103,6 +106,7 @@ def encode_pair(n: int, m: int) -> int:
     -------
     int
         The immediate byte value.
+
     """
     assert 1 <= n <= 13 and n < m <= 29 and n + m <= 30
     if m <= 16:
