@@ -233,3 +233,47 @@ def test_exchange_stack_underflow(
     post = {contract_address: Account(storage={})}
 
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+def test_endofcode_behavior(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test EXCHANGE when the immediate byte is beyond the end of code.
+
+    Per EIP-8024, code[pc + 1] evaluates to 0 if beyond the end of the code,
+    matching PUSH behavior. With immediate = 0, decode_pair(0) = (1, 29), so
+    EXCHANGE swaps positions 2 and 30.
+
+    This test verifies the transaction succeeds (doesn't revert) when EXCHANGE
+    is the last byte of the code with no immediate byte following it.
+    """
+    sender = pre.fund_eoa()
+
+    # decode_pair(0) = (1, 29), which swaps positions 2 and 30
+    # We need 30 items on the stack for this to succeed
+    stack_height = 30
+    marker_value = 0x42
+
+    # Build code: store marker, push enough items, then EXCHANGE (no immediate)
+    code = Bytecode()
+    code += Op.PUSH1(marker_value) + Op.PUSH1(0) + Op.SSTORE  # Store marker
+
+    # Push 30 items to stack so EXCHANGE with implicit imm=0 succeeds
+    for i in range(stack_height):
+        code += Op.PUSH1(i)
+
+    # Add just the EXCHANGE opcode without immediate byte
+    # After EXCHANGE, pc += 2 goes beyond code, causing implicit STOP
+    code += bytes([0xE8])  # EXCHANGE opcode only, no immediate
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # If tx succeeds, storage[0] = marker_value
+    # Bad implementation would revert and have empty storage
+    post = {contract_address: Account(storage={0: marker_value})}
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)

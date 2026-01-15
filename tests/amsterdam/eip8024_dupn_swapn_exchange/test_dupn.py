@@ -131,3 +131,52 @@ def test_dupn_stack_underflow(
     post = {contract_address: Account(storage={})}
 
     state_test(env=Environment(), pre=pre, post=post, tx=tx)
+
+
+def test_endofcode_behavior(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test DUPN when the immediate byte is beyond the end of code.
+
+    Per EIP-8024, code[pc + 1] evaluates to 0 if beyond the end of the code,
+    matching PUSH behavior. With immediate = 0, decode_single(0) = 17, so
+    DUPN duplicates the 17th stack item.
+
+    This test verifies the transaction succeeds (doesn't revert) when DUPN
+    is the last byte of the code with no immediate byte following it.
+    """
+    sender = pre.fund_eoa()
+
+    # decode_single(0) = 17, which duplicates the 17th item from top
+    # We need 17 items on the stack for this to succeed
+    stack_height = 17
+    marker_value = 0x42
+    # The value at position 17 (first pushed) will be duplicated
+    dup_target_value = 0xBEEF
+
+    # Build code: store marker, push enough items, then DUPN (no immediate)
+    code = Bytecode()
+    code += Op.PUSH1(marker_value) + Op.PUSH1(0) + Op.SSTORE  # Store marker
+
+    # Push 17 items to stack so DUPN with implicit imm=0 succeeds
+    for i in range(stack_height):
+        if i == 0:
+            code += Op.PUSH2(dup_target_value)  # This will be at position 17
+        else:
+            code += Op.PUSH1(i)
+
+    # Add just the DUPN opcode without immediate byte
+    # After DUPN, pc += 2 goes beyond code, causing implicit STOP
+    code += bytes([0xE6])  # DUPN opcode only, no immediate
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # If tx succeeds, storage[0] = marker_value
+    # Bad implementation would revert and have empty storage
+    post = {contract_address: Account(storage={0: marker_value})}
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
