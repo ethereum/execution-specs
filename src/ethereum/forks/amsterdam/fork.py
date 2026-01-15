@@ -1071,7 +1071,9 @@ def process_transaction(
     ):
         destroy_account(block_env.state, block_env.coinbase)
 
-    block_output.block_gas_used += tx_gas_used_before_refund
+    block_output.block_gas_used += max(
+        tx_gas_used_before_refund, calldata_floor_gas_cost
+    )
     block_output.blob_gas_used += tx_blob_gas_used
 
     receipt = make_receipt(
