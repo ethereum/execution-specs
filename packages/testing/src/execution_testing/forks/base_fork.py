@@ -26,11 +26,9 @@ from execution_testing.base_types import (
 from execution_testing.base_types.conversions import BytesConvertible
 from execution_testing.vm import (
     EVMCodeType,
+    ForkOpcodeInterface,
+    OpcodeBase,
     Opcodes,
-)
-from execution_testing.vm.bytecode import (
-    ForkPrototype,
-    OpcodePrototype,
 )
 
 from .base_decorators import prefer_transition_to_method
@@ -245,7 +243,7 @@ class BaseForkMeta(ABCMeta):
         return cls is other or BaseForkMeta._is_subclass_of(other, cls)
 
 
-class BaseFork(ForkPrototype, metaclass=BaseForkMeta):
+class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     """
     An abstract class representing an Ethereum fork.
 
@@ -367,11 +365,14 @@ class BaseFork(ForkPrototype, metaclass=BaseForkMeta):
     @abstractmethod
     def opcode_gas_map(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> Dict[OpcodePrototype, int | Callable[[OpcodePrototype], int]]:
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
         """
-        Return a mapping of opcodes to either:
+        Return a mapping of opcodes to either int or callable.
+
+        The values of the mapping can be as follow:
         - Constants (int): Direct gas cost values from gas_costs()
-        - Callables: Functions that take the opcode instance with metadata and return gas cost
+        - Callables: Functions that take the opcode instance with metadata and
+                     return gas cost
         """
         pass
 

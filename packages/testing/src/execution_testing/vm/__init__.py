@@ -1,5 +1,10 @@
 """Ethereum Virtual Machine related definitions and utilities."""
 
+from .bases import (
+    ForkOpcodeInterface,
+    OpcodeBase,
+    OpcodeGasCalculator,
+)
 from .bytecode import Bytecode
 from .evm_types import EVMCodeType
 from .helpers import MemoryVariable, call_return_code
@@ -18,12 +23,15 @@ Op = Opcodes
 __all__ = (
     "Bytecode",
     "EVMCodeType",
+    "ForkOpcodeInterface",
     "Macro",
     "Macros",
     "MemoryVariable",
     "Op",
     "Opcode",
+    "OpcodeBase",
     "OpcodeCallArg",
+    "OpcodeGasCalculator",
     "Opcodes",
     "UndefinedOpcodes",
     "call_return_code",

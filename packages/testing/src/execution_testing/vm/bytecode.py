@@ -1,7 +1,6 @@
 """Ethereum Virtual Machine bytecode primitives and utilities."""
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Protocol, Self, SupportsBytes, Type
+from typing import Any, List, Self, SupportsBytes, Type
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core.core_schema import (
@@ -12,62 +11,7 @@ from pydantic_core.core_schema import (
 
 from execution_testing.base_types import Bytes, Hash
 
-
-class OpcodePrototype:
-    """Prototype to the opcode type."""
-
-    metadata: Dict[str, Any]
-    _name_: str = ""
-
-    def __bytes__(self) -> bytes:
-        """Return the opcode byte representation."""
-        raise NotImplementedError(
-            "OpcodePrototype does not implement __bytes__"
-        )
-
-
-class OpcodeGasCostCalculator(Protocol):
-    """
-    A protocol to calculate cost of a single opcode.
-    """
-
-    def __call__(self, opcode: OpcodePrototype) -> int:
-        """Return the gas cost for executing the given opcode."""
-        pass
-
-
-class OpcodeRefundCalculator(Protocol):
-    """
-    A protocol to calculate refund of a single opcode.
-    """
-
-    def __call__(self, opcode: OpcodePrototype) -> int:
-        """Return the gas refund for executing the given opcode."""
-        pass
-
-
-class ForkPrototype(ABC):
-    """Prototype of a fork object that is used to calculate gas costs."""
-
-    @classmethod
-    @abstractmethod
-    def opcode_gas_calculator(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> OpcodeGasCostCalculator:
-        """
-        Return callable that calculates the gas cost of a single opcode.
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def opcode_refund_calculator(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> OpcodeRefundCalculator:
-        """
-        Return callable that calculates the gas refund of a single opcode.
-        """
-        pass
+from .bases import ForkOpcodeInterface, OpcodeBase
 
 
 class Bytecode:
@@ -96,7 +40,7 @@ class Bytecode:
     min_stack_height: int
 
     terminating: bool
-    opcode_list: List[OpcodePrototype]
+    opcode_list: List[OpcodeBase]
 
     def __new__(
         cls,
@@ -108,7 +52,7 @@ class Bytecode:
         min_stack_height: int | None = None,
         terminating: bool = False,
         name: str = "",
-        opcode_list: List[OpcodePrototype] | None = None,
+        opcode_list: List[OpcodeBase] | None = None,
     ) -> Self:
         """Create new opcode instance."""
         if opcode_list is None:
@@ -321,7 +265,7 @@ class Bytecode:
 
     def gas_cost(
         self,
-        fork: Type[ForkPrototype],
+        fork: Type[ForkOpcodeInterface],
         *,
         block_number: int = 0,
         timestamp: int = 0,
@@ -337,7 +281,7 @@ class Bytecode:
 
     def refund(
         self,
-        fork: Type[ForkPrototype],
+        fork: Type[ForkOpcodeInterface],
         *,
         block_number: int = 0,
         timestamp: int = 0,

@@ -23,7 +23,8 @@ from typing import (
 
 from execution_testing.base_types import to_bytes
 
-from .bytecode import Bytecode, OpcodePrototype
+from .bases import OpcodeBase
+from .bytecode import Bytecode
 
 
 def _get_int_size(n: int) -> int:
@@ -43,7 +44,9 @@ KW_ARGS_DEFAULTS_TYPE = Mapping[str, "int | bytes | str | Opcode | Bytecode"]
 
 
 def _stack_argument_to_bytecode(
-    arg: "int | bytes | SupportsBytes | str | Opcode | Bytecode | Iterable[int]",
+    arg: (
+        "int | bytes | SupportsBytes | str | Opcode | Bytecode | Iterable[int]"
+    ),
 ) -> Bytecode:
     """Convert stack argument in an opcode or macro to bytecode."""
     if isinstance(arg, Bytecode):
@@ -79,7 +82,7 @@ def _stack_argument_to_bytecode(
     return new_opcode
 
 
-class Opcode(Bytecode, OpcodePrototype):
+class Opcode(Bytecode, OpcodeBase):
     """
     Represents a single Opcode instruction in the EVM, with extra
     metadata useful to parametrize tests.
@@ -235,7 +238,8 @@ class Opcode(Bytecode, OpcodePrototype):
                 )
             else:
                 raise TypeError(
-                    "Opcode data portion must be either an int or bytes/hex string"
+                    "Opcode data portion must be either an int or bytes/hex "
+                    "string"
                 )
         popped_stack_items = self.popped_stack_items
         pushed_stack_items = self.pushed_stack_items
@@ -277,7 +281,8 @@ class Opcode(Bytecode, OpcodePrototype):
         """
         Create a copy of this opcode with updated metadata.
 
-        Validates metadata keys against metadata and merges with existing metadata.
+        Validates metadata keys against metadata and merges with existing
+        metadata.
 
         Args:
             **metadata: Metadata key-value pairs to set or update
@@ -289,7 +294,9 @@ class Opcode(Bytecode, OpcodePrototype):
             ValueError: If invalid metadata keys are provided
 
         Example:
-            >>> warm_sstore = Op.SSTORE.with_metadata(key_warm=True, new_value=2)
+            >>> warm_sstore = Op.SSTORE.with_metadata(key_warm=True,
+                new_value=2)
+
         """
         # Validate metadata keys
         for key in metadata:
@@ -390,8 +397,9 @@ class Opcode(Bytecode, OpcodePrototype):
             invalid_kwargs = set(kwargs.keys()) - set(opcode.kwargs)
             if invalid_kwargs:
                 raise ValueError(
-                    f"Invalid keyword argument(s) {list(invalid_kwargs)} for opcode "
-                    f"{opcode._name_}. Valid arguments are: {opcode.kwargs}"
+                    f"Invalid keyword argument(s) {list(invalid_kwargs)} for "
+                    f"opcode {opcode._name_}. "
+                    f"Valid arguments are: {opcode.kwargs}"
                 )
 
             for kw in opcode.kwargs:
@@ -406,8 +414,9 @@ class Opcode(Bytecode, OpcodePrototype):
             unchecked or opcode.unchecked_stack
         ):
             raise ValueError(
-                f"Opcode {opcode._name_} requires {opcode.popped_stack_items} stack elements, but "
-                f"{len(args)} were provided. Use 'unchecked=True' parameter to ignore this check."
+                f"Opcode {opcode._name_} requires {opcode.popped_stack_items} "
+                f"stack elements, but {len(args)} were provided. "
+                "Use 'unchecked=True' parameter to ignore this check."
             )
 
         pre_opcode_bytecode = Bytecode()
@@ -459,6 +468,7 @@ class Opcode(Bytecode, OpcodePrototype):
 
         Returns:
             A dictionary containing the current metadata values
+
         """
         return self.metadata.copy()
 
@@ -5944,7 +5954,8 @@ class Opcodes(Opcode, Enum):
     ----
     - new_memory_size: memory size after expansion in bytes (default: 0)
     - old_memory_size: memory size before expansion in bytes (default: 0)
-    - code_deposit_size: size of bytecode being deployed in bytes (default: 0, only for RETURN in initcode)
+    - code_deposit_size: size of bytecode being deployed in bytes (default: 0,
+                         only for RETURN in initcode)
 
     Source: [evm.codes/#F3](https://www.evm.codes/#F3)
     """
