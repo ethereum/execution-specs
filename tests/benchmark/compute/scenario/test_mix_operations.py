@@ -2,8 +2,10 @@
 
 import pytest
 from execution_testing import (
+    Alloc,
     BenchmarkTestFiller,
     Bytecode,
+    Environment,
     ExtCallGenerator,
     Fork,
     JumpLoopGenerator,
@@ -91,19 +93,30 @@ def test_jumpdest_analysis(
 @pytest.mark.repricing
 @pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
 @pytest.mark.parametrize("return_size", [0, 32, 256, 1024])
-@pytest.mark.parametrize("opcode", [Op.INVALID, Op.STOP, Op.RETURN, Op.REVERT])
+@pytest.mark.parametrize(
+    "opcode", [Op.INVALID, Op.STOP, Op.RETURN, Op.REVERT, Op.SELFDESTRUCT]
+)
 def test_terminate_ops(
     benchmark_test: BenchmarkTestFiller,
     opcode: Op,
     return_size: int,
     mem_size: int,
+    pre: Alloc,
+    env: Environment,
 ) -> None:
     """Benchmark Terminating Operations."""
+    fee_recipient = pre.fund_eoa(amount=1)
+    env.fee_recipient = fee_recipient
+
     setup = Op.MSTORE8(mem_size - 1, 1) if mem_size > 0 else Bytecode()
 
-    attack_block = (
-        opcode(0, return_size) if opcode.popped_stack_items > 0 else opcode
-    )
+    attack_block = Bytecode()
+    if opcode == Op.SELFDESTRUCT:
+        attack_block = Op.SELFDESTRUCT(Op.COINBASE)
+    elif opcode.popped_stack_items > 0:
+        attack_block = opcode(Op.PUSH0, return_size)
+    else:
+        attack_block = opcode
 
     benchmark_test(
         code_generator=ExtCallGenerator(
