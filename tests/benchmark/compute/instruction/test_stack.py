@@ -139,3 +139,12 @@ def test_push(
             attack_block=opcode[1] if opcode.has_data_portion() else opcode
         ),
     )
+
+
+@pytest.mark.repricing
+def test_pop(benchmark_test: BenchmarkTestFiller) -> None:
+    """Benchmark POP instruction."""
+    benchmark_test(
+        target_opcode=Op.POP,
+        code_generator=JumpLoopGenerator(attack_block=Op.POP(Op.PUSH0)),
+    )
