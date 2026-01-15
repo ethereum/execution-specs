@@ -37,7 +37,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     remove_balances,
     remove_nonces,
     reverse_accounts,
-    swap_tx_indices,
+    swap_bal_indices,
 )
 
 from .spec import ref_spec_7928
@@ -284,7 +284,7 @@ def test_bal_invalid_tx_order(
                             ],
                         ),
                     }
-                ).modify(swap_tx_indices(1, 2)),
+                ).modify(swap_bal_indices(1, 2)),
             )
         ],
     )
@@ -542,7 +542,7 @@ def test_bal_invalid_complex_corruption(
                         contract, block_access_index=1, slot=0x01, value=0xFF
                     ),
                     remove_balances(receiver),
-                    swap_tx_indices(1, 2),
+                    swap_bal_indices(1, 2),
                 ),
             )
         ],

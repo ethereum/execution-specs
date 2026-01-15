@@ -236,15 +236,15 @@ def modify_code(
         "code_changes",
         BalCodeChange,
         code,
-        "post_code",
+        "new_code",
     )
 
 
-def swap_tx_indices(
-    tx1: int, tx2: int
+def swap_bal_indices(
+    idx1: int, idx2: int
 ) -> Callable[[BlockAccessList], BlockAccessList]:
-    """Swap transaction indices throughout the BAL, modifying tx ordering."""
-    nonce_indices = {tx1: False, tx2: False}
+    """Swap block access indices throughout the BAL, modifying ordering."""
+    nonce_indices = {idx1: False, idx2: False}
     balance_indices = nonce_indices.copy()
     storage_indices = nonce_indices.copy()
     code_indices = nonce_indices.copy()
@@ -258,44 +258,44 @@ def swap_tx_indices(
             # Swap in nonce changes
             if new_account.nonce_changes:
                 for nonce_change in new_account.nonce_changes:
-                    if nonce_change.block_access_index == tx1:
-                        nonce_indices[tx1] = True
+                    if nonce_change.block_access_index == idx1:
+                        nonce_indices[idx1] = True
                         nonce_change.block_access_index = ZeroPaddedHexNumber(
-                            tx2
+                            idx2
                         )
-                    elif nonce_change.block_access_index == tx2:
-                        nonce_indices[tx2] = True
+                    elif nonce_change.block_access_index == idx2:
+                        nonce_indices[idx2] = True
                         nonce_change.block_access_index = ZeroPaddedHexNumber(
-                            tx1
+                            idx1
                         )
 
             # Swap in balance changes
             if new_account.balance_changes:
                 for balance_change in new_account.balance_changes:
-                    if balance_change.block_access_index == tx1:
-                        balance_indices[tx1] = True
+                    if balance_change.block_access_index == idx1:
+                        balance_indices[idx1] = True
                         balance_change.block_access_index = (
-                            ZeroPaddedHexNumber(tx2)
+                            ZeroPaddedHexNumber(idx2)
                         )
-                    elif balance_change.block_access_index == tx2:
-                        balance_indices[tx2] = True
+                    elif balance_change.block_access_index == idx2:
+                        balance_indices[idx2] = True
                         balance_change.block_access_index = (
-                            ZeroPaddedHexNumber(tx1)
+                            ZeroPaddedHexNumber(idx1)
                         )
 
             # Swap in storage changes (nested structure)
             if new_account.storage_changes:
                 for storage_slot in new_account.storage_changes:
                     for storage_change in storage_slot.slot_changes:
-                        if storage_change.block_access_index == tx1:
-                            balance_indices[tx1] = True
+                        if storage_change.block_access_index == idx1:
+                            storage_indices[idx1] = True
                             storage_change.block_access_index = (
-                                ZeroPaddedHexNumber(tx2)
+                                ZeroPaddedHexNumber(idx2)
                             )
-                        elif storage_change.block_access_index == tx2:
-                            balance_indices[tx2] = True
+                        elif storage_change.block_access_index == idx2:
+                            storage_indices[idx2] = True
                             storage_change.block_access_index = (
-                                ZeroPaddedHexNumber(tx1)
+                                ZeroPaddedHexNumber(idx1)
                             )
 
             # Note: storage_reads is just a list of StorageKey, no block_access_index to
@@ -304,18 +304,41 @@ def swap_tx_indices(
             # Swap in code changes
             if new_account.code_changes:
                 for code_change in new_account.code_changes:
-                    if code_change.block_access_index == tx1:
-                        code_indices[tx1] = True
+                    if code_change.block_access_index == idx1:
+                        code_indices[idx1] = True
                         code_change.block_access_index = ZeroPaddedHexNumber(
-                            tx2
+                            idx2
                         )
-                    elif code_change.block_access_index == tx2:
-                        code_indices[tx2] = True
+                    elif code_change.block_access_index == idx2:
+                        code_indices[idx2] = True
                         code_change.block_access_index = ZeroPaddedHexNumber(
-                            tx1
+                            idx1
                         )
 
             new_root.append(new_account)
+
+        # Validate that at least one swap occurred for each index across all change types
+        idx1_found = (
+            nonce_indices[idx1]
+            or balance_indices[idx1]
+            or storage_indices[idx1]
+            or code_indices[idx1]
+        )
+        idx2_found = (
+            nonce_indices[idx2]
+            or balance_indices[idx2]
+            or storage_indices[idx2]
+            or code_indices[idx2]
+        )
+
+        if not idx1_found:
+            raise ValueError(
+                f"Block access index {idx1} not found in any BAL changes to swap"
+            )
+        if not idx2_found:
+            raise ValueError(
+                f"Block access index {idx2} not found in any BAL changes to swap"
+            )
 
         return BlockAccessList(root=new_root)
 
@@ -555,6 +578,6 @@ __all__ = [
     "modify_balance",
     "modify_storage",
     "modify_code",
-    # Transaction index modifiers
-    "swap_tx_indices",
+    # Block access index modifiers
+    "swap_bal_indices",
 ]

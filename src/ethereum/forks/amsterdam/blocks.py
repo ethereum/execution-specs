@@ -244,13 +244,15 @@ class Header:
 
     block_access_list_hash: Hash32
     """
-    [SHA2-256] hash of the Block Access List containing all accounts and
+    [`keccak256`] hash of the Block Access List containing all accounts and
     storage locations accessed during block execution. Introduced in
     [EIP-7928]. See [`compute_block_access_list_hash`][cbalh] for more
     details.
+
+    [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
-    [cbalh]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_utils.compute_block_access_list_hash  # noqa: E501
-    """
+    [cbalh]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_utils.compute_block_access_list_hash
+    """  # noqa: E501
 
 
 @slotted_freezable

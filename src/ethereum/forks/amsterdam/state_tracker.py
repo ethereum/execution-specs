@@ -52,7 +52,6 @@ class StateChanges:
 
     # Pre-state captures (transaction-scoped, only populated at tx frame)
     pre_balances: Dict[Address, U256] = field(default_factory=dict)
-    pre_nonces: Dict[Address, U64] = field(default_factory=dict)
     pre_storage: Dict[Tuple[Address, Bytes32], U256] = field(
         default_factory=dict
     )
@@ -527,11 +526,10 @@ def filter_net_zero_frame_changes(tx_frame: StateChanges) -> None:
         assert (addr, key) in tx_frame.pre_storage
         pre_value = tx_frame.pre_storage[(addr, key)]
         post_value = tx_frame.storage_writes[(addr, key, idx)]
-        if (addr, key) in tx_frame.pre_storage:
-            if pre_value == post_value:
-                # Net-zero write - convert to read
-                del tx_frame.storage_writes[(addr, key, idx)]
-                tx_frame.storage_reads.add((addr, key))
+        if pre_value == post_value:
+            # Net-zero write - convert to read
+            del tx_frame.storage_writes[(addr, key, idx)]
+            tx_frame.storage_reads.add((addr, key))
 
     # Filter balance: compare pre vs post, remove if equal
     addresses_to_check_balance = [
