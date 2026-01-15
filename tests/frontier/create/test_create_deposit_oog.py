@@ -3,7 +3,6 @@ Test CREATE's behavior when running out of gas for code deposit.
 """
 
 import pytest
-
 from execution_testing import (
     Account,
     Alloc,
