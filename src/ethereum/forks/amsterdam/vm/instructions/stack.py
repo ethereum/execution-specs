@@ -228,7 +228,7 @@ def dupn(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    immediate_data = evm.code[evm.pc + Uint(1)]
+    immediate_data = buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(1))[0]
     item_number = decode_single(immediate_data)
     if item_number > len(evm.stack):
         raise StackUnderflowError
@@ -258,7 +258,7 @@ def swapn(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    immediate_data = evm.code[evm.pc + Uint(1)]
+    immediate_data = buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(1))[0]
     item_number = decode_single(immediate_data)
     # SWAPN with decoded value n swaps top (position 1) with position (n+1)
     if item_number + 1 > len(evm.stack):
@@ -292,7 +292,7 @@ def exchange(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    immediate_data = evm.code[evm.pc + Uint(1)]
+    immediate_data = buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(1))[0]
     n, m = decode_pair(immediate_data)
     # EXCHANGE swaps position (n+1) with position (m+1)
     depth = max(n, m) + 1
