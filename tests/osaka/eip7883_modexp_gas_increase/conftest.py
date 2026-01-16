@@ -223,11 +223,11 @@ def precompile_gas(
     Calculate gas cost for the ModExp precompile and verify it matches expected
     gas.
     """
-    spec = Spec if fork < Osaka else Spec7883
+    spec = Spec7883 if fork >= Osaka else Spec
     try:
         calculated_gas = spec.calculate_gas_cost(modexp_input)
         if gas_old is not None and gas_new is not None:
-            expected_gas = gas_old if fork < Osaka else gas_new
+            expected_gas = gas_new if fork >= Osaka else gas_old
             base_len = len(modexp_input.base)
             exp_len = len(modexp_input.exponent)
             mod_len = len(modexp_input.modulus)
