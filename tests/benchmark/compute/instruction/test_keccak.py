@@ -29,7 +29,6 @@ def test_keccak_max_permutations(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     available_gas = tx_gas_limit - intrinsic_gas_calculator()
 
-    gsc = fork.gas_costs()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
 
     # Discover the optimal input size to maximize keccak-permutations,
@@ -39,13 +38,9 @@ def test_keccak_max_permutations(
     max_keccak_perm_per_block = 0
     optimal_input_length = 0
     for i in range(1, 1_000_000, 32):
-        iteration_gas_cost = (
-            2 * gsc.G_VERY_LOW  # PUSHN + PUSH1
-            + gsc.G_KECCAK_256  # KECCAK256 static cost
-            + math.ceil(i / 32) * gsc.G_KECCAK_256_WORD  # KECCAK256 dynamic
-            # cost
-            + gsc.G_BASE  # POP
-        )
+        # Iteration cost disregarding memory expansion
+        iteration_bytecode = Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1, data_size=i))
+        iteration_gas_cost = iteration_bytecode.gas_cost(fork)
         # From the available gas, we subtract the mem expansion costs
         # considering we know the current input size length i.
         available_gas_after_expansion = max(
