@@ -194,3 +194,5 @@ class TransactionException(ExceptionBase):
     """
     TYPE_4_TX_PRE_FORK = auto()
     """Transaction type 4 included before activation fork."""
+    LOG_MISMATCH = auto()
+    """Transaction receipt logs do not match expected logs."""
