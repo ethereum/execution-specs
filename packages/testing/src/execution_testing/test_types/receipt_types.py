@@ -17,15 +17,15 @@ from execution_testing.base_types import (
 class TransactionLog(CamelModel):
     """Transaction log."""
 
-    address: Address
-    topics: List[Hash]
-    data: Bytes
-    block_number: HexNumber
-    transaction_hash: Hash
-    transaction_index: HexNumber
-    block_hash: Hash
-    log_index: HexNumber
-    removed: bool
+    address: Address | None = None
+    topics: List[Hash] | None = None
+    data: Bytes | None = None
+    block_number: HexNumber | None = None
+    transaction_hash: Hash | None = None
+    transaction_index: HexNumber | None = None
+    block_hash: Hash | None = None
+    log_index: HexNumber | None = None
+    removed: bool | None = None
 
 
 class ReceiptDelegation(CamelModel):

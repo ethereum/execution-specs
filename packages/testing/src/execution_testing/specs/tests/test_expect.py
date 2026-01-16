@@ -7,6 +7,8 @@ import pytest
 from execution_testing.base_types import (
     Account,
     Address,
+    Bytes,
+    Hash,
     Storage,
     TestAddress,
     TestPrivateKey,
@@ -24,15 +26,18 @@ from execution_testing.test_types import (
     Alloc,
     Environment,
     Transaction,
+    TransactionLog,
     TransactionReceipt,
 )
 
 from ..blockchain import BlockchainEngineFixture, BlockchainTest
 from ..helpers import (
     ExecutionExceptionMismatchError,
+    LogMismatchError,
     TransactionReceiptMismatchError,
     UnexpectedExecutionFailError,
     UnexpectedExecutionSuccessError,
+    verify_log,
 )
 from ..state import StateTest
 
@@ -543,3 +548,146 @@ def test_block_intermediate_state(
             post=block_3.expected_post_state,
             blocks=[block_1, block_2, block_3],
         ).generate(t8n=default_t8n, fixture_format=fixture_format)
+
+
+# Log verification tests
+@pytest.mark.parametrize(
+    "expected_log,actual_log,should_raise",
+    [
+        pytest.param(
+            TransactionLog(
+                address=Address(0x100),
+                topics=[Hash(b"\x01" * 32)],
+                data=Bytes(b"\x02" * 32),
+            ),
+            TransactionLog(
+                address=Address(0x100),
+                topics=[Hash(b"\x01" * 32)],
+                data=Bytes(b"\x02" * 32),
+            ),
+            False,
+            id="matching_logs",
+        ),
+        pytest.param(
+            TransactionLog(
+                address=Address(0x100),
+            ),
+            TransactionLog(
+                address=Address(0x200),
+                topics=[Hash(b"\x01" * 32)],
+                data=Bytes(b"\x02" * 32),
+            ),
+            True,
+            id="address_mismatch",
+        ),
+        pytest.param(
+            TransactionLog(
+                topics=[Hash(b"\x01" * 32)],
+            ),
+            TransactionLog(
+                address=Address(0x100),
+                topics=[Hash(b"\x02" * 32)],
+                data=Bytes(b"\x02" * 32),
+            ),
+            True,
+            id="topics_mismatch",
+        ),
+        pytest.param(
+            TransactionLog(
+                data=Bytes(b"\x01" * 32),
+            ),
+            TransactionLog(
+                address=Address(0x100),
+                topics=[Hash(b"\x01" * 32)],
+                data=Bytes(b"\x02" * 32),
+            ),
+            True,
+            id="data_mismatch",
+        ),
+        pytest.param(
+            TransactionLog(
+                address=None,
+                topics=None,
+                data=None,
+            ),
+            TransactionLog(
+                address=Address(0x100),
+                topics=[Hash(b"\x01" * 32)],
+                data=Bytes(b"\x02" * 32),
+            ),
+            False,
+            id="no_fields_specified",
+        ),
+    ],
+)
+def test_verify_log(
+    expected_log: TransactionLog,
+    actual_log: TransactionLog,
+    should_raise: bool,
+) -> None:
+    """Test verify_log function for log field mismatches."""
+    if should_raise:
+        with pytest.raises(LogMismatchError):
+            verify_log(0, 0, expected_log, actual_log)
+    else:
+        verify_log(0, 0, expected_log, actual_log)
+
+
+# Log mismatch integration tests using Amsterdam fork (EIP-7708)
+@pytest.mark.parametrize(
+    "mismatch_type",
+    [
+        pytest.param("address", id="log_address_mismatch"),
+        pytest.param("topics", id="log_topics_mismatch"),
+        pytest.param("data", id="log_data_mismatch"),
+    ],
+)
+def test_log_mismatch_during_generation(
+    default_t8n: TransitionTool,
+    mismatch_type: str,
+) -> None:
+    """Test that log mismatches raise LogMismatchError during test generation."""
+    from execution_testing.forks import Amsterdam
+
+    # EIP-7708 transfer log constants
+    system_address = Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE)
+
+    # Create a simple transfer transaction
+    recipient = Address(0x100)
+    transfer_value = 1000
+
+    # Create intentionally wrong expected logs based on mismatch type
+    if mismatch_type == "address":
+        wrong_log = TransactionLog(
+            address=Address(0x1234),  # Wrong address, should be system_address
+        )
+    elif mismatch_type == "topics":
+        wrong_log = TransactionLog(
+            address=system_address,
+            topics=[Hash(b"\x00" * 32)],  # Wrong topic
+        )
+    else:  # data
+        wrong_log = TransactionLog(
+            address=system_address,
+            data=Bytes((9999).to_bytes(32, "big")),  # Wrong data
+        )
+
+    tx = Transaction(
+        secret_key=TestPrivateKey,
+        to=recipient,
+        value=transfer_value,
+        expected_receipt=TransactionReceipt(logs=[wrong_log]),
+    )
+
+    pre = Alloc({TestAddress: Account(balance=10**18)})
+
+    state_test = StateTest(
+        env=Environment(),
+        pre=pre,
+        post={},  # Empty post to skip post-state verification
+        tx=tx,
+        fork=Amsterdam,
+    )
+
+    with pytest.raises(LogMismatchError):
+        state_test.generate(t8n=default_t8n, fixture_format=StateFixture)

@@ -30,7 +30,7 @@ from .helpers import (
     compute_deterministic_create2_address,
 )
 from .phase_manager import TestPhase, TestPhaseManager
-from .receipt_types import TransactionReceipt
+from .receipt_types import TransactionLog, TransactionReceipt
 from .request_types import (
     ConsolidationRequest,
     DepositRequest,
@@ -77,6 +77,7 @@ __all__ = (
     "TestPhaseManager",
     "Transaction",
     "TransactionDefaults",
+    "TransactionLog",
     "TransactionReceipt",
     "TransactionTestMetadata",
     "TransactionType",

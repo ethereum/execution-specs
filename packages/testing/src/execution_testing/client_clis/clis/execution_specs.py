@@ -227,6 +227,7 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
         BlockException.SYSTEM_CONTRACT_EMPTY: "System contract address",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "call failed:",
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "deposit",
+        TransactionException.LOG_MISMATCH: "LogMismatchError",
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
         # Temporary solution for issue #1981.
