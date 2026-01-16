@@ -15,7 +15,7 @@ from execution_testing import (
     Transaction,
 )
 
-from ethereum.forks.amsterdam.vm.stack import decode_pair, encode_pair
+from ethereum.forks.amsterdam.vm.stack import decode_pair
 
 from .spec import ref_spec_8024
 
@@ -62,9 +62,8 @@ def test_exchange_basic(
         else:
             code += Op.PUSH2(0x1000 + i)
 
-    # Encode the pair to get the immediate byte
-    immediate = encode_pair(n, m)
-    code += Op.EXCHANGE[immediate]
+    # Pass n and m directly - encoder will handle encoding
+    code += Op.EXCHANGE[n, m]
 
     # Store all stack values to verify the swap
     for i in range(stack_height):
@@ -125,7 +124,8 @@ def test_exchange_valid_immediates(
         else:
             code += Op.PUSH2(0x1000 + i)
 
-    code += Op.EXCHANGE[immediate]
+    # Pass immediate as bytes (raw immediate byte for testing)
+    code += Op.EXCHANGE[immediate.to_bytes(1, "big")]
 
     # Store the swapped values
     for i in range(stack_height):
@@ -163,7 +163,6 @@ def test_exchange_preserves_other_items(
 
     # Use n=1, m=5 - EXCHANGE swaps positions (n+1)=2 and (m+1)=6
     n, m = 1, 5
-    immediate = encode_pair(n, m)
 
     # Create a stack with 6 distinct values
     code = Bytecode()
@@ -175,7 +174,8 @@ def test_exchange_preserves_other_items(
     code += Op.PUSH2(0x6666)  # Position 1 (top)
 
     # EXCHANGE swaps position 2 with position 6
-    code += Op.EXCHANGE[immediate]
+    # Pass n and m directly - encoder will handle encoding
+    code += Op.EXCHANGE[n, m]
 
     # Store all values
     code += Op.PUSH1(0) + Op.SSTORE  # Position 1 (0x6666, unchanged)
@@ -216,12 +216,13 @@ def test_exchange_stack_underflow(
     # Use n=1, m=5 - EXCHANGE swaps positions 2 and 6, so needs 6 items
     # Push only 5 to trigger underflow
     n, m = 1, 5
-    immediate = encode_pair(n, m)
 
     code = Bytecode()
     for i in range(5):
         code += Op.PUSH1(i)
-    code += Op.EXCHANGE[immediate]  # Needs 6 items, should fail
+    # Pass n and m directly - encoder will handle encoding
+    # Needs 6 items, should fail
+    code += Op.EXCHANGE[n, m]
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
@@ -297,7 +298,8 @@ def test_exchange_jump_to_immediate_byte_0x5b_succeeds(
     code = Bytecode()
     code += Op.PUSH1(4)  # Push jump target (position 4)
     code += Op.JUMP  # Jump to position 4
-    code += Op.EXCHANGE[0x5B]  # Position 3-4: EXCHANGE + 0x5b (invalid)
+    # Pass as bytes (raw immediate byte for testing)
+    code += Op.EXCHANGE[b"\x5b"]  # Position 3-4: EXCHANGE + 0x5b (invalid)
 
     # This SHOULD execute because 0x5b is a valid JUMPDEST
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
@@ -331,7 +333,8 @@ def test_exchange_jump_to_valid_immediate_fails(
     code = Bytecode()
     code += Op.PUSH1(4)  # Push jump target (position 4)
     code += Op.JUMP  # Try to jump to position 4
-    code += Op.EXCHANGE[0x00]  # Position 3-4: EXCHANGE + 0x00 (valid)
+    # Pass as bytes (raw immediate byte for testing)
+    code += Op.EXCHANGE[b"\x00"]  # Position 3-4: EXCHANGE + 0x00 (valid)
 
     # This should never execute
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
@@ -376,7 +379,8 @@ def test_exchange_with_push_sequence(
     # [2, 1, 0, 0, ..., 0, 0] (28 zeros in the middle)
     # EXCHANGE with immediate 0 (decode_pair(0) = (1, 29))
     # swaps pos 2 and 30
-    code += Op.EXCHANGE[0]
+    # Pass as bytes (raw immediate byte for testing)
+    code += Op.EXCHANGE[b"\x00"]
 
     # Store all stack values to verify
     for i in range(30):

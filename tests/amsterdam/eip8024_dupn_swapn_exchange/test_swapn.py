@@ -15,7 +15,7 @@ from execution_testing import (
     Transaction,
 )
 
-from ethereum.forks.amsterdam.vm.stack import decode_single, encode_single
+from ethereum.forks.amsterdam.vm.stack import decode_single
 
 from .spec import ref_spec_8024
 
@@ -56,9 +56,8 @@ def test_swapn_basic(
         else:
             code += Op.PUSH2(0x1000 + i)
 
-    # Encode the stack index to the immediate byte
-    immediate = encode_single(stack_index)
-    code += Op.SWAPN[immediate]
+    # Pass stack index directly - encoder will handle encoding
+    code += Op.SWAPN[stack_index]
 
     # Store both swapped values to verify
     code += Op.PUSH1(0) + Op.SSTORE  # New top (was swap_target_value)
@@ -116,7 +115,8 @@ def test_swapn_valid_immediates(
         else:
             code += Op.PUSH2(0x1000 + i)
 
-    code += Op.SWAPN[immediate]
+    # Pass immediate as bytes (raw immediate byte for testing)
+    code += Op.SWAPN[immediate.to_bytes(1, "big")]
 
     # Store the new top value
     code += Op.PUSH1(0) + Op.SSTORE
@@ -148,7 +148,6 @@ def test_swapn_preserves_other_stack_items(
     # SWAPN with n=17 swaps position 1 with position 18, so need 18 items
     stack_index = 17
     stack_height = stack_index + 1  # Need 18 items
-    immediate = encode_single(stack_index)
 
     # Create a stack with 18 distinct values
     code = Bytecode()
@@ -156,7 +155,8 @@ def test_swapn_preserves_other_stack_items(
         code += Op.PUSH2(0x1000 + i)
 
     # SWAPN swaps top (position 1) with position 18
-    code += Op.SWAPN[immediate]
+    # Pass stack index directly - encoder will handle encoding
+    code += Op.SWAPN[stack_index]
 
     # Store all values to verify only the swapped ones changed
     for i in range(stack_height):
@@ -197,7 +197,9 @@ def test_swapn_stack_underflow(
     code = Bytecode()
     for i in range(17):
         code += Op.PUSH1(i)
-    code += Op.SWAPN[0]  # decode_single(0) = 17, needs 18 items but only 17
+    # Pass immediate as bytes (raw immediate byte for testing)
+    # decode_single(0) = 17, needs 18 items but only 17
+    code += Op.SWAPN[b"\x00"]
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
@@ -273,7 +275,8 @@ def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
     code = Bytecode()
     code += Op.PUSH1(4)  # Push jump target (position 4)
     code += Op.JUMP  # Jump to position 4
-    code += Op.SWAPN[0x5B]  # Position 3-4: SWAPN + 0x5b (invalid)
+    # Pass as bytes (raw immediate byte for testing)
+    code += Op.SWAPN[b"\x5b"]  # Position 3-4: SWAPN + 0x5b (invalid)
 
     # This SHOULD execute because 0x5b is a valid JUMPDEST
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
@@ -307,7 +310,8 @@ def test_swapn_jump_to_valid_immediate_fails(
     code = Bytecode()
     code += Op.PUSH1(4)  # Push jump target (position 4)
     code += Op.JUMP  # Try to jump to position 4
-    code += Op.SWAPN[0x00]  # Position 3-4: SWAPN + 0x00 (valid)
+    # Pass as bytes (raw immediate byte for testing)
+    code += Op.SWAPN[b"\x00"]  # Position 3-4: SWAPN + 0x00 (valid)
 
     # This should never execute
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
@@ -348,7 +352,8 @@ def test_swapn_with_dup1_and_push(
 
     # Stack: [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
     # SWAPN with immediate 0 (decode_single(0) = 17) swaps pos 1 and 18
-    code += Op.SWAPN[0]
+    # Pass as bytes (raw immediate byte for testing)
+    code += Op.SWAPN[b"\x00"]
 
     # Store all stack values to verify
     for i in range(18):

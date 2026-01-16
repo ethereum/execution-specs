@@ -40,7 +40,7 @@ def test_eip_vector_dupn_duplicate_bottom(
     sender = pre.fund_eoa()
 
     # Build the exact bytecode from the EIP
-    code = Op.PUSH1[0x1] + Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[0x0]
+    code = Op.PUSH1[0x1] + Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[b"\x00"]
 
     # After DUPN: 18 items, top=1, bottom=1
     # Verify by storing top value at key 0
@@ -91,7 +91,7 @@ def test_eip_vector_swapn_swap_with_bottom(
         + Op.PUSH1[0x0]
         + Op.DUP1 * 15
         + Op.PUSH1[0x2]
-        + Op.SWAPN[0x0]
+        + Op.SWAPN[b"\x00"]
     )
 
     # After SWAPN: 18 items, top=1, bottom=2
@@ -138,7 +138,7 @@ def test_eip_vector_exchange_swap_positions(
     sender = pre.fund_eoa()
 
     # Build the exact bytecode from the EIP
-    code = Op.PUSH1[0x0] + Op.PUSH1[0x1] + Op.PUSH1[0x2] + Op.EXCHANGE[0x1]
+    code = Op.PUSH1[0x0] + Op.PUSH1[0x1] + Op.PUSH1[0x2] + Op.EXCHANGE[b"\x01"]
 
     # Store all 3 stack values
     code += Op.PUSH1(0) + Op.SSTORE  # Store position 1 / top (should be 2)
@@ -177,7 +177,7 @@ def test_eip_vector_swapn_invalid_immediate_reverts(
     # Build the exact bytecode from the EIP: SWAPN[0x5b]
     # 0x5b = 91 which is in the forbidden range
     code = Bytecode(
-        Op.SWAPN[0x5B],
+        Op.SWAPN[b"\x5b"],
         popped_stack_items=0,
         pushed_stack_items=0,
         terminating=True,
@@ -213,7 +213,7 @@ def test_eip_vector_jump_over_invalid_dupn(
     # Position 3: DUPN (0xe6)
     # Position 4: 0x5b (JUMPDEST when executed as opcode)
     code = Bytecode(
-        Op.PUSH1[0x4] + Op.JUMP + Op.DUPN[0x5B],
+        Op.PUSH1[0x4] + Op.JUMP + Op.DUPN[b"\x5b"],
         popped_stack_items=0,
         pushed_stack_items=0,
     )
@@ -253,7 +253,7 @@ def test_eip_vector_exchange_with_iszero(
         Op.PUSH1[0x0]
         + Op.PUSH1[0x0]
         + Op.PUSH1[0x0]
-        + Op.EXCHANGE[0x1]
+        + Op.EXCHANGE[b"\x01"]
         + Op.ISZERO
     )
 
@@ -296,7 +296,7 @@ def test_eip_vector_dupn_stack_underflow(
     sender = pre.fund_eoa()
 
     # Build the exact bytecode from the EIP
-    code = Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[0x0]
+    code = Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[b"\x00"]
 
     # This should not execute due to stack underflow
     code += Op.PUSH1(1) + Op.PUSH1(0) + Op.SSTORE
