@@ -983,10 +983,11 @@ def process_transaction(
     block_output.block_gas_used += max(
         tx_gas_used_before_refund, calldata_floor_gas_cost
     )
+    block_output.receipt_cumulative_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
 
     receipt = make_receipt(
-        tx, tx_output.error, block_output.block_gas_used, tx_output.logs
+        tx, tx_output.error, block_output.receipt_cumulative_gas_used, tx_output.logs
     )
 
     receipt_key = rlp.encode(Uint(index))
