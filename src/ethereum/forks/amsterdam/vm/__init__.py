@@ -20,7 +20,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import EthereumException
-from ethereum.utils.byte import right_pad_zero_bytes
+from ethereum.utils.byte import left_pad_zero_bytes
 
 from ..block_access_lists.rlp_types import BlockAccessList
 from ..blocks import Log, Receipt, Withdrawal
@@ -31,7 +31,10 @@ from ..transactions import LegacyTransaction
 from ..trie import Trie
 
 __all__ = ("Environment", "Evm", "Message")
-MAGIC_XACTION_LOG_HASH = keccak256(b"42")
+TRANSFER_TOPIC = keccak256(b"Transfer(address, address, uint256)")
+SYSTEM_ADDRESS = Address(
+    bytes.fromhex("fffffffffffffffffffffffffffffffffffffffe")
+)
 
 
 @dataclass
@@ -206,14 +209,14 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
 
     merge_on_failure(child_evm.state_changes)
 
-def transfer_log(
+def emit_transfer_log(
     evm: Evm,
     sender: Address,
     recipient: Address,
     transfer_amount: U256,
 ) -> None:
     """
-    Main functional unit satisfying EIP-7708.
+    Emit a LOG3 for all ETH transfers satisfying EIP-7708.
 
     Parameters
     ----------
@@ -221,24 +224,25 @@ def transfer_log(
         The state of the ethereum virtual machine
     sender :
         The account address sending the transfer
-    recipient :
+    recipient :ce to finalize sco
         The address of the transfer recipient account
     transfer_amount :
         The amount of ETH transacted
 
     """
-    # We need to pre-pad the Address correctly before converting,
-    # otherwise the function will throw because the lengths are not the same
-    padded_sender = right_pad_zero_bytes(sender, 12)
-    padded_recipient = right_pad_zero_bytes(recipient, 12)
+    if transfer_amount == 0:
+        return
+
+    padded_sender = left_pad_zero_bytes(sender, 32)
+    padded_recipient = left_pad_zero_bytes(recipient, 32)
     log_entry = Log(
-        address=evm.message.current_target,
+        address=SYSTEM_ADDRESS,
         topics=(
-            MAGIC_XACTION_LOG_HASH,
+            TRANSFER_TOPIC,
             Hash32(padded_sender),
             Hash32(padded_recipient),
         ),
-        data=transfer_amount.to_be_bytes(),
+        data=transfer_amount.to_be_bytes32(),
     )
 
     evm.logs = evm.logs + (log_entry,)

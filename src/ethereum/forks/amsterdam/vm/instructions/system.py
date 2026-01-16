@@ -44,9 +44,9 @@ from ...vm.eoa_delegation import (
 from .. import (
     Evm,
     Message,
+    emit_transfer_log,
     incorporate_child_on_error,
     incorporate_child_on_success,
-    transfer_log,
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
@@ -464,10 +464,11 @@ def call(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-
     if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
+
+    # OPERATION
     sender_balance = get_account(state, evm.message.current_target).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
@@ -490,7 +491,7 @@ def call(evm: Evm) -> None:
             code,
             is_delegated,
         )
-        transfer_log(evm, evm.message.current_target, to, value)
+        emit_transfer_log(evm, evm.message.current_target, to, value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
@@ -684,7 +685,7 @@ def selfdestruct(evm: Evm) -> None:
         beneficiary_new_balance,
     )
 
-    transfer_log(
+    emit_transfer_log(
         evm, evm.message.current_target, beneficiary, originator_balance
     )
 
