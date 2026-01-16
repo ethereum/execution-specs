@@ -60,14 +60,18 @@ def total_tx_gas_needed(
         fork.transaction_intrinsic_cost_calculator()
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
-    sstore_gas = fork.gas_costs().G_STORAGE_SET * (len(modexp_expected) // 32)
+    sstore_gas = (
+        fork.gas_costs().G_STORAGE_SET + fork.gas_costs().G_COLD_SLOAD
+    ) * 5
+    # Ensures that the precompile call is not starved by the 63/64 rule.
+    precompile_gas_with_margin = precompile_gas * 64 // 63
     extra_gas = 100_000
 
     return (
         extra_gas
         + intrinsic_gas_cost_calculator(calldata=bytes(modexp_input))
         + memory_expansion_gas_calculator(new_bytes=len(bytes(modexp_input)))
-        + precompile_gas
+        + precompile_gas_with_margin
         + sstore_gas
     )
 
