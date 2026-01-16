@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    Environment,
     Op,
     StateTestFiller,
     Transaction,
@@ -92,7 +91,7 @@ def test_exchange_basic(
 
     post = {contract_address: Account(storage=expected_storage)}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -152,7 +151,7 @@ def test_exchange_valid_immediates(
 
     post = {contract_address: Account(storage=expected_storage)}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_exchange_preserves_other_items(
@@ -204,7 +203,7 @@ def test_exchange_preserves_other_items(
         )
     }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_exchange_stack_underflow(
@@ -232,7 +231,7 @@ def test_exchange_stack_underflow(
     # Transaction should fail, contract storage unchanged
     post = {contract_address: Account(storage={})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_endofcode_behavior(
@@ -266,7 +265,7 @@ def test_endofcode_behavior(
 
     # Add just the EXCHANGE opcode without immediate byte
     # After EXCHANGE, pc += 2 goes beyond code, causing implicit STOP
-    code += bytes([0xE8])  # EXCHANGE opcode only, no immediate
+    code += Op.EXCHANGE  # no immediate
 
     contract_address = pre.deploy_contract(code=code)
 
@@ -276,4 +275,132 @@ def test_endofcode_behavior(
     # Bad implementation would revert and have empty storage
     post = {contract_address: Account(storage={0: marker_value})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_exchange_jump_to_immediate_byte_0x5b_succeeds(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test that jumping to 0x5b after EXCHANGE succeeds (backward compat).
+
+    Bytecode: PUSH1(4) JUMP EXCHANGE[0x5b]
+    Hex: 6004 56 e8 5b
+    Position 4 contains 0x5b which is an INVALID immediate for EXCHANGE.
+    Per EIP-8024, 0x5b is preserved as valid JUMPDEST for compatibility.
+    The EXCHANGE instruction is never executed due to the jump.
+    """
+    sender = pre.fund_eoa()
+
+    # Build code that jumps to 0x5b after EXCHANGE opcode
+    code = Bytecode()
+    code += Op.PUSH1(4)  # Push jump target (position 4)
+    code += Op.JUMP  # Jump to position 4
+    code += Op.EXCHANGE[0x5B]  # Position 3-4: EXCHANGE + 0x5b (invalid)
+
+    # This SHOULD execute because 0x5b is a valid JUMPDEST
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Transaction succeeds - 0x5b is preserved as valid JUMPDEST
+    post = {contract_address: Account(storage={0: 0x42})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_exchange_jump_to_valid_immediate_fails(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test jumping to a valid immediate byte fails.
+
+    Bytecode: PUSH1(4) JUMP EXCHANGE[0x00]
+    Hex: 6004 56 e8 00
+    Position 4 contains 0x00 which is a VALID immediate for EXCHANGE.
+    Valid immediates are skipped in JUMPDEST analysis, so jump fails.
+    """
+    sender = pre.fund_eoa()
+
+    # Build code that tries to jump to a valid immediate
+    code = Bytecode()
+    code += Op.PUSH1(4)  # Push jump target (position 4)
+    code += Op.JUMP  # Try to jump to position 4
+    code += Op.EXCHANGE[0x00]  # Position 3-4: EXCHANGE + 0x00 (valid)
+
+    # This should never execute
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Transaction fails - position 4 is a valid immediate, not JUMPDEST
+    post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_exchange_with_push_sequence(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test EXCHANGE swapping positions 2 and 30 with a push sequence.
+
+    Stack layout: 28x PUSH1(0) PUSH1(1) PUSH1(2) EXCHANGE[0]
+    Before EXCHANGE (30 items, top to bottom):
+    [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0]
+    After EXCHANGE[0] (decode_pair(0)=(1,29), swaps positions 2 and 30):
+    [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 1]
+    Result: 30 stack items, top=2, bottom=1, rest=0
+    """
+    sender = pre.fund_eoa()
+
+    # Build the stack: 28x PUSH1(0), PUSH1(1), PUSH1(2)
+    code = Bytecode()
+    for _ in range(28):
+        code += Op.PUSH1(0)
+    code += Op.PUSH1(1)  # Position 2 from top after final push
+    code += Op.PUSH1(2)  # Position 1 (top)
+
+    # Stack has 30 items:
+    # [2, 1, 0, 0, ..., 0, 0] (28 zeros in the middle)
+    # EXCHANGE with immediate 0 (decode_pair(0) = (1, 29))
+    # swaps pos 2 and 30
+    code += Op.EXCHANGE[0]
+
+    # Store all stack values to verify
+    for i in range(30):
+        code += Op.PUSH1(i) + Op.SSTORE
+
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Expected: top (position 0) = 2, position 1 = 0 (swapped from 30),
+    # bottom (position 29) = 1 (swapped from position 2), rest = 0
+    expected_storage = {}
+    for i in range(30):
+        if i == 0:
+            expected_storage[i] = 2  # Top unchanged
+        elif i == 1:
+            expected_storage[i] = 0  # Was at bottom (pos 30), now at pos 2
+        elif i == 29:
+            expected_storage[i] = 1  # Was at pos 2, now at bottom (pos 30)
+        else:
+            expected_storage[i] = 0  # All other values
+
+    post = {contract_address: Account(storage=expected_storage)}
+
+    state_test(pre=pre, post=post, tx=tx)

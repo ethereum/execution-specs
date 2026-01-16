@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    Environment,
     Op,
     StateTestFiller,
     Transaction,
@@ -67,7 +66,7 @@ def test_dupn_basic(
 
     post = {contract_address: Account(storage={0: expected_value})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -106,21 +105,31 @@ def test_dupn_valid_immediates(
 
     post = {contract_address: Account(storage={0: expected_value})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "immediate",
+    [0, 45, 90, 128, 200, 255],
+    ids=lambda x: f"dupn_underflow_imm_{x}",
+)
 def test_dupn_stack_underflow(
+    immediate: int,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """Test DUPN causes transaction failure on stack underflow."""
     sender = pre.fund_eoa()
 
-    # DUPN with immediate 0 needs stack index 17, so push only 16 items
+    # Decode the immediate to get the stack index
+    stack_index = decode_single(immediate)
+    # Push one less than required to trigger underflow
+    insufficient_items = stack_index - 1
+
     code = Bytecode()
-    for i in range(16):
+    for i in range(insufficient_items):
         code += Op.PUSH1(i)
-    code += Op.DUPN[0]  # decode_single(0) = 17, but only 16 items on stack
+    code += Op.DUPN[immediate]  # Needs stack_index items, underflow
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
@@ -130,7 +139,7 @@ def test_dupn_stack_underflow(
     # Transaction should fail, contract storage unchanged
     post = {contract_address: Account(storage={})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_endofcode_behavior(
@@ -169,7 +178,7 @@ def test_endofcode_behavior(
 
     # Add just the DUPN opcode without immediate byte
     # After DUPN, pc += 2 goes beyond code, causing implicit STOP
-    code += bytes([0xE6])  # DUPN opcode only, no immediate
+    code += Op.DUPN  # no immediate
 
     contract_address = pre.deploy_contract(code=code)
 
@@ -179,4 +188,166 @@ def test_endofcode_behavior(
     # Bad implementation would revert and have empty storage
     post = {contract_address: Account(storage={0: marker_value})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "invalid_immediate",
+    list(range(91, 128)),  # 0x5b to 0x7f (JUMPDEST and PUSH opcodes)
+    ids=lambda x: f"dupn_invalid_imm_0x{x:02x}",
+)
+def test_dupn_invalid_immediate_aborts(
+    invalid_immediate: int,
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test DUPN with invalid immediate values (90 < x < 128) aborts execution.
+
+    Per EIP-8024, immediate values in range [91, 127] (0x5b-0x7f) are invalid
+    because they correspond to JUMPDEST (0x5b) and PUSH opcodes (0x60-0x7f).
+    Attempting to execute DUPN with these immediates should abort.
+    """
+    sender = pre.fund_eoa()
+
+    # Build stack with enough items for any valid immediate
+    # Maximum stack index is 235, so push 235 items
+    code = Bytecode()
+    for i in range(235):
+        code += Op.PUSH1(i % 256)
+
+    # Attempt DUPN with invalid immediate - should abort
+    code += Op.DUPN[invalid_immediate]
+
+    # This should never execute
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+
+    # Transaction should fail - invalid immediate causes abort
+    post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_dupn_jump_to_immediate_byte_0x5b_succeeds(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test that jumping to 0x5b after DUPN succeeds (backward compatibility).
+
+    Bytecode: PUSH1(4) JUMP DUPN[0x5b]
+    Hex: 6004 56 e6 5b
+    Position 4 contains 0x5b which is an INVALID immediate for DUPN.
+    Per EIP-8024, 0x5b is preserved as valid JUMPDEST for compatibility.
+    The DUPN instruction is never executed due to the jump.
+    """
+    sender = pre.fund_eoa()
+
+    # Build code that jumps to 0x5b after DUPN opcode
+    code = Bytecode()
+    code += Op.PUSH1(4)  # Push jump target (position 4)
+    code += Op.JUMP  # Jump to position 4
+    code += Op.DUPN[0x5B]  # Position 3-4: DUPN + 0x5b (invalid immediate)
+
+    # This SHOULD execute because 0x5b is a valid JUMPDEST
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Transaction succeeds - 0x5b is preserved as valid JUMPDEST
+    post = {contract_address: Account(storage={0: 0x42})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_dupn_jump_to_valid_immediate_fails(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test jumping to a valid immediate byte fails.
+
+    Bytecode: PUSH1(4) JUMP DUPN[0x00]
+    Hex: 6004 56 e6 00
+    Position 4 contains 0x00 which is a VALID immediate for DUPN.
+    Valid immediates are skipped in JUMPDEST analysis, so jump fails.
+    """
+    sender = pre.fund_eoa()
+
+    # Build code that tries to jump to a valid immediate
+    code = Bytecode()
+    code += Op.PUSH1(4)  # Push jump target (position 4)
+    code += Op.JUMP  # Try to jump to position 4
+    code += Op.DUPN[0x00]  # Position 3-4: DUPN + 0x00 (valid immediate)
+
+    # This should never execute
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Transaction fails - position 4 is a valid immediate, not JUMPDEST
+    post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_dupn_with_dup1_sequence(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test DUPN duplicating the bottom item after building stack with DUP1.
+
+    Stack layout: PUSH1(1) PUSH1(0) DUP1*15 DUPN[0]
+    Before DUPN: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1] (17 items)
+    After DUPN[0] (decode_single(0)=17): [1, 0, 0, ..., 0, 1] (18 items)
+    Result: 18 stack items, top=1, bottom=1, rest=0
+    """
+    sender = pre.fund_eoa()
+
+    # Build the stack: PUSH1(1), PUSH1(0), 15x DUP1
+    code = Bytecode()
+    code += Op.PUSH1(1)  # Bottom of stack (position 17 after DUP1s)
+    code += Op.PUSH1(0)
+    for _ in range(15):
+        code += Op.DUP1
+
+    # Stack now has 17 items:
+    # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+    # DUPN with immediate 0 (decode_single(0) = 17) duplicates position 17
+    code += Op.DUPN[0]
+
+    # Store all stack values to verify
+    for i in range(18):
+        code += Op.PUSH1(i) + Op.SSTORE
+
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Expected: top (position 0) = 1, bottom (position 17) = 1, all others = 0
+    expected_storage = {}
+    for i in range(18):
+        if i == 0:
+            expected_storage[i] = 1  # Top of stack after DUPN
+        elif i == 17:
+            expected_storage[i] = 1  # Bottom of stack
+        else:
+            expected_storage[i] = 0  # All middle values
+
+    post = {contract_address: Account(storage=expected_storage)}
+
+    state_test(pre=pre, post=post, tx=tx)

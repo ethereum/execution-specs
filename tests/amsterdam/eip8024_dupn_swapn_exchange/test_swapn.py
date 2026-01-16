@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    Environment,
     Op,
     StateTestFiller,
     Transaction,
@@ -84,7 +83,7 @@ def test_swapn_basic(
         )
     }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -135,7 +134,7 @@ def test_swapn_valid_immediates(
         )
     }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_swapn_preserves_other_stack_items(
@@ -183,7 +182,7 @@ def test_swapn_preserves_other_stack_items(
 
     post = {contract_address: Account(storage=expected_storage)}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_swapn_stack_underflow(
@@ -208,7 +207,7 @@ def test_swapn_stack_underflow(
     # Transaction should fail, contract storage unchanged
     post = {contract_address: Account(storage={})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_endofcode_behavior(
@@ -242,7 +241,7 @@ def test_endofcode_behavior(
 
     # Add just the SWAPN opcode without immediate byte
     # After SWAPN, pc += 2 goes beyond code, causing implicit STOP
-    code += bytes([0xE7])  # SWAPN opcode only, no immediate
+    code += Op.SWAPN  # no immediate
 
     contract_address = pre.deploy_contract(code=code)
 
@@ -252,4 +251,125 @@ def test_endofcode_behavior(
     # Bad implementation would revert and have empty storage
     post = {contract_address: Account(storage={0: marker_value})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_swapn_jump_to_immediate_byte_0x5b_succeeds(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test that jumping to 0x5b after SWAPN succeeds (backward compat).
+
+    Bytecode: PUSH1(4) JUMP SWAPN[0x5b]
+    Hex: 6004 56 e7 5b
+    Position 4 contains 0x5b which is an INVALID immediate for SWAPN.
+    Per EIP-8024, 0x5b is preserved as valid JUMPDEST for compatibility.
+    The SWAPN instruction is never executed due to the jump.
+    """
+    sender = pre.fund_eoa()
+
+    # Build code that jumps to 0x5b after SWAPN opcode
+    code = Bytecode()
+    code += Op.PUSH1(4)  # Push jump target (position 4)
+    code += Op.JUMP  # Jump to position 4
+    code += Op.SWAPN[0x5B]  # Position 3-4: SWAPN + 0x5b (invalid)
+
+    # This SHOULD execute because 0x5b is a valid JUMPDEST
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Transaction succeeds - 0x5b is preserved as valid JUMPDEST
+    post = {contract_address: Account(storage={0: 0x42})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_swapn_jump_to_valid_immediate_fails(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test jumping to a valid immediate byte fails.
+
+    Bytecode: PUSH1(4) JUMP SWAPN[0x00]
+    Hex: 6004 56 e7 00
+    Position 4 contains 0x00 which is a VALID immediate for SWAPN.
+    Valid immediates are skipped in JUMPDEST analysis, so jump fails.
+    """
+    sender = pre.fund_eoa()
+
+    # Build code that tries to jump to a valid immediate
+    code = Bytecode()
+    code += Op.PUSH1(4)  # Push jump target (position 4)
+    code += Op.JUMP  # Try to jump to position 4
+    code += Op.SWAPN[0x00]  # Position 3-4: SWAPN + 0x00 (valid)
+
+    # This should never execute
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Transaction fails - position 4 is a valid immediate, not JUMPDEST
+    post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_swapn_with_dup1_and_push(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test SWAPN swapping top and bottom after building stack with DUP1.
+
+    Stack layout: PUSH1(1) PUSH1(0) DUP1*15 PUSH1(2) SWAPN[0]
+    Before SWAPN: [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+    After SWAPN[0] (decode_single(0)=17, swaps pos 1 and 18):
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]
+    Result: 18 stack items, top=1, bottom=2, rest=0
+    """
+    sender = pre.fund_eoa()
+
+    # Build the stack: PUSH1(1), PUSH1(0), 15x DUP1, PUSH1(2)
+    code = Bytecode()
+    code += Op.PUSH1(1)  # Position 18 after DUP1s and final PUSH1
+    code += Op.PUSH1(0)
+    for _ in range(15):
+        code += Op.DUP1
+    code += Op.PUSH1(2)  # Top of stack (position 1)
+
+    # Stack: [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+    # SWAPN with immediate 0 (decode_single(0) = 17) swaps pos 1 and 18
+    code += Op.SWAPN[0]
+
+    # Store all stack values to verify
+    for i in range(18):
+        code += Op.PUSH1(i) + Op.SSTORE
+
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Expected: top (position 0) = 1, bottom (position 17) = 2, rest = 0
+    expected_storage = {}
+    for i in range(18):
+        if i == 0:
+            expected_storage[i] = 1  # Was at bottom, now at top
+        elif i == 17:
+            expected_storage[i] = 2  # Was at top, now at bottom
+        else:
+            expected_storage[i] = 0  # All middle values
+
+    post = {contract_address: Account(storage=expected_storage)}
+
+    state_test(pre=pre, post=post, tx=tx)

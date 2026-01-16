@@ -10,7 +10,6 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
-    Environment,
     Op,
     StateTestFiller,
     Transaction,
@@ -67,7 +66,7 @@ def test_eip_vector_dupn_duplicate_bottom(
         )
     }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_eip_vector_swapn_swap_with_bottom(
@@ -119,7 +118,7 @@ def test_eip_vector_swapn_swap_with_bottom(
         )
     }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_eip_vector_exchange_swap_positions(
@@ -160,7 +159,7 @@ def test_eip_vector_exchange_swap_positions(
         )
     }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_eip_vector_swapn_invalid_immediate_reverts(
@@ -177,9 +176,8 @@ def test_eip_vector_swapn_invalid_immediate_reverts(
 
     # Build the exact bytecode from the EIP: SWAPN[0x5b]
     # 0x5b = 91 which is in the forbidden range
-    # Use raw bytes with stack info (will fail during execution anyway)
     code = Bytecode(
-        bytes.fromhex("e75b"),
+        Op.SWAPN[0x5B],
         popped_stack_items=0,
         pushed_stack_items=0,
         terminating=True,
@@ -191,7 +189,7 @@ def test_eip_vector_swapn_invalid_immediate_reverts(
     # Transaction should fail, storage unchanged
     post = {contract_address: Account(storage={})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_eip_vector_jump_over_invalid_dupn(
@@ -215,7 +213,7 @@ def test_eip_vector_jump_over_invalid_dupn(
     # Position 3: DUPN (0xe6)
     # Position 4: 0x5b (JUMPDEST when executed as opcode)
     code = Bytecode(
-        bytes.fromhex("600456e65b"),
+        Op.PUSH1[0x4] + Op.JUMP + Op.DUPN[0x5B],
         popped_stack_items=0,
         pushed_stack_items=0,
     )
@@ -230,7 +228,7 @@ def test_eip_vector_jump_over_invalid_dupn(
     # Transaction should succeed
     post = {contract_address: Account(storage={0: 1})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_eip_vector_exchange_with_iszero(
@@ -278,7 +276,7 @@ def test_eip_vector_exchange_with_iszero(
         )
     }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
 
 
 def test_eip_vector_dupn_stack_underflow(
@@ -310,4 +308,4 @@ def test_eip_vector_dupn_stack_underflow(
     # Transaction should fail, storage unchanged
     post = {contract_address: Account(storage={})}
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
