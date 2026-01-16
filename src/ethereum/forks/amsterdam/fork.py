@@ -950,16 +950,15 @@ def process_transaction(
 
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
-    tx_gas_used_after_refund = max(
-        tx_gas_used_after_refund, calldata_floor_gas_cost
-    )
+    tx_gas_used = max(tx_gas_used_after_refund, calldata_floor_gas_cost)
+    block_gas_used_in_tx = max(tx_gas_used_before_refund, calldata_floor_gas_cost)
 
-    tx_gas_left = tx.gas - tx_gas_used_after_refund
+    tx_gas_left = tx.gas - tx_gas_used
     gas_refund_amount = tx_gas_left * effective_gas_price
 
     # For non-1559 transactions effective_gas_price == tx.gas_price
     priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
-    transaction_fee = tx_gas_used_after_refund * priority_fee_per_gas
+    transaction_fee = tx_gas_used * priority_fee_per_gas
 
     # refund gas
     sender_balance_after_refund = get_account(
@@ -980,10 +979,8 @@ def process_transaction(
     for address in tx_output.accounts_to_delete:
         destroy_account(block_env.state, address)
 
-    block_output.block_gas_used += max(
-        tx_gas_used_before_refund, calldata_floor_gas_cost
-    )
-    block_output.receipt_cumulative_gas_used += tx_gas_used_after_refund
+    block_output.block_gas_used += block_gas_used_in_tx
+    block_output.receipt_cumulative_gas_used += tx_gas_used
     block_output.blob_gas_used += tx_blob_gas_used
 
     receipt = make_receipt(
