@@ -44,6 +44,7 @@ from .conversions import to_bytes, to_hex
 from .pydantic import CamelModel, EthereumTestBaseModel, EthereumTestRootModel
 from .reference_spec import ReferenceSpec
 from .serialization import RLPSerializable, SignableRLPSerializable
+from .typing_utils import unwrap_annotation
 
 __all__ = (
     "AccessList",
@@ -88,4 +89,5 @@ __all__ = (
     "to_bytes",
     "to_hex",
     "to_json",
+    "unwrap_annotation",
 )

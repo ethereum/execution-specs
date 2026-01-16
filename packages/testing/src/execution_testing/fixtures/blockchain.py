@@ -28,6 +28,7 @@ from pydantic import (
     computed_field,
     model_validator,
 )
+from pydantic_core import PydanticUndefined
 
 from execution_testing.base_types import (
     Address,
@@ -42,6 +43,7 @@ from execution_testing.base_types import (
     HexNumber,
     Number,
     ZeroPaddedHexNumber,
+    unwrap_annotation,
 )
 from execution_testing.exceptions import (
     EngineAPIError,
@@ -273,6 +275,76 @@ class FixtureHeader(CamelModel):
     def block_hash(self) -> Hash:
         """Compute the RLP of the header."""
         return self.rlp.keccak256()
+
+    @classmethod
+    def get_default_from_annotation(
+        cls,
+        fork: Fork,
+        field_name: str,
+        field_hint: Any,
+        block_number: int = 0,
+        timestamp: int = 0,
+    ) -> Any:
+        """
+        Get appropriate default value for a header field based on its type hint.
+
+        This method handles:
+        1. Fork requirement checking - only returns a default if the fork requires the field
+        2. Model-defined defaults - uses the field's default value if available
+        3. Type-based defaults - constructs defaults based on the field type
+
+        Args:
+            fork: Fork to check requirements against
+            field_name: Name of the field
+            field_hint: Type annotation of the field
+            block_number: Block number for fork requirement checking (default: 0)
+            timestamp: Timestamp for fork requirement checking (default: 0)
+
+        Returns:
+            Default value appropriate for the field type, or None if
+            the field is not required by the fork
+
+        Raises:
+            TypeError: If the field type is not supported and no default value
+                is defined in the model. This indicates that support for the type
+                needs to be added or an explicit default must be provided.
+        """
+        # Check if this field has a HeaderForkRequirement annotation
+        header_fork_requirement = HeaderForkRequirement.get_from_annotation(
+            field_hint
+        )
+        if header_fork_requirement is not None:
+            # Only provide a default if the fork requires this field
+            if not header_fork_requirement.required(fork, block_number, timestamp):
+                return None
+
+        # Check if the field has a default value defined in the model
+        if field_name in cls.model_fields:
+            field_info = cls.model_fields[field_name]
+            if field_info.default is not None and field_info.default is not PydanticUndefined:
+                return field_info.default
+            if field_info.default_factory is not None:
+                return field_info.default_factory()  # type: ignore[call-arg]
+
+        # Unwrap type annotations to get the actual type
+        actual_type = unwrap_annotation(field_hint)
+
+        # Construct default based on type
+        if actual_type == ZeroPaddedHexNumber:
+            return ZeroPaddedHexNumber(0)
+        elif actual_type == Hash:
+            return Hash(0)
+        elif actual_type == Address:
+            return Address(0)
+        elif actual_type == Bytes:
+            return Bytes(b"")
+        else:
+            # Unsupported type - raise an error to catch this during development
+            raise TypeError(
+                f"Cannot generate default value for field '{field_name}' "
+                f"with unsupported type '{actual_type}'. "
+                f"Add support for this type or provide a default value explicitly."
+            )
 
     @classmethod
     def genesis(cls, fork: Fork, env: Environment, state_root: Hash) -> Self:

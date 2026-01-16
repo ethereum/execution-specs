@@ -27,7 +27,6 @@ from execution_testing.base_types import (
 )
 from execution_testing.fixtures.blockchain import (
     FixtureBlockBase,
-    FixtureHeader,
     FixtureWithdrawal,
 )
 
@@ -71,43 +70,22 @@ def block_errors() -> List[BlockException]:
     return [BlockException.RLP_BLOCK_LIMIT_EXCEEDED]
 
 
-def create_test_header(gas_used: int) -> FixtureHeader:
-    """Create a standard test header for RLP size calculations."""
-    return FixtureHeader(
-        difficulty="0x0",
-        number="0x1",
-        gas_limit=hex(BLOCK_GAS_LIMIT),
-        timestamp=hex(HEADER_TIMESTAMP),
-        fee_recipient="0x" + "00" * 20,
-        parent_hash="0x" + "00" * 32,
-        ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-        state_root="0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        transactions_trie="0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        receipts_root="0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
-        logs_bloom="0x" + "00" * 256,
-        gas_used=hex(gas_used),
-        extra_data=EXTRA_DATA_AT_LIMIT.hex(),
-        prev_randao="0x" + "00" * 32,
-        nonce="0x0000000000000042",
-        base_fee_per_gas="0x0",
-        withdrawals_root="0x" + "00" * 32,
-        blob_gas_used="0x0",
-        excess_blob_gas="0x0",
-        parent_beacon_block_root="0x" + "00" * 32,
-        requests_hash="0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    )
-
-
 def get_block_rlp_size(
+    fork: Fork,
     transactions: List[Transaction],
-    gas_used: int,
     withdrawals: List[Withdrawal] | None = None,
 ) -> int:
     """
     Calculate the RLP size of a block with given transactions
     and withdrawals.
     """
-    header = create_test_header(gas_used)
+    header = fork.build_default_block_header(
+        block_number=1,
+        timestamp=HEADER_TIMESTAMP,
+    )
+    header.gas_limit = ZeroPaddedHexNumber(BLOCK_GAS_LIMIT)
+    header.extra_data = Bytes(EXTRA_DATA_AT_LIMIT)
+
     total_gas = sum((tx.gas_limit or 21000) for tx in transactions)
     header.gas_used = ZeroPaddedHexNumber(total_gas)
 
@@ -323,7 +301,7 @@ def _exact_size_transactions_impl(
         total_gas_used += last_tx.gas_limit
 
     current_size = get_block_rlp_size(
-        transactions, gas_used=total_gas_used, withdrawals=withdrawals
+        fork, transactions, withdrawals=withdrawals
     )
     remaining_bytes = block_size_limit - current_size
     remaining_gas = block_gas_limit - total_gas_used
@@ -340,8 +318,8 @@ def _exact_size_transactions_impl(
         )
 
         empty_block_size = get_block_rlp_size(
+            fork,
             transactions + [empty_tx],
-            gas_used=total_gas_used + empty_tx.gas_limit,
             withdrawals=withdrawals,
         )
         empty_contribution = empty_block_size - current_size
@@ -363,8 +341,8 @@ def _exact_size_transactions_impl(
             )
 
             test_size = get_block_rlp_size(
+                fork,
                 transactions + [test_tx],
-                gas_used=total_gas_used + target_gas,
                 withdrawals=withdrawals,
             )
 
@@ -397,8 +375,8 @@ def _exact_size_transactions_impl(
                         )
 
                         adjusted_test_size = get_block_rlp_size(
+                            fork,
                             transactions + [adjusted_tx],
-                            gas_used=total_gas_used + adjusted_gas,
                             withdrawals=withdrawals,
                         )
 
@@ -421,8 +399,8 @@ def _exact_size_transactions_impl(
             transactions.append(empty_tx)
 
     final_size = get_block_rlp_size(
+        fork,
         transactions,
-        gas_used=sum(tx.gas_limit for tx in transactions),
         withdrawals=withdrawals,
     )
     final_gas = sum(tx.gas_limit for tx in transactions)
@@ -475,7 +453,7 @@ def test_block_at_rlp_size_limit_boundary(
         pre,
         env.gas_limit,
     )
-    block_rlp_size = get_block_rlp_size(transactions, gas_used=gas_used)
+    block_rlp_size = get_block_rlp_size(fork, transactions)
     assert block_rlp_size == block_size_limit, (
         f"Block RLP size {block_rlp_size} does not exactly match "
         f"limit {block_size_limit}, difference: "
@@ -528,7 +506,7 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
         env.gas_limit,
         specific_transaction_to_include=typed_transaction,
     )
-    block_rlp_size = get_block_rlp_size(transactions, gas_used=gas_used)
+    block_rlp_size = get_block_rlp_size(fork, transactions)
     assert block_rlp_size == block_size_limit, (
         f"Block RLP size {block_rlp_size} does not exactly match limit "
         f"{block_size_limit}, difference: {block_rlp_size - block_size_limit} "
@@ -572,7 +550,7 @@ def test_block_at_rlp_limit_with_logs(
         emit_logs=True,
     )
 
-    block_rlp_size = get_block_rlp_size(transactions, gas_used=gas_used)
+    block_rlp_size = get_block_rlp_size(fork, transactions)
     assert block_rlp_size == block_size_limit, (
         f"Block RLP size {block_rlp_size} does not exactly match limit "
         f"{block_size_limit}, difference: {block_rlp_size - block_size_limit} "
@@ -632,7 +610,7 @@ def test_block_at_rlp_limit_with_withdrawals(
     )
 
     block_rlp_size = get_block_rlp_size(
-        transactions, gas_used=gas_used, withdrawals=withdrawals
+        fork, transactions, withdrawals=withdrawals
     )
     assert block_rlp_size == block_size_limit, (
         f"Block RLP size {block_rlp_size} does not exactly match limit "
@@ -703,8 +681,8 @@ def test_fork_transition_block_rlp_limit(
     )
 
     for fork_block_rlp_size in [
-        get_block_rlp_size(transactions_before, gas_used=gas_used_before),
-        get_block_rlp_size(transactions_at_fork, gas_used=gas_used_at_fork),
+        get_block_rlp_size(fork, transactions_before),
+        get_block_rlp_size(fork, transactions_at_fork),
     ]:
         assert fork_block_rlp_size == block_size_limit, (
             f"Block RLP size {fork_block_rlp_size} does not exactly match "

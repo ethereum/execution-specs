@@ -79,6 +79,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ Add tests that EIP-1559 and EIP-2930 typed txs are invalid and void before their fork ([#1754](https://github.com/ethereum/execution-specs/pull/1754)).
 - ✨ Add tests for an old validation rule for gas limit above 5000 ([#1731](https://github.com/ethereum/execution-specs/pull/1731)).
 - ✨ Add tests for OOG in EXP, LOG and others ([#1686](https://github.com/ethereum/execution-specs/pull/1686)).
+- ✨ Make EIP-7934 tests more dynamic and able to handle new header fields added in future forks ([#2022](https://github.com/ethereum/execution-specs/pull/2022)).
 
 ## [v5.3.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.3.0) - 2025-10-09
 
