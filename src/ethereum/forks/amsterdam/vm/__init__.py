@@ -76,7 +76,6 @@ class BlockOutput:
     """
 
     block_gas_used: Uint = Uint(0)
-    receipt_cumulative_gas_used: Uint = Uint(0)
     transactions_trie: Trie[Bytes, Optional[Bytes | LegacyTransaction]] = (
         field(default_factory=lambda: Trie(secured=False, default=None))
     )
