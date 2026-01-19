@@ -80,7 +80,7 @@ from ..opcodes import Opcodes as Op
                 + [0xFF] * 32
                 + [0x55]
             ),
-            id="SSTORE(-1, CALL(GAS, ADDRESS, PUSH1(0x20), 0, 0, 0x20, 0x1234))",
+            id="SSTORE(-1, CALL(GAS, ADDRESS, PUSH1(0x20), 0, 0, 0x20, 0x1234))",  # noqa: E501
         ),
         pytest.param(
             Op.CALL(Op.GAS, Op.PUSH20(0x1234), 0, 0, 0, 0, 32),
@@ -395,7 +395,7 @@ def test_opcode_kwargs_validation() -> None:
 
     with pytest.raises(
         ValueError,
-        match=r"Invalid keyword argument\(s\) \['wrong_arg'\] for opcode MSTORE",
+        match=r"Invalid keyword argument\(s\) \['wrong_arg'\] for opcode MSTORE",  # noqa: E501
     ):
         Op.MSTORE(offset=0, value=1, wrong_arg=2)
 

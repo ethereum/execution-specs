@@ -49,7 +49,10 @@ class JSONRPCError(Exception):
     def __str__(self) -> str:
         """Return string representation of the JSONRPCError."""
         if self.data is not None:
-            return f"JSONRPCError(code={self.code}, message={self.message}, data={self.data})"
+            return (
+                f"JSONRPCError(code={self.code}, message={self.message}, "
+                f"data={self.data})"
+            )
 
         return f"JSONRPCError(code={self.code}, message={self.message})"
 

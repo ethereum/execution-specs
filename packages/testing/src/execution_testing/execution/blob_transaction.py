@@ -50,8 +50,8 @@ def versioned_hashes_with_blobs_and_proofs(
             )
         else:
             raise ValueError(
-                f"Blob with versioned hash {blob.versioned_hash.hex()} requires a proof "
-                "that is not None"
+                f"Blob with versioned hash {blob.versioned_hash.hex()} "
+                "requires a proof that is not None"
             )
 
     return versioned_hashes
@@ -66,8 +66,8 @@ class BlobTransaction(BaseExecute):
 
     format_name: ClassVar[str] = "blob_transaction_test"
     description: ClassVar[str] = (
-        "Send blob transactions to the execution client and validate their availability via "
-        "`engine_getBlobsV*`"
+        "Send blob transactions to the execution client and validate their "
+        "availability via `engine_getBlobsV*`"
     )
 
     txs: List[NetworkWrappedTransaction | Transaction]
@@ -132,7 +132,8 @@ class BlobTransaction(BaseExecute):
                 tx.rlp(), request_id=metadata.to_json()
             )
             assert expected_hash == received_hash, (
-                f"Expected hash {expected_hash} does not match received hash {received_hash}."
+                f"Expected hash {expected_hash} does not match "
+                f"received hash {received_hash}."
             )
 
         if engine_rpc is None:
@@ -161,14 +162,14 @@ class BlobTransaction(BaseExecute):
         if self.nonexisting_blob_hashes is not None:
             if blob_response is not None:
                 raise ValueError(
-                    f"Non-existing blob hashes were requested and "
-                    "the client was expected to respond with 'null', but instead it replied: "
-                    f"{blob_response.root}"
+                    "Non-existing blob hashes were requested and the client "
+                    "was expected to respond with 'null', but instead it "
+                    f"replied: {blob_response.root}"
                 )
             else:
                 logger.info(
-                    "Test was passed (partial responses are not allowed and the client "
-                    "correctly returned 'null')"
+                    "Test was passed (partial responses are not allowed and "
+                    "the client correctly returned 'null')"
                 )
                 eth_rpc.wait_for_transactions(sent_txs)
                 return
@@ -176,7 +177,8 @@ class BlobTransaction(BaseExecute):
         assert blob_response is not None
         local_blobs_and_proofs = list(versioned_hashes.values())
         assert len(blob_response) == len(local_blobs_and_proofs), (
-            f"Expected {len(local_blobs_and_proofs)} blobs and proofs, got {len(blob_response)}."
+            f"Expected {len(local_blobs_and_proofs)} blobs and proofs, "
+            f"got {len(blob_response)}."
         )
 
         for expected_blob, received_blob in zip(
@@ -198,8 +200,14 @@ class BlobTransaction(BaseExecute):
                     raise ValueError("Blob mismatch.")
                 if expected_blob.proofs != received_blob.proofs:
                     error_message = "Proofs mismatch."
-                    error_message += f"len(expected_blob.proofs) = {len(expected_blob.proofs)}, "
-                    error_message += f"len(received_blob.proofs) = {len(received_blob.proofs)}\n"
+                    expected_len = len(expected_blob.proofs)
+                    received_len = len(received_blob.proofs)
+                    error_message += (
+                        f"len(expected_blob.proofs) = {expected_len}, "
+                    )
+                    error_message += (
+                        f"len(received_blob.proofs) = {received_len}\n"
+                    )
                     if len(expected_blob.proofs) == len(received_blob.proofs):
                         index = 0
 
@@ -212,16 +220,28 @@ class BlobTransaction(BaseExecute):
                                 error_message += (
                                     f"Proof length mismatch. index = {index},"
                                 )
-                                error_message += f"expected_proof length = {len(expected_proof)}, "
-                                error_message += f"received_proof length = {len(received_proof)}\n"
+                                exp_len = len(expected_proof)
+                                rcv_len = len(received_proof)
+                                error_message += (
+                                    f"expected_proof length = {exp_len}, "
+                                )
+                                error_message += (
+                                    f"received_proof length = {rcv_len}\n"
+                                )
                                 index += 1
                                 continue
                             if expected_proof != received_proof:
                                 error_message += (
                                     f"Proof mismatch. index = {index},"
                                 )
-                                error_message += f"expected_proof hash = {sha256(expected_proof).hexdigest()}, "
-                                error_message += f"received_proof hash = {sha256(received_proof).hexdigest()}\n"
+                                exp_hash = sha256(expected_proof).hexdigest()
+                                rcv_hash = sha256(received_proof).hexdigest()
+                                error_message += (
+                                    f"expected_proof hash = {exp_hash}, "
+                                )
+                                error_message += (
+                                    f"received_proof hash = {rcv_hash}\n"
+                                )
                             index += 1
                     raise ValueError(error_message)
             else:

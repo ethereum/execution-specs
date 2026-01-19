@@ -51,7 +51,8 @@ class ExceptionBase(Enum):
         else:
             # Otherwise, use the class that the method is called on
             assert cls.__name__ == class_name, (
-                f"Unexpected exception type: {class_name}, expected {cls.__name__}"
+                f"Unexpected exception type: {class_name}, "
+                f"expected {cls.__name__}"
             )
             exception_class = cls
 

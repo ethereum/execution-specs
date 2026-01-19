@@ -9,7 +9,9 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-import execution_testing.cli.pytest_commands.plugins.consume.releases as releases
+from execution_testing.cli.pytest_commands.plugins.consume import (
+    releases,
+)
 
 
 class AppConfig(BaseModel):

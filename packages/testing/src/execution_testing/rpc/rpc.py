@@ -94,14 +94,15 @@ class BlockNotAvailableError(Exception):
         self.attempts = attempts
         self.elapsed = elapsed
         self.interval = interval
-        super().__init__(
+        msg = (
             f"Block {block_hash} not available after {attempts} attempts "
             f"over {elapsed:.1f}s (interval: {interval}s)"
         )
+        super().__init__(msg)
 
 
 class ForkchoiceUpdateTimeoutError(Exception):
-    """Raised when forkchoice update doesn't reach VALID within retry limits."""
+    """Raised when forkchoice update doesn't reach VALID in time."""
 
     def __init__(
         self,
@@ -115,10 +116,12 @@ class ForkchoiceUpdateTimeoutError(Exception):
         self.elapsed = elapsed
         self.interval = interval
         self.final_status = final_status
-        super().__init__(
-            f"Forkchoice update failed to reach VALID after {attempts} attempts "
-            f"over {elapsed:.1f}s (interval: {interval}s), final status: {final_status}"
+        msg = (
+            f"Forkchoice update failed to reach VALID after {attempts} "
+            f"attempts over {elapsed:.1f}s (interval: {interval}s), "
+            f"final status: {final_status}"
         )
+        super().__init__(msg)
 
 
 class PeerConnectionTimeoutError(Exception):
@@ -138,11 +141,12 @@ class PeerConnectionTimeoutError(Exception):
         self.interval = interval
         self.expected_peers = expected_peers
         self.actual_peers = actual_peers
-        super().__init__(
+        msg = (
             f"Peer connection not established after {attempts} attempts "
             f"over {elapsed:.1f}s (interval: {interval}s), "
             f"expected >= {expected_peers} peers, got {actual_peers}"
         )
+        super().__init__(msg)
 
 
 class BaseRPC:
@@ -244,8 +248,8 @@ class BaseRPC:
         headers = base_header | extra_headers
 
         logger.debug(
-            f"Sending RPC request to {self.url}, method={self.namespace}_{method}, "
-            f"timeout={timeout}..."
+            f"Sending RPC request to {self.url}, "
+            f"method={self.namespace}_{method}, timeout={timeout}..."
         )
 
         response = self._make_request(self.url, payload, headers, timeout)
@@ -335,8 +339,8 @@ class EthRPC(BaseRPC):
         self.max_transactions_per_batch = max_transactions_per_batch
         if max_transactions_per_batch > self.OVERLOAD_THRESHOLD:
             logger.warning(
-                f"max_transactions_per_batch ({max_transactions_per_batch}) exceeds "
-                f"the safe threshold ({self.OVERLOAD_THRESHOLD}). "
+                f"max_transactions_per_batch ({max_transactions_per_batch}) "
+                f"exceeds the safe threshold ({self.OVERLOAD_THRESHOLD}). "
                 "This may cause RPC service instability or failures."
             )
 
@@ -588,9 +592,7 @@ class EthRPC(BaseRPC):
         return self._get_gas_information(method="maxPriorityFeePerGas")
 
     def blob_base_fee(self) -> int:
-        """
-        `eth_blobBaseFee`: Return the current blob base fee per gas of the network.
-        """
+        """Return the current blob base fee per gas of the network."""
         return self._get_gas_information(method="blobBaseFee")
 
     def send_raw_transaction(
@@ -675,8 +677,9 @@ class EthRPC(BaseRPC):
                 break
             time.sleep(self.poll_interval)
         raise Exception(
-            f"Transaction {tx_hash} ({transaction.model_dump_json()}) not included in a "
-            f"block after {self.transaction_wait_timeout} seconds"
+            f"Transaction {tx_hash} ({transaction.model_dump_json()}) "
+            f"not included in a block after {self.transaction_wait_timeout} "
+            "seconds"
         )
 
     def wait_for_transactions(
@@ -714,8 +717,8 @@ class EthRPC(BaseRPC):
             if tx.hash in tx_hashes
         ]
         raise Exception(
-            f"Transactions {', '.join(missing_txs_strings)} not included in a block "
-            f"after {self.transaction_wait_timeout} seconds"
+            f"Transactions {', '.join(missing_txs_strings)} not included "
+            f"in a block after {self.transaction_wait_timeout} seconds"
         )
 
     def send_wait_transaction(self, transaction: TransactionProtocol) -> Any:
@@ -769,10 +772,13 @@ class EngineRPC(BaseRPC):
 
     jwt_secret: bytes
 
+    # Default secret used in hive
+    DEFAULT_JWT_SECRET: bytes = b"secretsecretsecretsecretsecretse"
+
     def __init__(
         self,
         *args: Any,
-        jwt_secret: bytes = b"secretsecretsecretsecretsecretse",  # Default secret used in hive
+        jwt_secret: bytes = DEFAULT_JWT_SECRET,
         **kwargs: Any,
     ) -> None:
         """Initialize Engine RPC class with the given JWT secret."""
@@ -905,11 +911,12 @@ class EngineRPC(BaseRPC):
         on_retry: Callable[[RetryCallState], None] | None = None,
     ) -> ForkchoiceUpdateResponse:
         """
-        Send forkchoice update, retrying while SYNCING until a terminal status.
+        Send forkchoice update, retrying while SYNCING until terminal.
 
-        Retries only while the client returns SYNCING status. Returns immediately
-        on any terminal status (VALID, INVALID, ACCEPTED, etc.) - the caller is
-        responsible for checking if the returned status matches expectations.
+        Retries only while the client returns SYNCING status. Returns
+        immediately on any terminal status (VALID, INVALID, ACCEPTED, etc.)
+        - the caller is responsible for checking if the returned status
+        matches expectations.
 
         Args:
             forkchoice_state: The forkchoice state to send.
@@ -920,7 +927,7 @@ class EngineRPC(BaseRPC):
                 Receives tenacity RetryCallState. If None, logs at debug level.
 
         Returns:
-            ForkchoiceUpdateResponse with a terminal status (VALID, INVALID, etc.).
+            ForkchoiceUpdateResponse with a terminal status (VALID, etc.).
 
         Raises:
             ForkchoiceUpdateTimeoutError: If still SYNCING after max_attempts.
@@ -932,10 +939,13 @@ class EngineRPC(BaseRPC):
         last_response: ForkchoiceUpdateResponse | None = None
 
         def default_on_retry(retry_state: RetryCallState) -> None:
+            if last_response:
+                status = str(last_response.payload_status.status)
+            else:
+                status = "N/A"
             logger.debug(
                 f"Forkchoice update attempt {retry_state.attempt_number}: "
-                f"status={last_response.payload_status.status if last_response else 'N/A'}, "
-                f"retrying in {wait_fixed}s..."
+                f"status={status}, retrying in {wait_fixed}s..."
             )
 
         retry_callback = on_retry if on_retry is not None else default_on_retry
@@ -1007,8 +1017,9 @@ class NetRPC(BaseRPC):
         last_peer_count = 0
 
         def default_on_retry(retry_state: RetryCallState) -> None:
+            attempt = retry_state.attempt_number
             logger.debug(
-                f"Waiting for peer connection, attempt {retry_state.attempt_number}: "
+                f"Waiting for peer connection, attempt {attempt}: "
                 f"{last_peer_count} peers, need >= {min_peers}, "
                 f"retrying in {wait_fixed}s..."
             )
