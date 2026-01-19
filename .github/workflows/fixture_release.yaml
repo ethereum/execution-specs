@@ -1,0 +1,298 @@
+name: Fixture Release
+
+on:
+  push:
+    tags:
+      - "tests-v[0-9]+.[0-9]+.[0-9]+*" # Full release: tests-v1.0.0
+      - "tests-*@v*"                   # Feature release: tests-glamsterdam-devnet-2@v1.0.0
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build (ignore cache)'
+        type: boolean
+        default: false
+
+jobs:
+  parse-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      features: ${{ steps.parse.outputs.features }}
+      release_type: ${{ steps.parse.outputs.release_type }}
+      release_tag: ${{ steps.parse.outputs.release_tag }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Parse tag and determine features
+        id: parse
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "Tag: $TAG"
+
+          # Determine release type and features based on tag format
+          if [[ "$TAG" =~ ^tests-v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            # Full release: tests-v1.0.0 -> stable, benchmark
+            echo "Release type: full"
+            echo "release_type=full" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${TAG#tests-}" >> "$GITHUB_OUTPUT"
+            echo 'features=["stable", "benchmark"]' >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^tests-(.+)@v ]]; then
+            # Feature release: tests-stable@v1 -> single feature
+            FEATURE="${TAG#tests-}"
+            FEATURE="${FEATURE%%@*}"
+            echo "Release type: feature"
+            echo "Feature: $FEATURE"
+            echo "release_type=feature" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${TAG#tests-}" >> "$GITHUB_OUTPUT"
+
+            # Reject banned feature names
+            if [[ "$FEATURE" == "stable" || "$FEATURE" == "develop" ]]; then
+              echo "::error::Feature '$FEATURE' cannot be released directly. Use a full release (tests-vX.Y.Z) instead."
+              exit 1
+            fi
+            if [[ "$FEATURE" == "devnet" ]]; then
+              echo "::error::Feature 'devnet' cannot be released directly. Use the specific devnet name (e.g., tests-glamsterdam-devnet-2@v1)."
+              exit 1
+            fi
+
+            # Verify feature exists in feature.yaml
+            if ! yq -e ".$FEATURE" .github/configs/feature.yaml > /dev/null 2>&1; then
+              echo "::error::Feature '$FEATURE' not found in feature.yaml"
+              exit 1
+            fi
+
+            echo "features=[\"$FEATURE\"]" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Invalid tag format: $TAG"
+            exit 1
+          fi
+
+  check-cache:
+    needs: parse-tag
+    runs-on: ubuntu-latest
+    outputs:
+      cached_features: ${{ steps.check.outputs.cached_features }}
+      uncached_features: ${{ steps.check.outputs.uncached_features }}
+      has_uncached: ${{ steps.check.outputs.has_uncached }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Check for cached features
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_BUILD: ${{ inputs.force_build }}
+        run: |
+          set -e
+
+          FEATURES='${{ needs.parse-tag.outputs.features }}'
+          CURRENT_SHA=$(git rev-parse HEAD)
+          echo "Features to check: $FEATURES"
+          echo "Current commit SHA: $CURRENT_SHA"
+
+          CACHED="[]"
+          UNCACHED="[]"
+
+          for feature in $(echo "$FEATURES" | jq -r '.[]'); do
+            echo "=== Checking $feature ==="
+
+            if [ "$FORCE_BUILD" = "true" ]; then
+              echo "Force build requested"
+              UNCACHED=$(echo "$UNCACHED" | jq --arg f "$feature" '. + [$f]')
+              continue
+            fi
+
+            # Check for exact SHA match first
+            EXPECTED_NAME="${feature}-${CURRENT_SHA}"
+            EXACT_MATCH=$(gh api "/repos/${{ github.repository }}/actions/artifacts" \
+              --jq ".artifacts[] | select(.name == \"$EXPECTED_NAME\") | .name" \
+              2>/dev/null | head -1 || true)
+
+            if [ -n "$EXACT_MATCH" ]; then
+              echo "Exact cache hit: $EXPECTED_NAME"
+              CACHED=$(echo "$CACHED" | jq --arg f "$EXPECTED_NAME" '. + [$f]')
+              continue
+            fi
+
+            # No exact match - check if latest artifact is still valid
+            LATEST_ARTIFACT=$(gh api "/repos/${{ github.repository }}/actions/artifacts" \
+              --jq ".artifacts[] | select(.name | startswith(\"${feature}-\")) | .name" \
+              2>/dev/null | head -1 || true)
+
+            if [ -z "$LATEST_ARTIFACT" ]; then
+              echo "No cached artifact found"
+              UNCACHED=$(echo "$UNCACHED" | jq --arg f "$feature" '. + [$f]')
+              continue
+            fi
+
+            # Extract SHA and check path changes
+            CACHED_SHA="${LATEST_ARTIFACT#${feature}-}"
+            echo "Found cached artifact: $LATEST_ARTIFACT (SHA: $CACHED_SHA)"
+
+            CHANGED_FILES=$(git diff --name-only "$CACHED_SHA..$CURRENT_SHA" 2>/dev/null || echo "UNKNOWN")
+
+            if [ "$CHANGED_FILES" = "UNKNOWN" ]; then
+              echo "Could not determine changes, will build"
+              UNCACHED=$(echo "$UNCACHED" | jq --arg f "$feature" '. + [$f]')
+              continue
+            fi
+
+            if [ -z "$CHANGED_FILES" ]; then
+              echo "No files changed, using cache"
+              CACHED=$(echo "$CACHED" | jq --arg f "$LATEST_ARTIFACT" '. + [$f]')
+              continue
+            fi
+
+            # Check if changes affect relevant paths
+            COMMON_PATHS=$(yq -o=json '.common_paths' .github/configs/feature.yaml)
+            TEST_PATHS=$(yq -o=json ".$feature.test_paths" .github/configs/feature.yaml)
+            PATHS=$(echo "[$TEST_PATHS, $COMMON_PATHS]" | jq -c 'flatten')
+
+            SHOULD_BUILD=false
+            for pattern in $(echo "$PATHS" | jq -r '.[]'); do
+              regex_pattern=$(echo "$pattern" | sed 's/\*\*/.*/g' | sed 's/\*/.*/g')
+              if echo "$CHANGED_FILES" | grep -qE "^$regex_pattern"; then
+                echo "Relevant changes in: $pattern"
+                SHOULD_BUILD=true
+                break
+              fi
+            done
+
+            if [ "$SHOULD_BUILD" = "true" ]; then
+              echo "Relevant paths changed, will build"
+              UNCACHED=$(echo "$UNCACHED" | jq --arg f "$feature" '. + [$f]')
+            else
+              echo "No relevant changes, using cache"
+              CACHED=$(echo "$CACHED" | jq --arg f "$LATEST_ARTIFACT" '. + [$f]')
+            fi
+          done
+
+          echo "Cached: $CACHED"
+          echo "Uncached: $UNCACHED"
+
+          echo "cached_features=$CACHED" >> "$GITHUB_OUTPUT"
+          echo "uncached_features=$UNCACHED" >> "$GITHUB_OUTPUT"
+
+          if [ "$(echo "$UNCACHED" | jq 'length')" -gt 0 ]; then
+            echo "has_uncached=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_uncached=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-uncached:
+    needs: [parse-tag, check-cache]
+    if: needs.check-cache.outputs.has_uncached == 'true'
+    uses: ./.github/workflows/fixture_build.yaml
+    with:
+      features: ${{ needs.check-cache.outputs.uncached_features }}
+
+  download-cached:
+    needs: check-cache
+    runs-on: ubuntu-latest
+    if: ${{ fromJson(needs.check-cache.outputs.cached_features)[0] != null }}
+    strategy:
+      matrix:
+        artifact: ${{ fromJson(needs.check-cache.outputs.cached_features) }}
+    steps:
+      - uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: fixture_build.yaml
+          name: ${{ matrix.artifact }}
+          path: ./cached
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ matrix.artifact }}
+          path: ./cached/
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [parse-tag, check-cache, download-cached, build-uncached]
+    if: |
+      always() &&
+      startsWith(github.ref, 'refs/tags/tests-') &&
+      (needs.download-cached.result == 'success' || needs.build-uncached.result == 'success') &&
+      (needs.download-cached.result != 'failure') &&
+      (needs.build-uncached.result != 'failure')
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: false
+
+      - name: Download all artifacts
+        run: |
+          gh run download ${{ github.run_id }} --dir ./artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Prepare release files
+        run: |
+          mkdir -p ./release
+          RELEASE_TYPE="${{ needs.parse-tag.outputs.release_type }}"
+          FEATURES='${{ needs.parse-tag.outputs.features }}'
+
+          echo "Release type: $RELEASE_TYPE"
+          echo "Features: $FEATURES"
+
+          # Process each artifact directory (named <feature>-<sha>)
+          for dir in ./artifacts/*/; do
+            artifact_name=$(basename "$dir")
+            # Extract feature name by removing the 40-char SHA suffix
+            # e.g., "glamsterdam-devnet-2-abc123def..." -> "glamsterdam-devnet-2"
+            sha="${artifact_name: -40}"
+            feature_name="${artifact_name%-$sha}"
+
+            echo "Processing: $artifact_name (feature: $feature_name)"
+
+            # Find and copy fixtures file
+            for f in "$dir"/fixtures_*.tar.gz; do
+              if [ -f "$f" ]; then
+                if [ "$RELEASE_TYPE" = "full" ]; then
+                  cp "$f" "./release/fixtures_${feature_name}.tar.gz"
+                else
+                  # Feature release: use feature name from tag
+                  FEATURE=$(echo "$FEATURES" | jq -r '.[0]')
+                  cp "$f" "./release/fixtures_${FEATURE}.tar.gz"
+                fi
+                break
+              fi
+            done
+
+            # Handle benchmark genesis
+            if [ -f "$dir/benchmark_genesis.tar.gz" ]; then
+              if [ "$RELEASE_TYPE" = "full" ]; then
+                cp "$dir/benchmark_genesis.tar.gz" "./release/benchmark_genesis.tar.gz"
+              else
+                FEATURE=$(echo "$FEATURES" | jq -r '.[0]')
+                cp "$dir/benchmark_genesis.tar.gz" "./release/benchmark_genesis_${FEATURE}.tar.gz"
+              fi
+            fi
+          done
+
+          echo "Release files:"
+          ls -la ./release/
+
+      - name: Create Release
+        run: |
+          RELEASE_TAG="${{ needs.parse-tag.outputs.release_tag }}"
+          RELEASE_TYPE="${{ needs.parse-tag.outputs.release_type }}"
+
+          if [ "$RELEASE_TYPE" = "full" ]; then
+            # Full release: draft only
+            gh release create "$RELEASE_TAG" \
+              --repo ethereum/execution-spec-tests \
+              --draft \
+              --generate-notes \
+              ./release/*
+          else
+            # Feature release: draft + prerelease
+            gh release create "$RELEASE_TAG" \
+              --repo ethereum/execution-spec-tests \
+              --draft \
+              --prerelease \
+              --generate-notes \
+              ./release/*
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.EEST_RELEASE_TOKEN }}

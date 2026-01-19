@@ -1,0 +1,176 @@
+name: Fixture Builder
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Every 4 hours
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build all features (ignore commit checks)'
+        type: boolean
+        default: false
+      features:
+        description: 'JSON array of specific features to build (e.g., ["stable", "benchmark"]). If empty, uses normal check logic.'
+        type: string
+        default: ''
+  workflow_call:
+    inputs:
+      features:
+        description: 'JSON array of specific features to build'
+        type: string
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check_features:
+    runs-on: ubuntu-latest
+    outputs:
+      features_to_build: ${{ steps.check.outputs.features_to_build }}
+      has_features: ${{ steps.check.outputs.has_features }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: false
+          version: ${{ vars.UV_VERSION }}
+
+      - name: Check which features need building
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # If specific features requested, use them directly
+          if [ -n "${{ inputs.features }}" ] && [ "${{ inputs.features }}" != "[]" ]; then
+            RESULT="${{ inputs.features }}"
+            echo "Building requested features: $RESULT"
+          else
+            FORCE_FLAG="${{ inputs.force_build == true && '--force' || '' }}"
+            RESULT=$(uv run .github/scripts/check_artifacts.py $FORCE_FLAG --verbose)
+          fi
+
+          echo "features_to_build=$RESULT" >> "$GITHUB_OUTPUT"
+          if [ "$RESULT" != "[]" ]; then
+            echo "has_features=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_features=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build_features:
+    needs: check_features
+    if: needs.check_features.outputs.has_features == 'true'
+    runs-on: [self-hosted-ghr, size-gigachungus-x64]
+    timeout-minutes: 720
+    strategy:
+      fail-fast: false
+      matrix:
+        feature: ${{ fromJson(needs.check_features.outputs.features_to_build) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Get feature config
+        id: config
+        run: |
+          CONFIG_FILE=".github/configs/feature.yaml"
+          echo "branch=$(yq '.${{ matrix.feature }}.branch' $CONFIG_FILE)" >> "$GITHUB_OUTPUT"
+          echo "evm-type=$(yq '.${{ matrix.feature }}.evm-type' $CONFIG_FILE)" >> "$GITHUB_OUTPUT"
+          echo "fill-params=$(yq '.${{ matrix.feature }}.fill-params' $CONFIG_FILE)" >> "$GITHUB_OUTPUT"
+          echo "static-tests=$(yq '.${{ matrix.feature }}.static-tests // false' $CONFIG_FILE)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.config.outputs.branch }}
+          submodules: true
+
+      - name: Fetch lllc
+        if: steps.config.outputs.static-tests == 'true'
+        uses: ./.github/actions/fetch-binary
+        with:
+          version: v1.0.0
+          repo_owner: felix314159
+          repo_name: lllc-custom
+          remote_name: lllc
+          binary_name: lllc
+          expected_sha256: 865a0d5379acb3b5471337b5dcf686a2dd71587c6b65b9da6c963de627e0b300
+
+      - name: Fetch Solidity
+        if: steps.config.outputs.static-tests == 'true'
+        uses: ./.github/actions/fetch-binary
+        with:
+          version: v0.8.24
+          repo_owner: ethereum
+          repo_name: solidity
+          remote_name: solc-static-linux
+          binary_name: solc
+          expected_sha256: fb03a29a517452b9f12bcf459ef37d0a543765bb3bbc911e70a87d6a37c30d5f
+
+      - name: Install uv and python
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: false
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+
+      - name: Install EELS
+        run: uv sync --no-progress
+
+      - uses: ./.github/actions/build-evm-base
+        id: evm-builder
+        with:
+          type: ${{ steps.config.outputs.evm-type }}
+
+      - name: Generate fixtures
+        run: |
+          FILL_PARAMS="${{ steps.config.outputs.fill-params }}"
+          OUTPUT_NAME="fixtures_${{ matrix.feature }}.tar.gz"
+
+          if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} $FILL_PARAMS --output=$OUTPUT_NAME --build-name ${{ matrix.feature }}
+          else
+            uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} $FILL_PARAMS --output=$OUTPUT_NAME --build-name ${{ matrix.feature }}
+          fi
+
+      - name: Generate Benchmark Genesis Files
+        if: contains(matrix.feature, 'benchmark')
+        uses: ./.github/actions/build-benchmark-genesis
+        with:
+          fixtures_path: fixtures_${{ matrix.feature }}.tar.gz
+
+      - name: Get branch SHA
+        id: sha
+        run: echo "full=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Artifact names include SHA for cache identification
+      # Format: <feature>-<sha> (e.g., stable-abc123def)
+      - name: Prepare artifact files
+        id: artifact-files
+        run: |
+          if [[ "${{ matrix.feature }}" == *"benchmark"* ]]; then
+            echo "path<<EOF" >> "$GITHUB_OUTPUT"
+            echo "fixtures_${{ matrix.feature }}.tar.gz" >> "$GITHUB_OUTPUT"
+            echo "benchmark_genesis.tar.gz" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=fixtures_${{ matrix.feature }}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ matrix.feature }}-${{ steps.sha.outputs.full }}
+          path: ${{ steps.artifact-files.outputs.path }}
+          retention-days: 90
+
+      - name: Cleanup old artifacts (keep last 5)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REPO="${{ github.repository }}"
+          gh api "/repos/$REPO/actions/artifacts" --paginate \
+            --jq '[.artifacts[] | select(.name | startswith("${{ matrix.feature }}-"))] | .[5:] | .[].id' | \
+            xargs -I {} gh api --method DELETE "/repos/$REPO/actions/artifacts/{}" 2>/dev/null || true

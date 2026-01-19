@@ -80,20 +80,4 @@ jobs:
 
   # TODO: Add execute remote tests with --gas-benchmark-values
   # TODO: Add execute remote tests with --fixed-opcode-count
-
-  build-artifact:
-    name: Build Benchmark Fixture Artifact
-    needs: [sanity-checks] # TODO: Add execute remote jobs when implemented
-    if: github.event_name == 'push'
-    runs-on: [self-hosted-ghr, size-gigachungus-x64]
-    timeout-minutes: 720
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          submodules: true
-
-      - uses: ./.github/actions/build-fixtures
-        with:
-          release_name: benchmark_fast
-          uv_version: ${{ vars.UV_VERSION }}
-          python_version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+  # NOTE: Benchmark fixture builds are now handled by fixture_build.yaml workflow

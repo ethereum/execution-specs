@@ -1,27 +1,73 @@
-# Unless filling for special features, all features should fill for previous forks (starting from Frontier) too
+# Feature build configuration
+#
+# Each entry defines a feature that produces a fixture artifact when built.
+# Features with enabled: true have artifacts built proactively every 4 hours.
+# Features with enabled: false only have artifacts built on-demand when a
+# release tag is pushed.
+#
+# Artifacts are stored as GitHub Actions artifacts (named <feature>-<sha>) and
+# can be used by release workflows to speed up official releases to EEST, and
+# hive testing workflows to speed up and automate runs. Only the last 5 artifacts
+# are kept per feature.
+#
+# Fields:
+#   enabled:        Whether artifacts are built proactively (default: true).
+#   branch:         The git branch to build from.
+#   evm-type:       EVM implementation to use (stable, develop, benchmark).
+#   fill-params:    Parameters passed to the fill command.
+#   static-tests:   Whether this feature requires lllc/solc for static tests (default: false).
+#   test_paths:     File patterns that trigger artifact rebuilds (merged with common_paths).
+
+# Common paths that trigger rebuilds for ALL features.
+# Changes to framework, specs, or config always require rebuilds.
+common_paths:
+  - packages/testing/**
+  - src/ethereum/**
+  - src/ethereum_spec_tools/**
+  - uv.lock
+  - pyproject.toml
+  - .github/configs/feature.yaml
+  - .github/actions/**
+
+# Stable feature
+# Builds all tests up to the stable (mainnet) fork from the default development branch.
+# Used for: Faster official releases, hive automatic test updates.
 stable:
-  evm-type: stable
-  fill-params: --until=Prague --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
-
-develop:
-  evm-type: develop 
+  branch: forks/amsterdam
+  evm-type: develop
   fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
+  static-tests: true
+  test_paths:
+    - tests/**
 
+# Develop feature
+# Builds all tests up to the development fork.
+develop:
+  enabled: false # TODO: enable?
+  branch: forks/amsterdam # TODO: update branch to devnet branch?
+  evm-type: develop
+  fill-params: --until=Amsterdam --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
+  static-tests: true
+  test_paths:
+    - tests/**
+
+# Devnet feature
+# Builds only devnet specific tests for specific fork folder.
+# Used for: Quick devnet releases, hive automatic test updates, faster devnet tests releases.
+devnet:
+  branch: devnets/amsterdam/2
+  evm-type: develop
+  fill-params: --fork=Amsterdam ./tests/amsterdam
+  test_paths:
+    - tests/amsterdam/**
+
+# Benchmark feature
+# Builds benchmark tests with multiple gas values for performance analysis.
+# Uses Prague for now (stable benchmark baseline).
+# Used for: Faster benchmark test releases, quick development feedback loops.
 benchmark:
+  branch: forks/amsterdam
   evm-type: benchmark
   fill-params: --fork=Prague --gas-benchmark-values 1,5,10,30,60,100,150 -m benchmark ./tests/benchmark
-
-benchmark_develop:
-  evm-type: benchmark
-  fill-params: --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 -m "benchmark" ./tests/benchmark
-  feature_only: true
-
-benchmark_fast:
-  evm-type: benchmark
-  fill-params: --fork=Prague --gas-benchmark-values 100 -m "benchmark" ./tests/benchmark
-  feature_only: true
-
-bal:
-  evm-type: develop
-  fill-params: --fork=Amsterdam --fill-static-tests
-  feature_only: true
+  test_paths:
+    - tests/benchmark/**
