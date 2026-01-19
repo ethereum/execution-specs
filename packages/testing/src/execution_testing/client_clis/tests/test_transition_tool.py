@@ -49,7 +49,10 @@ def test_default_tool() -> None:
             "ethereum-spec-evm",
             ExecutionSpecsTransitionTool,
             marks=pytest.mark.skip(
-                reason="ExecutionSpecsTransitionTool through binary path is not supported"
+                reason=(
+                    "ExecutionSpecsTransitionTool through binary path "
+                    "is not supported"
+                )
             ),
         ),
         (

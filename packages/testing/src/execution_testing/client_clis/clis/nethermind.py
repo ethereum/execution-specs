@@ -131,7 +131,8 @@ class NethtestFixtureConsumer(
             pass  # no additional options needed
         else:
             raise Exception(
-                f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
+                f"Fixture format {fixture_format.format_name} "
+                f"not supported by {self.binary}"
             )
         command += ["--input", str(fixture_path)]
         if debug_output_path:
@@ -163,14 +164,16 @@ class NethtestFixtureConsumer(
 
         if result.returncode != 0:
             raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
+                f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                f"Error:\n{result.stderr}"
             )
 
         try:
             result_json = json.loads(result.stdout)
         except json.JSONDecodeError as e:
             raise Exception(
-                f"Failed to parse JSON output on stdout from nethtest:\n{result.stdout}"
+                f"Failed to parse JSON output on stdout from nethtest:\n"
+                f"{result.stdout}"
             ) from e
 
         if not isinstance(result_json, list):
@@ -205,8 +208,8 @@ class NethtestFixtureConsumer(
                 test_result["name"].endswith(nethtest_suffix)
                 for test_result in file_results
             ), (
-                "consume direct with nethtest doesn't support the multi-data statetest format "
-                "used in ethereum/tests (yet)"
+                "consume direct with nethtest doesn't support the "
+                "multi-data statetest format used in ethereum/tests (yet)"
             )
             test_result = [
                 test_result
@@ -221,7 +224,8 @@ class NethtestFixtureConsumer(
                 f"Test result for {fixture_name} missing"
             )
             assert test_result[0]["pass"], (
-                f"State test '{fixture_name}' failed, available stderr:\n {stderr}"
+                f"State test '{fixture_name}' failed, "
+                f"available stderr:\n {stderr}"
             )
         else:
             if any(not test_result["pass"] for test_result in file_results):
@@ -251,7 +255,8 @@ class NethtestFixtureConsumer(
 
         if result.returncode != 0:
             raise Exception(
-                f"nethtest exited with non-zero exit code ({result.returncode}).\n"
+                f"nethtest exited with non-zero exit code "
+                f"({result.returncode}).\n"
                 f"stdout:\n{result.stdout}\n"
                 f"stderr:\n{result.stderr}\n"
                 f"{' '.join(command)}"
@@ -287,7 +292,8 @@ class NethtestFixtureConsumer(
             )
         else:
             raise Exception(
-                f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
+                f"Fixture format {fixture_format.format_name} "
+                f"not supported by {self.binary}"
             )
 
 
@@ -297,16 +303,28 @@ class NethermindExceptionMapper(ExceptionMapper):
     mapping_substring = {
         TransactionException.SENDER_NOT_EOA: "sender has deployed code",
         TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
-        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "intrinsic gas too low",
-        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: "miner premium is negative",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            "intrinsic gas too low"
+        ),
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
+            "miner premium is negative"
+        ),
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "InvalidMaxPriorityFeePerGas: Cannot be higher than maxFeePerGas"
         ),
-        TransactionException.GAS_ALLOWANCE_EXCEEDED: "Block gas limit exceeded",
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (
+            "Block gas limit exceeded"
+        ),
         TransactionException.NONCE_IS_MAX: "NonceTooHigh",
-        TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
-        TransactionException.NONCE_MISMATCH_TOO_LOW: "wrong transaction nonce",
-        TransactionException.NONCE_MISMATCH_TOO_HIGH: "wrong transaction nonce",
+        TransactionException.INITCODE_SIZE_EXCEEDED: (
+            "max initcode size exceeded"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_LOW: (
+            "wrong transaction nonce"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (
+            "wrong transaction nonce"
+        ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "InsufficientMaxFeePerBlobGas: Not enough to cover blob gas fee"
         ),
@@ -319,11 +337,15 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_PRE_FORK: (
             "InvalidTxType: Transaction type in Custom is not supported"
         ),
-        TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
+        TransactionException.TYPE_3_TX_ZERO_BLOBS: (
+            "blob transaction missing blob hashes"
+        ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "InvalidBlobVersionedHashVersion: Blob version not supported"
         ),
-        TransactionException.TYPE_3_TX_CONTRACT_CREATION: "blob transaction of type create",
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
+            "blob transaction of type create"
+        ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
             "MissingAuthorizationList: Must be set"
         ),
@@ -334,9 +356,12 @@ class NethermindExceptionMapper(ExceptionMapper):
             "InvalidTxType: Transaction type in Custom is not supported"
         ),
         BlockException.INCORRECT_BLOB_GAS_USED: (
-            "HeaderBlobGasMismatch: Blob gas in header does not match calculated"
+            "HeaderBlobGasMismatch: "
+            "Blob gas in header does not match calculated"
         ),
-        BlockException.INVALID_REQUESTS: "InvalidRequestsHash: Requests hash mismatch in block",
+        BlockException.INVALID_REQUESTS: (
+            "InvalidRequestsHash: Requests hash mismatch in block"
+        ),
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             "ExceededGasLimit: Gas used exceeds gas limit."
         ),
@@ -346,23 +371,43 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             "DepositsInvalid: Invalid deposit event layout:"
         ),
-        BlockException.INVALID_BASEFEE_PER_GAS: "InvalidBaseFeePerGas: Does not match calculated",
-        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "InvalidTimestamp: Timestamp in header cannot be lower than ancestor",
-        BlockException.INVALID_BLOCK_NUMBER: "InvalidBlockNumber: Block number does not match the parent",
-        BlockException.EXTRA_DATA_TOO_BIG: "InvalidExtraData: Extra data in header is not valid",
-        BlockException.INVALID_GASLIMIT: "InvalidGasLimit: Gas limit is not correct",
-        BlockException.INVALID_RECEIPTS_ROOT: "InvalidReceiptsRoot: Receipts root in header does not match",
-        BlockException.INVALID_LOG_BLOOM: "InvalidLogsBloom: Logs bloom in header does not match",
-        BlockException.INVALID_STATE_ROOT: "InvalidStateRoot: State root in header does not match",
+        BlockException.INVALID_BASEFEE_PER_GAS: (
+            "InvalidBaseFeePerGas: Does not match calculated"
+        ),
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
+            "InvalidTimestamp: "
+            "Timestamp in header cannot be lower than ancestor"
+        ),
+        BlockException.INVALID_BLOCK_NUMBER: (
+            "InvalidBlockNumber: Block number does not match the parent"
+        ),
+        BlockException.EXTRA_DATA_TOO_BIG: (
+            "InvalidExtraData: Extra data in header is not valid"
+        ),
+        BlockException.INVALID_GASLIMIT: (
+            "InvalidGasLimit: Gas limit is not correct"
+        ),
+        BlockException.INVALID_RECEIPTS_ROOT: (
+            "InvalidReceiptsRoot: Receipts root in header does not match"
+        ),
+        BlockException.INVALID_LOG_BLOOM: (
+            "InvalidLogsBloom: Logs bloom in header does not match"
+        ),
+        BlockException.INVALID_STATE_ROOT: (
+            "InvalidStateRoot: State root in header does not match"
+        ),
     }
     mapping_regex = {
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            r"insufficient sender balance|insufficient MaxFeePerGas for sender balance"
+            r"insufficient sender balance|"
+            r"insufficient MaxFeePerGas for sender balance"
         ),
-        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: r"Transaction \d+ is not valid",
+        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
+            r"Transaction \d+ is not valid"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
-            r"BlockBlobGasExceeded: A block cannot have more than \d+ blob gas, blobs count \d+, "
-            r"blobs gas used: \d+"
+            r"BlockBlobGasExceeded: A block cannot have more than "
+            r"\d+ blob gas, blobs count \d+, blobs gas used: \d+"
         ),
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
             r"BlobTxGasLimitExceeded: Transaction's totalDataGas=\d+ "
@@ -372,11 +417,12 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"TxGasLimitCapExceeded: Gas limit \d+ \w+ cap of \d+\.?"
         ),
         BlockException.INCORRECT_EXCESS_BLOB_GAS: (
-            r"HeaderExcessBlobGasMismatch: Excess blob gas in header does not match calculated"
-            r"|Overflow in excess blob gas"
+            r"HeaderExcessBlobGasMismatch: Excess blob gas in header "
+            r"does not match calculated|Overflow in excess blob gas"
         ),
         BlockException.INVALID_BLOCK_HASH: (
-            r"Invalid block hash 0x[0-9a-f]+ does not match calculated hash 0x[0-9a-f]+"
+            r"Invalid block hash 0x[0-9a-f]+ does not match "
+            r"calculated hash 0x[0-9a-f]+"
         ),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
             r"(Withdrawals|Consolidations)Empty: Contract is not deployed\."
@@ -386,17 +432,19 @@ class NethermindExceptionMapper(ExceptionMapper):
         ),
         # BAL Exceptions: TODO - review once all clients completed.
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"could not be parsed as a block: Could not decode block access list."
+            r"could not be parsed as a block: "
+            r"Could not decode block access list."
         ),
         BlockException.INVALID_BAL_HASH: (r"InvalidBlockLevelAccessListRoot:"),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             r"InvalidBlockLevelAccessListRoot:"
         ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
-            r"InvalidBlockLevelAccessListRoot:"
-            r"|could not be parsed as a block: Could not decode block access list."
+            r"InvalidBlockLevelAccessListRoot:|could not be parsed as a "
+            r"block: Could not decode block access list."
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
-            r"could not be parsed as a block: Could not decode block access list."
+            r"could not be parsed as a block: "
+            r"Could not decode block access list."
         ),
     }

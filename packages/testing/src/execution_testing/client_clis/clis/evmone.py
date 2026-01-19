@@ -144,7 +144,8 @@ class EvmoneFixtureConsumerCommon:
         shutil.copyfile(fixture_path, debug_fixture_path)
 
     def _skip_message(self, fixture_format: FixtureFormat) -> str:
-        return f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
+        fmt_name = fixture_format.format_name
+        return f"Fixture format {fmt_name} not supported by {self.binary}"
 
     @cache  # noqa
     def consume_test_file(
@@ -175,15 +176,18 @@ class EvmoneFixtureConsumerCommon:
             result = self._run_command(command)
 
             if result.returncode not in [0, 1]:
+                cmd_str = " ".join(command)
                 raise Exception(
-                    f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
+                    f"Unexpected exit code:\n{cmd_str}\n\n Error:\n"
+                    f"{result.stderr}"
                 )
 
             try:
                 output_data = json.load(tempfile_json)
             except json.JSONDecodeError as e:
                 raise Exception(
-                    f"Failed to parse JSON output from evmone-state/blockchaintest: {e}"
+                    "Failed to parse JSON output from "
+                    f"evmone-state/blockchaintest: {e}"
                 ) from e
 
             if debug_output_path:
@@ -334,16 +338,28 @@ class EvmoneExceptionMapper(ExceptionMapper):
             "max priority fee per gas higher than max fee per gas"
         ),
         TransactionException.NONCE_IS_MAX: "nonce has max value:",
-        TransactionException.TYPE_4_TX_CONTRACT_CREATION: "set code transaction must ",
-        TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE: "invalid authorization signature",
+        TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
+            "set code transaction must "
+        ),
+        TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE: (
+            "invalid authorization signature"
+        ),
         TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE_S_TOO_HIGH: (
             "authorization signature s value too high"
         ),
-        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: "empty authorization list",
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            "empty authorization list"
+        ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
-        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "intrinsic gas too low",
-        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: "blob gas limit exceeded",
-        TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            "intrinsic gas too low"
+        ),
+        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
+            "blob gas limit exceeded"
+        ),
+        TransactionException.INITCODE_SIZE_EXCEEDED: (
+            "max initcode size exceeded"
+        ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             "insufficient funds for gas * price + value"
         ),
@@ -353,23 +369,43 @@ class EvmoneExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "max blob fee per gas less than block base fee"
         ),
-        TransactionException.TYPE_4_TX_PRE_FORK: "transaction type not supported",
-        TransactionException.TYPE_3_TX_PRE_FORK: "transaction type not supported",
-        TransactionException.TYPE_2_TX_PRE_FORK: "transaction type not supported",
-        TransactionException.TYPE_1_TX_PRE_FORK: "transaction type not supported",
-        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "invalid blob hash version",
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "blob gas limit exceeded",
+        TransactionException.TYPE_4_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
+        TransactionException.TYPE_3_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
+        TransactionException.TYPE_2_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
+        TransactionException.TYPE_1_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
+        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
+            "invalid blob hash version"
+        ),
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            "blob gas limit exceeded"
+        ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "empty blob hashes list",
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
             "blob transaction must not be a create transaction"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: "nonce too low",
         TransactionException.NONCE_MISMATCH_TOO_HIGH: "nonce too high",
-        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: "max gas limit exceeded",
-        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "invalid deposit event layout",
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            "max gas limit exceeded"
+        ),
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+            "invalid deposit event layout"
+        ),
         # TODO EVMONE needs to differentiate when the system contract is
         # missing or failing
-        BlockException.SYSTEM_CONTRACT_EMPTY: "system contract empty or failed",
-        BlockException.SYSTEM_CONTRACT_CALL_FAILED: "system contract empty or failed",
+        BlockException.SYSTEM_CONTRACT_EMPTY: (
+            "system contract empty or failed"
+        ),
+        BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
+            "system contract empty or failed"
+        ),
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}

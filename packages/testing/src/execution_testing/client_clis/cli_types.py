@@ -137,17 +137,20 @@ class TransactionTraces(CamelModel):
         """Return True if the only difference is the gas counter."""
         if len(self.traces) != len(other.traces):
             logger.debug(
-                f"Traces have different lengths: {len(self.traces)} != {len(other.traces)}."
+                f"Traces have different lengths: "
+                f"{len(self.traces)} != {len(other.traces)}."
             )
             return False
         if self.output != other.output:
             logger.debug(
-                f"Traces have different outputs: {self.output} != {other.output}."
+                f"Traces have different outputs: "
+                f"{self.output} != {other.output}."
             )
             return False
         if self.gas_used != other.gas_used and not enable_post_processing:
             logger.debug(
-                f"Traces have different gas used: {self.gas_used} != {other.gas_used}."
+                f"Traces have different gas used: "
+                f"{self.gas_used} != {other.gas_used}."
             )
             return False
         own_traces = self.traces.copy()

@@ -18,28 +18,41 @@ class EthrexExceptionMapper(ExceptionMapper):
             "Invalid deposit request layout"
         ),
         BlockException.INVALID_REQUESTS: (
-            "Requests hash does not match the one in the header after executing"
+            "Requests hash does not match the one in "
+            "the header after executing"
         ),
         BlockException.INVALID_RECEIPTS_ROOT: (
-            "Receipts Root does not match the one in the header after executing"
+            "Receipts Root does not match the one in "
+            "the header after executing"
         ),
         BlockException.INVALID_STATE_ROOT: (
-            "World State Root does not match the one in the header after executing"
+            "World State Root does not match the one in "
+            "the header after executing"
         ),
-        BlockException.INVALID_GAS_USED: "Gas used doesn't match value in header",
-        BlockException.INCORRECT_BLOB_GAS_USED: "Blob gas used doesn't match value in header",
-        BlockException.INVALID_BASEFEE_PER_GAS: "Base fee per gas is incorrect",
+        BlockException.INVALID_GAS_USED: (
+            "Gas used doesn't match value in header"
+        ),
+        BlockException.INCORRECT_BLOB_GAS_USED: (
+            "Blob gas used doesn't match value in header"
+        ),
+        BlockException.INVALID_BASEFEE_PER_GAS: (
+            "Base fee per gas is incorrect"
+        ),
     }
     mapping_regex = {
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             r"(?i)priority fee.* is greater than max fee.*"
         ),
-        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: r"(?i)empty authorization list",
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            r"(?i)empty authorization list"
+        ),
         TransactionException.SENDER_NOT_EOA: (
             r"reject transactions from senders with deployed code|"
             r"Sender account .* shouldn't be a contract"
         ),
-        TransactionException.NONCE_MISMATCH_TOO_LOW: r"nonce \d+ too low, expected \d+|Nonce mismatch.*",
+        TransactionException.NONCE_MISMATCH_TOO_LOW: (
+            r"nonce \d+ too low, expected \d+|Nonce mismatch.*"
+        ),
         TransactionException.NONCE_MISMATCH_TOO_HIGH: r"Nonce mismatch.*",
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
@@ -62,28 +75,35 @@ class EthrexExceptionMapper(ExceptionMapper):
         # can't decode it.
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
             r"unexpected length|Contract creation in type 4 transaction|"
-            r"Error decoding field 'to' of type primitive_types::H160: InvalidLength"
+            r"Error decoding field 'to' of type primitive_types::H160: "
+            r"InvalidLength"
         ),
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
             r"unexpected length|Contract creation in type 3 transaction|"
-            r"Error decoding field 'to' of type primitive_types::H160: InvalidLength"
+            r"Error decoding field 'to' of type primitive_types::H160: "
+            r"InvalidLength"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
             r"eip 7702 transactions present in pre-prague payload|"
             r"Type 4 transactions are not supported before the Prague fork"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            r"lack of funds \(\d+\) for max fee \(\d+\)|Insufficient account funds"
+            r"lack of funds \(\d+\) for max fee \(\d+\)|"
+            r"Insufficient account funds"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"gas floor exceeds the gas limit|call gas cost exceeds the gas limit|"
-            r"Transaction gas limit lower than the minimum gas cost to execute the transaction"
+            r"gas floor exceeds the gas limit|"
+            r"call gas cost exceeds the gas limit|"
+            r"Transaction gas limit lower than the minimum gas cost "
+            r"to execute the transaction"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"Transaction gas limit lower than the gas cost floor for calldata tokens"
+            r"Transaction gas limit lower than the gas cost floor "
+            r"for calldata tokens"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            r"gas price is less than basefee|Insufficient max fee per gas"
+            r"gas price is less than basefee|"
+            r"Insufficient max fee per gas"
         ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             r"blob gas price is greater than max fee per blob gas|"
@@ -103,7 +123,8 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"Invalid transaction: Gas limit price product overflow.*"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"Invalid transaction: Transaction gas limit exceeds maximum.*"
+            r"Invalid transaction: "
+            r"Transaction gas limit exceeds maximum.*"
         ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (r"System call failed.*"),
         BlockException.SYSTEM_CONTRACT_EMPTY: (

@@ -56,7 +56,8 @@ class BesuTransitionTool(TransitionTool):
             result = subprocess.run(args, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
             raise Exception(
-                f"evm process unexpectedly returned a non-zero status code: {e}."
+                "evm process unexpectedly returned a non-zero status "
+                f"code: {e}."
             ) from e
         except Exception as e:
             raise Exception(
@@ -149,7 +150,8 @@ class BesuTransitionTool(TransitionTool):
                 #!/bin/bash
                 # Use $1 as t8n-server port if provided, else default to 3000
                 PORT=${{1:-3000}}
-                curl http://localhost:${{PORT}}/ -X POST -H "Content-Type: application/json" \\
+                curl http://localhost:${{PORT}}/ -X POST \\
+                -H "Content-Type: application/json" \\
                 --data '{indented_post_data_string}'
                 """
             )
@@ -165,7 +167,8 @@ class BesuTransitionTool(TransitionTool):
             )
 
         response = requests.post(self.server_url, json=post_data, timeout=5)
-        response.raise_for_status()  # exception visible in pytest failure output
+        # exception visible in pytest failure output
+        response.raise_for_status()
         output: TransitionToolOutput = TransitionToolOutput.model_validate(
             response.json(),
             context={"exception_mapper": self.exception_mapper},
@@ -177,7 +180,9 @@ class BesuTransitionTool(TransitionTool):
                 {
                     "response.txt": response.text,
                     "status_code.txt": response.status_code,
-                    "time_elapsed_seconds.txt": response.elapsed.total_seconds(),
+                    "time_elapsed_seconds.txt": (
+                        response.elapsed.total_seconds()
+                    ),
                 },
             )
 
@@ -222,7 +227,8 @@ class BesuExceptionMapper(ExceptionMapper):
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
         TransactionException.NONCE_IS_MAX: "invalid Nonce must be less than",
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
-            "transaction invalid tx max fee per blob gas less than block blob gas fee"
+            "transaction invalid tx max fee per blob gas less than "
+            "block blob gas fee"
         ),
         TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
             "invalid Upfront gas cost cannot exceed 2^256 Wei"
@@ -230,13 +236,19 @@ class BesuExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             "transaction invalid gasPrice is less than the current BaseFee"
         ),
-        TransactionException.GAS_ALLOWANCE_EXCEEDED: "provided gas insufficient",
-        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
-            "transaction invalid max priority fee per gas cannot be greater than max fee per gas"
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (
+            "provided gas insufficient"
         ),
-        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "Invalid versionedHash",
+        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
+            "transaction invalid max priority fee per gas cannot be greater "
+            "than max fee per gas"
+        ),
+        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
+            "Invalid versionedHash"
+        ),
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
-            "transaction invalid transaction blob transactions must have a to address"
+            "transaction invalid transaction blob transactions must have "
+            "a to address"
         ),
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
             "Failed to decode transactions from block parameter"
@@ -248,11 +260,12 @@ class BesuExceptionMapper(ExceptionMapper):
             "Transaction type BLOB is invalid, accepted transaction types are"
         ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
-            "transaction invalid transaction code delegation transactions must have a "
-            "non-empty code delegation list"
+            "transaction invalid transaction code delegation transactions "
+            "must have a non-empty code delegation list"
         ),
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            "transaction invalid transaction code delegation transactions must have a to address"
+            "transaction invalid transaction code delegation transactions "
+            "must have a to address"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "transaction invalid Transaction type DELEGATE_CODE is invalid"
@@ -269,70 +282,95 @@ class BesuExceptionMapper(ExceptionMapper):
         BlockException.INCORRECT_BLOB_GAS_USED: (
             "Payload BlobGasUsed does not match calculated BlobGasUsed"
         ),
-        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: "Header validation failed (FULL)",
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
+            "Header validation failed (FULL)"
+        ),
         BlockException.INVALID_GASLIMIT: "Header validation failed (FULL)",
         BlockException.EXTRA_DATA_TOO_BIG: "Header validation failed (FULL)",
-        BlockException.INVALID_BLOCK_NUMBER: "Header validation failed (FULL)",
-        BlockException.INVALID_BASEFEE_PER_GAS: "Header validation failed (FULL)",
-        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "block timestamp not greater than parent",
-        BlockException.INVALID_LOG_BLOOM: "failed to validate output of imported block",
-        BlockException.INVALID_RECEIPTS_ROOT: "failed to validate output of imported block",
-        BlockException.INVALID_STATE_ROOT: "World State Root does not match expected value",
+        BlockException.INVALID_BLOCK_NUMBER: (
+            "Header validation failed (FULL)"
+        ),
+        BlockException.INVALID_BASEFEE_PER_GAS: (
+            "Header validation failed (FULL)"
+        ),
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
+            "block timestamp not greater than parent"
+        ),
+        BlockException.INVALID_LOG_BLOOM: (
+            "failed to validate output of imported block"
+        ),
+        BlockException.INVALID_RECEIPTS_ROOT: (
+            "failed to validate output of imported block"
+        ),
+        BlockException.INVALID_STATE_ROOT: (
+            "World State Root does not match expected value"
+        ),
     }
     mapping_regex = {
         BlockException.INVALID_REQUESTS: (
-            r"Invalid execution requests|Requests hash mismatch, calculated: 0x[0-9a-f]+ header: "
-            r"0x[0-9a-f]+"
+            r"Invalid execution requests|Requests hash mismatch, "
+            r"calculated: 0x[0-9a-f]+ header: 0x[0-9a-f]+"
         ),
         BlockException.INVALID_BLOCK_HASH: (
-            r"Computed block hash 0x[0-9a-f]+ does not match block hash parameter 0x[0-9a-f]+"
+            r"Computed block hash 0x[0-9a-f]+ does not match block "
+            r"hash parameter 0x[0-9a-f]+"
         ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
-            r"System call halted|System call did not execute to completion"
+            r"System call halted|"
+            r"System call did not execute to completion"
         ),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
             r"(Invalid system call, no code at address)|"
             r"(Invalid system call address:)"
         ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
-            r"Invalid (amount|index|pubKey|signature|withdrawalCred) (offset|size): "
-            r"expected (\d+), but got (-?\d+)|"
-            r"Invalid deposit log length\. Must be \d+ bytes, but is \d+ bytes"
+            r"Invalid (amount|index|pubKey|signature|withdrawalCred) "
+            r"(offset|size): expected (\d+), but got (-?\d+)|"
+            r"Invalid deposit log length\. Must be \d+ bytes, "
+            r"but is \d+ bytes"
         ),
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             r"Block size of \d+ bytes exceeds limit of \d+ bytes"
         ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
-            r"transaction invalid Initcode size of \d+ exceeds maximum size of \d+"
+            r"transaction invalid Initcode size of \d+ exceeds "
+            r"maximum size of \d+"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            r"transaction invalid transaction up-front cost 0x[0-9a-f]+ exceeds transaction "
-            r"sender account balance 0x[0-9a-f]+"
+            r"transaction invalid transaction up-front cost 0x[0-9a-f]+ "
+            r"exceeds transaction sender account balance 0x[0-9a-f]+"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"transaction invalid intrinsic gas cost \d+ exceeds gas limit \d+"
+            r"transaction invalid intrinsic gas cost \d+ "
+            r"exceeds gas limit \d+"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"transaction invalid intrinsic gas cost \d+ exceeds gas limit \d+"
+            r"transaction invalid intrinsic gas cost \d+ "
+            r"exceeds gas limit \d+"
         ),
         TransactionException.SENDER_NOT_EOA: (
-            r"transaction invalid Sender 0x[0-9a-f]+ has deployed code and so is not authorized "
-            r"to send transactions"
+            r"transaction invalid Sender 0x[0-9a-f]+ has deployed code "
+            r"and so is not authorized to send transactions"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
-            r"transaction invalid transaction nonce \d+ below sender account nonce \d+"
+            r"transaction invalid transaction nonce \d+ "
+            r"below sender account nonce \d+"
         ),
         TransactionException.NONCE_MISMATCH_TOO_HIGH: (
-            r"transaction invalid transaction nonce \d+ does not match sender account nonce \d+"
+            r"transaction invalid transaction nonce \d+ "
+            r"does not match sender account nonce \d+"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"transaction invalid Transaction gas limit must be at most \d+"
+            r"transaction invalid Transaction gas limit "
+            r"must be at most \d+"
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
-            r"Blob transaction 0x[0-9a-f]+ exceeds block blob gas limit: \d+ > \d+"
+            r"Blob transaction 0x[0-9a-f]+ exceeds "
+            r"block blob gas limit: \d+ > \d+"
         ),
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
-            r"Blob transaction has too many blobs: \d+|Invalid Blob Count: \d+"
+            r"Blob transaction has too many blobs: \d+|"
+            r"Invalid Blob Count: \d+"
         ),
         # BAL Exceptions: TODO - review once all clients completed.
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (

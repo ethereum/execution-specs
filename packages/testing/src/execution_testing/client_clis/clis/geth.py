@@ -63,41 +63,65 @@ class GethExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_PRE_FORK: (
             "transaction type not supported"
         ),
-        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "has invalid hash version",
+        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
+            "has invalid hash version"
+        ),
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "blob transaction has too many blobs",
-        TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            "blob transaction has too many blobs"
+        ),
+        TransactionException.TYPE_3_TX_ZERO_BLOBS: (
+            "blob transaction missing blob hashes"
+        ),
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
             "unexpected blob sidecar in transaction at index"
         ),
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
-            "input string too short for common.Address, decoding into (types.BlobTx).To"
+            "input string too short for common.Address, "
+            "decoding into (types.BlobTx).To"
         ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
             "EIP-7702 transaction with empty auth list"
         ),
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            "input string too short for common.Address, decoding into (types.SetCodeTx).To"
+            "input string too short for common.Address, "
+            "decoding into (types.SetCodeTx).To"
         ),
-        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: "transaction gas limit too high",
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            "transaction gas limit too high"
+        ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "transaction type not supported"
         ),
-        TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
+        TransactionException.INITCODE_SIZE_EXCEEDED: (
+            "max initcode size exceeded"
+        ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: "nonce too low",
         TransactionException.NONCE_MISMATCH_TOO_HIGH: "nonce too high",
         BlockException.INCORRECT_BLOB_GAS_USED: "blob gas used mismatch",
         BlockException.INCORRECT_EXCESS_BLOB_GAS: "invalid excessBlobGas",
-        BlockException.INVALID_VERSIONED_HASHES: "invalid number of versionedHashes",
+        BlockException.INVALID_VERSIONED_HASHES: (
+            "invalid number of versionedHashes"
+        ),
         BlockException.INVALID_REQUESTS: "invalid requests hash",
-        BlockException.SYSTEM_CONTRACT_CALL_FAILED: "system call failed to execute:",
+        BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
+            "system call failed to execute:"
+        ),
         BlockException.INVALID_BLOCK_HASH: "blockhash mismatch",
-        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: "block RLP-encoded size exceeds maximum",
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: "BAL change not reported in computed",
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: "additional mutations compared to BAL",
+        BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
+            "block RLP-encoded size exceeds maximum"
+        ),
+        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
+            "BAL change not reported in computed"
+        ),
+        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
+            "additional mutations compared to BAL"
+        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: "unequal",
         BlockException.INVALID_BASEFEE_PER_GAS: "invalid baseFee",
-        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "invalid timestamp",
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
+            "invalid timestamp"
+        ),
         BlockException.INVALID_GASLIMIT: "invalid gas limit",
         BlockException.INVALID_BLOCK_NUMBER: "invalid block number",
         BlockException.EXTRA_DATA_TOO_BIG: "invalid extradata length",
@@ -112,7 +136,9 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.BLOB_GAS_USED_ABOVE_LIMIT: (
             r"blob gas used \d+ exceeds maximum allowance \d+"
         ),
-        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: r"invalid gasUsed: have \d+, gasLimit \d+",
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
+            r"invalid gasUsed: have \d+, gasLimit \d+"
+        ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             r"invalid requests hash|failed to parse deposit logs"
         ),
@@ -136,11 +162,12 @@ class GethExceptionMapper(ExceptionMapper):
         ),
         BlockException.INVALID_BAL_HASH: (r"invalid block access list:"),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
-            r"computed state diff contained mutated accounts which weren't reported in BAL"
+            r"computed state diff contained mutated accounts "
+            r"which weren't reported in BAL"
         ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
-            r"difference between computed state diff and BAL entry for account"
-            r"|invalid block access list:"
+            r"difference between computed state diff and "
+            r"BAL entry for account|invalid block access list:"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (r"invalid block access list:"),
     }
@@ -306,7 +333,8 @@ class GethFixtureConsumer(
 
         if result.returncode != 0:
             raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
+                f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                f"Error:\n{result.stderr}"
             )
 
         result_json = json.loads(result.stdout)
@@ -360,7 +388,8 @@ class GethFixtureConsumer(
 
         if result.returncode != 0:
             raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
+                f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                f"Error:\n{result.stderr}"
             )
 
         result_json = json.loads(result.stdout)
@@ -435,5 +464,6 @@ class GethFixtureConsumer(
             )
         else:
             raise Exception(
-                f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
+                f"Fixture format {fixture_format.format_name} "
+                f"not supported by {self.binary}"
             )

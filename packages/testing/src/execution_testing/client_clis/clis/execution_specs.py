@@ -170,13 +170,18 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
     """
 
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
-        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: "EmptyAuthorizationListError",
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            "EmptyAuthorizationListError"
+        ),
         TransactionException.SENDER_NOT_EOA: "InvalidSenderError",
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
             "TransactionTypeContractCreationError("
-            "'transaction type `SetCodeTransaction` not allowed to create contracts')"
+            "'transaction type `SetCodeTransaction` not allowed to "
+            "create contracts')"
         ),
-        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: "InsufficientBalanceError",
+        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
+            "InsufficientBalanceError"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "BlobGasLimitExceededError"
         ),
@@ -187,30 +192,46 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
             "InvalidBlobVersionedHashError"
         ),
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "BlobCountExceededError",
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            "BlobCountExceededError"
+        ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "NoBlobDataError",
-        TransactionException.INTRINSIC_GAS_TOO_LOW: "InsufficientTransactionGasError",
-        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "InsufficientTransactionGasError",
+        TransactionException.INTRINSIC_GAS_TOO_LOW: (
+            "InsufficientTransactionGasError"
+        ),
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            "InsufficientTransactionGasError"
+        ),
         TransactionException.INITCODE_SIZE_EXCEEDED: "InitCodeTooLargeError",
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "PriorityFeeGreaterThanMaxFeeError"
         ),
-        TransactionException.NONCE_MISMATCH_TOO_HIGH: "NonceMismatchError('nonce too high')",
-        TransactionException.NONCE_MISMATCH_TOO_LOW: "NonceMismatchError('nonce too low')",
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (
+            "NonceMismatchError('nonce too high')"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_LOW: (
+            "NonceMismatchError('nonce too low')"
+        ),
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
             "TransactionTypeContractCreationError("
-            "'transaction type `BlobTransaction` not allowed to create contracts')"
+            "'transaction type `BlobTransaction` not allowed to "
+            "create contracts')"
         ),
         TransactionException.NONCE_IS_MAX: "NonceOverflowError",
-        TransactionException.GAS_ALLOWANCE_EXCEEDED: "GasUsedExceedsLimitError",
-        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: "TransactionGasLimitExceededError",
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (
+            "GasUsedExceedsLimitError"
+        ),
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            "TransactionGasLimitExceededError"
+        ),
         BlockException.SYSTEM_CONTRACT_EMPTY: "System contract address",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "call failed:",
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "deposit",
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        # Temporary solution for issue #1981.
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            r"InsufficientMaxFeePerGasError|InvalidBlock"  # Temporary solution for issue #1981.
+            r"InsufficientMaxFeePerGasError|InvalidBlock"
         ),
         TransactionException.TYPE_1_TX_PRE_FORK: (
             r"module '.*transactions' has no attribute 'AccessListTransaction'"
