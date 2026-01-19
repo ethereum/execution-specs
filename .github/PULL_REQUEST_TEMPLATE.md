@@ -10,11 +10,9 @@ N/A.
 <!-- Please check off all required items. For those that don't apply remove them accordingly. -->
 
 - [ ] All: Ran fast `tox` checks to avoid unnecessary CI fails, see also [Code Standards](https://eest.ethereum.org/main/getting_started/code_standards/) and [Enabling Pre-commit Checks](https://eest.ethereum.org/main/dev/precommit/):
-
     ```console
     uvx tox -e static
     ```
-
 - [ ] All: PR title adheres to the [repo standard](https://eest.ethereum.org/main/getting_started/contributing/?h=contri#commit-messages-issue-and-pr-titles) - it will be used as the squash commit message and should start `type(scope):`.
 - [ ] All: Considered updating the online docs in the [./docs/](/ethereum/execution-specs/blob/HEAD/docs/) directory.
 - [ ] All: Set appropriate labels for the changes (only maintainers can apply labels).
