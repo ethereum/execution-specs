@@ -313,6 +313,7 @@ class Alloc(BaseAlloc):
         Deploy a contract to the allocation at a deterministic location
         using a deterministic deployment proxy.
         """
+        del storage
         gas_costs = self._fork.gas_costs()
         memory_expansion_gas_calculator = (
             self._fork.memory_expansion_gas_calculator()

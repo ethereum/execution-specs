@@ -170,7 +170,6 @@ def test_post_storage_value_mismatch(
     expected_exception: Storage.KeyValueMismatchError,
     state_test: StateTest,
     default_t8n: TransitionTool,
-    fork: Fork,
 ) -> None:
     """
     Test post state `Account.storage` exceptions during state test fixture
@@ -205,7 +204,6 @@ def test_post_nonce_value_mismatch(
     post: Alloc,
     state_test: StateTest,
     default_t8n: TransitionTool,
-    fork: Fork,
 ) -> None:
     """
     Test post state `Account.nonce` verification and exceptions during state
@@ -251,7 +249,6 @@ def test_post_code_value_mismatch(
     post: Alloc,
     state_test: StateTest,
     default_t8n: TransitionTool,
-    fork: Fork,
 ) -> None:
     """
     Test post state `Account.code` verification and exceptions during state
@@ -297,7 +294,6 @@ def test_post_balance_value_mismatch(
     post: Alloc,
     state_test: StateTest,
     default_t8n: TransitionTool,
-    fork: Fork,
 ) -> None:
     """
     Test post state `Account.balance` verification and exceptions during state
@@ -352,7 +348,6 @@ def test_post_balance_value_mismatch(
 def test_post_account_mismatch(
     state_test: StateTest,
     default_t8n: TransitionTool,
-    fork: Fork,
     exception_type: Type[Exception] | None,
 ) -> None:
     """
@@ -435,7 +430,6 @@ def test_post_account_mismatch(
 def test_transaction_expectation(
     state_test: StateTest,
     default_t8n: TransitionTool,
-    fork: Fork,
     exception_type: Type[Exception] | None,
     fixture_format: FixtureFormat,
 ) -> None:

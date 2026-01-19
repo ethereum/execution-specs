@@ -1319,6 +1319,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         When parametrize, indirect must be used along with the fixture format
         as value.
         """
+        del fixed_opcode_count
         if hasattr(request.node, "fixture_format"):
             fixture_format = request.node.fixture_format
         else:

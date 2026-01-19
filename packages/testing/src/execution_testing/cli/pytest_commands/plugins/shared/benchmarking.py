@@ -137,10 +137,12 @@ class GasBenchmarkValues(RootModel, BenchmarkParametrizer):
         cls, config: pytest.Config, value: str
     ) -> Self | None:
         """Given the parameter value and config, return the expected object."""
+        del config
         return cls.model_validate(value.split(","))
 
     def get_test_parameters(self, test_name: str) -> list[ParameterSet]:
         """Get benchmark values. All tests have the same list."""
+        del test_name
         return [
             pytest.param(
                 gas_value * 1_000_000,

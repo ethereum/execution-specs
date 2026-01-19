@@ -159,6 +159,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
     @classmethod
     def is_installed(cls, binary_path: Optional[Path] = None) -> bool:
         """ExecutionSpecs is always installed."""
+        del binary_path
         return True
 
 

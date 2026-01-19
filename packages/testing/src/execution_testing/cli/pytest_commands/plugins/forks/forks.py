@@ -1214,6 +1214,7 @@ def pytest_collection_modifyitems(
     param-level ones, allowing us to properly filter tests based on param-level
     valid_from/valid_until markers.
     """
+    del config
     items_to_remove = []
 
     for i, item in enumerate(items):
