@@ -853,12 +853,12 @@ class Alloc(BaseAlloc):
         )
         transaction_batches: List[List[PendingTransaction]] = []
         last_tx_batch: List[PendingTransaction] = []
-        MAX_TXS_PER_BATCH = 100
+        max_txs_per_batch = 100
         for tx in self._pending_txs:
             assert tx.value is not None, (
                 "Transaction value must be set before sending them to the RPC."
             )
-            if len(last_tx_batch) >= MAX_TXS_PER_BATCH:
+            if len(last_tx_batch) >= max_txs_per_batch:
                 transaction_batches.append(last_tx_batch)
                 last_tx_batch = []
             last_tx_batch.append(tx)

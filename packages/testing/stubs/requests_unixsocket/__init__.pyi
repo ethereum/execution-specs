@@ -12,7 +12,7 @@ class Session(requests.Session):
         self, url_scheme: str = ..., *args: Incomplete, **kwargs: Incomplete
     ) -> None: ...
 
-class monkeypatch:
+class monkeypatch:  # noqa: N801
     session: Session
     methods: Tuple[str | bytes, ...]
     orig_methods: dict[str | bytes, Callable]
