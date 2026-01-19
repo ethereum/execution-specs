@@ -39,13 +39,13 @@ For example, at the time of writing, the Prague Fork is still under development 
 
 #### Forks live on mainnet
 
-The final stable specification for all forks that are currently live on mainnet are in the `master` branch.
+The final stable specification for all forks that are currently live on mainnet are in the `mainnet` branch.
 
 #### Fork under development
 
 At any given time, there can only be one fork under active development. The branch structure for the fork under development is as follows:
 
-- `forks/<FORK_NAME>`: The main branch for the fork under development. For example, `forks/prague` is the branch for the Prague fork. This branch will  be merged into `master` after the fork has gone live on mainnet.
+- `forks/<FORK_NAME>`: The main branch for the fork under development. For example, `forks/prague` is the branch for the Prague fork. This branch will  be merged into `mainnet` after the fork has gone live on mainnet.
 - `eips/<FORK_NAME>/<EIP_NUMBER>`: Branches for each EIP within the fork under development. For example, `eips/prague/eip-7702` is the branch for EIP-7702 for the Prague fork. This branch will be merged into `forks/prague` after the EIP has been confirmed for release in the fork.
 
 ## Writing New EIPS
