@@ -194,6 +194,8 @@ class BlobAndProofV2(CamelModel):
 class GetPayloadResponse(CamelModel):
     """Represents the response of a get payload request."""
 
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
     execution_payload: FixtureExecutionPayload
     blobs_bundle: BlobsBundle | None = None
     execution_requests: List[Bytes] | None = None
