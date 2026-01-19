@@ -106,7 +106,6 @@ from .vm import (
     Opcode,
     OpcodeCallArg,
     Opcodes,
-    UndefinedOpcodes,
     call_return_code,
 )
 
@@ -190,7 +189,6 @@ __all__ = (
     "TransactionTest",
     "TransactionTestFiller",
     "TransactionType",
-    "UndefinedOpcodes",
     "While",
     "CoerceBytes",
     "Withdrawal",

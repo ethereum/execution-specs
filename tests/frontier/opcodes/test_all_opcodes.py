@@ -18,7 +18,6 @@ from execution_testing import (
     ParameterSet,
     StateTestFiller,
     Transaction,
-    UndefinedOpcodes,
     gas_test,
 )
 
@@ -78,7 +77,9 @@ def test_all_opcodes(
     code_worked = 1000
 
     code_contract: Dict[Opcode, Address] = {}
-    for opcode in sorted(set(Op) | set(UndefinedOpcodes)):
+    valid_opcodes = set(fork.valid_opcodes())
+    all_opcodes = set(Opcode(i) for i in range(0xFF + 1))
+    for opcode in sorted(valid_opcodes | all_opcodes):
         code_contract[opcode] = pre.deploy_contract(
             balance=10,
             code=prepare_stack(opcode) + opcode + prepare_suffix(opcode),
@@ -116,9 +117,7 @@ def test_all_opcodes(
         sender=pre.fund_eoa(),
         gas_limit=9_000_000,
         to=contract_address,
-        data=b"",
-        value=0,
-        protected=False,
+        protected=fork.supports_protected_txs(),
     )
 
     state_test(pre=pre, post=post, tx=tx)

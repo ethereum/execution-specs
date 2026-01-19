@@ -13,7 +13,6 @@ from .opcodes import (
     Opcode,
     OpcodeCallArg,
     Opcodes,
-    UndefinedOpcodes,
 )
 
 # Ergonomic alias for the commonly used Opcodes enum
@@ -31,6 +30,5 @@ __all__ = (
     "OpcodeCallArg",
     "OpcodeGasCalculator",
     "Opcodes",
-    "UndefinedOpcodes",
     "call_return_code",
 )
