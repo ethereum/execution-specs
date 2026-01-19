@@ -1,5 +1,5 @@
 """
-State Trie.
+Binary Trie.
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -12,39 +12,19 @@ The state trie is the structure responsible for storing
 `.fork_types.Account` objects.
 """
 
-import copy
-from dataclasses import dataclass, field
+# import copy
 from typing import (
     Callable,
-    Dict,
-    Generic,
-    List,
-    Mapping,
-    MutableMapping,
     Optional,
-    Sequence,
-    Tuple,
-    TypeVar,
-    cast,
 )
 
-from ethereum_rlp import Extended, rlp
-from ethereum_types.bytes import Bytes
-from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U256, Uint
-from typing_extensions import assert_type
+from ethereum_types.bytes import Bytes32
 
-from ethereum.crypto.hash import keccak256
-from ethereum.forks.bpo5 import trie as previous_trie
-from ethereum.utils.hexadecimal import hex_to_bytes
+# from ethereum.forks.bpo5 import trie as previous_trie
 
-from .blocks import Receipt, Withdrawal
-from .fork_types import Account, Address, Root, encode_account
-from .transactions import LegacyTransaction
+from .fork_types import Account, Address, Root
 
-from typing import Optional
 from blake3 import blake3
-
 
 class StemNode:
     def __init__(self, stem: bytes):
@@ -111,7 +91,7 @@ class BinaryTree:
         assert len(key) == 32, "key must be 32 bytes"
 
         if self.root is None:
-            return 0
+            return None
 
         return self._get(self.root, key[:31], key[31], 0)
 
@@ -136,8 +116,8 @@ class BinaryTree:
             return self._get(self.right, stem, subindex, depth+1)
 
     def _split_leaf(self, leaf, stem_bits, existing_stem_bits, subindex, value, depth):
-        # If the stem bits are the same up to this depth, we need to create another
-        # internal node and recurse.
+        # If the stem bits are the same up to this depth, we need to create
+        # another internal node and recurse.
         if stem_bits[depth] == existing_stem_bits[depth]:
             new_internal = InternalNode()
             bit = stem_bits[depth]
@@ -225,14 +205,15 @@ class BinaryTree:
 #     """
 #     return Trie(trie.secured, trie.default, copy.copy(trie._data))
 
-
-def trie_set(trie: Trie[K, V], key: K, value: V) -> None:
+# TODO replace value : bytes by several types: accounts or slots
+def trie_set(trie: BinaryTree, key: Bytes32, value: bytes) -> None:
     """
     """
+    # TODO compute key using get_tree_key
     trie.insert(key, value)
 
 
-def trie_get(trie: Trie[K, V], key: K) -> V:
+def trie_get(trie: BinaryTree, key: Bytes32) -> Bytes32:
     """
     """
     v = trie.get(key)
@@ -242,8 +223,8 @@ def trie_get(trie: Trie[K, V], key: K) -> V:
 
 
 def root(
-    trie: Trie[K, V],
-    get_storage_root: Optional[Callable[[Address], Root]] = None,
+    trie: BinaryTree,
+    _: Optional[Callable[[Address], Root]] = None,
 ) -> Root:
     """
     """
