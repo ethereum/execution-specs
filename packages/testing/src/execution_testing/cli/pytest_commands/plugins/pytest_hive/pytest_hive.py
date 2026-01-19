@@ -48,6 +48,7 @@ from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 
 from execution_testing.logging import get_logger
+
 from .hive_info import ClientFile, HiveInfo
 
 logger = get_logger(__name__)

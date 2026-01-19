@@ -25,9 +25,6 @@ from _pytest.mark.structures import ParameterSet
 from pytest import Mark, Metafunc
 
 from execution_testing.client_clis import TransitionTool
-from execution_testing.logging import (
-    get_logger,
-)
 from execution_testing.forks import (
     ALL_FORKS,
     ALL_FORKS_WITH_TRANSITIONS,
@@ -38,6 +35,9 @@ from execution_testing.forks import (
     get_selected_fork_set,
     get_transition_forks,
     transition_fork_to,
+)
+from execution_testing.logging import (
+    get_logger,
 )
 
 logger = get_logger(__name__)

@@ -8,11 +8,11 @@ from pydantic import BaseModel
 from execution_testing.base_types import BlobSchedule
 
 from ..forks.forks import (
-    Amsterdam,
     BPO1,
     BPO2,
     BPO3,
     BPO4,
+    Amsterdam,
     Berlin,
     Cancun,
     Frontier,

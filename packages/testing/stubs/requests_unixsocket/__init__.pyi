@@ -1,8 +1,9 @@
+from typing import Callable, Self, Tuple
+
 import requests
-from typing import Tuple, Callable, Self
-from requests.sessions import _Data
 from _typeshed import Incomplete
 from requests.models import _JSON, Response
+from requests.sessions import _Data
 
 DEFAULT_SCHEME: str
 

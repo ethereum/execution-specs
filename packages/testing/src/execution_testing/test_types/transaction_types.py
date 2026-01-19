@@ -1,9 +1,9 @@
 """Transaction-related types for Ethereum tests."""
 
+import numbers
 from dataclasses import dataclass
 from enum import IntEnum
 from functools import cached_property
-import numbers
 from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
 
 import ethereum_rlp as eth_rlp

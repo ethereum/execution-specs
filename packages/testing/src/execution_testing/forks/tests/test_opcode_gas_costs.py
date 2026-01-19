@@ -4,7 +4,7 @@ import pytest
 
 from execution_testing.vm import Bytecode, Op
 
-from ..forks.forks import Osaka, Homestead
+from ..forks.forks import Homestead, Osaka
 from ..helpers import Fork
 
 

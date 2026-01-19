@@ -13,10 +13,10 @@ from filelock import FileLock
 
 from execution_testing.base_types.base_types import Bytes, Hash
 from execution_testing.base_types.pydantic import CamelModel
+from execution_testing.forks import Fork
 from execution_testing.logging import (
     get_logger,
 )
-from execution_testing.forks import Fork
 
 CACHED_BLOBS_DIRECTORY: Path = (
     Path(platformdirs.user_cache_dir("ethereum-execution-spec-tests"))
