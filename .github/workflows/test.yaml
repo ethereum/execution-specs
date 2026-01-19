@@ -12,6 +12,8 @@ on:
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
+      - "docs/**"                                                                                                                     
+      - "mkdocs.yml"
   workflow_dispatch:
   pull_request:
     paths-ignore:
