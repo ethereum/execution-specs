@@ -183,7 +183,7 @@ def execute_required_contracts(
     session_temp_folder: Path,
 ) -> None:
     """
-    Deploy required contracts for the execute command:
+    Deploy required contracts for the execute command.
 
     - Deterministic deployment proxy
     """

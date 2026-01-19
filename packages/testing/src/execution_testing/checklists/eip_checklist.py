@@ -257,7 +257,7 @@ class EIPChecklist:
                     If the opcode contains variables in its data portion, for
                     each variable `n` of the opcode that accesses the nth stack
                     item, test `n` being:
-                    """
+                    """  # noqa: D400,D415
 
                     class Top(ChecklistItem):
                         """`n` is the top stack item."""

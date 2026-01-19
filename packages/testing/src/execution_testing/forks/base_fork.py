@@ -602,7 +602,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @classmethod
     @abstractmethod
     def supports_protected_txs(cls) -> bool:
-        """Return whether the fork implements EIP-155 transaction protection"""
+        """Return whether the fork implements EIP-155 transaction protection."""
         pass
 
     @classmethod
