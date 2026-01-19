@@ -65,7 +65,10 @@ def test_simple_gas_accounting(
         to=contract_address,
         gas_limit=fork.transaction_gas_limit_cap(),
         sender=sender,
-        expected_receipt={"gas_used": gas_used_pre_refund},
+        expected_receipt={
+            "gas_used": gas_used_pre_refund,
+            "gas_spent": gas_used_post_refund,
+        },
     )
 
     gas_price = tx.gas_price or 10
