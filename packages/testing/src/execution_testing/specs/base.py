@@ -59,7 +59,10 @@ class HashMismatchExceptionError(Exception):
 
     def __str__(self) -> str:
         """Return the error message."""
-        return f"{self.message}: Expected {self.expected_hash}, got {self.actual_hash}"
+        return (
+            f"{self.message}: Expected {self.expected_hash}, "
+            f"got {self.actual_hash}"
+        )
 
 
 def verify_result(result: Result, env: Environment) -> None:
@@ -275,15 +278,15 @@ class BaseTest(BaseModel):
         if negative_test_marker != exception:
             if exception:
                 raise Exception(
-                    "Test produced an invalid block or transaction but was not marked with the "
-                    "`exception_test` marker. Add the `@pytest.mark.exception_test` decorator "
-                    "to the test."
+                    "Test produced an invalid block or transaction but was "
+                    "not marked with the `exception_test` marker. Add the "
+                    "`@pytest.mark.exception_test` decorator to the test."
                 )
             else:
                 raise Exception(
-                    "Test didn't produce an invalid block or transaction but was marked with the "
-                    "`exception_test` marker. Remove the `@pytest.mark.exception_test` decorator "
-                    "from the test."
+                    "Test didn't produce an invalid block or transaction but "
+                    "was marked with the `exception_test` marker. Remove the "
+                    "`@pytest.mark.exception_test` decorator from the test."
                 )
 
     def get_genesis_environment(self) -> Environment:
@@ -294,8 +297,8 @@ class BaseTest(BaseModel):
         environment.
         """
         raise NotImplementedError(
-            f"{self.__class__.__name__} must implement genesis environment access for use with "
-            "pre-allocation groups."
+            f"{self.__class__.__name__} must implement genesis environment "
+            "access for use with pre-allocation groups."
         )
 
     def update_pre_alloc_groups(
@@ -307,8 +310,9 @@ class BaseTest(BaseModel):
         """
         if not hasattr(self, "pre"):
             raise AttributeError(
-                f"{self.__class__.__name__} does not have a 'pre' field. Pre-allocation groups "
-                "are only supported for test types that define pre-allocation."
+                f"{self.__class__.__name__} does not have a 'pre' field. "
+                "Pre-allocation groups are only supported for test types "
+                "that define pre-allocation."
             )
         pre_alloc_hash = self.compute_pre_alloc_group_hash()
         pre_alloc_group_builders.add_test_pre(
@@ -323,8 +327,9 @@ class BaseTest(BaseModel):
         """Hash (fork, env) in order to group tests by genesis config."""
         if not hasattr(self, "pre"):
             raise AttributeError(
-                f"{self.__class__.__name__} does not have a 'pre' field. Pre-allocation group "
-                "usage is only supported for test types that define pre-allocs."
+                f"{self.__class__.__name__} does not have a 'pre' field. "
+                "Pre-allocation group usage is only supported for test "
+                "types that define pre-allocs."
             )
         fork_digest = hashlib.sha256(self.fork.name().encode("utf-8")).digest()
         fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")

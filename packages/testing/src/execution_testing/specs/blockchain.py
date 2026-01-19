@@ -223,7 +223,8 @@ class Header(CamelModel):
                 value = getattr(target, field_name)
                 if baseline_value is Header.EMPTY_FIELD:
                     assert value is None, (
-                        f"invalid header field {field_name}, got {value}, want None"
+                        f"invalid header field {field_name}, "
+                        f"got {value}, want None"
                     )
                     continue
                 assert value == baseline_value, (
@@ -498,7 +499,9 @@ class BlockchainTest(BaseTest):
     ]
 
     supported_markers: ClassVar[Dict[str, str]] = {
-        "blockchain_test_engine_only": "Only generate a blockchain test engine fixture",
+        "blockchain_test_engine_only": (
+            "Only generate a blockchain test engine fixture"
+        ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
     }
 
@@ -586,12 +589,13 @@ class BlockchainTest(BaseTest):
         if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
             if failing_tx_count > 1:
                 raise Exception(
-                    "test correctness: only one transaction can produce an exception in a block"
+                    "test correctness: only one transaction can produce "
+                    "an exception in a block"
                 )
             if not txs[-1].error:
                 raise Exception(
-                    "test correctness: the transaction that produces an exception "
-                    + "must be the last transaction in the block"
+                    "test correctness: the transaction that produces an "
+                    "exception must be the last transaction in the block"
                 )
 
         transition_tool_output = t8n.evaluate(
@@ -664,10 +668,11 @@ class BlockchainTest(BaseTest):
             gas_used = int(transition_tool_output.result.gas_used)
 
             if not self.skip_gas_used_validation:
+                diff = gas_used - expected_benchmark_gas_used
                 assert gas_used == expected_benchmark_gas_used, (
-                    f"gas_used ({gas_used}) does not match expected_benchmark_gas_used "
-                    f"({expected_benchmark_gas_used})"
-                    f", difference: {gas_used - expected_benchmark_gas_used}"
+                    f"gas_used ({gas_used}) does not match "
+                    f"expected_benchmark_gas_used "
+                    f"({expected_benchmark_gas_used}), difference: {diff}"
                 )
 
         requests_list: List[Bytes] | None = None
@@ -683,8 +688,8 @@ class BlockchainTest(BaseTest):
 
             if Hash(requests) != header.requests_hash:
                 raise Exception(
-                    "Requests root in header does not match the requests root in the transition "
-                    "tool output: "
+                    "Requests root in header does not match the requests "
+                    "root in the transition tool output: "
                     f"{header.requests_hash} != {Hash(requests)}"
                 )
 
@@ -702,8 +707,8 @@ class BlockchainTest(BaseTest):
             assert (
                 transition_tool_output.result.block_access_list is not None
             ), (
-                "Block access list is required for this block but was not provided "
-                "by the transition tool"
+                "Block access list is required for this block but was not "
+                "provided by the transition tool"
             )
 
             rlp = transition_tool_output.result.block_access_list.rlp
@@ -727,7 +732,8 @@ class BlockchainTest(BaseTest):
         t8n_bal = transition_tool_output.result.block_access_list
         bal = t8n_bal
 
-        # Always validate BAL structural integrity (ordering, duplicates) if present
+        # Always validate BAL structural integrity (ordering, duplicates)
+        # if present
         if t8n_bal is not None:
             t8n_bal.validate_structure()
 
@@ -997,7 +1003,8 @@ class BlockchainTest(BaseTest):
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
             assert genesis.header.block_hash != head_hash, (
-                "Invalid payload tests negative test via sync is not supported yet."
+                "Invalid payload tests negative test via sync is not "
+                "supported yet."
             )
             # Most clients require the header to start the sync process, so we
             # create an empty block on top of the last block of the test to
@@ -1011,7 +1018,9 @@ class BlockchainTest(BaseTest):
             )
             fixture_data.update(
                 {
-                    "sync_payload": sync_built_block.get_fixture_engine_new_payload(),
+                    "sync_payload": (
+                        sync_built_block.get_fixture_engine_new_payload()
+                    ),
                     "pre": pre,
                     "post_state": alloc
                     if not self.exclude_full_post_state_in_output

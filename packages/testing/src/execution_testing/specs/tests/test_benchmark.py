@@ -51,20 +51,22 @@ def test_split_transaction(
 
     # Verify the number of transactions
     assert len(split_txs) == expected_splits, (
-        f"Expected {expected_splits} transactions for {gas_benchmark_value_millions}M gas, "
-        f"got {len(split_txs)}"
+        f"Expected {expected_splits} transactions for "
+        f"{gas_benchmark_value_millions}M gas, got {len(split_txs)}"
     )
 
     # Verify total gas equals the benchmark value
     total_gas = sum(tx.gas_limit for tx in split_txs)
     assert total_gas == gas_benchmark_value, (
-        f"Total gas {total_gas} doesn't match benchmark value {gas_benchmark_value}"
+        f"Total gas {total_gas} doesn't match benchmark "
+        f"value {gas_benchmark_value}"
     )
 
     # Verify no transaction exceeds the cap
     for i, tx in enumerate(split_txs):
         assert tx.gas_limit <= gas_limit_cap, (
-            f"Transaction {i} gas limit {tx.gas_limit} exceeds cap {gas_limit_cap}"
+            f"Transaction {i} gas limit {tx.gas_limit} "
+            f"exceeds cap {gas_limit_cap}"
         )
 
     # Verify nonces increment correctly
@@ -74,7 +76,8 @@ def test_split_transaction(
     # Verify gas distribution
     for i, tx in enumerate(split_txs[:-1]):  # All but last should be at cap
         assert tx.gas_limit == gas_limit_cap, (
-            f"Transaction {i} should have gas limit {gas_limit_cap}, got {tx.gas_limit}"
+            f"Transaction {i} should have gas limit {gas_limit_cap}, "
+            f"got {tx.gas_limit}"
         )
 
     # Last transaction should have the remainder
@@ -83,7 +86,8 @@ def test_split_transaction(
             gas_limit_cap * (expected_splits - 1)
         )
         assert split_txs[-1].gas_limit == expected_last_gas, (
-            f"Last transaction should have {expected_last_gas} gas, got {split_txs[-1].gas_limit}"
+            f"Last transaction should have {expected_last_gas} gas, "
+            f"got {split_txs[-1].gas_limit}"
         )
 
 

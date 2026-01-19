@@ -9,7 +9,8 @@ def print_traces(traces: List[Traces] | None) -> None:
     """Print the traces from the transition tool for debugging."""
     if traces is None:
         print(
-            "Traces not collected. Use `--traces` to see detailed execution information."
+            "Traces not collected. Use `--traces` to see detailed "
+            "execution information."
         )
         return
     print("Printing traces for debugging purposes:")

@@ -130,7 +130,8 @@ class CodeInFiller(BaseModel, TagDependentData):
 
         if not isinstance(raw_code, str):
             raise ValueError(
-                f"code is of type {type(raw_code)} but expected a string: {raw_code}"
+                f"code is of type {type(raw_code)} but expected a string: "
+                f"{raw_code}"
             )
         if len(raw_code) == 0:
             return b""

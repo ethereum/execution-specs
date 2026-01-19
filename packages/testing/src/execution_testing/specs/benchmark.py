@@ -178,21 +178,26 @@ class BenchmarkCodeGenerator(ABC):
         max_iterations = available_space // len(repeated_code)
 
         # Use fixed_opcode_count if provided, otherwise fill to max
-        # Iteration Logic: The goal is to set the total operation count proportional to a
-        # 'fixed_opcode_count' multiplied by 1000, across two contracts (Loop M * Target N).
+        # Iteration Logic: The goal is to set the total operation count
+        # proportional to a 'fixed_opcode_count' multiplied by 1000,
+        # across two contracts (Loop M * Target N).
 
         # --- 1. Determine Inner Iterations (N) ---
-        # The Target Contract's loop count is determined by block filling, capped at 1000.
+        # The Target Contract's loop count is determined by block filling,
+        # capped at 1000.
         #
         # 1a. Calculate 'max_iterations' to fill the block.
         # 1b. The Inner Iteration count (N) is capped at 1000.
-        # 1c. If the calculated N is less than 1000, use 500 as the fallback count.
+        # 1c. If the calculated N is less than 1000, use 500 as the fallback.
 
         # --- 2. Determine Outer Iterations (M) ---
-        # The Loop Contract's call count (M) is set to ensure the final total execution is consistent.
+        # The Loop Contract's call count (M) is set to ensure the final
+        # total execution is consistent.
         #
-        # 2a. If N is 1000: Set M = fixed_opcode_count. (Total ops: fixed_opcode_count * 1000)
-        # 2b. If N is 500: Set M = fixed_opcode_count * 2. (Total ops: (fixed_opcode_count * 2) * 500 = fixed_opcode_count * 1000)
+        # 2a. If N is 1000: Set M = fixed_opcode_count.
+        #     (Total ops: fixed_opcode_count * 1000)
+        # 2b. If N is 500: Set M = fixed_opcode_count * 2.
+        #     (Total ops: (fixed_opcode_count * 2) * 500)
         if self.fixed_opcode_count is not None:
             inner_iterations = 1000 if max_iterations >= 1000 else 500
             self._inner_iterations = min(max_iterations, inner_iterations)
@@ -221,8 +226,8 @@ class BenchmarkCodeGenerator(ABC):
         """Validate that the generated code fits within size limits."""
         if len(code) > fork.max_code_size():
             raise ValueError(
-                f"Generated code size {len(code)} exceeds maximum allowed size "
-                f"{fork.max_code_size()}"
+                f"Generated code size {len(code)} exceeds maximum "
+                f"allowed size {fork.max_code_size()}"
             )
 
 
@@ -268,7 +273,9 @@ class BenchmarkTest(BaseTest):
     ]
 
     supported_markers: ClassVar[Dict[str, str]] = {
-        "blockchain_test_engine_only": "Only generate a blockchain test engine fixture",
+        "blockchain_test_engine_only": (
+            "Only generate a blockchain test engine fixture"
+        ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
         "repricing": "Mark test as reference test for gas repricing analysis",
     }
@@ -295,7 +302,8 @@ class BenchmarkTest(BaseTest):
 
         if len(set_props) != 1:
             raise ValueError(
-                f"Exactly one must be set, but got {len(set_props)}: {', '.join(set_props)}"
+                f"Exactly one must be set, but got {len(set_props)}: "
+                f"{', '.join(set_props)}"
             )
 
         blocks: List[Block] = self.setup_blocks
@@ -335,7 +343,8 @@ class BenchmarkTest(BaseTest):
 
         else:
             raise ValueError(
-                "Cannot create BlockchainTest without a code generator, transactions, or blocks"
+                "Cannot create BlockchainTest without a code generator, "
+                "transactions, or blocks"
             )
 
         self.blocks = blocks
@@ -447,8 +456,9 @@ class BenchmarkTest(BaseTest):
     def _verify_target_opcode_count(
         self, opcode_count: OpcodeCount | None
     ) -> None:
-        """Verify the target opcode was executed the expected number of times."""
-        # Skip validation if opcode count is not available (e.g. currently only supported for evmone filling)
+        """Verify target opcode was executed the expected number of times."""
+        # Skip validation if opcode count is not available
+        # (e.g. currently only supported for evmone filling)
         if opcode_count is None:
             return
 
