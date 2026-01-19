@@ -22,6 +22,8 @@ on:
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
+      - "docs/**"                                                                                                                     
+      - "mkdocs.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
