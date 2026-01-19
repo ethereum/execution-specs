@@ -1123,6 +1123,39 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         parametrize_fork(metafunc, pytest_params)
 
 
+def get_param_level_min_valid_fork(metafunc: Metafunc) -> Fork | None:
+    """
+    Extract the minimum valid fork from param-level valid_from markers.
+
+    Returns the earliest fork from any valid_from marker inside pytest.param,
+    or None if no such markers exist.
+    """
+    min_fork: Fork | None = None
+
+    for marker in metafunc.definition.iter_markers("parametrize"):
+        if len(marker.args) < 2:
+            continue
+
+        for value in marker.args[1]:
+            if not isinstance(value, ParameterSet) or not value.marks:
+                continue
+
+            for mark in value.marks:
+                mark_obj = mark.mark if hasattr(mark, "mark") else mark
+                if mark_obj.name == "valid_from" and mark_obj.args:
+                    fork_name = mark_obj.args[0]
+                    try:
+                        for fork in ALL_FORKS:
+                            if fork.name() == fork_name:
+                                if min_fork is None or fork < min_fork:
+                                    min_fork = fork
+                                break
+                    except (ValueError, InvalidForkError):
+                        pass
+
+    return min_fork
+
+
 def add_fork_covariant_parameters(
     metafunc: Metafunc, fork_parametrizers: List[ForkParametrizer]
 ) -> None:
@@ -1130,7 +1163,24 @@ def add_fork_covariant_parameters(
     Iterate over the fork covariant descriptors and add their values to the
     test function.
     """
-    # Process all covariant decorators uniformly
+    # Check if any covariant markers are present
+    has_covariant_markers = any(
+        list(metafunc.definition.iter_markers(cd.marker_name))
+        for cd in fork_covariant_decorators
+    ) or any(
+        marker.name == "parametrize_by_fork"
+        for marker in metafunc.definition.iter_markers()
+    )
+
+    # Filter forks before any param-level valid_from to avoid covariant
+    # assertion errors
+    if has_covariant_markers:
+        param_min_fork = get_param_level_min_valid_fork(metafunc)
+        if param_min_fork:
+            fork_parametrizers[:] = [
+                fp for fp in fork_parametrizers if fp.fork >= param_min_fork
+            ]
+
     for covariant_descriptor in fork_covariant_decorators:
         if list(
             metafunc.definition.iter_markers(covariant_descriptor.marker_name)
