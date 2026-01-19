@@ -415,9 +415,9 @@ def test_tx_types() -> None:  # noqa: D103
     "create_tx",
     [False, True],
 )
-def test_tx_intrinsic_gas_functions(
+def test_tx_intrinsic_gas_functions(  # noqa: D103
     fork: Fork, calldata: bytes, create_tx: bool
-) -> None:  # noqa: D103
+) -> None:
     intrinsic_gas = 21_000
     if calldata == b"\0":
         intrinsic_gas += 4

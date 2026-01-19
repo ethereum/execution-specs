@@ -107,9 +107,9 @@ def process_evm_bytes(evm_bytes: bytes) -> List[OpcodeWithOperands]:  # noqa: D1
     return opcodes
 
 
-def format_opcodes(
+def format_opcodes(  # noqa: D103
     opcodes: List[OpcodeWithOperands], assembly: bool = False
-) -> str:  # noqa: D103
+) -> str:
     if assembly:
         opcodes_with_empty_lines: List[OpcodeWithOperands] = []
         for i, op_with_operands in enumerate(opcodes):

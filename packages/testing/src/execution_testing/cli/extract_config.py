@@ -130,6 +130,8 @@ def extract_client_files(
 
 
 class GenesisState(BaseModel):
+    """Model representing genesis state for configuration extraction."""
+
     header: FixtureHeader
     alloc: Alloc
     chain_id: int = Field(exclude=True)
@@ -139,6 +141,7 @@ class GenesisState(BaseModel):
     def serialize_model(
         self, handler: SerializerFunctionWrapHandler
     ) -> dict[str, object]:
+        """Serialize the genesis state model to a dictionary."""
         serialized = handler(self)
         output = serialized["header"]
         output["alloc"] = {

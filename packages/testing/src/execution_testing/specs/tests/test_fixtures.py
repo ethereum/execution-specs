@@ -92,9 +92,9 @@ def test_check_helper_fixtures() -> None:
         Cancun,
     ],
 )
-def test_make_genesis(
+def test_make_genesis(  # noqa: D103
     fork: Fork, fixture_hash: bytes, default_t8n: TransitionTool
-) -> None:  # noqa: D103
+) -> None:
     env = Environment(gas_limit=100_000_000_000_000_000)
 
     pre = Alloc(

@@ -164,9 +164,9 @@ def test_extend_with_defaults_raises_for_unknown_default() -> None:  # noqa: D10
         ),
     ],
 )
-def test_extend_with_defaults_raises_value_error(
+def test_extend_with_defaults_raises_value_error(  # noqa: D103
     defaults: dict, cases: list
-) -> None:  # noqa: D103
+) -> None:
     expected_message = (
         "each case must contain exactly one value; a dict of parameter values"
     )

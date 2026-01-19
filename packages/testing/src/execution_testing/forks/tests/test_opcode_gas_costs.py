@@ -417,7 +417,7 @@ from ..helpers import Fork
         ),
     ],
 )
-def test_opcode_gas_costs(fork: Fork, opcode: Op, expected_cost: int) -> None:
+def test_opcode_gas_costs(fork: Fork, opcode: Op, expected_cost: int) -> None:  # noqa: D103
     op_gas_cost_calc = fork.opcode_gas_calculator()
     assert expected_cost == op_gas_cost_calc(opcode)
 
@@ -445,7 +445,7 @@ def test_opcode_gas_costs(fork: Fork, opcode: Op, expected_cost: int) -> None:
         ),
     ],
 )
-def test_bytecode_gas_costs(
+def test_bytecode_gas_costs(  # noqa: D103
     fork: Fork, bytecode: Bytecode, expected_cost: int
 ) -> None:
     assert expected_cost == bytecode.gas_cost(fork)
@@ -486,7 +486,7 @@ def test_bytecode_gas_costs(
         ),
     ],
 )
-def test_opcode_refunds(fork: Fork, opcode: Op, expected_refund: int) -> None:
+def test_opcode_refunds(fork: Fork, opcode: Op, expected_refund: int) -> None:  # noqa: D103
     op_refund_calc = fork.opcode_refund_calculator()
     assert expected_refund == op_refund_calc(opcode)
 
@@ -522,7 +522,7 @@ def test_opcode_refunds(fork: Fork, opcode: Op, expected_refund: int) -> None:
         ),
     ],
 )
-def test_bytecode_refunds(
+def test_bytecode_refunds(  # noqa: D103
     fork: Fork, bytecode: Bytecode, expected_refund: int
 ) -> None:
     assert expected_refund == bytecode.refund(fork)

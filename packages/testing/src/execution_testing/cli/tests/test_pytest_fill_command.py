@@ -21,7 +21,7 @@ def test_function(state_test, pre):
 
 
 @pytest.fixture
-def expected_exit_code() -> pytest.ExitCode:
+def expected_exit_code() -> pytest.ExitCode:  # noqa: D103
     return pytest.ExitCode.OK
 
 
