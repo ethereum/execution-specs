@@ -410,6 +410,7 @@ class Alloc(BaseAlloc):
             storage: The expected storage state of the deployed contract after
                      initcode execution.
             label: Label to use for the contract.
+
         """
         raise NotImplementedError(
             "deterministic_deploy_contract is not implemented in the base class"
@@ -466,6 +467,7 @@ class Alloc(BaseAlloc):
             minimum_balance: If set to True, account will be checked to have a
                 minimum balance of `amount` and only fund if the balance is
                 insufficient
+
         """
         raise NotImplementedError(
             "fund_address is not implemented in the base class"

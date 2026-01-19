@@ -63,6 +63,7 @@ class BlockAccessList(EthereumTestRootModel[List[BalAccountChange]]):
 
         Raises:
             BlockAccessListValidationError: If validation fails
+
         """
         # Check address ordering (ascending)
         for i in range(1, len(self.root)):

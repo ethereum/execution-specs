@@ -418,6 +418,7 @@ class EthRPC(BaseRPC):
 
         Raises:
             BlockNotAvailableError: If block not available after max_attempts.
+
         """
         attempts = 0
         start_time = time.time()
@@ -923,6 +924,7 @@ class EngineRPC(BaseRPC):
 
         Raises:
             ForkchoiceUpdateTimeoutError: If still SYNCING after max_attempts.
+
         """
         # Track state for exception message in the case of timeout
         attempts = 0
@@ -998,6 +1000,7 @@ class NetRPC(BaseRPC):
 
         Raises:
             PeerConnectionTimeoutError: If min_peers not reached within limits.
+
         """
         attempts = 0
         start_time = time.time()

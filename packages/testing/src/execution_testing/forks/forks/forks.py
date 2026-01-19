@@ -1388,6 +1388,7 @@ class Frontier(BaseFork, solc_name="homestead"):
 
         Raises:
             TypeError: If the overrides don't have the correct type.
+
         """
         from execution_testing.fixtures.blockchain import FixtureHeader
 

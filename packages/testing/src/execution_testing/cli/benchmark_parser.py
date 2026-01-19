@@ -200,6 +200,7 @@ def scan_benchmark_tests(
         Tuple of (config, pattern_sources) where:
         - config: mapping of pattern -> opcode counts
         - pattern_sources: mapping of pattern -> source file path
+
     """
     config: dict[str, list[int]] = {}
     pattern_sources: dict[str, Path] = {}

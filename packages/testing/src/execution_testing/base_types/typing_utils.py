@@ -17,6 +17,7 @@ def unwrap_annotation(hint: Any) -> Any:
 
     Returns:
         The unwrapped base type
+
     """
     type_args = get_args(hint)
     if not type_args:
