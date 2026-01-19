@@ -6,8 +6,20 @@ on:
       - master
       - mainnet
       - "forks/**"
+    paths-ignore:
+      - "**.md"
+      - "LICENSE*"
+      - ".gitignore"
+      - ".vscode/**"
+      - "whitelist.txt"
   workflow_dispatch:
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE*"
+      - ".gitignore"
+      - ".vscode/**"
+      - "whitelist.txt"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}

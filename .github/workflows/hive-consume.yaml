@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - "forks/**"
+    paths-ignore:
+      - "**.md"
+      - "LICENSE*"
+      - ".gitignore"
+      - ".vscode/**"
+      - "whitelist.txt"
   pull_request:
     paths:
       - ".github/workflows/hive-consume.yaml"

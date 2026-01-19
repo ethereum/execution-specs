@@ -11,6 +11,12 @@ on:
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/**"
       - ".github/workflows/benchmark.yaml"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE*"
+      - ".gitignore"
+      - ".vscode/**"
+      - "whitelist.txt"
   workflow_dispatch:
 
 concurrency:
