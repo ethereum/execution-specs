@@ -129,7 +129,7 @@ def test_bal_storage_reads_ordering() -> None:
 )
 def test_bal_block_access_indices_ordering(field_name: str) -> None:
     """
-    Test that transaction indices must be in ascending order within change lists.
+    Test tx indices must be in ascending order within change lists.
     """
     addr = Address(0xA)
 
@@ -281,20 +281,24 @@ def test_bal_duplicate_block_access_indices(field_name: str) -> None:
         [BalAccountChange(address=addr, **{field_name: changes})]
     )
 
+    match_pattern = (
+        f"Duplicate transaction indices in {field_name}.*Duplicates: \\[1\\]"
+    )
     with pytest.raises(
         BlockAccessListValidationError,
-        match=f"Duplicate transaction indices in {field_name}.*Duplicates: \\[1\\]",
+        match=match_pattern,
     ):
         bal.validate_structure()
 
 
 def test_bal_storage_duplicate_block_access_indices() -> None:
     """
-    Test that storage changes must not have duplicate tx indices within same slot.
+    Test storage changes must not have duplicate tx indices within same slot.
     """
     addr = Address(0xA)
 
-    # Create storage changes with duplicate block_access_index within the same slot
+    # Create storage changes with duplicate block_access_index within
+    # the same slot
     bal = BlockAccessList(
         [
             BalAccountChange(
@@ -322,9 +326,12 @@ def test_bal_storage_duplicate_block_access_indices() -> None:
         ]
     )
 
+    match_pattern = (
+        "Duplicate transaction indices in storage slot.*Duplicates: \\[1\\]"
+    )
     with pytest.raises(
         BlockAccessListValidationError,
-        match="Duplicate transaction indices in storage slot.*Duplicates: \\[1\\]",
+        match=match_pattern,
     ):
         bal.validate_structure()
 

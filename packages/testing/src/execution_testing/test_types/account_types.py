@@ -172,7 +172,10 @@ class Alloc(BaseAlloc):
 
         def __str__(self) -> str:
             """Print exception string."""
-            return f"unexpected account in allocation {self.address}: {self.account}"
+            return (
+                f"unexpected account in allocation {self.address}: "
+                f"{self.account}"
+            )
 
     @dataclass(kw_only=True)
     class MissingAccountError(Exception):
@@ -243,7 +246,8 @@ class Alloc(BaseAlloc):
         if overlapping_keys:
             if key_collision_mode == cls.KeyCollisionMode.ERROR:
                 raise Exception(
-                    f"Overlapping keys detected: {[key.hex() for key in overlapping_keys]}"
+                    f"Overlapping keys detected: "
+                    f"{[key.hex() for key in overlapping_keys]}"
                 )
             elif (
                 key_collision_mode
@@ -413,7 +417,8 @@ class Alloc(BaseAlloc):
 
         """
         raise NotImplementedError(
-            "deterministic_deploy_contract is not implemented in the base class"
+            "deterministic_deploy_contract is not implemented in the base "
+            "class"
         )
 
     def deploy_contract(

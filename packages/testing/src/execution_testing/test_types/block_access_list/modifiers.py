@@ -47,7 +47,8 @@ def _remove_field_from_accounts(
             # sanity check that we found all addresses specified
             missing = set(addresses) - found_addresses
             raise ValueError(
-                f"Some specified addresses were not found in the BAL: {missing}"
+                f"Some specified addresses were not found in the BAL: "
+                f"{missing}"
             )
 
         return BlockAccessList(root=new_root)
@@ -93,7 +94,9 @@ def _modify_field_value(
                                         == block_access_index
                                     ):
                                         kwargs = {
-                                            "block_access_index": block_access_index,
+                                            "block_access_index": (
+                                                block_access_index
+                                            ),
                                             value_field: new_value,
                                         }
                                         storage_slot.slot_changes[j] = (
@@ -298,8 +301,8 @@ def swap_bal_indices(
                                 ZeroPaddedHexNumber(idx1)
                             )
 
-            # Note: storage_reads is just a list of StorageKey, no block_access_index to
-            # swap
+            # Note: storage_reads is just a list of StorageKey, no
+            # block_access_index to swap
 
             # Swap in code changes
             if new_account.code_changes:
@@ -317,7 +320,8 @@ def swap_bal_indices(
 
             new_root.append(new_account)
 
-        # Validate that at least one swap occurred for each index across all change types
+        # Validate at least one swap occurred for each index across all
+        # change types
         idx1_found = (
             nonce_indices[idx1]
             or balance_indices[idx1]
@@ -333,11 +337,13 @@ def swap_bal_indices(
 
         if not idx1_found:
             raise ValueError(
-                f"Block access index {idx1} not found in any BAL changes to swap"
+                f"Block access index {idx1} not found in any BAL changes "
+                "to swap"
             )
         if not idx2_found:
             raise ValueError(
-                f"Block access index {idx2} not found in any BAL changes to swap"
+                f"Block access index {idx2} not found in any BAL changes "
+                "to swap"
             )
 
         return BlockAccessList(root=new_root)
@@ -365,8 +371,9 @@ def append_change(
     """
     Append a change to an account's field list.
 
-    Generic function to add extraneous entries to nonce_changes, balance_changes,
-    or code_changes fields. The field is inferred from the change type.
+    Generic function to add extraneous entries to nonce_changes,
+    balance_changes, or code_changes fields. The field is inferred from the
+    change type.
     """
     # Infer field name from change type
     if isinstance(change, BalNonceChange):
@@ -396,7 +403,8 @@ def append_change(
 
         if not found_address:
             raise ValueError(
-                f"Address {account} not found in BAL to append change to {field}"
+                f"Address {account} not found in BAL to append change to "
+                f"{field}"
             )
 
         return BlockAccessList(root=new_root)
@@ -415,7 +423,8 @@ def append_storage(
 
     Generic function for all storage operations:
     - If read=True: appends to storage_reads
-    - If change provided and slot exists: appends to existing slot's slot_changes
+    - If change provided and slot exists: appends to existing slot's
+      slot_changes
     - If change provided and slot new: creates new BalStorageSlot
     """
     found_address = False

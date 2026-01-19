@@ -42,7 +42,7 @@ class TransactionReceipt(CamelModel):
     @model_validator(mode="before")
     @classmethod
     def strip_extra_fields(cls, data: Any) -> Any:
-        """Strip extra fields from t8n tool output that are not part of the model."""
+        """Strip extra fields from t8n tool output not part of model."""
         if isinstance(data, dict):
             # t8n tool returns 'succeeded' which is redundant with 'status'
             data.pop("succeeded", None)

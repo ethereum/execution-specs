@@ -19,7 +19,7 @@ from execution_testing.test_types.block_access_list import (
 
 def test_bal_serialization_roundtrip_zero_padded_hex() -> None:
     """
-    Test that BAL serializes with zero-padded hex format and round-trips correctly.
+    Test BAL serializes with zero-padded hex format and round-trips correctly.
 
     This verifies that values like 12 serialize as "0x0c" (not "0xc"), which is
     required for consistency with other test vector fields.

@@ -48,7 +48,9 @@ class BalAccountExpectation(CamelModel):
     )
     absent_values: Optional[BalAccountAbsentValues] = Field(
         default=None,
-        description="Explicit absent value expectations using BalAccountAbsentValues",
+        description=(
+            "Explicit absent value expectations using BalAccountAbsentValues"
+        ),
     )
 
     _EMPTY: ClassVar[Optional["BalAccountExpectation"]] = None
@@ -108,7 +110,9 @@ class BlockAccessListExpectation(CamelModel):
         expected_block_access_list = BlockAccessListExpectation(
             account_expectations={
                 alice: BalAccountExpectation(
-                    nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)]
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ]
                 ),
                 bob: None,  # Bob should NOT be in the BAL
             }
@@ -195,10 +199,10 @@ class BlockAccessListExpectation(CamelModel):
             elif not expectation.model_fields_set:
                 # Disallow ambiguous BalAccountExpectation() with no fields set
                 raise BlockAccessListValidationError(
-                    f"Address {address}: BalAccountExpectation() with no fields set is "
-                    f"ambiguous. Use BalAccountExpectation.empty() to validate no changes, "
-                    f"or explicitly set the fields to validate "
-                    f"(e.g., nonce_changes=[...])."
+                    f"Address {address}: BalAccountExpectation() with no "
+                    "fields set is ambiguous. Use BalAccountExpectation."
+                    "empty() to validate no changes, or explicitly set the "
+                    "fields to validate (e.g., nonce_changes=[...])."
                 )
             else:
                 # check address is present and validate changes
@@ -213,8 +217,9 @@ class BlockAccessListExpectation(CamelModel):
                         address
                     ) != BalAccountChange(address=address):
                         raise BlockAccessListValidationError(
-                            f"No account changes expected for {address} but found "
-                            f"changes: {actual_accounts_by_addr[address]}"
+                            f"No account changes expected for {address} but "
+                            f"found changes: "
+                            f"{actual_accounts_by_addr[address]}"
                         )
 
                 actual_account = actual_accounts_by_addr[address]
@@ -272,7 +277,8 @@ class BlockAccessListExpectation(CamelModel):
             # Check if explicitly set to empty but actual has values
             if not expected_list and actual_list:
                 raise BlockAccessListValidationError(
-                    f"Expected {field_name} to be empty but found {actual_list}"
+                    f"Expected {field_name} to be empty but found "
+                    f"{actual_list}"
                 )
 
             if field_name == "storage_reads":
@@ -289,8 +295,8 @@ class BlockAccessListExpectation(CamelModel):
 
                     if not found:
                         raise BlockAccessListValidationError(
-                            f"Storage read {expected_read} not found or not in correct order. "
-                            f"Actual reads: {actual_list}"
+                            f"Storage read {expected_read} not found or not "
+                            f"in correct order. Actual reads: {actual_list}"
                         )
 
             elif field_name == "storage_changes":
@@ -321,12 +327,18 @@ class BlockAccessListExpectation(CamelModel):
                                         actual_change = actual_slot_changes[
                                             slot_actual_idx
                                         ]
-                                        if (
+                                        actual_idx = (
                                             actual_change.block_access_index
-                                            == expected_change.block_access_index
-                                            and actual_change.post_value
+                                        )
+                                        expected_idx = (
+                                            expected_change.block_access_index
+                                        )
+                                        idx_match = actual_idx == expected_idx
+                                        val_match = (
+                                            actual_change.post_value
                                             == expected_change.post_value
-                                        ):
+                                        )
+                                        if idx_match and val_match:
                                             slot_found = True
                                             slot_actual_idx += 1
                                             break
@@ -334,10 +346,12 @@ class BlockAccessListExpectation(CamelModel):
 
                                     if not slot_found:
                                         raise BlockAccessListValidationError(
-                                            f"Storage change {expected_change} not found "
-                                            f"or not in correct order in slot "
-                                            f"{expected_slot.slot}. "
-                                            f"Actual slot changes: {actual_slot_changes}"
+                                            f"Storage change "
+                                            f"{expected_change} not found or "
+                                            f"not in correct order in slot "
+                                            f"{expected_slot.slot}. Actual "
+                                            f"slot changes: "
+                                            f"{actual_slot_changes}"
                                         )
 
                             found = True
@@ -402,8 +416,9 @@ class BlockAccessListExpectation(CamelModel):
 
                     if not found:
                         raise BlockAccessListValidationError(
-                            f"{item_type.capitalize()} change {exp_tuple} not found "
-                            f"or not in correct order. Actual changes: {actual_tuples}"
+                            f"{item_type.capitalize()} change {exp_tuple} not "
+                            f"found or not in correct order. Actual changes: "
+                            f"{actual_tuples}"
                         )
 
 

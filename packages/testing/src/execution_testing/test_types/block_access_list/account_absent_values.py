@@ -81,8 +81,10 @@ class BalAccountAbsentValues(CamelModel):
     )
     balance_changes: List[BalBalanceChange] = Field(
         default_factory=list,
-        description="List of balance changes that should NOT exist in the BAL. "
-        "Validates that none of these changes are present.",
+        description=(
+            "List of balance changes that should NOT exist in the BAL. "
+            "Validates that none of these changes are present."
+        ),
     )
     code_changes: List[BalCodeChange] = Field(
         default_factory=list,
@@ -91,8 +93,10 @@ class BalAccountAbsentValues(CamelModel):
     )
     storage_changes: List[BalStorageSlot] = Field(
         default_factory=list,
-        description="List of storage slots/changes that should NOT exist in the BAL. "
-        "Validates that none of these changes are present.",
+        description=(
+            "List of storage slots/changes that should NOT exist in the BAL. "
+            "Validates that none of these changes are present."
+        ),
     )
     storage_reads: List[StorageKey] = Field(
         default_factory=list,
@@ -114,8 +118,8 @@ class BalAccountAbsentValues(CamelModel):
         ):
             raise ValueError(
                 "At least one absence field must be specified. "
-                "`BalAccountAbsentValues` is for checking specific forbidden values. "
-                f"{EMPTY_LIST_ERROR_MSG}"
+                "`BalAccountAbsentValues` is for checking specific forbidden "
+                f"values. {EMPTY_LIST_ERROR_MSG}"
             )
 
         # check that no fields are explicitly set to empty lists
@@ -130,16 +134,17 @@ class BalAccountAbsentValues(CamelModel):
         for field_name, field_value in field_checks:
             if field_name in self.model_fields_set and field_value == []:
                 raise ValueError(
-                    f"`BalAccountAbsentValues.{field_name}` cannot be an empty list. "
-                    f"{EMPTY_LIST_ERROR_MSG}"
+                    f"`BalAccountAbsentValues.{field_name}` cannot be an "
+                    f"empty list. {EMPTY_LIST_ERROR_MSG}"
                 )
 
         # validate that storage_changes don't have empty slot_changes
         for storage_slot in self.storage_changes:
             if not storage_slot.slot_changes:
                 raise ValueError(
-                    f"`BalAccountAbsentValues.storage_changes[{storage_slot.slot}].slot_changes` "
-                    f"cannot be an empty list. {EMPTY_LIST_ERROR_MSG}"
+                    f"`BalAccountAbsentValues.storage_changes"
+                    f"[{storage_slot.slot}].slot_changes` cannot be an empty "
+                    f"list. {EMPTY_LIST_ERROR_MSG}"
                 )
 
         return self
@@ -171,23 +176,35 @@ class BalAccountAbsentValues(CamelModel):
         self._validate_forbidden_changes(
             account.nonce_changes,
             self.nonce_changes,
-            lambda a, f: a.block_access_index == f.block_access_index
-            and a.post_nonce == f.post_nonce,
-            lambda a: f"Unexpected nonce change found at tx {a.block_access_index}",
+            lambda a, f: (
+                a.block_access_index == f.block_access_index
+                and a.post_nonce == f.post_nonce
+            ),
+            lambda a: (
+                f"Unexpected nonce change found at tx {a.block_access_index}"
+            ),
         )
         self._validate_forbidden_changes(
             account.balance_changes,
             self.balance_changes,
-            lambda a, f: a.block_access_index == f.block_access_index
-            and a.post_balance == f.post_balance,
-            lambda a: f"Unexpected balance change found at tx {a.block_access_index}",
+            lambda a, f: (
+                a.block_access_index == f.block_access_index
+                and a.post_balance == f.post_balance
+            ),
+            lambda a: (
+                f"Unexpected balance change found at tx {a.block_access_index}"
+            ),
         )
         self._validate_forbidden_changes(
             account.code_changes,
             self.code_changes,
-            lambda a, f: a.block_access_index == f.block_access_index
-            and a.new_code == f.new_code,
-            lambda a: f"Unexpected code change found at tx {a.block_access_index}",
+            lambda a, f: (
+                a.block_access_index == f.block_access_index
+                and a.new_code == f.new_code
+            ),
+            lambda a: (
+                f"Unexpected code change found at tx {a.block_access_index}"
+            ),
         )
 
         for forbidden_storage_slot in self.storage_changes:
@@ -202,7 +219,8 @@ class BalAccountAbsentValues(CamelModel):
                             and a.post_value == f.post_value
                         ),
                         lambda a, slot=slot_id: (
-                            f"Unexpected storage change found at slot {slot} in tx {a.block_access_index}"
+                            f"Unexpected storage change found at slot {slot} "
+                            f"in tx {a.block_access_index}"
                         ),
                     )
 

@@ -468,7 +468,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             True,
             Environment(),
             {
-                "currentCoinbase": "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+                "currentCoinbase": "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",  # noqa: E501
                 "currentGasLimit": str(
                     ZeroPaddedHexNumber(Environment().gas_limit)
                 ),
@@ -507,7 +507,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 block_hashes={1: 2, 3: 4},
             ),
             {
-                "currentCoinbase": "0x0000000000000000000000000000000000001234",
+                "currentCoinbase": "0x0000000000000000000000000000000000001234",  # noqa: E501
                 "currentGasLimit": str(
                     ZeroPaddedHexNumber(Environment().gas_limit)
                 ),
@@ -528,7 +528,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     {
                         "index": "0x0",
                         "validatorIndex": "0x1",
-                        "address": "0x0000000000000000000000000000000000001234",
+                        "address": "0x0000000000000000000000000000000000001234",  # noqa: E501
                         "amount": "0x2",
                     },
                 ],
@@ -537,10 +537,10 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "currentBlobGasUsed": "0x10",
                 "currentExcessBlobGas": "0x11",
                 "blockHashes": {
-                    "0x01": "0x0000000000000000000000000000000000000000000000000000000000000002",
-                    "0x03": "0x0000000000000000000000000000000000000000000000000000000000000004",
+                    "0x01": "0x0000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
+                    "0x03": "0x0000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
                 },
-                "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000004",
+                "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
                 "ommers": [],
             },
             id="environment_2",
@@ -558,8 +558,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "gas": "0x5208",
                 "gasPrice": "0xa",
                 "v": "0x26",
-                "r": "0xcc61d852649c34cc0b71803115f38036ace257d2914f087bf885e6806a664fbd",
-                "s": "0x2020cb35f5d7731ab540d62614503a7f2344301a86342f67daf011c1341551ff",
+                "r": "0xcc61d852649c34cc0b71803115f38036ace257d2914f087bf885e6806a664fbd",  # noqa: E501
+                "s": "0x2020cb35f5d7731ab540d62614503a7f2344301a86342f67daf011c1341551ff",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="transaction_t8n_default_args",
@@ -579,8 +579,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "gas": "0x5208",
                 "gasPrice": "0xa",
                 "v": "0x25",
-                "r": "0x1cfe2cbb0c3577f74d9ae192a7f1ee2d670fe806a040f427af9cb768be3d07ce",
-                "s": "0xcbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",
+                "r": "0x1cfe2cbb0c3577f74d9ae192a7f1ee2d670fe806a040f427af9cb768be3d07ce",  # noqa: E501
+                "s": "0xcbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="transaction_t8n_to_none",
@@ -600,8 +600,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "gas": "0x5208",
                 "gasPrice": "0xa",
                 "v": "0x25",
-                "r": "0x1cfe2cbb0c3577f74d9ae192a7f1ee2d670fe806a040f427af9cb768be3d07ce",
-                "s": "0xcbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",
+                "r": "0x1cfe2cbb0c3577f74d9ae192a7f1ee2d670fe806a040f427af9cb768be3d07ce",  # noqa: E501
+                "s": "0xcbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="transaction_t8n_to_empty_str",
@@ -629,7 +629,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "to": "0x0000000000000000000000000000000000001234",
                 "accessList": [
                     {
-                        "address": "0x0000000000000000000000000000000000001234",
+                        "address": "0x0000000000000000000000000000000000001234",  # noqa: E501
                         "storageKeys": [
                             "0x0000000000000000000000000000000000000000000000000000000000000000",
                             "0x0000000000000000000000000000000000000000000000000000000000000001",
@@ -647,8 +647,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     "0x0000000000000000000000000000000000000000000000000000000000000001",
                 ],
                 "v": "0x0",
-                "r": "0x418bb557c43262375f80556cb09dac5e67396acf0eaaf2c2540523d1ce54b280",
-                "s": "0x4fa36090ea68a1138043d943ced123c0b0807d82ff3342a6977cbc09230e927c",
+                "r": "0x418bb557c43262375f80556cb09dac5e67396acf0eaaf2c2540523d1ce54b280",  # noqa: E501
+                "s": "0x4fa36090ea68a1138043d943ced123c0b0807d82ff3342a6977cbc09230e927c",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="transaction_3",
@@ -677,7 +677,8 @@ class TestPydanticModelConversion:
         """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
             pytest.skip(
-                reason="The model instance in this case can not be deserialized"
+                reason="The model instance in this case can not be "
+                "deserialized"
             )
         model_type = type(model_instance)
         assert model_type(**json) == model_instance
