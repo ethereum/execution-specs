@@ -496,7 +496,8 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
                 default_action=Op.SSTORE(0, 6),
             ),
             {0: 3},
-            id="five-cases-multiple-conditions-met",  # first in list should be evaluated
+            # first in list should be evaluated
+            id="five-cases-multiple-conditions-met",
         ),
         pytest.param(
             Hash(9),

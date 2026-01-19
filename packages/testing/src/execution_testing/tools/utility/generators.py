@@ -360,8 +360,9 @@ def generate_system_contract_error_test(
                 # storage, we need to add some NO-OP (JUMPDEST) to the code
                 # that each consume 1 gas.
                 assert gas_costs.G_JUMPDEST == 1, (
-                    f"JUMPDEST gas cost should be 1, but got {gas_costs.G_JUMPDEST}. "
-                    "Generator `generate_system_contract_error_test` needs to be updated."
+                    "JUMPDEST gas cost should be 1, but got "
+                    f"{gas_costs.G_JUMPDEST}. Generator "
+                    "`generate_system_contract_error_test` needs updating."
                 )
                 modified_system_contract_code += sum(
                     Op.JUMPDEST

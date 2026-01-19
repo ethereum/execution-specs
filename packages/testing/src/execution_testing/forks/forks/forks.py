@@ -1079,9 +1079,7 @@ class Frontier(BaseFork, solc_name="homestead"):
 
     @classmethod
     def supports_protected_txs(cls) -> bool:
-        """
-        At Genesis, fork does not have support for EIP-155 protected transactions.
-        """
+        """At Genesis, fork has no support for EIP-155 protected txs."""
         return False
 
     @classmethod
@@ -1374,17 +1372,18 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         Build a default block header for this fork with the given attributes.
 
-        This method automatically detects which header fields are required by the fork
-        and assigns appropriate default values. It introspects the FixtureHeader model
-        to find fields with HeaderForkRequirement annotations and automatically includes
-        them if the fork requires them.
+        This method automatically detects which header fields are required by
+        the fork and assigns appropriate default values. It introspects the
+        FixtureHeader model to find fields with HeaderForkRequirement
+        annotations and automatically includes them if the fork requires them.
 
         Args:
             block_number: The block number
             timestamp: The block timestamp
 
         Returns:
-            FixtureHeader instance with default values applied based on fork requirements
+            FixtureHeader instance with default values applied based on fork
+            requirements.
 
         Raises:
             TypeError: If the overrides don't have the correct type.

@@ -33,7 +33,7 @@ def get_current_commit_hash_or_tag(
         )
     except InvalidGitRepositoryError:
         # Handle the case where the repository is not a valid Git repository
-        return "Not a git repository; this should only be seen in framework tests."
+        return "Not a git repository; only seen in framework tests."
 
 
 def generate_github_url(

@@ -66,17 +66,19 @@ ALL_FORKS_WITH_TRANSITIONS = frozenset(
 
 def get_forks() -> List[Type[BaseFork]]:
     """
-    Return list of all the fork classes implemented by `execution_testing.forks`
-    ordered chronologically by deployment.
+    Return all fork classes implemented by `execution_testing.forks`.
+
+    Ordered chronologically by deployment.
     """
     return all_forks[:]
 
 
 def get_deployed_forks() -> List[Type[BaseFork]]:
     """
-    Return list of all the fork classes implemented by `execution_testing.forks`
-    that have been deployed to mainnet, chronologically ordered by deployment.
-    BPO (Blob Parameter Only) forks are excluded as they are handled separately.
+    Return all fork classes that have been deployed to mainnet.
+
+    Chronologically ordered by deployment. BPO (Blob Parameter Only) forks
+    are excluded as they are handled separately.
     """
     return [
         fork
@@ -87,9 +89,9 @@ def get_deployed_forks() -> List[Type[BaseFork]]:
 
 def get_development_forks() -> List[Type[BaseFork]]:
     """
-    Return list of all the fork classes implemented by `execution_testing.forks`
-    that have been not yet deployed to mainnet and are currently under
-    development. The list is ordered by their planned deployment date.
+    Return all fork classes not yet deployed and under development.
+
+    The list is ordered by their planned deployment date.
     """
     return [fork for fork in get_forks() if not fork.is_deployed()]
 
