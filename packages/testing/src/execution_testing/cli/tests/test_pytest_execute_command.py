@@ -85,7 +85,8 @@ def test_execute_eth_config_help(runner: CliRunner) -> None:
 
 
 def test_all_execute_subcommands_help_no_conflicts(runner: CliRunner) -> None:
-    """Test that all execute subcommands --help work without argument conflicts.
+    """
+    Test that all execute subcommands --help work without argument conflicts.
 
     This is a regression test for issue where --chain-id was defined in multiple
     plugins, causing argparse.ArgumentError conflicts.
