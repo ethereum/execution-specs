@@ -78,9 +78,9 @@ class ModelCustomizationsMixin:
 
         # Convert field values based on their type. This ensures consistency
         # between JSON and Python object representations. Should a custom
-        # `__repr__` be needed for a specific type, it can be added in the match
-        # statement below. Otherwise, the default string representation is
-        # used.
+        # `__repr__` be needed for a specific type, it can be added in the
+        # match statement below. Otherwise, the default string representation
+        # is used.
         repr_attrs: List[Tuple[str, Any]] = []
         for a, v in attrs:
             match v:

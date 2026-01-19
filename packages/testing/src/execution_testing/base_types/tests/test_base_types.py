@@ -285,7 +285,8 @@ class TestPydanticModelConversion:
         """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
             pytest.skip(
-                reason="The model instance in this case can not be deserialized"
+                reason="The model instance in this case can not be "
+                "deserialized"
             )
         model_type = type(model_instance)
         assert model_type(**json) == model_instance

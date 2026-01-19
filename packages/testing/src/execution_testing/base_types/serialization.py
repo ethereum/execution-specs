@@ -122,7 +122,8 @@ class RLPSerializable:
         if signing:
             if not self.signable:
                 raise Exception(
-                    f'Object "{self.__class__.__name__}" does not support signing'
+                    f'Object "{self.__class__.__name__}" '
+                    "does not support signing"
                 )
             field_list = self.get_rlp_signing_fields()
         else:

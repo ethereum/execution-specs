@@ -152,9 +152,10 @@ class Storage(
             label_str = ""
             if self.address.label is not None:
                 label_str = f" ({self.address.label})"
+            hint_str = f" ({self.hint})" if self.hint else ""
             return (
                 f"incorrect value in address {self.address}{label_str} for "
-                + f"key {Hash(self.key)}{f' ({self.hint})' if self.hint else ''}:"
+                + f"key {Hash(self.key)}{hint_str}:"
                 + f" want {HexNumber(self.want)} (dec:{int(self.want)}),"
                 + f" got {HexNumber(self.got)} (dec:{int(self.got)})"
             )
