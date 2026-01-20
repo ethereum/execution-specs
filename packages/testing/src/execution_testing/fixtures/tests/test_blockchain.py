@@ -87,8 +87,8 @@ fixture_header_ones = FixtureHeader(
                 "gasLimit": "0x5208",
                 "gasPrice": "0x0a",
                 "v": "0x26",
-                "r": "0xcc61d852649c34cc0b71803115f38036ace257d2914f087bf885e6806a664fbd",
-                "s": "0x2020cb35f5d7731ab540d62614503a7f2344301a86342f67daf011c1341551ff",
+                "r": "0xcc61d852649c34cc0b71803115f38036ace257d2914f087bf885e6806a664fbd",  # noqa: E501
+                "s": "0x2020cb35f5d7731ab540d62614503a7f2344301a86342f67daf011c1341551ff",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="fixture_transaction_type_0_default_values",
@@ -108,8 +108,8 @@ fixture_header_ones = FixtureHeader(
                 "gasLimit": "0x5208",
                 "gasPrice": "0x0a",
                 "v": "0x25",
-                "r": "0x1cfe2cbb0c3577f74d9ae192a7f1ee2d670fe806a040f427af9cb768be3d07ce",
-                "s": "0x0cbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",
+                "r": "0x1cfe2cbb0c3577f74d9ae192a7f1ee2d670fe806a040f427af9cb768be3d07ce",  # noqa: E501
+                "s": "0x0cbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="fixture_transaction_type_0_contract_creation",
@@ -130,8 +130,8 @@ fixture_header_ones = FixtureHeader(
                 "gasPrice": "0x0a",
                 "accessList": [],
                 "v": "0x01",
-                "r": "0x58b4ddaa529492d32b6bc8327eb8ee0bc8b535c3bfc0f4f1db3d7c16b51d1851",
-                "s": "0x5ef19167661b14d06dfc785bf62693e6f9e5a44e7c11e0320efed27b27294970",
+                "r": "0x58b4ddaa529492d32b6bc8327eb8ee0bc8b535c3bfc0f4f1db3d7c16b51d1851",  # noqa: E501
+                "s": "0x5ef19167661b14d06dfc785bf62693e6f9e5a44e7c11e0320efed27b27294970",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="fixture_transaction_type_1_default_values",
@@ -155,8 +155,8 @@ fixture_header_ones = FixtureHeader(
                 "maxFeePerGas": "0x07",
                 "accessList": [],
                 "v": "0x00",
-                "r": "0x33fc39081d01f8e7f0ce5426d4a00a7b07c2edea064d24a8cac8e4b1f0c08298",
-                "s": "0x4635e1c45238697db38e37070d4fce27fb5684f9dec4046466ea42a9834bad0a",
+                "r": "0x33fc39081d01f8e7f0ce5426d4a00a7b07c2edea064d24a8cac8e4b1f0c08298",  # noqa: E501
+                "s": "0x4635e1c45238697db38e37070d4fce27fb5684f9dec4046466ea42a9834bad0a",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="fixture_transaction_type_2_default_values",
@@ -185,8 +185,8 @@ fixture_header_ones = FixtureHeader(
                 "accessList": [],
                 "blobVersionedHashes": [],
                 "v": "0x01",
-                "r": "0x8978475a00bf155bf5687dfda89c2df55ef6c341cdfd689aeaa6c519569a530a",
-                "s": "0x66fc34935cdd191441a12a2e7b1f224cb40b928afb9bc89c8ddb2b78c19342cc",
+                "r": "0x8978475a00bf155bf5687dfda89c2df55ef6c341cdfd689aeaa6c519569a530a",  # noqa: E501
+                "s": "0x66fc34935cdd191441a12a2e7b1f224cb40b928afb9bc89c8ddb2b78c19342cc",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="fixture_transaction_type_3_default_values",
@@ -224,15 +224,15 @@ fixture_header_ones = FixtureHeader(
                         "address": Address(2).hex(),
                         "nonce": "0x03",
                         "v": "0x00",
-                        "r": "0xda29c3bd0304ae475b06d1a11344e0b6d75590f2c23138c9507f4b5bedde3c79",
-                        "s": "0x3e1fb143ae0460373d567cf901645757b321e42c423a53b2d46ed13c9ef0a9ab",
+                        "r": "0xda29c3bd0304ae475b06d1a11344e0b6d75590f2c23138c9507f4b5bedde3c79",  # noqa: E501
+                        "s": "0x3e1fb143ae0460373d567cf901645757b321e42c423a53b2d46ed13c9ef0a9ab",  # noqa: E501
                         "signer": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
                         "yParity": "0x00",
                     }
                 ],
                 "v": "0x01",
-                "r": "0xe7da7f244c95cea73ac6316971139ac0eb8fad455d9a25e1c134d7a157c38ff9",
-                "s": "0x1939185d2e2a2b3375183e42b5755d695efbd72e186cf9a3e6958a3fb84cc709",
+                "r": "0xe7da7f244c95cea73ac6316971139ac0eb8fad455d9a25e1c134d7a157c38ff9",  # noqa: E501
+                "s": "0x1939185d2e2a2b3375183e42b5755d695efbd72e186cf9a3e6958a3fb84cc709",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="fixture_transaction_type_4",
@@ -262,7 +262,7 @@ fixture_header_ones = FixtureHeader(
                 "to": "0x0000000000000000000000000000000000001234",
                 "accessList": [
                     {
-                        "address": "0x0000000000000000000000000000000000001234",
+                        "address": "0x0000000000000000000000000000000000001234",  # noqa: E501
                         "storageKeys": [
                             "0x0000000000000000000000000000000000000000000000000000000000000000",
                             "0x0000000000000000000000000000000000000000000000000000000000000001",
@@ -280,8 +280,8 @@ fixture_header_ones = FixtureHeader(
                     "0x0000000000000000000000000000000000000000000000000000000000000001",
                 ],
                 "v": "0x00",
-                "r": "0x418bb557c43262375f80556cb09dac5e67396acf0eaaf2c2540523d1ce54b280",
-                "s": "0x4fa36090ea68a1138043d943ced123c0b0807d82ff3342a6977cbc09230e927c",
+                "r": "0x418bb557c43262375f80556cb09dac5e67396acf0eaaf2c2540523d1ce54b280",  # noqa: E501
+                "s": "0x4fa36090ea68a1138043d943ced123c0b0807d82ff3342a6977cbc09230e927c",  # noqa: E501
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="fixture_transaction_3",
@@ -321,7 +321,7 @@ fixture_header_ones = FixtureHeader(
                 "extraData": Bytes([12]).hex(),
                 "mixHash": Hash(13).hex(),
                 "nonce": HeaderNonce(14).hex(),
-                "hash": "0x1dc087517148c2d6a1dd1ea5de107bc5f728414f9d210ed18286d305abe6ba5e",
+                "hash": "0x1dc087517148c2d6a1dd1ea5de107bc5f728414f9d210ed18286d305abe6ba5e",  # noqa: E501
             },
             id="fixture_header_1",
         ),
@@ -368,7 +368,7 @@ fixture_header_ones = FixtureHeader(
                 "withdrawalsRoot": Hash(16).hex(),
                 "blobGasUsed": ZeroPaddedHexNumber(17).hex(),
                 "excessBlobGas": ZeroPaddedHexNumber(18).hex(),
-                "hash": "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211",
+                "hash": "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211",  # noqa: E501
             },
             id="fixture_header_2",
         ),
@@ -423,7 +423,7 @@ fixture_header_ones = FixtureHeader(
                     "withdrawalsRoot": Hash(16).hex(),
                     "blobGasUsed": ZeroPaddedHexNumber(17).hex(),
                     "excessBlobGas": ZeroPaddedHexNumber(18).hex(),
-                    "hash": "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211",
+                    "hash": "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211",  # noqa: E501
                 },
                 "blocknumber": "8",
                 "uncleHeaders": [],
@@ -438,8 +438,8 @@ fixture_header_ones = FixtureHeader(
                         "gasLimit": "0x5208",
                         "gasPrice": "0x0a",
                         "v": "0x26",
-                        "r": "0xcc61d852649c34cc0b71803115f38036ace257d2914f087bf885e6806a664fbd",
-                        "s": "0x2020cb35f5d7731ab540d62614503a7f2344301a86342f67daf011c1341551ff",
+                        "r": "0xcc61d852649c34cc0b71803115f38036ace257d2914f087bf885e6806a664fbd",  # noqa: E501
+                        "s": "0x2020cb35f5d7731ab540d62614503a7f2344301a86342f67daf011c1341551ff",  # noqa: E501
                         "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
                     }
                 ],
@@ -497,7 +497,7 @@ fixture_header_ones = FixtureHeader(
                     "withdrawalsRoot": Hash(16).hex(),
                     "blobGasUsed": ZeroPaddedHexNumber(17).hex(),
                     "excessBlobGas": ZeroPaddedHexNumber(18).hex(),
-                    "hash": "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211",
+                    "hash": "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211",  # noqa: E501
                 },
                 "blocknumber": "8",
                 "uncleHeaders": [],
@@ -512,8 +512,8 @@ fixture_header_ones = FixtureHeader(
                         "gasLimit": "0x5208",
                         "gasPrice": "0x0a",
                         "v": "0x25",
-                        "r": "0x1cfe2cbb0c3577f74d9ae192a7f1ee2d670fe806a040f427af9cb768be3d07ce",
-                        "s": "0x0cbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",
+                        "r": "0x1cfe2cbb0c3577f74d9ae192a7f1ee2d670fe806a040f427af9cb768be3d07ce",  # noqa: E501
+                        "s": "0x0cbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",  # noqa: E501
                         "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
                     }
                 ],
@@ -540,7 +540,7 @@ fixture_header_ones = FixtureHeader(
             ),
             {
                 "rlp": "0x00",
-                "expectException": "TransactionException.INTRINSIC_GAS_TOO_LOW",
+                "expectException": "TransactionException.INTRINSIC_GAS_TOO_LOW",  # noqa: E501
             },
             id="invalid_fixture_block_2",
         ),
@@ -554,7 +554,7 @@ fixture_header_ones = FixtureHeader(
             ),
             {
                 "rlp": "0x00",
-                "expectException": "TransactionException.INTRINSIC_GAS_TOO_LOW",
+                "expectException": "TransactionException.INTRINSIC_GAS_TOO_LOW",  # noqa: E501
             },
             id="invalid_fixture_block_3",
         ),
@@ -635,7 +635,7 @@ fixture_header_ones = FixtureHeader(
                 "baseFeePerGas": hex(15),
                 "blobGasUsed": hex(17),
                 "excessBlobGas": hex(18),
-                "blockHash": "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211",
+                "blockHash": "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211",  # noqa: E501
                 "transactions": [
                     Transaction(
                         to=0x1234,
@@ -1008,9 +1008,7 @@ class TestPydanticModelConversion:
     ) -> None:
         """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
-            pytest.skip(
-                reason="The model instance in this case can not be deserialized"
-            )
+            pytest.skip(reason="Model instance cannot be deserialized")
         model_type = type(model_instance)
         assert model_type(**json_repr) == model_instance
 
@@ -1412,7 +1410,5 @@ class TestPydanticAdaptersConversion:
     ) -> None:
         """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
-            pytest.skip(
-                reason="The model instance in this case can not be deserialized"
-            )
+            pytest.skip(reason="Model instance cannot be deserialized")
         assert adapter.validate_python(json_repr) == type_instance

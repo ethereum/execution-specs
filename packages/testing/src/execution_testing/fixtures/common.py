@@ -52,7 +52,7 @@ class FixtureAuthorizationTuple(
     """Authorization tuple for fixture transactions."""
 
     # Allow extra fields: FixtureAuthorizationTuple is constructed from
-    # AuthorizationTuple via model_dump(), which includes fields not in this model.
+    # AuthorizationTuple via model_dump(), which has extra fields.
     model_config = CamelModel.model_config | {"extra": "ignore"}
 
     v: ZeroPaddedHexNumber = Field(

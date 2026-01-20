@@ -178,7 +178,7 @@ class ModelDumpCache:
     model_dump_mode: Literal["json", "python"]
     """Mode of the model dump when `model_dump` is called."""
     model_dump_type: Literal["string", "dict"]
-    """Whether `model_dump_json` or `model_dump` was used to generate the data."""
+    """Whether `model_dump_json` or `model_dump` was used to generate data."""
     data: Any
 
 
@@ -197,7 +197,7 @@ class GroupPreAlloc(Alloc):
     _model_dump_cache: ModelDumpCache | None = PrivateAttr(None)
 
     def state_root(self) -> Hash:
-        """On pre-alloc groups, which are normally very big, we always cache."""
+        """On pre-alloc groups, which are normally very big, always cache."""
         if self._cached_state_root is not None:
             return self._cached_state_root
         return super().state_root()
@@ -230,7 +230,7 @@ class GroupPreAlloc(Alloc):
         return data
 
     def model_dump_json(self, **kwargs: Any) -> str:
-        """Model dump the pre-allocation group in JSON string format, with caching."""
+        """Model dump the pre-allocation group in JSON string, with caching."""
         if (
             self._model_dump_cache is not None
             and self._model_dump_cache.model_dump_mode == "json"

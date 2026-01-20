@@ -84,7 +84,8 @@ class TestInfo:
                 str(test_module_relative_dir).replace(os.sep, "__")
             )
         test_name, test_parameter_string = self.get_name_and_parameters()
-        flat_path = f"{str(test_module_relative_dir).replace(os.sep, '__')}__{test_name}"
+        dir_str = str(test_module_relative_dir).replace(os.sep, "__")
+        flat_path = f"{dir_str}__{test_name}"
         if level == "test_function":
             return Path(base_dump_dir) / flat_path
         elif level == "test_parameter":
