@@ -44,6 +44,7 @@ from ...vm.eoa_delegation import (
 from .. import (
     Evm,
     Message,
+    emit_selfdestruct_log,
     emit_transfer_log,
     incorporate_child_on_error,
     incorporate_child_on_success,
@@ -684,9 +685,13 @@ def selfdestruct(evm: Evm) -> None:
         beneficiary_new_balance,
     )
 
-    emit_transfer_log(
-        evm, evm.message.current_target, beneficiary, originator_balance
-    )
+    # EIP-7708: Emit appropriate log based on beneficiary
+    if beneficiary == originator:
+        # Self-destruct to self burns the balance
+        emit_selfdestruct_log(evm, originator, originator_balance)
+    else:
+        # Transfer to different beneficiary
+        emit_transfer_log(evm, originator, beneficiary, originator_balance)
 
     # register account for deletion only if it was created
     # in the same transaction
