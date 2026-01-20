@@ -158,7 +158,7 @@ ECRECOVER_CONFIG = MarginalPrecompileConfig(
     name="ECRECOVER",
     address=ECRECOVER_ADDRESS,
     max_op_count=200,  # 3000 gas/call
-    step=66,  # 4 data points (0, 66, 132, 198) - close to 200
+    step=66,  # 4 data points (0, 66, 132, 198)
     input_data=ECRECOVER_INPUT,
     input_size=len(ECRECOVER_INPUT),  # 128 bytes
     num_calls=2,  # Keep num_calls for proving time
@@ -242,11 +242,11 @@ SHA256_INPUT = bytes.fromhex("ff" * 4096)  # 4KB of 0xff
 SHA256_CONFIG = MarginalPrecompileConfig(
     name="SHA256",
     address=SHA256_ADDRESS,
-    max_op_count=1000,  # Reduced to fit 24KB limit with noop padding
+    max_op_count=1000,  # 24KB limit with noop padding
     step=250,  # 5 data points (0, 250, 500, 750, 1000)
     input_data=SHA256_INPUT,
     input_size=len(SHA256_INPUT),  # 4096 bytes
-    num_calls=3,  # Compensates for reduced max_op_count (24KB limit)
+    num_calls=3,  # 24KB limit
 )
 
 # ============================================================================
@@ -261,11 +261,11 @@ RIPEMD160_INPUT = bytes.fromhex("ff" * 1024)  # 1KB of 0xff
 RIPEMD160_CONFIG = MarginalPrecompileConfig(
     name="RIPEMD160",
     address=RIPEMD160_ADDRESS,
-    max_op_count=1000,  # Reduced to fit 24KB limit with noop padding
+    max_op_count=1000,  # 24KB limit with noop padding
     step=250,  # 5 data points (0, 250, 500, 750, 1000)
     input_data=RIPEMD160_INPUT,
     input_size=len(RIPEMD160_INPUT),  # 1024 bytes
-    num_calls=3,  # Compensates for reduced max_op_count (24KB limit)
+    num_calls=3,  # 24KB limit
 )
 
 # ============================================================================
@@ -290,7 +290,7 @@ BN128_ADD_CONFIG = MarginalPrecompileConfig(
     step=200,  # 5 data points (0, 200, 400, 600, 800)
     input_data=BN128_ADD_INPUT,
     input_size=len(BN128_ADD_INPUT),  # 128 bytes
-    num_calls=3,  # Reduced for faster benchmarking
+    num_calls=3,
 )
 
 # ============================================================================
@@ -428,7 +428,7 @@ BLS12_G1ADD_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1ADD",
     address=BLS12_G1ADD_ADDRESS,
     max_op_count=770,  # 375 gas/call
-    step=192,  # 5 data points (0, 192, 384, 576, 768) - close to 770
+    step=192,  # 5 data points (0, 192, 384, 576, 768)
     input_data=BLS12_G1ADD_INPUT,
     input_size=len(BLS12_G1ADD_INPUT),  # 256 bytes
     num_calls=1,
@@ -446,7 +446,7 @@ BLS12_G1MSM_INPUT = bytes(
 BLS12_G1MSM_CONFIG = MarginalPrecompileConfig(
     name="BLS12_G1MSM",
     address=BLS12_G1MSM_ADDRESS,
-    max_op_count=39,  # Reduced to fit within 1M gas limit
+    max_op_count=39,  # 1M gas limit
     step=13,  # 4 data points (0, 13, 26, 39)
     input_data=BLS12_G1MSM_INPUT,
     input_size=len(BLS12_G1MSM_INPUT),  # 320 bytes (2 × 160)
@@ -521,7 +521,7 @@ BLS12_MAP_FP_TO_G1_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP_TO_G1",
     address=BLS12_MAP_FP_TO_G1_ADDRESS,
     max_op_count=75,  # 5500 gas/call
-    step=18,  # 5 data points (0, 18, 36, 54, 72) - close to 75
+    step=18,  # 5 data points (0, 18, 36, 54, 72)
     input_data=BLS12_MAP_FP_TO_G1_INPUT,
     input_size=len(BLS12_MAP_FP_TO_G1_INPUT),  # 64 bytes
     num_calls=1,
@@ -539,7 +539,7 @@ BLS12_MAP_FP2_TO_G2_CONFIG = MarginalPrecompileConfig(
     name="BLS12_MAP_FP2_TO_G2",
     address=BLS12_MAP_FP2_TO_G2_ADDRESS,
     max_op_count=27,
-    step=6,  # 5 data points (0, 6, 12, 18, 24) - close to 27
+    step=6,  # 5 data points (0, 6, 12, 18, 24)
     input_data=BLS12_MAP_FP2_TO_G2_INPUT,
     input_size=len(BLS12_MAP_FP2_TO_G2_INPUT),  # 128 bytes
     num_calls=1,
@@ -733,7 +733,7 @@ IDENTITY_CONFIG = MarginalPrecompileConfig(
     step=75,  # 5 data points (0, 75, 150, 225, 300)
     input_data=IDENTITY_INPUT,
     input_size=len(IDENTITY_INPUT),  # 128 bytes
-    num_calls=300,  # Reduced for faster benchmarking
+    num_calls=300,
     gas_limit=500_000_000,  # High gas limit for many calls
 )
 

@@ -146,7 +146,7 @@ ADD_CONFIG = MarginalOpcodeConfig(
     stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=200,  # Reduced for faster benchmarking
+    num_calls=200,
 )
 
 # Ref: test_arithmetic.py opcode_MUL (uses DEFAULT_BINOP_ARGS)
@@ -158,7 +158,7 @@ MUL_CONFIG = MarginalOpcodeConfig(
     stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 # Ref: test_arithmetic.py opcode_SUB (uses DEFAULT_BINOP_ARGS)
@@ -170,7 +170,7 @@ SUB_CONFIG = MarginalOpcodeConfig(
     stack_args=[BLS12_381_SCALAR_FIELD, SECP256K1_FIELD_PRIME],  # DEFAULT_BINOP_ARGS
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=750,  # Reduced for faster benchmarking
+    num_calls=750,
 )
 
 # Ref: test_arithmetic.py opcode_DIV-0
@@ -183,7 +183,7 @@ DIV_CONFIG = MarginalOpcodeConfig(
     stack_args=[DIV_DIVISOR, DIV_DIVIDEND],  # divisor, dividend
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 # Ref: test_arithmetic.py opcode_SDIV-1
@@ -196,7 +196,7 @@ SDIV_CONFIG = MarginalOpcodeConfig(
     stack_args=[SDIV_DIVISOR, SDIV_DIVIDEND],  # divisor, dividend
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 # Ref: test_arithmetic.py op_MOD-mod_bits_191
@@ -209,7 +209,7 @@ MOD_CONFIG = MarginalOpcodeConfig(
     stack_args=[MOD_191_BIT, MAX_U256],  # 191-bit modulus, MAX dividend
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 # Ref: test_arithmetic.py op_SMOD-mod_bits_191
@@ -222,7 +222,7 @@ SMOD_CONFIG = MarginalOpcodeConfig(
     stack_args=[MOD_191_BIT, MAX_U256],  # 191-bit modulus, MAX dividend
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 # Ref: test_arithmetic.py op_ADDMOD-mod_bits_191
@@ -231,11 +231,11 @@ ADDMOD_CONFIG = MarginalOpcodeConfig(
     name="ADDMOD",
     opcode=Op.ADDMOD,
     max_op_count=200,  # 200 * 4 = 800 < 1024
-    step=66,  # 4 data points (0, 66, 132, 198) - close to 200
+    step=66,  # 4 data points (0, 66, 132, 198)
     stack_args=[MOD_191_BIT, MAX_U256, MAX_U256],  # N=191-bit mod, b=MAX, a=MAX
     inputs_per_op=3,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 # Ref: test_arithmetic.py op_MULMOD-mod_bits_191
@@ -244,11 +244,11 @@ MULMOD_CONFIG = MarginalOpcodeConfig(
     name="MULMOD",
     opcode=Op.MULMOD,
     max_op_count=200,
-    step=66,  # 4 data points (0, 66, 132, 198) - close to 200
+    step=66,  # 4 data points (0, 66, 132, 198)
     stack_args=[MOD_191_BIT, MAX_U256, MAX_U256],  # N=191-bit mod, b=MAX, a=MAX
     inputs_per_op=3,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 # Ref: test_arithmetic.py opcode_EXP (uses MAX_U256, MAX_U256)
@@ -262,7 +262,7 @@ EXP_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],  # execution-specs uses MAX for both - matches!
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=5,  # Reduced for faster benchmarking
+    num_calls=5,
 )
 
 # Ref: test_arithmetic.py opcode_SIGNEXTEND (uses k=3, x=0xFFDADADA)
@@ -275,7 +275,7 @@ SIGNEXTEND_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xFFDADADA, 3],  # x=negative value, k=3 (4-byte extend)
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=300,  # Reduced for faster benchmarking
+    num_calls=300,
 )
 
 # ============================================================================
@@ -290,7 +290,7 @@ LT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 GT_CONFIG = MarginalOpcodeConfig(
@@ -301,7 +301,7 @@ GT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 SLT_CONFIG = MarginalOpcodeConfig(
@@ -312,7 +312,7 @@ SLT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=500,  # Reduced for faster benchmarking
+    num_calls=500,
 )
 
 SGT_CONFIG = MarginalOpcodeConfig(
@@ -323,7 +323,7 @@ SGT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=450,  # Reduced for faster benchmarking
+    num_calls=450,
 )
 
 EQ_CONFIG = MarginalOpcodeConfig(
@@ -334,7 +334,7 @@ EQ_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 ISZERO_CONFIG = MarginalOpcodeConfig(
@@ -345,7 +345,7 @@ ISZERO_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256],
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=450,  # Reduced for faster benchmarking
+    num_calls=450,
 )
 
 # ============================================================================
@@ -360,7 +360,7 @@ AND_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 OR_CONFIG = MarginalOpcodeConfig(
@@ -371,7 +371,7 @@ OR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=300,  # Reduced for faster benchmarking
+    num_calls=300,
 )
 
 XOR_CONFIG = MarginalOpcodeConfig(
@@ -382,7 +382,7 @@ XOR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, MAX_U256],
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=300,  # Reduced for faster benchmarking
+    num_calls=300,
 )
 
 NOT_CONFIG = MarginalOpcodeConfig(
@@ -393,7 +393,7 @@ NOT_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256],
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=250,  # Reduced for faster benchmarking
+    num_calls=250,
 )
 
 BYTE_CONFIG = MarginalOpcodeConfig(
@@ -404,7 +404,7 @@ BYTE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 31],  # x=MAX, i=31
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 SHL_CONFIG = MarginalOpcodeConfig(
@@ -415,7 +415,7 @@ SHL_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 255],  # value=MAX, shift=255
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 SHR_CONFIG = MarginalOpcodeConfig(
@@ -426,7 +426,7 @@ SHR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 255],  # value=MAX, shift=255
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 SAR_CONFIG = MarginalOpcodeConfig(
@@ -437,7 +437,7 @@ SAR_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 255],  # value=MAX, shift=255
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 # ============================================================================
@@ -466,7 +466,7 @@ KECCAK256_CONFIG = MarginalOpcodeConfig(
     stack_args=[8192, 0],  # size=8KB, offset=0
     inputs_per_op=2,
     outputs_per_op=1,
-    num_calls=20,  # Reduced for faster benchmarking
+    num_calls=20,
     # Pre-allocate 8KB of memory with data to hash
     setup_code=_generate_keccak256_setup(),
 )
@@ -487,7 +487,7 @@ PUSH0_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 PUSH1_CONFIG = MarginalOpcodeConfig(
@@ -498,7 +498,7 @@ PUSH1_CONFIG = MarginalOpcodeConfig(
     stack_args=[],  # PUSH doesn't consume stack
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 PUSH16_CONFIG = MarginalOpcodeConfig(
@@ -509,7 +509,7 @@ PUSH16_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=250,  # Reduced for faster benchmarking
+    num_calls=250,
 )
 
 PUSH32_CONFIG = MarginalOpcodeConfig(
@@ -520,7 +520,7 @@ PUSH32_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=300,  # Reduced for faster benchmarking
+    num_calls=300,
 )
 
 
@@ -533,7 +533,7 @@ POP_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Push 0 to pop (using PUSH0 is cheapest)
     inputs_per_op=1,
     outputs_per_op=0,
-    num_calls=600,  # Reduced for faster benchmarking
+    num_calls=600,
 )
 
 # ============================================================================
@@ -569,7 +569,7 @@ LOG0_CONFIG = MarginalOpcodeConfig(
     stack_args=[0, 32],  # offset, size
     inputs_per_op=2,
     outputs_per_op=0,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
     setup_code=Op.MSTORE(0, MAX_U256),  # Fill memory with data to log
 )
 LOG1_CONFIG = MarginalOpcodeConfig(
@@ -580,7 +580,7 @@ LOG1_CONFIG = MarginalOpcodeConfig(
     stack_args=[0, 32, 0xFF],  # offset, size, topic0
     inputs_per_op=3,
     outputs_per_op=0,
-    num_calls=125,  # Reduced for faster benchmarking
+    num_calls=125,
     setup_code=Op.MSTORE(0, MAX_U256),
 )
 LOG2_CONFIG = MarginalOpcodeConfig(
@@ -591,18 +591,18 @@ LOG2_CONFIG = MarginalOpcodeConfig(
     stack_args=[0, 32, 0xFF, 0xFF],  # offset, size, topic0, topic1
     inputs_per_op=4,
     outputs_per_op=0,
-    num_calls=130,  # Reduced for faster benchmarking
+    num_calls=130,
     setup_code=Op.MSTORE(0, MAX_U256),
 )
 LOG3_CONFIG = MarginalOpcodeConfig(
     name="LOG3",
     opcode=Op.LOG3,
     max_op_count=50,
-    step=12,  # 5 data points (0, 12, 24, 36, 48) - close to 50
+    step=12,  # 5 data points (0, 12, 24, 36, 48)
     stack_args=[0, 32, 0xFF, 0xFF, 0xFF],  # offset, size, topic0, topic1, topic2
     inputs_per_op=5,
     outputs_per_op=0,
-    num_calls=90,  # Reduced for faster benchmarking
+    num_calls=90,
     setup_code=Op.MSTORE(0, MAX_U256),
 )
 LOG4_CONFIG = MarginalOpcodeConfig(
@@ -613,7 +613,7 @@ LOG4_CONFIG = MarginalOpcodeConfig(
     stack_args=[0, 32, 0xFF, 0xFF, 0xFF, 0xFF],  # offset, size, topic0-3
     inputs_per_op=6,
     outputs_per_op=0,
-    num_calls=90,  # Reduced for faster benchmarking
+    num_calls=90,
     setup_code=Op.MSTORE(0, MAX_U256),
 )
 
@@ -636,7 +636,7 @@ ADDRESS_CONFIG = MarginalOpcodeConfig(
     stack_args=[],  # No input
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 ORIGIN_CONFIG = MarginalOpcodeConfig(
@@ -647,7 +647,7 @@ ORIGIN_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=250,  # Reduced for faster benchmarking
+    num_calls=250,
 )
 
 CALLER_CONFIG = MarginalOpcodeConfig(
@@ -658,7 +658,7 @@ CALLER_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 CALLVALUE_CONFIG = MarginalOpcodeConfig(
@@ -669,7 +669,7 @@ CALLVALUE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=250,  # Reduced for faster benchmarking
+    num_calls=250,
 )
 
 CALLDATASIZE_CONFIG = MarginalOpcodeConfig(
@@ -680,7 +680,7 @@ CALLDATASIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 CODESIZE_CONFIG = MarginalOpcodeConfig(
@@ -691,7 +691,7 @@ CODESIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 GASPRICE_CONFIG = MarginalOpcodeConfig(
@@ -702,7 +702,7 @@ GASPRICE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 RETURNDATASIZE_CONFIG = MarginalOpcodeConfig(
@@ -713,7 +713,7 @@ RETURNDATASIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 GAS_CONFIG = MarginalOpcodeConfig(
@@ -724,7 +724,7 @@ GAS_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 # ============================================================================
@@ -739,7 +739,7 @@ COINBASE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 TIMESTAMP_CONFIG = MarginalOpcodeConfig(
@@ -750,7 +750,7 @@ TIMESTAMP_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 NUMBER_CONFIG = MarginalOpcodeConfig(
@@ -761,7 +761,7 @@ NUMBER_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 PREVRANDAO_CONFIG = MarginalOpcodeConfig(
@@ -772,7 +772,7 @@ PREVRANDAO_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 GASLIMIT_CONFIG = MarginalOpcodeConfig(
@@ -783,7 +783,7 @@ GASLIMIT_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 CHAINID_CONFIG = MarginalOpcodeConfig(
@@ -794,7 +794,7 @@ CHAINID_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 SELFBALANCE_CONFIG = MarginalOpcodeConfig(
@@ -805,7 +805,7 @@ SELFBALANCE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
 )
 
 BASEFEE_CONFIG = MarginalOpcodeConfig(
@@ -816,7 +816,7 @@ BASEFEE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 
@@ -828,7 +828,7 @@ BLOBBASEFEE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 # ============================================================================
@@ -845,7 +845,7 @@ MLOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # offset - read from offset 0
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=250,  # Reduced for faster benchmarking
+    num_calls=250,
     setup_code=Op.MSTORE(0, MAX_U256),  # Pre-expand memory with data
 )
 
@@ -857,7 +857,7 @@ MSTORE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 0],  # value, offset (MSTORE pops offset first)
     inputs_per_op=2,
     outputs_per_op=0,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -869,7 +869,7 @@ MSTORE8_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xFF, 0],  # value, offset (MSTORE8 pops offset first)
     inputs_per_op=2,
     outputs_per_op=0,
-    num_calls=250,  # Reduced for faster benchmarking
+    num_calls=250,
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -881,7 +881,7 @@ MSIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=250,  # Reduced for faster benchmarking
+    num_calls=250,
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory so MSIZE returns non-zero
 )
 
@@ -895,7 +895,7 @@ CALLDATACOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[32, 0, 0],  # size=32 bytes, offset=0, destOffset=0 (worst-case: small copy)
     inputs_per_op=3,
     outputs_per_op=0,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -928,7 +928,7 @@ RETURNDATACOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[64, 0, 128],  # size=64, offset=0, destOffset=128
     inputs_per_op=3,
     outputs_per_op=0,
-    num_calls=75,  # Reduced for faster benchmarking
+    num_calls=75,
     setup_code=_generate_returndatacopy_setup(),
 )
 
@@ -942,7 +942,7 @@ CODECOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[32, 0, 0],  # size=32 bytes, offset=0, destOffset=0 (worst-case: small copy)
     inputs_per_op=3,
     outputs_per_op=0,
-    num_calls=200,  # Reduced for faster benchmarking
+    num_calls=200,
     setup_code=Op.MSTORE(0, 0),  # Pre-expand memory
 )
 
@@ -955,7 +955,7 @@ MCOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[1024, 0, 4096],  # size=1KB, srcOffset=0, destOffset=4096
     inputs_per_op=3,
     outputs_per_op=0,
-    num_calls=50,  # Reduced for faster benchmarking
+    num_calls=50,
     setup_code=Op.MSTORE(0, MAX_U256) + Op.MSTORE(4096, 0),  # Pre-expand memory regions
 )
 
@@ -972,7 +972,7 @@ CALLDATALOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Load from offset 0
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 # BLOCKHASH: pops block number, pushes hash (or 0 if out of range)
@@ -984,7 +984,7 @@ BLOCKHASH_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Block 0
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=50,  # Reduced for faster benchmarking
+    num_calls=50,
 )
 
 # BLOBHASH: pops blob index, pushes versioned hash (or 0 if out of range)
@@ -996,7 +996,7 @@ BLOBHASH_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Blob index 0 (will return 0 if no blobs)
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=200,  # Reduced for faster benchmarking
+    num_calls=200,
 )
 
 # ============================================================================
@@ -1013,7 +1013,7 @@ SLOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[100],  # Storage slot 100 (different from SUCCESS_SLOT)
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
     setup_code=Op.POP(Op.SLOAD(100)),  # Warm up slot 100 first
 )
 
@@ -1029,7 +1029,7 @@ SSTORE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 100],  # value, slot (SSTORE pops slot first)
     inputs_per_op=2,
     outputs_per_op=0,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
     setup_code=Op.POP(Op.SLOAD(100)),  # Warm up slot 100 first
 )
 
@@ -1042,7 +1042,7 @@ TLOAD_CONFIG = MarginalOpcodeConfig(
     stack_args=[0],  # Transient slot 0
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=300,  # Reduced for faster benchmarking
+    num_calls=300,
 )
 
 # TSTORE: Transient storage store (EIP-1153) - 100 gas
@@ -1055,7 +1055,7 @@ TSTORE_CONFIG = MarginalOpcodeConfig(
     stack_args=[MAX_U256, 0],  # value, slot (TSTORE pops slot first)
     inputs_per_op=2,
     outputs_per_op=0,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
 )
 
 # ============================================================================
@@ -1073,7 +1073,7 @@ JUMPDEST_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=0,
-    num_calls=400,  # Reduced for faster benchmarking
+    num_calls=400,
 )
 
 # PC pushes the program counter value
@@ -1085,7 +1085,7 @@ PC_CONFIG = MarginalOpcodeConfig(
     stack_args=[],
     inputs_per_op=0,
     outputs_per_op=1,
-    num_calls=250,  # Reduced for faster benchmarking
+    num_calls=250,
 )
 
 # ============================================================================
@@ -1104,7 +1104,7 @@ BALANCE_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xDEAD],  # Query balance of address 0xDEAD
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=100,  # Reduced for faster benchmarking
+    num_calls=100,
     setup_code=Op.POP(Op.BALANCE(0xDEAD)),  # Warm up address 0xDEAD first
 )
 
@@ -1119,7 +1119,7 @@ EXTCODESIZE_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xDEAD],  # Query code size of address 0xDEAD
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
     setup_code=Op.POP(Op.EXTCODESIZE(0xDEAD)),  # Warm up address 0xDEAD first
 )
 
@@ -1134,7 +1134,7 @@ EXTCODEHASH_CONFIG = MarginalOpcodeConfig(
     stack_args=[0xDEAD],  # Query code hash of address 0xDEAD
     inputs_per_op=1,
     outputs_per_op=1,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
     setup_code=Op.POP(Op.EXTCODEHASH(0xDEAD)),  # Warm up address 0xDEAD first
 )
 
@@ -1148,7 +1148,7 @@ EXTCODECOPY_CONFIG = MarginalOpcodeConfig(
     stack_args=[256, 0, 0, 0xDEAD],  # size=256, offset=0, destOffset=0, address
     inputs_per_op=4,
     outputs_per_op=0,
-    num_calls=150,  # Reduced for faster benchmarking
+    num_calls=150,
     setup_code=Op.MSTORE(0, 0) + Op.POP(Op.EXTCODESIZE(0xDEAD)),  # Pre-expand memory + warm up address
 )
 
@@ -1492,7 +1492,7 @@ def generate_jumpi_target(op_count: int, max_op_count: int) -> Bytecode:
 # Stack-limited but amplifier-amplified for high total op counts
 # Stack limit: 1024, each noop leaves +5 or +6 items
 # Safe max_op_count: ~150 (with buffer), amplifier amplifies to 150 × N total ops
-CALL_NUM_CALLS = 75  # Reduced for faster benchmarking
+CALL_NUM_CALLS = 75
 CALL_MAX_OP_COUNT = 100  # Target contract executes up to 100 CALLs per invocation
 CALL_STEP = 25  # 5 data points (0, 25, 50, 75, 100)
 
@@ -1672,7 +1672,7 @@ def test_marginal_staticcall(state_test: StateTestFiller, pre: Alloc, op_count: 
 
 # Stack-limited: each noop leaves +2 items (3 pushed, 1 popped)
 # Safe max_op_count: ~400 (with buffer), amplifier amplifies total
-CREATE_NUM_CALLS = 50  # Reduced for faster benchmarking
+CREATE_NUM_CALLS = 50
 CREATE_MAX_OP_COUNT = 20  # Target executes up to 20 CREATEs per call
 CREATE_STEP = 5  # 5 data points (0, 5, 10, 15, 20)
 
