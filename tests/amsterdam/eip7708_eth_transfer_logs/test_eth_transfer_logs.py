@@ -51,7 +51,7 @@ def test_simple_transfer_emits_log(
     sender: EOA,
 ) -> None:
     """Test that a simple ETH transfer emits a transfer log."""
-    recipient = pre.fund_eoa(0)
+    recipient = pre.empty_account()
     transfer_amount = 1000
 
     tx = Transaction(
@@ -75,7 +75,7 @@ def test_zero_value_transfer_no_log(
     sender: EOA,
 ) -> None:
     """Test that a zero-value transfer does NOT emit a transfer log."""
-    recipient = pre.fund_eoa(0)
+    recipient = pre.empty_account()
 
     tx = Transaction(
         sender=sender,
@@ -95,7 +95,7 @@ def test_call_with_value_emits_log(
     sender: EOA,
 ) -> None:
     """Test that CALL with value emits a transfer log."""
-    recipient = Address(0x200)
+    recipient = pre.empty_account()
     transfer_amount = 500
     tx_transfer_amount = 1000
 
@@ -104,9 +104,7 @@ def test_call_with_value_emits_log(
         address=recipient,
         value=transfer_amount,
     )
-    contract = pre.deploy_contract(
-        contract_code, balance=tx_transfer_amount
-    )
+    contract = pre.deploy_contract(contract_code, balance=tx_transfer_amount)
 
     tx = Transaction(
         sender=sender,
@@ -132,7 +130,7 @@ def test_selfdestruct_with_value_emits_log(
     sender: EOA,
 ) -> None:
     """Test that SELFDESTRUCT with value emits a transfer log."""
-    beneficiary = Address(0x300)
+    beneficiary = pre.empty_account()
     contract_balance = 2000
 
     contract_code = Op.SELFDESTRUCT(beneficiary)
@@ -153,20 +151,10 @@ def test_selfdestruct_with_value_emits_log(
 
 
 @pytest.mark.parametrize(
-    "contract_code,contract_balance,expected_logs_empty",
+    "op_type",
     [
-        pytest.param(
-            Op.CALL(gas=100_000, address=Address(0x200), value=0),
-            0,
-            True,
-            id="call_zero_value",
-        ),
-        pytest.param(
-            Op.SELFDESTRUCT(Address(0x300)),
-            0,
-            True,
-            id="selfdestruct_zero_balance",
-        ),
+        pytest.param("call", id="call_zero_value"),
+        pytest.param("selfdestruct", id="selfdestruct_zero_balance"),
     ],
 )
 def test_zero_value_operations_no_log(
@@ -174,12 +162,17 @@ def test_zero_value_operations_no_log(
     env: Environment,
     pre: Alloc,
     sender: EOA,
-    contract_code: Bytecode,
-    contract_balance: int,
-    expected_logs_empty: bool,
+    op_type: str,
 ) -> None:
     """Test that zero-value operations do NOT emit transfer logs."""
-    contract = pre.deploy_contract(contract_code, balance=contract_balance)
+    target = pre.empty_account()
+
+    if op_type == "call":
+        contract_code = Op.CALL(gas=100_000, address=target, value=0)
+    else:
+        contract_code = Op.SELFDESTRUCT(target)
+
+    contract = pre.deploy_contract(contract_code, balance=0)
 
     tx = Transaction(
         sender=sender,
@@ -232,15 +225,24 @@ def test_failed_call_no_log(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "reverting_code",
+    [
+        pytest.param(Op.REVERT(0, 0), id="revert"),
+        pytest.param(Op.INVALID, id="invalid_opcode"),
+        pytest.param(Op.ADD, id="stack_underflow"),
+        pytest.param(Op.MSTORE(2**256 - 1, 0), id="out_of_gas"),
+    ],
+)
 def test_reverted_transaction_no_log(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
+    reverting_code: Bytecode,
 ) -> None:
-    """Test that a reverted transaction does NOT emit a transfer log."""
-    contract_code = Op.REVERT(0, 0)
-    contract = pre.deploy_contract(contract_code)
+    """Test that a failed transaction does NOT emit a transfer log."""
+    contract = pre.deploy_contract(reverting_code)
 
     tx = Transaction(
         sender=sender,
