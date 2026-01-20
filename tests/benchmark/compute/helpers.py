@@ -380,6 +380,7 @@ class FixedIterationsBytecode(IteratingBytecode):
         cleanup: Bytecode,
         iteration_count: int,
         warm_iterating: Bytecode | None = None,
+        iterating_subcall: Bytecode | None = None,
     ) -> Self:
         """
         Create a new FixedIterationsBytecode instance.
@@ -395,6 +396,10 @@ class FixedIterationsBytecode(IteratingBytecode):
             warm_iterating: Bytecode executed in subsequent iterations
                 after the first. If None, uses the same bytecode as
                 iterating.
+            iterating_subcall: Analytical bytecode representing a subcall
+                performed during each iteration. This bytecode is _not_
+                included in the final bytecode, and it's only used for gas
+                calculation.
 
         Returns:
             A new FixedIterationsBytecode instance.
@@ -406,6 +411,7 @@ class FixedIterationsBytecode(IteratingBytecode):
             iterating=iterating,
             cleanup=cleanup,
             warm_iterating=warm_iterating,
+            iterating_subcall=iterating_subcall,
         )
         instance.iteration_count = iteration_count
         return instance
