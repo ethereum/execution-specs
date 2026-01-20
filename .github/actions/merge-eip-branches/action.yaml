@@ -5,15 +5,12 @@ inputs:
   fork:
     description: 'Fork name (e.g., amsterdam)'
     required: true
-    type: string
   devnet_name:
     description: 'Devnet name (e.g., amsterdam/1, bal/2, eip-1234/3). Created branch will be `devnets/$devnet_name`'
     required: true
-    type: string
   eip_numbers:
     description: 'Comma-separated list of EIP numbers (e.g., 1234,2345,3456)'
     required: true
-    type: string
 
 runs:
   using: "composite"
