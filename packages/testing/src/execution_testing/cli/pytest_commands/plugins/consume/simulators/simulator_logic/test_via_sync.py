@@ -97,7 +97,8 @@ def test_blockchain_via_sync(
             expected = fixture.genesis.block_hash
             got = genesis_block["hash"]
             logger.fail(
-                f"Genesis block hash mismatch. Expected: {expected}, Got: {got}"
+                f"Genesis block hash mismatch. "
+                f"Expected: {expected}, Got: {got}"
             )
             raise GenesisBlockMismatchExceptionError(
                 expected_header=fixture.genesis,
@@ -122,18 +123,16 @@ def test_blockchain_via_sync(
                 with payload_timing.time(
                     f"engine_newPayloadV{payload.new_payload_version}"
                 ):
-                    logger.info(
-                        f"Sending engine_newPayloadV{payload.new_payload_version}..."
-                    )
+                    version = payload.new_payload_version
+                    logger.info(f"Sending engine_newPayloadV{version}...")
                     # Note: This is similar to the logic in test_via_engine.py
                     try:
                         payload_response = engine_rpc.new_payload(
                             *payload.params,
                             version=payload.new_payload_version,
                         )
-                        logger.info(
-                            f"Payload response status: {payload_response.status}"
-                        )
+                        status = payload_response.status
+                        logger.info(f"Payload response status: {status}")
                         expected_validity = (
                             PayloadStatusEnum.VALID
                             if payload.valid()
@@ -146,8 +145,8 @@ def test_blockchain_via_sync(
                             )
                         if payload.error_code is not None:
                             raise LoggedError(
-                                f"Client failed to raise expected Engine API error code: "
-                                f"{payload.error_code}"
+                                "Client failed to raise expected Engine API "
+                                f"error code: {payload.error_code}"
                             )
                         elif (
                             payload_response.status
@@ -155,7 +154,8 @@ def test_blockchain_via_sync(
                         ):
                             if payload_response.validation_error is None:
                                 raise LoggedError(
-                                    "Client returned INVALID but no validation error was provided."
+                                    "Client returned INVALID but no "
+                                    "validation error was provided."
                                 )
                             if isinstance(
                                 payload_response.validation_error,
@@ -163,9 +163,12 @@ def test_blockchain_via_sync(
                             ):
                                 message = (
                                     "Undefined exception message: "
-                                    f'expected exception: "{payload.validation_error}", '
-                                    f'returned exception: "{payload_response.validation_error}" '
-                                    f'(mapper: "{payload_response.validation_error.mapper_name}")'
+                                    f"expected exception: "
+                                    f'"{payload.validation_error}", '
+                                    f"returned exception: "
+                                    f'"{payload_response.validation_error}" '
+                                    f"(mapper: "
+                                    f'"{payload_response.validation_error.mapper_name}")'  # noqa: E501
                                 )
                                 if strict_exception_matching:
                                     raise LoggedError(message)
@@ -177,9 +180,12 @@ def test_blockchain_via_sync(
                                     not in payload_response.validation_error
                                 ):
                                     message = (
-                                        "Client returned unexpected validation error: "
-                                        f'got: "{payload_response.validation_error}" '
-                                        f'expected: "{payload.validation_error}"'
+                                        "Client returned unexpected "
+                                        "validation error: "
+                                        f"got: "
+                                        f'"{payload_response.validation_error}" '  # noqa: E501
+                                        f"expected: "
+                                        f'"{payload.validation_error}"'
                                     )
                                     if strict_exception_matching:
                                         raise LoggedError(message)
@@ -188,7 +194,8 @@ def test_blockchain_via_sync(
 
                     except JSONRPCError as e:
                         logger.info(
-                            f"JSONRPC error encountered: {e.code} - {e.message}"
+                            f"JSONRPC error encountered: "
+                            f"{e.code} - {e.message}"
                         )
                         if payload.error_code is None:
                             raise LoggedError(
@@ -196,7 +203,8 @@ def test_blockchain_via_sync(
                             ) from e
                         if e.code != payload.error_code:
                             raise LoggedError(
-                                f"Unexpected error code: {e.code}, expected: {payload.error_code}"
+                                f"Unexpected error code: {e.code}, "
+                                f"expected: {payload.error_code}"
                             ) from e
 
                 if payload.valid():
@@ -221,9 +229,10 @@ def test_blockchain_via_sync(
                             forkchoice_response.payload_status.status
                             != PayloadStatusEnum.VALID
                         ):
+                            status = forkchoice_response.payload_status.status
                             raise LoggedError(
-                                f"unexpected status: want {PayloadStatusEnum.VALID},"
-                                f" got {forkchoice_response.payload_status.status}"
+                                f"unexpected status: want "
+                                f"{PayloadStatusEnum.VALID}, got {status}"
                             )
                         last_valid_block_hash = payload.params[0].block_hash
 
@@ -234,7 +243,8 @@ def test_blockchain_via_sync(
     # sync_payload creates the final block that the sync client will sync to
     if not fixture.sync_payload:
         pytest.fail(
-            "Sync tests require a syncPayload that is not present in this test."
+            "Sync tests require a syncPayload that is not present in this "
+            "test."
         )
 
     with timing_data.time("Send sync payload to client under test"):
@@ -277,7 +287,8 @@ def test_blockchain_via_sync(
                 )
         except JSONRPCError as e:
             logger.error(
-                f"Error sending sync payload to client under test: {e.code} - {e.message}"
+                f"Error sending sync payload to client under test: "
+                f"{e.code} - {e.message}"
             )
             raise
 
@@ -297,12 +308,13 @@ def test_blockchain_via_sync(
             )
             if response.payload_status.status != PayloadStatusEnum.VALID:
                 raise LoggedError(
-                    f"Unexpected status on sync client forkchoice updated to genesis: "
-                    f"{response.payload_status.status}"
+                    "Unexpected status on sync client forkchoice updated to "
+                    f"genesis: {response.payload_status.status}"
                 )
         except ForkchoiceUpdateTimeoutError as e:
             raise LoggedError(
-                f"Timed out waiting for sync client forkchoice update to genesis: {e}"
+                "Timed out waiting for sync client forkchoice update to "
+                f"genesis: {e}"
             ) from None
 
     # Add peer using admin_addPeer This seems to be required... TODO: we can
@@ -369,13 +381,13 @@ def test_blockchain_via_sync(
                 *last_valid_payload.params,
                 version=last_valid_payload.new_payload_version,
             )
-            logger.info(
-                f"Sync client newPayload response: {sync_payload_response.status}"
-            )
+            status = sync_payload_response.status
+            logger.info(f"Sync client newPayload response: {status}")
 
             # send forkchoice update pointing to latest block
             logger.info(
-                "Sending forkchoice update with last valid block to trigger sync..."
+                "Sending forkchoice update with last valid block to trigger "
+                "sync..."
             )
             sync_forkchoice_response = sync_engine_rpc.forkchoice_updated(
                 forkchoice_state=last_valid_block_forkchoice_state,
@@ -395,16 +407,18 @@ def test_blockchain_via_sync(
                 == PayloadStatusEnum.ACCEPTED
             ):
                 logger.info(
-                    "Sync client accepted the block, may start syncing ancestors"
+                    "Sync client accepted the block, may start syncing "
+                    "ancestors"
                 )
 
-            # Wait for P2P connections after sync starts
-            # Note: Reth does not report peer count but still syncs successfully
+            # Wait for P2P connections after sync starts. Note: Reth does not
+            # report peer count but still syncs successfully
             try:
                 assert sync_net_rpc is not None, "sync_net_rpc is required"
                 sync_net_rpc.wait_for_peer_connection()
                 logger.debug(
-                    "Peer connection verified on sync client after sync trigger"
+                    "Peer connection verified on sync client after sync "
+                    "trigger"
                 )
             except PeerConnectionTimeoutError:
                 try:
@@ -419,11 +433,13 @@ def test_blockchain_via_sync(
 
         except Exception as e:
             logger.warning(
-                f"Failed to trigger sync with newPayload/forkchoice update: {e}"
+                "Failed to trigger sync with newPayload/forkchoice update: "
+                f"{e}"
             )
     else:
         logger.warning(
-            f"Could not find payload for block {last_valid_block_hash} to send to sync client"
+            f"Could not find payload for block {last_valid_block_hash} to "
+            "send to sync client"
         )
 
     # Wait for synchronization with continuous forkchoice updates
@@ -449,12 +465,14 @@ def test_blockchain_via_sync(
             )
             if response.payload_status.status != PayloadStatusEnum.VALID:
                 raise LoggedError(
-                    f"Sync client failed to sync to block {last_valid_block_hash}: "
-                    f"unexpected status {response.payload_status.status}"
+                    f"Sync client failed to sync to block "
+                    f"{last_valid_block_hash}: unexpected status "
+                    f"{response.payload_status.status}"
                 )
         except ForkchoiceUpdateTimeoutError as e:
             raise LoggedError(
-                f"Sync client timed out syncing to block {last_valid_block_hash}: {e}"
+                f"Sync client timed out syncing to block "
+                f"{last_valid_block_hash}: {e}"
             ) from None
 
         logger.info("Sync verification successful! FCU returned VALID.")

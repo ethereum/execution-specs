@@ -246,7 +246,8 @@ def sync_client(
     assert sync_client is not None, error_message
 
     logger.info(
-        f"Sync client ({sync_client_type.name}) started with IP: {sync_client.ip}"
+        f"Sync client ({sync_client_type.name}) started with IP: "
+        f"{sync_client.ip}"
     )
 
     yield sync_client

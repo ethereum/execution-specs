@@ -289,7 +289,8 @@ class FixturesSource:
             )
         if not any(path.glob("**/*.json")):
             pytest.exit(
-                f"Specified fixture directory '{path}' does not contain any JSON files."
+                f"Specified fixture directory '{path}' does not contain "
+                "any JSON files."
             )
         return FixturesSource(input_option=str(path), path=path)
 
@@ -361,10 +362,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         dest="fixtures_source",
         default=None,
         help=(
-            "Specify the JSON test fixtures source. Can be a local directory, a URL pointing to a "
-            " fixtures.tar.gz archive, a release name and version in the form of `NAME@v1.2.3` "
-            "(`stable` and `develop` are valid release names, and `latest` is a valid version), "
-            "or the special keyword 'stdin'. "
+            "Specify the JSON test fixtures source. Can be a local "
+            "directory, a URL pointing to a fixtures.tar.gz archive, a "
+            "release name and version in the form of `NAME@v1.2.3` "
+            "(`stable` and `develop` are valid release names, and `latest` "
+            "is a valid version), or the special keyword 'stdin'. "
             f"Defaults to the following local directory: '{default_input()}'."
         ),
     )
@@ -375,7 +377,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         default=CACHED_DOWNLOADS_DIRECTORY,
         help=(
             "Specify the path where the downloaded fixtures are cached. "
-            f"Defaults to the following directory: '{CACHED_DOWNLOADS_DIRECTORY}'."
+            "Defaults to the following directory: "
+            f"'{CACHED_DOWNLOADS_DIRECTORY}'."
         ),
     )
     consume_group.addoption(
@@ -384,9 +387,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         dest="extract_to_folder",
         default=None,
         help=(
-            "Extract downloaded fixtures to the specified directory. Only valid with 'cache' "
-            "command. When used, fixtures are extracted directly to this path instead of the "
-            "user's execution-spec-tests cache directory."
+            "Extract downloaded fixtures to the specified directory. Only "
+            "valid with 'cache' command. When used, fixtures are extracted "
+            "directly to this path instead of the user's execution-spec-"
+            "tests cache directory."
         ),
     )
     if "cache" in sys.argv:
@@ -408,13 +412,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         type=SimLimitBehavior.from_string,
         default=SimLimitBehavior(".*"),
         help=(
-            "Filter tests by either a regex pattern or a literal test case ID. To match a "
-            "test case by its exact ID, prefix the ID with `id:`. The string following `id:` "
-            "will be automatically escaped so that all special regex characters are treated as "
-            "literals. Without the `id:` prefix, the argument is interpreted as a Python regex "
-            "pattern. To see which test cases are matched, without executing them, prefix with "
-            '`collectonly:`, e.g. `--sim.limit "collectonly:.*eip4788.*fork_Prague.*"`. '
-            "To list all available test case IDs, set the value to `collectonly`."
+            "Filter tests by either a regex pattern or a literal test case "
+            "ID. To match a test case by its exact ID, prefix the ID with "
+            "`id:`. The string following `id:` will be automatically escaped "
+            "so that all special regex characters are treated as literals. "
+            "Without the `id:` prefix, the argument is interpreted as a "
+            "Python regex pattern. To see which test cases are matched, "
+            "without executing them, prefix with `collectonly:`, e.g. "
+            '`--sim.limit "collectonly:.*eip4788.*fork_Prague.*"`. '
+            "To list all available test case IDs, set the value to "
+            "`collectonly`."
         ),
     )
 
@@ -498,7 +505,8 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     for fixture_format in BaseFixture.formats.values():
         config.addinivalue_line(
             "markers",
-            f"{fixture_format.format_name}: Tests in `{fixture_format.format_name}` format ",
+            f"{fixture_format.format_name}: "
+            f"Tests in `{fixture_format.format_name}` format ",
         )
 
     # All forked defined within EEST
@@ -518,8 +526,8 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     if config.option.sim_limit:
         if config.option.dest_regex != ".*":
             pytest.exit(
-                "Both the --sim.limit (via env var?) and the --regex flags are set. "
-                "Please only set one of them."
+                "Both the --sim.limit (via env var?) and the --regex flags "
+                "are set. Please only set one of them."
             )
         config.option.dest_regex = config.option.sim_limit.pattern
         if config.option.sim_limit.collectonly:

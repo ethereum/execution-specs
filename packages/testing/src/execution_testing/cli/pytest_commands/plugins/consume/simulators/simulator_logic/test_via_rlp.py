@@ -64,7 +64,8 @@ def test_via_rlp(
                     fixture_value = last_block_header[block_field]
                     if str(block_value) != str(fixture_value):
                         mismatches.append(
-                            f"    {block_field}: got `{block_value}`, expected `{fixture_value}`"
+                            f"    {block_field}: got `{block_value}`, "
+                            f"expected `{fixture_value}`"
                         )
                 raise AssertionError(
                     "blockHash mismatch in last block - field mismatches:"
@@ -72,6 +73,7 @@ def test_via_rlp(
                 )
             except Exception:
                 raise AssertionError(
-                    f"blockHash mismatch in last block: got `{block['hash']}`, "
+                    f"blockHash mismatch in last block: "
+                    f"got `{block['hash']}`, "
                     f"expected `{fixture.last_block_hash}`"
                 ) from None

@@ -113,7 +113,8 @@ class TestSimplifiedConsumeBehavior:
         elif not config.fixtures_source.is_local:
             reason += "Fixtures downloaded and cached."
         reason += f"\nPath: {config.fixtures_source.path}"
-        reason += f"\nInput: {config.fixtures_source.url or config.fixtures_source.path}"
+        input_val = config.fixtures_source.url or config.fixtures_source.path
+        reason += f"\nInput: {input_val}"
         if config.fixtures_source.release_page:
             reason += f"\nRelease page: {config.fixtures_source.release_page}"
 
@@ -144,7 +145,8 @@ class TestSimplifiedConsumeBehavior:
         elif not config.fixtures_source.is_local:
             reason += "Fixtures downloaded and cached."
         reason += f"\nPath: {config.fixtures_source.path}"
-        reason += f"\nInput: {config.fixtures_source.url or config.fixtures_source.path}"
+        input_val = config.fixtures_source.url or config.fixtures_source.path
+        reason += f"\nInput: {input_val}"
         if config.fixtures_source.release_page:
             reason += f"\nRelease page: {config.fixtures_source.release_page}"
 
