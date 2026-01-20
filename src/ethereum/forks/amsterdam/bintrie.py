@@ -12,7 +12,7 @@ The state trie is the structure responsible for storing
 `.fork_types.Account` objects.
 """
 
-# import copy
+import copy
 from typing import (
     Callable,
     Optional,
@@ -207,23 +207,26 @@ class BinaryTree:
 
         return _merkelize(self.root)
 
-# def copy_trie(trie: Trie[K, V]) -> Trie[K, V]:
-#     """
-#     Create a copy of `trie`. Since only frozen objects may be stored
-#     in tries, the contents are reused.
+def copy_tree(tree: BinaryTree) -> BinaryTree:
+    """
+    Create a deep copy of a BinaryTree for snapshotting.
 
-#     Parameters
-#     ----------
-#     trie: `Trie`
-#         Trie to copy.
+    Parameters
+    ----------
+    tree :
+        The BinaryTree to copy.
 
-#     Returns
-#     -------
-#     new_trie : `Trie[K, V]`
-#         A copy of the trie.
+    Returns
+    -------
+    new_tree : BinaryTree
+        A deep copy of the tree.
 
-#     """
-#     return Trie(trie.secured, trie.default, copy.copy(trie._data))
+    """
+    new_tree = BinaryTree()
+    if tree.root is not None:
+        new_tree.root = copy.deepcopy(tree.root)
+    return new_tree
+
 
 # TODO replace value : bytes by several types: accounts or slots
 def trie_set(trie: BinaryTree, key: Bytes32, value: bytes) -> None:
