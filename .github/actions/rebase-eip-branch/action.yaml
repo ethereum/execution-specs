@@ -16,23 +16,37 @@ runs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-    - name: Rebase EIP branch
+    - name: Rebase EIP branch (create if missing)
       shell: bash
       run: |
-        set -e  # Exit on any error
+        set -euo pipefail
 
         FORK="${{ inputs.fork }}"
         EIP_NUMBER="${{ inputs.eip_number }}"
         EIP_BRANCH="eips/${FORK}/eip-${EIP_NUMBER}"
         FORK_BRANCH="forks/${FORK}"
 
-        # Fetch all branches
-        git fetch origin
+        git fetch origin --prune
 
-        echo "Checking out ${EIP_BRANCH}"
-        git checkout "${EIP_BRANCH}"
+        # Sanity: fork base must exist
+        if ! git show-ref --verify --quiet "refs/remotes/origin/${FORK_BRANCH}"; then
+          echo "Error: Base fork branch origin/${FORK_BRANCH} does not exist"
+          exit 1
+        fi
 
-        echo "Rebasing ${EIP_BRANCH} onto ${FORK_BRANCH}"
+        # Create local branch from remote if it exists, else create from fork base
+        if git show-ref --verify --quiet "refs/remotes/origin/${EIP_BRANCH}"; then
+          echo "Checking out existing ${EIP_BRANCH} (tracking origin)"
+          git checkout -B "${EIP_BRANCH}" "origin/${EIP_BRANCH}"
+        else
+          echo "Branch ${EIP_BRANCH} does not exist on origin; creating from origin/${FORK_BRANCH}"
+          git checkout -B "${EIP_BRANCH}" "origin/${FORK_BRANCH}"
+
+          # First push creates the remote branch (no force needed)
+          git push -u origin "${EIP_BRANCH}"
+        fi
+
+        echo "Rebasing ${EIP_BRANCH} onto origin/${FORK_BRANCH}"
         if ! git rebase "origin/${FORK_BRANCH}"; then
           echo "Error: Rebase conflict occurred while rebasing ${EIP_BRANCH} onto ${FORK_BRANCH}"
           git rebase --abort || true
