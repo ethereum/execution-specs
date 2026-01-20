@@ -218,7 +218,9 @@ def test_sload_empty_erc20_balanceof(
         attack_address = pre.deploy_contract(code=attack_code)
 
         # Calculate gas for this transaction
-        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
+        this_tx_gas = min(
+            tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit)
+        )
 
         txs.append(
             Transaction(
@@ -376,7 +378,9 @@ def test_sstore_erc20_approve(
         attack_address = pre.deploy_contract(code=attack_code)
 
         # Calculate gas for this transaction
-        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
+        this_tx_gas = min(
+            tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit)
+        )
 
         txs.append(
             Transaction(

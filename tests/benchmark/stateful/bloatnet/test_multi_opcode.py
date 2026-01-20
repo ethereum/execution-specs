@@ -112,7 +112,9 @@ def test_bloatnet_balance_extcodesize(
     num_txs = max(1, math.ceil(gas_benchmark_value / tx_gas_limit))
 
     # Calculate how many contracts to access based on available gas
-    total_available_gas = gas_benchmark_value - (intrinsic_gas * num_txs) - 1000
+    total_available_gas = (
+        gas_benchmark_value - (intrinsic_gas * num_txs) - 1000
+    )
     total_contracts = int(total_available_gas // cost_per_contract)
     contracts_per_tx = total_contracts // num_txs
 
@@ -146,9 +148,9 @@ def test_bloatnet_balance_extcodesize(
         )
         contracts_remaining -= tx_contracts
 
-        # Build attack contract that reads config from factory and performs attack
+        # Build attack contract that reads config from factory
         attack_code = (
-            # Call getConfig() on factory to get num_deployed and init_code_hash
+            # Call getConfig() on factory to get config
             Op.STATICCALL(
                 gas=Op.GAS,
                 address=factory_address,
@@ -164,13 +166,13 @@ def test_bloatnet_balance_extcodesize(
             # Load results from memory
             # Memory[96:128] = num_deployed_contracts
             # Memory[128:160] = init_code_hash
-            + Op.MLOAD(128)  # Load init_code_hash (we'll use tx_contracts instead)
+            + Op.MLOAD(128)  # Load init_code_hash
             # Setup memory for CREATE2 address generation
             # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
             + Op.MSTORE(
                 0, factory_address
             )  # Store factory address at memory position 0
-            + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
+            + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at byte 11
             + Op.MSTORE(32, salt_offset)  # Store starting salt at position 32
             # Stack now has: [init_code_hash]
             + Op.PUSH1(64)  # Push memory position
@@ -181,7 +183,7 @@ def test_bloatnet_balance_extcodesize(
             + While(
                 body=(
                     # Generate CREATE2 addr: keccak256(0xFF+factory+salt+hash)
-                    Op.SHA3(11, 85)  # Generate CREATE2 address from memory[11:96]
+                    Op.SHA3(11, 85)  # CREATE2 addr from memory[11:96]
                     # The address is now on the stack
                     + Op.DUP1  # Duplicate for second operation
                     + benchmark_ops  # Execute operations in specified order
@@ -206,7 +208,9 @@ def test_bloatnet_balance_extcodesize(
         attack_address = pre.deploy_contract(code=attack_code)
 
         # Calculate gas for this transaction
-        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
+        this_tx_gas = min(
+            tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit)
+        )
 
         txs.append(
             Transaction(
@@ -291,7 +295,9 @@ def test_bloatnet_balance_extcodecopy(
     num_txs = max(1, math.ceil(gas_benchmark_value / tx_gas_limit))
 
     # Calculate how many contracts to access
-    total_available_gas = gas_benchmark_value - (intrinsic_gas * num_txs) - 1000
+    total_available_gas = (
+        gas_benchmark_value - (intrinsic_gas * num_txs) - 1000
+    )
     total_contracts = int(total_available_gas // cost_per_contract)
     contracts_per_tx = total_contracts // num_txs
 
@@ -332,9 +338,9 @@ def test_bloatnet_balance_extcodecopy(
         )
         contracts_remaining -= tx_contracts
 
-        # Build attack contract that reads config from factory and performs attack
+        # Build attack contract that reads config from factory
         attack_code = (
-            # Call getConfig() on factory to get num_deployed and init_code_hash
+            # Call getConfig() on factory to get config
             Op.STATICCALL(
                 gas=Op.GAS,
                 address=factory_address,
@@ -355,7 +361,7 @@ def test_bloatnet_balance_extcodecopy(
             + Op.MSTORE(
                 0, factory_address
             )  # Store factory address at memory position 0
-            + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
+            + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at byte 11
             + Op.MSTORE(32, salt_offset)  # Store starting salt at position 32
             # Stack now has: [init_code_hash]
             + Op.PUSH1(64)  # Push memory position
@@ -366,7 +372,7 @@ def test_bloatnet_balance_extcodecopy(
             + While(
                 body=(
                     # Generate CREATE2 address
-                    Op.SHA3(11, 85)  # Generate CREATE2 address from memory[11:96]
+                    Op.SHA3(11, 85)  # CREATE2 addr from memory[11:96]
                     # The address is now on the stack
                     + Op.DUP1  # Duplicate for later operations
                     + benchmark_ops  # Execute operations in specified order
@@ -391,7 +397,9 @@ def test_bloatnet_balance_extcodecopy(
         attack_address = pre.deploy_contract(code=attack_code)
 
         # Calculate gas for this transaction
-        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
+        this_tx_gas = min(
+            tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit)
+        )
 
         txs.append(
             Transaction(
@@ -470,7 +478,9 @@ def test_bloatnet_balance_extcodehash(
     num_txs = max(1, math.ceil(gas_benchmark_value / tx_gas_limit))
 
     # Calculate how many contracts to access based on available gas
-    total_available_gas = gas_benchmark_value - (intrinsic_gas * num_txs) - 1000
+    total_available_gas = (
+        gas_benchmark_value - (intrinsic_gas * num_txs) - 1000
+    )
     total_contracts = int(total_available_gas // cost_per_contract)
     contracts_per_tx = total_contracts // num_txs
 
@@ -504,9 +514,9 @@ def test_bloatnet_balance_extcodehash(
         )
         contracts_remaining -= tx_contracts
 
-        # Build attack contract that reads config from factory and performs attack
+        # Build attack contract that reads config from factory
         attack_code = (
-            # Call getConfig() on factory to get num_deployed and init_code_hash
+            # Call getConfig() on factory to get config
             Op.STATICCALL(
                 gas=Op.GAS,
                 address=factory_address,
@@ -554,7 +564,9 @@ def test_bloatnet_balance_extcodehash(
         attack_address = pre.deploy_contract(code=attack_code)
 
         # Calculate gas for this transaction
-        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
+        this_tx_gas = min(
+            tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit)
+        )
 
         txs.append(
             Transaction(
@@ -741,8 +753,8 @@ def test_mixed_sload_sstore(
         f"Token: {token_name}, "
         f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas "
         f"({sload_percent}% SLOAD, {sstore_percent}% SSTORE). "
-        f"{total_sload_calls} balanceOf calls, {total_sstore_calls} approve calls "
-        f"across {num_txs} transaction(s)."
+        f"{total_sload_calls} balanceOf, {total_sstore_calls} approve "
+        f"across {num_txs} tx(s)."
     )
 
     # Build transactions
@@ -808,7 +820,9 @@ def test_mixed_sload_sstore(
         attack_address = pre.deploy_contract(code=attack_code)
 
         # Calculate gas for this transaction
-        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
+        this_tx_gas = min(
+            tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit)
+        )
 
         txs.append(
             Transaction(
