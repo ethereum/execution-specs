@@ -18,11 +18,14 @@ runs:
 
     - name: Rebase EIP branch (create if missing)
       shell: bash
+      env:
+        FORK: ${{ inputs.fork }}
+        EIP_NUMBER: ${{ inputs.eip_number }}
       run: |
         set -euo pipefail
 
-        FORK="${{ inputs.fork }}"
-        EIP_NUMBER="${{ inputs.eip_number }}"
+        echo "FORK=$FORK"
+        echo "EIP_NUMBER=$EIP_NUMBER"
         EIP_BRANCH="eips/${FORK}/eip-${EIP_NUMBER}"
         FORK_BRANCH="forks/${FORK}"
 

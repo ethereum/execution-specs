@@ -7,7 +7,7 @@ inputs:
     required: true
     type: string
   devnet_name:
-    description: 'Devnet name (e.g., amsterdam/1, bal/2, eip-1234/3)'
+    description: 'Devnet name (e.g., amsterdam/1, bal/2, eip-1234/3). Created branch will be `devnets/$devnet_name`'
     required: true
     type: string
   eip_numbers:
@@ -26,12 +26,16 @@ runs:
 
     - name: Merge EIP branches
       shell: bash
+      env:
+        FORK: ${{ inputs.fork }}
+        DEVNET_NAME: ${{ inputs.devnet_name }}
+        EIP_NUMBERS: ${{ inputs.eip_numbers }}
       run: |
         set -euo pipefail
 
-        FORK="${{ inputs.fork }}"
-        DEVNET_NAME="${{ inputs.devnet_name }}"
-        EIP_NUMBERS="${{ inputs.eip_numbers }}"
+        echo "FORK=$FORK"
+        echo "DEVNET_NAME=$DEVNET_NAME"
+        echo "EIP_NUMBERS=$EIP_NUMBERS"
 
         DEVNET_BRANCH="devnets/${DEVNET_NAME}"
 

@@ -38,4 +38,4 @@ jobs:
         with:
           fork: ${{ github.event.inputs.fork }}
           devnet_name: ${{ github.event.inputs.devnet_name }}
-          eip_numbers: ${{ github.event.inputs.eip_numbers }}"
+          eip_numbers: ${{ github.event.inputs.eip_numbers }}
