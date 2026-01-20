@@ -491,7 +491,6 @@ def call(evm: Evm) -> None:
             code,
             is_delegated,
         )
-        emit_transfer_log(evm, evm.message.current_target, to, value)
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

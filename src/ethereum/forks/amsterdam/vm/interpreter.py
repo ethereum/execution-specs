@@ -45,7 +45,6 @@ from ..state import (
     set_code,
 )
 from ..state_tracker import (
-    StateChanges,
     capture_pre_balance,
     capture_pre_code,
     merge_on_failure,
@@ -266,9 +265,31 @@ def process_message(message: Message) -> Evm:
 
     """
     state = message.block_env.state
-    transient_storage = message.tx_env.transient_storage
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
+
+    transient_storage = message.tx_env.transient_storage
+    code = message.code
+    valid_jump_destinations = get_valid_jump_destinations(code)
+    evm = Evm(
+        pc=Uint(0),
+        stack=[],
+        memory=bytearray(),
+        code=code,
+        gas_left=message.gas,
+        valid_jump_destinations=valid_jump_destinations,
+        logs=(),
+        refund_counter=0,
+        running=True,
+        message=message,
+        output=b"",
+        accounts_to_delete=set(),
+        return_data=b"",
+        error=None,
+        accessed_addresses=message.accessed_addresses,
+        accessed_storage_keys=message.accessed_storage_keys,
+        state_changes=message.state_changes,
+    )
 
     # take snapshot of state before processing the message
     begin_transaction(state, transient_storage)
@@ -293,6 +314,9 @@ def process_message(message: Message) -> Evm:
         move_ether(
             state, message.caller, message.current_target, message.value
         )
+        emit_transfer_log(
+            evm, message.caller, message.current_target, message.value
+        )
 
         sender_new_balance = get_account(state, message.caller).balance
         recipient_new_balance = get_account(
@@ -310,84 +334,26 @@ def process_message(message: Message) -> Evm:
             U256(recipient_new_balance),
         )
 
-    evm = execute_code(message, message.state_changes)
-    if evm.error:
-        rollback_transaction(state, transient_storage)
-        if not message.is_create:
-            merge_on_failure(evm.state_changes)
-    else:
-        commit_transaction(state, transient_storage)
-        if not message.is_create:
-            merge_on_success(evm.state_changes)
-    return evm
-
-
-def execute_code(message: Message, state_changes: StateChanges) -> Evm:
-    """
-    Executes bytecode present in the `message`.
-
-    Parameters
-    ----------
-    message :
-        Transaction specific items.
-    state_changes :
-        The state changes frame to use for tracking.
-
-    Returns
-    -------
-    evm: `ethereum.vm.EVM`
-        Items containing execution specific objects
-
-    """
-    code = message.code
-    valid_jump_destinations = get_valid_jump_destinations(code)
-
-    evm = Evm(
-        pc=Uint(0),
-        stack=[],
-        memory=bytearray(),
-        code=code,
-        gas_left=message.gas,
-        valid_jump_destinations=valid_jump_destinations,
-        logs=(),
-        refund_counter=0,
-        running=True,
-        message=message,
-        output=b"",
-        accounts_to_delete=set(),
-        return_data=b"",
-        error=None,
-        accessed_addresses=message.accessed_addresses,
-        accessed_storage_keys=message.accessed_storage_keys,
-        state_changes=state_changes,
-    )
-    emit_transfer_log(
-        evm,
-        message.current_target,
-        message.caller,
-        message.value,
-    )
-
+    # Execute message code and handle errors
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            if message.disable_precompiles:
-                return evm
-            evm_trace(evm, PrecompileStart(evm.message.code_address))
-            PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
-            evm_trace(evm, PrecompileEnd())
-            return evm
+            if not message.disable_precompiles:
+                evm_trace(evm, PrecompileStart(evm.message.code_address))
+                PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+                evm_trace(evm, PrecompileEnd())
 
-        while evm.running and evm.pc < ulen(evm.code):
-            try:
-                op = Ops(evm.code[evm.pc])
-            except ValueError as e:
-                raise InvalidOpcode(evm.code[evm.pc]) from e
+        else:
+            while evm.running and evm.pc < ulen(evm.code):
+                try:
+                    op = Ops(evm.code[evm.pc])
+                except ValueError as e:
+                    raise InvalidOpcode(evm.code[evm.pc]) from e
 
-            evm_trace(evm, OpStart(op))
-            op_implementation[op](evm)
-            evm_trace(evm, OpEnd())
+                evm_trace(evm, OpStart(op))
+                op_implementation[op](evm)
+                evm_trace(evm, OpEnd())
 
-        evm_trace(evm, EvmStop(Ops.STOP))
+            evm_trace(evm, EvmStop(Ops.STOP))
 
     except ExceptionalHalt as error:
         evm_trace(evm, OpException(error))
@@ -397,4 +363,13 @@ def execute_code(message: Message, state_changes: StateChanges) -> Evm:
     except Revert as error:
         evm_trace(evm, OpException(error))
         evm.error = error
+
+    if evm.error:
+        rollback_transaction(state, transient_storage)
+        if not message.is_create:
+            merge_on_failure(evm.state_changes)
+    else:
+        commit_transaction(state, transient_storage)
+        if not message.is_create:
+            merge_on_success(evm.state_changes)
     return evm

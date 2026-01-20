@@ -209,6 +209,7 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
 
     merge_on_failure(child_evm.state_changes)
 
+
 def emit_transfer_log(
     evm: Evm,
     sender: Address,
