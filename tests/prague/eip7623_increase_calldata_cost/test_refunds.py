@@ -17,7 +17,7 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
 )
-from execution_testing.forks import Prague
+from execution_testing.forks import Amsterdam, Prague
 
 from .helpers import DataTestType
 from .spec import ref_spec_7623
@@ -298,6 +298,7 @@ def test_gas_refunds_from_data_floor(
     execution_gas_used: int,
     refund: int,
     refund_test_type: RefundTestType,
+    fork: Fork,
 ) -> None:
     """
     Test gas refunds deducted from the execution gas cost and not the data
@@ -330,7 +331,11 @@ def test_gas_refunds_from_data_floor(
     #     (t8n) is verified against the expected receipt.
     #   - During test consumption, this is reflected in the balance difference
     #     and the state root.
-    tx.expected_receipt = TransactionReceipt(gas_used=gas_used)
+    if fork >= Amsterdam:
+        tx.expected_receipt = TransactionReceipt(gas_spent=gas_used)
+    else:
+        tx.expected_receipt = TransactionReceipt(gas_used=gas_used)
+
     state_test(
         pre=pre,
         post={
