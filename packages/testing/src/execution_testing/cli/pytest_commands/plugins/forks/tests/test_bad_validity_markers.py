@@ -176,7 +176,10 @@ invalid_validity_marker_test_cases = (
             def test_case(state_test):
                 assert 0
             """,
-            "The markers 'valid_from' and 'valid_at_transition_to' can't be combined",
+            (
+                "The markers 'valid_from' and 'valid_at_transition_to' "
+                "can't be combined"
+            ),
         ),
     ),
     (
@@ -189,7 +192,10 @@ invalid_validity_marker_test_cases = (
             def test_case(state_test):
                 assert 0
             """,
-            "The markers 'valid_until' and 'valid_at_transition_to' can't be combined",
+            (
+                "The markers 'valid_until' and 'valid_at_transition_to' "
+                "can't be combined"
+            ),
         ),
     ),
     (
@@ -274,7 +280,7 @@ param_level_marker_error_test_cases = (
             @pytest.mark.valid_until("Prague")
             def test_case(state_test, value):
                 assert 1
-            """,
+            """,  # noqa: E501
             "Too many 'valid_until' markers applied to test",
         ),
     ),

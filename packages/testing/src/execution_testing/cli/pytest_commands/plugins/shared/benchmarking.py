@@ -61,8 +61,8 @@ def pytest_configure(config: pytest.Config) -> None:
     fixed_opcode_count = OpcodeCountsConfig.from_config(config)
     if gas_benchmark_values is not None and fixed_opcode_count is not None:
         raise pytest.UsageError(
-            f"{GasBenchmarkValues.flag} and --fixed-opcode-count are mutually exclusive. "
-            "Use only one at a time."
+            f"{GasBenchmarkValues.flag} and --fixed-opcode-count are mutually "
+            "exclusive. Use only one at a time."
         )
 
     if gas_benchmark_values is not None:
@@ -220,12 +220,14 @@ def pytest_collection_modifyitems(
     if not gas_benchmark_value and not fixed_opcode_count:
         return
 
-    # In --fixed-opcode-count mode, we only support tests that meet all of the following:
+    # In --fixed-opcode-count mode, we only support tests that meet all of
+    # the following:
     #   - The test uses the benchmark_test fixture
     #   - The benchmark test uses a code generator
     #
     # Here we filter out tests that do not use the benchmark_test fixture.
-    # Note: At this stage we cannot filter based on whether a code generator is used.
+    # Note: At this stage we cannot filter based on whether a code generator
+    # is used.
     if fixed_opcode_count is not None:
         filtered = []
         for item in items:

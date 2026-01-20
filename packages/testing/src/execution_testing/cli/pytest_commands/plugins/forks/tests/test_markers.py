@@ -106,7 +106,9 @@ def test_case(state_test):
         ),
         pytest.param(
             generate_test(
-                valid_at_transition_to='"Paris", subsequent_forks=True, until="Cancun"',
+                valid_at_transition_to=(
+                    '"Paris", subsequent_forks=True, until="Cancun"'
+                ),
             ),
             ["--until=Prague"],
             {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
@@ -143,7 +145,9 @@ def test_case(state_test):
         ),
         pytest.param(
             generate_test(
-                valid_at_transition_to='"Osaka", subsequent_forks=True, until="BPO1"',
+                valid_at_transition_to=(
+                    '"Osaka", subsequent_forks=True, until="BPO1"'
+                ),
             ),
             ["--until=BPO1"],
             {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
@@ -152,7 +156,9 @@ def test_case(state_test):
         ),
         pytest.param(
             generate_test(
-                valid_at_transition_to='"Osaka", subsequent_forks=True, until="BPO1"',
+                valid_at_transition_to=(
+                    '"Osaka", subsequent_forks=True, until="BPO1"'
+                ),
                 valid_for_bpo_forks="",
             ),
             ["--until=BPO1"],
@@ -358,7 +364,8 @@ def test_mixed_function_and_param_markers(state_test, value):
             generate_param_level_mixed_test(),
             ["--from=Berlin", "--until=Prague"],
             # Function marker: valid_until("Cancun") limits to <= Cancun
-            # all_forks (TangerineWhistle): Berlin, London, Paris, Shanghai, Cancun = 5
+            # all_forks (TangerineWhistle):
+            #   Berlin, London, Paris, Shanghai, Cancun = 5
             # paris_only: Paris, Shanghai, Cancun = 3
             # Total: 8 tests
             {"passed": 8, "failed": 0, "skipped": 0, "errors": 0},
@@ -384,7 +391,7 @@ def test_param_level_validity_markers(
     pytest_args: List[str],
 ) -> None:
     """
-    Test param-level validity markers (valid_from, valid_until on pytest.param).
+    Test param-level validity markers (valid_from, valid_until).
 
     The pytest_collection_modifyitems hook filters tests based on param-level
     markers after parametrization, allowing different parameter values to have

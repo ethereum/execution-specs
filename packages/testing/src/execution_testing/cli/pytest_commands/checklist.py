@@ -13,7 +13,7 @@ from .fill import FillCommand
     "-o",
     type=click.Path(file_okay=False, dir_okay=True, writable=True),
     default="./checklists",
-    help="Directory to output the generated checklists (default: ./checklists)",
+    help="Directory to output checklists (default: ./checklists)",
 )
 @click.option(
     "--eip",

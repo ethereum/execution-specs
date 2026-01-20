@@ -19,7 +19,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         dest="show_check_eip_versions_help",
         default=False,
-        help="Show help options only for the check_eip_versions command and exit.",
+        help=(
+            "Show help options only for the check_eip_versions command "
+            "and exit."
+        ),
     )
     help_group.addoption(
         "--fill-help",
@@ -40,28 +43,39 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         dest="show_execute_help",
         default=False,
-        help="Show help options specific to the execute remote command and exit.",
+        help=(
+            "Show help options specific to the execute remote command "
+            "and exit."
+        ),
     )
     help_group.addoption(
         "--execute-hive-help",
         action="store_true",
         dest="show_execute_hive_help",
         default=False,
-        help="Show help options specific to the execute hive command and exit.",
+        help=(
+            "Show help options specific to the execute hive command and exit."
+        ),
     )
     help_group.addoption(
         "--execute-recover-help",
         action="store_true",
         dest="show_execute_recover_help",
         default=False,
-        help="Show help options specific to the execute recover command and exit.",
+        help=(
+            "Show help options specific to the execute recover command "
+            "and exit."
+        ),
     )
     help_group.addoption(
         "--execute-eth-config-help",
         action="store_true",
         dest="show_execute_eth_config_help",
         default=False,
-        help="Show help options specific to the execute eth_config command and exit.",
+        help=(
+            "Show help options specific to the execute eth_config command "
+            "and exit."
+        ),
     )
 
 
@@ -163,7 +177,8 @@ def show_specific_help(
     pytest_ini = Path(config.inifile)  # type: ignore
     if pytest_ini.name != expected_ini:
         raise ValueError(
-            f"Unexpected {expected_ini}!={pytest_ini.name} file option generating help."
+            f"Unexpected {expected_ini}!={pytest_ini.name} file option "
+            "generating help."
         )
 
     test_parser = argparse.ArgumentParser()

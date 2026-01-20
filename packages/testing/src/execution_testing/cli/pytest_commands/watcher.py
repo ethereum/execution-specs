@@ -72,7 +72,7 @@ class FileWatcher:
 
         file_count = len(file_mtimes)
         self.console.print(
-            f"[blue]Watching {file_count} files in tests/ and src/ directories."
+            f"[blue]Watching {file_count} files in tests/ and src/."
             "\nPress Ctrl+C to stop.[/blue]"
         )
 
@@ -86,7 +86,8 @@ class FileWatcher:
                     if not self.verbose:
                         os.system("clear" if os.name != "nt" else "cls")
                     self.console.print(
-                        "[yellow]File changes detected, re-running...[/yellow]\n"
+                        "[yellow]File changes detected, "
+                        "re-running...[/yellow]\n"
                     )
                     run_fill()
                     file_mtimes = current_mtimes

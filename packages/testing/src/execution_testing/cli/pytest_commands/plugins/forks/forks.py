@@ -384,22 +384,28 @@ def covariant_decorator(
 fork_covariant_decorators: List[Type[CovariantDecorator]] = [
     covariant_decorator(
         marker_name="with_all_tx_types",
-        description="marks a test to be parametrized for all tx types at parameter named tx_type"
-        " of type int",
+        description=(
+            "marks a test to be parametrized for all tx types at parameter "
+            "named tx_type of type int"
+        ),
         fork_attribute_name="tx_types",
         argnames=["tx_type"],
     ),
     covariant_decorator(
         marker_name="with_all_contract_creating_tx_types",
-        description="marks a test to be parametrized for all tx types that can create a contract"
-        " at parameter named tx_type of type int",
+        description=(
+            "marks a test to be parametrized for all tx types that can "
+            "create a contract at parameter named tx_type of type int"
+        ),
         fork_attribute_name="contract_creating_tx_types",
         argnames=["tx_type"],
     ),
     covariant_decorator(
         marker_name="with_all_typed_transactions",
-        description="marks a test to be parametrized with default typed transactions named "
-        "typed_transaction",
+        description=(
+            "marks a test to be parametrized with default typed "
+            "transactions named typed_transaction"
+        ),
         fork_attribute_name="tx_types",
         argnames=["typed_transaction"],
         # indirect means the values from `tx_types` will be passed to the
@@ -408,29 +414,37 @@ fork_covariant_decorators: List[Type[CovariantDecorator]] = [
     ),
     covariant_decorator(
         marker_name="with_all_precompiles",
-        description="marks a test to be parametrized for all precompiles at parameter named"
-        " precompile of type int",
+        description=(
+            "marks a test to be parametrized for all precompiles at "
+            "parameter named precompile of type int"
+        ),
         fork_attribute_name="precompiles",
         argnames=["precompile"],
     ),
     covariant_decorator(
         marker_name="with_all_call_opcodes",
-        description="marks a test to be parametrized for all *CALL opcodes at parameter named"
-        " call_opcode",
+        description=(
+            "marks a test to be parametrized for all *CALL opcodes at "
+            "parameter named call_opcode"
+        ),
         fork_attribute_name="call_opcodes",
         argnames=["call_opcode"],
     ),
     covariant_decorator(
         marker_name="with_all_create_opcodes",
-        description="marks a test to be parametrized for all *CREATE* opcodes at parameter named"
-        " create_opcode",
+        description=(
+            "marks a test to be parametrized for all *CREATE* opcodes at "
+            "parameter named create_opcode"
+        ),
         fork_attribute_name="create_opcodes",
         argnames=["create_opcode"],
     ),
     covariant_decorator(
         marker_name="with_all_system_contracts",
-        description="marks a test to be parametrized for all system contracts at parameter named"
-        " system_contract of type int",
+        description=(
+            "marks a test to be parametrized for all system contracts at "
+            "parameter named system_contract of type int"
+        ),
         fork_attribute_name="system_contracts",
         argnames=["system_contract"],
     ),
@@ -468,8 +482,9 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         (
-            "parametrize_by_fork(names, values_fn): parametrize a test case by fork using the "
-            "specified names and values returned by the function values_fn(fork)"
+            "parametrize_by_fork(names, values_fn): parametrize a test case "
+            "by fork using the specified names and values returned by the "
+            "function values_fn(fork)"
         ),
     )
     for d in fork_covariant_decorators:
@@ -526,7 +541,8 @@ def pytest_configure(config: pytest.Config) -> None:
 
     if single_fork and (forks_from or forks_until):
         print(
-            "Error: --fork cannot be used in combination with --from or --until",
+            "Error: --fork cannot be used in combination "
+            "with --from or --until",
             file=sys.stderr,
         )
         pytest.exit(
@@ -546,11 +562,13 @@ def pytest_configure(config: pytest.Config) -> None:
         getattr(config, "single_fork_mode", False)
         and len(selected_fork_set) != 1
     ):
+        fork_count = len(selected_fork_set)
         pytest.exit(
             f"""
-            Expected exactly one fork to be specified, got {len(selected_fork_set)}
+            Expected exactly one fork to be specified, got {fork_count}
             ({selected_fork_set}).
-            Make sure to specify exactly one fork using the --fork command line argument.
+            Make sure to specify exactly one fork using the --fork
+            command line argument.
             """,
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
@@ -628,7 +646,8 @@ def session_fork(request: pytest.FixtureRequest) -> Fork | None:
     ):
         return list(request.config.selected_fork_set)[0]  # type: ignore
     raise AssertionError(
-        "Plugin used `session_fork` fixture without the correct configuration (single_fork_mode)."
+        "Plugin used `session_fork` fixture without the correct "
+        "configuration (single_fork_mode)."
     )
 
 
@@ -1072,8 +1091,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     marks=[
                         pytest.mark.skip(
                             reason=(
-                                f"{test_name} is not valid for any of the forks specified on "
-                                "the command-line."
+                                f"{test_name} is not valid for any of the "
+                                "forks specified on the command-line."
                             )
                         )
                     ],
@@ -1209,10 +1228,10 @@ def pytest_collection_modifyitems(
     """
     Filter tests based on param-level validity markers.
 
-    The pytest_generate_tests hook only considers function-level validity markers.
-    This hook runs after parametrization and can access all markers including
-    param-level ones, allowing us to properly filter tests based on param-level
-    valid_from/valid_until markers.
+    The pytest_generate_tests hook only considers function-level validity
+    markers. This hook runs after parametrization and can access all markers
+    including param-level ones, allowing us to properly filter tests based on
+    param-level valid_from/valid_until markers.
     """
     del config
     items_to_remove = []

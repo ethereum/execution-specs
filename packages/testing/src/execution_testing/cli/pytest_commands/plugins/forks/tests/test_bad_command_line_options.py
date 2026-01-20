@@ -9,7 +9,10 @@ invalid_cli_option_test_cases = (
         "from_nonexistent_fork",
         (
             ("--from", "Marge"),  # codespell:ignore marge
-            "Unsupported fork provided to --from: Marge",  # codespell:ignore marge
+            (
+                "Unsupported fork provided to --from: "
+                "Marge"  # codespell:ignore marge
+            ),
         ),
     ),
     (

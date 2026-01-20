@@ -9,8 +9,8 @@ section, which is shown as the "simulator log" in hive simulations. For this
 use case, timestamps are essential to verify timing issues against the clients
 log.
 
-This module provides the pytest plugin hooks that configure logging for
-pytest sessions. The core logging functionality is in execution_testing.logging.
+This module provides the pytest plugin hooks that configure logging for pytest
+sessions. The core logging functionality is in execution_testing.logging.
 """
 
 import functools
@@ -55,8 +55,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         type=LogLevel.from_cli,
         dest="eest_log_level",
         help=(
-            "The logging level to use in the test session: DEBUG, INFO, WARNING, ERROR or "
-            "CRITICAL, default - INFO. An integer in [0, 50] may be also provided."
+            "The logging level to use in the test session: DEBUG, INFO, "
+            "WARNING, ERROR or CRITICAL, default - INFO. An integer in "
+            "[0, 50] may be also provided."
         ),
     )
     logging_group.addoption(
@@ -64,7 +65,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         action="store",
         default=None,
         dest="eest_log_dir",
-        help="Directory to write log files. Defaults to ./logs if not specified.",
+        help=(
+            "Directory to write log files. Defaults to ./logs if not "
+            "specified."
+        ),
     )
 
 

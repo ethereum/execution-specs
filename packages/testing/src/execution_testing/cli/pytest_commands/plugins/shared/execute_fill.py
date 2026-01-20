@@ -53,12 +53,9 @@ def pytest_configure(config: pytest.Config) -> None:
         "execution_testing.cli.pytest_commands.plugins.filler.filler"
     ):
         for fixture_format in BaseFixture.formats.values():
-            config.addinivalue_line(
-                "markers",
-                (
-                    f"{fixture_format.format_name.lower()}: {fixture_format.description}"
-                ),
-            )
+            name = fixture_format.format_name.lower()
+            desc = fixture_format.description
+            config.addinivalue_line("markers", f"{name}: {desc}")
         for (
             label,
             labeled_fixture_format,
@@ -71,12 +68,9 @@ def pytest_configure(config: pytest.Config) -> None:
         "execution_testing.cli.pytest_commands.plugins.execute.execute"
     ):
         for execute_format in BaseExecute.formats.values():
-            config.addinivalue_line(
-                "markers",
-                (
-                    f"{execute_format.format_name.lower()}: {execute_format.description}"
-                ),
-            )
+            name = execute_format.format_name.lower()
+            desc = execute_format.description
+            config.addinivalue_line("markers", f"{name}: {desc}")
         for (
             label,
             labeled_execute_format,
@@ -104,7 +98,8 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "compile_yul_with(fork): Always compile Yul source using the corresponding evm version.",
+        "compile_yul_with(fork): Always compile Yul source using the "
+        "corresponding evm version.",
     )
     config.addinivalue_line(
         "markers",
@@ -124,35 +119,38 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "exception_test: Negative tests that include an invalid block or transaction.",
+        "exception_test: Negative tests that include an invalid block or "
+        "transaction.",
     )
     config.addinivalue_line(
         "markers",
-        "eip_checklist(item_id, eip=None): Mark a test as implementing a specific checklist item. "
-        "The first positional parameter is the checklist item ID. "
-        "The optional 'eip' keyword parameter specifies additional EIPs covered by the test.",
+        "eip_checklist(item_id, eip=None): Mark a test as implementing a "
+        "specific checklist item. The first positional parameter is the "
+        "checklist item ID. The optional 'eip' keyword parameter specifies "
+        "additional EIPs covered by the test.",
     )
     config.addinivalue_line(
         "markers",
-        "derived_test: Mark a test as a derived test (E.g. a BlockchainTest that is derived "
-        "from a StateTest).",
+        "derived_test: Mark a test as a derived test (E.g. a BlockchainTest "
+        "that is derived from a StateTest).",
     )
     config.addinivalue_line(
         "markers",
-        "tagged: Marks a static test as tagged. Tags are used to generate dynamic "
-        "addresses for static tests at fill time. All tagged tests are compatible with "
-        "dynamic address generation.",
+        "tagged: Marks a static test as tagged. Tags are used to generate "
+        "dynamic addresses for static tests at fill time. All tagged tests "
+        "are compatible with dynamic address generation.",
     )
     config.addinivalue_line(
         "markers",
-        "untagged: Marks a static test as untagged. Tags are used to generate dynamic "
-        "addresses for static tests at fill time. Untagged tests are incompatible with "
-        "dynamic address generation.",
+        "untagged: Marks a static test as untagged. Tags are used to generate "
+        "dynamic addresses for static tests at fill time. Untagged tests are "
+        "incompatible with dynamic address generation.",
     )
     config.addinivalue_line(
         "markers",
-        "verify_sync: Marks a test to be run with `consume sync`, verifying blockchain "
-        "engine tests and having hive clients sync after payload execution.",
+        "verify_sync: Marks a test to be run with `consume sync`, verifying "
+        "blockchain engine tests and having hive clients sync after payload "
+        "execution.",
     )
     config.addinivalue_line(
         "markers",
@@ -161,7 +159,8 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "pre_alloc_modify: Marks a test to apply plugin-specific pre_alloc_group modifiers",
+        "pre_alloc_modify: Marks a test to apply plugin-specific "
+        "pre_alloc_group modifiers",
     )
     config.addinivalue_line(
         "markers",
@@ -177,7 +176,8 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "mainnet: Specialty tests crafted for running on mainnet and sanity checking.",
+        "mainnet: Specialty tests crafted for running on mainnet and sanity "
+        "checking.",
     )
     config.addinivalue_line(
         "markers",
@@ -191,7 +191,10 @@ def test_case_description(request: pytest.FixtureRequest) -> str:
     Fixture to extract and combine docstrings from the test class and the test
     function.
     """
-    description_unavailable = "No description available - add a docstring to the python test class or function."
+    description_unavailable = (
+        "No description available - add a docstring to the python test "
+        "class or function."
+    )
     test_class_doc = ""
     test_function_doc = ""
     if hasattr(request.node, "cls"):
@@ -241,7 +244,8 @@ def pytest_runtest_call(item: pytest.Item) -> None:
         and "blockchain_test" in item.fixturenames
     ):
         raise InvalidFillerError(
-            "A filler should only implement either a state test or a blockchain test; not both."
+            "A filler should only implement either a state test or a "
+            "blockchain test; not both."
         )
 
     # Check that the test defines either test type as parameter.

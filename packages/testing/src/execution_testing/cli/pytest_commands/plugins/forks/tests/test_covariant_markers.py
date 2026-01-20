@@ -29,7 +29,7 @@ import pytest
             @pytest.mark.state_test_only
             def test_case(state_test, tx_type):
                 pass
-            """,
+            """,  # noqa: E501
             {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_tx_types_with_selector",
@@ -45,7 +45,7 @@ import pytest
             @pytest.mark.state_test_only
             def test_case(state_test, tx_type):
                 assert tx_type != 1
-            """,
+            """,  # noqa: E501
             {
                 "passed": 2,
                 "xpassed": 0,
@@ -115,7 +115,7 @@ import pytest
                 assert "state_test" in mark_names
                 if tx_type == 1:
                     assert "slow" in mark_names
-            """,
+            """,  # noqa: E501
             {
                 "passed": 2,
                 "xpassed": 1,
@@ -192,7 +192,7 @@ import pytest
             @pytest.mark.state_test_only
             def test_case(state_test, call_opcode):
                 pass
-            """,
+            """,  # noqa: E501
             {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_call_opcodes_with_selector",
@@ -266,7 +266,7 @@ import pytest
             def test_case(state_test, typed_transaction):
                 assert isinstance(typed_transaction, Transaction)
                 assert typed_transaction.ty in [0, 1]  # Berlin supports types 0 and 1
-            """,
+            """,  # noqa: E501
             {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_typed_transactions_berlin",
@@ -282,7 +282,7 @@ import pytest
             def test_case(state_test, typed_transaction, pre):
                 assert isinstance(typed_transaction, Transaction)
                 assert typed_transaction.ty in [0, 1, 2]  # London supports types 0, 1, 2
-            """,
+            """,  # noqa: E501
             {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_typed_transactions_london",
@@ -404,7 +404,7 @@ import pytest
             @pytest.mark.state_test_only
             def test_case(state_test, test_parameter, test_parameter_2):
                 pass
-            """,
+            """,  # noqa: E501
             {"passed": 5, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="multi_parameter_custom_covariant_marker",
