@@ -42,6 +42,7 @@ from ...vm.eoa_delegation import (
     calculate_delegation_cost,
 )
 from .. import (
+    CALL_SUCCESS,
     Evm,
     Message,
     emit_selfdestruct_log,
@@ -376,7 +377,7 @@ def generic_call(
     else:
         incorporate_child_on_success(evm, child_evm)
         evm.return_data = child_evm.output
-        push(evm.stack, U256(1))
+        push(evm.stack, CALL_SUCCESS)
 
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(

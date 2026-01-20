@@ -36,6 +36,7 @@ SELFDESTRUCT_TOPIC = keccak256(b"Selfdestruct(address, uint256)")
 SYSTEM_ADDRESS = Address(
     bytes.fromhex("fffffffffffffffffffffffffffffffffffffffe")
 )
+CALL_SUCCESS = U256(1)
 
 
 @dataclass
