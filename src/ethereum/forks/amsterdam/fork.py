@@ -955,7 +955,9 @@ def process_transaction(
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
     tx_gas_used = max(tx_gas_used_after_refund, calldata_floor_gas_cost)
-    block_gas_used_in_tx = max(tx_gas_used_before_refund, calldata_floor_gas_cost)
+    block_gas_used_in_tx = max(
+        tx_gas_used_before_refund, calldata_floor_gas_cost
+    )
 
     tx_gas_left = tx.gas - tx_gas_used
     gas_refund_amount = tx_gas_left * effective_gas_price
