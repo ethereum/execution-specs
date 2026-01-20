@@ -71,10 +71,12 @@ EXPECTED_PRAGUE = json.loads("""
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
-    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
+                             "0x0000bbddc7ce488642fb579f8b00f3a590007251",
     "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
     "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
-    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": "0x00000961ef480eb55e80d19ad83579a64c007002"
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS":
+                             "0x00000961ef480eb55e80d19ad83579a64c007002"
   }
 }
 """)
@@ -111,10 +113,12 @@ EXPECTED_BPO1 = json.loads("""
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
-    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x0000bbddc7ce488642fb579f8b00f3a590007251",
     "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
     "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
-    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": "0x00000961ef480eb55e80d19ad83579a64c007002"
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x00000961ef480eb55e80d19ad83579a64c007002"
   }
 }
 """)
@@ -151,10 +155,12 @@ EXPECTED_BPO2 = json.loads("""
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
-    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x0000bbddc7ce488642fb579f8b00f3a590007251",
     "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
     "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
-    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": "0x00000961ef480eb55e80d19ad83579a64c007002"
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x00000961ef480eb55e80d19ad83579a64c007002"
   }
 }
 """)
@@ -191,10 +197,12 @@ EXPECTED_BPO3 = json.loads("""
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
-    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x0000bbddc7ce488642fb579f8b00f3a590007251",
     "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
     "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
-    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": "0x00000961ef480eb55e80d19ad83579a64c007002"
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x00000961ef480eb55e80d19ad83579a64c007002"
   }
 }
 """)
@@ -231,10 +239,12 @@ EXPECTED_BPO4 = json.loads("""
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
-    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x0000bbddc7ce488642fb579f8b00f3a590007251",
     "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
     "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
-    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": "0x00000961ef480eb55e80d19ad83579a64c007002"
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x00000961ef480eb55e80d19ad83579a64c007002"
   }
 }
 """)
@@ -271,10 +281,12 @@ EXPECTED_BPO5 = json.loads("""
     },
     "systemContracts": {
     "BEACON_ROOTS_ADDRESS": "0x000f3df6d732807ef1319fb7b8bb8522d0beac02",
-    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS": "0x0000bbddc7ce488642fb579f8b00f3a590007251",
+    "CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x0000bbddc7ce488642fb579f8b00f3a590007251",
     "DEPOSIT_CONTRACT_ADDRESS": "0x00000000219ab540356cbb839cbe05303d7705fa",
     "HISTORY_STORAGE_ADDRESS": "0x0000f90827f1c53a10cb7a02335b175320002935",
-    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS": "0x00000961ef480eb55e80d19ad83579a64c007002"
+    "WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS":
+                           "0x00000961ef480eb55e80d19ad83579a64c007002"
   }
 }
 """)
@@ -285,7 +297,7 @@ CURRENT_FOLDER = CURRENT_FILE.parent
 
 
 STATIC_NETWORK_CONFIGS = """
-# Static network configs so updates to the network configs don't break the tests.
+# Static network configs so network config updates don't break the tests.
 Mainnet:
   chainId:              0x1
   genesisHash:          0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3
@@ -414,7 +426,7 @@ HoodiWithBPOs:
       target: 15
       max: 20
       baseFeeUpdateFraction: 5007716
-"""  # W505
+"""  # noqa: E501
 
 
 @pytest.fixture(scope="session")
@@ -532,7 +544,8 @@ def test_fork_config_from_fork(
         f"{current_config.model_dump_json()}"
     )
     assert current_config.fork_id == expected_eth_config.current.fork_id, (
-        f"Expected {expected_eth_config.current.fork_id} but got {current_config.fork_id}"
+        f"Expected {expected_eth_config.current.fork_id} "
+        f"but got {current_config.fork_id}"
     )
     if expected_eth_config.next is not None:
         assert next_config is not None, "Expected next to be not None"
@@ -543,7 +556,8 @@ def test_fork_config_from_fork(
             f"{next_config.model_dump_json()}"
         )
         assert next_config.fork_id == expected_eth_config.next.fork_id, (
-            f"Expected {expected_eth_config.next.fork_id} but got {next_config.fork_id}"
+            f"Expected {expected_eth_config.next.fork_id} "
+            f"but got {next_config.fork_id}"
         )
     else:
         assert next_config is None, "Expected next to be None"
@@ -556,7 +570,8 @@ def test_fork_config_from_fork(
             f"{eth_config.last.model_dump_json()}"
         )
         assert eth_config.last.fork_id == expected_eth_config.last.fork_id, (
-            f"Expected {expected_eth_config.last.fork_id} but got {eth_config.last.fork_id}"
+            f"Expected {expected_eth_config.last.fork_id} "
+            f"but got {eth_config.last.fork_id}"
         )
     else:
         assert eth_config.last is None, "Expected last to be None"
@@ -614,19 +629,22 @@ def test_fork_ids(
 ) -> None:
     """Test various configurations of fork Ids for different timestamps."""
     assert expected_current_fork_id == eth_config.current.fork_id, (
-        f"Unexpected current fork id: {eth_config.current.fork_id} != {expected_current_fork_id}"
+        f"Unexpected current fork id: "
+        f"{eth_config.current.fork_id} != {expected_current_fork_id}"
     )
     if expected_next_fork_id is not None:
         assert eth_config.next is not None, "Expected next to be not None"
         assert expected_next_fork_id == eth_config.next.fork_id, (
-            f"Unexpected next fork id: {eth_config.next.fork_id} != {expected_next_fork_id}"
+            f"Unexpected next fork id: "
+            f"{eth_config.next.fork_id} != {expected_next_fork_id}"
         )
     else:
         assert eth_config.next is None, "Expected next to be None"
     if expected_last_fork_id is not None:
         assert eth_config.last is not None, "Expected last to be not None"
         assert expected_last_fork_id == eth_config.last.fork_id, (
-            f"Unexpected last fork id: {eth_config.last.fork_id} != {expected_last_fork_id}"
+            f"Unexpected last fork id: "
+            f"{eth_config.last.fork_id} != {expected_last_fork_id}"
         )
     else:
         assert eth_config.last is None, "Expected last to be None"

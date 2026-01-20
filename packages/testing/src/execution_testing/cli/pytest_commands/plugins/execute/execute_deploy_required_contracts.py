@@ -40,20 +40,20 @@ def test_deploy_deterministic_deployment_contract(
             f"{current_deterministic_deployment_contract_address}"
         )
         if check_only:
-            print(
-                f"✓ Contract is already deployed at {current_deterministic_deployment_contract_address}"
-            )
+            addr = current_deterministic_deployment_contract_address
+            print(f"✓ Contract is already deployed at {addr}")
         else:
-            print(
-                f"Contract already exists at {current_deterministic_deployment_contract_address}, skipping deployment"
-            )
+            addr = current_deterministic_deployment_contract_address
+            print(f"Contract already exists at {addr}, skipping deployment")
         return
 
     if check_only:
+        factory_addr = DETERMINISTIC_FACTORY_ADDRESS
         logger.info(
-            f"✗ Deterministic deployment contract NOT deployed at {DETERMINISTIC_FACTORY_ADDRESS}"
+            f"✗ Deterministic deployment contract NOT deployed at "
+            f"{factory_addr}"
         )
-        print(f"✗ Contract is NOT deployed at {DETERMINISTIC_FACTORY_ADDRESS}")
+        print(f"✗ Contract is NOT deployed at {factory_addr}")
         pytest.fail("Contract not deployed (check-only mode)")
 
     try:
@@ -66,8 +66,9 @@ def test_deploy_deterministic_deployment_contract(
     # Verify deployment
     deployed_code = eth_rpc.get_code(DETERMINISTIC_FACTORY_ADDRESS)
     if deployed_code != Bytes(DETERMINISTIC_FACTORY_BYTECODE):
+        factory_addr = DETERMINISTIC_FACTORY_ADDRESS
         pytest.fail(
-            f"Verification failed: Contract code mismatch at {DETERMINISTIC_FACTORY_ADDRESS}. "
+            f"Verification failed: Contract code mismatch at {factory_addr}. "
             f"Expected: {DETERMINISTIC_FACTORY_BYTECODE}, "
             f"Deployed: {deployed_code}"
         )

@@ -131,9 +131,11 @@ def test_genesis_parsing(
     """
     parsed_genesis = Genesis.model_validate_json(genesis_contents)
     assert parsed_genesis.hash == expected_hash, (
-        f"Unexpected genesis hash: {parsed_genesis.hash}, expected: {expected_hash}"
+        f"Unexpected genesis hash: {parsed_genesis.hash}, "
+        f"expected: {expected_hash}"
     )
     network_config = parsed_genesis.network_config()
     assert network_config == expected_network_config, (
-        f"Unexpected network config: {network_config}, expected: {expected_network_config}"
+        f"Unexpected network config: {network_config}, "
+        f"expected: {expected_network_config}"
     )

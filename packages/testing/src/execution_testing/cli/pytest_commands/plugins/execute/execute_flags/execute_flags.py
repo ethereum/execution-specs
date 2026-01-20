@@ -65,14 +65,14 @@ def pytest_configure(config: pytest.Config) -> None:
             returncode=4,
         )
     else:
-        # Use rpc_chain_id if chain_id is not provided (for backwards compatibility)
+        # Use rpc_chain_id if chain_id is not provided (backwards compat)
         if not chain_id:
             chain_id = rpc_chain_id
 
     if chain_id is None:
         pytest.exit(
-            "Chain ID must be provided with the --chain-id/--rpc-chain-id flags or "
-            "the CHAIN_ID/RPC_CHAIN_ID environment variables."
+            "Chain ID must be provided with the --chain-id/--rpc-chain-id "
+            "flags or the CHAIN_ID/RPC_CHAIN_ID environment variables."
         )
 
     # write to config

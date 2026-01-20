@@ -453,8 +453,9 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 for tx_hash, tx in pending_responses.items()
             ]
         )
+        missing_str = ", ".join(missing_txs_strings)
         raise Exception(
-            f"Transactions {', '.join(missing_txs_strings)} were not included in a block "
+            f"Transactions {missing_str} were not included in a block "
             f"within {self.transaction_wait_timeout} seconds:\n"
             f"{pending_tx_responses_string}"
         )

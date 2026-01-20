@@ -89,5 +89,6 @@ def deploy_deterministic_factory_contract(
     deployment_contract_code = eth_rpc.get_code(DETERMINISTIC_FACTORY_ADDRESS)
     logger.info(f"Deployment contract code: {deployment_contract_code}")
     assert deployment_contract_code == DETERMINISTIC_FACTORY_BYTECODE, (
-        f"Deployment contract code is not the expected code: {deployment_contract_code} != {DETERMINISTIC_FACTORY_BYTECODE}"
+        f"Deployment contract code is not the expected code: "
+        f"{deployment_contract_code} != {DETERMINISTIC_FACTORY_BYTECODE}"
     )
