@@ -327,13 +327,15 @@ class BlockAccessListExpectation(CamelModel):
                                         actual_change = actual_slot_changes[
                                             slot_actual_idx
                                         ]
-                                        actual_idx = (
+                                        actual_ba_idx = (
                                             actual_change.block_access_index
                                         )
-                                        expected_idx = (
+                                        expected_ba_idx = (
                                             expected_change.block_access_index
                                         )
-                                        idx_match = actual_idx == expected_idx
+                                        idx_match = (
+                                            actual_ba_idx == expected_ba_idx
+                                        )
                                         val_match = (
                                             actual_change.post_value
                                             == expected_change.post_value
