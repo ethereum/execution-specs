@@ -6,6 +6,10 @@ abstract: BloatNet bench cases extracted from https://hackmd.io/9icZeLN7R0Sk5mIj
    operations.
 """
 
+import json
+import math
+from pathlib import Path
+
 import pytest
 from execution_testing import (
     Account,
@@ -17,9 +21,6 @@ from execution_testing import (
     Op,
     Transaction,
     While,
-)
-from execution_testing.cli.pytest_commands.plugins.execute.pre_alloc import (
-    AddressStubs,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -62,6 +63,7 @@ def test_bloatnet_balance_extcodesize(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     balance_first: bool,
 ) -> None:
     """
@@ -96,12 +98,6 @@ def test_bloatnet_balance_extcodesize(
         + 10  # While loop overhead
     )
 
-    # Calculate how many contracts to access based on available gas
-    available_gas = (
-        gas_benchmark_value - intrinsic_gas - 1000
-    )  # Reserve for cleanup
-    contracts_needed = int(available_gas // cost_per_contract)
-
     # Deploy factory using stub contract - NO HARDCODED VALUES
     # The stub "bloatnet_factory" must be provided via --address-stubs flag
     # The factory at that address MUST have:
@@ -112,10 +108,19 @@ def test_bloatnet_balance_extcodesize(
         stub="bloatnet_factory",
     )
 
+    # Calculate number of transactions needed (EIP-7825 compliance)
+    num_txs = max(1, math.ceil(gas_benchmark_value / tx_gas_limit))
+
+    # Calculate how many contracts to access based on available gas
+    total_available_gas = gas_benchmark_value - (intrinsic_gas * num_txs) - 1000
+    total_contracts = int(total_available_gas // cost_per_contract)
+    contracts_per_tx = total_contracts // num_txs
+
     # Log test requirements - deployed count read from factory storage
     print(
-        f"Test needs {contracts_needed} contracts for "
-        f"{gas_benchmark_value / 1_000_000:.1f}M gas. "
+        f"Test needs {total_contracts} contracts for "
+        f"{gas_benchmark_value / 1_000_000:.1f}M gas "
+        f"across {num_txs} transaction(s). "
         f"Factory storage will be checked during execution."
     )
 
@@ -128,80 +133,98 @@ def test_bloatnet_balance_extcodesize(
         else (extcodesize_op + balance_op)
     )
 
-    # Build attack contract that reads config from factory and performs attack
-    attack_code = (
-        # Call getConfig() on factory to get num_deployed and init_code_hash
-        Op.STATICCALL(
-            gas=Op.GAS,
-            address=factory_address,
-            args_offset=0,
-            args_size=0,
-            ret_offset=96,
-            ret_size=64,
+    # Build transactions
+    txs = []
+    post = {}
+    contracts_remaining = total_contracts
+    salt_offset = 0
+
+    for i in range(num_txs):
+        # Last tx gets remaining contracts
+        tx_contracts = (
+            contracts_per_tx if i < num_txs - 1 else contracts_remaining
         )
-        # Check if call succeeded
-        + Op.ISZERO
-        + Op.PUSH2(0x1000)  # Jump to error handler if failed (far jump)
-        + Op.JUMPI
-        # Load results from memory
-        # Memory[96:128] = num_deployed_contracts
-        # Memory[128:160] = init_code_hash
-        + Op.MLOAD(96)  # Load num_deployed_contracts
-        + Op.MLOAD(128)  # Load init_code_hash
-        # Setup memory for CREATE2 address generation
-        # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
-        + Op.MSTORE(
-            0, factory_address
-        )  # Store factory address at memory position 0
-        + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
-        + Op.MSTORE(32, 0)  # Store salt at position 32
-        # Stack now has: [num_contracts, init_code_hash]
-        + Op.PUSH1(64)  # Push memory position
-        + Op.MSTORE  # Store init_code_hash at memory[64]
-        # Stack now has: [num_contracts]
-        # Main attack loop - iterate through all deployed contracts
-        + While(
-            body=(
-                # Generate CREATE2 addr: keccak256(0xFF+factory+salt+hash)
-                Op.SHA3(11, 85)  # Generate CREATE2 address from memory[11:96]
-                # The address is now on the stack
-                + Op.DUP1  # Duplicate for second operation
-                + benchmark_ops  # Execute operations in specified order
-                # Increment salt for next iteration
-                + Op.MSTORE(
-                    32, Op.ADD(Op.MLOAD(32), 1)
-                )  # Increment and store salt
-            ),
-            # Continue while we haven't reached the limit
-            condition=Op.DUP1
-            + Op.PUSH1(1)
-            + Op.SWAP1
-            + Op.SUB
-            + Op.DUP1
+        contracts_remaining -= tx_contracts
+
+        # Build attack contract that reads config from factory and performs attack
+        attack_code = (
+            # Call getConfig() on factory to get num_deployed and init_code_hash
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=factory_address,
+                args_offset=0,
+                args_size=0,
+                ret_offset=96,
+                ret_size=64,
+            )
+            # Check if call succeeded
             + Op.ISZERO
-            + Op.ISZERO,
+            + Op.PUSH2(0x1000)  # Jump to error handler if failed (far jump)
+            + Op.JUMPI
+            # Load results from memory
+            # Memory[96:128] = num_deployed_contracts
+            # Memory[128:160] = init_code_hash
+            + Op.MLOAD(128)  # Load init_code_hash (we'll use tx_contracts instead)
+            # Setup memory for CREATE2 address generation
+            # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
+            + Op.MSTORE(
+                0, factory_address
+            )  # Store factory address at memory position 0
+            + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
+            + Op.MSTORE(32, salt_offset)  # Store starting salt at position 32
+            # Stack now has: [init_code_hash]
+            + Op.PUSH1(64)  # Push memory position
+            + Op.MSTORE  # Store init_code_hash at memory[64]
+            # Push our iteration count onto stack
+            + Op.PUSH4(tx_contracts)
+            # Main attack loop - iterate through contracts for this tx
+            + While(
+                body=(
+                    # Generate CREATE2 addr: keccak256(0xFF+factory+salt+hash)
+                    Op.SHA3(11, 85)  # Generate CREATE2 address from memory[11:96]
+                    # The address is now on the stack
+                    + Op.DUP1  # Duplicate for second operation
+                    + benchmark_ops  # Execute operations in specified order
+                    # Increment salt for next iteration
+                    + Op.MSTORE(
+                        32, Op.ADD(Op.MLOAD(32), 1)
+                    )  # Increment and store salt
+                ),
+                # Continue while we haven't reached the limit
+                condition=Op.DUP1
+                + Op.PUSH1(1)
+                + Op.SWAP1
+                + Op.SUB
+                + Op.DUP1
+                + Op.ISZERO
+                + Op.ISZERO,
+            )
+            + Op.POP  # Clean up counter
         )
-        + Op.POP  # Clean up counter
-    )
 
-    # Deploy attack contract
-    attack_address = pre.deploy_contract(code=attack_code)
+        # Deploy attack contract for this tx
+        attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+        # Calculate gas for this transaction
+        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
 
-    # Post-state: just verify attack contract exists
-    post = {
-        attack_address: Account(storage={}),
-    }
+        txs.append(
+            Transaction(
+                to=attack_address,
+                gas_limit=this_tx_gas,
+                sender=pre.fund_eoa(),
+            )
+        )
+
+        # Add to post-state
+        post[attack_address] = Account(storage={})
+
+        # Update salt offset for next transaction
+        salt_offset += tx_contracts
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=txs)],
         post=post,
     )
 
@@ -217,6 +240,7 @@ def test_bloatnet_balance_extcodecopy(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     balance_first: bool,
 ) -> None:
     """
@@ -253,10 +277,6 @@ def test_bloatnet_balance_extcodecopy(
         + 10  # While loop overhead
     )
 
-    # Calculate how many contracts to access
-    available_gas = gas_benchmark_value - intrinsic_gas - 1000
-    contracts_needed = int(available_gas // cost_per_contract)
-
     # Deploy factory using stub contract - NO HARDCODED VALUES
     # The stub "bloatnet_factory" must be provided via --address-stubs flag
     # The factory at that address MUST have:
@@ -267,10 +287,19 @@ def test_bloatnet_balance_extcodecopy(
         stub="bloatnet_factory",
     )
 
+    # Calculate number of transactions needed (EIP-7825 compliance)
+    num_txs = max(1, math.ceil(gas_benchmark_value / tx_gas_limit))
+
+    # Calculate how many contracts to access
+    total_available_gas = gas_benchmark_value - (intrinsic_gas * num_txs) - 1000
+    total_contracts = int(total_available_gas // cost_per_contract)
+    contracts_per_tx = total_contracts // num_txs
+
     # Log test requirements - deployed count read from factory storage
     print(
-        f"Test needs {contracts_needed} contracts for "
-        f"{gas_benchmark_value / 1_000_000:.1f}M gas. "
+        f"Test needs {total_contracts} contracts for "
+        f"{gas_benchmark_value / 1_000_000:.1f}M gas "
+        f"across {num_txs} transaction(s). "
         f"Factory storage will be checked during execution."
     )
 
@@ -290,80 +319,97 @@ def test_bloatnet_balance_extcodecopy(
         else (extcodecopy_op + balance_op)
     )
 
-    # Build attack contract that reads config from factory and performs attack
-    attack_code = (
-        # Call getConfig() on factory to get num_deployed and init_code_hash
-        Op.STATICCALL(
-            gas=Op.GAS,
-            address=factory_address,
-            args_offset=0,
-            args_size=0,
-            ret_offset=96,
-            ret_size=64,
+    # Build transactions
+    txs = []
+    post = {}
+    contracts_remaining = total_contracts
+    salt_offset = 0
+
+    for i in range(num_txs):
+        # Last tx gets remaining contracts
+        tx_contracts = (
+            contracts_per_tx if i < num_txs - 1 else contracts_remaining
         )
-        # Check if call succeeded
-        + Op.ISZERO
-        + Op.PUSH2(0x1000)  # Jump to error handler if failed (far jump)
-        + Op.JUMPI
-        # Load results from memory
-        # Memory[96:128] = num_deployed_contracts
-        # Memory[128:160] = init_code_hash
-        + Op.MLOAD(96)  # Load num_deployed_contracts
-        + Op.MLOAD(128)  # Load init_code_hash
-        # Setup memory for CREATE2 address generation
-        # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
-        + Op.MSTORE(
-            0, factory_address
-        )  # Store factory address at memory position 0
-        + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
-        + Op.MSTORE(32, 0)  # Store salt at position 32
-        # Stack now has: [num_contracts, init_code_hash]
-        + Op.PUSH1(64)  # Push memory position
-        + Op.MSTORE  # Store init_code_hash at memory[64]
-        # Stack now has: [num_contracts]
-        # Main attack loop - iterate through all deployed contracts
-        + While(
-            body=(
-                # Generate CREATE2 address
-                Op.SHA3(11, 85)  # Generate CREATE2 address from memory[11:96]
-                # The address is now on the stack
-                + Op.DUP1  # Duplicate for later operations
-                + benchmark_ops  # Execute operations in specified order
-                # Increment salt for next iteration
-                + Op.MSTORE(
-                    32, Op.ADD(Op.MLOAD(32), 1)
-                )  # Increment and store salt
-            ),
-            # Continue while counter > 0
-            condition=Op.DUP1
-            + Op.PUSH1(1)
-            + Op.SWAP1
-            + Op.SUB
-            + Op.DUP1
+        contracts_remaining -= tx_contracts
+
+        # Build attack contract that reads config from factory and performs attack
+        attack_code = (
+            # Call getConfig() on factory to get num_deployed and init_code_hash
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=factory_address,
+                args_offset=0,
+                args_size=0,
+                ret_offset=96,
+                ret_size=64,
+            )
+            # Check if call succeeded
             + Op.ISZERO
-            + Op.ISZERO,
+            + Op.PUSH2(0x1000)  # Jump to error handler if failed (far jump)
+            + Op.JUMPI
+            # Load results from memory
+            # Memory[128:160] = init_code_hash
+            + Op.MLOAD(128)  # Load init_code_hash
+            # Setup memory for CREATE2 address generation
+            # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
+            + Op.MSTORE(
+                0, factory_address
+            )  # Store factory address at memory position 0
+            + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at position (32 - 20 - 1)
+            + Op.MSTORE(32, salt_offset)  # Store starting salt at position 32
+            # Stack now has: [init_code_hash]
+            + Op.PUSH1(64)  # Push memory position
+            + Op.MSTORE  # Store init_code_hash at memory[64]
+            # Push our iteration count onto stack
+            + Op.PUSH4(tx_contracts)
+            # Main attack loop - iterate through contracts for this tx
+            + While(
+                body=(
+                    # Generate CREATE2 address
+                    Op.SHA3(11, 85)  # Generate CREATE2 address from memory[11:96]
+                    # The address is now on the stack
+                    + Op.DUP1  # Duplicate for later operations
+                    + benchmark_ops  # Execute operations in specified order
+                    # Increment salt for next iteration
+                    + Op.MSTORE(
+                        32, Op.ADD(Op.MLOAD(32), 1)
+                    )  # Increment and store salt
+                ),
+                # Continue while counter > 0
+                condition=Op.DUP1
+                + Op.PUSH1(1)
+                + Op.SWAP1
+                + Op.SUB
+                + Op.DUP1
+                + Op.ISZERO
+                + Op.ISZERO,
+            )
+            + Op.POP  # Clean up counter
         )
-        + Op.POP  # Clean up counter
-    )
 
-    # Deploy attack contract
-    attack_address = pre.deploy_contract(code=attack_code)
+        # Deploy attack contract for this tx
+        attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+        # Calculate gas for this transaction
+        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
 
-    # Post-state
-    post = {
-        attack_address: Account(storage={}),
-    }
+        txs.append(
+            Transaction(
+                to=attack_address,
+                gas_limit=this_tx_gas,
+                sender=pre.fund_eoa(),
+            )
+        )
+
+        # Add to post-state
+        post[attack_address] = Account(storage={})
+
+        # Update salt offset for next transaction
+        salt_offset += tx_contracts
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=txs)],
         post=post,
     )
 
@@ -379,6 +425,7 @@ def test_bloatnet_balance_extcodehash(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     balance_first: bool,
 ) -> None:
     """
@@ -413,22 +460,25 @@ def test_bloatnet_balance_extcodehash(
         + 10  # While loop overhead
     )
 
-    # Calculate how many contracts to access based on available gas
-    available_gas = (
-        gas_benchmark_value - intrinsic_gas - 1000
-    )  # Reserve for cleanup
-    contracts_needed = int(available_gas // cost_per_contract)
-
     # Deploy factory using stub contract
     factory_address = pre.deploy_contract(
         code=Bytecode(),
         stub="bloatnet_factory",
     )
 
+    # Calculate number of transactions needed (EIP-7825 compliance)
+    num_txs = max(1, math.ceil(gas_benchmark_value / tx_gas_limit))
+
+    # Calculate how many contracts to access based on available gas
+    total_available_gas = gas_benchmark_value - (intrinsic_gas * num_txs) - 1000
+    total_contracts = int(total_available_gas // cost_per_contract)
+    contracts_per_tx = total_contracts // num_txs
+
     # Log test requirements
     print(
-        f"Test needs {contracts_needed} contracts for "
-        f"{gas_benchmark_value / 1_000_000:.1f}M gas. "
+        f"Test needs {total_contracts} contracts for "
+        f"{gas_benchmark_value / 1_000_000:.1f}M gas "
+        f"across {num_txs} transaction(s). "
         f"Factory storage will be checked during execution."
     )
 
@@ -441,69 +491,88 @@ def test_bloatnet_balance_extcodehash(
         else (extcodehash_op + balance_op)
     )
 
-    # Build attack contract that reads config from factory and performs attack
-    attack_code = (
-        # Call getConfig() on factory to get num_deployed and init_code_hash
-        Op.STATICCALL(
-            gas=Op.GAS,
-            address=factory_address,
-            args_offset=0,
-            args_size=0,
-            ret_offset=96,
-            ret_size=64,
+    # Build transactions
+    txs = []
+    post = {}
+    contracts_remaining = total_contracts
+    salt_offset = 0
+
+    for i in range(num_txs):
+        # Last tx gets remaining contracts
+        tx_contracts = (
+            contracts_per_tx if i < num_txs - 1 else contracts_remaining
         )
-        # Check if call succeeded
-        + Op.ISZERO
-        + Op.PUSH2(0x1000)  # Jump to error handler if failed
-        + Op.JUMPI
-        # Load results from memory
-        + Op.MLOAD(96)  # Load num_deployed_contracts
-        + Op.MLOAD(128)  # Load init_code_hash
-        # Setup memory for CREATE2 address generation
-        + Op.MSTORE(0, factory_address)
-        + Op.MSTORE8(11, 0xFF)
-        + Op.MSTORE(32, 0)  # Initial salt
-        + Op.PUSH1(64)
-        + Op.MSTORE  # Store init_code_hash
-        # Main attack loop
-        + While(
-            body=(
-                # Generate CREATE2 address
-                Op.SHA3(11, 85)
-                + Op.DUP1  # Duplicate for second operation
-                + benchmark_ops  # Execute operations in specified order
-                # Increment salt
-                + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
-            ),
-            condition=Op.DUP1
-            + Op.PUSH1(1)
-            + Op.SWAP1
-            + Op.SUB
-            + Op.DUP1
+        contracts_remaining -= tx_contracts
+
+        # Build attack contract that reads config from factory and performs attack
+        attack_code = (
+            # Call getConfig() on factory to get num_deployed and init_code_hash
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=factory_address,
+                args_offset=0,
+                args_size=0,
+                ret_offset=96,
+                ret_size=64,
+            )
+            # Check if call succeeded
             + Op.ISZERO
-            + Op.ISZERO,
+            + Op.PUSH2(0x1000)  # Jump to error handler if failed
+            + Op.JUMPI
+            # Load results from memory
+            + Op.MLOAD(128)  # Load init_code_hash
+            # Setup memory for CREATE2 address generation
+            + Op.MSTORE(0, factory_address)
+            + Op.MSTORE8(11, 0xFF)
+            + Op.MSTORE(32, salt_offset)  # Starting salt for this tx
+            + Op.PUSH1(64)
+            + Op.MSTORE  # Store init_code_hash
+            # Push our iteration count onto stack
+            + Op.PUSH4(tx_contracts)
+            # Main attack loop
+            + While(
+                body=(
+                    # Generate CREATE2 address
+                    Op.SHA3(11, 85)
+                    + Op.DUP1  # Duplicate for second operation
+                    + benchmark_ops  # Execute operations in specified order
+                    # Increment salt
+                    + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
+                ),
+                condition=Op.DUP1
+                + Op.PUSH1(1)
+                + Op.SWAP1
+                + Op.SUB
+                + Op.DUP1
+                + Op.ISZERO
+                + Op.ISZERO,
+            )
+            + Op.POP  # Clean up counter
         )
-        + Op.POP  # Clean up counter
-    )
 
-    # Deploy attack contract
-    attack_address = pre.deploy_contract(code=attack_code)
+        # Deploy attack contract for this tx
+        attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+        # Calculate gas for this transaction
+        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
 
-    # Post-state
-    post = {
-        attack_address: Account(storage={}),
-    }
+        txs.append(
+            Transaction(
+                to=attack_address,
+                gas_limit=this_tx_gas,
+                sender=pre.fund_eoa(),
+            )
+        )
+
+        # Add to post-state
+        post[attack_address] = Account(storage={})
+
+        # Update salt offset for next transaction
+        salt_offset += tx_contracts
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=txs)],
         post=post,
     )
 
@@ -512,9 +581,21 @@ def test_bloatnet_balance_extcodehash(
 BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
 APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 
+# Load token names from stubs.json for test parametrization
+_STUBS_FILE = Path(__file__).parent / "stubs.json"
+with open(_STUBS_FILE) as f:
+    _STUBS = json.load(f)
+
+# Extract unique token names for mixed sload/sstore tests
+MIXED_TOKENS = [
+    k.replace("test_mixed_sload_sstore_", "")
+    for k in _STUBS.keys()
+    if k.startswith("test_mixed_sload_sstore_")
+]
+
 
 @pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize("num_contracts", [1, 5, 10, 20, 100])
+@pytest.mark.parametrize("token_name", MIXED_TOKENS)
 @pytest.mark.parametrize(
     "sload_percent,sstore_percent",
     [
@@ -530,49 +611,22 @@ def test_mixed_sload_sstore(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
-    address_stubs: AddressStubs | None,
-    num_contracts: int,
+    tx_gas_limit: int,
+    token_name: str,
     sload_percent: int,
     sstore_percent: int,
-    request: pytest.FixtureRequest,
 ) -> None:
     """
     BloatNet mixed SLOAD/SSTORE benchmark with configurable operation ratios.
 
     This test:
-    1. Filters stubs matching test name prefix
-       (e.g., test_mixed_sload_sstore_*)
-    2. Uses first N contracts based on num_contracts parameter
-    3. Divides gas budget evenly across all selected contracts
-    4. For each contract, divides gas into SLOAD and SSTORE portions by
-       percentage
-    5. Executes balanceOf (SLOAD) and approve (SSTORE) calls per the ratio
-    6. Stresses clients with combined read/write operations on large
-       contracts
+    1. Uses a single ERC20 contract specified by token_name parameter
+    2. Allocates full gas budget to that contract
+    3. Divides gas into SLOAD and SSTORE portions by percentage
+    4. Executes balanceOf (SLOAD) and approve (SSTORE) calls per the ratio
+    5. Stresses clients with combined read/write operations on large contracts
     """
-    # Extract test function name for stub filtering
-    # Remove parametrization suffix
-    test_name = request.node.name.split("[")[0]
-
-    # Filter stubs that match the test name prefix
-    matching_stubs = []
-    if address_stubs is not None:
-        matching_stubs = [
-            stub_name
-            for stub_name in address_stubs.root.keys()
-            if stub_name.startswith(test_name)
-        ]
-
-    # Validate we have enough stubs
-    if len(matching_stubs) < num_contracts:
-        pytest.fail(
-            f"Not enough matching stubs for test '{test_name}'. "
-            f"Required: {num_contracts}, Found: {len(matching_stubs)}. "
-            f"Matching stubs: {matching_stubs}"
-        )
-
-    # Select first N stubs
-    selected_stubs = matching_stubs[:num_contracts]
+    stub_name = f"test_mixed_sload_sstore_{token_name}"
     gas_costs = fork.gas_costs()
 
     # Calculate gas costs
@@ -642,14 +696,6 @@ def test_mixed_sload_sstore(
         + gas_costs.G_VERY_LOW  # PUSH1 0 for return offset (3)
     )
 
-    # Calculate gas budget per contract
-    available_gas = gas_benchmark_value - intrinsic_gas
-    gas_per_contract = available_gas // num_contracts
-
-    # For each contract, split gas by percentage
-    sload_gas_per_contract = (gas_per_contract * sload_percent) // 100
-    sstore_gas_per_contract = (gas_per_contract * sstore_percent) // 100
-
     # Account for cold/warm transitions in CALL costs
     # First SLOAD call is COLD (2600), rest are WARM (100)
     sload_warm_cost = (
@@ -660,9 +706,6 @@ def test_mixed_sload_sstore(
     cold_warm_diff = (
         gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.G_WARM_ACCOUNT_ACCESS
     )
-    sload_calls_per_contract = int(
-        (sload_gas_per_contract - cold_warm_diff) // sload_warm_cost
-    )
 
     # First SSTORE call is COLD (2600), rest are WARM (100)
     sstore_warm_cost = (
@@ -670,47 +713,64 @@ def test_mixed_sload_sstore(
         + gas_costs.G_WARM_ACCOUNT_ACCESS
         + sstore_erc20_internal
     )
-    sstore_calls_per_contract = int(
-        (sstore_gas_per_contract - cold_warm_diff) // sstore_warm_cost
+
+    # Deploy ERC20 contract using stub
+    erc20_address = pre.deploy_contract(
+        code=Bytecode(),
+        stub=stub_name,
     )
 
-    # Deploy selected ERC20 contracts using stubs
-    erc20_addresses = []
-    for stub_name in selected_stubs:
-        addr = pre.deploy_contract(
-            code=Bytecode(),
-            stub=stub_name,
-        )
-        erc20_addresses.append(addr)
+    # Calculate number of transactions needed (EIP-7825 compliance)
+    num_txs = max(1, math.ceil(gas_benchmark_value / tx_gas_limit))
+
+    # Calculate total available gas and split by percentage
+    total_available_gas = gas_benchmark_value - (intrinsic_gas * num_txs)
+    sload_gas = (total_available_gas * sload_percent) // 100
+    sstore_gas = (total_available_gas * sstore_percent) // 100
+
+    # Calculate total calls for each operation type
+    total_sload_calls = int((sload_gas - cold_warm_diff) // sload_warm_cost)
+    total_sstore_calls = int((sstore_gas - cold_warm_diff) // sstore_warm_cost)
+
+    # Distribute calls across transactions
+    sload_calls_per_tx = total_sload_calls // num_txs
+    sstore_calls_per_tx = total_sstore_calls // num_txs
 
     # Log test requirements
     print(
-        f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas. "
-        f"~{gas_per_contract / 1_000_000:.1f}M gas per contract "
+        f"Token: {token_name}, "
+        f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas "
         f"({sload_percent}% SLOAD, {sstore_percent}% SSTORE). "
-        f"Per contract: {sload_calls_per_contract} balanceOf calls, "
-        f"{sstore_calls_per_contract} approve calls."
+        f"{total_sload_calls} balanceOf calls, {total_sstore_calls} approve calls "
+        f"across {num_txs} transaction(s)."
     )
 
-    # Build attack code that loops through each contract
-    attack_code: Bytecode = (
-        Op.JUMPDEST  # Entry point
-        # Store selector once for all contracts
-        + Op.MSTORE(offset=0, value=BALANCEOF_SELECTOR)
-    )
+    # Build transactions
+    txs = []
+    post = {}
+    sload_remaining = total_sload_calls
+    sstore_remaining = total_sstore_calls
 
-    for erc20_address in erc20_addresses:
-        # For each contract, execute SLOAD operations (balanceOf)
-        attack_code += (
-            # Initialize counter in memory[32] = number of balanceOf calls
-            Op.MSTORE(offset=32, value=sload_calls_per_contract)
-            # Loop for balanceOf calls
+    for i in range(num_txs):
+        # Last tx gets remaining calls
+        tx_sload_calls = (
+            sload_calls_per_tx if i < num_txs - 1 else sload_remaining
+        )
+        tx_sstore_calls = (
+            sstore_calls_per_tx if i < num_txs - 1 else sstore_remaining
+        )
+        sload_remaining -= tx_sload_calls
+        sstore_remaining -= tx_sstore_calls
+
+        # Build attack code for this transaction
+        attack_code: Bytecode = (
+            Op.JUMPDEST  # Entry point
+            + Op.MSTORE(offset=0, value=BALANCEOF_SELECTOR)
+            # SLOAD operations (balanceOf)
+            + Op.MSTORE(offset=32, value=tx_sload_calls)
             + While(
                 condition=Op.MLOAD(32) + Op.ISZERO + Op.ISZERO,
                 body=(
-                    # Call balanceOf(address) on ERC20 contract
-                    # args_offset=28 reads: selector from MEM[28:32] + address
-                    # from MEM[32:64]
                     Op.CALL(
                         address=erc20_address,
                         value=0,
@@ -719,32 +779,17 @@ def test_mixed_sload_sstore(
                         ret_offset=0,
                         ret_size=0,
                     )
-                    + Op.POP  # Discard CALL success status
-                    # Decrement counter
+                    + Op.POP
                     + Op.MSTORE(offset=32, value=Op.SUB(Op.MLOAD(32), 1))
                 ),
             )
-        )
-
-        # For each contract, execute SSTORE operations (approve)
-        # Reuse the same memory layout as balanceOf
-        attack_code += (
-            # Store approve selector at memory[0] (reusing same slot)
-            Op.MSTORE(offset=0, value=APPROVE_SELECTOR)
-            # Initialize counter in memory[32] = number of approve calls
-            # (reusing same slot)
-            + Op.MSTORE(offset=32, value=sstore_calls_per_contract)
-            # Loop for approve calls
+            # SSTORE operations (approve)
+            + Op.MSTORE(offset=0, value=APPROVE_SELECTOR)
+            + Op.MSTORE(offset=32, value=tx_sstore_calls)
             + While(
                 condition=Op.MLOAD(32) + Op.ISZERO + Op.ISZERO,
                 body=(
-                    # Store spender at memory[64] (counter as spender/amount)
                     Op.MSTORE(offset=64, value=Op.MLOAD(32))
-                    # Call approve(spender, amount) on ERC20 contract
-                    # args_offset=28 reads: selector from MEM[28:32] +
-                    # spender from MEM[32:64] + amount from MEM[64:96]
-                    # Note: counter at MEM[32:64] is reused as spender,
-                    # and value at MEM[64:96] serves as the amount
                     + Op.CALL(
                         address=erc20_address,
                         value=0,
@@ -753,30 +798,31 @@ def test_mixed_sload_sstore(
                         ret_offset=0,
                         ret_size=0,
                     )
-                    + Op.POP  # Discard CALL success status
-                    # Decrement counter
+                    + Op.POP
                     + Op.MSTORE(offset=32, value=Op.SUB(Op.MLOAD(32), 1))
                 ),
             )
         )
 
-    # Deploy attack contract
-    attack_address = pre.deploy_contract(code=attack_code)
+        # Deploy attack contract for this tx
+        attack_address = pre.deploy_contract(code=attack_code)
 
-    # Run the attack
-    attack_tx = Transaction(
-        to=attack_address,
-        gas_limit=gas_benchmark_value,
-        sender=pre.fund_eoa(),
-    )
+        # Calculate gas for this transaction
+        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
 
-    # Post-state
-    post = {
-        attack_address: Account(storage={}),
-    }
+        txs.append(
+            Transaction(
+                to=attack_address,
+                gas_limit=this_tx_gas,
+                sender=pre.fund_eoa(),
+            )
+        )
+
+        # Add to post-state
+        post[attack_address] = Account(storage={})
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[attack_tx])],
+        blocks=[Block(txs=txs)],
         post=post,
     )
