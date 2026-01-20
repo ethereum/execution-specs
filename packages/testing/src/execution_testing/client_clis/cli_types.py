@@ -99,6 +99,8 @@ class TraceLine(CamelModel):
 class TransactionTraces(CamelModel):
     """Traces of a single transaction."""
 
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
     traces: List[TraceLine]
     output: str | None = None
     gas_used: HexNumber | None = None

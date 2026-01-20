@@ -11,6 +11,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 ### 🛠️ Framework
 
 - 🐞 Remove `Op.CLZ` from `UndefinedOpcodes` list ([#1970](https://github.com/ethereum/execution-specs/pull/1970)).
+- 🐞 Make `TransactionTraces` `CamelModel` less lestrictive ([#2081](https://github.com/ethereum/execution-specs/pull/2081)).
 
 #### `fill`
 
