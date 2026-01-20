@@ -49,7 +49,7 @@ runs:
           if [[ -n "$eip" ]]; then
             # Optional: ensure it looks numeric
             if [[ ! "$eip" =~ ^[0-9]+$ ]]; then
-              echo "Error: Invalid EIP number '${eip}' (expected digits only)"
+              echo "Error: Invalid EIP number ${eip}"
               exit 1
             fi
             EIPS+=("$eip")
