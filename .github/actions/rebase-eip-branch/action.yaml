@@ -1,0 +1,52 @@
+name: Rebase EIP Branch
+description: Rebases an EIP branch onto a fork branch
+inputs:
+  fork:
+    description: 'Fork name (e.g., amsterdam)'
+    required: true
+  eip_number:
+    description: 'EIP number'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Rebase EIP branch
+      shell: bash
+      run: |
+        set -e  # Exit on any error
+
+        FORK="${{ inputs.fork }}"
+        EIP_NUMBER="${{ inputs.eip_number }}"
+        EIP_BRANCH="eips/${FORK}/eip-${EIP_NUMBER}"
+        FORK_BRANCH="forks/${FORK}"
+
+        # Fetch all branches
+        git fetch origin
+
+        echo "Checking out ${EIP_BRANCH}"
+        git checkout "${EIP_BRANCH}"
+
+        echo "Rebasing ${EIP_BRANCH} onto ${FORK_BRANCH}"
+        if ! git rebase "origin/${FORK_BRANCH}"; then
+          echo "Error: Rebase conflict occurred while rebasing ${EIP_BRANCH} onto ${FORK_BRANCH}"
+          git rebase --abort || true
+          exit 1
+        fi
+
+        echo "Rebase successful"
+
+    - name: Push rebased branch
+      shell: bash
+      run: |
+        FORK="${{ inputs.fork }}"
+        EIP_NUMBER="${{ inputs.eip_number }}"
+        EIP_BRANCH="eips/${FORK}/eip-${EIP_NUMBER}"
+
+        echo "Force pushing ${EIP_BRANCH} to origin"
+        git push --force-with-lease origin "${EIP_BRANCH}"

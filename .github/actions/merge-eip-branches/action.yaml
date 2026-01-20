@@ -1,0 +1,80 @@
+name: Create Devnet Branch
+description: Merges multiple EIP branches into a devnet branch, by pushing using --force-with-lease
+
+inputs:
+  fork:
+    description: 'Fork name (e.g., amsterdam)'
+    required: true
+    type: string
+  devnet_name:
+    description: 'Devnet name (e.g., amsterdam/1, bal/2, eip-1234/3)'
+    required: true
+    type: string
+  eip_numbers:
+    description: 'Comma-separated list of EIP numbers (e.g., 1234,2345,3456)'
+    required: true
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Merge EIP branches
+      shell: bash
+      run: |
+        set -e  # Exit on any error
+
+        FORK="${{ inputs.fork }}"
+        DEVNET_NAME="${{ inputs.devnet_name }}"
+        EIP_NUMBERS="${{ inputs.eip_numbers }}"
+
+        # Convert comma-separated list to array
+        IFS=',' read -ra EIPS <<< "$EIP_NUMBERS"
+
+        if [ ${#EIPS[@]} -eq 0 ]; then
+          echo "Error: No EIP numbers provided"
+          exit 1
+        fi
+
+        # Fetch all branches
+        git fetch origin
+
+        # Create devnet branch from first EIP
+        FIRST_EIP="eips/${FORK}/eip-${EIPS[0]}"
+        DEVNET_BRANCH="devnets/${DEVNET_NAME}"
+
+        echo "Creating branch ${DEVNET_BRANCH} from ${FIRST_EIP}"
+        git checkout -B "${DEVNET_BRANCH}" "origin/${FIRST_EIP}"
+
+        # Merge remaining EIPs
+        for i in "${!EIPS[@]}"; do
+          if [ $i -eq 0 ]; then
+            continue  # Skip first EIP as we already checked it out
+          fi
+
+          EIP_BRANCH="eips/${FORK}/eip-${EIPS[$i]}"
+          echo "Merging ${EIP_BRANCH}..."
+
+          if ! git merge "origin/${EIP_BRANCH}" --no-edit -m "Merge ${EIP_BRANCH} into ${DEVNET_BRANCH}"; then
+            echo "Error: Merge conflict occurred while merging ${EIP_BRANCH}"
+            git merge --abort || true
+            exit 1
+          fi
+        done
+
+        echo "All EIP branches merged successfully"
+
+    - name: Push devnet branch
+      shell: bash
+      run: |
+        FORK="${{ inputs.fork }}"
+        DEVNET_NAME="${{ inputs.devnet_name }}"
+        DEVNET_BRANCH="devnets/${DEVNET_NAME}"
+
+        echo "Force pushing ${DEVNET_BRANCH} to origin"
+        git push --force-with-lease origin "${DEVNET_BRANCH}"
