@@ -7,6 +7,10 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
    to benchmark specific state-handling bottlenecks.
 """
 
+import json
+import math
+from pathlib import Path
+
 import pytest
 from execution_testing import (
     Account,
@@ -19,9 +23,6 @@ from execution_testing import (
     Transaction,
     While,
 )
-from execution_testing.cli.pytest_commands.plugins.execute.pre_alloc import (
-    AddressStubs,
-)
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
@@ -30,6 +31,23 @@ REFERENCE_SPEC_VERSION = "1.0"
 BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
 APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 ALLOWANCE_SELECTOR = 0xDD62ED3E  # allowance(address,address)
+
+# Load token names from stubs.json for test parametrization
+_STUBS_FILE = Path(__file__).parent / "stubs.json"
+with open(_STUBS_FILE) as f:
+    _STUBS = json.load(f)
+
+# Extract unique token names for each test type
+SLOAD_TOKENS = [
+    k.replace("test_sload_empty_erc20_balanceof_", "")
+    for k in _STUBS.keys()
+    if k.startswith("test_sload_empty_erc20_balanceof_")
+]
+SSTORE_TOKENS = [
+    k.replace("test_sstore_erc20_approve_", "")
+    for k in _STUBS.keys()
+    if k.startswith("test_sstore_erc20_approve_")
+]
 
 
 # SLOAD BENCHMARK ARCHITECTURE:
@@ -78,67 +96,32 @@ ALLOWANCE_SELECTOR = 0xDD62ED3E  # allowance(address,address)
 
 
 @pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize("num_contracts", [1, 5, 10, 20, 100])
+@pytest.mark.parametrize("token_name", SLOAD_TOKENS)
 def test_sload_empty_erc20_balanceof(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    address_stubs: AddressStubs | None,
-    num_contracts: int,
-    request: pytest.FixtureRequest,
+    token_name: str,
 ) -> None:
     """
     BloatNet SLOAD benchmark using ERC20 balanceOf queries on random
     addresses.
 
     This test:
-    1. Filters stubs matching test name prefix
-       (e.g., test_sload_empty_erc20_balanceof_*)
-    2. Uses first N contracts based on num_contracts parameter
-    3. Splits gas budget evenly across the selected contracts
-    4. Queries balanceOf() incrementally starting by 0 and increasing by 1
+    1. Uses a single ERC20 contract specified by token_name parameter
+    2. Allocates full gas budget to that contract
+    3. Queries balanceOf() incrementally starting by 0 and increasing by 1
        (thus forcing SLOADs to non-existing addresses)
+    4. Splits into multiple transactions if gas_benchmark_value > tx_gas_limit
+       (EIP-7825 compliance)
     """
-    # Extract test function name for stub filtering
-    # Remove parametrization suffix
-    test_name = request.node.name.split("[")[0]
-
-    # Filter stubs that match the test name prefix
-    matching_stubs = []
-    if address_stubs is not None:
-        matching_stubs = [
-            stub_name
-            for stub_name in address_stubs.root.keys()
-            if stub_name.startswith(test_name)
-        ]
-
-    # Validate we have enough stubs
-    if len(matching_stubs) < num_contracts:
-        pytest.fail(
-            f"Not enough matching stubs for test '{test_name}'. "
-            f"Required: {num_contracts}, Found: {len(matching_stubs)}. "
-            f"Matching stubs: {matching_stubs}"
-        )
-
-    # Select first N stubs
-    selected_stubs = matching_stubs[:num_contracts]
+    stub_name = f"test_sload_empty_erc20_balanceof_{token_name}"
     gas_costs = fork.gas_costs()
 
     # Calculate gas costs
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
-
-    # Per-contract fixed overhead (setup + teardown for each contract's loop)
-    overhead_per_contract = (
-        gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
-        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
-        + gas_costs.G_VERY_LOW  # MLOAD for While condition check (3)
-        + gas_costs.G_VERY_LOW  # ISZERO (3)
-        + gas_costs.G_VERY_LOW  # ISZERO (3)
-        + gas_costs.G_HIGH  # JUMPI (10)
-        + gas_costs.G_BASE  # POP to clean up counter at end (2)
-    )
 
     # Fixed overhead per iteration (loop mechanics, independent of warm/cold)
     loop_overhead = (
@@ -147,16 +130,16 @@ def test_sload_empty_erc20_balanceof(
         + gas_costs.G_VERY_LOW * 2  # MSTORE selector (3*2)
         + gas_costs.G_VERY_LOW * 3  # MLOAD + MSTORE address (3*3)
         + gas_costs.G_BASE  # POP (2)
-        + gas_costs.G_VERY_LOW * 3  # SUB + MLOAD + MSTORE decrement (3*3)
-        + gas_costs.G_VERY_LOW * 2  # ISZERO * 2 for loop condition (3*2)
-        + gas_costs.G_HIGH  # JUMPI (10)
+        + gas_costs.G_BASE * 3  # SUB + MLOAD + MSTORE counter decrement
+        + gas_costs.G_BASE * 2  # ISZERO * 2 for loop condition (2*2)
+        + gas_costs.G_MID  # JUMPI (8)
     )
 
     # ERC20 internal gas (same for all calls)
     erc20_internal_gas = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.G_BASE  # EQ selector match (2)
-        + gas_costs.G_HIGH  # JUMPI to function (10)
+        + gas_costs.G_MID  # JUMPI to function (8)
         + gas_costs.G_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW * 2  # CALLDATALOAD arg (3*2)
         + gas_costs.G_KECCAK_256  # keccak256 static (30)
@@ -166,7 +149,7 @@ def test_sload_empty_erc20_balanceof(
         # RETURN costs 0 gas
     )
 
-    # For each contract: first call is COLD (2600), subsequent are WARM (100)
+    # First call is COLD (2600), subsequent are WARM (100)
     warm_call_cost = (
         loop_overhead + gas_costs.G_WARM_ACCOUNT_ACCESS + erc20_internal_gas
     )
@@ -174,65 +157,49 @@ def test_sload_empty_erc20_balanceof(
         gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.G_WARM_ACCOUNT_ACCESS
     )
 
-    # Calculate how many transactions we need to fill the block
-    num_txs = max(1, gas_benchmark_value // tx_gas_limit)
-
-    # Calculate gas budget per contract per transaction
-    total_overhead_per_tx = intrinsic_gas + (
-        overhead_per_contract * num_contracts
-    )
-    available_gas_per_tx = tx_gas_limit - total_overhead_per_tx
-    gas_per_contract_per_tx = available_gas_per_tx // num_contracts
-
-    # Solve for calls_per_contract per tx:
-    # gas_per_contract_per_tx = cold_call + (calls-1) * warm_call
-    # Simplifies to: gas = cold_warm_diff + calls * warm_call_cost
-    calls_per_contract = int(
-        (gas_per_contract_per_tx - cold_warm_diff) // warm_call_cost
-    )
-
-    # Deploy selected ERC20 contracts using stubs
-    # In execute mode: stubs point to already-deployed contracts on chain
+    # Deploy ERC20 contract using stub
+    # In execute mode: stub points to already-deployed contract on chain
     # In fill mode: empty bytecode is deployed as placeholder
-    erc20_addresses = []
-    for stub_name in selected_stubs:
-        addr = pre.deploy_contract(
-            # Required parameter, ignored for stubs in execute mode
-            code=Bytecode(),
-            stub=stub_name,
-        )
-        erc20_addresses.append(addr)
+    erc20_address = pre.deploy_contract(
+        code=Bytecode(),
+        stub=stub_name,
+    )
+
+    # Calculate number of transactions needed (EIP-7825 compliance)
+    num_txs = max(1, math.ceil(gas_benchmark_value / tx_gas_limit))
+
+    # Calculate total calls based on full gas budget
+    total_available_gas = gas_benchmark_value - (intrinsic_gas * num_txs)
+    total_calls = int((total_available_gas - cold_warm_diff) // warm_call_cost)
+    calls_per_tx = total_calls // num_txs
 
     # Log test requirements
     print(
-        f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas. "
-        f"Tx gas limit: {tx_gas_limit / 1_000_000:.1f}M gas. "
-        f"Number of txs: {num_txs}. "
-        f"Overhead per contract: {overhead_per_contract}. "
-        f"~{gas_per_contract_per_tx / 1_000_000:.2f}M gas/contract/tx, "
-        f"{calls_per_contract} balanceOf calls/contract/tx."
+        f"Token: {token_name}, "
+        f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas, "
+        f"{total_calls} balanceOf calls across {num_txs} transaction(s)."
     )
 
-    # Build attack code that loops through each contract
-    attack_code: Bytecode = (
-        Op.JUMPDEST  # Entry point
-        # Store selector once for all contracts
-        + Op.MSTORE(offset=0, value=BALANCEOF_SELECTOR)
-    )
+    # Build transactions
+    txs = []
+    post = {}
+    calls_remaining = total_calls
 
-    for erc20_address in erc20_addresses:
-        # For each contract, initialize counter and loop
-        attack_code += (
-            # Initialize counter in memory[32] = number of calls
-            Op.MSTORE(offset=32, value=calls_per_contract)
-            # Loop for this specific contract
+    for i in range(num_txs):
+        # Last tx gets remaining calls
+        tx_calls = (
+            calls_per_tx if i < num_txs - 1 else calls_remaining
+        )
+        calls_remaining -= tx_calls
+
+        # Build attack code for this transaction
+        attack_code: Bytecode = (
+            Op.JUMPDEST  # Entry point
+            + Op.MSTORE(offset=0, value=BALANCEOF_SELECTOR)
+            + Op.MSTORE(offset=32, value=tx_calls)
             + While(
-                # Continue while counter > 0
                 condition=Op.MLOAD(32) + Op.ISZERO + Op.ISZERO,
                 body=(
-                    # Call balanceOf(address) on ERC20 contract
-                    # args_offset=28 reads: selector from MEM[28:32] + address
-                    # from MEM[32:64]
                     Op.CALL(
                         address=erc20_address,
                         value=0,
@@ -241,120 +208,80 @@ def test_sload_empty_erc20_balanceof(
                         ret_offset=0,
                         ret_size=0,
                     )
-                    + Op.POP  # Discard CALL success status
-                    # Decrement counter: counter - 1
+                    + Op.POP
                     + Op.MSTORE(offset=32, value=Op.SUB(Op.MLOAD(32), 1))
                 ),
             )
         )
 
-    # Deploy attack contract
-    attack_address = pre.deploy_contract(code=attack_code)
+        # Deploy attack contract for this tx
+        attack_address = pre.deploy_contract(code=attack_code)
 
-    # Create multiple attack transactions to fill the block
-    sender = pre.fund_eoa()
-    attack_txs = [
-        Transaction(
-            to=attack_address,
-            gas_limit=tx_gas_limit,
-            sender=sender,
+        # Calculate gas for this transaction
+        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
+
+        txs.append(
+            Transaction(
+                to=attack_address,
+                gas_limit=this_tx_gas,
+                sender=pre.fund_eoa(),
+            )
         )
-        for _ in range(num_txs)
-    ]
 
-    # Post-state
-    post = {
-        attack_address: Account(storage={}),
-    }
+        # Add to post-state
+        post[attack_address] = Account(storage={})
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=attack_txs)],
+        blocks=[Block(txs=txs)],
         post=post,
     )
 
 
 @pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize("num_contracts", [1, 5, 10, 20, 100])
+@pytest.mark.parametrize("token_name", SSTORE_TOKENS)
 def test_sstore_erc20_approve(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    address_stubs: AddressStubs | None,
-    num_contracts: int,
-    request: pytest.FixtureRequest,
+    token_name: str,
 ) -> None:
     """
     BloatNet SSTORE benchmark using ERC20 approve to write to storage.
 
     This test:
-    1. Filters stubs matching test name prefix
-       (e.g., test_sstore_erc20_approve_*)
-    2. Uses first N contracts based on num_contracts parameter
-    3. Splits gas budget evenly across the selected contracts
-    4. Calls approve(spender, amount) incrementally (counter as spender)
-    5. Forces SSTOREs to allowance mapping storage slots
+    1. Uses a single ERC20 contract specified by token_name parameter
+    2. Allocates full gas budget to that contract
+    3. Calls approve(spender, amount) incrementally (counter as spender)
+    4. Forces SSTOREs to allowance mapping storage slots
+    5. Splits into multiple transactions if gas_benchmark_value > tx_gas_limit
+       (EIP-7825 compliance)
     """
-    # Extract test function name for stub filtering
-    # Remove parametrization suffix
-    test_name = request.node.name.split("[")[0]
-
-    # Filter stubs that match the test name prefix
-    matching_stubs = []
-    if address_stubs is not None:
-        matching_stubs = [
-            stub_name
-            for stub_name in address_stubs.root.keys()
-            if stub_name.startswith(test_name)
-        ]
-
-    # Validate we have enough stubs
-    if len(matching_stubs) < num_contracts:
-        pytest.fail(
-            f"Not enough matching stubs for test '{test_name}'. "
-            f"Required: {num_contracts}, Found: {len(matching_stubs)}. "
-            f"Matching stubs: {matching_stubs}"
-        )
-
-    # Select first N stubs
-    selected_stubs = matching_stubs[:num_contracts]
+    stub_name = f"test_sstore_erc20_approve_{token_name}"
     gas_costs = fork.gas_costs()
 
     # Calculate gas costs
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=b"")
 
-    # Per-contract fixed overhead (setup + teardown)
-    memory_expansion_cost = 15  # Memory expansion to 160 bytes (5 words)
-    overhead_per_contract = (
-        gas_costs.G_VERY_LOW  # MSTORE to initialize counter (3)
-        + memory_expansion_cost  # Memory expansion (15)
-        + gas_costs.G_JUMPDEST  # JUMPDEST at loop start (1)
-        + gas_costs.G_VERY_LOW  # MLOAD for While condition check (3)
-        + gas_costs.G_VERY_LOW  # ISZERO (3)
-        + gas_costs.G_VERY_LOW  # ISZERO (3)
-        + gas_costs.G_HIGH  # JUMPI (10)
-        + gas_costs.G_BASE  # POP to clean up counter at end (2)
-    )  # = 40
-
     # Fixed overhead per iteration (loop mechanics, independent of warm/cold)
     loop_overhead = (
         # Attack contract loop body operations
         gas_costs.G_VERY_LOW  # MSTORE selector at memory[32] (3)
-        + gas_costs.G_VERY_LOW  # MLOAD counter (3)
+        + gas_costs.G_LOW  # MLOAD counter (5)
         + gas_costs.G_VERY_LOW  # MSTORE spender at memory[64] (3)
         + gas_costs.G_BASE  # POP call result (2)
         # Counter decrement: MSTORE(0, SUB(MLOAD(0), 1))
-        + gas_costs.G_VERY_LOW  # MLOAD counter (3)
+        + gas_costs.G_LOW  # MLOAD counter (5)
         + gas_costs.G_VERY_LOW  # PUSH1 1 (3)
         + gas_costs.G_VERY_LOW  # SUB (3)
         + gas_costs.G_VERY_LOW  # MSTORE counter back (3)
         # While loop condition check
-        + gas_costs.G_VERY_LOW  # MLOAD counter (3)
-        + gas_costs.G_VERY_LOW  # ISZERO (3)
-        + gas_costs.G_VERY_LOW  # ISZERO (3)
-        + gas_costs.G_HIGH  # JUMPI back to loop start (10)
+        + gas_costs.G_LOW  # MLOAD counter (5)
+        + gas_costs.G_BASE  # ISZERO (2)
+        + gas_costs.G_BASE  # ISZERO (2)
+        + gas_costs.G_MID  # JUMPI back to loop start (8)
     )
 
     # ERC20 internal gas (same for all calls)
@@ -363,7 +290,7 @@ def test_sstore_erc20_approve(
     erc20_internal_gas = (
         gas_costs.G_VERY_LOW  # PUSH4 selector (3)
         + gas_costs.G_BASE  # EQ selector match (2)
-        + gas_costs.G_HIGH  # JUMPI to function (10)
+        + gas_costs.G_MID  # JUMPI to function (8)
         + gas_costs.G_JUMPDEST  # JUMPDEST at function start (1)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD spender (3)
         + gas_costs.G_VERY_LOW  # CALLDATALOAD amount (3)
@@ -379,8 +306,7 @@ def test_sstore_erc20_approve(
         # RETURN costs 0 gas
     )
 
-    # For each contract: first call is COLD (2600), subsequent are WARM (100)
-    # Solve for calls per contract accounting for cold/warm transition
+    # First call is COLD (2600), subsequent are WARM (100)
     warm_call_cost = (
         loop_overhead + gas_costs.G_WARM_ACCOUNT_ACCESS + erc20_internal_gas
     )
@@ -388,65 +314,50 @@ def test_sstore_erc20_approve(
         gas_costs.G_COLD_ACCOUNT_ACCESS - gas_costs.G_WARM_ACCOUNT_ACCESS
     )
 
-    # Calculate how many transactions we need to fill the block
-    num_txs = max(1, gas_benchmark_value // tx_gas_limit)
-
-    # Calculate gas budget per contract per transaction
-    total_overhead_per_tx = intrinsic_gas + (
-        overhead_per_contract * num_contracts
-    )
-    available_gas_per_tx = tx_gas_limit - total_overhead_per_tx
-    gas_per_contract_per_tx = available_gas_per_tx // num_contracts
-
-    # Per contract per tx: gas = cold_warm_diff + calls * warm_call_cost
-    calls_per_contract = int(
-        (gas_per_contract_per_tx - cold_warm_diff) // warm_call_cost
+    # Deploy ERC20 contract using stub
+    erc20_address = pre.deploy_contract(
+        code=Bytecode(),
+        stub=stub_name,
     )
 
-    # Deploy selected ERC20 contracts using stubs
-    erc20_addresses = []
-    for stub_name in selected_stubs:
-        addr = pre.deploy_contract(
-            code=Bytecode(),
-            stub=stub_name,
-        )
-        erc20_addresses.append(addr)
+    # Calculate number of transactions needed (EIP-7825 compliance)
+    num_txs = max(1, math.ceil(gas_benchmark_value / tx_gas_limit))
+
+    # Calculate total calls based on full gas budget
+    total_available_gas = gas_benchmark_value - (intrinsic_gas * num_txs)
+    total_calls = int((total_available_gas - cold_warm_diff) // warm_call_cost)
+    calls_per_tx = total_calls // num_txs
 
     # Log test requirements
     print(
-        f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas. "
-        f"Tx gas limit: {tx_gas_limit / 1_000_000:.1f}M gas. "
-        f"Number of txs: {num_txs}. "
-        f"Overhead per contract: {overhead_per_contract}, "
-        f"Warm call cost: {warm_call_cost}. "
-        f"{calls_per_contract} approve calls per contract per tx "
-        f"({num_contracts} contracts)."
+        f"Token: {token_name}, "
+        f"Total gas budget: {gas_benchmark_value / 1_000_000:.1f}M gas, "
+        f"{total_calls} approve calls across {num_txs} transaction(s)."
     )
 
-    # Build attack code that loops through each contract
-    attack_code: Bytecode = (
-        Op.JUMPDEST  # Entry point
-        # Store selector once for all contracts
-        + Op.MSTORE(offset=0, value=APPROVE_SELECTOR)
-    )
+    # Build transactions
+    txs = []
+    post = {}
+    calls_remaining = total_calls
 
-    for erc20_address in erc20_addresses:
-        # For each contract, initialize counter and loop
-        attack_code += (
-            # Initialize counter in memory[32] = number of calls
-            Op.MSTORE(offset=32, value=calls_per_contract)
-            # Loop for this specific contract
+    for i in range(num_txs):
+        # Last tx gets remaining calls
+        tx_calls = (
+            calls_per_tx if i < num_txs - 1 else calls_remaining
+        )
+        calls_remaining -= tx_calls
+
+        # Build attack code for this transaction
+        attack_code: Bytecode = (
+            Op.JUMPDEST  # Entry point
+            + Op.MSTORE(offset=0, value=APPROVE_SELECTOR)
+            + Op.MSTORE(offset=32, value=tx_calls)
             + While(
-                # Continue while counter > 0
                 condition=Op.MLOAD(32) + Op.ISZERO + Op.ISZERO,
                 body=(
                     # Store spender at memory[64] (counter as spender/amount)
                     Op.MSTORE(offset=64, value=Op.MLOAD(32))
                     # Call approve(spender, amount) on ERC20 contract
-                    # args_offset=28 reads: selector from MEM[28:32] +
-                    # spender from MEM[32:64] + amount from MEM[64:96]
-                    # Note: counter at MEM[32:64] is reused as spender,
-                    # and value at MEM[64:96] serves as the amount
                     + Op.CALL(
                         address=erc20_address,
                         value=0,
@@ -455,34 +366,31 @@ def test_sstore_erc20_approve(
                         ret_offset=0,
                         ret_size=0,
                     )
-                    + Op.POP  # Discard CALL success status
-                    # Decrement counter
+                    + Op.POP
                     + Op.MSTORE(offset=32, value=Op.SUB(Op.MLOAD(32), 1))
                 ),
             )
         )
 
-    # Deploy attack contract
-    attack_address = pre.deploy_contract(code=attack_code)
+        # Deploy attack contract for this tx
+        attack_address = pre.deploy_contract(code=attack_code)
 
-    # Create multiple attack transactions to fill the block
-    sender = pre.fund_eoa()
-    attack_txs = [
-        Transaction(
-            to=attack_address,
-            gas_limit=tx_gas_limit,
-            sender=sender,
+        # Calculate gas for this transaction
+        this_tx_gas = min(tx_gas_limit, gas_benchmark_value - (i * tx_gas_limit))
+
+        txs.append(
+            Transaction(
+                to=attack_address,
+                gas_limit=this_tx_gas,
+                sender=pre.fund_eoa(),
+            )
         )
-        for _ in range(num_txs)
-    ]
 
-    # Post-state
-    post = {
-        attack_address: Account(storage={}),
-    }
+        # Add to post-state
+        post[attack_address] = Account(storage={})
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=attack_txs)],
+        blocks=[Block(txs=txs)],
         post=post,
     )
