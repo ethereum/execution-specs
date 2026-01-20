@@ -10,9 +10,16 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalBalanceChange,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     Block,
+    BlockAccessListExpectation,
     BlockchainTestFiller,
     Conditional,
+    Fork,
     Op,
     Transaction,
     compute_create_address,
@@ -22,6 +29,72 @@ from .spec import ref_spec_214
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_214.git_path
 REFERENCE_SPEC_VERSION = ref_spec_214.version
+
+
+def bal_marker_storage_changes(
+    marker: int, staticcall_result: int
+) -> list[BalStorageSlot]:
+    """
+    Build BAL storage changes for the common pattern of marker slots.
+
+    Most tests write to slots 0, 1, 2 where:
+    - slot 0: marker value
+    - slot 1: STATICCALL result (0 or 1)
+    - slot 2: marker value
+    """
+    return [
+        BalStorageSlot(
+            slot=0,
+            slot_changes=[
+                BalStorageChange(block_access_index=1, post_value=marker)
+            ],
+        ),
+        BalStorageSlot(
+            slot=1,
+            slot_changes=[
+                BalStorageChange(
+                    block_access_index=1, post_value=staticcall_result
+                )
+            ],
+        ),
+        BalStorageSlot(
+            slot=2,
+            slot_changes=[
+                BalStorageChange(block_access_index=1, post_value=marker)
+            ],
+        ),
+    ]
+
+
+def bal_expectation_for_contract_with_markers(
+    marker: int,
+    staticcall_result: int,
+    balance_change: int | None = None,
+    initial_balance: int = 0,
+) -> BalAccountExpectation:
+    """
+    Build BAL expectation for a contract that writes marker storage slots.
+
+    Args:
+        marker: The marker value written to slots 0 and 2
+        staticcall_result: The value written to slot 1 (STATICCALL result)
+        balance_change: If provided, include a balance change
+        initial_balance: The initial balance (for computing post_balance)
+
+    """
+    return BalAccountExpectation(
+        storage_changes=bal_marker_storage_changes(marker, staticcall_result),
+        balance_changes=(
+            [
+                BalBalanceChange(
+                    block_access_index=1,
+                    post_balance=initial_balance + balance_change,
+                )
+            ]
+            if balance_change is not None
+            else []
+        ),
+    )
 
 
 @pytest.mark.with_all_precompiles
@@ -38,6 +111,7 @@ def test_staticcall_reentrant_call_with_value_to_precompile(
     blockchain_test: BlockchainTestFiller,
     precompile: Address,
     call_value: int,
+    fork: Fork,
 ) -> None:
     """
     Test CALL to precompile inside STATICCALL with zero and non-zero value.
@@ -77,9 +151,51 @@ def test_staticcall_reentrant_call_with_value_to_precompile(
         protected=True,
     )
 
+    bal_expectation = None
+    if fork.header_bal_hash_required():
+        # Target contract always receives tx value
+        target_balance_changes = [
+            BalBalanceChange(
+                block_access_index=1, post_balance=target_balance + tx_value
+            )
+        ]
+
+        # call_value > 0: SSTORE(0, 0) is a read; call_value == 0: real change
+        account_expectations: dict[Address, BalAccountExpectation | None] = {
+            target: (
+                BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=1
+                                )
+                            ],
+                        ),
+                    ],
+                    balance_changes=target_balance_changes,
+                )
+                if call_value == 0
+                else BalAccountExpectation(
+                    storage_reads=[0],
+                    balance_changes=target_balance_changes,
+                )
+            ),
+        }
+
+        if call_value == 0:
+            account_expectations[precompile] = BalAccountExpectation.empty()
+        else:
+            account_expectations[precompile] = None  # reverted before accessed
+
+        bal_expectation = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
+
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx])],
+        blocks=[Block(txs=[tx], expected_block_access_list=bal_expectation)],
         post={
             target: Account(
                 balance=target_balance + tx_value,
@@ -105,6 +221,7 @@ def test_staticcall_call_to_precompile(
     blockchain_test: BlockchainTestFiller,
     precompile: Address,
     call_value: int,
+    fork: Fork,
 ) -> None:
     """
     Test CALL to precompile inside STATICCALL with zero and non-zero value.
@@ -134,6 +251,61 @@ def test_staticcall_call_to_precompile(
     )
 
     tx_value = 100
+    staticcall_result = 1 if call_value == 0 else 0
+
+    bal_expectation = None
+    if fork.header_bal_hash_required():
+        contract_a_balance_changes = [
+            BalBalanceChange(
+                block_access_index=1,
+                post_balance=initial_contract_balance + tx_value,
+            )
+        ]
+
+        # slot 1 read when call_value > 0
+        account_expectations: dict[Address, BalAccountExpectation | None] = {
+            contract_a: (
+                bal_expectation_for_contract_with_markers(
+                    marker=marker,
+                    staticcall_result=staticcall_result,
+                    balance_change=tx_value,
+                    initial_balance=initial_contract_balance,
+                )
+                if call_value == 0
+                else BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=marker
+                                )
+                            ],
+                        ),
+                        BalStorageSlot(
+                            slot=2,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=marker
+                                )
+                            ],
+                        ),
+                    ],
+                    storage_reads=[1],
+                    balance_changes=contract_a_balance_changes,
+                )
+            ),
+            contract_b: BalAccountExpectation.empty(),  # STATICCALLed
+        }
+
+        if call_value == 0:
+            account_expectations[precompile] = BalAccountExpectation.empty()
+        else:
+            account_expectations[precompile] = None  # reverted before accessed
+
+        bal_expectation = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
 
     blockchain_test(
         pre=pre,
@@ -147,7 +319,8 @@ def test_staticcall_call_to_precompile(
                         value=tx_value,
                         protected=True,
                     )
-                ]
+                ],
+                expected_block_access_list=bal_expectation,
             )
         ],
         post={
@@ -155,8 +328,7 @@ def test_staticcall_call_to_precompile(
                 balance=initial_contract_balance + tx_value,
                 storage={
                     0: marker,
-                    # only succeeds if call_value == 0
-                    1: 1 if call_value == 0 else 0,
+                    1: staticcall_result,
                     2: marker,
                 },
             ),
@@ -181,6 +353,7 @@ def test_staticcall_nested_call_to_precompile(
     blockchain_test: BlockchainTestFiller,
     precompile: Address,
     call_value: int,
+    fork: Fork,
 ) -> None:
     """
     Test STATICCALL behavior with an extra call depth layer.
@@ -222,6 +395,57 @@ def test_staticcall_nested_call_to_precompile(
     )
 
     tx_value = 100
+    staticcall_result = 1 if call_value == 0 else 0
+
+    bal_expectation = None
+    if fork.header_bal_hash_required():
+        # slot 1 read when call_value > 0
+        account_expectations: dict[Address, BalAccountExpectation | None] = {
+            contract_a: (
+                bal_expectation_for_contract_with_markers(
+                    marker=marker,
+                    staticcall_result=staticcall_result,
+                )
+                if call_value == 0
+                else BalAccountExpectation(
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=marker
+                                )
+                            ],
+                        ),
+                        BalStorageSlot(
+                            slot=2,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1, post_value=marker
+                                )
+                            ],
+                        ),
+                    ],
+                    storage_reads=[1],
+                )
+            ),
+            contract_b: bal_expectation_for_contract_with_markers(
+                marker=marker,
+                staticcall_result=1,  # CALL to A always succeeds
+                balance_change=tx_value,
+                initial_balance=initial_contract_balance,
+            ),
+            contract_c: BalAccountExpectation.empty(),  # STATICCALLed
+        }
+
+        if call_value == 0:
+            account_expectations[precompile] = BalAccountExpectation.empty()
+        else:
+            account_expectations[precompile] = None  # reverted before accessed
+
+        bal_expectation = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
 
     blockchain_test(
         pre=pre,
@@ -235,7 +459,8 @@ def test_staticcall_nested_call_to_precompile(
                         value=tx_value,
                         protected=True,
                     )
-                ]
+                ],
+                expected_block_access_list=bal_expectation,
             )
         ],
         post={
@@ -244,7 +469,7 @@ def test_staticcall_nested_call_to_precompile(
                 storage={
                     0: marker,
                     # only succeeds if call_value == 0
-                    1: 1 if call_value == 0 else 0,
+                    1: staticcall_result,
                     2: marker,
                 },
             ),
@@ -286,6 +511,7 @@ def test_staticcall_call_to_precompile_from_contract_init(
     precompile: Address,
     call_value: int,
     create_opcode: Op,
+    fork: Fork,
 ) -> None:
     """
     Test STATICCALL behavior during contract initialization (CREATE).
@@ -336,6 +562,98 @@ def test_staticcall_call_to_precompile_from_contract_init(
     )
 
     tx_value = 100
+    staticcall_result = 1 if call_value == 0 else 0
+
+    bal_expectation = None
+    if fork.header_bal_hash_required():
+        # stores created_contract in slot 1, receives tx value
+        account_expectations: dict[Address, BalAccountExpectation | None] = {
+            contract_a: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=marker
+                            )
+                        ],
+                    ),
+                    BalStorageSlot(
+                        slot=1,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1,
+                                post_value=created_contract,
+                            )
+                        ],
+                    ),
+                    BalStorageSlot(
+                        slot=2,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=marker
+                            )
+                        ],
+                    ),
+                ],
+                balance_changes=[
+                    BalBalanceChange(
+                        block_access_index=1,
+                        post_balance=contract_initial_balance + tx_value,
+                    )
+                ],
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=2)
+                ],
+            ),
+            contract_b: BalAccountExpectation.empty(),  # STATICCALLed
+        }
+
+        # slot 1 read when call_value > 0
+        created_nonce_changes = [
+            BalNonceChange(block_access_index=1, post_nonce=1)
+        ]
+        account_expectations[created_contract] = (
+            BalAccountExpectation(
+                storage_changes=bal_marker_storage_changes(
+                    marker, staticcall_result
+                ),
+                nonce_changes=created_nonce_changes,
+            )
+            if call_value == 0
+            else BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=marker
+                            )
+                        ],
+                    ),
+                    BalStorageSlot(
+                        slot=2,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=1, post_value=marker
+                            )
+                        ],
+                    ),
+                ],
+                storage_reads=[1],
+                nonce_changes=created_nonce_changes,
+            )
+        )
+
+        if call_value == 0:
+            account_expectations[precompile] = BalAccountExpectation.empty()
+        else:
+            account_expectations[precompile] = None  # reverted before accessed
+
+        bal_expectation = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
+
     blockchain_test(
         pre=pre,
         blocks=[
@@ -349,7 +667,8 @@ def test_staticcall_call_to_precompile_from_contract_init(
                         data=bytes(initcode),
                         protected=True,
                     )
-                ]
+                ],
+                expected_block_access_list=bal_expectation,
             )
         ],
         post={
@@ -361,7 +680,7 @@ def test_staticcall_call_to_precompile_from_contract_init(
                 storage={
                     0: marker,
                     # only succeeds if call_value == 0
-                    1: 1 if call_value == 0 else 0,
+                    1: staticcall_result,
                     2: marker,
                 },
                 code=b"",
