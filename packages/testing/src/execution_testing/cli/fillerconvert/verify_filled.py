@@ -79,7 +79,8 @@ def verify_refilled(refilled: Path, original: Path) -> int:
                             f"test_name: {refilled_test_name}\n"
                             f"original_name: {original}\n"
                             f"refilled_hash: {refilled_result[0].hash}\n"
-                            f"original_hash: {res.hash} f: {refilled_fork}, d: {d}, g: {g}, v: {v}"
+                            f"original_hash: {res.hash} "
+                            f"f: {refilled_fork}, d: {d}, g: {g}, v: {v}"
                         )
                     found = True
                     verified_vectors += 1

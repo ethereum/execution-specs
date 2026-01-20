@@ -90,7 +90,8 @@ class HashableItem:
 
             if not isinstance(hash_value, str):
                 raise TypeError(
-                    f"Expected hash to be a string in {key}, got {type(hash_value)}"
+                    f"Expected hash to be a string in {key}, "
+                    f"got {type(hash_value)}"
                 )
 
             item_hash_bytes = bytes.fromhex(hash_value[2:])

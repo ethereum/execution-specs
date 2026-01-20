@@ -124,8 +124,8 @@ def pyspelling() -> None:
                 title="Pyspelling Check Failed",
                 tox_env="spellcheck",
                 error_message=(
-                    "aspell is not installed. This tool is required for spell checking "
-                    "documentation."
+                    "aspell is not installed. This tool is required for "
+                    "spell checking documentation."
                 ),
                 fix_commands=[
                     "# Install aspell on Ubuntu/Debian",
@@ -138,7 +138,8 @@ def pyspelling() -> None:
             sys.exit(1)
         else:
             click.echo(
-                "*********  Install 'aspell' and 'aspell-en' to enable spellcheck *********"
+                "*********  Install 'aspell' and 'aspell-en' to enable "
+                "spellcheck *********"
             )
             sys.exit(0)
 
@@ -147,7 +148,9 @@ def pyspelling() -> None:
         write_github_summary(
             title="Pyspelling Check Failed",
             tox_env="spellcheck",
-            error_message="Pyspelling found spelling errors in the documentation.",
+            error_message=(
+                "Pyspelling found spelling errors in the documentation."
+            ),
             fix_commands=[
                 "# Check the pyspelling configuration",
                 "cat .pyspelling.yml",
@@ -189,8 +192,8 @@ def codespell() -> None:
     if result.returncode != 0:
         console.print("\n[bold red]❌ Spellcheck Failed[/bold red]")
         console.print(
-            "[yellow]Please review the errors above. For single-suggestion fixes, you can "
-            "automatically apply them with:[/yellow]"
+            "[yellow]Please review the errors above. For single-suggestion "
+            "fixes, you can automatically apply them with:[/yellow]"
         )
         console.print(
             f"[cyan]uv run codespell {paths_str} --write-changes[/cyan]\n"
@@ -253,7 +256,8 @@ def validate_changelog() -> None:
 
     if invalid_lines:
         click.echo(
-            f"❌ Found bullet points in {changelog_path} without proper punctuation:"
+            f"❌ Found bullet points in {changelog_path} without proper "
+            "punctuation:"
         )
         click.echo()
         for line_num, line in invalid_lines:

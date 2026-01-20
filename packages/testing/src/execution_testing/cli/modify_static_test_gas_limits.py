@@ -16,7 +16,7 @@ from execution_testing.base_types import (
     HexNumber,
     ZeroPaddedHexNumber,
 )
-from execution_testing.cli.pytest_commands.plugins.filler.static_filler import (
+from execution_testing.cli.pytest_commands.plugins.filler.static_filler import (  # noqa: E501
     NoIntResolver,
 )
 from execution_testing.specs import StateStaticTest
@@ -77,8 +77,9 @@ def _check_fixtures(
             try:
                 parsed_test_file = StaticTestFile.model_validate(loaded_yaml)
             except Exception as e:
+                yaml_dump = json.dumps(loaded_yaml, indent=2)
                 raise Exception(
-                    f"Unable to parse file {test_file}: {json.dumps(loaded_yaml, indent=2)}"
+                    f"Unable to parse file {test_file}: {yaml_dump}"
                 ) from e
         else:
             parsed_test_file = StaticTestFile.model_validate_json(
@@ -95,7 +96,8 @@ def _check_fixtures(
         if len(parsed_test.transaction.gas_limit) != 1:
             if dry_run or verbose:
                 print(
-                    f"Test file {test_file} contains more than one test (after parsing), skipping."
+                    f"Test file {test_file} contains more than one test "
+                    "(after parsing), skipping."
                 )
             continue
 
@@ -113,8 +115,8 @@ def _check_fixtures(
             if gas_value is None:
                 if dry_run or verbose:
                     print(
-                        f"Test file {test_file} contains at least one test that cannot "
-                        "be updated, skipping."
+                        f"Test file {test_file} contains at least one test "
+                        "that cannot be updated, skipping."
                     )
                 continue
             else:
@@ -134,13 +136,15 @@ def _check_fixtures(
         if max_gas_limit is not None and new_gas_limit > max_gas_limit:
             if dry_run or verbose:
                 print(
-                    f"New gas limit ({new_gas_limit}) exceeds max ({max_gas_limit})"
+                    f"New gas limit ({new_gas_limit}) "
+                    f"exceeds max ({max_gas_limit})"
                 )
             continue
 
         if dry_run or verbose:
             print(
-                f"Test file {test_file} requires modification ({new_gas_limit})"
+                f"Test file {test_file} requires modification "
+                f"({new_gas_limit})"
             )
 
         # Find the appropriate pattern to replace the current gas limit
@@ -171,7 +175,8 @@ def _check_fixtures(
 
         # Validate that a replacement pattern was found
         assert substitute_pattern is not None, (
-            f"Current gas limit ({attempted_patterns}) not found in {test_file}"
+            f"Current gas limit ({attempted_patterns}) "
+            f"not found in {test_file}"
         )
         assert substitute_string is not None
 
@@ -212,15 +217,19 @@ MAX_GAS_LIMIT = 16_777_216
         exists=True, file_okay=True, dir_okay=False, readable=True
     ),
     required=True,
-    help="The input json file or directory containing json listing the new gas limits for the "
-    "static test files.",
+    help=(
+        "The input json file or directory containing json listing the new "
+        "gas limits for the static test files."
+    ),
 )
 @click.option(
     "--max-gas-limit",
     default=MAX_GAS_LIMIT,
     expose_value=True,
-    help="Gas limit that triggers a test modification, and also the maximum value that a test "
-    "should have after modification.",
+    help=(
+        "Gas limit that triggers a test modification, and also the maximum "
+        "value that a test should have after modification."
+    ),
 )
 @click.option(
     "--dry-run",

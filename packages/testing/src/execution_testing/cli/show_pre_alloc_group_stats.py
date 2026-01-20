@@ -383,13 +383,17 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
         )
         cumulative_groups_display += groups_in_bin
 
+        cumul_pct = cumulative_groups_display / total_groups * 100
+        cumulative_str = (
+            f"{cumulative_groups_display} ({cumul_pct:.1f}%)"
+            if total_groups > 0
+            else "0"
+        )
         coverage_table.add_row(
             size_range,
             str(tests_in_range),
             f"{coverage_percentage:.1f}%",
-            f"{cumulative_groups_display} ({cumulative_groups_display / total_groups * 100:.1f}%)"
-            if total_groups > 0
-            else "0",
+            cumulative_str,
         )
 
     console.print(coverage_table)
@@ -449,11 +453,13 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
     # Split test functions analysis (only show if there are any)
     if stats.get("split_functions"):
         console.print(
-            "\n[bold yellow]Test Functions Split Across Multiple Groups[/bold yellow]"
+            "\n[bold yellow]Test Functions Split Across Multiple "
+            "Groups[/bold yellow]"
         )
         console.print(
-            "[dim]These test functions create multiple size-1 groups (due to different "
-            "forks/parameters), preventing pre-allocation group optimization:[/dim]",
+            "[dim]These test functions create multiple size-1 groups (due to "
+            "different forks/parameters), preventing pre-allocation group "
+            "optimization:[/dim]",
             highlight=False,
         )
 
@@ -493,21 +499,22 @@ def display_stats(stats: Dict, console: Console, verbose: int = 0) -> None:
         total_split_functions = len(stats["split_functions"])
 
         console.print(
-            f"\n[yellow]Optimization Potential:[/yellow] Excluding these {total_split_functions} "
-            f"split functions would save {total_split_groups} groups"
+            f"\n[yellow]Optimization Potential:[/yellow] Excluding these "
+            f"{total_split_functions} split functions would save "
+            f"{total_split_groups} groups"
         )
 
     # Verbosity hint
     console.print()
     if verbose == 0:
         console.print(
-            "[dim]Hint: Use -v to see detailed group and module statistics, or -vv to see all "
-            "groups and modules[/dim]"
+            "[dim]Hint: Use -v to see detailed group and module statistics, "
+            "or -vv to see all groups and modules[/dim]"
         )
     elif verbose == 1:
         console.print(
-            "[dim]Hint: Use -vv to see all groups and modules (currently showing top entries "
-            "only)[/dim]"
+            "[dim]Hint: Use -vv to see all groups and modules (currently "
+            "showing top entries only)[/dim]"
         )
 
 

@@ -27,7 +27,7 @@ from pydantic import (
 )
 
 from execution_testing.base_types import Alloc
-from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.ruleset import (
+from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.ruleset import (  # noqa: E501
     ruleset,
 )
 from execution_testing.fixtures import (
@@ -192,9 +192,7 @@ class GenesisState(BaseModel):
         )
 
     def get_client_environment(self) -> dict:
-        """
-        Get the environment variables for starting a client with the given fixture.
-        """
+        """Get the env vars to start a client with a fixture."""
         if self.fork not in ruleset:
             raise ValueError(f"Fork '{self.fork}' not found in hive ruleset")
 
@@ -202,7 +200,8 @@ class GenesisState(BaseModel):
             "HIVE_CHAIN_ID": str(self.chain_id),
             "HIVE_FORK_DAO_VOTE": "1",
             "HIVE_NODETYPE": "full",
-            "HIVE_CHECK_LIVE_PORT": "8545",  # Using RPC port for liveness check
+            # Using RPC port for liveness check
+            "HIVE_CHECK_LIVE_PORT": "8545",
             **{k: f"{v:d}" for k, v in ruleset[self.fork].items()},
         }
 
@@ -327,14 +326,16 @@ def extract_config(
 
                 if len(new_containers) != 1:
                     click.echo(
-                        f"Expected exactly 1 new container, found {len(new_containers)}",
+                        f"Expected exactly 1 new container, found "
+                        f"{len(new_containers)}",
                         err=True,
                     )
                     sys.exit(1)
 
                 container_id = new_containers.pop()
                 click.echo(
-                    f"Client started successfully (Container ID: {container_id})"
+                    f"Client started successfully "
+                    f"(Container ID: {container_id})"
                 )
 
                 # Optionally list files in container

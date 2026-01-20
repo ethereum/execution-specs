@@ -6,22 +6,33 @@ import textwrap
 make_something_great = [
     "🎨 Simplicity is the ultimate sophistication. - Leonardo D.",
     "🖌️ Simplicity is an acquired taste. - Katharine G.",
-    "💡 To create a memorable design you need to start with a thought that’s worth remembering."
-    " - Thomas M.",
+    (
+        "💡 To create a memorable design you need to start with a thought "
+        "that's worth remembering. - Thomas M."
+    ),
     "🚀 Well begun is half done. - Aristotle",
-    "🖌️ Designers are crazy and yet sane enough to know where to draw the line. - Benjamin W.",
+    (
+        "🖌️ Designers are crazy and yet sane enough to know where to draw "
+        "the line. - Benjamin W."
+    ),
     "🌟 Creativity is piercing the mundane to find the marvelous. - Bill M.",
     "🔍 Mistakes are the portals of discovery. - James J.",
-    "🧠 It's extremely difficult to be simultaneously concerned with the end-user experience of"
-    " whatever it is that you're building and the architecture of the program that delivers that"
-    " experience. - James H.",
+    (
+        "🧠 It's extremely difficult to be simultaneously concerned with the "
+        "end-user experience of whatever it is that you're building and the "
+        "architecture of the program that delivers that experience. - James H."
+    ),
     "🧠 Good design is a lot like clear thinking made visual. - Edward T.",
-    "🚀 Innovation leads one to see the new in the old and distinguishes the ingenious from the"
-    " ingenuous. - Paul R.",
+    (
+        "🚀 Innovation leads one to see the new in the old and distinguishes "
+        "the ingenious from the ingenuous. - Paul R."
+    ),
     "🔮 The best way to predict the future is to invent it. - Alan K.",
-    "🌟 Perfection is achieved, not when there is nothing more to add, but when there is nothing"
-    " left to take away. - Antoine d.",
-    "📏 You can’t improve what you don’t measure. - Tom D.",
+    (
+        "🌟 Perfection is achieved, not when there is nothing more to add, "
+        "but when there is nothing left to take away. - Antoine d."
+    ),
+    "📏 You can't improve what you don't measure. - Tom D.",
 ]
 
 

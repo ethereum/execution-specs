@@ -48,7 +48,8 @@ class StateTestProvider(Provider):
         """Make RPC calls to fetch transaction and block data."""
         request = RPCRequest()
         print(
-            f"Perform tx request: eth_get_transaction_by_hash({self.transaction_hash})",
+            f"Perform tx request: eth_get_transaction_by_hash"
+            f"({self.transaction_hash})",
             file=stderr,
         )
         self.transaction_response = request.eth_get_transaction_by_hash(
