@@ -254,11 +254,6 @@ class EIP:
             for item in self.items.values()
             if item.covered and not item.not_applicable
         )
-        return sum(
-            1
-            for item in self.items.values()
-            if item.covered and not item.not_applicable
-        )
 
     @property
     def total_items(self) -> int:
