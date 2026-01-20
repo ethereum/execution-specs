@@ -3424,6 +3424,21 @@ class Amsterdam(BPO2):
         return False
 
     @classmethod
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
+        """
+        At Amsterdam, the transaction data floor token cost is increased
+        from 10 to 15 due to EIP-7976.
+        """
+        return replace(
+            super(Amsterdam, cls).gas_costs(
+                block_number=block_number, timestamp=timestamp
+            ),
+            G_TX_DATA_FLOOR_TOKEN_COST=15,  # https://eips.ethereum.org/EIPS/eip-7976
+        )
+
+    @classmethod
     def engine_new_payload_version(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:

@@ -3,6 +3,7 @@ Ethereum Specs EVM Transition Tool Interface.
 """
 
 import json
+import logging
 import tempfile
 from io import StringIO
 from pathlib import Path
@@ -122,7 +123,19 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         in_stream = StringIO(json.dumps(request_data_json["input"]))
 
         t8n = T8N(t8n_options, out_stream, in_stream, self.fork_cache)
-        t8n.run()
+
+        # Suppress t8n warnings when transaction errors are expected
+        expect_tx_errors = any(
+            tx.error is not None for tx in transition_tool_data.txs
+        )
+        if expect_tx_errors:
+            original_level = t8n.logger.level
+            t8n.logger.setLevel(logging.ERROR)
+        try:
+            t8n.run()
+        finally:
+            if expect_tx_errors:
+                t8n.logger.setLevel(original_level)
 
         output_dict = json.loads(out_stream.getvalue())
         output: TransitionToolOutput = TransitionToolOutput.model_validate(

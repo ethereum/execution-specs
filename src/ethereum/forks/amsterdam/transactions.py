@@ -34,12 +34,12 @@ Base cost of a transaction in gas units. This is the minimum amount of gas
 required to execute a transaction.
 """
 
-FLOOR_CALLDATA_COST = Uint(10)
+FLOOR_CALLDATA_COST = Uint(15)
 """
-Minimum gas cost per byte of calldata as per [EIP-7623]. Used to calculate
+Minimum gas cost per token of calldata as per [EIP-7976]. Used to calculate
 the minimum gas cost for transactions that include calldata.
 
-[EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+[EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
 """
 
 STANDARD_CALLDATA_TOKEN_COST = Uint(4)
