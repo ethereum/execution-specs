@@ -81,12 +81,12 @@ def test_slotnum_gas_cost(
     """
     Test that SLOTNUM opcode costs exactly 2 gas (G_BASE).
     """
-    slotnum_gas = fork.gas_costs().G_BASE
+    slotnum_gas = Op.SLOTNUM.gas_cost(fork)
     call_gas = slotnum_gas + gas_delta
 
     # Callee just executes SLOTNUM
     callee_code = Op.SLOTNUM + Op.STOP
-    callee_address = pre.deploy_contract(callee_code)
+    callee_address = pre.deterministic_deploy_contract(deploy_code=callee_code)
 
     # Caller calls the callee with limited gas and stores result
     caller_code = Op.SSTORE(0, Op.CALL(gas=call_gas, address=callee_address))
