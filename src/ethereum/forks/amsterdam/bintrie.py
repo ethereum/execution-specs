@@ -18,36 +18,44 @@ from typing import (
     Optional,
 )
 
+from blake3 import blake3
 from ethereum_types.bytes import Bytes32
 
 # from ethereum.forks.bpo5 import trie as previous_trie
+from .fork_types import Address, Root
 
-from .fork_types import Account, Address, Root
-
-from blake3 import blake3
 
 class StemNode:
+    """A leaf node in the binary tree that holds a stem and 256 values."""
+
     def __init__(self, stem: bytes):
         assert len(stem) == 31, "stem must be 31 bytes"
         self.stem = stem
         self.values: list[Optional[bytes]] = [None] * 256
 
-    def set_value(self, index: int, value: bytes):
+    def set_value(self, index: int, value: bytes) -> None:
+        """Set a value at the given index in this stem node."""
         self.values[index] = value
 
     def get_value(self, index: int) -> Optional[bytes]:
+        """Get the value at the given index in this stem node."""
         return self.values[index]
 
 class InternalNode:
+    """An internal node in the binary tree with left and right children."""
+
     def __init__(self):
         self.left = None
         self.right = None
 
 class BinaryTree:
+    """A binary trie for storing key-value pairs with 32-byte keys."""
+
     def __init__(self):
         self.root = None
 
-    def insert(self, key: bytes, value: bytes):
+    def insert(self, key: bytes, value: bytes) -> None:
+        """Insert a key-value pair into the binary tree."""
         assert len(key) == 32, "key must be 32 bytes"
         assert len(value) == 32, "value must be 32 bytes"
         stem = key[:31]
@@ -82,12 +90,17 @@ class BinaryTree:
         # We're in an internal node, go left or right based on the bit.
         bit = stem_bits[depth]
         if bit == 0:
-            node.left = self._insert(node.left, stem, subindex, value, depth + 1)
+            node.left = self._insert(
+                node.left, stem, subindex, value, depth + 1
+            )
         else:
-            node.right = self._insert(node.right, stem, subindex, value, depth + 1)
+            node.right = self._insert(
+                node.right, stem, subindex, value, depth + 1
+            )
         return node
 
     def get(self, key: bytes) -> Optional[bytes]:
+        """Retrieve a value by key from the binary tree."""
         assert len(key) == 32, "key must be 32 bytes"
 
         if self.root is None:
@@ -115,7 +128,9 @@ class BinaryTree:
         else:
             return self._get(self.right, stem, subindex, depth+1)
 
-    def _split_leaf(self, leaf, stem_bits, existing_stem_bits, subindex, value, depth):
+    def _split_leaf(
+        self, leaf, stem_bits, existing_stem_bits, subindex, value, depth
+    ):
         # If the stem bits are the same up to this depth, we need to create
         # another internal node and recurse.
         if stem_bits[depth] == existing_stem_bits[depth]:
@@ -123,11 +138,13 @@ class BinaryTree:
             bit = stem_bits[depth]
             if bit == 0:
                 new_internal.left = self._split_leaf(
-                    leaf, stem_bits, existing_stem_bits, subindex, value, depth + 1
+                    leaf, stem_bits, existing_stem_bits,
+                    subindex, value, depth + 1,
                 )
             else:
                 new_internal.right = self._split_leaf(
-                    leaf, stem_bits, existing_stem_bits, subindex, value, depth + 1
+                    leaf, stem_bits, existing_stem_bits,
+                    subindex, value, depth + 1,
                 )
             return new_internal
         else:
@@ -164,10 +181,13 @@ class BinaryTree:
         if data in (None, b"\x00" * 64):
             return b"\x00" * 32
 
-        assert len(data) == 64 or len(data) == 32, "data must be 32 or 64 bytes"
+        assert (
+            len(data) == 64 or len(data) == 32
+        ), "data must be 32 or 64 bytes"
         return blake3(data).digest()
 
     def merkelize(self):
+        """Compute the merkle root hash of the tree."""
         def _merkelize(node):
             if node is None:
                 return b"\x00" * 32
@@ -189,8 +209,8 @@ class BinaryTree:
 
 # def copy_trie(trie: Trie[K, V]) -> Trie[K, V]:
 #     """
-#     Create a copy of `trie`. Since only frozen objects may be stored in tries,
-#     the contents are reused.
+#     Create a copy of `trie`. Since only frozen objects may be stored
+#     in tries, the contents are reused.
 
 #     Parameters
 #     ----------
@@ -207,15 +227,13 @@ class BinaryTree:
 
 # TODO replace value : bytes by several types: accounts or slots
 def trie_set(trie: BinaryTree, key: Bytes32, value: bytes) -> None:
-    """
-    """
+    """Set a value in the trie at the given key."""
     # TODO compute key using get_tree_key
     trie.insert(key, value)
 
 
 def trie_get(trie: BinaryTree, key: Bytes32) -> Bytes32:
-    """
-    """
+    """Get a value from the trie at the given key."""
     v = trie.get(key)
     if v is None:
         v = 0
@@ -226,6 +244,5 @@ def root(
     trie: BinaryTree,
     _: Optional[Callable[[Address], Root]] = None,
 ) -> Root:
-    """
-    """
-    return Root(trie.merkleize())
+    """Compute and return the root hash of the trie."""
+    return Root(trie.merkelize())
