@@ -21,7 +21,7 @@ def test_slow_marker_gets_pre_alloc_group(pytester: Any) -> None:
             contract = pre.deploy_contract(code=b"")
             tx = Transaction(sender=sender, to=contract, gas_limit=100000)
             state_test(pre=pre, tx=tx, post={})
-        """
+        """  # noqa: E501
     )
 
     # Create test directory structure
@@ -67,7 +67,7 @@ def test_slow_with_benchmark_no_pre_alloc(pytester: Any) -> None:
             contract = pre.deploy_contract(code=b"")
             tx = Transaction(sender=sender, to=contract, gas_limit=100000)
             state_test(pre=pre, tx=tx, post={})
-        """
+        """  # noqa: E501
     )
 
     # Create test directory structure
@@ -112,7 +112,7 @@ def test_slow_with_existing_pre_alloc_unchanged(pytester: Any) -> None:
             contract = pre.deploy_contract(code=b"")
             tx = Transaction(sender=sender, to=contract, gas_limit=100000)
             state_test(pre=pre, tx=tx, post={})
-        """
+        """  # noqa: E501
     )
 
     # Create test directory structure
@@ -203,7 +203,7 @@ def test_integration_with_fill(pytester: Any) -> None:
             contract = pre.deploy_contract(code=b"")
             tx = Transaction(sender=sender, to=contract, gas_limit=100000)
             state_test(pre=pre, tx=tx, post={})
-        """
+        """  # noqa: E501
     )
 
     # Create proper directory structure for tests

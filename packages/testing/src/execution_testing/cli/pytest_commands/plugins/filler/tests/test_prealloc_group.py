@@ -280,7 +280,7 @@ class StateTest(FormattedTest):  # noqa: D101
             }}
 
             state_test(env={env}, pre=pre, post=post, tx=tx)
-        """
+        """  # noqa: E501
     )
 
 
@@ -322,7 +322,7 @@ class BlockchainTest(FormattedTest):  # noqa: D101
                 post=post,
                 blocks=[Block(txs=[tx])],
             )
-        """
+        """  # noqa: E501
     )
 
 
@@ -397,8 +397,9 @@ class BlockchainTest(FormattedTest):  # noqa: D101
             2,
             id="different_extra_data_different_types",
             marks=pytest.mark.xfail(
-                reason="Extra data is excluded=True in the Environment model, so it does not "
-                "propagate correctly to the genesis header without a lot of code changes.",
+                reason="Extra data is excluded=True in the Environment "
+                "model, so it does not propagate correctly to the genesis "
+                "header without a lot of code changes.",
             ),
         ),
         # Environment fields affecting the pre-alloc groups
@@ -478,45 +479,49 @@ def test_pre_alloc_grouping_by_test_type(
         != expected_different_pre_alloc_groups
     ):
         error_message = (
-            f"Expected {expected_different_pre_alloc_groups} different pre-alloc groups, "
-            f"but got {len(groups)}"
+            f"Expected {expected_different_pre_alloc_groups} different "
+            f"pre-alloc groups, but got {len(groups)}"
         )
         for group_hash, group in groups.items():
             error_message += f"\n{group_hash}: \n"
             error_message += f"tests: {group.test_ids}\n"
-            error_message += f"env: {group.environment.model_dump_json(indent=2, exclude_none=True)}\n"
+            env_json = group.environment.model_dump_json(
+                indent=2, exclude_none=True
+            )
+            error_message += f"env: {env_json}\n"
         raise AssertionError(error_message)
 
     for group_hash, group in groups.items():
         assert (
             group.environment.fee_recipient == group.genesis.fee_recipient
         ), (
-            f"Fee recipient mismatch for group {group_hash}: {group.environment.fee_recipient} != "
+            f"Fee recipient mismatch for group {group_hash}: "
+            f"{group.environment.fee_recipient} != "
             f"{group.genesis.fee_recipient}"
         )
         assert group.environment.prev_randao == group.genesis.prev_randao, (
-            f"Prev randao mismatch for group {group_hash}: {group.environment.prev_randao} != "
-            f"{group.genesis.prev_randao}"
+            f"Prev randao mismatch for group {group_hash}: "
+            f"{group.environment.prev_randao} != {group.genesis.prev_randao}"
         )
         assert group.environment.extra_data == group.genesis.extra_data, (
-            f"Extra data mismatch for group {group_hash}: {group.environment.extra_data} != "
-            f"{group.genesis.extra_data}"
+            f"Extra data mismatch for group {group_hash}: "
+            f"{group.environment.extra_data} != {group.genesis.extra_data}"
         )
         assert group.environment.number == group.genesis.number, (
-            f"Number mismatch for group {group_hash}: {group.environment.number} != "
-            f"{group.genesis.number}"
+            f"Number mismatch for group {group_hash}: "
+            f"{group.environment.number} != {group.genesis.number}"
         )
         assert group.environment.timestamp == group.genesis.timestamp, (
-            f"Timestamp mismatch for group {group_hash}: {group.environment.timestamp} != "
-            f"{group.genesis.timestamp}"
+            f"Timestamp mismatch for group {group_hash}: "
+            f"{group.environment.timestamp} != {group.genesis.timestamp}"
         )
         assert group.environment.difficulty == group.genesis.difficulty, (
-            f"Difficulty mismatch for group {group_hash}: {group.environment.difficulty} != "
-            f"{group.genesis.difficulty}"
+            f"Difficulty mismatch for group {group_hash}: "
+            f"{group.environment.difficulty} != {group.genesis.difficulty}"
         )
         assert group.environment.gas_limit == group.genesis.gas_limit, (
-            f"Gas limit mismatch for group {group_hash}: {group.environment.gas_limit} != "
-            f"{group.genesis.gas_limit}"
+            f"Gas limit mismatch for group {group_hash}: "
+            f"{group.environment.gas_limit} != {group.genesis.gas_limit}"
         )
         assert (
             group.environment.base_fee_per_gas
@@ -536,7 +541,8 @@ def test_pre_alloc_grouping_by_test_type(
         assert (
             group.environment.blob_gas_used == group.genesis.blob_gas_used
         ), (
-            f"Blob gas used mismatch for group {group_hash}: {group.environment.blob_gas_used} != "
+            f"Blob gas used mismatch for group {group_hash}: "
+            f"{group.environment.blob_gas_used} != "
             f"{group.genesis.blob_gas_used}"
         )
         assert (

@@ -73,8 +73,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         const="paths",
         help=(
             "Show information from @pytest.mark.ported_from markers. "
-            "Use '--show-ported-from' or '--show-ported-from=paths' to show static filler paths. "
-            "Use '--show-ported-from=prs' to show PR URLs."
+            "Use '--show-ported-from' or '--show-ported-from=paths' to show "
+            "static filler paths. Use '--show-ported-from=prs' to show PR "
+            "URLs."
         ),
     )
     ported_from_group.addoption(
@@ -84,10 +85,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help=(
             "When using --show-ported-from, exclude tests that have "
-            "coverage_missed_reason in their @pytest.mark.ported_from marker. "
-            "These are tests that were intentionally not ported from the original "
-            "static filler files, typically because they are redundant or obsolete. "
-            "This helps filter out accepted coverage gaps when analyzing test coverage."
+            "coverage_missed_reason in their @pytest.mark.ported_from "
+            "marker. These are tests that were intentionally not ported "
+            "from the original static filler files, typically because they "
+            "are redundant or obsolete. This helps filter out accepted "
+            "coverage gaps when analyzing test coverage."
         ),
     )
     ported_from_group.addoption(
@@ -103,8 +105,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="links_as_filled",
         default=False,
         help=(
-            "Convert URLs or paths to filled test file paths for coverage script. "
-            "Used in combination with --show-ported-from."
+            "Convert URLs or paths to filled test file paths for coverage "
+            "script. Used in combination with --show-ported-from."
         ),
     )
 

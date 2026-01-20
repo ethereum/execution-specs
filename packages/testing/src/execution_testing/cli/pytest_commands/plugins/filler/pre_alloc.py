@@ -56,7 +56,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="strict_alloc",
         default=False,
         help=(
-            "[DEBUG ONLY] Disallows deploying a contract in a predefined address."
+            "[DEBUG ONLY] Disallows deploying a contract in a predefined "
+            "address."
         ),
     )
     pre_alloc_group.addoption(
@@ -66,7 +67,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="test_contract_start_address",
         default=f"{CONTRACT_START_ADDRESS_DEFAULT}",
         type=str,
-        help="The starting address from which tests will deploy contracts.",
+        help="Starting address from which tests will deploy contracts.",
     )
     pre_alloc_group.addoption(
         "--ca-incr",
@@ -75,7 +76,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="test_contract_address_increments",
         default=f"{CONTRACT_ADDRESS_INCREMENTS_DEFAULT}",
         type=str,
-        help="The address increment value for each deployed contract by a test.",
+        help="Address increment value for each deployed contract by a test.",
     )
 
 
@@ -511,10 +512,13 @@ def eoa_iterator(
     ) or request.config.getoption("use_pre_alloc_groups", default=False):
         # Use a starting address that is derived from the test node
         eoa_start_pk = sha256_from_string(node_id_for_entropy)
+        # secp256k1 curve order constant
+        curve_order = (  # noqa: E501
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+        )
         return iter(
             EOA(
-                key=(eoa_start_pk + i)
-                % 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141,
+                key=(eoa_start_pk + i) % curve_order,
                 nonce=0,
             )
             for i in count()

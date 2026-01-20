@@ -322,9 +322,10 @@ class FillingSession:
                 self.fixture_output.pre_alloc_groups_folder_path / hash_key
             )
             raise ValueError(
-                f"Pre-allocation hash {hash_key} not found in pre-allocation groups. "
-                f"Please check the pre-allocation groups file at: {pre_alloc_path}. "
-                "Make sure phase 1 (--generate-pre-alloc-groups) was run before phase 2."
+                f"Pre-allocation hash {hash_key} not found in "
+                f"pre-allocation groups. Please check the file at: "
+                f"{pre_alloc_path}. Make sure phase 1 "
+                "(--generate-pre-alloc-groups) was run before phase 2."
             )
 
         return self.pre_alloc_groups[hash_key]
@@ -442,8 +443,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=Path,
         default=None,
         help=(
-            "Path to an evm executable (or name of an executable in the PATH) that provides `t8n`."
-            " Default: `ethereum-spec-evm-resolver`."
+            "Path to an evm executable (or name of an executable in the "
+            "PATH) that provides `t8n`. Default: `ethereum-spec-evm-resolver`."
         ),
     )
     evm_group.addoption(
@@ -453,8 +454,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=str,
         default=None,
         help=(
-            "[INTERNAL USE ONLY] URL of the t8n server to use. Used by framework tests/ci; not "
-            "intended for regular CLI use."
+            "[INTERNAL USE ONLY] URL of the t8n server to use. Used by "
+            "framework tests/ci; not intended for regular CLI use."
         ),
     )
     evm_group.addoption(
@@ -462,7 +463,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         dest="evm_collect_traces",
         default=None,
-        help="Collect traces of the execution information from the transition tool.",
+        help="Collect traces of execution info from the transition tool.",
     )
     evm_group.addoption(
         "--verify-fixtures",
@@ -470,10 +471,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="verify_fixtures",
         default=False,
         help=(
-            "Verify generated fixture JSON files using geth's evm blocktest command. "
-            "By default, the same evm binary as for the t8n tool is used. A different (geth) evm "
-            "binary may be specified via --verify-fixtures-bin, this must be specified if filling "
-            "with a non-geth t8n tool that does not support blocktest."
+            "Verify generated fixture JSON files using geth's evm "
+            "blocktest command. By default, the same evm binary as for "
+            "the t8n tool is used. A different (geth) evm binary may be "
+            "specified via --verify-fixtures-bin, this must be specified "
+            "if filling with a non-geth t8n tool that does not support "
+            "blocktest."
         ),
     )
     evm_group.addoption(
@@ -506,11 +509,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=Path,
         default=Path(default_output_directory()),
         help=(
-            "Directory path to store the generated test fixtures. Must be empty if it exists. "
-            "If the specified path ends in '.tar.gz', then the specified tarball is additionally "
-            "created (the fixtures are still written to the specified path without the '.tar.gz' "
-            f"suffix). Tarball output automatically enables --generate-all-formats. "
-            f"Can be deleted. Default: '{default_output_directory()}'."
+            "Directory path to store the generated test fixtures. "
+            "Must be empty if it exists. If the specified path ends in "
+            "'.tar.gz', then the specified tarball is additionally "
+            "created (the fixtures are still written to the specified "
+            "path without the '.tar.gz' suffix). Tarball output "
+            "automatically enables --generate-all-formats. Can be "
+            f"deleted. Default: '{default_output_directory()}'."
         ),
     )
     test_group.addoption(
@@ -526,8 +531,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="single_fixture_per_file",
         default=False,
         help=(
-            "Don't group fixtures in JSON files by test function; write each fixture to its own "
-            "file. This can be used to increase the granularity of --verify-fixtures."
+            "Don't group fixtures in JSON files by test function; write "
+            "each fixture to its own file. This can be used to increase "
+            "the granularity of --verify-fixtures."
         ),
     )
     test_group.addoption(
@@ -562,8 +568,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=EnvironmentDefaults.gas_limit,
         type=int,
         help=(
-            "Default gas limit used ceiling used for blocks and tests that attempt to "
-            f"consume an entire block's gas. (Default: {EnvironmentDefaults.gas_limit})"
+            "Default gas limit ceiling for blocks and tests that attempt "
+            f"to consume an entire block's gas. "
+            f"(Default: {EnvironmentDefaults.gas_limit})"
         ),
     )
     test_group.addoption(
@@ -586,9 +593,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="generate_all_formats",
         default=False,
         help=(
-            "Generate all fixture formats including BlockchainEngineXFixture. "
-            "This enables two-phase execution: Phase 1 generates pre-allocation groups, "
-            "phase 2 generates all supported fixture formats."
+            "Generate all fixture formats including BlockchainEngineX. "
+            "Enables two-phase execution: Phase 1 generates pre-allocation "
+            "groups, phase 2 generates all supported fixture formats."
         ),
     )
 
@@ -602,9 +609,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="optimize_gas",
         default=False,
         help=(
-            "Attempt to optimize the gas used in every transaction for the filled tests, "
-            "then print the minimum amount of gas at which the test still produces a correct "
-            "post state and the exact same trace."
+            "Attempt to optimize gas used in every transaction for filled "
+            "tests, then print the minimum gas at which the test still "
+            "produces a correct post state and the exact same trace."
         ),
     )
     optimize_gas_group.addoption(
@@ -625,8 +632,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         type=int,
         help=(
-            "Maximum gas limit for gas optimization, if reached the search will stop and "
-            "fail for that given test. Requires `--optimize-gas`."
+            "Maximum gas limit for gas optimization, if reached the search "
+            "will stop and fail for that test. Requires `--optimize-gas`."
         ),
     )
     optimize_gas_group.addoption(
@@ -635,9 +642,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="optimize_gas_post_processing",
         default=False,
         help=(
-            "Post process the traces during gas optimization in order to Account for "
-            "opcodes that put the current gas in the stack, in order to remove "
-            "remaining-gas from the comparison."
+            "Post process traces during gas optimization to account for "
+            "opcodes that put the current gas in the stack, in order to "
+            "remove remaining-gas from the comparison."
         ),
     )
 
@@ -755,8 +762,8 @@ def pytest_configure(config: pytest.Config) -> None:
         and not t8n.supports_xdist
     ):
         pytest.exit(
-            f"The {t8n.__class__.__name__} t8n tool does not work well with the xdist plugin;"
-            "use -n=0.",
+            f"The {t8n.__class__.__name__} t8n tool does not work well "
+            "with the xdist plugin; use -n=0.",
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
     config.t8n = t8n  # type: ignore[attr-defined]
@@ -849,8 +856,8 @@ def pytest_terminal_summary(
 
             terminalreporter.write_sep(
                 "=",
-                f" Phase 1 Complete: Generated {total_groups} pre-allocation groups "
-                f"({total_accounts} total accounts) ",
+                f" Phase 1 Complete: Generated {total_groups} pre-alloc "
+                f"groups ({total_accounts} total accounts) ",
                 bold=True,
                 green=True,
             )
@@ -862,8 +869,8 @@ def pytest_terminal_summary(
             terminalreporter.write_sep(
                 "=",
                 (
-                    f' No tests executed - the test fixtures in "{output_dir}" may now be '
-                    "executed against a client "
+                    f" No tests executed - the test fixtures in "
+                    f'"{output_dir}" may now be executed against a client '
                 ),
                 bold=True,
                 yellow=True,
@@ -879,7 +886,8 @@ def pytest_html_results_table_header(cells: Any) -> None:
     """Customize the table headers of the HTML report table."""
     cells.insert(
         3,
-        '<th class="sortable" data-column-type="fixturePath">JSON Fixture File</th>',
+        '<th class="sortable" data-column-type="fixturePath">'
+        "JSON Fixture File</th>",
     )
     cells.insert(
         4,
@@ -899,7 +907,10 @@ def pytest_html_results_table_row(report: Any, cells: Any) -> None:
         ):
             fixture_path_absolute = user_props["fixture_path_absolute"]
             fixture_path_relative = user_props["fixture_path_relative"]
-            fixture_path_link = f'<a href="{fixture_path_absolute}" target="_blank">{fixture_path_relative}</a>'
+            fixture_path_link = (
+                f'<a href="{fixture_path_absolute}" target="_blank">'
+                f"{fixture_path_relative}</a>"
+            )
             cells.insert(3, f"<td>{fixture_path_link}</td>")
         elif report.failed:
             cells.insert(3, "<td>Fixture unavailable</td>")
@@ -907,14 +918,18 @@ def pytest_html_results_table_row(report: Any, cells: Any) -> None:
             if user_props["evm_dump_dir"] is None:
                 cells.insert(
                     4,
-                    "<td>For t8n debug info use <code>--evm-dump-dir=path --traces</code></td>",
+                    "<td>For t8n debug info use "
+                    "<code>--evm-dump-dir=path --traces</code></td>",
                 )
             else:
                 evm_dump_dir = user_props.get("evm_dump_dir")
                 if evm_dump_dir == "N/A":
                     evm_dump_entry = "N/A"
                 else:
-                    evm_dump_entry = f'<a href="{evm_dump_dir}" target="_blank">{evm_dump_dir}</a>'
+                    evm_dump_entry = (
+                        f'<a href="{evm_dump_dir}" target="_blank">'
+                        f"{evm_dump_dir}</a>"
+                    )
                 cells.insert(4, f"<td>{evm_dump_entry}</td>")
     del cells[-1]  # Remove the "Links" column
 
@@ -984,11 +999,12 @@ def t8n(
     """Return configured transition tool."""
     t8n: TransitionTool = request.config.t8n  # type: ignore
     if not t8n.exception_mapper.reliable:
+        t8n_name = t8n.__class__.__name__
         warnings.warn(
-            f"The t8n tool that is currently being used to fill tests ({t8n.__class__.__name__}) "
-            "does not provide reliable exception messages. This may lead to false positives when "
-            "writing tests and extra care should be taken when writing tests that produce "
-            "exceptions.",
+            f"The t8n tool being used to fill tests ({t8n_name}) "
+            "does not provide reliable exception messages. This may lead to "
+            "false positives when writing tests and extra care should be "
+            "taken when writing tests that produce exceptions.",
             stacklevel=2,
         )
     yield t8n
@@ -1039,16 +1055,18 @@ def evm_fixture_verification(
     except Exception:
         if reused_evm_bin:
             pytest.exit(
-                "The binary specified in --evm-bin could not be recognized as a known "
-                "FixtureConsumerTool. Either remove --verify-fixtures or set "
-                "--verify-fixtures-bin to a known fixture consumer binary.",
+                "The binary specified in --evm-bin could not be recognized "
+                "as a known FixtureConsumerTool. Either remove "
+                "--verify-fixtures or set --verify-fixtures-bin to a known "
+                "fixture consumer binary.",
                 returncode=pytest.ExitCode.USAGE_ERROR,
             )
         else:
             pytest.exit(
-                "Specified binary in --verify-fixtures-bin could not be recognized as a known "
-                "FixtureConsumerTool. Please see `GethFixtureConsumer` for an example "
-                "of how a new fixture consumer can be defined.",
+                "Specified binary in --verify-fixtures-bin could not be "
+                "recognized as a known FixtureConsumerTool. Please see "
+                "`GethFixtureConsumer` for an example of how a new fixture "
+                "consumer can be defined.",
                 returncode=pytest.ExitCode.USAGE_ERROR,
             )
     yield evm_fixture_verification
@@ -1119,7 +1137,8 @@ def create_properties_file(
             config[key.lower()] = val
         else:
             warnings.warn(
-                f"Fixtures ini file: Skipping metadata key {key} with value {val}.",
+                f"Fixtures ini file: Skipping metadata key {key} "
+                f"with value {val}.",
                 stacklevel=2,
             )
     config["environment"] = environment_properties
@@ -1274,7 +1293,10 @@ def fixture_source_url(
             test_module_relative_path,
             branch_or_commit_or_tag=commit_hash_or_tag,
         )
-        github_url += f" called via `{request.node.originalname}()` in {test_module_github_url}"
+        github_url += (
+            f" called via `{request.node.originalname}()` "
+            f"in {test_module_github_url}"
+        )
     return github_url
 
 

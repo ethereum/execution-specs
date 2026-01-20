@@ -53,8 +53,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="witness",
         default=False,
         help=(
-            "Generate execution witness data for blockchain test fixtures using the "
-            "witness-filler tool (must be installed separately)."
+            "Generate execution witness data for blockchain test fixtures "
+            "using the witness-filler tool (must be installed separately)."
         ),
     )
 
@@ -69,10 +69,11 @@ def pytest_configure(config: pytest.Config) -> None:
     if config.getoption("witness"):
         # Check if witness-filler binary is available in PATH
         if not shutil.which("witness-filler"):
+            repo = "https://github.com/kevaundray/reth.git"  # noqa: E501
             pytest.exit(
-                "witness-filler tool not found in PATH. Please build and install witness-filler "
-                "from https://github.com/kevaundray/reth.git before using --witness flag.\n"
-                "Example: cargo install --git https://github.com/kevaundray/reth.git "
+                "witness-filler tool not found in PATH. Please build and "
+                f"install witness-filler from {repo} before using "
+                f"--witness flag.\nExample: cargo install --git {repo} "
                 "witness-filler",
                 1,
             )
@@ -119,8 +120,8 @@ def witness_generator(
 
         if result.returncode != 0:
             raise RuntimeError(
-                f"witness-filler tool failed with exit code {result.returncode}. "
-                f"stderr: {result.stderr}"
+                f"witness-filler tool failed with exit code "
+                f"{result.returncode}. stderr: {result.stderr}"
             )
 
         try:
@@ -135,9 +136,11 @@ def witness_generator(
                     if isinstance(block, FixtureBlock):
                         block.execution_witness = witness
         except Exception as e:
+            output = result.stdout[:500]
+            suffix = "..." if len(result.stdout) > 500 else ""
             raise RuntimeError(
                 f"Failed to parse witness data from witness-filler tool. "
-                f"Output was: {result.stdout[:500]}{'...' if len(result.stdout) > 500 else ''}"
+                f"Output was: {output}{suffix}"
             ) from e
 
     return generate_witness

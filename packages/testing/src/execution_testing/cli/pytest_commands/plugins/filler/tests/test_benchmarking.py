@@ -31,7 +31,7 @@ test_module_without_fixture = textwrap.dedent(
             target_opcode=Op.JUMPDEST,
             code_generator=JumpLoopGenerator(attack_block=Op.JUMPDEST),
         )
-    """
+    """  # noqa: E501
 )
 
 test_module_with_repricing = textwrap.dedent(
@@ -48,12 +48,14 @@ test_module_with_repricing = textwrap.dedent(
         )
 
     @pytest.mark.valid_at("Prague")
-    def test_benchmark_without_repricing(benchmark_test: BenchmarkTestFiller) -> None:
+    def test_benchmark_without_repricing(
+            benchmark_test: BenchmarkTestFiller
+        ) -> None:
         benchmark_test(
             target_opcode=Op.JUMPDEST,
             code_generator=JumpLoopGenerator(attack_block=Op.JUMPDEST),
         )
-    """
+    """  # noqa: E501
 )
 
 test_module_without_benchmark_test_fixture = textwrap.dedent(
@@ -73,7 +75,7 @@ test_module_without_benchmark_test_fixture = textwrap.dedent(
             target_opcode=Op.JUMPDEST,
             code_generator=JumpLoopGenerator(attack_block=Op.JUMPDEST),
         )
-    """
+    """  # noqa: E501
 )
 
 test_module_with_repricing_kwargs = textwrap.dedent(
@@ -250,7 +252,7 @@ def test_repricing_marker_filter_with_benchmark_options(
         pytester, test_module_with_repricing, "test_repricing_filter.py"
     )
 
-    # Test with -m repricing filter - should only collect repricing-marked tests
+    # Test with -m repricing filter - should only collect repricing tests
     result = pytester.runpytest(
         "-c",
         "pytest-fill.ini",
@@ -344,7 +346,7 @@ def test_repricing_marker_with_kwargs_filters_parametrized_tests(
     )
 
     assert result.ret == 0
-    # For test with repricing(opcode=Op.ADD), only ADD variant should be collected
+    # For repricing(opcode=Op.ADD), only ADD variant should be collected
     collected_lines = [
         line for line in result.outlines if "test_parametrized" in line
     ]
@@ -361,7 +363,7 @@ def test_repricing_marker_with_kwargs_filters_parametrized_tests(
     assert not any("SUB" in line for line in kwargs_test_lines)
     assert not any("MUL" in line for line in kwargs_test_lines)
 
-    # test_parametrized_with_repricing_no_kwargs should have all variants (ADD and SUB)
+    # test_parametrized_with_repricing_no_kwargs: all variants (ADD and SUB)
     no_kwargs_test_lines = [
         line
         for line in collected_lines

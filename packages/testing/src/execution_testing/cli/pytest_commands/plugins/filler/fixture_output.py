@@ -27,7 +27,7 @@ class FixtureOutput(BaseModel):
     )
     clean: bool = Field(
         default=False,
-        description="Clean (remove) the output directory before filling fixtures.",
+        description="Clean (remove) output directory before filling.",
     )
     generate_pre_alloc_groups: bool = Field(
         default=False,
@@ -39,7 +39,7 @@ class FixtureOutput(BaseModel):
     )
     should_generate_all_formats: bool = Field(
         default=False,
-        description="Generate all fixture formats including BlockchainEngineXFixture.",
+        description="Generate all formats including BlockchainEngineXFixture.",
     )
 
     @property
@@ -190,9 +190,10 @@ class FixtureOutput(BaseModel):
 
             if self.generate_pre_alloc_groups:
                 raise ValueError(
-                    f"Output directory '{self.directory}' must be completely empty for "
-                    f"pre-allocation group generation (phase 1). Contains: {summary}. "
-                    "Use --clean to remove all existing files."
+                    f"Output directory '{self.directory}' must be completely "
+                    f"empty for pre-allocation group generation (phase 1). "
+                    f"Contains: {summary}. Use --clean to remove all "
+                    "existing files."
                 )
             elif self.use_pre_alloc_groups:
                 if not self.pre_alloc_groups_folder_path.exists():
@@ -204,8 +205,8 @@ class FixtureOutput(BaseModel):
             else:
                 raise ValueError(
                     f"Output directory '{self.directory}' is not empty. "
-                    f"Contains: {summary}. Use --clean to remove all existing files "
-                    "or specify a different output directory."
+                    f"Contains: {summary}. Use --clean to remove all "
+                    "existing files or specify a different output directory."
                 )
 
         # Create directories
