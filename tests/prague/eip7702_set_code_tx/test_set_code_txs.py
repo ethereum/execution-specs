@@ -42,6 +42,7 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
+from execution_testing.forks import Amsterdam
 
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest
@@ -2922,6 +2923,16 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
         intrinsic_gas // 5,  # max discount EIP-3529
     )
 
+    if fork >= Amsterdam:
+        expected_receipt = TransactionReceipt(
+            gas_spent=intrinsic_gas - discount,
+            cumulative_gas_used=intrinsic_gas,
+        )
+    else:
+        expected_receipt = TransactionReceipt(
+            cumulative_gas_used=intrinsic_gas - discount
+        )
+
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=auth_signer,
@@ -2929,9 +2940,7 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
         value=1,
         authorization_list=[auth],
         # explicitly check expected gas, no precompile code executed
-        expected_receipt=TransactionReceipt(
-            cumulative_gas_used=intrinsic_gas - discount
-        ),
+        expected_receipt=expected_receipt,
     )
 
     state_test(
