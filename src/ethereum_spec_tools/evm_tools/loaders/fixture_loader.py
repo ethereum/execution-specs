@@ -201,4 +201,8 @@ class Load(BaseLoad):
             bal_hash = hex_to_bytes32(raw.get("blockAccessListHash"))
             parameters.append(bal_hash)
 
+        if "slotNumber" in raw:
+            slot_number = hex_to_u64(raw.get("slotNumber"))
+            parameters.append(slot_number)
+
         return self.fork.Header(*parameters)
