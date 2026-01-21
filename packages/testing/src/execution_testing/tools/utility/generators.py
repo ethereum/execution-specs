@@ -483,9 +483,9 @@ def gas_test(
     if cold_gas is None:
         cold_gas = subject_code.gas_cost(fork)
 
-    if cold_gas <= 0:
+    if cold_gas < 0:
         raise ValueError(
-            f"Target gas allocations (cold_gas) must be > 0, got {cold_gas}"
+            f"Target gas allocations (cold_gas) must be >= 0, got {cold_gas}"
         )
     if warm_gas is None:
         if subject_code_warm is not None:
@@ -624,8 +624,15 @@ def gas_test(
             LEGACY_CALL_SUCCESS
         )
 
+    sstore_gas = gas_costs.STORAGE_SET + gas_costs.COLD_STORAGE_ACCESS
     if tx_gas is None:
-        tx_gas = gas_single_gas_run + cold_gas + 500_000
+        tx_gas = (
+            5 * gas_single_gas_run
+            + cold_gas
+            + 4 * warm_gas
+            + 5 * sstore_gas
+            + 500_000
+        )
     tx = Transaction(
         to=address_legacy_harness, gas_limit=tx_gas, sender=sender
     )
