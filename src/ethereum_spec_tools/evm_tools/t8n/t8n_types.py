@@ -449,6 +449,8 @@ class Result:
                 }
                 logs_json.append(log_dict)
             receipt_dict["logs"] = logs_json
+            if hasattr(receipt, "gas_spent"):
+                receipt_dict["gasSpent"] = hex(receipt.gas_spent)
 
             receipts_json.append(receipt_dict)
 
