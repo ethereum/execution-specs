@@ -246,7 +246,7 @@ SHA256_CONFIG = MarginalPrecompileConfig(
     step=250,  # 5 data points
     input_data=SHA256_INPUT,
     input_size=len(SHA256_INPUT),  # 4096 bytes
-    num_calls=3,  # 24KB limit
+    num_calls=5,  # 24KB limit
 )
 
 # ============================================================================
