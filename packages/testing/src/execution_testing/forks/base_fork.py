@@ -361,6 +361,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """Return true if the header must contain block access list hash."""
         pass
 
+    @classmethod
+    @abstractmethod
+    def header_slot_number_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """Return true if the header must contain slot number (EIP-7843)."""
+        pass
+
     # Gas related abstract methods
 
     @classmethod

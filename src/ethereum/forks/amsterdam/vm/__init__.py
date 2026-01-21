@@ -50,6 +50,7 @@ class BlockEnvironment:
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
     state_changes: StateChanges
+    slot_number: U64
 
 
 @dataclass
