@@ -308,6 +308,8 @@ class T8N(Load):
 
         if self.fork.has_block_access_list_hash:
             kw_arguments["state_changes"] = StateChanges()
+        if self.fork.has_slot_number:
+            kw_arguments["slot_number"] = self.env.slot_number
 
         return block_environment(**kw_arguments)
 
