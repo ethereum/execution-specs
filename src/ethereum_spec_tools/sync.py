@@ -188,6 +188,34 @@ class BlockDownloader(ForkTracking):
                     except Full:
                         pass
 
+    def _make_request(self, req: request.Request) -> Any:
+        backoff = 1.75
+        start = time.monotonic()
+        last_error = None
+        delay = 1.0
+        while True:
+            now = time.monotonic()
+            elapsed = now - start
+            remaining = (60.0 * 60.0) - elapsed
+
+            if 0.0 >= remaining:
+                assert last_error is not None
+                raise last_error
+
+            try:
+                with request.urlopen(req, timeout=60.0) as response:
+                    return json.load(response)
+            except request.HTTPError as e:
+                if e.code < 500 or e.code > 599:
+                    raise
+                logging.warning(
+                    "server-side error during RPC request", exc_info=True
+                )
+                last_error = e
+
+            time.sleep(min(delay, remaining))
+            delay *= backoff
+
     def fetch_blocks(
         self,
         first: Uint,
@@ -243,70 +271,65 @@ class BlockDownloader(ForkTracking):
             headers=headers,
         )
 
-        with request.urlopen(post) as response:
-            replies = json.load(response)
-            if not isinstance(replies, list):
-                self.log.error(
-                    "got non-list JSON-RPC response. replies=%r", replies
+        replies = self._make_request(post)
+        if not isinstance(replies, list):
+            self.log.error(
+                "got non-list JSON-RPC response. replies=%r", replies
+            )
+            raise ValueError
+
+        block_rlps: Dict[Uint, Union[RpcError, bytes]] = {}
+
+        for reply in replies:
+            try:
+                reply_id = Uint(int(reply["id"], 0))
+            except Exception:
+                self.log.exception("unable to parse RPC id. reply=%r", reply)
+                raise
+
+            if reply_id < first or reply_id >= first + count:
+                raise Exception("mismatched request id")
+
+            if "error" in reply:
+                block_rlps[reply_id] = RpcError(
+                    reply["error"]["code"],
+                    reply["error"]["message"],
                 )
-                raise ValueError
+            else:
+                block_rlps[reply_id] = bytes.fromhex(reply["result"][2:])
 
-            block_rlps: Dict[Uint, Union[RpcError, bytes]] = {}
+        if len(block_rlps) != count:
+            raise Exception(
+                f"expected {count} blocks but only got {len(block_rlps)}"
+            )
 
-            for reply in replies:
+        self.log.info("blocks [%d, %d) fetched", first, first + count)
+
+        blocks: List[Union[RpcError, Any]] = []
+        for _, block_rlp in sorted(block_rlps.items()):
+            if isinstance(block_rlp, RpcError):
+                blocks.append(block_rlp)
+            else:
+                # Unfortunately we have to decode the RLP twice.
+                decoded_block = rlp.decode(block_rlp)
+                assert not isinstance(decoded_block, bytes)
+                assert not isinstance(decoded_block[0], bytes)
+                assert isinstance(decoded_block[0][11], bytes)
+                timestamp = U256.from_be_bytes(decoded_block[0][11])
+                self.advance_block(timestamp)
                 try:
-                    reply_id = Uint(int(reply["id"], 0))
+                    blocks.append(
+                        rlp.decode_to(self.module("blocks").Block, block_rlp)
+                    )
                 except Exception:
                     self.log.exception(
-                        "unable to parse RPC id. reply=%r", reply
+                        "failed to decode block %d with timestamp %d",
+                        self.block_number,
+                        timestamp,
                     )
                     raise
 
-                if reply_id < first or reply_id >= first + count:
-                    raise Exception("mismatched request id")
-
-                if "error" in reply:
-                    block_rlps[reply_id] = RpcError(
-                        reply["error"]["code"],
-                        reply["error"]["message"],
-                    )
-                else:
-                    block_rlps[reply_id] = bytes.fromhex(reply["result"][2:])
-
-            if len(block_rlps) != count:
-                raise Exception(
-                    f"expected {count} blocks but only got {len(block_rlps)}"
-                )
-
-            self.log.info("blocks [%d, %d) fetched", first, first + count)
-
-            blocks: List[Union[RpcError, Any]] = []
-            for _, block_rlp in sorted(block_rlps.items()):
-                if isinstance(block_rlp, RpcError):
-                    blocks.append(block_rlp)
-                else:
-                    # Unfortunately we have to decode the RLP twice.
-                    decoded_block = rlp.decode(block_rlp)
-                    assert not isinstance(decoded_block, bytes)
-                    assert not isinstance(decoded_block[0], bytes)
-                    assert isinstance(decoded_block[0][11], bytes)
-                    timestamp = U256.from_be_bytes(decoded_block[0][11])
-                    self.advance_block(timestamp)
-                    try:
-                        blocks.append(
-                            rlp.decode_to(
-                                self.module("blocks").Block, block_rlp
-                            )
-                        )
-                    except Exception:
-                        self.log.exception(
-                            "failed to decode block %d with timestamp %d",
-                            self.block_number,
-                            timestamp,
-                        )
-                        raise
-
-            return blocks
+        return blocks
 
     def load_transaction(self, t: Any) -> Any:
         """
@@ -438,44 +461,41 @@ class BlockDownloader(ForkTracking):
             headers=headers,
         )
 
-        with request.urlopen(post) as response:
-            replies = json.load(response)
-            block_jsons: Dict[Uint, Any] = {}
-            ommers_needed: Dict[Uint, int] = {}
-            blocks: Dict[Uint, Union[Any, RpcError]] = {}
+        replies = self._make_request(post)
+        block_jsons: Dict[Uint, Any] = {}
+        ommers_needed: Dict[Uint, int] = {}
+        blocks: Dict[Uint, Union[Any, RpcError]] = {}
 
-            for reply in replies:
-                reply_id = Uint(int(reply["id"], 0))
+        for reply in replies:
+            reply_id = Uint(int(reply["id"], 0))
 
-                if reply_id < first or reply_id >= first + count:
-                    raise Exception("mismatched request id")
+            if reply_id < first or reply_id >= first + count:
+                raise Exception("mismatched request id")
 
-                if "error" in reply:
-                    blocks[reply_id] = RpcError(
-                        reply["error"]["code"],
-                        reply["error"]["message"],
-                    )
-                else:
-                    res = reply["result"]
-                    if res is None:
-                        from time import sleep
-
-                        sleep(12)
-                        break
-
-                    block_jsons[reply_id] = res
-                    ommers_needed[reply_id] = len(res["uncles"])
-
-            ommers = self.fetch_ommers(ommers_needed)
-            for id in block_jsons:  # noqa A001
-                self.advance_block(hex_to_u256(block_jsons[id]["timestamp"]))
-                blocks[id] = self.make_block(
-                    block_jsons[id], ommers.get(id, ())
+            if "error" in reply:
+                blocks[reply_id] = RpcError(
+                    reply["error"]["code"],
+                    reply["error"]["message"],
                 )
+            else:
+                res = reply["result"]
+                if res is None:
+                    from time import sleep
 
-            self.log.info("blocks [%d, %d) fetched", first, first + count)
+                    sleep(12)
+                    break
 
-            return [v for (_, v) in sorted(blocks.items())]
+                block_jsons[reply_id] = res
+                ommers_needed[reply_id] = len(res["uncles"])
+
+        ommers = self.fetch_ommers(ommers_needed)
+        for id in block_jsons:  # noqa A001
+            self.advance_block(hex_to_u256(block_jsons[id]["timestamp"]))
+            blocks[id] = self.make_block(block_jsons[id], ommers.get(id, ()))
+
+        self.log.info("blocks [%d, %d) fetched", first, first + count)
+
+        return [v for (_, v) in sorted(blocks.items())]
 
     def fetch_ommers(self, ommers_needed: Dict[Uint, int]) -> Dict[Uint, Any]:
         """
@@ -519,37 +539,36 @@ class BlockDownloader(ForkTracking):
             headers=headers,
         )
 
-        with request.urlopen(post) as response:
-            replies = json.load(response)
-            ommers: Dict[Uint, Dict[Uint, Any]] = {}
+        replies = self._make_request(post)
+        ommers: Dict[Uint, Dict[Uint, Any]] = {}
 
-            twenty = Uint(20)
-            for reply in replies:
-                reply_id = Uint(int(reply["id"], 0))
+        twenty = Uint(20)
+        for reply in replies:
+            reply_id = Uint(int(reply["id"], 0))
 
-                if reply_id // twenty not in ommers:
-                    ommers[reply_id // twenty] = {}
+            if reply_id // twenty not in ommers:
+                ommers[reply_id // twenty] = {}
 
-                if "error" in reply:
-                    raise RpcError(
-                        reply["error"]["code"],
-                        reply["error"]["message"],
-                    )
-                else:
-                    ommers[reply_id // twenty][reply_id % twenty] = (
-                        self.make_header(reply["result"])
-                    )
+            if "error" in reply:
+                raise RpcError(
+                    reply["error"]["code"],
+                    reply["error"]["message"],
+                )
+            else:
+                ommers[reply_id // twenty][reply_id % twenty] = (
+                    self.make_header(reply["result"])
+                )
 
-            self.log.info(
-                "ommers [%d, %d] fetched",
-                min(ommers_needed),
-                max(ommers_needed),
-            )
+        self.log.info(
+            "ommers [%d, %d] fetched",
+            min(ommers_needed),
+            max(ommers_needed),
+        )
 
-            return {
-                k: tuple(x for (_, x) in sorted(v.items()))
-                for (k, v) in ommers.items()
-            }
+        return {
+            k: tuple(x for (_, x) in sorted(v.items()))
+            for (k, v) in ommers.items()
+        }
 
     def make_header(self, json: Any) -> Any:
         """
