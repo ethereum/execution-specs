@@ -363,18 +363,16 @@ def execute_code(message: Message, state_changes: StateChanges) -> Evm:
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            if message.disable_precompiles:
-                return evm
-            evm_trace(evm, PrecompileStart(evm.message.code_address))
-            PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
-            evm_trace(evm, PrecompileEnd())
-            return evm
-
-        while evm.running and evm.pc < ulen(evm.code):
-            try:
-                op = Ops(evm.code[evm.pc])
-            except ValueError as e:
-                raise InvalidOpcode(evm.code[evm.pc]) from e
+            if not message.disable_precompiles:
+                evm_trace(evm, PrecompileStart(evm.message.code_address))
+                PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+                evm_trace(evm, PrecompileEnd())
+        else:
+            while evm.running and evm.pc < ulen(evm.code):
+                try:
+                    op = Ops(evm.code[evm.pc])
+                except ValueError as e:
+                    raise InvalidOpcode(evm.code[evm.pc]) from e
 
             evm_trace(evm, OpStart(op))
             op_implementation[op](evm)
