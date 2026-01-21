@@ -767,8 +767,8 @@ class BlockchainTest(BaseTest):
             if bal != t8n_bal and self.fork.header_bal_hash_required(
                 block_number=int(env.number), timestamp=int(env.timestamp)
             ):
-                # If the BAL was modified and the fork requires it, update the
-                # header hash
+                # If the BAL was modified and the fork requires it,
+                # update the header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
         built_block = BuiltBlock(
