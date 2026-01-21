@@ -19,8 +19,8 @@ from execution_testing import (
 )
 from execution_testing.vm import Op
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7928.md"
-REFERENCE_SPEC_VERSION = "DUMMY_VERSION"
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7778.md"
+REFERENCE_SPEC_VERSION = "54fba02495a05b57acd3f27473d0493b40a9d920"
 
 
 @pytest.mark.valid_from("Amsterdam")
