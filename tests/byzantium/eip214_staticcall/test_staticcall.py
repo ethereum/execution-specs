@@ -15,12 +15,11 @@ from execution_testing import (
     BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
-    Block,
     BlockAccessListExpectation,
-    BlockchainTestFiller,
     Conditional,
     Fork,
     Op,
+    StateTestFiller,
     Transaction,
     compute_create_address,
 )
@@ -108,7 +107,7 @@ def bal_expectation_for_contract_with_markers(
 @pytest.mark.valid_from("Byzantium")
 def test_staticcall_reentrant_call_to_precompile(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     precompile: Address,
     call_value: int,
     fork: Fork,
@@ -193,9 +192,10 @@ def test_staticcall_reentrant_call_to_precompile(
             account_expectations=account_expectations
         )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[Block(txs=[tx], expected_block_access_list=bal_expectation)],
+        tx=tx,
+        expected_block_access_list=bal_expectation,
         post={
             target: Account(
                 balance=target_balance + tx_value,
@@ -218,7 +218,7 @@ def test_staticcall_reentrant_call_to_precompile(
 @pytest.mark.valid_from("Byzantium")
 def test_staticcall_call_to_precompile(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     precompile: Address,
     call_value: int,
     fork: Fork,
@@ -307,22 +307,16 @@ def test_staticcall_call_to_precompile(
             account_expectations=account_expectations
         )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[
-                    Transaction(
-                        sender=alice,
-                        to=contract_a,
-                        gas_limit=500_000,
-                        value=tx_value,
-                        protected=True,
-                    )
-                ],
-                expected_block_access_list=bal_expectation,
-            )
-        ],
+        tx=Transaction(
+            sender=alice,
+            to=contract_a,
+            gas_limit=500_000,
+            value=tx_value,
+            protected=True,
+        ),
+        expected_block_access_list=bal_expectation,
         post={
             contract_a: Account(
                 balance=initial_contract_balance + tx_value,
@@ -350,7 +344,7 @@ def test_staticcall_call_to_precompile(
 @pytest.mark.valid_from("Byzantium")
 def test_staticcall_nested_call_to_precompile(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     precompile: Address,
     call_value: int,
     fork: Fork,
@@ -447,22 +441,16 @@ def test_staticcall_nested_call_to_precompile(
             account_expectations=account_expectations
         )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[
-                    Transaction(
-                        sender=alice,
-                        to=contract_b,
-                        gas_limit=500_000,
-                        value=tx_value,
-                        protected=True,
-                    )
-                ],
-                expected_block_access_list=bal_expectation,
-            )
-        ],
+        tx=Transaction(
+            sender=alice,
+            to=contract_b,
+            gas_limit=500_000,
+            value=tx_value,
+            protected=True,
+        ),
+        expected_block_access_list=bal_expectation,
         post={
             contract_a: Account(
                 balance=initial_contract_balance,
@@ -507,7 +495,7 @@ def test_staticcall_nested_call_to_precompile(
 )
 def test_staticcall_call_to_precompile_from_contract_init(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     precompile: Address,
     call_value: int,
     create_opcode: Op,
@@ -654,23 +642,17 @@ def test_staticcall_call_to_precompile_from_contract_init(
             account_expectations=account_expectations
         )
 
-    blockchain_test(
+    state_test(
         pre=pre,
-        blocks=[
-            Block(
-                txs=[
-                    Transaction(
-                        sender=alice,
-                        to=contract_a,
-                        gas_limit=4_000_000,
-                        value=tx_value,
-                        data=bytes(initcode),
-                        protected=True,
-                    )
-                ],
-                expected_block_access_list=bal_expectation,
-            )
-        ],
+        tx=Transaction(
+            sender=alice,
+            to=contract_a,
+            gas_limit=4_000_000,
+            value=tx_value,
+            data=bytes(initcode),
+            protected=True,
+        ),
+        expected_block_access_list=bal_expectation,
         post={
             contract_a: Account(
                 balance=contract_initial_balance + tx_value,
