@@ -105,7 +105,7 @@ def trie_get(trie: TransitionTree, key: Bytes32) -> Bytes32:
     """
     v = trie.get(key)
     if v is None:
-        return 0
+        return Bytes32(b'\x00' * 32)
     return v
 
 
