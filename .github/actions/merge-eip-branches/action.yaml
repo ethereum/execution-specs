@@ -34,6 +34,7 @@ runs:
         echo "DEVNET_NAME=$DEVNET_NAME"
         echo "EIP_NUMBERS=$EIP_NUMBERS"
 
+        FORKS_BRANCH="forks/${FORK}"
         DEVNET_BRANCH="devnets/${DEVNET_NAME}"
 
         # Basic ref-format validation for user-provided pieces
@@ -64,8 +65,8 @@ runs:
 
         git fetch origin --prune
 
-        # Build the list of expected remote branches and verify all exist up front
-        missing=0
+        # Build the list of expected remote branches and verify all exist,
+        # then checkout each branch and rebase it onto the fork branch automatically.
         for eip in "${EIPS[@]}"; do
           EIP_BRANCH="eips/${FORK}/eip-${eip}"
           # Validate ref format for each constructed branch name
@@ -76,26 +77,35 @@ runs:
 
           if ! git show-ref --verify --quiet "refs/remotes/origin/${EIP_BRANCH}"; then
             echo "Error: Missing remote branch origin/${EIP_BRANCH}"
-            missing=1
+            exit 1
+          fi
+
+          git checkout -B "${EIP_BRANCH}" "origin/${EIP_BRANCH}"
+
+          if git merge-base --is-ancestor "origin/${FORK_BRANCH}" "${EIP_BRANCH}"; then
+            echo "${EIP_BRANCH} is already based on ${FORK_BRANCH}, skipping rebase"
+          else
+            if ! git rebase "origin/${FORK_BRANCH}"; then
+              echo "Error: Automatic rebase of ${EIP_BRANCH} onto ${FORK_BRANCH} failed"
+              git rebase --abort || true
+              exit 1
+            else
+              echo "Rebase of ${EIP_BRANCH} onto ${FORK_BRANCH} successful"
+            fi
           fi
         done
 
-        if [[ "$missing" -ne 0 ]]; then
-          echo "Aborting: one or more required EIP branches do not exist on origin."
-          exit 1
-        fi
-
         # Create (or reset) devnet branch from first EIP
         FIRST_EIP="eips/${FORK}/eip-${EIPS[0]}"
-        echo "Creating branch ${DEVNET_BRANCH} from origin/${FIRST_EIP}"
-        git checkout -B "${DEVNET_BRANCH}" "origin/${FIRST_EIP}"
+        echo "Creating branch ${DEVNET_BRANCH} from ${FIRST_EIP}"
+        git checkout -B "${DEVNET_BRANCH}" "${FIRST_EIP}"
 
         # Merge remaining EIPs
         for ((i=1; i<${#EIPS[@]}; i++)); do
           EIP_BRANCH="eips/${FORK}/eip-${EIPS[$i]}"
-          echo "Merging origin/${EIP_BRANCH}..."
+          echo "Merging ${EIP_BRANCH}..."
 
-          if ! git merge "origin/${EIP_BRANCH}" -m "Merge ${EIP_BRANCH} into ${DEVNET_BRANCH}"; then
+          if ! git merge "${EIP_BRANCH}" -m "Merge ${EIP_BRANCH} into ${DEVNET_BRANCH}"; then
             echo "Error: Merge conflict occurred while merging ${EIP_BRANCH}"
             git merge --abort || true
             exit 1
