@@ -451,6 +451,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def header_slot_number_required(cls) -> bool:
+        """Return true if the header must contain slot number (EIP-7843)."""
+        pass
+
     # Gas related abstract methods
 
     @classmethod

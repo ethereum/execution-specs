@@ -259,3 +259,36 @@ def chain_id(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
+
+
+def slot_number(evm: Evm) -> None:
+    """
+    Push the current slot number onto the stack.
+
+    The slot number is provided by the consensus layer and passed to the
+    execution layer through the engine API.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    :py:class:`~ethereum.forks.amsterdam.vm.exceptions.StackOverflowError`
+        If `len(stack)` is equal to `1024`.
+    :py:class:`~ethereum.forks.amsterdam.vm.exceptions.OutOfGasError`
+        If `evm.gas_left` is less than `2`.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
+    push(evm.stack, U256(evm.message.block_env.slot_number))
+
+    # PROGRAM COUNTER
+    evm.pc += Uint(1)

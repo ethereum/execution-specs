@@ -414,6 +414,8 @@ class T8N(Load):
             kw_arguments["block_access_list_builder"] = (
                 BlockAccessListBuilder()
             )
+        if self.fork.has_slot_number:
+            kw_arguments["slot_number"] = self.env.slot_number
 
         return block_environment(**kw_arguments)
 

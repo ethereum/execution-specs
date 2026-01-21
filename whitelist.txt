@@ -1109,6 +1109,7 @@ simlimit
 sload
 slot1
 slot2
+SLOTNUM
 slt
 smod
 socketserver

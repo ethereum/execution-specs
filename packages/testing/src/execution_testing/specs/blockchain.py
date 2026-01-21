@@ -165,6 +165,7 @@ class Header(CamelModel):
     parent_beacon_block_root: Removable | Hash | None = None
     requests_hash: Removable | Hash | None = None
     block_access_list_hash: Removable | Hash | None = None
+    slot_number: Removable | HexNumber | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -349,6 +350,8 @@ class Block(Header):
             and self.block_access_list is not None
         ):
             new_env_values["block_access_list"] = self.block_access_list
+        if not isinstance(self.slot_number, Removable):
+            new_env_values["slot_number"] = self.slot_number
         """
         These values are required, but they depend on the previous environment,
         so they can be calculated here.
@@ -686,6 +689,10 @@ class BlockchainTest(BaseTest):
             fork=fork,
         )
 
+        # Clear block_access_list_hash if the fork doesn't require it
+        if not fork.header_bal_hash_required():
+            header.block_access_list_hash = None
+
         if block.header_verify is not None:
             # Verify the header after transition tool processing.
             try:
@@ -766,8 +773,9 @@ class BlockchainTest(BaseTest):
             bal = block.expected_block_access_list.modify_if_invalid_test(
                 t8n_bal
             )
-            if bal != t8n_bal:
-                # If the BAL was modified, update the header hash
+            if bal != t8n_bal and fork.header_bal_hash_required():
+                # If the BAL was modified and the fork requires it, update the
+                # header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
         built_block = BuiltBlock(
