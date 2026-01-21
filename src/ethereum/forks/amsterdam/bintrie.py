@@ -310,7 +310,7 @@ def trie_get(trie: BinaryTree, key: Bytes32) -> Bytes32:
     """Get a value from the trie at the given key."""
     v = trie.get(key)
     if v is None:
-        v = 0
+        return Bytes32(b'\x00' * 32)
     return v
 
 
