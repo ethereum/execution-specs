@@ -19,6 +19,7 @@ from execution_testing import (
     Transaction,
     TransactionLog,
     TransactionReceipt,
+    compute_create_address,
 )
 
 from .spec import Spec, ref_spec_7708
@@ -150,11 +151,95 @@ def test_selfdestruct_with_value_emits_log(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+def selfdestruct_log(contract: Address, amount: int) -> TransactionLog:
+    """Create an expected selfdestruct log (for selfdestruct to self)."""
+    return TransactionLog(
+        address=Spec.SYSTEM_ADDRESS,
+        topics=[
+            Spec.SELFDESTRUCT_TOPIC,
+            Hash(bytes(contract).rjust(32, b"\x00")),
+        ],
+        data=Bytes(amount.to_bytes(32, "big")),
+    )
+
+
+def test_selfdestruct_to_self_emits_finalization_log(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+) -> None:
+    """
+    Test that selfdestruct-to-self emits a finalization log for remaining ETH.
+
+    Scenario:
+    1. Factory creates child contract via CREATE with 1000 wei
+    2. Factory calls child, child selfdestructs to itself (emits log for 1000)
+    3. Factory sends 500 more wei to child (transfer log emitted)
+    4. At finalization, child has 500 wei remaining (emits finalization log)
+
+    This tests the EIP-7708 requirement that when a contract receives ETH after
+    being flagged for SELFDESTRUCT, a Selfdestruct log is emitted at
+    finalization for the remaining balance.
+    """
+    tx_value = 2000
+    child_init_balance = 1000
+    additional_eth = 500
+
+    # Child contract: selfdestructs to itself (address(this))
+    child_code = Op.SELFDESTRUCT(Op.ADDRESS)
+    child_initcode = Op.MSTORE(
+        0, Op.PUSH32(bytes(child_code).rjust(32, b"\x00"))
+    ) + Op.RETURN(32 - len(child_code), len(child_code))
+
+    initcode_len = len(child_initcode)
+
+    # Factory: CREATE child, CALL to trigger selfdestruct, CALL again with ETH
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(1, Op.CREATE(child_init_balance, 0, initcode_len))
+        + Op.CALL(address=Op.SLOAD(1), value=0, gas=50_000)
+        + Op.POP
+        + Op.CALL(address=Op.SLOAD(1), value=additional_eth, gas=50_000)
+        + Op.POP
+    )
+
+    factory = pre.deploy_contract(
+        factory_code, balance=child_init_balance + additional_eth
+    )
+    child_addr = compute_create_address(address=factory, nonce=1)
+
+    # Expected logs:
+    # 1. Transfer: sender -> factory (tx value)
+    # 2. Transfer: factory -> child (CREATE value)
+    # 3. Selfdestruct: child (initial balance at execution)
+    # 4. Transfer: factory -> child (additional ETH)
+    # 5. Selfdestruct: child (remaining balance at finalization)
+    expected_logs = [
+        transfer_log(sender, factory, tx_value),
+        transfer_log(factory, child_addr, child_init_balance),
+        selfdestruct_log(child_addr, child_init_balance),
+        transfer_log(factory, child_addr, additional_eth),
+        selfdestruct_log(child_addr, additional_eth),
+    ]
+
+    tx = Transaction(
+        sender=sender,
+        to=factory,
+        value=tx_value,
+        gas_limit=500_000,
+        data=bytes(child_initcode),
+        expected_receipt=TransactionReceipt(logs=expected_logs),
+    )
+
+    state_test(env=env, pre=pre, post={}, tx=tx)
+
+
 @pytest.mark.parametrize(
     "op_type",
     [
-        pytest.param("call", id="call_zero_value"),
-        pytest.param("selfdestruct", id="selfdestruct_zero_balance"),
+        pytest.param("call", id="call"),
+        pytest.param("selfdestruct", id="selfdestruct"),
     ],
 )
 def test_zero_value_operations_no_log(
@@ -186,23 +271,31 @@ def test_zero_value_operations_no_log(
 
 
 @pytest.mark.parametrize(
-    "recipient_code,call_gas",
+    "recipient_code,call_gas,call_value,recipient_balance",
     [
-        pytest.param(Op.REVERT(0, 0), 50_000, id="reverted_call"),
-        pytest.param(Op.JUMP(0), 100, id="out_of_gas_call"),
+        pytest.param(Op.REVERT(0, 0), 50_000, 500, 0, id="call_reverted"),
+        pytest.param(Op.JUMP(0), 100, 500, 0, id="call_out_of_gas"),
+        pytest.param(
+            Op.SELFDESTRUCT(Address(0x1234)),
+            100,
+            0,
+            2000,
+            id="selfdestruct_out_of_gas",
+        ),
     ],
 )
-def test_failed_call_no_log(
+def test_failed_inner_operation_no_log(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
     recipient_code: Bytecode,
     call_gas: int,
+    call_value: int,
+    recipient_balance: int,
 ) -> None:
-    """Test that failed inner CALLs do NOT emit transfer logs."""
-    recipient = pre.deploy_contract(recipient_code)
-    call_value = 500
+    """Test that failed inner operations do NOT emit transfer logs."""
+    recipient = pre.deploy_contract(recipient_code, balance=recipient_balance)
     tx_value = 1000
 
     contract_code = Op.CALL(
@@ -244,16 +337,17 @@ def test_nested_calls_log_order(
     transfer_value = 100
     tx_value = 1000
 
-    # Build chain of contracts: each calls the next with value
-    # contracts[0] -> contracts[1] -> ... -> contracts[depth-1] -> final_recipient
+    # Build chain: contracts[0] -> contracts[1] -> ... -> final_recipient
     final_recipient = pre.empty_account()
     contracts: list[Address] = []
     expected_logs: list[TransactionLog] = []
 
     # Build contracts in reverse order (deepest first)
     next_target = final_recipient
-    for i in range(call_depth):
-        contract_code = Op.CALL(gas=500_000, address=next_target, value=transfer_value)
+    for _ in range(call_depth):
+        contract_code = Op.CALL(
+            gas=500_000, address=next_target, value=transfer_value
+        )
         # Each contract needs enough balance for its transfer
         contract = pre.deploy_contract(contract_code, balance=transfer_value)
         contracts.insert(0, contract)
@@ -312,3 +406,75 @@ def test_reverted_transaction_no_log(
     )
 
     state_test(env=env, pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "address_type",
+    [
+        pytest.param("ecrecover", id="precompile_ecrecover"),
+        pytest.param("sha256", id="precompile_sha256"),
+        pytest.param("system", id="system_address"),
+        pytest.param("coinbase", id="coinbase_address"),
+    ],
+)
+def test_transfer_to_special_address(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+    address_type: str,
+) -> None:
+    """Test that transfers to special addresses emit transfer logs."""
+    transfer_amount = 1000
+
+    # Resolve target address based on type
+    # Note: blake2f (0x09) excluded as it requires specific input format
+    address_map = {
+        "ecrecover": Address(0x01),
+        "sha256": Address(0x02),
+        "system": Spec.SYSTEM_ADDRESS,
+    }
+
+    if address_type == "coinbase":
+        target = env.fee_recipient
+        # Don't check exact balance - coinbase also receives gas fees
+        post = {}
+    else:
+        target = address_map[address_type]
+        post = {target: Account(balance=transfer_amount)}
+
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        value=transfer_amount,
+        gas_limit=100_000,
+        expected_receipt=TransactionReceipt(
+            logs=[transfer_log(sender, target, transfer_amount)]
+        ),
+    )
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.with_all_typed_transactions
+def test_transfer_with_all_tx_types(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+    typed_transaction: Transaction,
+) -> None:
+    """Test that ETH transfers emit logs for all transaction types."""
+    recipient = pre.empty_account()
+    transfer_amount = 1000
+
+    tx = typed_transaction.copy(
+        to=recipient,
+        value=transfer_amount,
+        expected_receipt=TransactionReceipt(
+            logs=[transfer_log(sender, recipient, transfer_amount)]
+        ),
+    )
+
+    post = {recipient: Account(balance=transfer_amount)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
