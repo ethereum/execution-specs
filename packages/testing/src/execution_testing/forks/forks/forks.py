@@ -14,6 +14,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Set,
     Sized,
 )
 
@@ -43,6 +44,7 @@ from ..base_fork import (
     CalldataGasCalculator,
     ExcessBlobGasCalculator,
     MemoryExpansionGasCalculator,
+    RefundTypes,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
@@ -1342,6 +1344,17 @@ class Frontier(BaseFork, solc_name="homestead"):
         return -1
 
     @classmethod
+    def refund_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Set[RefundTypes]:
+        """
+        Return the list of refund types that are possible given current
+        fork logic.
+        """
+        del block_number, timestamp
+        return set()
+
+    @classmethod
     def pre_allocation(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Mapping:
@@ -1671,6 +1684,20 @@ class Byzantium(SpuriousDragon):
             G_PRECOMPILE_ECPAIRING_BASE=100_000,
             G_PRECOMPILE_ECPAIRING_PER_POINT=80_000,
         )
+
+    @classmethod
+    def refund_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Set[RefundTypes]:
+        """
+        Return the list of refund types that are possible given current
+        fork logic.
+        """
+        refunds = super(Byzantium, cls).refund_types(
+            block_number=block_number, timestamp=timestamp
+        )
+        refunds.add(RefundTypes.STORAGE_CLEAR)
+        return refunds
 
 
 class Constantinople(Byzantium):
@@ -2739,6 +2766,20 @@ class Prague(Cancun):
         """
         del block_number, timestamp
         return 2
+
+    @classmethod
+    def refund_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Set[RefundTypes]:
+        """
+        Return the list of refund types that are possible given current
+        fork logic.
+        """
+        refunds = super(Prague, cls).refund_types(
+            block_number=block_number, timestamp=timestamp
+        )
+        refunds.add(RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY)
+        return refunds
 
     @classmethod
     def calldata_gas_calculator(
