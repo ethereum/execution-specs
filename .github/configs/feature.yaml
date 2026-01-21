@@ -23,6 +23,5 @@ benchmark_fast:
 
 bal:
   evm-type: develop
-  # TODO: Turn on block rlp limit tests after making filling them more flexible.
-  fill-params: --fork=Amsterdam -k "not eip7934" --fill-static-tests
+  fill-params: --fork=Amsterdam --fill-static-tests
   feature_only: true
