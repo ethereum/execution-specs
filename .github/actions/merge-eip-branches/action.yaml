@@ -1,4 +1,4 @@
-name: Create Devnet Branch
+name: Merge EIP Branches
 description: Merges multiple EIP branches into a devnet branch, by pushing using --force-with-lease
 
 inputs:
