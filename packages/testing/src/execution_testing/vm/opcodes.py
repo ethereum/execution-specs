@@ -2396,7 +2396,7 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
-    TBD
+    Amsterdam
 
     Gas
     ----

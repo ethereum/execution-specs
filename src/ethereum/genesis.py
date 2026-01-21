@@ -265,6 +265,9 @@ def add_genesis_block(
     if has_field(hardfork.Header, "block_access_list_hash"):
         fields["block_access_list_hash"] = keccak256(rlp.encode([]))
 
+    if has_field(hardfork.Header, "slot_number"):
+        fields["slot_number"] = U64(0)
+
     genesis_header = hardfork.Header(**fields)
 
     block_fields = {
