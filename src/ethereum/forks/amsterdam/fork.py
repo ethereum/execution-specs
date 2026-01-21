@@ -251,6 +251,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         excess_blob_gas=block.header.excess_blob_gas,
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
+        slot_number=block.header.slot_number,
     )
 
     block_output = apply_body(

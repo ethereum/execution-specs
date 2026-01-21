@@ -213,6 +213,10 @@ class FixtureHeader(CamelModel):
     block_access_list_hash: (
         Annotated[Hash, HeaderForkRequirement("bal_hash")] | None
     ) = Field(None, alias="blockAccessListHash")
+    slot_number: (
+        Annotated[ZeroPaddedHexNumber, HeaderForkRequirement("slot_number")]
+        | None
+    ) = Field(None)
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -364,7 +368,7 @@ class FixtureHeader(CamelModel):
     def genesis(cls, fork: Fork, env: Environment, state_root: Hash) -> Self:
         """Get the genesis header for the given fork."""
         environment_values = env.model_dump(
-            exclude_none=True, exclude={"withdrawals"}
+            exclude_none=True, exclude={"withdrawals", "slot_number"}
         )
         if env.withdrawals is not None:
             environment_values["withdrawals_root"] = Withdrawal.list_root(
@@ -379,6 +383,13 @@ class FixtureHeader(CamelModel):
             "block_access_list_hash": (
                 BlockAccessList().rlp_hash
                 if fork.header_bal_hash_required(block_number=0, timestamp=0)
+                else None
+            ),
+            "slot_number": (
+                0
+                if fork.header_slot_number_required(
+                    block_number=0, timestamp=0
+                )
                 else None
             ),
             "fork": fork,
@@ -421,6 +432,7 @@ class FixtureExecutionPayload(CamelModel):
     block_access_list: Bytes | None = Field(
         None, description="RLP-serialized EIP-7928 Block Access List"
     )
+    slot_number: HexNumber | None = Field(None)
 
     @classmethod
     def from_fixture_header(
