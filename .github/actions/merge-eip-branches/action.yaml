@@ -27,6 +27,7 @@ runs:
         FORK: ${{ inputs.fork }}
         DEVNET_NAME: ${{ inputs.devnet_name }}
         EIP_NUMBERS: ${{ inputs.eip_numbers }}
+        REMOTE: origin
       run: |
         set -euo pipefail
 
@@ -63,7 +64,7 @@ runs:
           exit 1
         fi
 
-        git fetch origin --prune
+        git fetch "${REMOTE}" --prune
 
         # Build the list of expected remote branches and verify all exist,
         # then checkout each branch and rebase it onto the fork branch automatically.
@@ -75,17 +76,17 @@ runs:
             exit 1
           }
 
-          if ! git show-ref --verify --quiet "refs/remotes/origin/${EIP_BRANCH}"; then
-            echo "Error: Missing remote branch origin/${EIP_BRANCH}"
+          if ! git show-ref --verify --quiet "refs/remotes/${REMOTE}/${EIP_BRANCH}"; then
+            echo "Error: Missing remote branch ${REMOTE}/${EIP_BRANCH}"
             exit 1
           fi
 
-          git checkout -B "${EIP_BRANCH}" "origin/${EIP_BRANCH}"
+          git checkout -B "${EIP_BRANCH}" "${REMOTE}/${EIP_BRANCH}"
 
-          if git merge-base --is-ancestor "origin/${FORK_BRANCH}" "${EIP_BRANCH}"; then
+          if git merge-base --is-ancestor "${REMOTE}/${FORK_BRANCH}" "${EIP_BRANCH}"; then
             echo "${EIP_BRANCH} is already based on ${FORK_BRANCH}, skipping rebase"
           else
-            if ! git rebase "origin/${FORK_BRANCH}"; then
+            if ! git rebase "${REMOTE}/${FORK_BRANCH}"; then
               echo "Error: Automatic rebase of ${EIP_BRANCH} onto ${FORK_BRANCH} failed"
               git rebase --abort || true
               exit 1
@@ -118,8 +119,9 @@ runs:
       shell: bash
       env:
         DEVNET_NAME: ${{ inputs.devnet_name }}
+        REMOTE: origin
       run: |
         DEVNET_BRANCH="devnets/${DEVNET_NAME}"
 
-        echo "Force pushing ${DEVNET_BRANCH} to origin"
-        git push --force-with-lease origin "${DEVNET_BRANCH}"
+        echo "Force pushing ${DEVNET_BRANCH} to ${REMOTE}"
+        git push --force-with-lease "${REMOTE}" "${DEVNET_BRANCH}"
