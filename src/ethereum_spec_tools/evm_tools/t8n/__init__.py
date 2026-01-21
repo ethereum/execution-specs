@@ -328,6 +328,9 @@ class T8N(Load):
                 BlockAccessListBuilder()
             )
 
+        if self.fork.has_slot_number:
+            kw_arguments["slot_number"] = self.env.slot_number
+
         return block_environment(**kw_arguments)
 
     def backup_state(self) -> None:

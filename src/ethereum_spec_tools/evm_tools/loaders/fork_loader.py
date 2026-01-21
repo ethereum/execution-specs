@@ -288,6 +288,15 @@ class ForkLoad:
         return hasattr(self._module("blocks"), "Withdrawal")
 
     @property
+    def has_slot_number(self) -> bool:
+        """Check if the fork supports the SLOTNUM opcode (EIP-7843)."""
+        try:
+            block_env = self._module("vm").BlockEnvironment
+            return "slot_number" in block_env.__dataclass_fields__
+        except (ModuleNotFoundError, AttributeError):
+            return False
+
+    @property
     def decode_transaction(self) -> Any:
         """decode_transaction function of the fork."""
         return self._module("transactions").decode_transaction

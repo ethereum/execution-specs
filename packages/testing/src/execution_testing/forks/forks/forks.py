@@ -1038,6 +1038,14 @@ class Frontier(BaseFork, solc_name="homestead"):
         return False
 
     @classmethod
+    def header_slot_number_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """At genesis, header must not contain slot number (EIP-7843)."""
+        del block_number, timestamp
+        return False
+
+    @classmethod
     def engine_new_payload_blob_hashes(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:
@@ -3456,9 +3464,7 @@ class Amsterdam(BPO2):
     def header_bal_hash_required(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:
-        """
-        From Amsterdam, header must contain block access list hash (EIP-7928).
-        """
+        """BAL hash in header required from Amsterdam (EIP-7928)."""
         del block_number, timestamp
         return True
 
@@ -3524,3 +3530,36 @@ class Amsterdam(BPO2):
         """
         del block_number, timestamp
         return True
+
+    @classmethod
+    def header_slot_number_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """Slot number in header required from Amsterdam (EIP-7843)."""
+        del block_number, timestamp
+        return True
+
+    @classmethod
+    def opcode_gas_map(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """Add SLOTNUM opcode gas cost for Amsterdam (EIP-7843)."""
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
+        base_map = super(Amsterdam, cls).opcode_gas_map(
+            block_number=block_number, timestamp=timestamp
+        )
+        return {
+            **base_map,
+            Opcodes.SLOTNUM: gas_costs.G_BASE,
+        }
+
+    @classmethod
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
+        """Add SLOTNUM opcode for Amsterdam (EIP-7843)."""
+        return [Opcodes.SLOTNUM] + super(Amsterdam, cls).valid_opcodes(
+            block_number=block_number, timestamp=timestamp
+        )
