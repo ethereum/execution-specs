@@ -1103,6 +1103,7 @@ SignerType
 signextend
 simlimit
 sload
+SLOTNUM
 slt
 smod
 socketserver
