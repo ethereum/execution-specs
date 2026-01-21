@@ -187,9 +187,7 @@ def test_sload_empty_erc20_balanceof(
 
     for i in range(num_txs):
         # Last tx gets remaining calls
-        tx_calls = (
-            calls_per_tx if i < num_txs - 1 else calls_remaining
-        )
+        tx_calls = calls_per_tx if i < num_txs - 1 else calls_remaining
         calls_remaining -= tx_calls
 
         # Build attack code for this transaction
@@ -344,9 +342,7 @@ def test_sstore_erc20_approve(
 
     for i in range(num_txs):
         # Last tx gets remaining calls
-        tx_calls = (
-            calls_per_tx if i < num_txs - 1 else calls_remaining
-        )
+        tx_calls = calls_per_tx if i < num_txs - 1 else calls_remaining
         calls_remaining -= tx_calls
 
         # Build attack code for this transaction
