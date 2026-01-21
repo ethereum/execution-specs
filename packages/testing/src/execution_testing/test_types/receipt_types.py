@@ -71,3 +71,4 @@ class TransactionReceipt(CamelModel):
     blob_gas_used: HexNumber | None = None
     blob_gas_price: HexNumber | None = None
     delegations: List[ReceiptDelegation] | None = None
+    gas_spent: HexNumber | None = None

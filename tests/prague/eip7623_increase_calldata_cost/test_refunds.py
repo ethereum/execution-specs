@@ -17,7 +17,7 @@ from execution_testing import (
     Transaction,
     TransactionReceipt,
 )
-from execution_testing.forks import Prague
+from execution_testing.forks import Amsterdam, Prague
 
 from .helpers import DataTestType
 from .spec import ref_spec_7623
@@ -304,39 +304,56 @@ def test_gas_refunds_from_data_floor(
     execution_gas_used: int,
     refund: int,
     refund_test_type: RefundTestType,
+    fork: Fork,
 ) -> None:
     """
     Test gas refunds deducted from the execution gas cost and not the data
     floor.
     """
-    gas_used = (
+    gas_used_after_refund = (
         tx_intrinsic_gas_cost_before_execution + execution_gas_used - refund
+    )
+    gas_used_before_refund = (
+        tx_intrinsic_gas_cost_before_execution + execution_gas_used
     )
     if (
         refund_test_type
         == RefundTestType.EXECUTION_GAS_MINUS_REFUND_LESS_THAN_DATA_FLOOR
     ):
-        assert gas_used < tx_floor_data_cost
+        assert gas_used_after_refund < tx_floor_data_cost
     elif (
         refund_test_type
         == RefundTestType.EXECUTION_GAS_MINUS_REFUND_GREATER_THAN_DATA_FLOOR
     ):
-        assert gas_used > tx_floor_data_cost
+        assert gas_used_after_refund > tx_floor_data_cost
     elif (
         refund_test_type
         == RefundTestType.EXECUTION_GAS_MINUS_REFUND_EQUAL_TO_DATA_FLOOR
     ):
-        assert gas_used == tx_floor_data_cost
+        assert gas_used_after_refund == tx_floor_data_cost
     else:
         raise ValueError("Invalid refund test type")
-    if gas_used < tx_floor_data_cost:
-        gas_used = tx_floor_data_cost
+    if gas_used_after_refund < tx_floor_data_cost:
+        gas_used_after_refund = tx_floor_data_cost
+
+    if gas_used_before_refund < tx_floor_data_cost:
+        gas_used_before_refund = tx_floor_data_cost
+
     # This is the actual test verification:
     #   - During test filling, the receipt returned by the transition tool
     #     (t8n) is verified against the expected receipt.
     #   - During test consumption, this is reflected in the balance difference
     #     and the state root.
-    tx.expected_receipt = TransactionReceipt(cumulative_gas_used=gas_used)
+    if fork >= Amsterdam:
+        tx.expected_receipt = TransactionReceipt(
+            gas_spent=gas_used_after_refund,
+            cumulative_gas_used=gas_used_before_refund,
+        )
+    else:
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=gas_used_after_refund
+        )
+
     state_test(
         pre=pre,
         post={
