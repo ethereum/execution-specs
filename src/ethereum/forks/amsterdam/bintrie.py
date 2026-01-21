@@ -34,7 +34,7 @@ MAIN_STORAGE_OFFSET = 1 << 240
 
 
 def old_style_address_to_address32(address: Address) -> Bytes32:
-    return Bytes32(b"\\x00" * 12 + address)
+    return Bytes32(b"\x00" * 12 + address)
 
 
 def tree_hash(inp: bytes) -> Bytes32:
@@ -77,7 +77,7 @@ PUSH32 = PUSH_OFFSET + 32
 def chunkify_code(code: bytes) -> Sequence[Bytes32]:
     # Pad to multiple of 31 bytes
     if len(code) % 31 != 0:
-        code += b"\\x00" * (31 - (len(code) % 31))
+        code += b"\x00" * (31 - (len(code) % 31))
     # Figure out how much pushdata there is after+including each byte
     bytes_to_exec_data = [0] * (len(code) + 32)
     pos = 0
@@ -195,9 +195,9 @@ class BinaryTree:
 
         bit = stem_bits[depth]
         if bit == 0:
-            return self._get(self.left, stem, subindex, depth+1)
+            return self._get(node.left, stem, subindex, depth+1)
         else:
-            return self._get(self.right, stem, subindex, depth+1)
+            return self._get(node.right, stem, subindex, depth+1)
 
     def _split_leaf(
         self, leaf, stem_bits, existing_stem_bits, subindex, value, depth
