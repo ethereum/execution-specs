@@ -341,7 +341,6 @@ def process_message(message: Message) -> Evm:
                 evm_trace(evm, PrecompileStart(evm.message.code_address))
                 PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
                 evm_trace(evm, PrecompileEnd())
-
         else:
             while evm.running and evm.pc < ulen(evm.code):
                 try:
