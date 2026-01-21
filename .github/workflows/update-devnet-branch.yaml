@@ -1,4 +1,4 @@
-name: Create Devnet Branch
+name: Update Devnet Branch
 
 on:
   workflow_dispatch:
@@ -27,7 +27,7 @@ permissions:
   contents: write
 
 jobs:
-  create-devnet-branch:
+  update-devnet-branch:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
