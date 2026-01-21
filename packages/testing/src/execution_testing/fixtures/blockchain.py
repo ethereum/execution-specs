@@ -384,7 +384,9 @@ class FixtureHeader(CamelModel):
             ),
             "slot_number": (
                 0
-                if fork.header_slot_number_required(block_number=0, timestamp=0)
+                if fork.header_slot_number_required(
+                    block_number=0, timestamp=0
+                )
                 else None
             ),
             "fork": fork,
