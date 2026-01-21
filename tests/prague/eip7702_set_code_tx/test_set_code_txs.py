@@ -2926,7 +2926,8 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
 
     if fork >= Amsterdam:
         expected_receipt = TransactionReceipt(
-            gas_spent=intrinsic_gas - discount
+            gas_spent=intrinsic_gas - discount,
+            gas_used=intrinsic_gas,
         )
     else:
         expected_receipt = TransactionReceipt(
