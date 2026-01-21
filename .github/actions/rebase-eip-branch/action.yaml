@@ -60,10 +60,10 @@ runs:
 
     - name: Push rebased branch
       shell: bash
+      env:
+        FORK: ${{ inputs.fork }}
+        EIP_NUMBER: ${{ inputs.eip_number }}
       run: |
-        FORK="${{ inputs.fork }}"
-        EIP_NUMBER="${{ inputs.eip_number }}"
         EIP_BRANCH="eips/${FORK}/eip-${EIP_NUMBER}"
-
         echo "Force pushing ${EIP_BRANCH} to origin"
         git push --force-with-lease origin "${EIP_BRANCH}"
