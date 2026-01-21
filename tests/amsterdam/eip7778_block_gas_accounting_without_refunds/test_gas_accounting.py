@@ -143,7 +143,7 @@ def test_multi_block_gas_accounting(
     tx_intrinsic = intrinsic_cost_calc()
 
     # Target gas to use (pre-refund)
-    # For exceed_block_gas_limit: 
+    # For exceed_block_gas_limit:
     # - pre-refund > (block_gas_limit - tx_intrinsic)
     # - post-refund <= (block_gas_limit - tx_intrinsic)
     target_gas_pre_refund = block_gas_limit
