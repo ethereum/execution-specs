@@ -35,7 +35,7 @@ runs:
         echo "DEVNET_NAME=$DEVNET_NAME"
         echo "EIP_NUMBERS=$EIP_NUMBERS"
 
-        FORKS_BRANCH="forks/${FORK}"
+        FORK_BRANCH="forks/${FORK}"
         DEVNET_BRANCH="devnets/${DEVNET_NAME}"
 
         # Basic ref-format validation for user-provided pieces
