@@ -477,6 +477,7 @@ class BlockchainTest(BaseTest):
     genesis_environment: Environment = Field(default_factory=Environment)
     chain_id: int = 1
     exclude_full_post_state_in_output: bool = False
+    expected_gas_used: int | None = None
     """
     Exclude the post state from the fixture output. In this case, the state
     verification is only performed based on the state root.
@@ -659,6 +660,14 @@ class BlockchainTest(BaseTest):
                 raise Exception(
                     f"Verification of block {int(env.number)} failed"
                 ) from e
+
+        if last_block and self.expected_gas_used is not None:
+            gas_used = int(transition_tool_output.result.gas_used)
+            assert gas_used == self.expected_gas_used, (
+                f"gas_used ({gas_used}) does not match expected_gas_used "
+                f"({self.expected_gas_used})"
+                f", difference: {gas_used - self.expected_gas_used}"
+            )
 
         if last_block and self._operation_mode == OpMode.BENCHMARKING:
             expected_benchmark_gas_used = self.expected_benchmark_gas_used
