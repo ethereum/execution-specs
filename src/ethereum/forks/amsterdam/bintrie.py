@@ -19,7 +19,7 @@ from typing import (
 )
 
 from blake3 import blake3
-from collection.abc import Sequence
+from collections.abc import Sequence
 from ethereum_types.bytes import Bytes32
 
 # from ethereum.forks.bpo5 import trie as previous_trie
