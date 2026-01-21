@@ -106,9 +106,9 @@ runs:
 
     - name: Push devnet branch
       shell: bash
+      env:
+        DEVNET_NAME: ${{ inputs.devnet_name }}
       run: |
-        FORK="${{ inputs.fork }}"
-        DEVNET_NAME="${{ inputs.devnet_name }}"
         DEVNET_BRANCH="devnets/${DEVNET_NAME}"
 
         echo "Force pushing ${DEVNET_BRANCH} to origin"
