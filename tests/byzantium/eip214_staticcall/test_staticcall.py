@@ -106,7 +106,7 @@ def bal_expectation_for_contract_with_markers(
     "stStaticFlagEnabled/StaticcallForPrecompilesIssue683Filler.yml"
 )
 @pytest.mark.valid_from("Byzantium")
-def test_staticcall_reentrant_call_with_value_to_precompile(
+def test_staticcall_reentrant_call_to_precompile(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
     precompile: Address,
