@@ -19,6 +19,7 @@ from typing import (
 )
 
 from blake3 import blake3
+from collection.abs import Sequence
 from ethereum_types.bytes import Bytes32
 
 # from ethereum.forks.bpo5 import trie as previous_trie
@@ -32,29 +33,29 @@ STEM_SUBTREE_WIDTH = 256
 MAIN_STORAGE_OFFSET = 1 << 240
 
 
-def old_style_address_to_address32(address: Address) -> Address32:
-    return Address32(b"\\x00" * 12 + address)
+def old_style_address_to_address32(address: Address) -> Bytes32:
+    return Bytes32(b"\\x00" * 12 + address)
 
 
-def tree_hash(inp: bytes) -> bytes32:
-    return bytes32(blake3(inp).digest())
+def tree_hash(inp: bytes) -> Bytes32:
+    return Bytes32(blake3(inp).digest())
 
 
-def get_tree_key(address: Address32, tree_index: int, sub_index: int):
+def get_tree_key(address: Bytes32, tree_index: int, sub_index: int):
     # Assumes STEM_NODE_WIDTH = 256
     return tree_hash(address + tree_index.to_bytes(32, "little"))[:31] + bytes(
         [sub_index]
     )
 
-def get_tree_key_for_basic_data(address: Address32):
+def get_tree_key_for_basic_data(address: Bytes32):
     return get_tree_key(address, 0, BASIC_DATA_LEAF_KEY)
 
 
-def get_tree_key_for_code_hash(address: Address32):
+def get_tree_key_for_code_hash(address: Bytes32):
     return get_tree_key(address, 0, CODE_HASH_LEAF_KEY)
 
 
-def get_tree_key_for_storage_slot(address: Address32, storage_key: int):
+def get_tree_key_for_storage_slot(address: Bytes32, storage_key: int):
     if storage_key < (CODE_OFFSET - HEADER_STORAGE_OFFSET):
         pos = HEADER_STORAGE_OFFSET + storage_key
     else:
@@ -62,7 +63,7 @@ def get_tree_key_for_storage_slot(address: Address32, storage_key: int):
     return get_tree_key(address, pos // STEM_SUBTREE_WIDTH, pos % STEM_SUBTREE_WIDTH)
 
 
-def get_tree_key_for_code_chunk(address: Address32, chunk_id: int):
+def get_tree_key_for_code_chunk(address: Bytes32, chunk_id: int):
     return get_tree_key(
         address,
         (CODE_OFFSET + chunk_id) // STEM_SUBTREE_WIDTH,
@@ -73,7 +74,7 @@ PUSH_OFFSET = 95
 PUSH1 = PUSH_OFFSET + 1
 PUSH32 = PUSH_OFFSET + 32
 
-def chunkify_code(code: bytes) -> Sequence[bytes32]:
+def chunkify_code(code: bytes) -> Sequence[Bytes32]:
     # Pad to multiple of 31 bytes
     if len(code) % 31 != 0:
         code += b"\\x00" * (31 - (len(code) % 31))
@@ -91,7 +92,7 @@ def chunkify_code(code: bytes) -> Sequence[bytes32]:
         pos += pushdata_bytes
     # Output chunks
     return [
-        bytes32(bytes([min(bytes_to_exec_data[pos], 31)]) + code[pos : pos + 31])
+        Bytes32(bytes([min(bytes_to_exec_data[pos], 31)]) + code[pos : pos + 31])
         for pos in range(0, len(code), 31)
     ]
 
