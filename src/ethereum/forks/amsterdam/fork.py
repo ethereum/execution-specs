@@ -1084,7 +1084,7 @@ def process_transaction(
     # This handles the case where a contract receives ETH after being flagged
     # for SELFDESTRUCT but before finalization.
     finalization_logs: List[Log] = []
-    for address in tx_output.accounts_to_delete:
+    for address in sorted(tx_output.accounts_to_delete):
         balance = get_account(tx_state, address).balance
         if balance > U256(0):
             padded_address = left_pad_zero_bytes(address, 32)
