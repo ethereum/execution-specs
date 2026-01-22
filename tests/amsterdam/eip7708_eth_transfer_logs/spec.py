@@ -29,8 +29,8 @@ class Spec:
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
     )
     TRANSFER_TOPIC: Hash = Hash(
-        keccak256(b"Transfer(address, address, uint256)")
+        keccak256(b"Transfer(address,address,uint256)")
     )
     SELFDESTRUCT_TOPIC: Hash = Hash(
-        keccak256(b"Selfdestruct(address, uint256)")
+        keccak256(b"Selfdestruct(address,uint256)")
     )
