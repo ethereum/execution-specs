@@ -1,6 +1,7 @@
 """Abstract base class for Ethereum forks."""
 
 from abc import ABCMeta, abstractmethod
+from enum import Enum, auto
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -182,6 +183,13 @@ class ExcessBlobGasCalculator(Protocol):
         gas used.
         """
         pass
+
+
+class RefundTypes(Enum):
+    """Enum used to describe all refund types a fork can have."""
+
+    STORAGE_CLEAR = auto()
+    AUTHORIZATION_EXISTING_AUTHORITY = auto()
 
 
 class BaseForkMeta(ABCMeta):
@@ -898,6 +906,17 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> int:
         """Return max request type supported by the fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def refund_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[RefundTypes]:
+        """
+        Return the list of refund types that are possible given current
+        fork logic.
+        """
         pass
 
     # Meta information about the fork
