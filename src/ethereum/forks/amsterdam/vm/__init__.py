@@ -220,8 +220,8 @@ def emit_transfer_log(
         The state of the ethereum virtual machine
     sender :
         The account address sending the transfer
-    recipient :ce to finalize sco
-        The address of the transfer recipient account
+    recipient :
+        The account address recieving the transfer
     transfer_amount :
         The amount of ETH transacted
 
