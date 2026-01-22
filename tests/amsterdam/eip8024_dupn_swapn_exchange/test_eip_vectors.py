@@ -40,7 +40,7 @@ def test_eip_vector_dupn_duplicate_bottom(
     sender = pre.fund_eoa()
 
     # Build the exact bytecode from the EIP
-    code = Op.PUSH1[0x1] + Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[b"\x00"]
+    code = Op.PUSH1[0x1] + Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[17]
 
     # After DUPN: 18 items, top=1, bottom=1
     # Verify by storing top value at key 0
@@ -91,7 +91,7 @@ def test_eip_vector_swapn_swap_with_bottom(
         + Op.PUSH1[0x0]
         + Op.DUP1 * 15
         + Op.PUSH1[0x2]
-        + Op.SWAPN[b"\x00"]
+        + Op.SWAPN[17]
     )
 
     # After SWAPN: 18 items, top=1, bottom=2
@@ -334,7 +334,7 @@ def test_vector_dupn_followed_by_jumpdest(
 
     # DUPN with immediate 0x00 followed by JUMPDEST
     # Hex: e6 00 5b
-    code += Op.DUPN[b"\x00"] + Op.JUMPDEST
+    code += Op.DUPN[17] + Op.JUMPDEST
 
     # Store the duplicated value (should be marker_value)
     code += Op.PUSH1(0) + Op.SSTORE

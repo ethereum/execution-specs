@@ -126,7 +126,7 @@ def test_dupn_stack_underflow(
     # Push one less than required to trigger underflow
     insufficient_items = stack_index - 1
 
-    code = Bytecode()
+    code = Op.SSTORE(0, 1)
     for i in range(insufficient_items):
         code += Op.PUSH1(i)
     # Pass immediate as bytes (raw immediate byte for testing)
@@ -139,7 +139,7 @@ def test_dupn_stack_underflow(
     tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
 
     # Transaction should fail, contract storage unchanged
-    post = {contract_address: Account(storage={})}
+    post = {contract_address: Account(storage={0: 0})}
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -169,7 +169,7 @@ def test_endofcode_behavior(
 
     # Build code: store marker, push enough items, then DUPN (no immediate)
     code = Bytecode()
-    code += Op.PUSH1(marker_value) + Op.PUSH1(0) + Op.SSTORE  # Store marker
+    code += Op.SSTORE(0, marker_value)  # Store marker
 
     # Push 17 items to stack so DUPN with implicit imm=0 succeeds
     for i in range(stack_height):
@@ -259,7 +259,7 @@ def test_dupn_jump_to_immediate_byte_0x5b_succeeds(
     code += Op.DUPN[b"\x5b"]  # Position 3-4: DUPN + 0x5b (invalid immediate)
 
     # This SHOULD execute because 0x5b is a valid JUMPDEST
-    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.SSTORE(0, 0x42)
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
@@ -294,7 +294,7 @@ def test_dupn_jump_to_valid_immediate_fails(
     code += Op.DUPN[b"\x00"]  # Position 3-4: DUPN + 0x00 (valid immediate)
 
     # This should never execute
-    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.SSTORE(0, 0x42)
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)

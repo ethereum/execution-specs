@@ -46,15 +46,16 @@ def test_swapn_basic(
 
     # Build stack with known values at top and swap position (n+1)
     code = Bytecode()
-    for i in range(stack_height):
-        if i == 0:
-            # First push ends up at position (stack_index+1) from top
-            code += Op.PUSH2(swap_target_value)
-        elif i == stack_height - 1:
-            # Last push ends up at top
-            code += Op.PUSH2(top_value)
-        else:
-            code += Op.PUSH2(0x1000 + i)
+
+    # First push ends up at position (stack_index+1) from top
+    code += Op.PUSH2(swap_target_value)
+
+    # Pushes in-between
+    for i in range(1, stack_height - 1):
+        code += Op.PUSH2(0x1000 + i)
+
+    # Last push ends up at top
+    code += Op.PUSH2(top_value)
 
     # Pass stack index directly - encoder will handle encoding
     code += Op.SWAPN[stack_index]
@@ -107,13 +108,16 @@ def test_swapn_valid_immediates(
 
     # Build stack
     code = Bytecode()
-    for i in range(stack_height):
-        if i == 0:
-            code += Op.PUSH2(swap_target_value)
-        elif i == stack_height - 1:
-            code += Op.PUSH2(top_value)
-        else:
-            code += Op.PUSH2(0x1000 + i)
+
+    # First push ends up at position (stack_index+1) from top
+    code += Op.PUSH2(swap_target_value)
+
+    # Pushes in-between
+    for i in range(1, stack_height - 1):
+        code += Op.PUSH2(0x1000 + i)
+
+    # Last push ends up at top
+    code += Op.PUSH2(top_value)
 
     # Pass immediate as bytes (raw immediate byte for testing)
     code += Op.SWAPN[immediate.to_bytes(1, "big")]
