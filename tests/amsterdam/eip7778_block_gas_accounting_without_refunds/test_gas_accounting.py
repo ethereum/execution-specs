@@ -126,7 +126,6 @@ def test_simple_gas_accounting(
                 )
                 for _ in range(refunds_count)
             ]
-            # TODO: Same test with a revert at the end
             gas_used_pre_refund = intrinsic_cost_calc(
                 authorization_list_or_count=authorization_list
             ) + code.gas_cost(fork)
