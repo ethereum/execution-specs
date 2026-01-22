@@ -15,9 +15,7 @@ from execution_testing import (
     Transaction,
 )
 
-from ethereum.forks.amsterdam.vm.stack import decode_single
-
-from .spec import ref_spec_8024
+from .spec import decode_single, ref_spec_8024
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8024.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8024.version

@@ -1,6 +1,12 @@
 """Reference spec for [EIP-8024: Stack Access Instructions](https://eips.ethereum.org/EIPS/eip-8024)."""
 
 from dataclasses import dataclass
+from typing import Tuple
+
+from ethereum_types.numeric import U8
+
+from ethereum.forks.amsterdam.vm.stack import decode_pair as _decode_pair
+from ethereum.forks.amsterdam.vm.stack import decode_single as _decode_single
 
 
 @dataclass(frozen=True)
@@ -33,3 +39,14 @@ class Spec:
     EXCHANGE_MAX_N: int = 13
     EXCHANGE_MAX_M: int = 29
     EXCHANGE_MAX_SUM: int = 30
+
+
+def decode_pair(x: int) -> Tuple[int, int]:
+    """Decode a pair with proper typing for tests."""
+    m, n = _decode_pair(U8(x))
+    return int(m), int(n)
+
+
+def decode_single(x: int) -> int:
+    """Decode single with proper typing for tests."""
+    return int(_decode_single(U8(x)))
