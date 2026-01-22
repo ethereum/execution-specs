@@ -479,6 +479,10 @@ class BlockchainTest(BaseTest):
     genesis_environment: Environment = Field(default_factory=Environment)
     chain_id: int = 1
     exclude_full_post_state_in_output: bool = False
+    """
+    Exclude the post state from the fixture output. In this case, the state
+    verification is only performed based on the state root.
+    """
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
