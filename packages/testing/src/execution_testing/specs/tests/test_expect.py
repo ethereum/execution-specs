@@ -646,7 +646,9 @@ def test_log_mismatch_during_generation(
     default_t8n: TransitionTool,
     mismatch_type: str,
 ) -> None:
-    """Test that log mismatches raise LogMismatchError during test generation."""
+    """
+    Test that log mismatches raise LogMismatchError during test generation.
+    """
     from execution_testing.forks import Amsterdam
 
     # EIP-7708 transfer log constants

@@ -333,7 +333,7 @@ def verify_transaction_receipt(
                 actual_value=len(actual_logs),
             )
         for log_idx, (expected, actual) in enumerate(
-            zip(expected_logs, actual_logs)
+            zip(expected_logs, actual_logs, strict=True)
         ):
             verify_log(transaction_index, log_idx, expected, actual)
     # TODO: Add more fields as needed
