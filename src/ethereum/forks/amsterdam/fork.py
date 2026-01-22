@@ -54,13 +54,6 @@ from .requests import (
 )
 from .state import (
     State,
-    TransientStorage,
-    account_exists_and_is_empty,
-    destroy_account,
-    get_account,
-    increment_nonce,
-    modify_state,
-    set_account_balance,
     state_root,
 )
 from .state_tracker import (
@@ -74,6 +67,19 @@ from .state_tracker import (
     track_balance_change,
     track_nonce_change,
     track_selfdestruct,
+)
+from .state_tracking import (
+    BlockStateTracking,
+    TxStateTracking,
+    account_exists_and_is_empty,
+    bump_index,
+    destroy_account,
+    get_account,
+    incorporate_tx_state_into_parent,
+    increment_nonce,
+    modify_state,
+    set_account_balance,
+    write_block_state_changes,
 )
 from .transactions import (
     AccessListTransaction,
@@ -239,6 +245,14 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
         state=chain.state,
+        state_tracking=BlockStateTracking(
+            parent=chain.state,
+            current_index=Uint(0),
+            account_reads=set(),
+            storage_reads=set(),
+            account_writes={},
+            storage_writes={},
+        ),
         block_gas_limit=block.header.gas_limit,
         block_hashes=get_last_256_block_hashes(chain),
         coinbase=block.header.coinbase,
@@ -256,6 +270,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         transactions=block.transactions,
         withdrawals=block.withdrawals,
     )
+    write_block_state_changes(block_env.state_tracking)
     block_state_root = state_root(block_env.state)
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
@@ -488,7 +503,7 @@ def check_transaction(
         raise BlobGasLimitExceededError("blob gas limit exceeded")
 
     sender_address = recover_sender(block_env.chain_id, tx)
-    sender_account = get_account(block_env.state, sender_address)
+    sender_account = get_account(block_env.state_tracking, sender_address)
 
     if isinstance(
         tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
@@ -644,12 +659,19 @@ def process_system_transaction(
         gas=SYSTEM_TRANSACTION_GAS,
         access_list_addresses=set(),
         access_list_storage_keys=set(),
-        transient_storage=TransientStorage(),
         blob_versioned_hashes=(),
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
         state_changes=system_tx_state_changes,
+        state_tracking=TxStateTracking(
+            parent=block_env.state_tracking,
+            account_reads=set(),
+            storage_reads=set(),
+            account_writes={},
+            storage_writes={},
+            created_accounts=set(),
+        ),
     )
 
     # Create call frame as child of tx frame
@@ -675,6 +697,15 @@ def process_system_transaction(
         parent_evm=None,
         is_create=False,
         state_changes=call_frame,
+        state_tracking=TxStateTracking(
+            parent=block_env.state_tracking,
+            account_reads=set(),
+            storage_reads=set(),
+            account_writes={},
+            storage_writes={},
+            created_accounts=set(),
+        ),
+        transient_storage={},
     )
 
     system_tx_output = process_message_call(system_tx_message)
@@ -682,6 +713,8 @@ def process_system_transaction(
     # Commit system transaction changes to block frame
     # System transactions always succeed (or block is invalid)
     commit_transaction_frame(tx_env.state_changes)
+
+    incorporate_tx_state_into_parent(system_tx_output.state_tracking)
 
     return system_tx_output
 
@@ -710,7 +743,9 @@ def process_checked_system_transaction(
         Output of processing the system transaction.
 
     """
-    system_contract_code = get_account(block_env.state, target_address).code
+    system_contract_code = get_account(
+        block_env.state_tracking, target_address
+    ).code
 
     if len(system_contract_code) == 0:
         raise InvalidBlock(
@@ -758,7 +793,9 @@ def process_unchecked_system_transaction(
         Output of processing the system transaction.
 
     """
-    system_contract_code = get_account(block_env.state, target_address).code
+    system_contract_code = get_account(
+        block_env.state_tracking, target_address
+    ).code
     return process_system_transaction(
         block_env,
         target_address,
@@ -912,6 +949,15 @@ def process_transaction(
         Index of the transaction in the block.
 
     """
+    tx_state_tracking = TxStateTracking(
+        parent=block_env.state_tracking,
+        account_reads=set(),
+        storage_reads=set(),
+        account_writes={},
+        storage_writes={},
+        created_accounts=set(),
+    )
+
     # EIP-7928: Create a transaction-level StateChanges frame
     # The frame will read the current block_access_index from the block frame
     increment_block_access_index(block_env.state_changes)
@@ -919,7 +965,7 @@ def process_transaction(
 
     # Capture coinbase pre-balance for net-zero filtering
     coinbase_pre_balance = get_account(
-        block_env.state, block_env.coinbase
+        tx_state_tracking, block_env.coinbase
     ).balance
     track_address(tx_state_changes, block_env.coinbase)
     capture_pre_balance(
@@ -945,7 +991,9 @@ def process_transaction(
         tx=tx,
     )
 
-    sender_account = get_account(block_env.state, sender)
+    bump_index(block_env.state_tracking)
+
+    sender_account = get_account(tx_state_tracking, sender)
 
     if isinstance(tx, BlobTransaction):
         blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)
@@ -957,12 +1005,12 @@ def process_transaction(
     gas = tx.gas - intrinsic_gas
 
     # Track sender nonce increment
-    increment_nonce(block_env.state, sender)
-    sender_nonce_after = get_account(block_env.state, sender).nonce
+    increment_nonce(tx_state_tracking, sender)
+    sender_nonce_after = get_account(tx_state_tracking, sender).nonce
     track_nonce_change(tx_state_changes, sender, U64(sender_nonce_after))
 
     # Track sender balance deduction for gas fee
-    sender_balance_before = get_account(block_env.state, sender).balance
+    sender_balance_before = get_account(tx_state_tracking, sender).balance
     track_address(tx_state_changes, sender)
     capture_pre_balance(tx_state_changes, sender, sender_balance_before)
 
@@ -970,7 +1018,7 @@ def process_transaction(
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
     )
     set_account_balance(
-        block_env.state, sender, U256(sender_balance_after_gas_fee)
+        tx_state_tracking, sender, U256(sender_balance_after_gas_fee)
     )
     track_balance_change(
         tx_state_changes,
@@ -1005,12 +1053,12 @@ def process_transaction(
         gas=gas,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
-        transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
         state_changes=tx_state_changes,
+        state_tracking=tx_state_tracking,
     )
 
     message = prepare_message(
@@ -1020,6 +1068,8 @@ def process_transaction(
     )
 
     tx_output = process_message_call(message)
+
+    tx_state_tracking = tx_output.state_tracking
 
     # For EIP-7623 we first calculate the execution_gas_used, which includes
     # the execution gas refund.
@@ -1044,9 +1094,9 @@ def process_transaction(
 
     # refund gas
     sender_balance_after_refund = get_account(
-        block_env.state, sender
+        tx_state_tracking, sender
     ).balance + U256(gas_refund_amount)
-    set_account_balance(block_env.state, sender, sender_balance_after_refund)
+    set_account_balance(tx_state_tracking, sender, sender_balance_after_refund)
     track_balance_change(
         tx_env.state_changes,
         sender,
@@ -1054,11 +1104,13 @@ def process_transaction(
     )
 
     coinbase_balance_after_mining_fee = get_account(
-        block_env.state, block_env.coinbase
+        tx_state_tracking, block_env.coinbase
     ).balance + U256(transaction_fee)
 
     set_account_balance(
-        block_env.state, block_env.coinbase, coinbase_balance_after_mining_fee
+        tx_state_tracking,
+        block_env.coinbase,
+        coinbase_balance_after_mining_fee,
     )
     track_balance_change(
         tx_env.state_changes,
@@ -1067,9 +1119,9 @@ def process_transaction(
     )
 
     if coinbase_balance_after_mining_fee == 0 and account_exists_and_is_empty(
-        block_env.state, block_env.coinbase
+        tx_state_tracking, block_env.coinbase
     ):
-        destroy_account(block_env.state, block_env.coinbase)
+        destroy_account(tx_state_tracking, block_env.coinbase)
 
     block_output.block_gas_used += tx_gas_used_after_refund
     block_output.blob_gas_used += tx_blob_gas_used
@@ -1090,12 +1142,14 @@ def process_transaction(
     block_output.block_logs += tx_output.logs
 
     for address in tx_output.accounts_to_delete:
-        destroy_account(block_env.state, address)
+        destroy_account(tx_state_tracking, address)
         track_selfdestruct(tx_env.state_changes, address)
 
     # EIP-7928: Commit transaction frame (includes net-zero filtering).
     # Must happen AFTER destroy_account so filtering sees correct state.
     commit_transaction_frame(tx_env.state_changes)
+
+    incorporate_tx_state_into_parent(tx_state_tracking)
 
 
 def process_withdrawals(
@@ -1109,7 +1163,7 @@ def process_withdrawals(
     # Capture pre-state for withdrawal balance filtering
     withdrawal_addresses = {wd.address for wd in withdrawals}
     for address in withdrawal_addresses:
-        pre_balance = get_account(block_env.state, address).balance
+        pre_balance = get_account(block_env.state_tracking, address).balance
         track_address(block_env.state_changes, address)
         capture_pre_balance(block_env.state_changes, address, pre_balance)
 
@@ -1123,17 +1177,22 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        modify_state(block_env.state, wd.address, increase_recipient_balance)
+        if wd.amount > U256(0):
+            modify_state(
+                block_env.state_tracking,
+                wd.address,
+                increase_recipient_balance,
+            )
 
-        new_balance = get_account(block_env.state, wd.address).balance
+        new_balance = get_account(block_env.state_tracking, wd.address).balance
         track_balance_change(
             block_env.state_changes,
             wd.address,
             new_balance,
         )
 
-        if account_exists_and_is_empty(block_env.state, wd.address):
-            destroy_account(block_env.state, wd.address)
+        # if account_exists_and_is_empty(block_env.state_tracking, wd.address):
+        #    destroy_account(block_env.state, wd.address)
 
     # EIP-7928: Filter net-zero balance changes for withdrawals
     filter_net_zero_frame_changes(block_env.state_changes)

@@ -12,17 +12,17 @@ from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 
 from ..fork_types import Address, Authorization
-from ..state import (
-    account_exists,
-    get_account,
-    increment_nonce,
-    set_authority_code,
-)
 from ..state_tracker import (
     capture_pre_code,
     track_address,
     track_code_change,
     track_nonce_change,
+)
+from ..state_tracking import (
+    account_exists,
+    get_account,
+    increment_nonce,
+    set_authority_code,
 )
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
@@ -143,8 +143,7 @@ def calculate_delegation_cost(
         The delegation address and access gas cost.
 
     """
-    state = evm.message.block_env.state
-
+    state = evm.state_tracking
     code = get_account(state, address).code
     track_address(evm.state_changes, address)
 
@@ -176,7 +175,7 @@ def set_delegation(message: Message) -> U256:
         Refund from authority which already exists in state.
 
     """
-    state = message.block_env.state
+    state = message.state_tracking
     refund_counter = U256(0)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):

@@ -11,19 +11,17 @@ Introduction
 Implementations of the EVM storage related instructions.
 """
 
-from ethereum_types.numeric import Uint
+from ethereum_types.numeric import U256, Uint
 
-from ...state import (
-    get_storage,
-    get_storage_original,
-    get_transient_storage,
-    set_storage,
-    set_transient_storage,
-)
 from ...state_tracker import (
     capture_pre_storage,
     track_storage_read,
     track_storage_write,
+)
+from ...state_tracking import (
+    get_storage,
+    get_storage_original,
+    set_storage,
 )
 from .. import Evm
 from ..exceptions import WriteInStaticContext
@@ -62,9 +60,7 @@ def sload(evm: Evm) -> None:
         charge_gas(evm, GAS_COLD_SLOAD)
 
     # OPERATION
-    value = get_storage(
-        evm.message.block_env.state, evm.message.current_target, key
-    )
+    value = get_storage(evm.state_tracking, evm.message.current_target, key)
     track_storage_read(
         evm.state_changes,
         evm.message.current_target,
@@ -97,7 +93,7 @@ def sstore(evm: Evm) -> None:
     # check we have at least the stipend gas
     check_gas(evm, GAS_CALL_STIPEND + Uint(1))
 
-    state = evm.message.block_env.state
+    state = evm.state_tracking
     original_value = get_storage_original(
         state, evm.message.current_target, key
     )
@@ -181,8 +177,9 @@ def tload(evm: Evm) -> None:
     charge_gas(evm, GAS_WARM_ACCESS)
 
     # OPERATION
-    value = get_transient_storage(
-        evm.message.tx_env.transient_storage, evm.message.current_target, key
+    value = evm.transient_storage.get(
+        (evm.message.current_target, key),
+        U256(0),
     )
     push(evm.stack, value)
 
@@ -209,12 +206,7 @@ def tstore(evm: Evm) -> None:
 
     # GAS
     charge_gas(evm, GAS_WARM_ACCESS)
-    set_transient_storage(
-        evm.message.tx_env.transient_storage,
-        evm.message.current_target,
-        key,
-        new_value,
-    )
+    evm.transient_storage[(evm.message.current_target, key)] = new_value
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

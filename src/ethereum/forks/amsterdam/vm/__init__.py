@@ -13,7 +13,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
@@ -24,8 +24,12 @@ from ethereum.exceptions import EthereumException
 from ..block_access_lists.rlp_types import BlockAccessList
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
-from ..state import State, TransientStorage
+from ..state import State
 from ..state_tracker import StateChanges, merge_on_failure, merge_on_success
+from ..state_tracking import (
+    BlockStateTracking,
+    TxStateTracking,
+)
 from ..transactions import LegacyTransaction
 from ..trie import Trie
 
@@ -40,6 +44,7 @@ class BlockEnvironment:
 
     chain_id: U64
     state: State
+    state_tracking: BlockStateTracking
     block_gas_limit: Uint
     block_hashes: List[Hash32]
     coinbase: Address
@@ -108,12 +113,13 @@ class TransactionEnvironment:
     gas: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
-    transient_storage: TransientStorage
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
     state_changes: "StateChanges" = field(default_factory=StateChanges)
+    # FIXME
+    state_tracking: TxStateTracking = field(default=None)  # type: ignore
 
 
 @dataclass
@@ -141,6 +147,11 @@ class Message:
     parent_evm: Optional["Evm"]
     is_create: bool
     state_changes: "StateChanges" = field(default_factory=StateChanges)
+    # FIXME
+    state_tracking: TxStateTracking = field(default=None)  # type: ignore
+    transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
+        default_factory=dict
+    )
 
 
 @dataclass
@@ -164,6 +175,8 @@ class Evm:
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     state_changes: StateChanges
+    state_tracking: TxStateTracking
+    transient_storage: Dict[Tuple[Address, Bytes32], U256]
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -184,6 +197,8 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
+    evm.state_tracking = child_evm.state_tracking
+    evm.transient_storage = child_evm.transient_storage
 
     merge_on_success(child_evm.state_changes)
 
@@ -201,5 +216,7 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
+    evm.state_tracking.account_reads |= child_evm.state_tracking.account_reads
+    evm.state_tracking.storage_reads |= child_evm.state_tracking.storage_reads
 
     merge_on_failure(child_evm.state_changes)

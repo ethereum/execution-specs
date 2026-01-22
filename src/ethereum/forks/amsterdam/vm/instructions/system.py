@@ -17,21 +17,21 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
-from ...state import (
-    account_has_code_or_nonce,
-    account_has_storage,
-    get_account,
-    increment_nonce,
-    is_account_alive,
-    move_ether,
-    set_account_balance,
-)
 from ...state_tracker import (
     capture_pre_balance,
     create_child_frame,
     track_address,
     track_balance_change,
     track_nonce_change,
+)
+from ...state_tracking import (
+    account_has_code_or_nonce,
+    copy_tx_state_tracking,
+    get_account,
+    increment_nonce,
+    is_account_alive,
+    move_ether,
+    set_account_balance,
 )
 from ...utils.address import (
     compute_contract_address,
@@ -95,7 +95,7 @@ def generic_create(
     if memory_size > U256(MAX_INIT_CODE_SIZE):
         raise OutOfGasError
 
-    state = evm.message.block_env.state
+    state = evm.state_tracking
 
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
@@ -122,7 +122,7 @@ def generic_create(
     track_address(evm.state_changes, contract_address)
     if account_has_code_or_nonce(
         state, contract_address
-    ) or account_has_storage(state, contract_address):
+    ):  # or account_has_storage(state, contract_address):
         increment_nonce(state, evm.message.current_target)
         nonce_after = get_account(state, evm.message.current_target).nonce
         track_nonce_change(
@@ -165,6 +165,8 @@ def generic_create(
         parent_evm=evm,
         is_create=True,
         state_changes=child_state_changes,
+        state_tracking=copy_tx_state_tracking(evm.state_tracking),
+        transient_storage=evm.transient_storage.copy(),
     )
     child_evm = process_create_message(child_message)
 
@@ -205,9 +207,7 @@ def create(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     contract_address = compute_contract_address(
         evm.message.current_target,
-        get_account(
-            evm.message.block_env.state, evm.message.current_target
-        ).nonce,
+        get_account(evm.state_tracking, evm.message.current_target).nonce,
     )
 
     generic_create(
@@ -363,6 +363,8 @@ def generic_call(
         parent_evm=evm,
         is_create=False,
         state_changes=child_state_changes,
+        state_tracking=copy_tx_state_tracking(evm.state_tracking),
+        transient_storage=evm.transient_storage.copy(),
     )
 
     child_evm = process_message(child_message)
@@ -375,6 +377,8 @@ def generic_call(
         incorporate_child_on_success(evm, child_evm)
         evm.return_data = child_evm.output
         push(evm.stack, U256(1))
+
+    print(evm.state_tracking.storage_writes)
 
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
@@ -430,7 +434,7 @@ def call(evm: Evm) -> None:
     )
 
     # STATE ACCESS
-    state = evm.message.block_env.state
+    state = evm.state_tracking
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
@@ -537,7 +541,7 @@ def callcode(evm: Evm) -> None:
     )
 
     # STATE ACCESS
-    state = evm.message.block_env.state
+    state = evm.state_tracking
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
 
@@ -570,7 +574,7 @@ def callcode(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
-        evm.message.block_env.state, evm.message.current_target
+        evm.state_tracking, evm.message.current_target
     ).balance
 
     # EIP-7928: For CALLCODE with value transfer, capture pre-balance
@@ -636,7 +640,7 @@ def selfdestruct(evm: Evm) -> None:
     check_gas(evm, gas_cost)
 
     # STATE ACCESS
-    state = evm.message.block_env.state
+    state = evm.state_tracking
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
@@ -650,7 +654,7 @@ def selfdestruct(evm: Evm) -> None:
 
     charge_gas(evm, gas_cost)
 
-    state = evm.message.block_env.state
+    state = evm.state_tracking
     originator = evm.message.current_target
     originator_balance = get_account(state, originator).balance
     beneficiary_balance = get_account(state, beneficiary).balance
@@ -733,7 +737,7 @@ def delegatecall(evm: Evm) -> None:
     check_gas(evm, access_gas_cost + extend_memory.cost)
 
     # STATE ACCESS
-    state = evm.message.block_env.state
+    state = evm.state_tracking
     if is_cold_access:
         evm.accessed_addresses.add(code_address)
 
@@ -823,7 +827,7 @@ def staticcall(evm: Evm) -> None:
     check_gas(evm, access_gas_cost + extend_memory.cost)
 
     # STATE ACCESS
-    state = evm.message.block_env.state
+    state = evm.state_tracking
     if is_cold_access:
         evm.accessed_addresses.add(to)
 

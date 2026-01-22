@@ -312,6 +312,17 @@ class T8N(Load):
         if self.fork.has_block_access_list_hash:
             kw_arguments["state_changes"] = StateChanges()
 
+        kw_arguments["state_tracking"] = self.fork._module(
+            "state_tracking"
+        ).BlockStateTracking(
+            parent=self.alloc.state,
+            current_index=Uint(0),
+            account_reads=set(),
+            storage_reads=set(),
+            account_writes={},
+            storage_writes={},
+        )
+
         return block_environment(**kw_arguments)
 
     def backup_state(self) -> None:
@@ -371,6 +382,10 @@ class T8N(Load):
                 self.txs.rejected_txs[0] = f"Failed transaction: {e!r}"
                 self.restore_state()
                 self.logger.warning(f"Transaction {0} failed: {str(e)}")
+
+        self.fork._module("state_tracking").write_block_state_changes(
+            block_env.state_tracking
+        )
 
         self.result.update(self, block_env, block_output)
         self.result.rejected = self.txs.rejected_txs
@@ -440,6 +455,10 @@ class T8N(Load):
             block_output.block_access_list = self.fork.build_block_access_list(
                 block_env.state_changes
             )
+
+        self.fork._module("state_tracking").write_block_state_changes(
+            block_env.state_tracking
+        )
 
     def run_blockchain_test(self) -> None:
         """

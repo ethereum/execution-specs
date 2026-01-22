@@ -31,19 +31,6 @@ from ethereum.trace import (
 
 from ..blocks import Log
 from ..fork_types import Address
-from ..state import (
-    account_has_code_or_nonce,
-    account_has_storage,
-    begin_transaction,
-    commit_transaction,
-    destroy_storage,
-    get_account,
-    increment_nonce,
-    mark_account_created,
-    move_ether,
-    rollback_transaction,
-    set_code,
-)
 from ..state_tracker import (
     capture_pre_balance,
     capture_pre_code,
@@ -53,6 +40,16 @@ from ..state_tracker import (
     track_balance_change,
     track_code_change,
     track_nonce_change,
+)
+from ..state_tracking import (
+    TxStateTracking,
+    account_has_code_or_nonce,
+    copy_tx_state_tracking,
+    get_account,
+    increment_nonce,
+    mark_account_created,
+    move_ether,
+    set_code,
 )
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
@@ -97,6 +94,7 @@ class MessageCallOutput:
     accounts_to_delete: Set[Address]
     error: Optional[EthereumException]
     return_data: Bytes
+    state_tracking: TxStateTracking
 
 
 def process_message_call(message: Message) -> MessageCallOutput:
@@ -115,12 +113,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
         Output of the message call
 
     """
-    block_env = message.block_env
+    state_tracking = message.state_tracking
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
-            block_env.state, message.current_target
-        ) or account_has_storage(block_env.state, message.current_target)
+            state_tracking, message.current_target
+        )  # or account_has_storage(block_env.state, message.current_target)
         track_address(message.tx_env.state_changes, message.current_target)
         if is_collision:
             return MessageCallOutput(
@@ -130,6 +128,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 set(),
                 AddressCollision(),
                 Bytes(b""),
+                message.state_tracking,
             )
         else:
             evm = process_create_message(message)
@@ -141,7 +140,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if delegated_address is not None:
             message.disable_precompiles = True
             message.accessed_addresses.add(delegated_address)
-            message.code = get_account(block_env.state, delegated_address).code
+            message.code = get_account(state_tracking, delegated_address).code
             message.code_address = delegated_address
             track_address(message.block_env.state_changes, delegated_address)
 
@@ -150,10 +149,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
     if evm.error:
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
+        state_tracking = message.state_tracking
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
         refund_counter += U256(evm.refund_counter)
+        state_tracking = evm.state_tracking
 
     tx_end = TransactionEnd(
         int(message.gas) - int(evm.gas_left), evm.output, evm.error
@@ -167,6 +168,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         accounts_to_delete=accounts_to_delete,
         error=evm.error,
         return_data=evm.output,
+        state_tracking=state_tracking,
     )
 
 
@@ -185,37 +187,10 @@ def process_create_message(message: Message) -> Evm:
         Items containing execution specific objects.
 
     """
-    state = message.block_env.state
-    transient_storage = message.tx_env.transient_storage
-    # take snapshot of state before processing the message
-    begin_transaction(state, transient_storage)
-
-    # If the address where the account is being created has storage, it is
-    # destroyed. This can only happen in the following highly unlikely
-    # circumstances:
-    # * The address created by a `CREATE` call collides with a subsequent
-    #   `CREATE` or `CREATE2` call.
-    # * The first `CREATE` happened before Spurious Dragon and left empty
-    #   code.
-    destroy_storage(state, message.current_target)
-
-    # In the previously mentioned edge case the preexisting storage is ignored
-    # for gas refund purposes. In order to do this we must track created
-    # accounts. This tracking is also needed to respect the constraints
-    # added to SELFDESTRUCT by EIP-6780.
-    mark_account_created(state, message.current_target)
-
-    increment_nonce(state, message.current_target)
-    nonce_after = get_account(state, message.current_target).nonce
-    track_nonce_change(
-        message.state_changes,
-        message.current_target,
-        U64(nonce_after),
-    )
-
     capture_pre_code(message.tx_env.state_changes, message.current_target, b"")
 
-    evm = process_message(message)
+    evm = process_message(message, create=True)
+    state = evm.state_tracking
     if not evm.error:
         contract_code = evm.output
         contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
@@ -227,7 +202,6 @@ def process_create_message(message: Message) -> Evm:
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
         except ExceptionalHalt as error:
-            rollback_transaction(state, transient_storage)
             merge_on_failure(message.state_changes)
             evm.gas_left = Uint(0)
             evm.output = b""
@@ -241,15 +215,13 @@ def process_create_message(message: Message) -> Evm:
                     message.current_target,
                     contract_code,
                 )
-            commit_transaction(state, transient_storage)
             merge_on_success(message.state_changes)
     else:
-        rollback_transaction(state, transient_storage)
         merge_on_failure(message.state_changes)
     return evm
 
 
-def process_message(message: Message) -> Evm:
+def process_message(message: Message, create: bool = False) -> Evm:
     """
     Move ether and execute the relevant code.
 
@@ -257,6 +229,8 @@ def process_message(message: Message) -> Evm:
     ----------
     message :
         Transaction specific items.
+    create : bool
+        Is this a create message?
 
     Returns
     -------
@@ -264,37 +238,9 @@ def process_message(message: Message) -> Evm:
         Items containing execution specific objects
 
     """
-    state = message.block_env.state
-    transient_storage = message.tx_env.transient_storage
+    state = message.state_tracking
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
-
-    code = message.code
-    valid_jump_destinations = get_valid_jump_destinations(code)
-    evm = Evm(
-        pc=Uint(0),
-        stack=[],
-        memory=bytearray(),
-        code=code,
-        gas_left=message.gas,
-        valid_jump_destinations=valid_jump_destinations,
-        logs=(),
-        refund_counter=0,
-        running=True,
-        message=message,
-        output=b"",
-        accounts_to_delete=set(),
-        return_data=b"",
-        error=None,
-        accessed_addresses=message.accessed_addresses,
-        accessed_storage_keys=message.accessed_storage_keys,
-        state_changes=message.state_changes,
-    )
-
-    # take snapshot of state before processing the message
-    begin_transaction(state, transient_storage)
-
-    track_address(message.state_changes, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         # Track value transfer
@@ -331,6 +277,58 @@ def process_message(message: Message) -> Evm:
             U256(recipient_new_balance),
         )
 
+    code = message.code
+    valid_jump_destinations = get_valid_jump_destinations(code)
+    evm = Evm(
+        pc=Uint(0),
+        stack=[],
+        memory=bytearray(),
+        code=code,
+        gas_left=message.gas,
+        valid_jump_destinations=valid_jump_destinations,
+        logs=(),
+        refund_counter=0,
+        running=True,
+        message=message,
+        output=b"",
+        accounts_to_delete=set(),
+        return_data=b"",
+        error=None,
+        accessed_addresses=message.accessed_addresses,
+        accessed_storage_keys=message.accessed_storage_keys,
+        state_changes=message.state_changes,
+        state_tracking=copy_tx_state_tracking(message.state_tracking),
+        transient_storage=message.transient_storage,
+    )
+
+    if create:
+        # If the address where the account is being created has storage, it is
+        # destroyed. This can only happen in the following highly unlikely
+        # circumstances:
+        # * The address created by a `CREATE` call collides with a subsequent
+        #   `CREATE` or `CREATE2` call.
+        # * The first `CREATE` happened before Spurious Dragon and left empty
+        #   code.
+        # destroy_storage(state, message.current_target)
+
+        # In the previously mentioned edge case the preexisting storage is
+        # ignored for gas refund purposes. In order to do this we must track
+        # created accounts. This tracking is also needed to respect the
+        # constraints added to SELFDESTRUCT by EIP-6780.
+        mark_account_created(evm.state_tracking, message.current_target)
+
+        increment_nonce(evm.state_tracking, message.current_target)
+        nonce_after = get_account(
+            evm.state_tracking, message.current_target
+        ).nonce
+        track_nonce_change(
+            message.state_changes,
+            message.current_target,
+            U64(nonce_after),
+        )
+
+    track_address(message.state_changes, message.current_target)
+
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
             if not message.disable_precompiles:
@@ -360,11 +358,9 @@ def process_message(message: Message) -> Evm:
         evm.error = error
 
     if evm.error:
-        rollback_transaction(state, transient_storage)
         if not message.is_create:
             merge_on_failure(evm.state_changes)
     else:
-        commit_transaction(state, transient_storage)
         if not message.is_create:
             merge_on_success(evm.state_changes)
     return evm
