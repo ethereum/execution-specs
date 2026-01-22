@@ -309,3 +309,282 @@ def test_eip_vector_dupn_stack_underflow(
     post = {contract_address: Account(storage={})}
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+def test_vector_dupn_followed_by_jumpdest(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test vector: e6005b [DUPN 17, JUMPDEST].
+
+    Verifies that DUPN with immediate 0x00 correctly consumes the immediate
+    byte. The 0x5b following the DUPN is a separate JUMPDEST instruction,
+    not part of DUPN. decode_single(0x00) = 17, so DUPN duplicates the 17th
+    stack item.
+    """
+    sender = pre.fund_eoa()
+
+    # Push 17 items so DUPN[0x00] (which duplicates position 17) succeeds
+    marker_value = 0xBEEF
+    code = Bytecode()
+    code += Op.PUSH2(marker_value)  # This will be at position 17
+    for i in range(16):
+        code += Op.PUSH1(i)
+
+    # DUPN with immediate 0x00 followed by JUMPDEST
+    # Hex: e6 00 5b
+    code += Op.DUPN[b"\x00"] + Op.JUMPDEST
+
+    # Store the duplicated value (should be marker_value)
+    code += Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # DUPN should duplicate position 17 (marker_value)
+    post = {contract_address: Account(storage={0: marker_value})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_vector_dupn_invalid_0x60(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test vector: e6605b [INVALID_DUPN, PUSH1 0x5b].
+
+    DUPN with immediate 0x60 (96) is in the invalid range (91-127).
+    Execution should abort with exceptional halt.
+    """
+    sender = pre.fund_eoa()
+
+    # Push enough items on stack for any potential operation
+    code = Bytecode()
+    for i in range(235):
+        code += Op.PUSH1(i % 256)
+
+    # DUPN with invalid immediate 0x60 - should abort
+    # Hex: e6 60 5b
+    code += Op.DUPN[b"\x60"]
+
+    # This should never execute due to invalid immediate
+    code += Op.PUSH1(0x5B)  # Would be PUSH1 0x5b if we got here
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+
+    # Transaction should fail, storage unchanged
+    post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_vector_swapn_invalid_0x61(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test vector: e7610000 [INVALID_SWAPN, PUSH2 0x0000].
+
+    SWAPN with immediate 0x61 (97) is in the invalid range (91-127).
+    Execution should abort with exceptional halt.
+    """
+    sender = pre.fund_eoa()
+
+    # Push enough items on stack for any potential operation
+    code = Bytecode()
+    for i in range(236):
+        code += Op.PUSH1(i % 256)
+
+    # SWAPN with invalid immediate 0x61 - should abort
+    # Hex: e7 61 00 00
+    code += Op.SWAPN[b"\x61"]
+
+    # These bytes would be PUSH2 0x0000 if we got here
+    code += Op.PUSH2(0x0000)
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+
+    # Transaction should fail, storage unchanged
+    post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_vector_dupn_invalid_0x5f(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test vector: e65f [INVALID_DUPN, PUSH0].
+
+    DUPN with immediate 0x5f (95) is in the invalid range (91-127).
+    Execution should abort with exceptional halt.
+    """
+    sender = pre.fund_eoa()
+
+    # Push enough items on stack for any potential operation
+    code = Bytecode()
+    for i in range(235):
+        code += Op.PUSH1(i % 256)
+
+    # DUPN with invalid immediate 0x5f - should abort
+    # Hex: e6 5f
+    code += Op.DUPN[b"\x5f"]
+
+    # This should never execute
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+
+    # Transaction should fail, storage unchanged
+    post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_vector_exchange_0x12(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test vector: e812 [EXCHANGE 2 3].
+
+    EXCHANGE with immediate 0x12 (18 decimal).
+    decode_pair(18) = (2, 3), swaps positions 3 and 4.
+    """
+    sender = pre.fund_eoa()
+
+    # Build stack with 4 items: positions 1, 2, 3, 4 from top
+    # Values: [top=0x1111, pos2=0x2222, pos3=0x3333, pos4=0x4444]
+    code = Bytecode()
+    code += Op.PUSH2(0x4444)  # Position 4 (will be swapped)
+    code += Op.PUSH2(0x3333)  # Position 3 (will be swapped)
+    code += Op.PUSH2(0x2222)  # Position 2
+    code += Op.PUSH2(0x1111)  # Position 1 (top)
+
+    # EXCHANGE with immediate 0x12 - swaps positions 3 and 4
+    # Hex: e8 12
+    code += Op.EXCHANGE[b"\x12"]
+
+    # Store all values to verify the swap
+    code += Op.PUSH1(0) + Op.SSTORE  # Position 1 (top)
+    code += Op.PUSH1(1) + Op.SSTORE  # Position 2
+    code += Op.PUSH1(2) + Op.SSTORE  # Position 3 (was 4)
+    code += Op.PUSH1(3) + Op.SSTORE  # Position 4 (was 3)
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # After EXCHANGE[0x12]: positions 3 and 4 are swapped
+    post = {
+        contract_address: Account(
+            storage={
+                0: 0x1111,  # Position 1 unchanged
+                1: 0x2222,  # Position 2 unchanged
+                2: 0x4444,  # Position 3 now has value from position 4
+                3: 0x3333,  # Position 4 now has value from position 3
+            }
+        )
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_vector_exchange_0xd0(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test vector: e8d0 [EXCHANGE 1 19].
+
+    EXCHANGE with immediate 0xd0 (208 decimal).
+    decode_pair(208) = (1, 19), swaps positions 2 and 20.
+    """
+    sender = pre.fund_eoa()
+
+    # Build stack with 20 items
+    # Position 2 and position 20 will be swapped
+    code = Bytecode()
+    code += Op.PUSH2(0xBBBB)  # Position 20 (bottom, will be swapped)
+    for i in range(17):
+        code += Op.PUSH2(0x1000 + i)  # Positions 3-19
+    code += Op.PUSH2(0xAAAA)  # Position 2 (will be swapped)
+    code += Op.PUSH2(0x1111)  # Position 1 (top)
+
+    # EXCHANGE with immediate 0xd0 - swaps positions 2 and 20
+    # Hex: e8 d0
+    code += Op.EXCHANGE[b"\xd0"]
+
+    # Store position 1, 2, and 20 to verify
+    code += Op.PUSH1(0) + Op.SSTORE  # Position 1 (top, unchanged)
+    code += Op.PUSH1(1) + Op.SSTORE  # Position 2 (was 0xBBBB from pos 20)
+
+    # Pop to get to position 20
+    for _ in range(17):
+        code += Op.POP
+
+    code += Op.PUSH1(2) + Op.SSTORE  # Position 20 (was 0xAAAA from pos 2)
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # After EXCHANGE[0xd0]: positions 2 and 20 are swapped
+    post = {
+        contract_address: Account(
+            storage={
+                0: 0x1111,  # Position 1 unchanged
+                1: 0xBBBB,  # Position 2 now has value from position 20
+                2: 0xAAAA,  # Position 20 now has value from position 2
+            }
+        )
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_vector_exchange_invalid_0x50(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test vector: e850 [INVALID_EXCHANGE, POP].
+
+    EXCHANGE with immediate 0x50 (80 decimal) is in the invalid range (80-127).
+    Execution should abort with exceptional halt.
+    """
+    sender = pre.fund_eoa()
+
+    # Push enough items on stack for any potential operation
+    code = Bytecode()
+    for i in range(30):
+        code += Op.PUSH1(i)
+
+    # EXCHANGE with invalid immediate 0x50 - should abort
+    # Hex: e8 50
+    code += Op.EXCHANGE[b"\x50"]
+
+    # This would be POP if we got here (0x50 = POP opcode)
+    code += Op.POP
+    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Transaction should fail, storage unchanged
+    post = {contract_address: Account(storage={})}
+
+    state_test(pre=pre, post=post, tx=tx)
