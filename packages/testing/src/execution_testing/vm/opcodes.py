@@ -548,10 +548,11 @@ def _exchange_encoder(*args: int | bytes) -> bytes:
 
         # encode_pair logic from EIP-8024
         # n is first stack index (1-13), m is second (must be > n, up to 29)
-        assert 1 <= n <= 13 and n < m <= 29 and n + m <= 30, (
-            f"EXCHANGE indices must satisfy: 1 <= n <= 13, "
-            f"n < m <= 29, n + m <= 30, got n={n}, m={m}"
-        )
+        if not (1 <= n <= 13 and n < m <= 29 and n + m <= 30):
+            raise ValueError(
+                f"EXCHANGE indices must satisfy: 1 <= n <= 13, "
+                f"n < m <= 29, n + m <= 30, got n={n}, m={m}"
+            )
         if m <= 16:
             q, r = n - 1, m - 1
         else:
@@ -596,9 +597,10 @@ def _dupn_swapn_encoder(*args: int | bytes) -> bytes:
     # If int is provided, use encode_single logic from EIP-8024
     if isinstance(arg, int):
         # encode_single logic: n is stack index (17-235)
-        assert 17 <= arg <= 235, (
-            f"DUPN/SWAPN index must be in range [17, 235], got {arg}"
-        )
+        if not (17 <= arg <= 235):
+            raise ValueError(
+                f"DUPN/SWAPN index must be in range [17, 235], got {arg}"
+            )
         if arg <= 107:
             imm = arg - 17
         else:
