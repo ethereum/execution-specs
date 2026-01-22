@@ -234,46 +234,12 @@ def process_message(message: Message) -> Evm:
 
     """
     state = message.block_env.state
-    transient_storage = message.tx_env.transient_storage
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
-    # take snapshot of state before processing the message
-    begin_transaction(state, transient_storage)
-
-    if message.should_transfer_value and message.value != 0:
-        move_ether(
-            state, message.caller, message.current_target, message.value
-        )
-
-    evm = execute_code(message)
-    if evm.error:
-        # revert state to the last saved checkpoint
-        # since the message call resulted in an error
-        rollback_transaction(state, transient_storage)
-    else:
-        commit_transaction(state, transient_storage)
-    return evm
-
-
-def execute_code(message: Message) -> Evm:
-    """
-    Executes bytecode present in the `message`.
-
-    Parameters
-    ----------
-    message :
-        Transaction specific items.
-
-    Returns
-    -------
-    evm: `ethereum.vm.EVM`
-        Items containing execution specific objects
-
-    """
+    transient_storage = message.tx_env.transient_storage
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
-
     evm = Evm(
         pc=Uint(0),
         stack=[],
@@ -292,26 +258,33 @@ def execute_code(message: Message) -> Evm:
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
     )
+
+    # take snapshot of state before processing the message
+    begin_transaction(state, transient_storage)
+
+    if message.should_transfer_value and message.value != 0:
+        move_ether(
+            state, message.caller, message.current_target, message.value
+        )
+
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            if message.disable_precompiles:
-                return evm
-            evm_trace(evm, PrecompileStart(evm.message.code_address))
-            PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
-            evm_trace(evm, PrecompileEnd())
-            return evm
+            if not message.disable_precompiles:
+                evm_trace(evm, PrecompileStart(evm.message.code_address))
+                PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+                evm_trace(evm, PrecompileEnd())
+        else:
+            while evm.running and evm.pc < ulen(evm.code):
+                try:
+                    op = Ops(evm.code[evm.pc])
+                except ValueError as e:
+                    raise InvalidOpcode(evm.code[evm.pc]) from e
 
-        while evm.running and evm.pc < ulen(evm.code):
-            try:
-                op = Ops(evm.code[evm.pc])
-            except ValueError as e:
-                raise InvalidOpcode(evm.code[evm.pc]) from e
+                evm_trace(evm, OpStart(op))
+                op_implementation[op](evm)
+                evm_trace(evm, OpEnd())
 
-            evm_trace(evm, OpStart(op))
-            op_implementation[op](evm)
-            evm_trace(evm, OpEnd())
-
-        evm_trace(evm, EvmStop(Ops.STOP))
+            evm_trace(evm, EvmStop(Ops.STOP))
 
     except ExceptionalHalt as error:
         evm_trace(evm, OpException(error))
@@ -321,4 +294,11 @@ def execute_code(message: Message) -> Evm:
     except Revert as error:
         evm_trace(evm, OpException(error))
         evm.error = error
+
+    if evm.error:
+        # revert state to the last saved checkpoint
+        # since the message call resulted in an error
+        rollback_transaction(state, transient_storage)
+    else:
+        commit_transaction(state, transient_storage)
     return evm

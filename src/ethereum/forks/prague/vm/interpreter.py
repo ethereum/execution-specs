@@ -267,7 +267,6 @@ def process_message(message: Message) -> Evm:
             state, message.caller, message.current_target, message.value
         )
 
-    # Execute message code and handle errors
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
             if not message.disable_precompiles:
