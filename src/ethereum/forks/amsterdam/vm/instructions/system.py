@@ -466,8 +466,6 @@ def call(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-    if evm.message.is_static and value != U256(0):
-        raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
 
     # OPERATION
