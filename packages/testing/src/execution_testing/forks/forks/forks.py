@@ -43,6 +43,7 @@ from ..base_fork import (
     CalldataGasCalculator,
     ExcessBlobGasCalculator,
     MemoryExpansionGasCalculator,
+    RefundTypes,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
@@ -1400,6 +1401,16 @@ class Frontier(BaseFork, solc_name="homestead"):
         """At genesis, no request type is supported, signaled by -1."""
         del block_number, timestamp
         return -1
+
+    @classmethod
+    def refund_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[RefundTypes]:
+        """
+        At genesis, storage clearing refund is introduced.
+        """
+        del block_number, timestamp
+        return [RefundTypes.STORAGE_CLEAR]
 
     @classmethod
     def pre_allocation(
@@ -2822,6 +2833,19 @@ class Prague(Cancun):
         """
         del block_number, timestamp
         return 2
+
+    @classmethod
+    def refund_types(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[RefundTypes]:
+        """
+        At Prague, existing authorization refund is introduced.
+        """
+        refunds = super(Prague, cls).refund_types(
+            block_number=block_number, timestamp=timestamp
+        )
+        refunds.append(RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY)
+        return refunds
 
     @classmethod
     def calldata_gas_calculator(
