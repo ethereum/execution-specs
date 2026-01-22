@@ -32,7 +32,7 @@ from ..trie import Trie
 
 __all__ = ("Environment", "Evm", "Message")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
-SELFDESTRUCT_TOPIC = keccak256(b"Selfdestruct(address, uint256)")
+SELFDESTRUCT_TOPIC = keccak256(b"Selfdestruct(address,uint256)")
 SYSTEM_ADDRESS = Address(
     bytes.fromhex("fffffffffffffffffffffffffffffffffffffffe")
 )
