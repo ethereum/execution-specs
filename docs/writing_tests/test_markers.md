@@ -220,7 +220,6 @@ def test_something_with_all_refund_types(
 
 In this example, the test will be parameterized for parameter `refund_type` with value `[RefundTypes.STORAGE_CLEAR, RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY]` for fork Prague.
 
-
 ### Covariant Marker Keyword Arguments
 
 All fork covariant markers accept the following keyword arguments:
