@@ -39,11 +39,15 @@ def decode_single(x: int) -> int:
     Raises
     ------
     InvalidParameter
-        If x is in the forbidden range (90 < x < 128).
+        If x is in the forbidden range (90 < x < 128 or x > 255).
 
     """
     if not (0 <= x <= 90 or 128 <= x <= 255):
-        raise InvalidParameter
+        raise InvalidParameter(
+            f"DUPN/SWAPN immediate byte {x} (0x{x:02x}) is out of range. "
+            "Valid range: 0 <= x <= 90 or 128 <= x <= 255"
+        )
+
     if x <= 90:
         return x + 17
     else:
@@ -67,11 +71,16 @@ def decode_pair(x: int) -> Tuple[int, int]:
     Raises
     ------
     InvalidParameter
-        If x is in the forbidden range (79 < x < 128).
+        If x is in the forbidden range (79 < x < 128 or x > 255).
 
     """
     if not (0 <= x <= 79 or 128 <= x <= 255):
-        raise InvalidParameter
+        raise InvalidParameter(
+            f"EXCHANGE immediate byte {x} (0x{x:02x}) is in the forbidden "
+            "range 80 <= x <= 127\n"
+            "Valid range: 0 <= x <= 79 or 128 <= x <= 255"
+        )
+
     k = x if x <= 79 else x - 48
     q, r = divmod(k, 16)
     if q < r:
@@ -94,8 +103,18 @@ def encode_single(n: int) -> int:
     int
         The immediate byte value.
 
+    Raises
+    ------
+    InvalidParameter
+        If n is in the forbidden range (x < 17 or x > 235).
+
     """
-    assert 17 <= n <= 235
+    if not (17 <= n <= 235):
+        raise InvalidParameter(
+            f"DUPN/SWAPN stack index {n} is out of range. "
+            "Valid range: [17, 235]"
+        )
+
     if n <= 107:
         return n - 17
     else:
@@ -118,8 +137,39 @@ def encode_pair(n: int, m: int) -> int:
     int
         The immediate byte value.
 
+    Raises
+    ------
+    InvalidParameter
+        If n or m are not in the allowed ranges:
+        1 <= n <= 13 and n < m <= 29 and n + m <= 30
+
+
     """
-    assert 1 <= n <= 13 and n < m <= 29 and n + m <= 30
+    if not (1 <= n <= 13 and n < m <= 29 and n + m <= 30):
+        # handling many cases separately for more precise error messages
+        if n == 0:
+            raise InvalidParameter(
+                "n=0 is not allowed. Valid range: 1 <= n <= 13"
+            )
+        if n > 13:
+            raise InvalidParameter(
+                f"n:{n} is out of range. Valid range: 1 <= n <= 13"
+            )
+        if n >= m:
+            raise InvalidParameter(
+                f"n:{n} is out of range. It must be smaller than m, which "
+                f"is {m} here."
+            )
+        if m > 29:
+            raise InvalidParameter(
+                f"m:{m} is out of range. It must be smaller than 30."
+            )
+
+        raise InvalidParameter(
+            f"The sum of n:{n} + m:{m} = {n + m} is out of range. "
+            "Valid range: n + m <= 30"
+        )
+
     if m <= 16:
         q, r = n - 1, m - 1
     else:

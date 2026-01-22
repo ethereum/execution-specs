@@ -70,7 +70,10 @@ def get_valid_jump_destinations(code: Bytes) -> Set[Uint]:
             # If immediate is 0x5b (JUMPDEST), it's invalid and remains
             # a valid jump target for backward compatibility.
             # Only skip valid immediate values during analysis.
-            if pc + Uint(1) < ulen(code) and code[pc + Uint(1)] == 0x5B:
+            if (
+                pc + Uint(1) < ulen(code)
+                and 0x5B <= code[pc + Uint(1)] <= 0x7F
+            ):
                 # 0x5b is invalid immediate, treat as JUMPDEST
                 pass
             else:
