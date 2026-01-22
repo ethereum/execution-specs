@@ -498,14 +498,10 @@ def test_varying_calldata_costs(
             pre_storage: Storage = Storage({HashInt(0): HashInt(1)})
 
             code = Op.SSTORE(0, 0, original_value=1, new_value=0)
-            execution_cost = (
-                2 * fork_gas_costs.G_VERY_LOW
-                + fork_gas_costs.G_COLD_SLOAD
-                + fork_gas_costs.G_STORAGE_RESET
-            )
+            execution_cost = code.gas_cost(fork)
             authorization_list = None
 
-            refund_counter = fork_gas_costs.R_STORAGE_CLEAR
+            refund_counter = code.refund(fork)
             post_storage: Storage = Storage({HashInt(0): HashInt(0)})
 
             if refund_tx_reverts:
