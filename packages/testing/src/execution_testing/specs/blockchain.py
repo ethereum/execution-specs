@@ -381,6 +381,9 @@ class BuiltBlock(CamelModel):
                 if self.withdrawals is not None
                 else None
             ),
+            block_access_list=self.block_access_list
+            if self.block_access_list
+            else None,
             fork=self.fork,
         ).with_rlp(txs=self.txs)
 

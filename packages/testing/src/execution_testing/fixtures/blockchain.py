@@ -639,6 +639,9 @@ class FixtureBlockBase(CamelModel):
     )
     withdrawals: List[FixtureWithdrawal] | None = None
     execution_witness: WitnessChunk | None = None
+    block_access_list: BlockAccessList | None = Field(
+        None, description="EIP-7928 Block Access List"
+    )
     fork: Fork | None = Field(None, exclude=True)
 
     @computed_field(alias="blocknumber")  # type: ignore[prop-decorator]
