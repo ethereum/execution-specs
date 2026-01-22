@@ -613,27 +613,59 @@ def _dupn_swapn_encoder(*args: int | bytes) -> bytes:
 
 
 def _swapn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
-    imm = int.from_bytes(data, "big")
-    n = imm + 1
-    min_stack_height = n + 1
-    return 0, 0, min_stack_height, min_stack_height
+    n = int.from_bytes(data, "big")
+    if n <= 90:
+        min_stack_height = n + 17
+    elif n >= 128:
+        min_stack_height = n - 20
+    else:
+        # Undefined behavior
+        min_stack_height = 0
+    return (
+        0,
+        0,
+        min_stack_height + 1,
+        min_stack_height + 1,
+    )
 
 
 def _dupn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
-    imm = int.from_bytes(data, "big")
-    n = imm + 1
-    min_stack_height = n
-    return 0, 1, min_stack_height, min_stack_height + 1
+    n = int.from_bytes(data, "big")
+    if n <= 90:
+        min_stack_height = n + 17
+    elif n >= 128:
+        min_stack_height = n - 20
+    else:
+        # Undefined behavior
+        min_stack_height = 0
+    return (
+        0,
+        1,
+        min_stack_height,
+        min_stack_height + 1,
+    )
 
 
 def _exchange_stack_properties_modifier(
     data: bytes,
 ) -> tuple[int, int, int, int]:
-    imm = int.from_bytes(data, "big")
-    n = (imm >> 4) + 1
-    m = (imm & 0x0F) + 1
-    min_stack_height = n + m + 1
-    return 0, 0, min_stack_height, min_stack_height
+    n = int.from_bytes(data, "big")
+    if n > 79 and n < 128:
+        # Undefined behavior
+        min_stack_height = 0
+    else:
+        k = n if n <= 79 else n - 48
+        q, r = divmod(k, 16)
+        if q < r:
+            min_stack_height = max(q + 1, r + 1)
+        else:
+            min_stack_height = max(r + 1, 29 - q)
+    return (
+        0,
+        0,
+        min_stack_height + 1,
+        min_stack_height + 1,
+    )
 
 
 class Opcodes(Opcode, Enum):
