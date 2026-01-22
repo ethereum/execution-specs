@@ -93,7 +93,7 @@ def test_exchange_basic(
 
 @pytest.mark.parametrize(
     "immediate",
-    [0, 1, 15, 79, 128, 200, 255],
+    [0, 1, 15, 78, 79, 128, 129, 200, 255],
     ids=lambda x: f"exchange_imm_{x}",
 )
 def test_exchange_valid_immediates(
@@ -133,7 +133,7 @@ def test_exchange_valid_immediates(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=10_000_000)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
 
     # Build expected storage
     expected_storage = {}
@@ -204,27 +204,35 @@ def test_exchange_preserves_other_items(
     state_test(pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "immediate",
+    # Boundaries of both valid ranges (0x00, 0x4F, 0x80, 0xFF)
+    [0, 78, 79, 128, 129, 255],
+    ids=lambda x: f"underflow_imm_{x}",
+)
 def test_exchange_stack_underflow(
+    immediate: int,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """Test EXCHANGE causes transaction failure on stack underflow."""
     sender = pre.fund_eoa()
 
-    # Use n=1, m=5 - EXCHANGE swaps positions 2 and 6, so needs 6 items
-    # Push only 5 to trigger underflow
-    n, m = 1, 5
+    # EXCHANGE needs m+1 items. Push one less to trigger underflow.
+    n, m = decode_pair(immediate)
+    insufficient_depth = m  # m+1 required, push only m
 
     code = Bytecode()
-    for i in range(5):
+    code += Op.SSTORE(0, 1)  # Marker
+
+    for i in range(insufficient_depth):
         code += Op.PUSH1(i)
-    # Pass n and m directly - encoder will handle encoding
-    # Needs 6 items, should fail
-    code += Op.EXCHANGE[n, m]
+
+    code += Op.EXCHANGE[immediate.to_bytes(1, "big")]
+    code += Op.SSTORE(0, 2)  # Should never execute
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-
     tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
 
     # Transaction should fail, contract storage unchanged
@@ -277,73 +285,54 @@ def test_endofcode_behavior(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def test_exchange_jump_to_immediate_byte_0x5b_succeeds(
+@pytest.mark.parametrize(
+    "immediate",
+    [
+        # valid immediates: skipped, not a jump target
+        0x00,
+        0x4F,
+        # invalid immediates: not skipped, only 0x5B is JUMPDEST
+        0x50,  # POP
+        0x5A,  # GAS
+        0x5B,  # JUMPDEST - only one where jump succeeds
+        0x5C,  # TLOAD
+        0x60,  # PUSH1
+        0x7F,  # PUSH32
+        # valid immediates again
+        0x80,
+        0xFF,
+    ],
+    ids=lambda x: f"imm_0x{x:02x}",
+)
+def test_exchange_jump_to_immediate_byte(
+    immediate: int,
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test that jumping to 0x5b after EXCHANGE succeeds (backward compat).
+    Test jumping to EXCHANGE immediate byte position.
 
-    Bytecode: PUSH1(4) JUMP EXCHANGE[0x5b]
-    Hex: 6004 56 e8 5b
-    Position 4 contains 0x5b which is an INVALID immediate for EXCHANGE.
-    Per EIP-8024, 0x5b is preserved as valid JUMPDEST for compatibility.
-    The EXCHANGE instruction is never executed due to the jump.
+    Valid immediates are skipped (can't jump to them).
+    Invalid immediates are not skipped - only 0x5B (JUMPDEST) allows jumping.
     """
     sender = pre.fund_eoa()
 
-    # Build code that jumps to 0x5b after EXCHANGE opcode
+    # Bytecode: PUSH1(4) JUMP EXCHANGE[imm] - position 4 is the immediate byte
     code = Bytecode()
-    code += Op.PUSH1(4)  # Push jump target (position 4)
-    code += Op.JUMP  # Jump to position 4
-    # Pass as bytes (raw immediate byte for testing)
-    code += Op.EXCHANGE[b"\x5b"]  # Position 3-4: EXCHANGE + 0x5b (invalid)
+    code += Op.PUSH1(4)
+    code += Op.JUMP
+    code += Op.EXCHANGE[immediate.to_bytes(1, "big")]
 
-    # This SHOULD execute because 0x5b is a valid JUMPDEST
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-
     tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
 
-    # Transaction succeeds - 0x5b is preserved as valid JUMPDEST
-    post = {contract_address: Account(storage={0: 0x42})}
-
-    state_test(pre=pre, post=post, tx=tx)
-
-
-def test_exchange_jump_to_valid_immediate_fails(
-    pre: Alloc,
-    state_test: StateTestFiller,
-) -> None:
-    """
-    Test jumping to a valid immediate byte fails.
-
-    Bytecode: PUSH1(4) JUMP EXCHANGE[0x00]
-    Hex: 6004 56 e8 00
-    Position 4 contains 0x00 which is a VALID immediate for EXCHANGE.
-    Valid immediates are skipped in JUMPDEST analysis, so jump fails.
-    """
-    sender = pre.fund_eoa()
-
-    # Build code that tries to jump to a valid immediate
-    code = Bytecode()
-    code += Op.PUSH1(4)  # Push jump target (position 4)
-    code += Op.JUMP  # Try to jump to position 4
-    # Pass as bytes (raw immediate byte for testing)
-    code += Op.EXCHANGE[b"\x00"]  # Position 3-4: EXCHANGE + 0x00 (valid)
-
-    # This should never execute
-    code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
-    code += Op.STOP
-
-    contract_address = pre.deploy_contract(code=code)
-
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
-
-    # Transaction fails - position 4 is a valid immediate, not JUMPDEST
-    post = {contract_address: Account(storage={})}
+    if immediate == 0x5B:  # JUMPDEST - only case where jump succeeds
+        post = {contract_address: Account(storage={0: 0x42})}
+    else:
+        post = {contract_address: Account(storage={})}
 
     state_test(pre=pre, post=post, tx=tx)
 
@@ -404,5 +393,42 @@ def test_exchange_with_push_sequence(
             expected_storage[i] = 0  # All other values
 
     post = {contract_address: Account(storage=expected_storage)}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "immediate",
+    range(80, 128),  # Forbidden range: 0x50-0x7F
+    ids=lambda x: f"imm_{x}",
+)
+def test_exchange_invalid_immediate_aborts(
+    immediate: int,
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test EXCHANGE aborts with invalid immediates (80-127).
+
+    This range is forbidden because it overlaps with JUMPDEST and PUSH opcodes.
+    """
+    sender = pre.fund_eoa()
+
+    code = Bytecode()
+    code += Op.SSTORE(0, 1)  # Marker
+
+    # Push 30 items (max needed for any valid EXCHANGE)
+    for i in range(30):
+        code += Op.PUSH1(i)
+
+    code += Op.EXCHANGE[immediate.to_bytes(1, "big")]
+    code += Op.SSTORE(0, 2)  # Should never execute
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # Execution aborted, transaction reverts
+    post = {contract_address: Account(storage={})}
 
     state_test(pre=pre, post=post, tx=tx)
