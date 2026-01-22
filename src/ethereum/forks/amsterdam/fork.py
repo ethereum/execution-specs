@@ -1054,10 +1054,6 @@ def process_transaction(
         sender_balance_after_refund,
     )
 
-    coinbase_balance_after_mining_fee = get_account(
-        block_env.state, block_env.coinbase
-    ).balance + U256(transaction_fee)
-
     # EIP-7708: Emit selfdestruct logs for remaining balance at finalization.
     # This handles the case where a contract receives ETH after being flagged
     # for SELFDESTRUCT but before finalization.
@@ -1078,6 +1074,10 @@ def process_transaction(
             )
 
     all_logs = tx_output.logs + tuple(finalization_logs)
+
+    coinbase_balance_after_mining_fee = get_account(
+        block_env.state, block_env.coinbase
+    ).balance + U256(transaction_fee)
 
     set_account_balance(
         block_env.state, block_env.coinbase, coinbase_balance_after_mining_fee
