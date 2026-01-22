@@ -158,24 +158,36 @@ def pre_fork_blocks(
 
 
 @pytest.fixture
-def pre_fork_excess_blobs(
+def pre_fork_excess_blob_gas(
     fork: Fork,
     pre_fork_blobs_per_block: int,
     pre_fork_blocks: List[Block],
+    block_base_fee_per_gas: int,
 ) -> int:
     """
-    Return the cumulative excess blobs up until the fork given the
-    pre_fork_blobs_per_block and the target blobs in the fork prior.
+    Return the cumulative excess blob gas up until the fork.
+
+    Calculates the expected excess blob gas by iterating through pre-fork
+    blocks using the fork's calculator, which handles EIP-7918 reserve price
+    for >=Osaka.
     """
     if not fork.supports_blobs(timestamp=0):
         return 0
 
-    target_blobs = fork.target_blobs_per_block(timestamp=0)
-    if pre_fork_blobs_per_block > target_blobs:
-        return (pre_fork_blobs_per_block - target_blobs) * (
-            len(pre_fork_blocks) - 1
+    calc_excess_blob_gas = fork.excess_blob_gas_calculator(timestamp=0)
+    excess_blob_gas = 0
+
+    # Calculate excess accumulation for each pre-fork block
+    # First block is built on genesis which has 0 blobs
+    for i in range(len(pre_fork_blocks)):
+        parent_blob_count = 0 if i == 0 else pre_fork_blobs_per_block
+        excess_blob_gas = calc_excess_blob_gas(
+            parent_excess_blob_gas=excess_blob_gas,
+            parent_blob_count=parent_blob_count,
+            parent_base_fee_per_gas=block_base_fee_per_gas,
         )
-    return 0
+
+    return excess_blob_gas
 
 
 @pytest.fixture
@@ -204,7 +216,7 @@ def gas_spender_account(pre: Alloc) -> Address:  # noqa: D103
 @pytest.fixture
 def fork_block_excess_blob_gas(
     fork: Fork,
-    pre_fork_excess_blobs: int,
+    pre_fork_excess_blob_gas: int,
     pre_fork_blobs_per_block: int,
     block_base_fee_per_gas: int,
 ) -> int:
@@ -215,7 +227,7 @@ def fork_block_excess_blob_gas(
         timestamp=FORK_TIMESTAMP
     )
     return calc_excess_blob_gas_post_fork(
-        parent_excess_blobs=pre_fork_excess_blobs,
+        parent_excess_blob_gas=pre_fork_excess_blob_gas,
         parent_blob_count=pre_fork_blobs_per_block,
         parent_base_fee_per_gas=block_base_fee_per_gas,
     )
@@ -463,6 +475,7 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
     )
 
 
+@pytest.mark.valid_for_bpo_forks
 @pytest.mark.valid_at_transition_to("Prague", subsequent_forks=True)
 @pytest.mark.parametrize_by_fork(
     "post_fork_block_count,pre_fork_blobs_per_block,post_fork_blobs_per_block",

@@ -284,7 +284,7 @@ def test_clz_push_operation_same_value(
 
 @EIPChecklist.Opcode.Test.ForkTransition.Invalid()
 @EIPChecklist.Opcode.Test.ForkTransition.At()
-@pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
+@pytest.mark.valid_at_transition_to("Osaka")
 def test_clz_fork_transition(
     blockchain_test: BlockchainTestFiller, pre: Alloc
 ) -> None:

@@ -21,7 +21,7 @@ from .spec import Spec, ref_spec_7883
 REFERENCE_SPEC_GIT_PATH = ref_spec_7883.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7883.version
 
-pytestmark = pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
+pytestmark = pytest.mark.valid_at_transition_to("Osaka")
 
 
 @pytest.mark.parametrize(

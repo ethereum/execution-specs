@@ -1181,6 +1181,24 @@ def add_fork_covariant_parameters(
                 fp for fp in fork_parametrizers if fp.fork >= param_min_fork
             ]
 
+    # Filter out forks where blob params don't change for valid_for_bpo_forks
+    if list(metafunc.definition.iter_markers(name="valid_for_bpo_forks")):
+        filtered_forks = [
+            fp.fork
+            for fp in fork_parametrizers
+            if not blob_params_changed_at_transition(fp.fork)
+        ]
+        if filtered_forks:
+            logger.debug(
+                f"Skipping {metafunc.function.__name__} for forks with "
+                f"unchanged blob params: {[f.name() for f in filtered_forks]}"
+            )
+        fork_parametrizers[:] = [
+            fp
+            for fp in fork_parametrizers
+            if blob_params_changed_at_transition(fp.fork)
+        ]
+
     for covariant_descriptor in fork_covariant_decorators:
         if list(
             metafunc.definition.iter_markers(covariant_descriptor.marker_name)
@@ -1270,6 +1288,47 @@ def parametrize_fork(
     metafunc.parametrize(
         param_names, param_values, scope="function", indirect=indirect
     )
+
+
+def blob_params_changed_at_transition(fork: Fork) -> bool:
+    """
+    Check if BPO-relevant blob parameters change at a fork transition.
+
+    For transition forks, compares the 3 blob parameters that BPO forks modify:
+
+    - target_blobs_per_block
+    - max_blobs_per_block
+    - blob_base_fee_update_fraction
+
+    before (timestamp=0) and after (timestamp=15_000) the transition.
+    Returns True if any parameter changed, False otherwise.
+
+    For non-transition forks, returns True (no filtering needed).
+    """
+    # Check if this is a transition fork
+    if not hasattr(fork, "transitions_from") or not hasattr(
+        fork, "transitions_to"
+    ):
+        return True
+
+    # Compare the 3 blob parameters that BPO forks modify
+    # timestamp=0 is before transition, timestamp=15_000 is after
+    bpo_blob_params = [
+        "target_blobs_per_block",
+        "max_blobs_per_block",
+        "blob_base_fee_update_fraction",
+    ]
+
+    for param in bpo_blob_params:
+        method = getattr(fork, param, None)
+        if method is None:
+            continue
+        before = method(timestamp=0)
+        after = method(timestamp=15_000)
+        if before != after:
+            return True
+
+    return False
 
 
 def pytest_collection_modifyitems(
