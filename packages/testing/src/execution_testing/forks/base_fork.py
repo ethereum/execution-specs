@@ -899,7 +899,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @abstractmethod
     def refund_types(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> Set[RefundTypes]:
+    ) -> List[RefundTypes]:
         """
         Return the list of refund types that are possible given current
         fork logic.

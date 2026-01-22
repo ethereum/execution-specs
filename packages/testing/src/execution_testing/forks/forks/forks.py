@@ -14,7 +14,6 @@ from typing import (
     Literal,
     Mapping,
     Optional,
-    Set,
     Sized,
 )
 
@@ -1346,12 +1345,12 @@ class Frontier(BaseFork, solc_name="homestead"):
     @classmethod
     def refund_types(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> Set[RefundTypes]:
+    ) -> List[RefundTypes]:
         """
         At genesis, storage clearing refund is introduced.
         """
         del block_number, timestamp
-        return {RefundTypes.STORAGE_CLEAR}
+        return [RefundTypes.STORAGE_CLEAR]
 
     @classmethod
     def pre_allocation(
@@ -2755,14 +2754,14 @@ class Prague(Cancun):
     @classmethod
     def refund_types(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> Set[RefundTypes]:
+    ) -> List[RefundTypes]:
         """
         At Prague, existing authorization refund is introduced.
         """
         refunds = super(Prague, cls).refund_types(
             block_number=block_number, timestamp=timestamp
         )
-        refunds.add(RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY)
+        refunds.append(RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY)
         return refunds
 
     @classmethod

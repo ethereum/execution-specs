@@ -41,7 +41,7 @@ def test_simple_gas_accounting(
     refund_type: RefundTypes,
     refund_tx_reverts: bool,
 ) -> None:
-    """Test gas accounting when SSTORE refunds."""
+    """Test gas accounting for all refund types available in the given fork."""
     intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
     max_refund_quotient = fork.max_refund_quotient()
 
@@ -90,7 +90,7 @@ def test_simple_gas_accounting(
 
             refund_tx = Transaction(
                 to=contract_address,
-                gas_limit=1_000_000,
+                gas_limit=refund_tx_gas_used,
                 sender=refund_tx_sender,
                 expected_receipt={
                     "gas_used": refund_tx_gas_used,
@@ -148,7 +148,7 @@ def test_simple_gas_accounting(
 
             refund_tx = Transaction(
                 to=contract_address,
-                gas_limit=1_000_000,
+                gas_limit=refund_tx_gas_used,
                 sender=refund_tx_sender,
                 authorization_list=authorization_list,
                 expected_receipt={
