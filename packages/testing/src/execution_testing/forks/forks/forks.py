@@ -1348,11 +1348,10 @@ class Frontier(BaseFork, solc_name="homestead"):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Set[RefundTypes]:
         """
-        Return the list of refund types that are possible given current
-        fork logic.
+        At genesis, storage clearing refund is introduced.
         """
         del block_number, timestamp
-        return set()
+        return {RefundTypes.STORAGE_CLEAR}
 
     @classmethod
     def pre_allocation(
@@ -1684,20 +1683,6 @@ class Byzantium(SpuriousDragon):
             G_PRECOMPILE_ECPAIRING_BASE=100_000,
             G_PRECOMPILE_ECPAIRING_PER_POINT=80_000,
         )
-
-    @classmethod
-    def refund_types(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> Set[RefundTypes]:
-        """
-        Return the list of refund types that are possible given current
-        fork logic.
-        """
-        refunds = super(Byzantium, cls).refund_types(
-            block_number=block_number, timestamp=timestamp
-        )
-        refunds.add(RefundTypes.STORAGE_CLEAR)
-        return refunds
 
 
 class Constantinople(Byzantium):
@@ -2772,8 +2757,7 @@ class Prague(Cancun):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Set[RefundTypes]:
         """
-        Return the list of refund types that are possible given current
-        fork logic.
+        At Prague, existing authorization refund is introduced.
         """
         refunds = super(Prague, cls).refund_types(
             block_number=block_number, timestamp=timestamp
