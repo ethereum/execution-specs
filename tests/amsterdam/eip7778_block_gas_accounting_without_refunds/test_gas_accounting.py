@@ -3,6 +3,8 @@ Test cases for
 [EIP-7778 Block Gas Accounting without Refunds](https://eips.ethereum.org/EIPS/eip-7778).
 """
 
+from enum import Enum
+
 import pytest
 from execution_testing import (
     Account,
@@ -15,9 +17,11 @@ from execution_testing import (
     Environment,
     Fork,
     RefundTypes,
+    Storage,
     Transaction,
     TransactionException,
 )
+from execution_testing.base_types import HashInt
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7778.md"
@@ -416,4 +420,210 @@ def test_multi_transaction_gas_accounting(
         ],
         post=post,
         genesis_environment=Environment(gas_limit=environment_gas_limit),
+    )
+
+
+class CallDataTestType(Enum):
+    """Refund test type."""
+
+    DATA_FLOOR_LT_TX_GAS_AFTER_REFUND = -1
+    """
+    calldata_floor < tx_gas_after_refund.
+    """
+    DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER = 0
+    """
+    tx_gas_after_refund < calldata_floor < tx_gas_before_refund.
+    """
+    DATA_FLOOR_GT_TX_GAS_BEFORE_REFUND = 1
+    """calldata_floor > tx_gas_before_refund."""
+
+
+@pytest.mark.parametrize(
+    "refund_tx_reverts",
+    [
+        pytest.param(True, id="refund_tx_reverts"),
+        pytest.param(False, id=""),
+    ],
+)
+@pytest.mark.parametrize(
+    "calldata_test_type",
+    [
+        CallDataTestType.DATA_FLOOR_LT_TX_GAS_AFTER_REFUND,
+        CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER,
+        CallDataTestType.DATA_FLOOR_GT_TX_GAS_BEFORE_REFUND,
+    ],
+)
+@pytest.mark.with_all_refund_types()
+@pytest.mark.valid_from("Amsterdam")
+def test_varying_calldata_costs(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    refund_type: RefundTypes,
+    refund_tx_reverts: bool,
+    calldata_test_type: CallDataTestType,
+) -> None:
+    """
+    Test by varying the calldata_floor_cost.
+
+    Performs tests for the following 3 scenarios.
+
+    1. calldata_floor < tx_gas_after_refund
+    2. tx_gas_after_refund < calldata_floor < tx_gas_before_refund
+    3. calldata_floor > tx_gas_before_refund
+    """
+    fork_gas_costs = fork.gas_costs()
+    intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    data_floor_calc = fork.transaction_data_floor_cost_calculator()
+    max_refund_quotient = fork.max_refund_quotient()
+
+    initial_fund = 10**18
+    sender = pre.fund_eoa(initial_fund)
+
+    post = {}
+    match refund_type:
+        case RefundTypes.STORAGE_CLEAR:
+            if (
+                refund_tx_reverts
+                and calldata_test_type
+                == CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
+            ):
+                pytest.skip(
+                    "calldata_cost cannot be between pre and post refund gas"
+                    "since refund is zero when execution reverts"
+                )
+
+            bytes_to_add_per_iteration = b"00" * 2
+
+            pre_storage: Storage = Storage({HashInt(0): HashInt(1)})
+
+            code = Op.SSTORE(0, 0, original_value=1, new_value=0)
+            execution_cost = code.gas_cost(fork)
+            authorization_list = None
+
+            refund_counter = code.refund(fork)
+            post_storage: Storage = Storage({HashInt(0): HashInt(0)})
+
+            if refund_tx_reverts:
+                code += Op.REVERT(0, 0)
+                post_storage = pre_storage
+                refund_counter = 0
+
+            execution_cost = code.gas_cost(fork)
+            contract_address = pre.deploy_contract(
+                code=code,
+                storage=pre_storage,
+            )
+            post[contract_address] = Account(storage=post_storage)
+
+        case RefundTypes.AUTHORIZATION_EXISTING_AUTHORITY:
+            bytes_to_add_per_iteration = b"00" * 10
+
+            # Refund is non-zero even if execution reverts
+            refund_counter = fork_gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+
+            if refund_tx_reverts:
+                code = Op.REVERT(0, 0)
+            else:
+                code = Op.STOP
+
+            execution_cost = code.gas_cost(fork)
+            contract_address = pre.deploy_contract(code=code)
+            authorization_list = [
+                AuthorizationTuple(
+                    address=contract_address,
+                    nonce=1,
+                    signer=sender,
+                )
+            ]
+        case _:
+            raise ValueError(
+                f"Unknown refund type: {refund_type} (Test needs update)"
+            )
+
+    data = b""
+
+    # Time to start searching for appropriate call data for each scenario
+    num_iterations = 200
+    # Currently in Amsterdam, the optimal call data is found in about
+    # 30 iterations for CallDataTestType.DATA_FLOOR_GT_TX_GAS_BEFORE_REFUND.
+    # Setting this higher just to make it
+    # a bit more future proof if the gas calc logic changes
+    found_call_data = False
+    for _ in range(num_iterations):
+        gas_used_pre_refund = (
+            intrinsic_cost_calc(
+                calldata=data,
+                return_cost_deducted_prior_execution=True,
+                authorization_list_or_count=authorization_list,
+            )
+            + execution_cost
+        )
+        effective_refund = min(
+            refund_counter, gas_used_pre_refund // max_refund_quotient
+        )
+        gas_used_post_refund = gas_used_pre_refund - effective_refund
+
+        call_data_floor_cost = data_floor_calc(data=data)
+
+        if (
+            calldata_test_type
+            == CallDataTestType.DATA_FLOOR_LT_TX_GAS_AFTER_REFUND
+        ):
+            if call_data_floor_cost < gas_used_post_refund:
+                found_call_data = True
+                break
+        elif (
+            calldata_test_type
+            == CallDataTestType.DATA_FLOOR_BETWEEN_TX_GAS_BEFORE_AND_AFTER
+        ):
+            if (
+                gas_used_post_refund
+                < call_data_floor_cost
+                < gas_used_pre_refund
+            ):
+                found_call_data = True
+                break
+        elif (
+            calldata_test_type
+            == CallDataTestType.DATA_FLOOR_GT_TX_GAS_BEFORE_REFUND
+        ):
+            if gas_used_pre_refund < call_data_floor_cost:
+                found_call_data = True
+                break
+        else:
+            raise ValueError("Invalid calldata test type")
+
+        data += bytes_to_add_per_iteration
+
+    if not found_call_data:
+        raise ValueError(
+            f"Could not find the call_data with {num_iterations} iterations."
+        )
+
+    gas_used = max(call_data_floor_cost, gas_used_pre_refund)
+    gas_spent = max(call_data_floor_cost, gas_used_post_refund)
+
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=fork.transaction_gas_limit_cap(),
+        data=data,
+        sender=sender,
+        gas_price=7,
+        authorization_list=authorization_list,
+        expected_receipt={
+            "gas_used": gas_used,
+            "gas_spent": gas_spent,
+        },
+    )
+
+    assert tx.gas_price is not None, "tx.gas_price should not be None"
+    expected_balance = initial_fund - gas_spent * tx.gas_price
+
+    post[sender] = Account(balance=expected_balance)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx], expected_gas_used=gas_used)],
+        post=post,
     )
