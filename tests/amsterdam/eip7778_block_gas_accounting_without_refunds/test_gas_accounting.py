@@ -497,7 +497,7 @@ def test_varying_calldata_costs(
 
             pre_storage: Storage = Storage({HashInt(0): HashInt(1)})
 
-            code = Op.SSTORE(0, 0)
+            code = Op.SSTORE(0, 0, original_value=1, new_value=0)
             execution_cost = (
                 2 * fork_gas_costs.G_VERY_LOW
                 + fork_gas_costs.G_COLD_SLOAD
@@ -510,10 +510,10 @@ def test_varying_calldata_costs(
 
             if refund_tx_reverts:
                 code += Op.REVERT(0, 0)
-                execution_cost += 2 * fork_gas_costs.G_VERY_LOW  # For Push
                 post_storage = pre_storage
                 refund_counter = 0
 
+            execution_cost = code.gas_cost(fork)
             contract_address = pre.deploy_contract(
                 code=code,
                 storage=pre_storage,
@@ -526,13 +526,12 @@ def test_varying_calldata_costs(
             # Refund is non-zero even if execution reverts
             refund_counter = fork_gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
 
-            execution_cost = 0
             if refund_tx_reverts:
                 code = Op.REVERT(0, 0)
-                execution_cost += 2 * fork_gas_costs.G_VERY_LOW  # For Push
             else:
                 code = Op.STOP
 
+            execution_cost = code.gas_cost(fork)
             contract_address = pre.deploy_contract(code=code)
             authorization_list = [
                 AuthorizationTuple(
