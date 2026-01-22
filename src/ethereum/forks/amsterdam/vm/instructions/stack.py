@@ -13,7 +13,7 @@ Implementations of the EVM stack related instructions.
 
 from functools import partial
 
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.numeric import U8, U256, Uint
 
 from .. import Evm, stack
 from ..exceptions import StackUnderflowError
@@ -228,9 +228,11 @@ def dupn(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    immediate_data = buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(1))[0]
+    immediate_data = U8(
+        buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(1))[0]
+    )
     item_number = decode_single(immediate_data)
-    if item_number > len(evm.stack):
+    if item_number > U8(len(evm.stack)):
         raise StackUnderflowError
     data_to_duplicate = evm.stack[-item_number]
     stack.push(evm.stack, data_to_duplicate)
@@ -258,14 +260,16 @@ def swapn(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    immediate_data = buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(1))[0]
+    immediate_data = U8(
+        buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(1))[0]
+    )
     item_number = decode_single(immediate_data)
     # SWAPN with decoded value n swaps top (position 1) with position (n+1)
-    if item_number + 1 > len(evm.stack):
+    if item_number + U8(1) > U8(len(evm.stack)):
         raise StackUnderflowError
     # stack[-1] is top (position 1), stack[-(item_number+1)] is position (n+1)
-    evm.stack[-1], evm.stack[-(item_number + 1)] = (
-        evm.stack[-(item_number + 1)],
+    evm.stack[-1], evm.stack[-(item_number + U8(1))] = (
+        evm.stack[-(item_number + U8(1))],
         evm.stack[-1],
     )
 
@@ -292,15 +296,17 @@ def exchange(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    immediate_data = buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(1))[0]
+    immediate_data = U8(
+        buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(1))[0]
+    )
     n, m = decode_pair(immediate_data)
     # EXCHANGE swaps position (n+1) with position (m+1)
-    depth = max(n, m) + 1
-    if depth > len(evm.stack):
+    depth = max(n, m) + U8(1)
+    if depth > U8(len(evm.stack)):
         raise StackUnderflowError
-    evm.stack[-(n + 1)], evm.stack[-(m + 1)] = (
-        evm.stack[-(m + 1)],
-        evm.stack[-(n + 1)],
+    evm.stack[-(n + U8(1))], evm.stack[-(m + U8(1))] = (
+        evm.stack[-(m + U8(1))],
+        evm.stack[-(n + U8(1))],
     )
 
     # PROGRAM COUNTER
