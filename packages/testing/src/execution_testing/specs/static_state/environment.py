@@ -33,6 +33,7 @@ class EnvironmentInStateTestFiller(BaseModel):
     current_excess_blob_gas: ValueInFiller | None = Field(
         None, alias="currentExcessBlobGas"
     )
+    current_slot_number: ValueInFiller | None = Field(None, alias="slotNumber")
 
     model_config = ConfigDict(extra="forbid")
 
@@ -72,4 +73,6 @@ class EnvironmentInStateTestFiller(BaseModel):
             kwargs["base_fee_per_gas"] = self.current_base_fee
         if self.current_excess_blob_gas is not None:
             kwargs["excess_blob_gas"] = self.current_excess_blob_gas
+        if self.current_slot_number is not None:
+            kwargs["slot_number"] = self.current_slot_number
         return Environment(**kwargs)
