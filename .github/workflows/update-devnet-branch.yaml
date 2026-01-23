@@ -14,7 +14,7 @@ on:
         type: string
         default: 'bal/2'
       eip_numbers:
-        description: 'Comma-separated list of EIP numbers (e.g., 1234,2345,3456)'
+        description: 'List of EIP numbers (e.g., 1234,2345+3456 for eip-1234 and combined eip-2345+3456)'
         required: true
         type: string
         default: '8024,7843,7708,7778'
