@@ -28,6 +28,8 @@ def get_valid_jump_destinations(code: Bytes) -> Set[Uint]:
         * The jump destination should have the `JUMPDEST` opcode (0x5B).
         * The jump destination shouldn't be part of the data corresponding to
           `PUSH-N` opcodes.
+        * The jump destination shouldn't be part of the immediate byte
+          corresponding to `DUPN`, `SWAPN`, or `EXCHANGE` opcodes (EIP-8024).
 
     Note - Jump destinations are 0-indexed.
 
@@ -63,6 +65,20 @@ def get_valid_jump_destinations(code: Bytes) -> Set[Uint]:
             # opcodes.
             push_data_size = current_opcode.value - Ops.PUSH1.value + 1
             pc += Uint(push_data_size)
+        elif current_opcode in (Ops.DUPN, Ops.SWAPN, Ops.EXCHANGE):
+            # EIP-8024: Handle immediate byte for DUPN, SWAPN, EXCHANGE
+            # If immediate is 0x5b (JUMPDEST), it's invalid and remains
+            # a valid jump target for backward compatibility.
+            # Only skip valid immediate values during analysis.
+            if (
+                pc + Uint(1) < ulen(code)
+                and 0x5B <= code[pc + Uint(1)] <= 0x7F
+            ):
+                # 0x5b is invalid immediate, treat as JUMPDEST
+                pass
+            else:
+                # Valid immediate, skip it
+                pc += Uint(1)
 
         pc += Uint(1)
 
