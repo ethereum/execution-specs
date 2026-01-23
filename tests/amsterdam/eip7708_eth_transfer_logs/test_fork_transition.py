@@ -32,7 +32,7 @@ def test_selfdestruct_log_at_fork_transition(
     Before Amsterdam: ETH selfdestructs do NOT emit logs.
     At/after Amsterdam: ETH selfdestructs emit Selfdestruct logs.
     """
-    sender = pre.fund_eoa(amount=100)
+    sender = pre.fund_eoa()
     contract1 = pre.deploy_contract(Op.SELFDESTRUCT(Op.ADDRESS), balance=1)
     contract2 = pre.deploy_contract(Op.SELFDESTRUCT(Op.ADDRESS), balance=2)
     contract3 = pre.deploy_contract(Op.SELFDESTRUCT(Op.ADDRESS), balance=3)
@@ -44,8 +44,6 @@ def test_selfdestruct_log_at_fork_transition(
                 Transaction(
                     to=contract1,
                     sender=sender,
-                    nonce=0,
-                    value=0,
                     gas_limit=100_000,
                     expected_receipt=TransactionReceipt(logs=[]),
                 )
@@ -57,8 +55,6 @@ def test_selfdestruct_log_at_fork_transition(
                 Transaction(
                     to=contract2,
                     sender=sender,
-                    nonce=1,
-                    value=0,
                     gas_limit=100_000,
                     expected_receipt=TransactionReceipt(
                         logs=[selfdestruct_log(contract2, 2)]
@@ -72,8 +68,6 @@ def test_selfdestruct_log_at_fork_transition(
                 Transaction(
                     to=contract3,
                     sender=sender,
-                    nonce=2,
-                    value=0,
                     gas_limit=100_000,
                     expected_receipt=TransactionReceipt(
                         logs=[selfdestruct_log(contract3, 3)]
@@ -88,9 +82,6 @@ def test_selfdestruct_log_at_fork_transition(
         blocks=blocks,
         post={
             sender: Account(nonce=3),
-            contract1: Account.NONEXISTENT,
-            contract2: Account.NONEXISTENT,
-            contract3: Account.NONEXISTENT,
         },
     )
 
@@ -115,7 +106,6 @@ def test_transfer_log_fork_transition(
                 Transaction(
                     to=recipient,
                     sender=sender,
-                    nonce=0,
                     value=100,
                     gas_limit=21_000,
                     expected_receipt=TransactionReceipt(logs=[]),
@@ -128,7 +118,6 @@ def test_transfer_log_fork_transition(
                 Transaction(
                     to=recipient,
                     sender=sender,
-                    nonce=1,
                     value=100,
                     gas_limit=21_000,
                     expected_receipt=TransactionReceipt(
@@ -143,7 +132,6 @@ def test_transfer_log_fork_transition(
                 Transaction(
                     to=recipient,
                     sender=sender,
-                    nonce=2,
                     value=100,
                     gas_limit=21_000,
                     expected_receipt=TransactionReceipt(

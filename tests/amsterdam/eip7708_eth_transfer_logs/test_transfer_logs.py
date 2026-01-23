@@ -238,57 +238,44 @@ def test_delegatecall_inner_call_with_value(
 
 
 @pytest.mark.parametrize(
-    "create_value,expect_log",
+    "create_value",
     [
-        pytest.param(500, True, id="with_value"),
-        pytest.param(0, False, id="zero_value"),
+        pytest.param(1, id="with_value"),
+        pytest.param(0, id="zero_value"),
     ],
 )
-@pytest.mark.parametrize(
-    "opcode",
-    [
-        pytest.param("create", id="create"),
-        pytest.param("create2", id="create2"),
-    ],
-)
+@pytest.mark.with_all_create_opcodes
 def test_create_opcode_emits_log(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
-    opcode: str,
+    create_opcode: Op,
     create_value: int,
-    expect_log: bool,
 ) -> None:
     """Test that CREATE/CREATE2 opcodes emit logs based on value."""
     initcode = Op.RETURN(0, 0)
     initcode_len = len(initcode)
 
-    if opcode == "create":
-        contract_code = Op.MSTORE(
-            0, Op.PUSH32(bytes(initcode).rjust(32, b"\x00"))
-        ) + Op.SSTORE(
-            0, Op.CREATE(create_value, 32 - initcode_len, initcode_len)
-        )
-        created_address = compute_create_address(
-            address=Address(0x1000), nonce=1
-        )
-    else:
-        contract_code = Op.MSTORE(
-            0, Op.PUSH32(bytes(initcode).rjust(32, b"\x00"))
-        ) + Op.SSTORE(
-            0, Op.CREATE2(create_value, 32 - initcode_len, initcode_len, 0)
-        )
-        created_address = compute_create2_address(
-            address=Address(0x1000), salt=0, initcode=bytes(initcode)
-        )
-
-    contract = pre.deploy_contract(
-        contract_code, balance=create_value, address=Address(0x1000)
+    contract_code = Op.MSTORE(
+        0, Op.PUSH32(bytes(initcode).rjust(32, b"\x00"))
+    ) + Op.SSTORE(
+        0,
+        create_opcode(
+            value=create_value, offset=32 - initcode_len, size=initcode_len
+        ),
+    )
+    contract = pre.deploy_contract(contract_code, balance=create_value)
+    created_address = compute_create_address(
+        address=contract,
+        nonce=1,
+        salt=0,
+        initcode=bytes(initcode),
+        opcode=create_opcode,
     )
 
     expected_logs = [transfer_log(sender, contract, 1)]
-    if expect_log:
+    if create_value > 0:
         expected_logs.append(
             transfer_log(contract, created_address, create_value)
         )
@@ -549,36 +536,17 @@ def test_create_insufficient_balance_no_log(
 
 
 @pytest.mark.parametrize(
-    "contract_code,contract_balance,tx_value,gas_limit",
+    "initcode",
     [
         pytest.param(
-            # CREATE OOG: initcode runs out of gas (infinite loop)
-            Op.MSTORE(0, Op.PUSH32(bytes(Op.JUMP(0)).rjust(32, b"\x00")))
-            + Op.CREATE(500, 32 - len(Op.JUMP(0)), len(Op.JUMP(0))),
-            500,
-            1000,
-            100_000,
-            id="create_out_of_gas",
+            # OOG before return
+            Op.MSTORE(offset=0xFFFFFF, value=0) + Op.RETURN(0, 0),
+            id="create_out_of_gas_memory_expansion",
         ),
         pytest.param(
-            # CREATE OOG with memory expansion in initcode
-            Op.MSTORE(
-                0,
-                Op.PUSH32(
-                    bytes(Op.MSTORE(0xFFFFFF, 0) + Op.RETURN(0, 0)).rjust(
-                        32, b"\x00"
-                    )
-                ),
-            )
-            + Op.CREATE(
-                500,
-                32 - len(Op.MSTORE(0xFFFFFF, 0) + Op.RETURN(0, 0)),
-                len(Op.MSTORE(0xFFFFFF, 0) + Op.RETURN(0, 0)),
-            ),
-            500,
-            1000,
-            100_000,
-            id="create_out_of_gas_memory_expansion",
+            # Invalid opcode
+            Op.INVALID + Op.RETURN(0, 0),
+            id="invalid_opcode",
         ),
     ],
 )
@@ -587,24 +555,29 @@ def test_create_out_of_gas_no_log(
     env: Environment,
     pre: Alloc,
     sender: EOA,
-    contract_code: Bytecode,
-    contract_balance: int,
-    tx_value: int,
-    gas_limit: int,
+    initcode: Bytecode,
 ) -> None:
     """Test that CREATE running out of gas does NOT emit transfer log."""
-    contract = pre.deploy_contract(contract_code, balance=contract_balance)
+    tx_value = 1000
+    gas_limit = 100_000
+    create_value = 500
+    contract_code = Op.CALLDATACOPY(
+        dest_offset=0,
+        offset=0,
+        size=Op.CALLDATASIZE,
+    ) + Op.CREATE(value=create_value, offset=0, size=Op.CALLDATASIZE)
+    contract = pre.deploy_contract(contract_code)
 
     tx = Transaction(
         sender=sender,
         to=contract,
+        data=initcode,
         value=tx_value,
         gas_limit=gas_limit,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(sender, contract, tx_value)]
         ),
     )
-
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
