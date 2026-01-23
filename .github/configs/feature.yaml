@@ -4,7 +4,7 @@ stable:
   fill-params: --until=Prague --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
 
 develop:
-  evm-type: develop 
+  evm-type: develop
   fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
 
 benchmark:

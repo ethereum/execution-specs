@@ -1,16 +1,22 @@
 """Simple CLI tool to hash a directory of JSON fixtures."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import sys
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
 
 import click
 from rich.console import Console
 from rich.markup import escape as rich_escape
+
+if TYPE_CHECKING:
+    from execution_testing.fixtures.consume import TestCaseIndexFile
 
 
 class HashableItemType(IntEnum):
@@ -144,6 +150,74 @@ class HashableItem:
                 )
                 items[file_path.name] = item
         return cls(type=HashableItemType.FOLDER, items=items, parents=parents)
+
+    @classmethod
+    def from_index_entries(
+        cls, entries: List[TestCaseIndexFile]
+    ) -> "HashableItem":
+        """
+        Create a hashable item tree from index entries (no file I/O).
+
+        This produces the same hash as from_folder() but uses pre-collected
+        fixture hashes instead of reading files from disk.
+        """
+        # Group entries by file path
+        files_entries: Dict[Path, List[TestCaseIndexFile]] = defaultdict(list)
+        for entry in entries:
+            files_entries[entry.json_path].append(entry)
+
+        # Build HashableItem for each file (contains test items)
+        file_items: Dict[Path, HashableItem] = {}
+        for file_path, file_entries in files_entries.items():
+            test_items: Dict[str, HashableItem] = {}
+            for entry in file_entries:
+                if entry.fixture_hash:
+                    # Convert HexNumber (int subclass) to 32-byte hash
+                    hash_bytes = int(entry.fixture_hash).to_bytes(32, "big")
+                    test_items[entry.id] = cls(
+                        type=HashableItemType.TEST,
+                        root=hash_bytes,
+                    )
+            file_items[file_path] = cls(
+                type=HashableItemType.FILE,
+                items=test_items,
+            )
+
+        # Build folder hierarchy recursively
+        def build_folder(folder_path: Path) -> HashableItem:
+            """Build HashableItem for a folder from file_items."""
+            items: Dict[str, HashableItem] = {}
+
+            # Add files directly in this folder
+            for file_path, file_item in file_items.items():
+                if file_path.parent == folder_path:
+                    items[file_path.name] = file_item
+
+            # Find and add immediate subfolders
+            subfolders: set = set()
+            for file_path in file_items.keys():
+                try:
+                    rel = file_path.relative_to(folder_path)
+                    if len(rel.parts) > 1:
+                        subfolders.add(folder_path / rel.parts[0])
+                except ValueError:
+                    continue
+
+            for subfolder in subfolders:
+                items[subfolder.name] = build_folder(subfolder)
+
+            return cls(type=HashableItemType.FOLDER, items=items)
+
+        # Find top-level folders and build root
+        top_level_folders: set = set()
+        for file_path in file_items.keys():
+            top_level_folders.add(Path(file_path.parts[0]))
+
+        root_items: Dict[str, HashableItem] = {}
+        for folder in top_level_folders:
+            root_items[folder.name] = build_folder(folder)
+
+        return cls(type=HashableItemType.FOLDER, items=root_items)
 
 
 def render_hash_report(

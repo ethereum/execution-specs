@@ -226,5 +226,73 @@ def generate_fixtures_index(
         f.write(index.model_dump_json(exclude_none=False, indent=2))
 
 
+def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
+    """
+    Merge partial index files from all workers into final index.json.
+
+    This is called by pytest_sessionfinish on the master process after all
+    workers have finished and written their partial indexes.
+
+    Args:
+        output_dir: The fixture output directory.
+        quiet_mode: If True, don't print status messages.
+
+    """
+    meta_dir = output_dir / ".meta"
+    partial_files = list(meta_dir.glob("partial_index*.json"))
+
+    if not partial_files:
+        # Fallback to old method if no partial indexes exist
+        if not quiet_mode:
+            rich.print(
+                "[yellow]No partial indexes found, "
+                "falling back to full scan[/]"
+            )
+        generate_fixtures_index(
+            output_dir, quiet_mode=quiet_mode, force_flag=True
+        )
+        return
+
+    # Merge all partial indexes
+    all_entries: List[TestCaseIndexFile] = []
+    all_forks: set = set()
+    all_formats: set = set()
+
+    for partial_file in partial_files:
+        partial_data = json.loads(partial_file.read_text())
+        for entry in partial_data["entries"]:
+            all_entries.append(TestCaseIndexFile.model_validate(entry))
+        all_forks.update(partial_data.get("forks", []))
+        all_formats.update(partial_data.get("formats", []))
+
+    # Compute root hash from collected fixture hashes
+    root_hash = HashableItem.from_index_entries(all_entries).hash()
+
+    # Build final index
+    index = IndexFile(
+        test_cases=all_entries,
+        root_hash=HexNumber(root_hash),
+        created_at=datetime.datetime.now(),
+        test_count=len(all_entries),
+        forks=list(all_forks),
+        fixture_formats=list(all_formats),
+    )
+
+    # Write final index
+    index_path = meta_dir / "index.json"
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text(index.model_dump_json(exclude_none=False, indent=2))
+
+    if not quiet_mode:
+        rich.print(
+            f"[green]Merged {len(partial_files)} partial indexes "
+            f"({len(all_entries)} test cases) into {index_path}[/]"
+        )
+
+    # Cleanup partial files
+    for partial_file in partial_files:
+        partial_file.unlink()
+
+
 if __name__ == "__main__":
     generate_fixtures_index_cli()

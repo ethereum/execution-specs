@@ -1,11 +1,16 @@
-"""Tests for the hasher CLI tool."""
+"""Tests for the hasher CLI tool and module."""
 
 import json
+import tempfile
 from pathlib import Path
+from typing import Generator
 
+import pytest
 from click.testing import CliRunner
 
-from execution_testing.cli.hasher import hasher
+from execution_testing.base_types import HexNumber
+from execution_testing.cli.hasher import HashableItem, hasher
+from execution_testing.fixtures.consume import TestCaseIndexFile
 
 
 def create_fixture(path: Path, test_name: str, hash_value: str) -> None:
@@ -340,3 +345,222 @@ class TestHelpOptions:
         result = runner.invoke(hasher, ["hash", "--help"])
         assert result.exit_code == 0
         assert "Hash folders of JSON fixtures" in result.output
+
+
+class TestHashableItemFromIndexEntries:
+    """Test that from_index_entries produces same hash as from_folder."""
+
+    @pytest.fixture
+    def fixture_dir(self) -> Generator[Path, None, None]:
+        """Create a temporary directory with test fixtures."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+
+            # Create structure: state_tests/cancun/test.json
+            state_tests = base / "state_tests" / "cancun"
+            state_tests.mkdir(parents=True)
+
+            # Create a fixture file with two tests
+            fixture_file = state_tests / "test.json"
+            fixture_data = {
+                "test_one": {
+                    "_info": {
+                        "hash": "0x1111111111111111111111111111111111111111111111111111111111111111"  # noqa: E501
+                    },
+                    "pre": {},
+                    "post": {},
+                },
+                "test_two": {
+                    "_info": {
+                        "hash": "0x2222222222222222222222222222222222222222222222222222222222222222"  # noqa: E501
+                    },
+                    "pre": {},
+                    "post": {},
+                },
+            }
+            fixture_file.write_text(json.dumps(fixture_data))
+
+            # Create another fixture file in a different folder
+            blockchain_tests = base / "blockchain_tests" / "cancun"
+            blockchain_tests.mkdir(parents=True)
+
+            fixture_file2 = blockchain_tests / "test.json"
+            fixture_data2 = {
+                "test_three": {
+                    "_info": {
+                        "hash": "0x3333333333333333333333333333333333333333333333333333333333333333"  # noqa: E501
+                    },
+                    "pre": {},
+                    "post": {},
+                },
+            }
+            fixture_file2.write_text(json.dumps(fixture_data2))
+
+            yield base
+
+    @pytest.fixture
+    def index_entries(self) -> list[TestCaseIndexFile]:
+        """Create index entries matching the fixture_dir structure."""
+        return [
+            TestCaseIndexFile(
+                id="test_one",
+                json_path=Path("state_tests/cancun/test.json"),
+                fixture_hash=HexNumber(
+                    0x1111111111111111111111111111111111111111111111111111111111111111
+                ),
+                fork=None,
+                format=None,
+            ),
+            TestCaseIndexFile(
+                id="test_two",
+                json_path=Path("state_tests/cancun/test.json"),
+                fixture_hash=HexNumber(
+                    0x2222222222222222222222222222222222222222222222222222222222222222
+                ),
+                fork=None,
+                format=None,
+            ),
+            TestCaseIndexFile(
+                id="test_three",
+                json_path=Path("blockchain_tests/cancun/test.json"),
+                fixture_hash=HexNumber(
+                    0x3333333333333333333333333333333333333333333333333333333333333333
+                ),
+                fork=None,
+                format=None,
+            ),
+        ]
+
+    def test_hash_matches_from_folder(
+        self, fixture_dir: Path, index_entries: list[TestCaseIndexFile]
+    ) -> None:
+        """Verify from_index_entries produces same hash as from_folder."""
+        # Get hash using from_folder (reads files)
+        hash_from_folder = HashableItem.from_folder(
+            folder_path=fixture_dir
+        ).hash()
+
+        # Get hash using from_index_entries (no file I/O)
+        hash_from_entries = HashableItem.from_index_entries(
+            index_entries
+        ).hash()
+
+        assert hash_from_folder == hash_from_entries
+
+    def test_hash_changes_with_different_entries(
+        self, index_entries: list[TestCaseIndexFile]
+    ) -> None:
+        """Verify hash changes when entries change."""
+        hash1 = HashableItem.from_index_entries(index_entries).hash()
+
+        # Modify one entry's hash
+        modified_entries = index_entries.copy()
+        modified_entries[0] = TestCaseIndexFile(
+            id="test_one",
+            json_path=Path("state_tests/cancun/test.json"),
+            fixture_hash=HexNumber(
+                0x9999999999999999999999999999999999999999999999999999999999999999
+            ),
+            fork=None,
+            format=None,
+        )
+
+        hash2 = HashableItem.from_index_entries(modified_entries).hash()
+
+        assert hash1 != hash2
+
+    def test_empty_entries(self) -> None:
+        """Verify empty entries produces a valid hash."""
+        hash_result = HashableItem.from_index_entries([]).hash()
+        # Empty tree should still produce a hash (sha256 of empty string)
+        assert hash_result is not None
+        assert len(hash_result) == 32  # SHA256 produces 32 bytes
+
+    def test_multiple_files_in_same_folder(self) -> None:
+        """Verify multiple files in same folder are handled correctly."""
+        entries = [
+            TestCaseIndexFile(
+                id="test_a",
+                json_path=Path("state_tests/cancun/file1.json"),
+                fixture_hash=HexNumber(
+                    0x1111111111111111111111111111111111111111111111111111111111111111
+                ),
+                fork=None,
+                format=None,
+            ),
+            TestCaseIndexFile(
+                id="test_b",
+                json_path=Path("state_tests/cancun/file2.json"),
+                fixture_hash=HexNumber(
+                    0x2222222222222222222222222222222222222222222222222222222222222222
+                ),
+                fork=None,
+                format=None,
+            ),
+        ]
+        item = HashableItem.from_index_entries(entries)
+        hash_result = item.hash()
+        assert hash_result is not None
+        assert len(hash_result) == 32
+
+    def test_deeply_nested_paths(self) -> None:
+        """Verify deeply nested paths are handled correctly."""
+        entries = [
+            TestCaseIndexFile(
+                id="test_deep",
+                json_path=Path("a/b/c/d/test.json"),
+                fixture_hash=HexNumber(
+                    0x1111111111111111111111111111111111111111111111111111111111111111
+                ),
+                fork=None,
+                format=None,
+            ),
+        ]
+        item = HashableItem.from_index_entries(entries)
+        hash_result = item.hash()
+        assert hash_result is not None
+        assert len(hash_result) == 32
+
+    def test_single_file_single_test(self) -> None:
+        """Verify single file with single test works."""
+        entries = [
+            TestCaseIndexFile(
+                id="only_test",
+                json_path=Path("tests/test.json"),
+                fixture_hash=HexNumber(
+                    0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                ),
+                fork=None,
+                format=None,
+            ),
+        ]
+        item = HashableItem.from_index_entries(entries)
+        hash_result = item.hash()
+        assert hash_result is not None
+        assert len(hash_result) == 32
+
+    def test_entries_with_none_fixture_hash_skipped(self) -> None:
+        """Verify entries with None fixture_hash are skipped."""
+        entries = [
+            TestCaseIndexFile(
+                id="test_with_hash",
+                json_path=Path("tests/test.json"),
+                fixture_hash=HexNumber(
+                    0x1111111111111111111111111111111111111111111111111111111111111111
+                ),
+                fork=None,
+                format=None,
+            ),
+            TestCaseIndexFile(
+                id="test_without_hash",
+                json_path=Path("tests/test.json"),
+                fixture_hash=None,
+                fork=None,
+                format=None,
+            ),
+        ]
+        item = HashableItem.from_index_entries(entries)
+        # Should still work, just skip the None entry
+        hash_result = item.hash()
+        assert hash_result is not None
+        assert len(hash_result) == 32

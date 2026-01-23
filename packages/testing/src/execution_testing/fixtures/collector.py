@@ -9,12 +9,19 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar, Dict, Literal, Optional, Tuple
+from typing import (
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+)
 
 from execution_testing.base_types import to_json
 
 from .base import BaseFixture
-from .consume import FixtureConsumer
+from .consume import FixtureConsumer, TestCaseIndexFile
 from .file import Fixtures
 
 
@@ -125,10 +132,14 @@ class FixtureCollector:
     filler_path: Path
     base_dump_dir: Optional[Path] = None
     flush_interval: int = 1000
+    generate_index: bool = True
 
     # Internal state
     all_fixtures: Dict[Path, Fixtures] = field(default_factory=dict)
     json_path_to_test_item: Dict[Path, TestInfo] = field(default_factory=dict)
+    index_entries: List[TestCaseIndexFile] = field(default_factory=list)
+    index_forks: set = field(default_factory=set)
+    index_formats: set = field(default_factory=set)
 
     def get_fixture_basename(self, info: TestInfo) -> Path:
         """Return basename of the fixture file for a given test case."""
@@ -165,6 +176,24 @@ class FixtureCollector:
             self.json_path_to_test_item[fixture_path] = info
 
         self.all_fixtures[fixture_path][info.get_id()] = fixture
+
+        # Collect index entry while data is in memory (if indexing enabled)
+        if self.generate_index:
+            relative_path = fixture_path.relative_to(self.output_dir)
+            fixture_fork = fixture.get_fork()
+            self.index_entries.append(
+                TestCaseIndexFile(
+                    id=info.get_id(),
+                    json_path=relative_path,
+                    fixture_hash=fixture.hash,
+                    fork=fixture_fork,
+                    format=fixture.__class__,
+                    pre_hash=getattr(fixture, "pre_hash", None),
+                )
+            )
+            if fixture_fork:
+                self.index_forks.add(fixture_fork)
+            self.index_formats.add(fixture.format_name)
 
         if (
             self.flush_interval > 0
@@ -231,3 +260,57 @@ class FixtureCollector:
             return info.get_dump_dir_path(
                 self.base_dump_dir, self.filler_path, level="test_function"
             )
+
+    def write_partial_index(self, worker_id: str | None = None) -> Path | None:
+        """
+        Append collected index entries to a partial index file.
+
+        Each worker appends to its own partial index file which is later merged
+        by the master process in pytest_sessionfinish. Uses file locking to
+        handle multiple fixture_collector instances per worker (e.g., when
+        using module-scoped collection).
+
+        Args:
+            worker_id: The xdist worker ID (e.g., "gw0"), or None for master.
+
+        Returns:
+            Path to the partial index file, or None if indexing is disabled.
+
+        """
+        from filelock import FileLock
+
+        if not self.generate_index or not self.index_entries:
+            return None
+
+        suffix = f".{worker_id}" if worker_id else ".master"
+        partial_index_path = (
+            self.output_dir / ".meta" / f"partial_index{suffix}.json"
+        )
+        partial_index_path.parent.mkdir(parents=True, exist_ok=True)
+        lock_file_path = partial_index_path.with_suffix(".lock")
+
+        # Append to existing partial index
+        # (may have multiple collectors per worker)
+        with FileLock(lock_file_path):
+            existing_data: Dict = {"entries": [], "forks": [], "formats": []}
+            if partial_index_path.exists():
+                existing_data = json.loads(partial_index_path.read_text())
+
+            # Merge new entries with existing
+            existing_data["entries"].extend(
+                [e.model_dump(mode="json") for e in self.index_entries]
+            )
+            # Convert Fork objects to strings
+            new_forks = {
+                f.name() if hasattr(f, "name") else str(f)
+                for f in self.index_forks
+            }
+            existing_data["forks"] = list(
+                set(existing_data["forks"]) | new_forks
+            )
+            existing_data["formats"] = list(
+                set(existing_data["formats"]) | self.index_formats
+            )
+
+            partial_index_path.write_text(json.dumps(existing_data))
+        return partial_index_path
