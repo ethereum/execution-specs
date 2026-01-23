@@ -22,7 +22,7 @@ from execution_testing import (
     BenchmarkTestFiller,
     Block,
     Bytecode,
-    Create2Addr,
+    Create2PreimageLayout,
     Environment,
     ExtCallGenerator,
     Fork,
@@ -389,7 +389,7 @@ def test_selfdestruct_existing(
 
     code = (
         (
-            create2_addr := Create2Addr(
+            create2_preimage := Create2PreimageLayout(
                 factory_address=factory_address,
                 salt=Op.CALLDATALOAD(0),
                 init_code_hash=initcode.keccak256(),
@@ -397,7 +397,7 @@ def test_selfdestruct_existing(
         )
         # Main loop
         + While(
-            body=Op.POP(Op.CALL(address=create2_addr.compute))
+            body=Op.POP(Op.CALL(address=create2_preimage.sha3_op))
             + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
             # Loop while we have enough gas AND within target count
             condition=Op.GT(Op.GAS, final_storage_gas + loop_cost),

@@ -13,7 +13,7 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Create2Addr,
+    Create2PreimageLayout,
     Fork,
     Op,
     Transaction,
@@ -178,7 +178,7 @@ def test_bloatnet_balance_extcodesize(
         # Memory[128:160] = init_code_hash
         + Op.MLOAD(96)  # Load num_deployed_contracts to stack
         + (
-            create2_addr := Create2Addr(
+            create2_preimage := Create2PreimageLayout(
                 factory_address=factory_address,
                 salt=0,
                 init_code_hash=Op.MLOAD(128),
@@ -188,7 +188,7 @@ def test_bloatnet_balance_extcodesize(
         + While(
             body=(
                 # Generate CREATE2 addr: keccak256(0xFF+factory+salt+hash)
-                create2_addr.compute  # Generate CREATE2 address from memory
+                create2_preimage.sha3_op  # Hash CREATE2 address from memory
                 # The address is now on the stack
                 + Op.DUP1  # Duplicate for second operation
                 + benchmark_ops  # Execute operations in specified order
@@ -370,7 +370,7 @@ def test_bloatnet_balance_extcodecopy(
         # Memory[128:160] = init_code_hash
         + Op.MLOAD(96)  # Load num_deployed_contracts to stack
         + (
-            create2_addr := Create2Addr(
+            create2_preimage := Create2PreimageLayout(
                 factory_address=factory_address,
                 salt=0,
                 init_code_hash=Op.MLOAD(128),
@@ -379,8 +379,8 @@ def test_bloatnet_balance_extcodecopy(
         # Main attack loop - iterate through all deployed contracts
         + While(
             body=(
-                # Generate CREATE2 address
-                create2_addr.compute
+                # Hash CREATE2 address
+                create2_preimage.sha3_op
                 # The address is now on the stack
                 + Op.DUP1  # Duplicate for later operations
                 + benchmark_ops  # Execute operations in specified order
@@ -547,7 +547,7 @@ def test_bloatnet_balance_extcodehash(
         # Load results from memory
         + Op.MLOAD(96)  # Load num_deployed_contracts to stack
         + (
-            create2_addr := Create2Addr(
+            create2_preimage := Create2PreimageLayout(
                 factory_address=factory_address,
                 salt=0,
                 init_code_hash=Op.MLOAD(128),
@@ -556,8 +556,8 @@ def test_bloatnet_balance_extcodehash(
         # Main attack loop
         + While(
             body=(
-                # Generate CREATE2 address
-                create2_addr.compute
+                # Hash CREATE2 address
+                create2_preimage.sha3_op
                 + Op.DUP1  # Duplicate for second operation
                 + benchmark_ops  # Execute operations in specified order
                 # Increment salt

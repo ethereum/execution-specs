@@ -71,7 +71,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Conditional,
-    Create2Addr,
+    Create2PreimageLayout,
     Op,
     Storage,
     Transaction,
@@ -130,7 +130,7 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
             if_false=Op.REVERT(0, 0),
         )
         + (
-            create2_addr := Create2Addr(
+            create2_preimage := Create2PreimageLayout(
                 factory_address=factory_address,
                 salt=Op.SLOAD(0),
                 init_code_hash=Op.MLOAD(128),
@@ -139,7 +139,7 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
         + Op.MSTORE(160, 0)  # Initialize last_size
         + While(
             body=(
-                Op.MSTORE(160, Op.EXTCODESIZE(create2_addr.compute))
+                Op.MSTORE(160, Op.EXTCODESIZE(create2_preimage.sha3_op))
                 + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
             ),
             condition=(

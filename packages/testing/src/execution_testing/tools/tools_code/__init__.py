@@ -5,7 +5,7 @@ from .generators import (
     Case,
     CodeGasMeasure,
     Conditional,
-    Create2Addr,
+    Create2PreimageLayout,
     Initcode,
     Switch,
     While,
@@ -23,5 +23,5 @@ __all__ = (
     "While",
     "Yul",
     "YulCompiler",
-    "Create2Addr",
+    "Create2PreimageLayout",
 )
