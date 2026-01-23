@@ -397,8 +397,8 @@ def test_selfdestruct_existing(
         )
         # Main loop
         + While(
-            body=Op.POP(Op.CALL(address=create2_preimage.sha3_op))
-            + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+            body=Op.POP(Op.CALL(address=create2_preimage.address_op()))
+            + create2_preimage.increment_salt_op(),
             # Loop while we have enough gas AND within target count
             condition=Op.GT(Op.GAS, final_storage_gas + loop_cost),
         )

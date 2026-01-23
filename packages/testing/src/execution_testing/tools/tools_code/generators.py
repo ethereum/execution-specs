@@ -408,7 +408,7 @@ class Create2PreimageLayout(Bytecode):
     - MEM[offset + 32: offset + 64] = salt (32 bytes)
     - MEM[offset + 64: offset + 96] = init_code_hash (32 bytes)
 
-    To compute the CREATE2 address, use: `.sha3_op` or
+    To compute the CREATE2 address, use: `.address_op` or
     `Op.SHA3(offset + 11, 85)`.
     The resulting hash's lower 20 bytes (bytes 12-31) form the address.
     """
@@ -447,13 +447,26 @@ class Create2PreimageLayout(Bytecode):
         return instance
 
     @property
-    def sha3_op(self) -> Bytecode:
+    def salt_offset(self) -> int:
         """
-        Return the Op.SHA3 that computes the CREATE2 address.
+        Return the salt memory offset of the preimage.
+        """
+        return self.offset + 32
+
+    def address_op(self) -> Bytecode:
+        """
+        Return the bytecode that computes the CREATE2 address.
         """
         return Op.SHA3(
             offset=self.offset + 11,
             size=85,
             # Gas accounting
             data_size=85,
+        )
+
+    def increment_salt_op(self, increment: int = 1) -> Bytecode:
+        """Return the bytecode that increments the current salt."""
+        return Op.MSTORE(
+            self.salt_offset,
+            Op.ADD(Op.MLOAD(self.salt_offset), increment),
         )

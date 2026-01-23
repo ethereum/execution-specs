@@ -115,7 +115,9 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
      - MEM[64-95] = init_code_hash (32 bytes)
     """
     gas_reserve = 50_000  # Reserve for 2x SSTORE + cleanup
-
+    num_deployed_offset = 96
+    init_code_hash_offset = num_deployed_offset + 32
+    return_size = 64
     return (
         # Call factory.getConfig() -> (num_deployed, init_code_hash)
         Conditional(
@@ -124,8 +126,10 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
                 address=factory_address,
                 args_offset=0,
                 args_size=0,
-                ret_offset=96,  # MEM[96]=num_deployed, MEM[128]=init_code_hash
-                ret_size=64,
+                # MEM[num_deployed_offset]=num_deployed
+                # MEM[num_deployed_offset + 32]=init_code_hash
+                ret_offset=num_deployed_offset,
+                ret_size=return_size,
             ),
             if_false=Op.REVERT(0, 0),
         )
@@ -133,19 +137,24 @@ def build_attack_contract(factory_address: Address) -> Bytecode:
             create2_preimage := Create2PreimageLayout(
                 factory_address=factory_address,
                 salt=Op.SLOAD(0),
-                init_code_hash=Op.MLOAD(128),
+                init_code_hash=Op.MLOAD(init_code_hash_offset),
+                old_memory_size=num_deployed_offset + return_size,
             )
         )
         + Op.MSTORE(160, 0)  # Initialize last_size
         + While(
             body=(
-                Op.MSTORE(160, Op.EXTCODESIZE(create2_preimage.sha3_op))
-                + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
+                Op.MSTORE(160, Op.EXTCODESIZE(create2_preimage.address_op()))
+                + create2_preimage.increment_salt_op()
             ),
             condition=(
                 Op.AND(
                     Op.GT(Op.GAS, gas_reserve),
-                    Op.GT(Op.MLOAD(96), Op.MLOAD(32)),  # num_deployed > salt
+                    # num_deployed > salt
+                    Op.GT(
+                        Op.MLOAD(num_deployed_offset),
+                        Op.MLOAD(create2_preimage.salt_offset),
+                    ),
                 )
             ),
         )

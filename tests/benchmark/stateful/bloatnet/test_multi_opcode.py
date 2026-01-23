@@ -188,14 +188,13 @@ def test_bloatnet_balance_extcodesize(
         + While(
             body=(
                 # Generate CREATE2 addr: keccak256(0xFF+factory+salt+hash)
-                create2_preimage.sha3_op  # Hash CREATE2 address from memory
+                # Hash CREATE2 address from memory
+                create2_preimage.address_op()
                 # The address is now on the stack
                 + Op.DUP1  # Duplicate for second operation
                 + benchmark_ops  # Execute operations in specified order
                 # Increment salt for next iteration
-                + Op.MSTORE(
-                    32, Op.ADD(Op.MLOAD(32), 1)
-                )  # Increment and store salt
+                + create2_preimage.increment_salt_op()
             ),
             # Continue while we haven't reached the limit
             condition=Op.DUP1
@@ -380,14 +379,12 @@ def test_bloatnet_balance_extcodecopy(
         + While(
             body=(
                 # Hash CREATE2 address
-                create2_preimage.sha3_op
+                create2_preimage.address_op()
                 # The address is now on the stack
                 + Op.DUP1  # Duplicate for later operations
                 + benchmark_ops  # Execute operations in specified order
                 # Increment salt for next iteration
-                + Op.MSTORE(
-                    32, Op.ADD(Op.MLOAD(32), 1)
-                )  # Increment and store salt
+                + create2_preimage.increment_salt_op()
             ),
             # Continue while counter > 0
             condition=Op.DUP1
@@ -557,11 +554,11 @@ def test_bloatnet_balance_extcodehash(
         + While(
             body=(
                 # Hash CREATE2 address
-                create2_preimage.sha3_op
+                create2_preimage.address_op()
                 + Op.DUP1  # Duplicate for second operation
                 + benchmark_ops  # Execute operations in specified order
                 # Increment salt
-                + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
+                + create2_preimage.increment_salt_op()
             ),
             condition=Op.DUP1
             + Op.PUSH1(1)

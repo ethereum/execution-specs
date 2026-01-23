@@ -118,17 +118,17 @@ def test_unchunkified_bytecode(
     attack_call = Bytecode()
     if opcode == Op.EXTCODECOPY:
         attack_call = Op.EXTCODECOPY(
-            address=create2_preimage.sha3_op, dest_offset=96, size=1000
+            address=create2_preimage.address_op(), dest_offset=96, size=1000
         )
     else:
         # For the rest of the opcodes, we can use the same generic attack call
         # since all only minimally need the `address` of the target.
-        attack_call = Op.POP(opcode(address=create2_preimage.sha3_op))
+        attack_call = Op.POP(opcode(address=create2_preimage.address_op()))
     attack_code = (
         create2_preimage
         # Main loop
         + While(
-            body=attack_call + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+            body=attack_call + create2_preimage.increment_salt_op(),
         )
     )
 
