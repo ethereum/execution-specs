@@ -321,6 +321,16 @@ def verify_transaction_receipt(
             expected_value=expected_receipt.gas_used,
             actual_value=actual_receipt.gas_used,
         )
+    if (
+        expected_receipt.gas_spent is not None
+        and actual_receipt.gas_spent != expected_receipt.gas_spent
+    ):
+        raise TransactionReceiptMismatchError(
+            index=transaction_index,
+            field_name="gas_spent",
+            expected_value=expected_receipt.gas_spent,
+            actual_value=actual_receipt.gas_spent,
+        )
     if expected_receipt.logs is not None and actual_receipt.logs is not None:
         actual_logs = actual_receipt.logs
         expected_logs = expected_receipt.logs

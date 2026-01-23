@@ -415,7 +415,8 @@ class Result:
 
             receipt_dict["gasUsed"] = hex(receipt.cumulative_gas_used)
             receipt_dict["bloom"] = "0x" + receipt.bloom.hex()
-
+            if hasattr(receipt, "gas_spent"):
+                receipt_dict["gasSpent"] = hex(receipt.gas_spent)
             # Add logs to receipts
             logs_json = []
             for log in receipt.logs:

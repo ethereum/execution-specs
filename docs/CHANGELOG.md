@@ -33,6 +33,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 ### 🧪 Test Cases
 
+- ✨ Add test cases for eip7778 ([#2045](https://github.com/ethereum/execution-specs/pull/2045)).
 - ✨ Add missing fuzzy-compute benchmark configurations for `KECCAK256`, `CODECOPY`, `CALLDATACOPY`, `RETURNDATACOPY`, `MLOAD`, `MSTORE`, `MSTORE8`, `MCOPY`, `LOG*`, `CALLDATASIZE`, `CALLDATALOAD`, and `RETURNDATASIZE` opcodes ([#1956](https://github.com/ethereum/execution-specs/pull/1956)).
 - ✨ Add precompile benchmark configurations for `ecPairing`, `blake2f`, `BLS12_G1_MSM`, `BLS12_G2_MSM` and `BLS12_PAIRING` to unblock repricing analysis ([#2003](https://github.com/ethereum/execution-specs/pull/2003)).
 - 🔀 Relabel `@pytest.mark.repricing` markers in benchmark tests to reflect configurations requested for gas repricing analysis ([#1971](https://github.com/ethereum/execution-specs/pull/1971)).
@@ -81,6 +82,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ Add tests for an old validation rule for gas limit above 5000 ([#1731](https://github.com/ethereum/execution-specs/pull/1731)).
 - ✨ Add tests for OOG in EXP, LOG and others ([#1686](https://github.com/ethereum/execution-specs/pull/1686)).
 - ✨ Make EIP-7934 tests more dynamic and able to handle new header fields added in future forks ([#2022](https://github.com/ethereum/execution-specs/pull/2022)).
+- ✨ Add EIP-7778 tests to check various values of call data floor cost relative to gas_used ([#2060](https://github.com/ethereum/execution-specs/pull/2060)).
 
 ## [v5.3.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.3.0) - 2025-10-09
 
