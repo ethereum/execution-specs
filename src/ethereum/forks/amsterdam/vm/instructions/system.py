@@ -430,11 +430,9 @@ def call(evm: Evm) -> None:
         extra_gas,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-    if evm.message.is_static and value != U256(0):
-        raise WriteInStaticContext
-    evm.memory += b"\x00" * extend_memory.expand_by
 
     # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(tx_state, evm.message.current_target).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
