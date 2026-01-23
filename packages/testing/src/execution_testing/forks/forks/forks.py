@@ -3365,6 +3365,22 @@ class Amsterdam(BPO2):
         )
 
     @classmethod
+    def opcode_gas_map(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """Add SLOTNUM opcode gas cost for Amsterdam (EIP-7843)."""
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
+        base_map = super(Amsterdam, cls).opcode_gas_map(
+            block_number=block_number, timestamp=timestamp
+        )
+        return {
+            **base_map,
+            Opcodes.SLOTNUM: gas_costs.G_BASE,
+        }
+
+    @classmethod
     def engine_new_payload_version(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
@@ -3390,19 +3406,3 @@ class Amsterdam(BPO2):
         """Slot number in header required from Amsterdam (EIP-7843)."""
         del block_number, timestamp
         return True
-
-    @classmethod
-    def opcode_gas_map(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
-        """Add SLOTNUM opcode gas cost for Amsterdam (EIP-7843)."""
-        gas_costs = cls.gas_costs(
-            block_number=block_number, timestamp=timestamp
-        )
-        base_map = super(Amsterdam, cls).opcode_gas_map(
-            block_number=block_number, timestamp=timestamp
-        )
-        return {
-            **base_map,
-            Opcodes.SLOTNUM: gas_costs.G_BASE,
-        }
