@@ -557,7 +557,9 @@ def get_fork_scenarios(fork: TransitionFork) -> Iterator[ParameterSet]:
     ],
     get_fork_scenarios,
 )
-@pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
+@pytest.mark.valid_at_transition_to(
+    "Osaka", subsequent_forks=True, until="BPO4"
+)
 @pytest.mark.valid_for_bpo_forks()
 @pytest.mark.slow()
 def test_reserve_price_at_transition(
