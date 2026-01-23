@@ -1064,22 +1064,6 @@ def process_transaction(
     )
     set_account_balance(tx_state, sender, sender_balance_after_refund)
 
-    coinbase_balance_after_mining_fee = get_account(
-        tx_state, block_env.coinbase
-    ).balance + U256(transaction_fee)
-
-    set_account_balance(
-        tx_state, block_env.coinbase, coinbase_balance_after_mining_fee
-    )
-
-    if coinbase_balance_after_mining_fee == 0 and account_exists_and_is_empty(
-        tx_state, block_env.coinbase
-    ):
-        destroy_account(tx_state, block_env.coinbase)
-
-    block_output.block_gas_used += tx_gas_used_after_refund
-    block_output.blob_gas_used += tx_blob_gas_used
-
     # EIP-7708: Emit selfdestruct logs for remaining balance at finalization.
     # This handles the case where a contract receives ETH after being flagged
     # for SELFDESTRUCT but before finalization.
@@ -1100,6 +1084,22 @@ def process_transaction(
             )
 
     all_logs = tx_output.logs + tuple(finalization_logs)
+
+    coinbase_balance_after_mining_fee = get_account(
+        tx_state, block_env.coinbase
+    ).balance + U256(transaction_fee)
+
+    set_account_balance(
+        tx_state, block_env.coinbase, coinbase_balance_after_mining_fee
+    )
+
+    if coinbase_balance_after_mining_fee == 0 and account_exists_and_is_empty(
+        tx_state, block_env.coinbase
+    ):
+        destroy_account(tx_state, block_env.coinbase)
+
+    block_output.block_gas_used += tx_gas_used_after_refund
+    block_output.blob_gas_used += tx_blob_gas_used
 
     receipt = make_receipt(
         tx, tx_output.error, block_output.block_gas_used, all_logs
