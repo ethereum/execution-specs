@@ -917,7 +917,7 @@ def test_gas_cost(
         # case.
         discount_gas = max_discount
 
-    gas_used = tx_gas_limit - discount_gas
+    gas_spent = tx_gas_limit - discount_gas
 
     sender_account = pre[sender]
     assert sender_account is not None
@@ -930,7 +930,9 @@ def test_gas_cost(
         authorization_list=authorization_list,
         access_list=access_list,
         sender=sender,
-        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=tx_gas_limit, gas_spent=gas_spent
+        ),
     )
 
     state_test(
