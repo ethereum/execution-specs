@@ -5,10 +5,10 @@ from .generators import (
     Case,
     CodeGasMeasure,
     Conditional,
+    Create2Addr,
     Initcode,
     Switch,
     While,
-    Create2Addr,
 )
 from .yul import Solc, Yul, YulCompiler
 

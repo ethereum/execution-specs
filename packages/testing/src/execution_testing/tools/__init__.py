@@ -8,10 +8,10 @@ from .tools_code import (
     Case,
     CodeGasMeasure,
     Conditional,
+    Create2Addr,
     Initcode,
     Switch,
     While,
-    Create2Addr,
 )
 from .utility.generators import (
     DeploymentTestType,

@@ -408,7 +408,8 @@ class Create2Addr(Bytecode):
     - MEM[offset + 32: offset + 64] = salt (32 bytes)
     - MEM[offset + 64: offset + 96] = init_code_hash (32 bytes)
 
-    To compute the CREATE2 address, use: `.compute` or `Op.SHA3(offset + 11, 85)`
+    To compute the CREATE2 address, use: `.compute` or
+    `Op.SHA3(offset + 11, 85)`.
     The resulting hash's lower 20 bytes (bytes 12-31) form the address.
     """
 
