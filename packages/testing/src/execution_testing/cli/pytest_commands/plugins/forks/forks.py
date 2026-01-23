@@ -1294,13 +1294,13 @@ def blob_params_changed_at_transition(fork: Fork) -> bool:
     """
     Check if BPO-relevant blob parameters change at a fork transition.
 
-    For transition forks, compares the 3 blob parameters that BPO forks modify:
+    For transition forks, compares the 3 blob parameters that BPO forks modify
+    between the from_fork and to_fork:
 
     - target_blobs_per_block
     - max_blobs_per_block
     - blob_base_fee_update_fraction
 
-    before (timestamp=0) and after (timestamp=15_000) the transition.
     Returns True if any parameter changed, False otherwise.
 
     For non-transition forks, returns True (no filtering needed).
@@ -1311,8 +1311,10 @@ def blob_params_changed_at_transition(fork: Fork) -> bool:
     ):
         return True
 
+    from_fork = fork.transitions_from()
+    to_fork = fork.transitions_to()
+
     # Compare the 3 blob parameters that BPO forks modify
-    # timestamp=0 is before transition, timestamp=15_000 is after
     bpo_blob_params = [
         "target_blobs_per_block",
         "max_blobs_per_block",
@@ -1320,12 +1322,11 @@ def blob_params_changed_at_transition(fork: Fork) -> bool:
     ]
 
     for param in bpo_blob_params:
-        method = getattr(fork, param, None)
-        if method is None:
+        from_method = getattr(from_fork, param, None)
+        to_method = getattr(to_fork, param, None)
+        if from_method is None or to_method is None:
             continue
-        before = method(timestamp=0)
-        after = method(timestamp=15_000)
-        if before != after:
+        if from_method() != to_method():
             return True
 
     return False
