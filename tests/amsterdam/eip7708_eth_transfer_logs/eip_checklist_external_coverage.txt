@@ -1,0 +1,3 @@
+general/code_coverage/eels = EIP-7708 specific code (emit_transfer_log in vm/__init__.py) has full coverage; check codecov for src/ethereum/forks/amsterdam/vm/__init__.py and src/ethereum/forks/amsterdam/vm/interpreter.py
+general/code_coverage/test_coverage = Run with `--cov` flag; 99% coverage on vm/__init__.py, 92% on interpreter.py
+general/code_coverage/missed_lines = Missed lines are general VM infrastructure (static context errors, gas accounting, error handling) not related to EIP-7708
