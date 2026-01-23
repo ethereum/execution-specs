@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from execution_testing import Address, Hash, keccak256
+from execution_testing import Address, Bytes, Hash, TransactionLog, keccak256
 
 
 @dataclass(frozen=True)
@@ -33,4 +33,31 @@ class Spec:
     )
     SELFDESTRUCT_TOPIC: Hash = Hash(
         keccak256(b"Selfdestruct(address,uint256)")
+    )
+
+
+def transfer_log(
+    sender: Address, recipient: Address, amount: int
+) -> TransactionLog:
+    """Create an expected Transfer log for EIP-7708."""
+    return TransactionLog(
+        address=Spec.SYSTEM_ADDRESS,
+        topics=[
+            Spec.TRANSFER_TOPIC,
+            Hash(bytes(sender).rjust(32, b"\x00")),
+            Hash(bytes(recipient).rjust(32, b"\x00")),
+        ],
+        data=Bytes(amount.to_bytes(32, "big")),
+    )
+
+
+def selfdestruct_log(contract_address: Address, amount: int) -> TransactionLog:
+    """Create an expected Selfdestruct log for EIP-7708."""
+    return TransactionLog(
+        address=Spec.SYSTEM_ADDRESS,
+        topics=[
+            Spec.SELFDESTRUCT_TOPIC,
+            Hash(bytes(contract_address).rjust(32, b"\x00")),
+        ],
+        data=Bytes(amount.to_bytes(32, "big")),
     )
