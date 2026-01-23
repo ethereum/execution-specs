@@ -112,7 +112,7 @@ def test_unchunkified_bytecode(
 
     create2_preimage = Create2PreimageLayout(
         factory_address=factory_address,
-        salt=0,
+        salt=Op.CALLDATALOAD(0),
         init_code_hash=initcode.keccak256(),
     )
     attack_call = Bytecode()
