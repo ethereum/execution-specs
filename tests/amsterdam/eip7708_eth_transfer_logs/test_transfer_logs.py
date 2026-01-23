@@ -548,6 +548,12 @@ def test_create_insufficient_balance_no_log(
             Op.INVALID + Op.RETURN(0, 0),
             id="invalid_opcode",
         ),
+        pytest.param(
+            # OOG during code deposit payment (200 gas/byte for returned code)
+            # Returns 1000 bytes which costs 200,000 gas for code deposit
+            Op.RETURN(0, 1000),
+            id="create_out_of_gas_code_deposit",
+        ),
     ],
 )
 def test_create_out_of_gas_no_log(
