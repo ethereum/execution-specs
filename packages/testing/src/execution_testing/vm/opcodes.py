@@ -511,6 +511,163 @@ class Macro(Bytecode):
         return pre_opcode_bytecode + self
 
 
+def _exchange_encoder(*args: int | bytes) -> bytes:
+    """
+    Encoder for EXCHANGE opcode following encode_pair logic from EIP-8024.
+
+    Supports two modes:
+    1. bytes input: Returns verbatim (for testing invalid immediate bytes)
+    2. int input(s): Validates and encodes using encode_pair logic
+
+    Parameters
+    ----------
+    *args : int | bytes
+        Either bytes (returned verbatim) or 1-2 ints (encoded)
+
+    Returns
+    -------
+    bytes
+        The immediate byte for EXCHANGE opcode
+
+    """
+    # If bytes are provided, return them verbatim (for testing invalid ranges)
+    if len(args) == 1 and isinstance(args[0], bytes):
+        return args[0]
+
+    # If one int is provided, it's the immediate byte value directly
+    if len(args) == 1 and isinstance(args[0], int):
+        return int.to_bytes(args[0], 1, "big")
+
+    # If two ints are provided, use encode_pair logic from EIP-8024
+    if len(args) == 2:
+        n, m = args
+        if not isinstance(n, int) or not isinstance(m, int):
+            raise TypeError(
+                "EXCHANGE requires int arguments when using two parameters"
+            )
+
+        # encode_pair logic from EIP-8024
+        # n is first stack index (1-13), m is second (must be > n, up to 29)
+        if not (1 <= n <= 13 and n < m <= 29 and n + m <= 30):
+            raise ValueError(
+                f"EXCHANGE indices must satisfy: 1 <= n <= 13, "
+                f"n < m <= 29, n + m <= 30, got n={n}, m={m}"
+            )
+        if m <= 16:
+            q, r = n - 1, m - 1
+        else:
+            q, r = 29 - m, n - 1
+        k = 16 * q + r
+        imm = k if k <= 79 else k + 48
+        return int.to_bytes(imm, 1, "big")
+
+    raise ValueError(f"EXCHANGE requires 1 or 2 arguments, got {len(args)}")
+
+
+def _dupn_swapn_encoder(*args: int | bytes) -> bytes:
+    """
+    Encoder for DUPN/SWAPN opcodes following encode_single logic from EIP-8024.
+
+    Supports two modes:
+    1. bytes input: Returns verbatim (for testing invalid immediate bytes)
+    2. int input: Validates and encodes using encode_single logic
+
+    Parameters
+    ----------
+    *args : int | bytes
+        Either bytes (returned verbatim) or a single int (encoded)
+
+    Returns
+    -------
+    bytes
+        The immediate byte for DUPN/SWAPN opcode
+
+    """
+    if len(args) != 1:
+        raise ValueError(
+            f"DUPN/SWAPN requires exactly 1 argument, got {len(args)}"
+        )
+
+    arg = args[0]
+
+    # If bytes are provided, return them verbatim (for testing invalid ranges)
+    if isinstance(arg, bytes):
+        return arg
+
+    # If int is provided, use encode_single logic from EIP-8024
+    if isinstance(arg, int):
+        # encode_single logic: n is stack index (17-235)
+        if not (17 <= arg <= 235):
+            raise ValueError(
+                f"DUPN/SWAPN index must be in range [17, 235], got {arg}"
+            )
+        if arg <= 107:
+            imm = arg - 17
+        else:
+            imm = arg + 20
+        return int.to_bytes(imm, 1, "big")
+
+    raise TypeError(
+        f"DUPN/SWAPN requires int or bytes argument, got {type(arg)}"
+    )
+
+
+def _swapn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
+    n = int.from_bytes(data, "big")
+    if n <= 90:
+        min_stack_height = n + 17
+    elif n >= 128:
+        min_stack_height = n - 20
+    else:
+        # Undefined behavior
+        min_stack_height = 0
+    return (
+        0,
+        0,
+        min_stack_height + 1,
+        min_stack_height + 1,
+    )
+
+
+def _dupn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
+    n = int.from_bytes(data, "big")
+    if n <= 90:
+        min_stack_height = n + 17
+    elif n >= 128:
+        min_stack_height = n - 20
+    else:
+        # Undefined behavior
+        min_stack_height = 0
+    return (
+        0,
+        1,
+        min_stack_height,
+        min_stack_height + 1,
+    )
+
+
+def _exchange_stack_properties_modifier(
+    data: bytes,
+) -> tuple[int, int, int, int]:
+    n = int.from_bytes(data, "big")
+    if n > 79 and n < 128:
+        # Undefined behavior
+        min_stack_height = 0
+    else:
+        k = n if n <= 79 else n - 48
+        q, r = divmod(k, 16)
+        if q < r:
+            min_stack_height = max(q + 1, r + 1)
+        else:
+            min_stack_height = max(r + 1, 29 - q)
+    return (
+        0,
+        0,
+        min_stack_height + 1,
+        min_stack_height + 1,
+    )
+
+
 class Opcodes(Opcode, Enum):
     """
     Enum containing all known opcodes.
@@ -5078,6 +5235,118 @@ class Opcodes(Opcode, Enum):
     - old_memory_size: memory size before expansion in bytes (default: 0)
 
     Source: [evm.codes/#A4](https://www.evm.codes/#A4)
+    """
+
+    DUPN = Opcode(
+        0xE6,
+        pushed_stack_items=1,
+        data_portion_length=1,
+        data_portion_formatter=_dupn_swapn_encoder,
+        stack_properties_modifier=_dupn_stack_properties_modifier,
+    )
+    """
+    DUPN()
+    ----
+
+    Description
+    ----
+
+    - deduct 3 gas
+    - read uint8 operand imm
+    - n = imm + 1
+    - n'th (1-based) stack item is duplicated at the top of the stack
+    - Stack validation: stack_height >= n
+
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas
+    ----
+    3
+
+    """
+
+    SWAPN = Opcode(
+        0xE7,
+        data_portion_length=1,
+        data_portion_formatter=_dupn_swapn_encoder,
+        stack_properties_modifier=_swapn_stack_properties_modifier,
+    )
+    """
+    SWAPN()
+    ----
+
+    Description
+    ----
+
+    - deduct 3 gas
+    - read uint8 operand imm
+    - n = imm + 1
+    - n + 1th stack item is swapped with the top stack item (1-based).
+    - Stack validation: stack_height >= n + 1
+
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas
+    ----
+    3
+
+    """
+
+    EXCHANGE = Opcode(
+        0xE8,
+        data_portion_length=1,
+        data_portion_formatter=_exchange_encoder,
+        stack_properties_modifier=_exchange_stack_properties_modifier,
+    )
+    """
+    EXCHANGE[x, y]
+    ----
+
+    Description
+    ----
+    Exchanges two stack positions.  Two nybbles, n is high 4 bits + 1,
+    then  m is 4 low bits + 1.
+    Exchanges the n+1'th item with the n + m + 1 item.
+
+    Inputs x and y when the opcode is used as `EXCHANGE[x, y]`, are equal to:
+    - x = n + 1
+    - y = n + m + 1
+    Which each equals to 1-based stack positions swapped.
+
+    Inputs
+    ----
+    n + m + 1, or ((imm >> 4) + (imm &0x0F) + 3) from the raw immediate,
+
+    Outputs
+    ----
+    n + m + 1, or ((imm >> 4) + (imm &0x0F) + 3) from the raw immediate,
+
+    Fork
+    ----
+    Amsterdam
+
+    Gas
+    ----
+    3
+
     """
 
     CREATE = Opcode(
