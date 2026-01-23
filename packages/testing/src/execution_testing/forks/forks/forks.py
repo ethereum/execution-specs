@@ -3356,6 +3356,15 @@ class Amsterdam(BPO2):
         return False
 
     @classmethod
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
+        """Add SLOTNUM opcode for Amsterdam (EIP-7843)."""
+        return [Opcodes.SLOTNUM] + super(Amsterdam, cls).valid_opcodes(
+            block_number=block_number, timestamp=timestamp
+        )
+
+    @classmethod
     def engine_new_payload_version(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
@@ -3397,12 +3406,3 @@ class Amsterdam(BPO2):
             **base_map,
             Opcodes.SLOTNUM: gas_costs.G_BASE,
         }
-
-    @classmethod
-    def valid_opcodes(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Opcodes]:
-        """Add SLOTNUM opcode for Amsterdam (EIP-7843)."""
-        return [Opcodes.SLOTNUM] + super(Amsterdam, cls).valid_opcodes(
-            block_number=block_number, timestamp=timestamp
-        )
