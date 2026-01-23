@@ -220,7 +220,7 @@ def emit_transfer_log(
     sender :
         The account address sending the transfer
     recipient :
-        The account address recieving the transfer
+        The account address receiving the transfer
     transfer_amount :
         The amount of ETH transacted
 
