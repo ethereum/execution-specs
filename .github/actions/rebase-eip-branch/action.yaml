@@ -57,6 +57,9 @@ runs:
           exit 1
         fi
 
+        echo "Running static checks on rebased branch"
+        uvx --with=tox-uv tox -e static
+
         echo "Rebase successful"
 
     - name: Push rebased branch

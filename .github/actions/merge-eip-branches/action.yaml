@@ -113,6 +113,9 @@ runs:
           fi
         done
 
+        echo "Running static checks on merged branch"
+        uvx --with=tox-uv tox -e static
+
         echo "All EIP branches merged successfully"
 
     - name: Push devnet branch
