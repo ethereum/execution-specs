@@ -233,13 +233,16 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
     This is called by pytest_sessionfinish on the master process after all
     workers have finished and written their partial indexes.
 
+    Partial indexes use JSONL format (one JSON object per line) for efficient
+    append-only writes during fill. Entries are validated with Pydantic here.
+
     Args:
         output_dir: The fixture output directory.
         quiet_mode: If True, don't print status messages.
 
     """
     meta_dir = output_dir / ".meta"
-    partial_files = list(meta_dir.glob("partial_index*.json"))
+    partial_files = list(meta_dir.glob("partial_index*.jsonl"))
 
     if not partial_files:
         # Fallback to old method if no partial indexes exist
@@ -253,17 +256,27 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
         )
         return
 
-    # Merge all partial indexes
+    # Merge all partial indexes (JSONL format: one entry per line)
     all_entries: List[TestCaseIndexFile] = []
     all_forks: set = set()
     all_formats: set = set()
 
     for partial_file in partial_files:
-        partial_data = json.loads(partial_file.read_text())
-        for entry in partial_data["entries"]:
-            all_entries.append(TestCaseIndexFile.model_validate(entry))
-        all_forks.update(partial_data.get("forks", []))
-        all_formats.update(partial_data.get("formats", []))
+        with open(partial_file) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                entry_data = json.loads(line)
+                # Validate with Pydantic
+                # (deferred from add_fixture for performance)
+                entry = TestCaseIndexFile.model_validate(entry_data)
+                all_entries.append(entry)
+                # Collect forks and formats from validated entries
+                if entry.fork:
+                    all_forks.add(entry.fork.name())
+                if entry.format:
+                    all_formats.add(entry.format.__name__)
 
     # Compute root hash from collected fixture hashes
     root_hash = HashableItem.from_index_entries(all_entries).hash()

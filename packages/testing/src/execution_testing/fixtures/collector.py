@@ -18,10 +18,12 @@ from typing import (
     Tuple,
 )
 
+from filelock import FileLock
+
 from execution_testing.base_types import to_json
 
 from .base import BaseFixture
-from .consume import FixtureConsumer, TestCaseIndexFile
+from .consume import FixtureConsumer
 from .file import Fixtures
 
 
@@ -137,9 +139,9 @@ class FixtureCollector:
     # Internal state
     all_fixtures: Dict[Path, Fixtures] = field(default_factory=dict)
     json_path_to_test_item: Dict[Path, TestInfo] = field(default_factory=dict)
-    index_entries: List[TestCaseIndexFile] = field(default_factory=list)
-    index_forks: set = field(default_factory=set)
-    index_formats: set = field(default_factory=set)
+    # Store index entries as simple dicts
+    # (avoid Pydantic overhead during collection)
+    index_entries: List[Dict] = field(default_factory=list)
 
     def get_fixture_basename(self, info: TestInfo) -> Path:
         """Return basename of the fixture file for a given test case."""
@@ -178,22 +180,22 @@ class FixtureCollector:
         self.all_fixtures[fixture_path][info.get_id()] = fixture
 
         # Collect index entry while data is in memory (if indexing enabled)
+        # Store as simple dict to avoid Pydantic overhead during collection
         if self.generate_index:
             relative_path = fixture_path.relative_to(self.output_dir)
             fixture_fork = fixture.get_fork()
             self.index_entries.append(
-                TestCaseIndexFile(
-                    id=info.get_id(),
-                    json_path=relative_path,
-                    fixture_hash=fixture.hash,
-                    fork=fixture_fork,
-                    format=fixture.__class__,
-                    pre_hash=getattr(fixture, "pre_hash", None),
-                )
+                {
+                    "id": info.get_id(),
+                    "json_path": str(relative_path),
+                    "fixture_hash": str(fixture.hash)
+                    if fixture.hash
+                    else None,
+                    "fork": fixture_fork.name() if fixture_fork else None,
+                    "format": fixture.format_name,
+                    "pre_hash": getattr(fixture, "pre_hash", None),
+                }
             )
-            if fixture_fork:
-                self.index_forks.add(fixture_fork)
-            self.index_formats.add(fixture.format_name)
 
         if (
             self.flush_interval > 0
@@ -263,12 +265,12 @@ class FixtureCollector:
 
     def write_partial_index(self, worker_id: str | None = None) -> Path | None:
         """
-        Append collected index entries to a partial index file.
+        Append collected index entries to a partial index file using JSONL
+        format.
 
-        Each worker appends to its own partial index file which is later merged
-        by the master process in pytest_sessionfinish. Uses file locking to
-        handle multiple fixture_collector instances per worker (e.g., when
-        using module-scoped collection).
+        Uses append-only JSONL (JSON Lines) format for efficient writes without
+        read-modify-write cycles. Each line is a complete JSON object
+        representing one index entry.
 
         Args:
             worker_id: The xdist worker ID (e.g., "gw0"), or None for master.
@@ -277,40 +279,21 @@ class FixtureCollector:
             Path to the partial index file, or None if indexing is disabled.
 
         """
-        from filelock import FileLock
-
         if not self.generate_index or not self.index_entries:
             return None
 
         suffix = f".{worker_id}" if worker_id else ".master"
         partial_index_path = (
-            self.output_dir / ".meta" / f"partial_index{suffix}.json"
+            self.output_dir / ".meta" / f"partial_index{suffix}.jsonl"
         )
         partial_index_path.parent.mkdir(parents=True, exist_ok=True)
         lock_file_path = partial_index_path.with_suffix(".lock")
 
-        # Append to existing partial index
-        # (may have multiple collectors per worker)
+        # Append entries as JSONL (one JSON object per line)
+        # This avoids read-modify-write cycles
         with FileLock(lock_file_path):
-            existing_data: Dict = {"entries": [], "forks": [], "formats": []}
-            if partial_index_path.exists():
-                existing_data = json.loads(partial_index_path.read_text())
+            with open(partial_index_path, "a") as f:
+                for entry in self.index_entries:
+                    f.write(json.dumps(entry) + "\n")
 
-            # Merge new entries with existing
-            existing_data["entries"].extend(
-                [e.model_dump(mode="json") for e in self.index_entries]
-            )
-            # Convert Fork objects to strings
-            new_forks = {
-                f.name() if hasattr(f, "name") else str(f)
-                for f in self.index_forks
-            }
-            existing_data["forks"] = list(
-                set(existing_data["forks"]) | new_forks
-            )
-            existing_data["formats"] = list(
-                set(existing_data["formats"]) | self.index_formats
-            )
-
-            partial_index_path.write_text(json.dumps(existing_data))
         return partial_index_path
