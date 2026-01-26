@@ -35,6 +35,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 ### 📋 Misc
 
 - ✨ Implement EIP-7928 Block-Level Access Lists ([#1719](https://github.com/ethereum/execution-specs/pull/1719)).
+- ✨ Revert EIP-7778 to using the cumulative post refund gas in receipts ([#2073](https://github.com/ethereum/execution-specs/pull/2073)).
 
 ### 🧪 Test Cases
 

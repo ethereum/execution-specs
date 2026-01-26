@@ -86,19 +86,18 @@ def test_simple_gas_accounting(
                 f"effective_refund ({effective_refund}) must be greater than 0"
             )
             gas_used_post_refund = gas_used_pre_refund - effective_refund
-            refund_tx_gas_used = gas_used_pre_refund
-            refund_tx_gas_spent = gas_used_post_refund
+            refund_tx_block_gas_used = gas_used_pre_refund
+            refund_tx_gas_used = gas_used_post_refund
 
             if refund_tx_reverts:
-                refund_tx_gas_spent = refund_tx_gas_used
+                refund_tx_gas_used = refund_tx_block_gas_used
 
             refund_tx = Transaction(
                 to=contract_address,
-                gas_limit=refund_tx_gas_used,
+                gas_limit=refund_tx_block_gas_used,
                 sender=refund_tx_sender,
                 expected_receipt={
                     "gas_used": refund_tx_gas_used,
-                    "gas_spent": refund_tx_gas_spent,
                 },
             )
             refund_tx_gas_price = refund_tx.gas_price
@@ -147,17 +146,16 @@ def test_simple_gas_accounting(
             )
             gas_used_post_refund = gas_used_pre_refund - effective_refund
 
-            refund_tx_gas_used = gas_used_pre_refund
-            refund_tx_gas_spent = gas_used_post_refund
+            refund_tx_block_gas_used = gas_used_pre_refund
+            refund_tx_gas_used = gas_used_post_refund
 
             refund_tx = Transaction(
                 to=contract_address,
-                gas_limit=refund_tx_gas_used,
+                gas_limit=refund_tx_block_gas_used,
                 sender=refund_tx_sender,
                 authorization_list=authorization_list,
                 expected_receipt={
                     "gas_used": refund_tx_gas_used,
-                    "gas_spent": refund_tx_gas_spent,
                 },
             )
             refund_tx_gas_price = refund_tx.max_fee_per_gas
@@ -171,7 +169,7 @@ def test_simple_gas_accounting(
         "refund_tx_gas_price should not be None"
     )
     expected_balance = initial_fund - (
-        refund_tx_gas_spent * refund_tx_gas_price
+        refund_tx_gas_used * refund_tx_gas_price
     )
 
     post[refund_tx_sender] = Account(balance=expected_balance)
@@ -181,7 +179,7 @@ def test_simple_gas_accounting(
         blocks=[
             Block(
                 txs=[refund_tx],
-                expected_gas_used=gas_used_pre_refund,
+                expected_gas_used=refund_tx_block_gas_used,
             )
         ],
         post=post,
@@ -289,11 +287,11 @@ def test_multi_transaction_gas_accounting(
             )
             gas_used_post_refund = gas_used_pre_refund - effective_refund
 
-            refund_tx_gas_used = gas_used_pre_refund
-            refund_tx_gas_spent = gas_used_post_refund
+            refund_tx_block_gas_used = gas_used_pre_refund
+            refund_tx_gas_used = gas_used_post_refund
 
             if refund_tx_reverts:
-                refund_tx_gas_spent = refund_tx_gas_used
+                refund_tx_gas_used = refund_tx_block_gas_used
 
             refund_tx = Transaction(
                 to=contract_address,
@@ -301,7 +299,6 @@ def test_multi_transaction_gas_accounting(
                 sender=refund_tx_sender,
                 expected_receipt={
                     "gas_used": refund_tx_gas_used,
-                    "gas_spent": refund_tx_gas_spent,
                 },
             )
 
@@ -350,17 +347,16 @@ def test_multi_transaction_gas_accounting(
             )
             gas_used_post_refund = gas_used_pre_refund - effective_refund
 
-            refund_tx_gas_used = gas_used_pre_refund
-            refund_tx_gas_spent = gas_used_post_refund
+            refund_tx_block_gas_used = gas_used_pre_refund
+            refund_tx_gas_used = gas_used_post_refund
 
             refund_tx = Transaction(
                 to=contract_address,
-                gas_limit=gas_used_pre_refund + refund_tx_extra_gas,
+                gas_limit=refund_tx_block_gas_used + refund_tx_extra_gas,
                 sender=refund_tx_sender,
                 authorization_list=authorization_list,
                 expected_receipt={
                     "gas_used": refund_tx_gas_used,
-                    "gas_spent": refund_tx_gas_spent,
                 },
             )
             refund_tx_gas_price = refund_tx.max_fee_per_gas
@@ -373,7 +369,7 @@ def test_multi_transaction_gas_accounting(
         "refund_tx_gas_price should not be None"
     )
     expected_balance = initial_fund - (
-        refund_tx_gas_spent * refund_tx_gas_price
+        refund_tx_gas_used * refund_tx_gas_price
     )
 
     extra_tx_sender = pre.fund_eoa()
@@ -395,11 +391,13 @@ def test_multi_transaction_gas_accounting(
         else None,
     )
 
-    total_gas_used = refund_tx_gas_used + extra_tx_intrinsic_gas_cost
+    total_block_gas_used = (
+        refund_tx_block_gas_used + extra_tx_intrinsic_gas_cost
+    )
     if exceed_block_gas_limit:
-        environment_gas_limit = total_gas_used - 1
+        environment_gas_limit = total_block_gas_used - 1
     else:
-        environment_gas_limit = total_gas_used
+        environment_gas_limit = total_block_gas_used
         post[refund_tx_sender] = Account(balance=expected_balance)
 
     txs = [refund_tx, extra_tx]
@@ -412,7 +410,7 @@ def test_multi_transaction_gas_accounting(
                 exception=BlockException.GAS_USED_OVERFLOW
                 if exceed_block_gas_limit
                 else None,
-                expected_gas_used=total_gas_used
+                expected_gas_used=total_block_gas_used
                 if not exceed_block_gas_limit
                 else None,
                 gas_limit=environment_gas_limit,
@@ -601,8 +599,8 @@ def test_varying_calldata_costs(
             f"Could not find the call_data with {num_iterations} iterations."
         )
 
-    gas_used = max(call_data_floor_cost, gas_used_pre_refund)
-    gas_spent = max(call_data_floor_cost, gas_used_post_refund)
+    block_gas_used = max(call_data_floor_cost, gas_used_pre_refund)
+    tx_gas_used = max(call_data_floor_cost, gas_used_post_refund)
 
     tx = Transaction(
         to=contract_address,
@@ -612,18 +610,17 @@ def test_varying_calldata_costs(
         gas_price=7,
         authorization_list=authorization_list,
         expected_receipt={
-            "gas_used": gas_used,
-            "gas_spent": gas_spent,
+            "gas_used": tx_gas_used,
         },
     )
 
     assert tx.gas_price is not None, "tx.gas_price should not be None"
-    expected_balance = initial_fund - gas_spent * tx.gas_price
+    expected_balance = initial_fund - tx_gas_used * tx.gas_price
 
     post[sender] = Account(balance=expected_balance)
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], expected_gas_used=gas_used)],
+        blocks=[Block(txs=[tx], expected_gas_used=block_gas_used)],
         post=post,
     )
