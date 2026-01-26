@@ -39,6 +39,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ New EIP-7702 test cases added ([#1974](https://github.com/ethereum/execution-specs/pull/1974)).
 - ✨ Add missing benchmark configurations / opcode to benchmark tests for repricing analysis([#2006](https://github.com/ethereum/execution-specs/pull/2006)).
 - ✨ Port STATICCALL to CALL tests with zero and non-zero value transfer from `tests/static`, extending coverage with `pytest.mark.with_all_precompiles` ([#1960](https://github.com/ethereum/execution-specs/pull/1960)).
+- ✨ Add BAL tests that dequeue EIP-7251 consolidation requests. ([#2076](https://github.com/ethereum/execution-specs/pull/2076)).
 
 ## [v5.4.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.4.0) - 2025-12-07
 
