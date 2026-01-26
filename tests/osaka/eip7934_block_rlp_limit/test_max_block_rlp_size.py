@@ -45,7 +45,10 @@ pytestmark = [
 
 
 HEADER_TIMESTAMP = 123456789
-EXTRA_DATA_AT_LIMIT = b"\x00\x00\x00"
+EXTRA_DATA_AT_LIMIT = b"\x00" * 15
+# Max size adjustment extra_data can absorb
+# reserves 1 byte so delta=-1 tests stay valid
+EXTRA_DATA_TOLERANCE = len(EXTRA_DATA_AT_LIMIT) - 1
 BLOCK_GAS_LIMIT = 100_000_000
 
 
@@ -363,18 +366,19 @@ def _exact_size_transactions_impl(
                 withdrawals=withdrawals,
             )
 
-            if test_size == block_size_limit:
+            diff = abs(block_size_limit - test_size)
+
+            if diff <= EXTRA_DATA_TOLERANCE:
                 transactions.append(test_tx)
             else:
-                # Binary search for the calldata size that hits the target.
+                # Binary search for calldata size within tolerance.
                 # Block size is monotonically non-decreasing with calldata
                 # length, so binary search converges in ~O(log N) iterations.
-                diff = block_size_limit - test_size
-                search_range = min(abs(diff) + 50, 1000)
+                search_range = min(diff + 50, 1000)
                 low = max(0, estimated_calldata - search_range)
                 high = estimated_calldata + search_range
 
-                best_diff = abs(diff)
+                best_diff = diff
                 best_tx = test_tx
 
                 while low <= high:
@@ -406,14 +410,14 @@ def _exact_size_transactions_impl(
                         best_diff = mid_diff
                         best_tx = mid_tx
 
-                    if mid_size == block_size_limit:
+                    if mid_diff <= EXTRA_DATA_TOLERANCE:
                         break
                     elif mid_size < block_size_limit:
                         low = mid + 1
                     else:
                         high = mid - 1
 
-                if best_diff <= 1:
+                if best_diff <= EXTRA_DATA_TOLERANCE:
                     transactions.append(best_tx)
                 else:
                     raise RuntimeError(
@@ -430,13 +434,12 @@ def _exact_size_transactions_impl(
     )
     final_gas = sum(tx.gas_limit for tx in transactions)
 
-    # RLP encoding boundaries can make some exactness unachievable (±1 byte).
-    # Compute the extra_data length that compensates for any gap.
+    # Compute the extra_data length that compensates for any size gap.
     size_diff = final_size - block_size_limit
-    assert abs(size_diff) <= 1, (
+    assert abs(size_diff) <= EXTRA_DATA_TOLERANCE, (
         f"Size mismatch: got {final_size}, "
         f"expected {block_size_limit} "
-        f"({size_diff} bytes diff, exceeds ±1 tolerance)"
+        f"({size_diff} bytes diff, exceeds ±{EXTRA_DATA_TOLERANCE} tolerance)"
     )
     extra_data_len = len(EXTRA_DATA_AT_LIMIT) - size_diff
     return transactions, final_gas, extra_data_len
@@ -682,8 +685,8 @@ def test_fork_transition_block_rlp_limit(
     )
 
     # HEADER_TIMESTAMP (123456789) used in calculation takes 4 bytes in RLP
-    # encoding. Transition timestamps (14_999 and 15_000) take 2 bytes
-    # Re-define `_extradata_at_limit` accounting for this difference
+    # encoding. Transition timestamps (14_999 and 15_000) take 2 bytes.
+    # Add the difference to extra_data to keep block at the limit.
     timestamp_byte_savings = 2
 
     extra_data_before = extra_data_len_before + timestamp_byte_savings
