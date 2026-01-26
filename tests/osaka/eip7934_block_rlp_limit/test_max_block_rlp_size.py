@@ -364,62 +364,62 @@ def _exact_size_transactions_impl(
             )
 
             if test_size == block_size_limit:
-                # if exact match, use the transaction
                 transactions.append(test_tx)
             else:
-                # search for the best adjustment
+                # Binary search for the calldata size that hits the target.
+                # Block size is monotonically non-decreasing with calldata
+                # length, so binary search converges in ~O(log N) iterations.
                 diff = block_size_limit - test_size
+                search_range = min(abs(diff) + 50, 1000)
+                low = max(0, estimated_calldata - search_range)
+                high = estimated_calldata + search_range
+
                 best_diff = abs(diff)
                 best_tx = test_tx
 
-                search_range = min(abs(diff) + 50, 1000)
+                while low <= high:
+                    mid = (low + high) // 2
+                    mid_calldata = b"\x00" * mid
+                    mid_gas = calculator(calldata=mid_calldata)
 
-                for adjustment in range(-search_range, search_range + 1):
-                    adjusted_size = estimated_calldata + adjustment
-                    if adjusted_size < 0:
+                    if mid_gas > remaining_gas:
+                        high = mid - 1
                         continue
 
-                    adjusted_calldata = b"\x00" * adjusted_size
-                    adjusted_gas = calculator(calldata=adjusted_calldata)
+                    mid_tx = Transaction(
+                        sender=sender,
+                        nonce=nonce,
+                        max_fee_per_gas=10**11,
+                        max_priority_fee_per_gas=10**11,
+                        gas_limit=mid_gas,
+                        data=mid_calldata,
+                    )
 
-                    if adjusted_gas <= remaining_gas:
-                        adjusted_tx = Transaction(
-                            sender=sender,
-                            nonce=nonce,
-                            max_fee_per_gas=10**11,
-                            max_priority_fee_per_gas=10**11,
-                            gas_limit=adjusted_gas,
-                            data=adjusted_calldata,
-                        )
+                    mid_size = get_block_rlp_size(
+                        fork,
+                        transactions + [mid_tx],
+                        withdrawals=withdrawals,
+                    )
 
-                        adjusted_test_size = get_block_rlp_size(
-                            fork,
-                            transactions + [adjusted_tx],
-                            withdrawals=withdrawals,
-                        )
+                    mid_diff = abs(block_size_limit - mid_size)
+                    if mid_diff < best_diff:
+                        best_diff = mid_diff
+                        best_tx = mid_tx
 
-                        if adjusted_test_size == block_size_limit:
-                            # exact match
-                            transactions.append(adjusted_tx)
-                            break
-
-                        adjusted_diff = abs(
-                            block_size_limit - adjusted_test_size
-                        )
-                        if adjusted_diff < best_diff:
-                            best_diff = adjusted_diff
-                            best_tx = adjusted_tx
-                else:
-                    # No exact match found. Due to RLP encoding boundaries,
-                    # certain exact sizes may be unachievable. Accept ±1 byte
-                    # tolerance - the test can compensate via extra_data.
-                    if best_diff <= 1:
-                        transactions.append(best_tx)
+                    if mid_size == block_size_limit:
+                        break
+                    elif mid_size < block_size_limit:
+                        low = mid + 1
                     else:
-                        raise RuntimeError(
-                            "Failed to find a transaction that matches "
-                            f"the target size (best diff: {best_diff} bytes)."
-                        )
+                        high = mid - 1
+
+                if best_diff <= 1:
+                    transactions.append(best_tx)
+                else:
+                    raise RuntimeError(
+                        "Failed to find a transaction that matches "
+                        f"the target size (best diff: {best_diff} bytes)."
+                    )
         else:
             transactions.append(empty_tx)
 
