@@ -43,23 +43,12 @@ stable:
 # Develop feature
 # Builds all tests up to the development fork.
 develop:
-  enabled: false # TODO: enable?
-  branch: forks/amsterdam # TODO: update branch to devnet branch?
+  branch: devnets/bal/2
   evm-type: develop
   fill-params: --until=Amsterdam --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
   static-tests: true
   test_paths:
     - tests/**
-
-# Devnet feature
-# Builds only devnet specific tests for specific fork folder.
-# Used for: Quick devnet releases, hive automatic test updates, faster devnet tests releases.
-devnet:
-  branch: devnets/amsterdam/2
-  evm-type: develop
-  fill-params: --fork=Amsterdam ./tests/amsterdam
-  test_paths:
-    - tests/amsterdam/**
 
 # Benchmark feature
 # Builds benchmark tests with multiple gas values for performance analysis.
@@ -69,5 +58,15 @@ benchmark:
   branch: forks/amsterdam
   evm-type: benchmark
   fill-params: --fork=Prague --gas-benchmark-values 1,5,10,30,60,100,150 -m benchmark ./tests/benchmark
+  test_paths:
+    - tests/benchmark/**
+
+# Benchmark fast feature
+# Builds benchmark tests with a single gas value for quick validation.
+# Used for: Nethermind EEST test refresh workflow (downstream consumer).
+benchmark_fast:
+  branch: forks/amsterdam
+  evm-type: benchmark
+  fill-params: --fork=Prague --gas-benchmark-values 100 -m benchmark ./tests/benchmark
   test_paths:
     - tests/benchmark/**
