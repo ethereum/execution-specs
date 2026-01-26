@@ -2,24 +2,24 @@
 
 import math
 from enum import Enum, auto
-from typing import List, Self, Sequence, Type, cast
+from typing import List, Self, Sequence, cast
 
 from execution_testing import (
     EOA,
     Address,
     Alloc,
-    Bytecode,
     BytesConcatenation,
+    FixedIterationsBytecode,
     Fork,
     Hash,
     Initcode,
+    IteratingBytecode,
     Op,
     Transaction,
     While,
     compute_create2_address,
     compute_deterministic_create2_address,
 )
-from execution_testing.vm import ForkOpcodeInterface
 
 from tests.osaka.eip7951_p256verify_precompiles.spec import (
     FieldElement,
@@ -219,217 +219,6 @@ def calculate_optimal_input_length(
             optimal_input_length = input_length
 
     return optimal_input_length
-
-
-class IteratingBytecode(Bytecode):
-    """
-    Bytecode composed of distinct execution phases: setup, iteration, and
-    cleanup.
-
-    Some phases (warm_iterating and iterating_subcall) are analytical only and
-    exist solely to model gas costs; they are not emitted in the final
-    bytecode.
-    """
-
-    setup: Bytecode
-    """Bytecode executed once at the beginning before iterations start."""
-    iterating: Bytecode
-    """Bytecode executed in the first iteration."""
-    warm_iterating: Bytecode
-    """
-    Analytical bytecode representing subsequent iterations after the first
-    (warm state).
-    This bytecode is _not_ included in the final bytecode, and it's only
-    used for the gas accounting properties of its opcodes and therefore gas
-    calculation.
-    """
-    iterating_subcall: Bytecode
-    """
-    Analytical bytecode representing a subcall performed during each iteration.
-    This bytecode is _not_ included in the final bytecode, and it's only
-    used for gas calculation.
-    """
-    cleanup: Bytecode
-    """Bytecode executed once at the end after all iterations complete."""
-
-    def __new__(
-        cls,
-        *,
-        setup: Bytecode,
-        iterating: Bytecode,
-        cleanup: Bytecode | None = None,
-        warm_iterating: Bytecode | None = None,
-        iterating_subcall: Bytecode | None = None,
-    ) -> Self:
-        """
-        Create a new iterating bytecode.
-
-        Args:
-            setup: Bytecode executed once at the beginning before
-                iterations start.
-            iterating: Bytecode executed in the first iteration.
-            cleanup: Bytecode executed once at the end after all
-                iterations complete.
-            warm_iterating: Analytical bytecode representing subsequent
-                iterations after the first (warm state).
-            iterating_subcall: Analytical bytecode representing a subcall
-                performed during each iteration. This bytecode is _not_
-                included in the final bytecode, and it's only used for gas
-                calculation.
-
-        Returns:
-            A new IteratingBytecode instance.
-
-        """
-        instance = super(IteratingBytecode, cls).__new__(
-            cls,
-            setup + iterating + cleanup,
-        )
-        instance.setup = setup
-        instance.iterating = iterating
-        if warm_iterating is None:
-            instance.warm_iterating = iterating
-        else:
-            assert bytes(iterating) == bytes(warm_iterating), (
-                "iterating and warm_iterating must have the same bytecode"
-            )
-            instance.warm_iterating = warm_iterating
-        if iterating_subcall is None:
-            instance.iterating_subcall = Bytecode()
-        else:
-            instance.iterating_subcall = iterating_subcall
-        if cleanup is None:
-            cleanup = Bytecode()
-        instance.cleanup = cleanup
-        return instance
-
-    def iterating_subcall_reserve(self, *, fork: Fork) -> int:
-        """
-        Return the gas reserve needed so that the last iterating subcall does
-        not fail due to the 63/64 rule.
-        """
-        iterating_subcall_gas_cost = self.iterating_subcall.gas_cost(fork=fork)
-        return (
-            iterating_subcall_gas_cost * 64 // 63
-        ) - iterating_subcall_gas_cost
-
-    def gas_cost_by_iteration_count(
-        self,
-        *,
-        fork: Type[ForkOpcodeInterface],
-        iteration_count: int,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> int:
-        """Return the cost of iterating through the bytecode N times."""
-        return (
-            self.setup.gas_cost(
-                fork=fork, block_number=block_number, timestamp=timestamp
-            )
-            + self.iterating.gas_cost(
-                fork=fork, block_number=block_number, timestamp=timestamp
-            )
-            + self.warm_iterating.gas_cost(
-                fork=fork, block_number=block_number, timestamp=timestamp
-            )
-            * (iteration_count - 1)
-            + (
-                self.iterating_subcall.gas_cost(
-                    fork=fork, block_number=block_number, timestamp=timestamp
-                )
-                * iteration_count
-            )
-            + self.cleanup.gas_cost(
-                fork=fork, block_number=block_number, timestamp=timestamp
-            )
-        )
-
-    def with_fixed_iteration_count(
-        self, *, iteration_count: int
-    ) -> "FixedIterationsBytecode":
-        """
-        Return a new FixedIterationsBytecode with the iteration count fixed.
-        """
-        return FixedIterationsBytecode(
-            setup=self.setup,
-            iterating=self.iterating,
-            cleanup=self.cleanup,
-            warm_iterating=self.warm_iterating,
-            iterating_subcall=self.iterating_subcall,
-            iteration_count=iteration_count,
-        )
-
-
-class FixedIterationsBytecode(IteratingBytecode):
-    """
-    Bytecode that contains a setup phase, an iterating phase, and a cleanup
-    phase, with a fixed number of iterations.
-
-    This type can be used in place of a normal Bytecode and will return the
-    appropriate gas cost for the given number of iterations.
-    """
-
-    iteration_count: int
-    """The fixed number of times the iterating bytecode will be executed."""
-
-    def __new__(
-        cls,
-        *,
-        setup: Bytecode,
-        iterating: Bytecode,
-        cleanup: Bytecode,
-        iteration_count: int,
-        warm_iterating: Bytecode | None = None,
-        iterating_subcall: Bytecode | None = None,
-    ) -> Self:
-        """
-        Create a new FixedIterationsBytecode instance.
-
-        Args:
-            setup: Bytecode executed once at the beginning before
-                iterations start.
-            iterating: Bytecode executed in the first iteration.
-            cleanup: Bytecode executed once at the end after all
-                iterations complete.
-            iteration_count: The fixed number of times the iterating
-                bytecode will be executed.
-            warm_iterating: Bytecode executed in subsequent iterations
-                after the first. If None, uses the same bytecode as
-                iterating.
-            iterating_subcall: Analytical bytecode representing a subcall
-                performed during each iteration. This bytecode is _not_
-                included in the final bytecode, and it's only used for gas
-                calculation.
-
-        Returns:
-            A new FixedIterationsBytecode instance.
-
-        """
-        instance = super(FixedIterationsBytecode, cls).__new__(
-            cls,
-            setup=setup,
-            iterating=iterating,
-            cleanup=cleanup,
-            warm_iterating=warm_iterating,
-            iterating_subcall=iterating_subcall,
-        )
-        instance.iteration_count = iteration_count
-        return instance
-
-    def gas_cost(
-        self,
-        fork: Type[ForkOpcodeInterface],
-        *,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> int:
-        """Return the cost of iterating through the bytecode N times."""
-        return self.gas_cost_by_iteration_count(
-            fork=fork,
-            iteration_count=self.iteration_count,
-            block_number=block_number,
-            timestamp=timestamp,
-        )
 
 
 class MaxSizedContractInitcode(FixedIterationsBytecode):
