@@ -163,6 +163,29 @@ class HashableItem:
         Optimized to O(n) using a trie-like structure built in a single pass,
         avoiding repeated path operations and iterations.
         """
+        raw = [
+            {
+                "id": e.id,
+                "json_path": str(e.json_path),
+                "fixture_hash": str(e.fixture_hash)
+                if e.fixture_hash
+                else None,
+            }
+            for e in entries
+        ]
+        return cls.from_raw_entries(raw)
+
+    @classmethod
+    def from_raw_entries(cls, entries: List[Dict]) -> "HashableItem":
+        """
+        Create a hashable item tree from raw entry dicts (no file I/O).
+
+        Accepts dicts with "id", "json_path", and "fixture_hash" keys.
+        This avoids Pydantic overhead entirely — only plain string/int
+        operations are used to build the hash tree.
+
+        Produces the same hash as from_folder() and from_index_entries().
+        """
         # Build a trie where each node is either:
         # - A dict (folder node) containing child nodes
         # - A list of (test_id, hash_bytes) tuples (file node marker)
@@ -172,11 +195,12 @@ class HashableItem:
 
         # Single pass: insert all entries into trie
         for entry in entries:
-            if not entry.fixture_hash:
+            fixture_hash = entry.get("fixture_hash")
+            if not fixture_hash:
                 continue
 
             # Navigate/create path to file node
-            path_parts = Path(entry.json_path).parts
+            path_parts = Path(entry["json_path"]).parts
             current = root_trie
 
             # Navigate to parent folder, creating nodes as needed
@@ -185,14 +209,14 @@ class HashableItem:
                     current[part] = {}
                 current = current[part]
 
-            # Add test entry to file node (file nodes are lists of tuples)
+            # Add test entry to file node
             file_name = path_parts[-1]
             if file_name not in current:
                 current[file_name] = []
 
-            # Convert HexNumber (int subclass) to 32-byte hash
-            hash_bytes = int(entry.fixture_hash).to_bytes(32, "big")
-            current[file_name].append((entry.id, hash_bytes))
+            # Convert hex string to 32-byte hash
+            hash_bytes = int(fixture_hash, 16).to_bytes(32, "big")
+            current[file_name].append((entry["id"], hash_bytes))
 
         # Convert trie to HashableItem tree (single recursive pass)
         def trie_to_hashable(node: dict) -> Dict[str, "HashableItem"]:

@@ -257,7 +257,9 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
         return
 
     # Merge all partial indexes (JSONL format: one entry per line)
-    all_entries: List[TestCaseIndexFile] = []
+    # Read as raw dicts — the data was already validated when collected
+    # from live Pydantic fixture objects in add_fixture().
+    all_raw_entries: list[dict] = []
     all_forks: set = set()
     all_formats: set = set()
 
@@ -268,27 +270,27 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
                 if not line:
                     continue
                 entry_data = json.loads(line)
-                # Validate with Pydantic
-                # (deferred from add_fixture for performance)
-                entry = TestCaseIndexFile.model_validate(entry_data)
-                all_entries.append(entry)
-                # Collect forks and formats from validated entries
-                if entry.fork:
-                    all_forks.add(entry.fork.name())
-                if entry.format:
-                    all_formats.add(entry.format.format_name)
+                all_raw_entries.append(entry_data)
+                # Collect forks and formats from raw strings
+                if entry_data.get("fork"):
+                    all_forks.add(entry_data["fork"])
+                if entry_data.get("format"):
+                    all_formats.add(entry_data["format"])
 
-    # Compute root hash from collected fixture hashes
-    root_hash = HashableItem.from_index_entries(all_entries).hash()
+    # Compute root hash from raw dicts (no Pydantic needed)
+    root_hash = HashableItem.from_raw_entries(all_raw_entries).hash()
 
-    # Build final index
-    index = IndexFile(
-        test_cases=all_entries,
-        root_hash=HexNumber(root_hash),
-        created_at=datetime.datetime.now(),
-        test_count=len(all_entries),
-        forks=list(all_forks),
-        fixture_formats=list(all_formats),
+    # Build final index — Pydantic validates the entire structure once
+    # via model_validate(), not 96k individual model_validate() calls.
+    index = IndexFile.model_validate(
+        {
+            "test_cases": all_raw_entries,
+            "root_hash": HexNumber(root_hash),
+            "created_at": datetime.datetime.now(),
+            "test_count": len(all_raw_entries),
+            "forks": list(all_forks),
+            "fixture_formats": list(all_formats),
+        }
     )
 
     # Write final index
@@ -299,7 +301,7 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
     if not quiet_mode:
         rich.print(
             f"[green]Merged {len(partial_files)} partial indexes "
-            f"({len(all_entries)} test cases) into {index_path}[/]"
+            f"({len(all_raw_entries)} test cases) into {index_path}[/]"
         )
 
     # Cleanup partial files
