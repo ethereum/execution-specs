@@ -359,71 +359,7 @@ def _exact_size_transactions_impl(
                 gas_limit=target_gas,
                 data=target_calldata,
             )
-
-            test_size = get_block_rlp_size(
-                fork,
-                transactions + [test_tx],
-                withdrawals=withdrawals,
-            )
-
-            diff = abs(block_size_limit - test_size)
-
-            if diff <= EXTRA_DATA_TOLERANCE:
-                transactions.append(test_tx)
-            else:
-                # Binary search for calldata size within tolerance.
-                # Block size is monotonically non-decreasing with calldata
-                # length, so binary search converges in ~O(log N) iterations.
-                search_range = min(diff + 50, 1000)
-                low = max(0, estimated_calldata - search_range)
-                high = estimated_calldata + search_range
-
-                best_diff = diff
-                best_tx = test_tx
-
-                while low <= high:
-                    mid = (low + high) // 2
-                    mid_calldata = b"\x00" * mid
-                    mid_gas = calculator(calldata=mid_calldata)
-
-                    if mid_gas > remaining_gas:
-                        high = mid - 1
-                        continue
-
-                    mid_tx = Transaction(
-                        sender=sender,
-                        nonce=nonce,
-                        max_fee_per_gas=10**11,
-                        max_priority_fee_per_gas=10**11,
-                        gas_limit=mid_gas,
-                        data=mid_calldata,
-                    )
-
-                    mid_size = get_block_rlp_size(
-                        fork,
-                        transactions + [mid_tx],
-                        withdrawals=withdrawals,
-                    )
-
-                    mid_diff = abs(block_size_limit - mid_size)
-                    if mid_diff < best_diff:
-                        best_diff = mid_diff
-                        best_tx = mid_tx
-
-                    if mid_diff <= EXTRA_DATA_TOLERANCE:
-                        break
-                    elif mid_size < block_size_limit:
-                        low = mid + 1
-                    else:
-                        high = mid - 1
-
-                if best_diff <= EXTRA_DATA_TOLERANCE:
-                    transactions.append(best_tx)
-                else:
-                    raise RuntimeError(
-                        "Failed to find a transaction that matches "
-                        f"the target size (best diff: {best_diff} bytes)."
-                    )
+            transactions.append(test_tx)
         else:
             transactions.append(empty_tx)
 
