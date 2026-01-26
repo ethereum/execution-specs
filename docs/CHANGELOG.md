@@ -35,6 +35,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 ### 📋 Misc
 
 - ✨ Implement EIP-7928 Block-Level Access Lists ([#1719](https://github.com/ethereum/execution-specs/pull/1719)).
+- ✨ Revert EIP-7778 to using the cumulative post refund gas in receipts ([#2073](https://github.com/ethereum/execution-specs/pull/2073)).
 
 ### 🧪 Test Cases
 
@@ -48,6 +49,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ Add BAL tests that dequeue EIP-7251 consolidation requests. ([#2076](https://github.com/ethereum/execution-specs/pull/2076)).
 - ✨ Add BAL tests for handling 7702 delegation reset and delegated create. ([#2097](https://github.com/ethereum/execution-specs/pull/2097)).
 - ✨ Add benchmark scenarios for ether transfers to precompiles, warm access list transfers, and max-size contract creation transactions ([#2171](https://github.com/ethereum/execution-specs/pull/2171)).
+- ✨ Add test cases for eip7778 which have multiple refund types in a single tx ([#2074](https://github.com/ethereum/execution-specs/pull/2074)).
 
 ## [v5.4.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.4.0) - 2025-12-07
 
