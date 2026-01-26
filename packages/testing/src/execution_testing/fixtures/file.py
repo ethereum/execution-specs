@@ -67,5 +67,5 @@ class Fixtures(EthereumTestRootModel):
                 json_fixtures[name] = fixture.json_dict_with_info()
 
             file_path.write_text(
-                json.dumps(dict(sorted(json_fixtures.items())), indent=2)
+                json.dumps(dict(sorted(json_fixtures.items())), indent=4)
             )

@@ -276,7 +276,7 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
                 if entry.fork:
                     all_forks.add(entry.fork.name())
                 if entry.format:
-                    all_formats.add(entry.format.__name__)
+                    all_formats.add(entry.format.format_name)
 
     # Compute root hash from collected fixture hashes
     root_hash = HashableItem.from_index_entries(all_entries).hash()

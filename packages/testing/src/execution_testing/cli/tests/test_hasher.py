@@ -1,16 +1,57 @@
-"""Tests for the hasher CLI tool and module."""
+"""Tests for the hasher CLI tool, module, and merge_partial_indexes."""
 
 import json
 import tempfile
 from pathlib import Path
-from typing import Generator
+from typing import Generator, List
 
 import pytest
 from click.testing import CliRunner
 
 from execution_testing.base_types import HexNumber
+from execution_testing.cli.gen_index import merge_partial_indexes
 from execution_testing.cli.hasher import HashableItem, hasher
-from execution_testing.fixtures.consume import TestCaseIndexFile
+from execution_testing.fixtures.consume import IndexFile, TestCaseIndexFile
+
+HASH_1 = 0x1111111111111111111111111111111111111111111111111111111111111111
+HASH_2 = 0x2222222222222222222222222222222222222222222222222222222222222222
+HASH_3 = 0x3333333333333333333333333333333333333333333333333333333333333333
+HASH_4 = 0x4444444444444444444444444444444444444444444444444444444444444444
+HASH_9 = 0x9999999999999999999999999999999999999999999999999999999999999999
+
+
+def _hex_str(h: int) -> str:
+    """Convert an integer hash to its 0x-prefixed hex string."""
+    return f"0x{h:064x}"
+
+
+def _make_entry(
+    test_id: str,
+    json_path: str,
+    fixture_hash: int,
+    fork: str | None = None,
+    fmt: str | None = None,
+) -> TestCaseIndexFile:
+    """Create a TestCaseIndexFile for testing."""
+    return TestCaseIndexFile(
+        id=test_id,
+        json_path=Path(json_path),
+        fixture_hash=HexNumber(fixture_hash),
+        fork=fork,
+        format=fmt,
+    )
+
+
+def _make_json_fixture(test_names_and_hashes: dict[str, int]) -> str:
+    """Create a JSON fixture file matching from_folder expectations."""
+    data = {}
+    for name, h in test_names_and_hashes.items():
+        data[name] = {
+            "_info": {"hash": _hex_str(h)},
+            "pre": {},
+            "post": {},
+        }
+    return json.dumps(data)
 
 
 def create_fixture(path: Path, test_name: str, hash_value: str) -> None:
@@ -356,211 +397,379 @@ class TestHashableItemFromIndexEntries:
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
 
-            # Create structure: state_tests/cancun/test.json
+            # state_tests/cancun/test.json (two tests)
             state_tests = base / "state_tests" / "cancun"
             state_tests.mkdir(parents=True)
+            (state_tests / "test.json").write_text(
+                _make_json_fixture({"test_one": HASH_1, "test_two": HASH_2})
+            )
 
-            # Create a fixture file with two tests
-            fixture_file = state_tests / "test.json"
-            fixture_data = {
-                "test_one": {
-                    "_info": {
-                        "hash": "0x1111111111111111111111111111111111111111111111111111111111111111"  # noqa: E501
-                    },
-                    "pre": {},
-                    "post": {},
-                },
-                "test_two": {
-                    "_info": {
-                        "hash": "0x2222222222222222222222222222222222222222222222222222222222222222"  # noqa: E501
-                    },
-                    "pre": {},
-                    "post": {},
-                },
-            }
-            fixture_file.write_text(json.dumps(fixture_data))
-
-            # Create another fixture file in a different folder
+            # blockchain_tests/cancun/test.json (one test)
             blockchain_tests = base / "blockchain_tests" / "cancun"
             blockchain_tests.mkdir(parents=True)
-
-            fixture_file2 = blockchain_tests / "test.json"
-            fixture_data2 = {
-                "test_three": {
-                    "_info": {
-                        "hash": "0x3333333333333333333333333333333333333333333333333333333333333333"  # noqa: E501
-                    },
-                    "pre": {},
-                    "post": {},
-                },
-            }
-            fixture_file2.write_text(json.dumps(fixture_data2))
+            (blockchain_tests / "test.json").write_text(
+                _make_json_fixture({"test_three": HASH_3})
+            )
 
             yield base
 
     @pytest.fixture
-    def index_entries(self) -> list[TestCaseIndexFile]:
+    def index_entries(self) -> List[TestCaseIndexFile]:
         """Create index entries matching the fixture_dir structure."""
         return [
-            TestCaseIndexFile(
-                id="test_one",
-                json_path=Path("state_tests/cancun/test.json"),
-                fixture_hash=HexNumber(
-                    0x1111111111111111111111111111111111111111111111111111111111111111
-                ),
-                fork=None,
-                format=None,
-            ),
-            TestCaseIndexFile(
-                id="test_two",
-                json_path=Path("state_tests/cancun/test.json"),
-                fixture_hash=HexNumber(
-                    0x2222222222222222222222222222222222222222222222222222222222222222
-                ),
-                fork=None,
-                format=None,
-            ),
-            TestCaseIndexFile(
-                id="test_three",
-                json_path=Path("blockchain_tests/cancun/test.json"),
-                fixture_hash=HexNumber(
-                    0x3333333333333333333333333333333333333333333333333333333333333333
-                ),
-                fork=None,
-                format=None,
+            _make_entry("test_one", "state_tests/cancun/test.json", HASH_1),
+            _make_entry("test_two", "state_tests/cancun/test.json", HASH_2),
+            _make_entry(
+                "test_three", "blockchain_tests/cancun/test.json", HASH_3
             ),
         ]
 
     def test_hash_matches_from_folder(
-        self, fixture_dir: Path, index_entries: list[TestCaseIndexFile]
+        self,
+        fixture_dir: Path,
+        index_entries: List[TestCaseIndexFile],
     ) -> None:
         """Verify from_index_entries produces same hash as from_folder."""
-        # Get hash using from_folder (reads files)
         hash_from_folder = HashableItem.from_folder(
             folder_path=fixture_dir
         ).hash()
-
-        # Get hash using from_index_entries (no file I/O)
         hash_from_entries = HashableItem.from_index_entries(
             index_entries
         ).hash()
-
         assert hash_from_folder == hash_from_entries
 
     def test_hash_changes_with_different_entries(
-        self, index_entries: list[TestCaseIndexFile]
+        self, index_entries: List[TestCaseIndexFile]
     ) -> None:
         """Verify hash changes when entries change."""
         hash1 = HashableItem.from_index_entries(index_entries).hash()
 
-        # Modify one entry's hash
-        modified_entries = index_entries.copy()
-        modified_entries[0] = TestCaseIndexFile(
-            id="test_one",
-            json_path=Path("state_tests/cancun/test.json"),
-            fixture_hash=HexNumber(
-                0x9999999999999999999999999999999999999999999999999999999999999999
-            ),
-            fork=None,
-            format=None,
+        modified = index_entries.copy()
+        modified[0] = _make_entry(
+            "test_one", "state_tests/cancun/test.json", HASH_9
         )
-
-        hash2 = HashableItem.from_index_entries(modified_entries).hash()
+        hash2 = HashableItem.from_index_entries(modified).hash()
 
         assert hash1 != hash2
 
     def test_empty_entries(self) -> None:
         """Verify empty entries produces a valid hash."""
-        hash_result = HashableItem.from_index_entries([]).hash()
-        # Empty tree should still produce a hash (sha256 of empty string)
-        assert hash_result is not None
-        assert len(hash_result) == 32  # SHA256 produces 32 bytes
+        result = HashableItem.from_index_entries([]).hash()
+        assert result is not None
+        assert len(result) == 32
 
     def test_multiple_files_in_same_folder(self) -> None:
-        """Verify multiple files in same folder are handled correctly."""
-        entries = [
-            TestCaseIndexFile(
-                id="test_a",
-                json_path=Path("state_tests/cancun/file1.json"),
-                fixture_hash=HexNumber(
-                    0x1111111111111111111111111111111111111111111111111111111111111111
-                ),
-                fork=None,
-                format=None,
-            ),
-            TestCaseIndexFile(
-                id="test_b",
-                json_path=Path("state_tests/cancun/file2.json"),
-                fixture_hash=HexNumber(
-                    0x2222222222222222222222222222222222222222222222222222222222222222
-                ),
-                fork=None,
-                format=None,
-            ),
-        ]
-        item = HashableItem.from_index_entries(entries)
-        hash_result = item.hash()
-        assert hash_result is not None
-        assert len(hash_result) == 32
+        """Verify hash with multiple JSON files in the same folder."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            folder = base / "tests" / "cancun"
+            folder.mkdir(parents=True)
+
+            (folder / "test_a.json").write_text(
+                _make_json_fixture({"a1": HASH_1})
+            )
+            (folder / "test_b.json").write_text(
+                _make_json_fixture({"b1": HASH_2})
+            )
+
+            entries = [
+                _make_entry("a1", "tests/cancun/test_a.json", HASH_1),
+                _make_entry("b1", "tests/cancun/test_b.json", HASH_2),
+            ]
+
+            hash_from_folder = HashableItem.from_folder(
+                folder_path=base
+            ).hash()
+            hash_from_entries = HashableItem.from_index_entries(entries).hash()
+            assert hash_from_folder == hash_from_entries
 
     def test_deeply_nested_paths(self) -> None:
-        """Verify deeply nested paths are handled correctly."""
-        entries = [
-            TestCaseIndexFile(
-                id="test_deep",
-                json_path=Path("a/b/c/d/test.json"),
-                fixture_hash=HexNumber(
-                    0x1111111111111111111111111111111111111111111111111111111111111111
-                ),
-                fork=None,
-                format=None,
-            ),
-        ]
-        item = HashableItem.from_index_entries(entries)
-        hash_result = item.hash()
-        assert hash_result is not None
-        assert len(hash_result) == 32
+        """Verify hash with deeply nested folder structures (3+ levels)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            deep = base / "a" / "b" / "c" / "d"
+            deep.mkdir(parents=True)
+
+            (deep / "test.json").write_text(
+                _make_json_fixture({"t1": HASH_1, "t2": HASH_2})
+            )
+
+            entries = [
+                _make_entry("t1", "a/b/c/d/test.json", HASH_1),
+                _make_entry("t2", "a/b/c/d/test.json", HASH_2),
+            ]
+
+            hash_from_folder = HashableItem.from_folder(
+                folder_path=base
+            ).hash()
+            hash_from_entries = HashableItem.from_index_entries(entries).hash()
+            assert hash_from_folder == hash_from_entries
 
     def test_single_file_single_test(self) -> None:
-        """Verify single file with single test works."""
-        entries = [
-            TestCaseIndexFile(
-                id="only_test",
-                json_path=Path("tests/test.json"),
-                fixture_hash=HexNumber(
-                    0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-                ),
-                fork=None,
-                format=None,
-            ),
-        ]
-        item = HashableItem.from_index_entries(entries)
-        hash_result = item.hash()
-        assert hash_result is not None
-        assert len(hash_result) == 32
+        """Verify degenerate case: one folder, one file, one test."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            folder = base / "tests"
+            folder.mkdir()
+
+            (folder / "only.json").write_text(
+                _make_json_fixture({"solo": HASH_4})
+            )
+
+            entries = [_make_entry("solo", "tests/only.json", HASH_4)]
+
+            hash_from_folder = HashableItem.from_folder(
+                folder_path=base
+            ).hash()
+            hash_from_entries = HashableItem.from_index_entries(entries).hash()
+            assert hash_from_folder == hash_from_entries
 
     def test_entries_with_none_fixture_hash_skipped(self) -> None:
-        """Verify entries with None fixture_hash are skipped."""
-        entries = [
+        """Verify entries with fixture_hash=None are skipped."""
+        entries_with_none = [
+            _make_entry("t1", "tests/a.json", HASH_1),
             TestCaseIndexFile(
-                id="test_with_hash",
-                json_path=Path("tests/test.json"),
-                fixture_hash=HexNumber(
-                    0x1111111111111111111111111111111111111111111111111111111111111111
-                ),
-                fork=None,
-                format=None,
-            ),
-            TestCaseIndexFile(
-                id="test_without_hash",
-                json_path=Path("tests/test.json"),
+                id="t_null",
+                json_path=Path("tests/a.json"),
                 fixture_hash=None,
                 fork=None,
                 format=None,
             ),
         ]
-        item = HashableItem.from_index_entries(entries)
-        # Should still work, just skip the None entry
-        hash_result = item.hash()
-        assert hash_result is not None
-        assert len(hash_result) == 32
+        entries_without_none = [
+            _make_entry("t1", "tests/a.json", HASH_1),
+        ]
+
+        hash_with = HashableItem.from_index_entries(entries_with_none).hash()
+        hash_without = HashableItem.from_index_entries(
+            entries_without_none
+        ).hash()
+        assert hash_with == hash_without
+
+
+class TestMergePartialIndexes:
+    """Test the JSONL partial index merge pipeline end-to-end."""
+
+    def _write_jsonl(self, path: Path, entries: list[dict]) -> None:
+        """Write a list of dicts as JSONL lines."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            for entry in entries:
+                f.write(json.dumps(entry) + "\n")
+
+    def _make_entry_dict(
+        self,
+        test_id: str,
+        json_path: str,
+        fixture_hash: int,
+        fork: str | None = None,
+        fmt: str | None = None,
+    ) -> dict:
+        """Create a dict matching what collector.py writes to JSONL."""
+        return {
+            "id": test_id,
+            "json_path": json_path,
+            "fixture_hash": _hex_str(fixture_hash),
+            "fork": fork,
+            "format": fmt,
+            "pre_hash": None,
+        }
+
+    def test_merge_produces_valid_index(self) -> None:
+        """Verify merging JSONL partials produces a valid index.json."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            meta_dir = output_dir / ".meta"
+            meta_dir.mkdir(parents=True)
+
+            entries = [
+                self._make_entry_dict(
+                    "test_a",
+                    "state_tests/cancun/test.json",
+                    HASH_1,
+                    fork="Cancun",
+                    fmt="state_test",
+                ),
+                self._make_entry_dict(
+                    "test_b",
+                    "blockchain_tests/cancun/test.json",
+                    HASH_2,
+                    fork="Cancun",
+                    fmt="blockchain_test",
+                ),
+            ]
+
+            self._write_jsonl(
+                meta_dir / "partial_index.gw0.jsonl", entries[:1]
+            )
+            self._write_jsonl(
+                meta_dir / "partial_index.gw1.jsonl", entries[1:]
+            )
+
+            merge_partial_indexes(output_dir, quiet_mode=True)
+
+            index_path = meta_dir / "index.json"
+            assert index_path.exists()
+
+            index = IndexFile.model_validate_json(index_path.read_text())
+            assert index.test_count == 2
+            assert index.root_hash is not None
+            assert index.root_hash != 0
+
+    def test_merge_fixture_formats_uses_format_name(self) -> None:
+        """
+        Verify fixture_formats contains format_name values (e.g.
+        'state_test') not class names (e.g. 'StateFixture').
+
+        This is the exact bug that format.__name__ would have caused.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            meta_dir = output_dir / ".meta"
+
+            entries = [
+                self._make_entry_dict(
+                    "t1",
+                    "state_tests/test.json",
+                    HASH_1,
+                    fork="Cancun",
+                    fmt="state_test",
+                ),
+                self._make_entry_dict(
+                    "t2",
+                    "blockchain_tests/test.json",
+                    HASH_2,
+                    fork="Cancun",
+                    fmt="blockchain_test",
+                ),
+            ]
+            self._write_jsonl(meta_dir / "partial_index.gw0.jsonl", entries)
+
+            merge_partial_indexes(output_dir, quiet_mode=True)
+
+            index = IndexFile.model_validate_json(
+                (meta_dir / "index.json").read_text()
+            )
+            assert index.fixture_formats is not None
+            assert sorted(index.fixture_formats) == [
+                "blockchain_test",
+                "state_test",
+            ]
+
+    def test_merge_forks_collected_correctly(self) -> None:
+        """Verify forks are collected from validated entries."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            meta_dir = output_dir / ".meta"
+
+            entries = [
+                self._make_entry_dict(
+                    "t1",
+                    "state_tests/test.json",
+                    HASH_1,
+                    fork="Cancun",
+                    fmt="state_test",
+                ),
+                self._make_entry_dict(
+                    "t2",
+                    "state_tests/test2.json",
+                    HASH_2,
+                    fork="Shanghai",
+                    fmt="state_test",
+                ),
+            ]
+            self._write_jsonl(meta_dir / "partial_index.gw0.jsonl", entries)
+
+            merge_partial_indexes(output_dir, quiet_mode=True)
+
+            index = IndexFile.model_validate_json(
+                (meta_dir / "index.json").read_text()
+            )
+            assert index.forks is not None
+            assert sorted(str(f) for f in index.forks) == [
+                "Cancun",
+                "Shanghai",
+            ]
+
+    def test_merge_cleans_up_partial_files(self) -> None:
+        """Verify partial JSONL files are deleted after merge."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            meta_dir = output_dir / ".meta"
+
+            entries = [
+                self._make_entry_dict(
+                    "t1",
+                    "state_tests/test.json",
+                    HASH_1,
+                    fmt="state_test",
+                ),
+            ]
+            self._write_jsonl(meta_dir / "partial_index.gw0.jsonl", entries)
+            self._write_jsonl(meta_dir / "partial_index.gw1.jsonl", entries)
+
+            merge_partial_indexes(output_dir, quiet_mode=True)
+
+            remaining = list(meta_dir.glob("partial_index*.jsonl"))
+            assert remaining == []
+
+    def test_merge_multiple_workers_same_hash_as_single(self) -> None:
+        """Verify hash is the same regardless of how entries are split."""
+        entry_dicts = [
+            self._make_entry_dict(
+                "t1", "state_tests/a.json", HASH_1, fmt="state_test"
+            ),
+            self._make_entry_dict(
+                "t2", "state_tests/a.json", HASH_2, fmt="state_test"
+            ),
+            self._make_entry_dict(
+                "t3", "blockchain_tests/b.json", HASH_3, fmt="blockchain_test"
+            ),
+        ]
+
+        # Single worker: all entries in one file
+        with tempfile.TemporaryDirectory() as tmpdir1:
+            output1 = Path(tmpdir1)
+            meta1 = output1 / ".meta"
+            self._write_jsonl(meta1 / "partial_index.gw0.jsonl", entry_dicts)
+            merge_partial_indexes(output1, quiet_mode=True)
+            index1 = IndexFile.model_validate_json(
+                (meta1 / "index.json").read_text()
+            )
+
+        # Multiple workers: entries split across files
+        with tempfile.TemporaryDirectory() as tmpdir2:
+            output2 = Path(tmpdir2)
+            meta2 = output2 / ".meta"
+            self._write_jsonl(
+                meta2 / "partial_index.gw0.jsonl", entry_dicts[:1]
+            )
+            self._write_jsonl(
+                meta2 / "partial_index.gw1.jsonl", entry_dicts[1:2]
+            )
+            self._write_jsonl(
+                meta2 / "partial_index.gw2.jsonl", entry_dicts[2:]
+            )
+            merge_partial_indexes(output2, quiet_mode=True)
+            index2 = IndexFile.model_validate_json(
+                (meta2 / "index.json").read_text()
+            )
+
+        assert index1.root_hash == index2.root_hash
+        assert index1.test_count == index2.test_count
+
+    def test_merge_fallback_when_no_partial_files(self) -> None:
+        """Verify fallback to generate_fixtures_index when no partials."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir)
+            meta_dir = output_dir / ".meta"
+            meta_dir.mkdir(parents=True)
+
+            # No partial files exist, no fixture files either —
+            # fallback should run but produce an empty/minimal index
+            # (or raise if no fixtures). Just verify it doesn't crash
+            # on an empty directory with no partials.
+            merge_partial_indexes(output_dir, quiet_mode=True)
+
+            index_path = meta_dir / "index.json"
+            assert index_path.exists()
