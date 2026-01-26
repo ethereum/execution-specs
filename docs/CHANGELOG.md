@@ -44,6 +44,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ Port STATICCALL to CALL tests with zero and non-zero value transfer from `tests/static`, extending coverage with `pytest.mark.with_all_precompiles` ([#1960](https://github.com/ethereum/execution-specs/pull/1960)).
 - ✨ Add BAL tests that dequeue EIP-7251 consolidation requests. ([#2076](https://github.com/ethereum/execution-specs/pull/2076)).
 - ✨ Add BAL tests for handling 7702 delegation reset and delegated create. ([#2097](https://github.com/ethereum/execution-specs/pull/2097)).
+- ✨ Add test cases for eip7778 which have multiple refund types in a single tx ([#2074](https://github.com/ethereum/execution-specs/pull/2074)).
 
 ## [v5.4.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.4.0) - 2025-12-07
 
