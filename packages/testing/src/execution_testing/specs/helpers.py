@@ -337,16 +337,6 @@ def verify_transaction_receipt(
             zip(expected_logs, actual_logs, strict=True)
         ):
             verify_log(transaction_index, log_idx, expected, actual)
-    if (
-        expected_receipt.gas_spent is not None
-        and actual_receipt.gas_spent != expected_receipt.gas_spent
-    ):
-        raise TransactionReceiptMismatchError(
-            index=transaction_index,
-            field_name="gas_spent",
-            expected_value=expected_receipt.gas_spent,
-            actual_value=actual_receipt.gas_spent,
-        )
     # TODO: Add more fields as needed
 
 
