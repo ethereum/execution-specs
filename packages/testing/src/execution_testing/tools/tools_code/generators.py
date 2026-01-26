@@ -572,23 +572,28 @@ class IteratingBytecode(Bytecode):
         timestamp: int = 0,
     ) -> int:
         """Return the cost of iterating through the bytecode N times."""
-        return (
-            self.setup.gas_cost(
+        loop_gas_cost = 0
+        if iteration_count > 0:
+            # Cold cost is just charged for the first iteration
+            loop_gas_cost = self.iterating.gas_cost(
                 fork=fork, block_number=block_number, timestamp=timestamp
             )
-            + self.iterating.gas_cost(
+            # Warm cost is charged for all iterations except the first
+            loop_gas_cost += self.warm_iterating.gas_cost(
                 fork=fork, block_number=block_number, timestamp=timestamp
-            )
-            + self.warm_iterating.gas_cost(
-                fork=fork, block_number=block_number, timestamp=timestamp
-            )
-            * (iteration_count - 1)
-            + (
+            ) * (iteration_count - 1)
+            # Subcall cost is charged for all iterations.
+            loop_gas_cost += (
                 self.iterating_subcall.gas_cost(
                     fork=fork, block_number=block_number, timestamp=timestamp
                 )
                 * iteration_count
             )
+        return (
+            self.setup.gas_cost(
+                fork=fork, block_number=block_number, timestamp=timestamp
+            )
+            + loop_gas_cost
             + self.cleanup.gas_cost(
                 fork=fork, block_number=block_number, timestamp=timestamp
             )
