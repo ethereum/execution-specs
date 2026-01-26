@@ -482,3 +482,49 @@ def test_varying_calldata_costs(
         ],
         post=post,
     )
+
+
+@pytest.mark.parametrize(
+    "refund_tx_reverts",
+    [
+        pytest.param(True, id="refund_tx_reverts"),
+        pytest.param(False, id=""),
+    ],
+)
+@pytest.mark.execute(pytest.mark.skip(reason="Requires specific gas price"))
+@pytest.mark.valid_from("Amsterdam")
+def test_multiple_refund_types_in_one_tx(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    refund_tx_reverts: bool,
+) -> None:
+    """Test gas accounting for all refund types available in the given fork."""
+    refunds_count = 10
+
+    post = Alloc()
+    refund_types = set(fork.refund_types())
+
+    (_, gas_used_pre_refund, call_data_floor_cost, refund_tx) = (
+        build_refund_tx(
+            fork=fork,
+            pre=pre,
+            post=post,
+            refund_types=refund_types,
+            refunds_count=refunds_count,
+            refund_tx_reverts=refund_tx_reverts,
+        )
+    )
+
+    refund_tx_block_gas_used = max(gas_used_pre_refund, call_data_floor_cost)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[refund_tx],
+                expected_gas_used=refund_tx_block_gas_used,
+            )
+        ],
+        post=post,
+    )
