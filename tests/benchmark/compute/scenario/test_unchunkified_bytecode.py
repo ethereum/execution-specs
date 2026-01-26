@@ -9,6 +9,7 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Create2PreimageLayout,
     Fork,
     Hash,
@@ -66,7 +67,7 @@ def test_unchunkified_bytecode(
         salt=Op.CALLDATALOAD(0),
         init_code_hash=initcode.keccak256(),
     )
-    setup_code = create2_preimage
+    setup_code: Bytecode = create2_preimage
 
     if opcode == Op.EXTCODECOPY:
         copy_size = 1000
