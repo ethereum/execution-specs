@@ -61,16 +61,17 @@ def test_unchunkified_bytecode(
 
     # Prepare the attack iterating bytecode.
     # Setup is just placing the CREATE2 Preimage in memory.
-    setup_code = Create2PreimageLayout(
+    create2_preimage = Create2PreimageLayout(
         factory_address=factory_address,
         salt=Op.CALLDATALOAD(0),
         init_code_hash=initcode.keccak256(),
     )
+    setup_code = create2_preimage
 
     if opcode == Op.EXTCODECOPY:
         copy_size = 1000
         attack_call = Op.EXTCODECOPY(
-            address=Op.SHA3(32 - 20 - 1, 85, data_size=85),
+            address=create2_preimage.address_op(),
             dest_offset=96,
             size=copy_size,
             # Gas accounting
@@ -90,14 +91,14 @@ def test_unchunkified_bytecode(
         # since all only minimally need the `address` of the target.
         attack_call = Op.POP(
             opcode(
-                address=Op.SHA3(32 - 20 - 1, 85, data_size=85),
+                address=create2_preimage.address_op(),
                 # Gas accounting
                 address_warm=False,
             )
         )
 
     loop_code = While(
-        body=attack_call + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        body=attack_call + create2_preimage.increment_salt_op(),
     )
 
     attack_code = IteratingBytecode(
