@@ -1,4 +1,4 @@
-"""Tests for the effects of EIP-7251 beacon roots on EIP-7928."""
+"""Tests for the effects of EIP-7251 consolidation requests on EIP-7928."""
 
 from typing import List
 
