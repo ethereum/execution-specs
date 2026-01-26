@@ -31,6 +31,7 @@ def get_input_for_push_opcode(opcode: Op) -> bytes:
     return ethereum_state_machine[0:input_size]
 
 
+@pytest.mark.slow
 @pytest.mark.ported_from(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/VMTests/vmTests/pushFiller.yml",

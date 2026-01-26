@@ -149,6 +149,7 @@ def fork_opcodes_increasing_stack(
             yield opcode
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork("opcode", fork_opcodes_increasing_stack)
 @pytest.mark.parametrize("fails", [True, False])
 def test_stack_overflow(
@@ -225,6 +226,7 @@ def constant_gas_opcodes(fork: Fork) -> Generator[ParameterSet, None, None]:
         )
 
 
+@pytest.mark.slow
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.parametrize_by_fork("opcode", constant_gas_opcodes)
 def test_constant_gas(

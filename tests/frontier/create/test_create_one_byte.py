@@ -20,6 +20,7 @@ from execution_testing import (
 from execution_testing.forks import London
 
 
+@pytest.mark.slow
 @pytest.mark.ported_from(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stCreateTest/CREATE_FirstByte_loopFiller.yml",

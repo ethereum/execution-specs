@@ -385,6 +385,7 @@ def block(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     SpecHelpers.all_valid_blob_combinations,
@@ -587,6 +588,7 @@ def test_invalid_normal_gas(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     SpecHelpers.invalid_blob_combinations,
@@ -674,6 +676,7 @@ def test_insufficient_balance_blob_tx(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     lambda fork: [
@@ -723,6 +726,7 @@ def test_sufficient_balance_blob_tx(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     lambda fork: [
@@ -791,6 +795,7 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     lambda fork: [
@@ -871,6 +876,7 @@ def test_blob_gas_subtraction_tx(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     "blobs_per_tx",
     SpecHelpers.all_valid_blob_combinations,

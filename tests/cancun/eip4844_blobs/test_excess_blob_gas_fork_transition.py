@@ -475,6 +475,7 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.valid_for_bpo_forks
 @pytest.mark.valid_at_transition_to("Prague", subsequent_forks=True)
 @pytest.mark.parametrize_by_fork(

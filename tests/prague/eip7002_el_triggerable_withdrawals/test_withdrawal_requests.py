@@ -662,6 +662,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
     ],
 )
+@pytest.mark.slow
 @pytest.mark.pre_alloc_group(
     "withdrawal_requests",
     reason="Tests standard withdrawal request functionality",

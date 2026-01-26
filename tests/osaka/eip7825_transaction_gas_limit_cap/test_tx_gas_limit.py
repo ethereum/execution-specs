@@ -392,6 +392,7 @@ def test_tx_gas_limit_cap_full_calldata(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "exceed_tx_gas_limit",
     [
@@ -541,6 +542,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "exceed_tx_gas_limit,correct_intrinsic_cost_in_transaction_gas_limit",
     [

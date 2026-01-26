@@ -26,6 +26,7 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-198.md"
 REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
 
 
+@pytest.mark.slow
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
     ["mod_exp_input", "output"],

@@ -336,6 +336,7 @@ def get_contract_permutations(
         ),
     ],
 )
+@pytest.mark.slow
 @pytest.mark.pre_alloc_group(
     "multi_type_requests",
     reason="Tests combinations of multiple request types",

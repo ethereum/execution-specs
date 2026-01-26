@@ -301,6 +301,7 @@ def post(  # noqa: D103
     }
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     "parent_blobs",
     lambda fork: range(0, fork.max_blobs_per_block() + 1),
@@ -626,6 +627,7 @@ def test_invalid_static_excess_blob_gas(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     "header_excess_blobs_delta",
     lambda fork: range(1, fork.max_blobs_per_block()),
@@ -716,6 +718,7 @@ def test_invalid_static_excess_blob_gas_from_zero_on_blobs_above_target(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     "parent_blobs,header_excess_blobs_delta",
     lambda fork: itertools.product(

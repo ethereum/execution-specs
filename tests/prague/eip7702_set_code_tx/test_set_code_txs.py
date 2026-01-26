@@ -2836,6 +2836,7 @@ def test_set_code_to_log(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.with_all_call_opcodes
 @pytest.mark.with_all_precompiles
 @EIPChecklist.Precompile.Test.CallContexts.SetCode(eip=[7951, 7883, 7823])

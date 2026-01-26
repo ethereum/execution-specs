@@ -547,6 +547,7 @@ def get_fork_scenarios(fork: Fork) -> Iterator[ParameterSet]:
         )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize_by_fork(
     [
         "parent_base_fee_per_gas",

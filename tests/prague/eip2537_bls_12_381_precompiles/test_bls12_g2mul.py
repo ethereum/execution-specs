@@ -156,6 +156,7 @@ def test_valid(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "input_data",
     # Test vectors from the reference spec (from the cryptography team)

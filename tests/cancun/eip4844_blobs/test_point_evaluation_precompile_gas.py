@@ -187,6 +187,7 @@ def post(
     }
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "call_type",
     [Op.CALL, Op.DELEGATECALL, Op.CALLCODE, Op.STATICCALL],

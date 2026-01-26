@@ -331,6 +331,7 @@ def test_staticcall_call_to_precompile(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.with_all_precompiles
 @pytest.mark.parametrize(
     "call_value", [0, 2], ids=["zero_value", "nonzero_value"]
@@ -474,6 +475,7 @@ def test_staticcall_nested_call_to_precompile(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.with_all_precompiles
 @pytest.mark.parametrize(
     "call_value", [0, 2], ids=["zero_value", "nonzero_value"]

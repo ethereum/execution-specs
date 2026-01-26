@@ -301,6 +301,7 @@ def build_post_state(
 # --- tests --- #
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "is_success", [True, False], ids=["exact_gas", "exact_gas_minus_1"]
 )
@@ -425,6 +426,7 @@ def test_selfdestruct_to_account(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "is_success", [True, False], ids=["exact_gas", "exact_gas_minus_1"]
 )
@@ -561,6 +563,7 @@ def test_selfdestruct_state_access_boundary(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "is_success", [True, False], ids=["exact_gas", "exact_gas_minus_1"]
 )
@@ -682,6 +685,7 @@ def test_selfdestruct_to_precompile(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "is_success", [True, False], ids=["exact_gas", "exact_gas_minus_1"]
 )

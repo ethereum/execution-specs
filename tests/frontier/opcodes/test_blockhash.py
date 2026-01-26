@@ -12,6 +12,7 @@ from execution_testing import (
 from execution_testing.forks.helpers import Fork
 
 
+@pytest.mark.slow
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.parametrize(
     "setup_blocks_num,setup_blocks_empty",

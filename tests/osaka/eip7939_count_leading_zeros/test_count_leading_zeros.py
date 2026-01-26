@@ -80,6 +80,7 @@ def clz_parameters() -> list:
     return test_cases
 
 
+@pytest.mark.slow
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.parametrize(
     "test_id,value,expected_clz",

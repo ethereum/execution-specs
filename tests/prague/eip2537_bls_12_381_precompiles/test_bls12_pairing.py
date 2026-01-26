@@ -35,6 +35,7 @@ pytestmark = [
 ]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "input_data,expected_output,vector_gas_value",
     # Test vectors from the reference spec (from the cryptography team)
@@ -200,6 +201,7 @@ def test_valid_multi_inf(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "input_data",
     # Test vectors from the reference spec (from the cryptography team)

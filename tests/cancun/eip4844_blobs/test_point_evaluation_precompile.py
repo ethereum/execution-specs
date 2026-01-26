@@ -492,6 +492,7 @@ def test_external_vectors(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "call_gas,y,result",
     [

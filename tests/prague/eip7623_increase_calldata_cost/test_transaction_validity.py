@@ -93,6 +93,7 @@ def test_transaction_validity_type_0(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "to",
     [
@@ -172,6 +173,7 @@ def test_transaction_validity_type_1_type_2(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "access_list",
     [
@@ -264,6 +266,7 @@ def test_transaction_validity_type_3(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "access_list",
     [

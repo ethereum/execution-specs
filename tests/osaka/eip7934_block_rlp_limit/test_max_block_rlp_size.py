@@ -413,6 +413,7 @@ def _exact_size_transactions_impl(
     return transactions, final_gas
 
 
+@pytest.mark.slow
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Under()
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Exact()
 @EIPChecklist.BlockLevelConstraint.Test.Boundary.Over()
@@ -483,6 +484,7 @@ def test_block_at_rlp_size_limit_boundary(
     )
 
 
+@pytest.mark.slow
 @EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 @pytest.mark.with_all_typed_transactions
 @pytest.mark.verify_sync
@@ -525,6 +527,7 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
     )
 
 
+@pytest.mark.slow
 @EIPChecklist.BlockLevelConstraint.Test.Content.Logs()
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Osaka")
@@ -569,6 +572,7 @@ def test_block_at_rlp_limit_with_logs(
     )
 
 
+@pytest.mark.slow
 @EIPChecklist.BlockLevelConstraint.Test.Content.Withdrawals()
 @pytest.mark.verify_sync
 @pytest.mark.valid_from("Osaka")

@@ -428,6 +428,7 @@ def test_pointer_measurements(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize("sender_delegated", [True, False])
@@ -524,6 +525,7 @@ def test_call_to_precompile_in_pointer_context(
     )
 
 
+@pytest.mark.slow
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize("sender_delegated", [True, False])
