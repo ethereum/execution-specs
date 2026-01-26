@@ -1594,6 +1594,19 @@ def pytest_collection_modifyitems(
     for i in reversed(items_for_removal):
         items.pop(i)
 
+    # Schedule slow-marked tests first (Longest Processing Time First).
+    # Workers each grab the next test from the queue, so slow tests get
+    # distributed across workers and finish before the fast-test tail.
+    slow_items = []
+    normal_items = []
+    for item in items:
+        if item.get_closest_marker("slow") is not None:
+            slow_items.append(item)
+        else:
+            normal_items.append(item)
+    if slow_items:
+        items[:] = slow_items + normal_items
+
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """

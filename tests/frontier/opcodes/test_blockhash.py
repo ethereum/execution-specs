@@ -22,6 +22,7 @@ from execution_testing.forks.helpers import Fork
         pytest.param(256, True, id="256_empty_blocks"),
     ],
 )
+@pytest.mark.slow()
 def test_genesis_hash_available(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

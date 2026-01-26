@@ -1,5 +1,8 @@
 {
     "static_Return50000_2" : {
+        "_info" : {
+            "pytest_marks": ["slow"]
+        },
         "env" : {
             "currentCoinbase" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             "currentDifficulty" : "0x020000",
