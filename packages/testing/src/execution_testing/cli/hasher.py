@@ -2,12 +2,15 @@
 
 import hashlib
 import json
+import sys
 from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 import click
+from rich.console import Console
+from rich.markup import escape as rich_escape
 
 
 class HashableItemType(IntEnum):
@@ -42,6 +45,44 @@ class HashableItem:
             all_hash_bytes += item_hash_bytes
         return hashlib.sha256(all_hash_bytes).digest()
 
+    def format_lines(
+        self,
+        *,
+        name: str,
+        level: int = 0,
+        print_type: Optional[HashableItemType] = None,
+        max_depth: Optional[int] = None,
+    ) -> List[str]:
+        """Return the hash lines for the item and sub-items."""
+        lines: List[str] = []
+        next_level = level
+        print_name = name
+
+        if level == 0 and self.parents:
+            separator = "::" if self.type == HashableItemType.TEST else "/"
+            print_name = f"{'/'.join(self.parents)}{separator}{name}"
+
+        if print_type is None or self.type >= print_type:
+            next_level += 1
+            lines.append(f"{' ' * level}{print_name}: 0x{self.hash().hex()}")
+
+        # Stop recursion if we've reached max_depth
+        if max_depth is not None and next_level > max_depth:
+            return lines
+
+        if self.items is not None:
+            for key, item in sorted(self.items.items()):
+                lines.extend(
+                    item.format_lines(
+                        name=key,
+                        level=next_level,
+                        print_type=print_type,
+                        max_depth=max_depth,
+                    )
+                )
+
+        return lines
+
     def print(
         self,
         *,
@@ -50,18 +91,10 @@ class HashableItem:
         print_type: Optional[HashableItemType] = None,
     ) -> None:
         """Print the hash of the item and sub-items."""
-        next_level = level
-        print_name = name
-        if level == 0 and self.parents:
-            separator = "::" if self.type == HashableItemType.TEST else "/"
-            print_name = f"{'/'.join(self.parents)}{separator}{name}"
-        if print_type is None or self.type >= print_type:
-            next_level += 1
-            print(f"{' ' * level}{print_name}: 0x{self.hash().hex()}")
-
-        if self.items is not None:
-            for key, item in sorted(self.items.items()):
-                item.print(name=key, level=next_level, print_type=print_type)
+        for line in self.format_lines(
+            name=name, level=level, print_type=print_type
+        ):
+            print(line)
 
     @classmethod
     def from_json_file(
@@ -126,34 +159,278 @@ class HashableItem:
         return cls(type=HashableItemType.FOLDER, items=items, parents=parents)
 
 
-@click.command()
+def render_hash_report(
+    folder: Path,
+    *,
+    files: bool,
+    tests: bool,
+    root: bool,
+    name_override: Optional[str] = None,
+    max_depth: Optional[int] = None,
+) -> List[str]:
+    """Return canonical output lines for a folder."""
+    item = HashableItem.from_folder(folder_path=folder)
+    if root:
+        return [f"0x{item.hash().hex()}"]
+    print_type: Optional[HashableItemType] = None
+    if files:
+        print_type = HashableItemType.FILE
+    elif tests:
+        print_type = HashableItemType.TEST
+    name = name_override if name_override is not None else folder.name
+    return item.format_lines(
+        name=name, print_type=print_type, max_depth=max_depth
+    )
+
+
+def parse_hash_lines(
+    lines: List[str], strip_root: bool = False
+) -> List[tuple[str, str]]:
+    """
+    Parse hash lines, reconstructing full paths from indentation hierarchy.
+
+    Returns list of (full_path, hash) tuples preserving order.
+    """
+    results: List[tuple[str, str]] = []
+    path_stack: List[tuple[int, str]] = []
+
+    for line in lines:
+        if ": 0x" not in line:
+            continue
+
+        # Count leading spaces to determine level
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+
+        name, hash_val = stripped.rsplit(": ", 1)
+
+        # Pop stack until we're at the right level
+        while path_stack and path_stack[-1][0] >= indent:
+            path_stack.pop()
+
+        # Build full path
+        if path_stack:
+            parent_path = path_stack[-1][1]
+            full_path = f"{parent_path}/{name}"
+        else:
+            full_path = name
+
+        # Push current item to stack
+        path_stack.append((indent, full_path))
+
+        # Strip root if requested
+        if strip_root and "/" in full_path:
+            full_path = full_path.split("/", 1)[1]
+
+        results.append((full_path, hash_val))
+
+    return results
+
+
+def display_diff(
+    left_lines: List[str],
+    right_lines: List[str],
+    *,
+    left_label: str,
+    right_label: str,
+) -> None:
+    """Render diff showing only changed hashes with clear formatting."""
+    # Parse lines with full paths reconstructed from hierarchy
+    left_parsed = parse_hash_lines(left_lines, strip_root=True)
+    right_parsed = parse_hash_lines(right_lines, strip_root=True)
+
+    # Build dictionaries and preserve order from left side
+    left_paths: List[str] = []
+    left_hashes: Dict[str, str] = {}
+    right_hashes: Dict[str, str] = {}
+
+    for path, hash_val in left_parsed:
+        left_paths.append(path)
+        left_hashes[path] = hash_val
+
+    for path, hash_val in right_parsed:
+        right_hashes[path] = hash_val
+
+    # Find differences, preserving tree order from left side
+    differences: List[
+        tuple[str, str, str]
+    ] = []  # (path, left_hash, right_hash)
+    seen_paths: set[str] = set()
+
+    # First pass: items from left in tree order
+    for path in left_paths:
+        seen_paths.add(path)
+        left_hash = left_hashes[path]
+        right_hash = right_hashes.get(path, "<missing>")
+        if left_hash != right_hash:
+            differences.append((path, left_hash, right_hash))
+
+    # Second pass: items only in right (new items)
+    for path, right_hash in right_hashes.items():
+        if path not in seen_paths:
+            differences.append((path, "<missing>", right_hash))
+
+    if not differences:
+        return
+
+    console = Console()
+    console.print("── Fixture Hash Differences ──", style="bold")
+    console.print(f"[dim]--- {left_label}[/dim]")
+    console.print(f"[dim]+++ {right_label}[/dim]")
+    console.print()
+
+    for path, left_hash, right_hash in differences:
+        depth = path.count("/")
+        indent = "  " * (depth + 1)
+        console.print(f"{indent}[bold]{rich_escape(path)}[/bold]")
+        console.print(f"{indent}  [red]- {left_hash}[/red]")
+        console.print(f"{indent}  [green]+ {right_hash}[/green]")
+        console.print()
+
+
+class DefaultGroup(click.Group):
+    """Click group with a default command fallback."""
+
+    def __init__(
+        self, *args: Any, default_cmd_name: str = "hash", **kwargs: Any
+    ):
+        super().__init__(*args, **kwargs)
+        self.default_cmd_name = default_cmd_name
+
+    def resolve_command(
+        self, ctx: click.Context, args: List[str]
+    ) -> tuple[Optional[str], Optional[click.Command], List[str]]:
+        """Resolve command, inserting default if no subcommand given."""
+        # Find first non-flag argument to check if it's a subcommand
+        first_arg_idx = next(
+            (i for i, a in enumerate(args) if not a.startswith("-")), None
+        )
+        if (
+            first_arg_idx is not None
+            and args[first_arg_idx] not in self.commands
+        ):
+            # Insert default command before the first non-flag argument
+            args = list(args)
+            args.insert(first_arg_idx, self.default_cmd_name)
+        return super().resolve_command(ctx, args)
+
+
+F = TypeVar("F", bound=Callable[..., None])
+
+
+def hash_options(func: F) -> F:
+    """Decorator for common hash options."""
+    func = click.option(
+        "--root", "-r", is_flag=True, help="Only print hash of root folder"
+    )(func)
+    func = click.option(
+        "--tests", "-t", is_flag=True, help="Print hash of tests"
+    )(func)
+    func = click.option(
+        "--files", "-f", is_flag=True, help="Print hash of files"
+    )(func)
+    return func
+
+
+@click.group(
+    cls=DefaultGroup,
+    default_cmd_name="hash",
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+def hasher() -> None:
+    """Hash folders of JSON fixtures and compare them."""
+    pass
+
+
+@hasher.command(name="hash")
 @click.argument(
     "folder_path_str",
     type=click.Path(
         exists=True, file_okay=False, dir_okay=True, readable=True
     ),
 )
-@click.option("--files", "-f", is_flag=True, help="Print hash of files")
-@click.option("--tests", "-t", is_flag=True, help="Print hash of tests")
-@click.option(
-    "--root", "-r", is_flag=True, help="Only print hash of root folder"
-)
-def main(folder_path_str: str, files: bool, tests: bool, root: bool) -> None:
+@hash_options
+def hash_cmd(
+    folder_path_str: str, files: bool, tests: bool, root: bool
+) -> None:
     """Hash folders of JSON fixtures and print their hashes."""
-    folder_path: Path = Path(folder_path_str)
-    item = HashableItem.from_folder(folder_path=folder_path)
+    lines = render_hash_report(
+        Path(folder_path_str), files=files, tests=tests, root=root
+    )
+    for line in lines:
+        print(line)
 
-    if root:
-        print(f"0x{item.hash().hex()}")
-        return
 
-    print_type: Optional[HashableItemType] = None
-    if files:
-        print_type = HashableItemType.FILE
-    elif tests:
-        print_type = HashableItemType.TEST
+@hasher.command(name="compare")
+@click.argument(
+    "left_folder",
+    type=click.Path(
+        exists=True, file_okay=False, dir_okay=True, readable=True
+    ),
+)
+@click.argument(
+    "right_folder",
+    type=click.Path(
+        exists=True, file_okay=False, dir_okay=True, readable=True
+    ),
+)
+@click.option(
+    "--depth",
+    "-d",
+    type=int,
+    default=None,
+    help="Limit to N levels (0=root, 1=folders, 2=files, 3=tests).",
+)
+@hash_options
+def compare_cmd(
+    left_folder: str,
+    right_folder: str,
+    files: bool,
+    tests: bool,
+    root: bool,
+    depth: Optional[int],
+) -> None:
+    """Compare two fixture directories and show differences."""
+    try:
+        # Use a common name for both to compare only content, not folder names
+        common_name = "fixtures"
+        left_lines = render_hash_report(
+            Path(left_folder),
+            files=files,
+            tests=tests,
+            root=root,
+            name_override=common_name,
+            max_depth=depth,
+        )
+        right_lines = render_hash_report(
+            Path(right_folder),
+            files=files,
+            tests=tests,
+            root=root,
+            name_override=common_name,
+            max_depth=depth,
+        )
+        if left_lines == right_lines:
+            sys.exit(0)
+        display_diff(
+            left_lines,
+            right_lines,
+            left_label=left_folder,
+            right_label=right_folder,
+        )
+        sys.exit(1)
+    except PermissionError as e:
+        click.echo(f"Error: Permission denied - {e}", err=True)
+        sys.exit(2)
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        click.echo(f"Error: Invalid fixture format - {e}", err=True)
+        sys.exit(2)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(2)
 
-    item.print(name=folder_path.name, print_type=print_type)
+
+main = hasher  # Entry point alias
 
 
 if __name__ == "__main__":
