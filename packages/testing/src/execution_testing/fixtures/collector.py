@@ -184,18 +184,16 @@ class FixtureCollector:
         if self.generate_index:
             relative_path = fixture_path.relative_to(self.output_dir)
             fixture_fork = fixture.get_fork()
-            self.index_entries.append(
-                {
-                    "id": info.get_id(),
-                    "json_path": str(relative_path),
-                    "fixture_hash": str(fixture.hash)
-                    if fixture.hash
-                    else None,
-                    "fork": fixture_fork.name() if fixture_fork else None,
-                    "format": fixture.format_name,
-                    "pre_hash": getattr(fixture, "pre_hash", None),
-                }
-            )
+            index_entry = {
+                "id": info.get_id(),
+                "json_path": str(relative_path),
+                "fixture_hash": str(fixture.hash) if fixture.hash else None,
+                "fork": fixture_fork.name() if fixture_fork else None,
+                "format": fixture.format_name,
+            }
+            if (pre_hash := getattr(fixture, "pre_hash", None)) is not None:
+                index_entry["pre_hash"] = pre_hash
+            self.index_entries.append(index_entry)
 
         if (
             self.flush_interval > 0

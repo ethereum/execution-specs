@@ -758,18 +758,12 @@ class TestMergePartialIndexes:
         assert index1.root_hash == index2.root_hash
         assert index1.test_count == index2.test_count
 
-    def test_merge_fallback_when_no_partial_files(self) -> None:
-        """Verify fallback to generate_fixtures_index when no partials."""
+    def test_merge_raises_when_no_partial_files(self) -> None:
+        """Verify merge_partial_indexes raises when no partials exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
             output_dir = Path(tmpdir)
             meta_dir = output_dir / ".meta"
             meta_dir.mkdir(parents=True)
 
-            # No partial files exist, no fixture files either —
-            # fallback should run but produce an empty/minimal index
-            # (or raise if no fixtures). Just verify it doesn't crash
-            # on an empty directory with no partials.
-            merge_partial_indexes(output_dir, quiet_mode=True)
-
-            index_path = meta_dir / "index.json"
-            assert index_path.exists()
+            with pytest.raises(Exception, match="No partial indexes found"):
+                merge_partial_indexes(output_dir, quiet_mode=True)

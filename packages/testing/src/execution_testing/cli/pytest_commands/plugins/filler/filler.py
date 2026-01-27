@@ -1653,11 +1653,16 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         file.unlink()
 
     # Generate index file for all produced fixtures by merging partial indexes.
+    # Only merge if partial indexes were actually written (i.e., tests produced
+    # fixtures). When no tests are filled (e.g., all skipped), no partial
+    # indexes exist and merge_partial_indexes should not be called.
     if (
         session.config.getoption("generate_index")
         and not session_instance.phase_manager.is_pre_alloc_generation
     ):
-        merge_partial_indexes(fixture_output.directory, quiet_mode=True)
+        meta_dir = fixture_output.directory / ".meta"
+        if meta_dir.exists() and any(meta_dir.glob("partial_index*.jsonl")):
+            merge_partial_indexes(fixture_output.directory, quiet_mode=True)
 
     # Create tarball of the output directory if the output is a tarball.
     fixture_output.create_tarball()

@@ -245,16 +245,7 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
     partial_files = list(meta_dir.glob("partial_index*.jsonl"))
 
     if not partial_files:
-        # Fallback to old method if no partial indexes exist
-        if not quiet_mode:
-            rich.print(
-                "[yellow]No partial indexes found, "
-                "falling back to full scan[/]"
-            )
-        generate_fixtures_index(
-            output_dir, quiet_mode=quiet_mode, force_flag=True
-        )
-        return
+        raise Exception("No partial indexes found.")
 
     # Merge all partial indexes (JSONL format: one entry per line)
     # Read as raw dicts — the data was already validated when collected
@@ -296,7 +287,7 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
     # Write final index
     index_path = meta_dir / "index.json"
     index_path.parent.mkdir(parents=True, exist_ok=True)
-    index_path.write_text(index.model_dump_json(exclude_none=False, indent=2))
+    index_path.write_text(index.model_dump_json(exclude_none=True, indent=2))
 
     if not quiet_mode:
         rich.print(
