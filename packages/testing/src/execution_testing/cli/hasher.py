@@ -83,19 +83,6 @@ class HashableItem:
 
         return lines
 
-    def print(
-        self,
-        *,
-        name: str,
-        level: int = 0,
-        print_type: Optional[HashableItemType] = None,
-    ) -> None:
-        """Print the hash of the item and sub-items."""
-        for line in self.format_lines(
-            name=name, level=level, print_type=print_type
-        ):
-            print(line)
-
     @classmethod
     def from_json_file(
         cls, *, file_path: Path, parents: List[str]
@@ -198,27 +185,22 @@ def parse_hash_lines(
         if ": 0x" not in line:
             continue
 
-        # Count leading spaces to determine level
         stripped = line.lstrip()
         indent = len(line) - len(stripped)
 
         name, hash_val = stripped.rsplit(": ", 1)
 
-        # Pop stack until we're at the right level
         while path_stack and path_stack[-1][0] >= indent:
             path_stack.pop()
 
-        # Build full path
         if path_stack:
             parent_path = path_stack[-1][1]
             full_path = f"{parent_path}/{name}"
         else:
             full_path = name
 
-        # Push current item to stack
         path_stack.append((indent, full_path))
 
-        # Strip root if requested
         if strip_root and "/" in full_path:
             full_path = full_path.split("/", 1)[1]
 
@@ -235,11 +217,9 @@ def display_diff(
     right_label: str,
 ) -> None:
     """Render diff showing only changed hashes with clear formatting."""
-    # Parse lines with full paths reconstructed from hierarchy
     left_parsed = parse_hash_lines(left_lines, strip_root=True)
     right_parsed = parse_hash_lines(right_lines, strip_root=True)
 
-    # Build dictionaries and preserve order from left side
     left_paths: List[str] = []
     left_hashes: Dict[str, str] = {}
     right_hashes: Dict[str, str] = {}
@@ -251,13 +231,9 @@ def display_diff(
     for path, hash_val in right_parsed:
         right_hashes[path] = hash_val
 
-    # Find differences, preserving tree order from left side
-    differences: List[
-        tuple[str, str, str]
-    ] = []  # (path, left_hash, right_hash)
+    differences: List[tuple[str, str, str]] = []
     seen_paths: set[str] = set()
 
-    # First pass: items from left in tree order
     for path in left_paths:
         seen_paths.add(path)
         left_hash = left_hashes[path]
@@ -265,7 +241,6 @@ def display_diff(
         if left_hash != right_hash:
             differences.append((path, left_hash, right_hash))
 
-    # Second pass: items only in right (new items)
     for path, right_hash in right_hashes.items():
         if path not in seen_paths:
             differences.append((path, "<missing>", right_hash))
@@ -301,7 +276,6 @@ class DefaultGroup(click.Group):
         self, ctx: click.Context, args: List[str]
     ) -> tuple[Optional[str], Optional[click.Command], List[str]]:
         """Resolve command, inserting default if no subcommand given."""
-        # Find first non-flag argument to check if it's a subcommand
         first_arg_idx = next(
             (i for i, a in enumerate(args) if not a.startswith("-")), None
         )
@@ -309,7 +283,6 @@ class DefaultGroup(click.Group):
             first_arg_idx is not None
             and args[first_arg_idx] not in self.commands
         ):
-            # Insert default command before the first non-flag argument
             args = list(args)
             args.insert(first_arg_idx, self.default_cmd_name)
         return super().resolve_command(ctx, args)
