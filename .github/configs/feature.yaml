@@ -14,8 +14,7 @@
 #   enabled:        Whether artifacts are built proactively (default: true).
 #   branch:         The git branch to build from.
 #   evm-type:       EVM implementation to use (stable, develop, benchmark).
-#   fill-params:    Parameters passed to the fill command.
-#   static-tests:   Whether this feature requires lllc/solc for static tests (default: false).
+#   fill-params:    Parameters passed to the fill command (use --fill-static-tests to enable lllc/solc).
 #   test_paths:     File patterns that trigger artifact rebuilds (merged with common_paths).
 
 # Common paths that trigger rebuilds for ALL features.
@@ -36,7 +35,6 @@ stable:
   branch: forks/amsterdam
   evm-type: develop
   fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
-  static-tests: true
   test_paths:
     - tests/**
 
@@ -46,7 +44,6 @@ develop:
   branch: devnets/bal/2
   evm-type: develop
   fill-params: --until=Amsterdam --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
-  static-tests: true
   test_paths:
     - tests/**
 

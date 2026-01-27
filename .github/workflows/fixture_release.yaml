@@ -1,56 +1,69 @@
 name: Fixture Release
 
 on:
-  push:
-    tags:
-      - "tests-v[0-9]+.[0-9]+.[0-9]+*" # Full release: tests-v1.0.0
-      - "tests-*@v*"                   # Feature release: tests-glamsterdam-devnet-2@v1.0.0
   workflow_dispatch:
     inputs:
-      force_build:
-        description: 'Force build (ignore cache)'
-        type: boolean
-        default: false
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+        type: string
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - full
+          - feature
+      feature:
+        description: 'Feature name (required for feature releases)'
+        required: false
+        type: string
+      force_features:
+        description: 'Comma-separated list of features to force rebuild (e.g., "stable,benchmark"). Empty = use cache for all.'
+        required: false
+        type: string
+        default: ''
 
 jobs:
-  parse-tag:
+  validate-inputs:
     runs-on: ubuntu-latest
     outputs:
-      features: ${{ steps.parse.outputs.features }}
-      release_type: ${{ steps.parse.outputs.release_type }}
-      release_tag: ${{ steps.parse.outputs.release_tag }}
+      features: ${{ steps.validate.outputs.features }}
+      release_type: ${{ steps.validate.outputs.release_type }}
+      release_tag: ${{ steps.validate.outputs.release_tag }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Parse tag and determine features
-        id: parse
+      - name: Validate inputs and determine features
+        id: validate
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          echo "Tag: $TAG"
+          VERSION="${{ inputs.version }}"
+          RELEASE_TYPE="${{ inputs.release_type }}"
+          FEATURE="${{ inputs.feature }}"
 
-          # Determine release type and features based on tag format
-          if [[ "$TAG" =~ ^tests-v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-            # Full release: tests-v1.0.0 -> stable, benchmark
-            echo "Release type: full"
+          echo "Version: $VERSION"
+          echo "Release type: $RELEASE_TYPE"
+          echo "Feature: $FEATURE"
+
+          # Validate version format
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "::error::Invalid version format: $VERSION (expected: X.Y.Z)"
+            exit 1
+          fi
+
+          if [ "$RELEASE_TYPE" = "full" ]; then
             echo "release_type=full" >> "$GITHUB_OUTPUT"
-            echo "release_tag=${TAG#tests-}" >> "$GITHUB_OUTPUT"
-            echo 'features=["stable", "benchmark"]' >> "$GITHUB_OUTPUT"
-          elif [[ "$TAG" =~ ^tests-(.+)@v ]]; then
-            # Feature release: tests-stable@v1 -> single feature
-            FEATURE="${TAG#tests-}"
-            FEATURE="${FEATURE%%@*}"
-            echo "Release type: feature"
-            echo "Feature: $FEATURE"
-            echo "release_type=feature" >> "$GITHUB_OUTPUT"
-            echo "release_tag=${TAG#tests-}" >> "$GITHUB_OUTPUT"
+            echo "release_tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+            echo 'features=["stable", "develop", "benchmark"]' >> "$GITHUB_OUTPUT"
+          elif [ "$RELEASE_TYPE" = "feature" ]; then
+            if [ -z "$FEATURE" ]; then
+              echo "::error::Feature name is required for feature releases"
+              exit 1
+            fi
 
             # Reject banned feature names
             if [[ "$FEATURE" == "stable" || "$FEATURE" == "develop" ]]; then
-              echo "::error::Feature '$FEATURE' cannot be released directly. Use a full release (tests-vX.Y.Z) instead."
-              exit 1
-            fi
-            if [[ "$FEATURE" == "devnet" ]]; then
-              echo "::error::Feature 'devnet' cannot be released directly. Use the specific devnet name (e.g., tests-glamsterdam-devnet-2@v1)."
+              echo "::error::Feature '$FEATURE' cannot be released directly. Use a full release instead."
               exit 1
             fi
 
@@ -60,14 +73,16 @@ jobs:
               exit 1
             fi
 
+            echo "release_type=feature" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${FEATURE}@v${VERSION}" >> "$GITHUB_OUTPUT"
             echo "features=[\"$FEATURE\"]" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::Invalid tag format: $TAG"
+            echo "::error::Invalid release type: $RELEASE_TYPE"
             exit 1
           fi
 
   check-cache:
-    needs: parse-tag
+    needs: validate-inputs
     runs-on: ubuntu-latest
     outputs:
       cached_features: ${{ steps.check.outputs.cached_features }}
@@ -82,14 +97,13 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
-          FORCE_BUILD: ${{ inputs.force_build }}
+          FORCE_FEATURES: ${{ inputs.force_features }}
         run: |
           set -e
 
-          FEATURES='${{ needs.parse-tag.outputs.features }}'
-          CURRENT_SHA=$(git rev-parse HEAD)
+          FEATURES='${{ needs.validate-inputs.outputs.features }}'
           echo "Features to check: $FEATURES"
-          echo "Current commit SHA: $CURRENT_SHA"
+          echo "Force features: $FORCE_FEATURES"
 
           CACHED="[]"
           UNCACHED="[]"
@@ -97,11 +111,28 @@ jobs:
           for feature in $(echo "$FEATURES" | jq -r '.[]'); do
             echo "=== Checking $feature ==="
 
-            if [ "$FORCE_BUILD" = "true" ]; then
-              echo "Force build requested"
+            # Check if this feature should be force rebuilt
+            if [ -n "$FORCE_FEATURES" ] && echo ",$FORCE_FEATURES," | grep -q ",$feature,"; then
+              echo "Force rebuild requested for $feature"
               UNCACHED=$(echo "$UNCACHED" | jq --arg f "$feature" '. + [$f]')
               continue
             fi
+
+            # Get the branch for this feature from feature.yaml
+            FEATURE_BRANCH=$(yq ".$feature.branch" .github/configs/feature.yaml)
+            if [ -z "$FEATURE_BRANCH" ] || [ "$FEATURE_BRANCH" = "null" ]; then
+              echo "::error::Feature '$feature' is missing 'branch' field in feature.yaml"
+              exit 1
+            fi
+            echo "Feature branch: $FEATURE_BRANCH"
+
+            # Get current SHA for the feature's branch
+            if ! git fetch origin "$FEATURE_BRANCH" 2>/dev/null; then
+              echo "::error::Failed to fetch branch '$FEATURE_BRANCH' for feature '$feature'"
+              exit 1
+            fi
+            CURRENT_SHA=$(git rev-parse "origin/$FEATURE_BRANCH")
+            echo "Current SHA for $feature: $CURRENT_SHA"
 
             # Check for exact SHA match first
             EXPECTED_NAME="${feature}-${CURRENT_SHA}"
@@ -145,8 +176,8 @@ jobs:
             fi
 
             # Check if changes affect relevant paths
-            COMMON_PATHS=$(yq -o=json '.common_paths' .github/configs/feature.yaml)
-            TEST_PATHS=$(yq -o=json ".$feature.test_paths" .github/configs/feature.yaml)
+            COMMON_PATHS=$(yq -o=json '.common_paths // []' .github/configs/feature.yaml)
+            TEST_PATHS=$(yq -o=json ".$feature.test_paths // []" .github/configs/feature.yaml)
             PATHS=$(echo "[$TEST_PATHS, $COMMON_PATHS]" | jq -c 'flatten')
 
             SHOULD_BUILD=false
@@ -181,7 +212,7 @@ jobs:
           fi
 
   build-uncached:
-    needs: [parse-tag, check-cache]
+    needs: [validate-inputs, check-cache]
     if: needs.check-cache.outputs.has_uncached == 'true'
     uses: ./.github/workflows/fixture_build.yaml
     with:
@@ -208,10 +239,9 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    needs: [parse-tag, check-cache, download-cached, build-uncached]
+    needs: [validate-inputs, check-cache, download-cached, build-uncached]
     if: |
       always() &&
-      startsWith(github.ref, 'refs/tags/tests-') &&
       (needs.download-cached.result == 'success' || needs.build-uncached.result == 'success') &&
       (needs.download-cached.result != 'failure') &&
       (needs.build-uncached.result != 'failure')
@@ -229,8 +259,8 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p ./release
-          RELEASE_TYPE="${{ needs.parse-tag.outputs.release_type }}"
-          FEATURES='${{ needs.parse-tag.outputs.features }}'
+          RELEASE_TYPE="${{ needs.validate-inputs.outputs.release_type }}"
+          FEATURES='${{ needs.validate-inputs.outputs.features }}'
 
           echo "Release type: $RELEASE_TYPE"
           echo "Features: $FEATURES"
@@ -251,7 +281,7 @@ jobs:
                 if [ "$RELEASE_TYPE" = "full" ]; then
                   cp "$f" "./release/fixtures_${feature_name}.tar.gz"
                 else
-                  # Feature release: use feature name from tag
+                  # Feature release: use feature name from input
                   FEATURE=$(echo "$FEATURES" | jq -r '.[0]')
                   cp "$f" "./release/fixtures_${FEATURE}.tar.gz"
                 fi
@@ -261,22 +291,27 @@ jobs:
 
             # Handle benchmark genesis
             if [ -f "$dir/benchmark_genesis.tar.gz" ]; then
-              if [ "$RELEASE_TYPE" = "full" ]; then
-                cp "$dir/benchmark_genesis.tar.gz" "./release/benchmark_genesis.tar.gz"
-              else
-                FEATURE=$(echo "$FEATURES" | jq -r '.[0]')
-                cp "$dir/benchmark_genesis.tar.gz" "./release/benchmark_genesis_${FEATURE}.tar.gz"
-              fi
+              cp "$dir/benchmark_genesis.tar.gz" "./release/benchmark_genesis_${feature_name}.tar.gz"
             fi
           done
 
           echo "Release files:"
           ls -la ./release/
 
+      - name: Check if release already exists
+        run: |
+          RELEASE_TAG="${{ needs.validate-inputs.outputs.release_tag }}"
+          if gh release view "$RELEASE_TAG" --repo ethereum/execution-spec-tests &>/dev/null; then
+            echo "::error::Release '$RELEASE_TAG' already exists"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.EEST_RELEASE_TOKEN }}
+
       - name: Create Release
         run: |
-          RELEASE_TAG="${{ needs.parse-tag.outputs.release_tag }}"
-          RELEASE_TYPE="${{ needs.parse-tag.outputs.release_type }}"
+          RELEASE_TAG="${{ needs.validate-inputs.outputs.release_tag }}"
+          RELEASE_TYPE="${{ needs.validate-inputs.outputs.release_type }}"
 
           if [ "$RELEASE_TYPE" = "full" ]; then
             # Full release: draft only

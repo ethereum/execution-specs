@@ -80,8 +80,14 @@ jobs:
           CONFIG_FILE=".github/configs/feature.yaml"
           echo "branch=$(yq '.${{ matrix.feature }}.branch' $CONFIG_FILE)" >> "$GITHUB_OUTPUT"
           echo "evm-type=$(yq '.${{ matrix.feature }}.evm-type' $CONFIG_FILE)" >> "$GITHUB_OUTPUT"
-          echo "fill-params=$(yq '.${{ matrix.feature }}.fill-params' $CONFIG_FILE)" >> "$GITHUB_OUTPUT"
-          echo "static-tests=$(yq '.${{ matrix.feature }}.static-tests // false' $CONFIG_FILE)" >> "$GITHUB_OUTPUT"
+          FILL_PARAMS=$(yq '.${{ matrix.feature }}.fill-params' $CONFIG_FILE)
+          echo "fill-params=$FILL_PARAMS" >> "$GITHUB_OUTPUT"
+          # Check if fill-params contains --fill-static-tests flag
+          if [[ "$FILL_PARAMS" == *"--fill-static-tests"* ]]; then
+            echo "static-tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "static-tests=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
