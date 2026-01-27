@@ -2,8 +2,9 @@
 
 import hashlib
 import json
+import re
 from enum import Enum, auto
-from functools import cached_property
+from functools import cached_property, lru_cache
 from typing import Annotated, Any, ClassVar, Dict, List, Set, Type, Union
 
 import pytest
@@ -252,3 +253,55 @@ FixtureFormat = Annotated[
         lambda f: BaseFixture.formats[f] if f in BaseFixture.formats else f
     ),
 ]
+
+
+@lru_cache(maxsize=1)
+def get_all_fixture_format_names() -> tuple[str, ...]:
+    """
+    Get all fixture format names (base formats + labeled formats).
+
+    Returns names sorted by length descending so longer patterns match first
+    when used for nodeid parsing.
+    """
+    all_names: set[str] = set()
+    all_names.update(BaseFixture.formats.keys())
+    all_names.update(LabeledFixtureFormat.registered_labels.keys())
+    return tuple(sorted(all_names, key=len, reverse=True))
+
+
+@lru_cache(maxsize=1)
+def _get_fixture_format_pattern() -> re.Pattern[str]:
+    """Compile regex pattern for matching fixture format names in nodeids."""
+    formats = "|".join(re.escape(f) for f in get_all_fixture_format_names())
+    # Match format name with hyphen boundaries or at string edges
+    return re.compile(rf"(^|-)({formats})(-|$)")
+
+
+def strip_fixture_format_from_nodeid(nodeid: str) -> str:
+    """
+    Remove fixture format suffix from a test nodeid.
+
+    Used for cache keys and xdist grouping to ensure related fixture formats
+    (e.g., blockchain_test and blockchain_test_engine) share the same key.
+
+    Example:
+        'test.py::test[fork_Osaka-state_test]' -> 'test.py::test[fork_Osaka]'
+
+    """
+    if "[" not in nodeid:
+        return nodeid
+
+    bracket_pos = nodeid.rfind("[")
+    params_section = nodeid[bracket_pos + 1 : -1]
+
+    def _replace(match: re.Match[str]) -> str:
+        prefix, _, suffix = match.groups()
+        # If both boundaries are hyphens, keep one hyphen
+        if prefix == "-" and suffix == "-":
+            return "-"
+        return ""
+
+    pattern = _get_fixture_format_pattern()
+    params_section = pattern.sub(_replace, params_section, count=1)
+
+    return nodeid[: bracket_pos + 1] + params_section + "]"
