@@ -129,7 +129,6 @@ def test_unchunkified_bytecode(
                 sender=setup_sender,
                 index_start=0,
                 index_end=num_contracts - 1,
-                gas_limit_cap=fork.transaction_gas_limit_cap(),
             )
         )
 

@@ -1,7 +1,7 @@
 """Code generating classes and functions."""
 
 from dataclasses import dataclass
-from typing import Any, List, Self, SupportsBytes, Type
+from typing import Any, List, Self, SupportsBytes, Tuple, Type
 
 from execution_testing.base_types import Bytes
 from execution_testing.forks import Fork
@@ -493,11 +493,14 @@ class IteratingBytecode(Bytecode):
     used for the gas accounting properties of its opcodes and therefore gas
     calculation.
     """
-    iterating_subcall: Bytecode
+    iterating_subcall: Bytecode | int
     """
     Analytical bytecode representing a subcall performed during each iteration.
     This bytecode is _not_ included in the final bytecode, and it's only
     used for gas calculation.
+
+    The value can also be an integer, in which case it represents the gas cost
+    of the subcall (e.g. the subcall is a precompiled contract)
     """
     cleanup: Bytecode
     """Bytecode executed once at the end after all iterations complete."""
@@ -505,11 +508,11 @@ class IteratingBytecode(Bytecode):
     def __new__(
         cls,
         *,
-        setup: Bytecode,
+        setup: Bytecode | None = None,
         iterating: Bytecode,
         cleanup: Bytecode | None = None,
         warm_iterating: Bytecode | None = None,
-        iterating_subcall: Bytecode | None = None,
+        iterating_subcall: Bytecode | int | None = None,
     ) -> Self:
         """
         Create a new iterating bytecode.
@@ -525,7 +528,9 @@ class IteratingBytecode(Bytecode):
             iterating_subcall: Analytical bytecode representing a subcall
                 performed during each iteration. This bytecode is _not_
                 included in the final bytecode, and it's only used for gas
-                calculation.
+                calculation. The value can also be an integer, in which case it
+                represents the gas cost of the subcall (e.g. the subcall is a
+                precompiled contract).
 
         Returns:
             A new IteratingBytecode instance.
@@ -535,6 +540,8 @@ class IteratingBytecode(Bytecode):
             cls,
             setup + iterating + cleanup,
         )
+        if setup is None:
+            setup = Bytecode()
         instance.setup = setup
         instance.iterating = iterating
         if warm_iterating is None:
@@ -553,50 +560,46 @@ class IteratingBytecode(Bytecode):
         instance.cleanup = cleanup
         return instance
 
-    def iterating_subcall_reserve(self, *, fork: Fork) -> int:
+    def iterating_subcall_gas_cost(
+        self, *, fork: Type[ForkOpcodeInterface]
+    ) -> int:
+        """Return the gas cost of the iterating subcall."""
+        if isinstance(self.iterating_subcall, int):
+            return self.iterating_subcall
+        return self.iterating_subcall.gas_cost(fork=fork)
+
+    def iterating_subcall_reserve(
+        self, *, fork: Type[ForkOpcodeInterface]
+    ) -> int:
         """
         Return the gas reserve needed so that the last iterating subcall does
         not fail due to the 63/64 rule.
         """
-        iterating_subcall_gas_cost = self.iterating_subcall.gas_cost(fork=fork)
+        iterating_subcall_gas_cost = self.iterating_subcall_gas_cost(fork=fork)
         return (
             iterating_subcall_gas_cost * 64 // 63
         ) - iterating_subcall_gas_cost
 
     def gas_cost_by_iteration_count(
-        self,
-        *,
-        fork: Type[ForkOpcodeInterface],
-        iteration_count: int,
-        block_number: int = 0,
-        timestamp: int = 0,
+        self, *, fork: Type[ForkOpcodeInterface], iteration_count: int
     ) -> int:
         """Return the cost of iterating through the bytecode N times."""
         loop_gas_cost = 0
         if iteration_count > 0:
             # Cold cost is just charged for the first iteration
-            loop_gas_cost = self.iterating.gas_cost(
-                fork=fork, block_number=block_number, timestamp=timestamp
-            )
+            loop_gas_cost = self.iterating.gas_cost(fork=fork)
             # Warm cost is charged for all iterations except the first
-            loop_gas_cost += self.warm_iterating.gas_cost(
-                fork=fork, block_number=block_number, timestamp=timestamp
-            ) * (iteration_count - 1)
+            loop_gas_cost += self.warm_iterating.gas_cost(fork=fork) * (
+                iteration_count - 1
+            )
             # Subcall cost is charged for all iterations.
             loop_gas_cost += (
-                self.iterating_subcall.gas_cost(
-                    fork=fork, block_number=block_number, timestamp=timestamp
-                )
-                * iteration_count
+                self.iterating_subcall_gas_cost(fork=fork) * iteration_count
             )
         return (
-            self.setup.gas_cost(
-                fork=fork, block_number=block_number, timestamp=timestamp
-            )
+            self.setup.gas_cost(fork=fork)
             + loop_gas_cost
-            + self.cleanup.gas_cost(
-                fork=fork, block_number=block_number, timestamp=timestamp
-            )
+            + self.cleanup.gas_cost(fork=fork)
         )
 
     def with_fixed_iteration_count(
@@ -613,6 +616,227 @@ class IteratingBytecode(Bytecode):
             iterating_subcall=self.iterating_subcall,
             iteration_count=iteration_count,
         )
+
+    # Methods to calculate transactions that call a contract containing the
+    # iterating bytecode.
+
+    def tx_gas_cost_by_iteration_count(
+        self,
+        *,
+        fork: Fork,
+        iteration_count: int,
+        **intrinsic_cost_kwargs: Any,
+    ) -> int:
+        """
+        Calculate the exact gas cost of a transaction calling the bytecode
+        for a given number of iterations.
+        """
+        intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+        # Required extra gas for the last iteration due to the 63/64 rule.
+        return self.gas_cost_by_iteration_count(
+            fork=fork, iteration_count=iteration_count
+        ) + intrinsic_gas_cost_calc(**intrinsic_cost_kwargs)
+
+    def tx_gas_limit_by_iteration_count(
+        self,
+        *,
+        fork: Fork,
+        iteration_count: int,
+        **intrinsic_cost_kwargs: Any,
+    ) -> int:
+        """
+        Calculate the minimum gas limit of a transaction calling the bytecode
+        for a given number of iterations.
+
+        The gas limit is calculated by adding the required extra gas for the
+        last iteration due to the 63/64 rule.
+        """
+        return self.tx_gas_cost_by_iteration_count(
+            fork=fork,
+            iteration_count=iteration_count,
+            **intrinsic_cost_kwargs,
+        ) + self.iterating_subcall_reserve(fork=fork)
+
+    def tx_iterations_by_gas_limit_cap(
+        self,
+        *,
+        fork: Fork,
+        **intrinsic_cost_kwargs: Any,
+    ) -> Tuple[int, int]:
+        """
+        Calculate the number of iterations needed to reach the fork's
+        transaction gas limit cap.
+        """
+        gas_limit_cap = fork.transaction_gas_limit_cap()
+        if gas_limit_cap is None:
+            raise ValueError("Fork has no gas limit cap.")
+
+        # Estimate maximum possible iterations
+        low = 0
+        high = 1
+        high_gas_cost = self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=high,
+            **intrinsic_cost_kwargs,
+        )
+        while high_gas_cost < gas_limit_cap:
+            low = high
+            high *= 2
+            high_gas_cost = self.tx_gas_limit_by_iteration_count(
+                fork=fork,
+                iteration_count=high,
+                **intrinsic_cost_kwargs,
+            )
+
+        # Binary search for the maximum number of iterations that fits
+        # within both remaining_gas and gas_limit_cap
+        best_iterations = 0
+        best_iterations_gas = 0
+
+        while low <= high:
+            mid = (low + high) // 2
+            if mid == 0:
+                break
+
+            tx_gas = self.tx_gas_limit_by_iteration_count(
+                fork=fork,
+                iteration_count=mid,
+                **intrinsic_cost_kwargs,
+            )
+
+            if tx_gas <= gas_limit_cap:
+                best_iterations = mid
+                best_iterations_gas = tx_gas
+                low = mid + 1
+            else:
+                high = mid - 1
+
+        return best_iterations, best_iterations_gas
+
+    def tx_iterations_by_gas_limit(
+        self,
+        *,
+        fork: Fork,
+        gas_limit: int,
+        **intrinsic_cost_kwargs: Any,
+    ) -> List[int]:
+        """
+        Calculate the number of iterations needed to reach the given a
+        gas-to-be-used value.
+
+        If the fork's transaction gas limit cap is not `None`, the returned
+        list will contain one item per transaction that represents the
+        iteration count for that transaction, and no transaction will exceed
+        the gas limit cap.
+        """
+        gas_limit_cap = fork.transaction_gas_limit_cap()
+        result: List[int] = []
+        remaining_gas = gas_limit
+
+        if gas_limit_cap is not None and remaining_gas > gas_limit_cap:
+            max_iterations_per_tx, gas_used = (
+                self.tx_iterations_by_gas_limit_cap(
+                    fork=fork,
+                    **intrinsic_cost_kwargs,
+                )
+            )
+            if max_iterations_per_tx == 0:
+                raise ValueError(
+                    "No iterations possible with the given gas limit cap."
+                )
+            txs_with_max_iterations = remaining_gas // gas_used
+            result.extend(
+                max_iterations_per_tx for _ in range(txs_with_max_iterations)
+            )
+            remaining_gas -= gas_used * txs_with_max_iterations
+        single_iteration_gas = self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=1,
+            **intrinsic_cost_kwargs,
+        )
+        while remaining_gas >= single_iteration_gas:
+            # Estimate maximum possible iterations
+            low = 1
+            high = 2
+            high_gas_cost = self.tx_gas_limit_by_iteration_count(
+                fork=fork,
+                iteration_count=high,
+                **intrinsic_cost_kwargs,
+            )
+            while high_gas_cost < remaining_gas:
+                low = high
+                high *= 2
+                high_gas_cost = self.tx_gas_limit_by_iteration_count(
+                    fork=fork,
+                    iteration_count=high,
+                    **intrinsic_cost_kwargs,
+                )
+
+            # Binary search for the maximum number of iterations that fits
+            # within remaining_gas
+            best_iterations = 0
+            best_iterations_gas = 0
+            while low <= high:
+                mid = (low + high) // 2
+                if mid == 0:
+                    break
+
+                tx_gas = self.tx_gas_limit_by_iteration_count(
+                    fork=fork,
+                    iteration_count=mid,
+                    **intrinsic_cost_kwargs,
+                )
+
+                if tx_gas <= remaining_gas:
+                    best_iterations = mid
+                    best_iterations_gas = tx_gas
+                    low = mid + 1
+                else:
+                    high = mid - 1
+
+            if best_iterations == 0:
+                # Can't fit any more iterations
+                break
+
+            result.append(best_iterations)
+            remaining_gas -= best_iterations_gas
+
+        return result
+
+    def tx_iterations_by_total_iteration_count(
+        self,
+        *,
+        fork: Fork,
+        total_iterations: int,
+        **intrinsic_cost_kwargs: Any,
+    ) -> List[int]:
+        """
+        Calculate how to split a total number of iterations across multiple
+        transactions so that each transaction fits within the gas limit cap.
+
+        Returns a list where each element represents the number of iterations
+        for that transaction, and the sum equals total_iterations.
+        """
+        gas_limit_cap = fork.transaction_gas_limit_cap()
+        if gas_limit_cap is None:
+            # No limit, all iterations fit in a single transaction.
+            return [total_iterations]
+        remaining_iterations = total_iterations
+
+        max_iterations_per_tx, _ = self.tx_iterations_by_gas_limit_cap(
+            fork=fork,
+            **intrinsic_cost_kwargs,
+        )
+
+        if max_iterations_per_tx == 0:
+            raise ValueError(
+                "No iterations possible with the given gas limit cap."
+            )
+
+        full_txs = remaining_iterations // max_iterations_per_tx
+        result = [max_iterations_per_tx] * full_txs
+        remaining_iterations -= max_iterations_per_tx * full_txs
+        return result + [remaining_iterations]
 
 
 class FixedIterationsBytecode(IteratingBytecode):
@@ -635,7 +859,7 @@ class FixedIterationsBytecode(IteratingBytecode):
         cleanup: Bytecode,
         iteration_count: int,
         warm_iterating: Bytecode | None = None,
-        iterating_subcall: Bytecode | None = None,
+        iterating_subcall: Bytecode | int | None = None,
     ) -> Self:
         """
         Create a new FixedIterationsBytecode instance.
@@ -654,7 +878,9 @@ class FixedIterationsBytecode(IteratingBytecode):
             iterating_subcall: Analytical bytecode representing a subcall
                 performed during each iteration. This bytecode is _not_
                 included in the final bytecode, and it's only used for gas
-                calculation.
+                calculation. The value can also be an integer, in which case it
+                represents the gas cost of the subcall (e.g. the subcall is a
+                precompiled contract).
 
         Returns:
             A new FixedIterationsBytecode instance.
@@ -679,9 +905,8 @@ class FixedIterationsBytecode(IteratingBytecode):
         timestamp: int = 0,
     ) -> int:
         """Return the cost of iterating through the bytecode N times."""
+        del block_number, timestamp
         return self.gas_cost_by_iteration_count(
             fork=fork,
             iteration_count=self.iteration_count,
-            block_number=block_number,
-            timestamp=timestamp,
         )

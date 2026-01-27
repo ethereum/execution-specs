@@ -310,6 +310,13 @@ class MaxSizedContractInitcode(FixedIterationsBytecode):
 class MaxSizedContractFactory(IteratingBytecode):
     """
     Factory contract that creates maximum-sized contracts.
+
+    The contract takes two 32-byte arguments in the calldata:
+    - start_index: the starting index of the contract to deploy
+    - end_index: the ending index of the contract to deploy
+
+    The contract will deploy a maximum-sized contract for each index in the
+    range, inclusive.
     """
 
     initcode: MaxSizedContractInitcode
@@ -342,6 +349,8 @@ class MaxSizedContractFactory(IteratingBytecode):
                 data_size=len(initcode),
                 new_memory_size=len(initcode),
             )
+            # CALLDATA[0:32] = start_index
+            # CALLDATA[32:64] = end_index
             + Op.ADD(1, Op.CALLDATALOAD(32))
             + Op.CALLDATALOAD(0)
         )
@@ -385,31 +394,23 @@ class MaxSizedContractFactory(IteratingBytecode):
         Calculate the exact gas cost of a transaction calling the factory
         for a given index range.
         """
-        intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
-        # Required extra gas for the last iteration due to the 63/64 rule.
-        return self.gas_cost_by_iteration_count(
-            fork=fork, iteration_count=index_end - index_start + 1
-        ) + intrinsic_gas_cost_calc(
-            calldata=Hash(index_start) + Hash(index_end)
+        iteration_count = index_end - index_start + 1
+        calldata = Hash(index_start) + Hash(index_end)
+        return self.tx_gas_cost_by_iteration_count(
+            fork=fork, iteration_count=iteration_count, calldata=calldata
         )
 
     def tx_gas_limit_by_index_range(
         self, *, fork: Fork, index_start: int, index_end: int
     ) -> int:
-        """Calculate the gas cost of the factory for a given index range."""
-        intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
-        # Required extra gas for the last iteration due to the 63/64 rule.
-        last_iteration_subcall_reserve = self.iterating_subcall_reserve(
-            fork=fork
-        )
-        return (
-            self.gas_cost_by_iteration_count(
-                fork=fork, iteration_count=index_end - index_start + 1
-            )
-            + intrinsic_gas_cost_calc(
-                calldata=Hash(index_start) + Hash(index_end)
-            )
-            + last_iteration_subcall_reserve
+        """
+        Calculate the minimum gas limit of a transaction calling the factory
+        for a given index range.
+        """
+        iteration_count = index_end - index_start + 1
+        calldata = Hash(index_start) + Hash(index_end)
+        return self.tx_gas_limit_by_iteration_count(
+            fork=fork, iteration_count=iteration_count, calldata=calldata
         )
 
     def tx(
@@ -440,71 +441,29 @@ class MaxSizedContractFactory(IteratingBytecode):
         sender: EOA,
         index_start: int,
         index_end: int,
-        gas_limit_cap: int | None,
     ) -> List[Transaction]:
         """
         Create a list of transactions calling the factory for a given index
         range, each capped by the given gas limit cap.
         """
-        if gas_limit_cap is None:
-            # No limit, deploy everything in a single transaction.
-            return [
+        worst_case_index = 2 ** (index_end.bit_length()) - 1  # All bits set
+        tx_iterations = self.tx_iterations_by_total_iteration_count(
+            fork=fork,
+            total_iterations=index_end - index_start + 1,
+            calldata=Hash(worst_case_index) + Hash(worst_case_index),
+        )
+        txs = []
+        for tx_iteration in tx_iterations:
+            index_end = index_start + tx_iteration - 1
+            txs.append(
                 self.tx(
                     fork=fork,
                     sender=sender,
                     index_start=index_start,
                     index_end=index_end,
                 )
-            ]
-        # First assert it's possible to deploy a single contract.
-        minimum_tx_gas_limit = self.tx_gas_limit_by_index_range(
-            fork=fork,
-            index_start=index_start,
-            index_end=index_start,
-        )
-        if minimum_tx_gas_limit > gas_limit_cap:
-            raise ValueError(
-                f"gas limit cap is too low to deploy a single contract: "
-                f"{gas_limit_cap} < "
-                f"{minimum_tx_gas_limit}"
             )
-        current_index_start = index_start
-        current_index_end = index_start
-        txs = []
-        while current_index_end <= index_end:
-            # Check if the current range exceeds the gas limit
-            if (
-                self.tx_gas_limit_by_index_range(
-                    fork=fork,
-                    index_start=current_index_start,
-                    index_end=current_index_end,
-                )
-                > gas_limit_cap
-            ):
-                # Create a transaction with the previous range
-                txs.append(
-                    self.tx(
-                        fork=fork,
-                        sender=sender,
-                        index_start=current_index_start,
-                        index_end=current_index_end - 1,
-                    )
-                )
-                # Start a new range
-                current_index_start = current_index_end
-            current_index_end += 1
-
-        # Handle the last range
-        if current_index_start <= index_end:
-            txs.append(
-                self.tx(
-                    fork=fork,
-                    sender=sender,
-                    index_start=current_index_start,
-                    index_end=index_end,
-                )
-            )
-
+            index_start = index_end + 1
         return txs
 
     def address(self, *, fork: Fork) -> Address:
