@@ -690,9 +690,17 @@ def test_bal_7702_null_address_delegation_no_code_change(
     )
 
 
+@pytest.mark.parametrize(
+    "self_funded",
+    [
+        pytest.param(False, id="sponsored"),
+        pytest.param(True, id="self_funded"),
+    ],
+)
 def test_bal_7702_double_auth_reset(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    self_funded: bool,
 ) -> None:
     """
     Ensure BAL captures the net code change when multiple authorizations
@@ -701,6 +709,8 @@ def test_bal_7702_double_auth_reset(
     This test verifies that when:
     1. First auth sets delegation to CONTRACT_A
     2. Second auth resets delegation to empty (address 0)
+
+    Scenario where the transaction is sponsored and self-funded are covered.
 
     The BAL should show the NET change (empty -> empty), not intermediate
     states. This is a regression test for the bug where the BAL showed
@@ -716,7 +726,7 @@ def test_bal_7702_double_auth_reset(
     # 1. First sets delegation to contract_a
     # 2. Second resets to empty
     tx = Transaction(
-        sender=relayer,
+        sender=alice if self_funded else relayer,
         to=bob,
         value=10,
         gas_limit=1_000_000,
@@ -724,15 +734,25 @@ def test_bal_7702_double_auth_reset(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
-                nonce=0,
+                nonce=1 if self_funded else 0,
                 signer=alice,
             ),
             AuthorizationTuple(
                 address=0,  # Reset to empty
-                nonce=1,
+                nonce=2 if self_funded else 1,
                 signer=alice,
             ),
         ],
+    )
+
+    alice_nonce = 3 if self_funded else 2
+    relayer_nonce = 1 if not self_funded else 0
+    relayer_bal_expectation = (
+        BalAccountExpectation(
+            nonce_changes=[BalNonceChange(block_access_index=1, post_nonce=1)]
+        )
+        if not self_funded
+        else None
     )
 
     blockchain_test(
@@ -745,7 +765,8 @@ def test_bal_7702_double_auth_reset(
                         alice: BalAccountExpectation(
                             nonce_changes=[
                                 BalNonceChange(
-                                    block_access_index=1, post_nonce=2
+                                    block_access_index=1,
+                                    post_nonce=alice_nonce,
                                 )
                             ],
                             code_changes=[],
@@ -757,22 +778,16 @@ def test_bal_7702_double_auth_reset(
                                 )
                             ]
                         ),
-                        relayer: BalAccountExpectation(
-                            nonce_changes=[
-                                BalNonceChange(
-                                    block_access_index=1, post_nonce=1
-                                )
-                            ],
-                        ),
+                        relayer: relayer_bal_expectation,
                         contract_a: None,
                     }
                 ),
             )
         ],
         post={
-            alice: Account(nonce=2, code=b""),  # Final code is empty
+            alice: Account(nonce=alice_nonce, code=b""),  # Final code is empty
             bob: Account(balance=10),
-            relayer: Account(nonce=1),
+            relayer: Account(nonce=relayer_nonce),
         },
     )
 
