@@ -49,9 +49,10 @@ def labeled_format_parameter_set(
     if isinstance(
         format_with_or_without_label, LabeledExecuteFormat
     ) or isinstance(format_with_or_without_label, LabeledFixtureFormat):
+        parameter_id = format_with_or_without_label.label
         return pytest.param(
             format_with_or_without_label.format,
-            id=format_with_or_without_label.label,
+            id=parameter_id,
             marks=[
                 getattr(
                     pytest.mark,
@@ -59,19 +60,22 @@ def labeled_format_parameter_set(
                 ),
                 getattr(
                     pytest.mark,
-                    format_with_or_without_label.label.lower(),
+                    parameter_id.lower(),
                 ),
+                pytest.mark.fixture_format_id(parameter_id),
             ],
         )
     else:
+        parameter_id = format_with_or_without_label.format_name.lower()
         return pytest.param(
             format_with_or_without_label,
-            id=format_with_or_without_label.format_name.lower(),
+            id=parameter_id,
             marks=[
                 getattr(
                     pytest.mark,
-                    format_with_or_without_label.format_name.lower(),
-                )
+                    parameter_id,
+                ),
+                pytest.mark.fixture_format_id(parameter_id),
             ],
         )
 

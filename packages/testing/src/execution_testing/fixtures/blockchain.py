@@ -817,6 +817,7 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
         FixtureFillingPhase.FILL,
         FixtureFillingPhase.PRE_ALLOC_GENERATION,
     }
+    can_use_cache: ClassVar[bool] = False
 
     pre_hash: str
     """Hash of the pre-allocation group this test belongs to."""
@@ -848,6 +849,7 @@ class BlockchainEngineSyncFixture(BlockchainEngineFixture):
         "Tests that generate a blockchain test fixture for Engine API "
         "testing with client sync."
     )
+    can_use_cache: ClassVar[bool] = False
     sync_payload: FixtureEngineNewPayload | None = None
 
     @classmethod

@@ -2,10 +2,19 @@
 
 import hashlib
 import json
-import re
 from enum import Enum, auto
-from functools import cached_property, lru_cache
-from typing import Annotated, Any, ClassVar, Dict, List, Set, Type, Union
+from functools import cached_property
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Protocol,
+    Set,
+    Type,
+    Union,
+)
 
 import pytest
 from pydantic import (
@@ -72,6 +81,7 @@ class BaseFixture(CamelModel):
     format_phases: ClassVar[Set[FixtureFillingPhase]] = {
         FixtureFillingPhase.FILL
     }
+    can_use_cache: ClassVar[bool] = True
 
     @classmethod
     def output_base_dir_name(cls) -> str:
@@ -255,29 +265,22 @@ FixtureFormat = Annotated[
 ]
 
 
-@lru_cache(maxsize=1)
-def get_all_fixture_format_names() -> tuple[str, ...]:
-    """
-    Get all fixture format names (base formats + labeled formats).
+class PytestItemProtocol(Protocol):
+    """Protocol that resembles pytest.Item."""
 
-    Returns names sorted by length descending so longer patterns match first
-    when used for nodeid parsing.
-    """
-    all_names: set[str] = set()
-    all_names.update(BaseFixture.formats.keys())
-    all_names.update(LabeledFixtureFormat.registered_labels.keys())
-    return tuple(sorted(all_names, key=len, reverse=True))
+    @property
+    def nodeid(self) -> str:
+        """Return the nodeid of the item."""
+        ...
 
-
-@lru_cache(maxsize=1)
-def _get_fixture_format_pattern() -> re.Pattern[str]:
-    """Compile regex pattern for matching fixture format names in nodeids."""
-    formats = "|".join(re.escape(f) for f in get_all_fixture_format_names())
-    # Match format name with hyphen boundaries or at string edges
-    return re.compile(rf"(^|-)({formats})(-|$)")
+    def get_closest_marker(self, name: str) -> pytest.Mark | None:
+        """Return the closest marker with the given name."""
+        ...
 
 
-def strip_fixture_format_from_nodeid(nodeid: str) -> str:
+def strip_fixture_format_from_node(
+    item: PytestItemProtocol,
+) -> str:
     """
     Remove fixture format suffix from a test nodeid.
 
@@ -288,20 +291,12 @@ def strip_fixture_format_from_nodeid(nodeid: str) -> str:
         'test.py::test[fork_Osaka-state_test]' -> 'test.py::test[fork_Osaka]'
 
     """
-    if "[" not in nodeid:
+    fixture_format_id_marker = item.get_closest_marker("fixture_format_id")
+    nodeid = item.nodeid
+    if fixture_format_id_marker is None:
         return nodeid
-
-    bracket_pos = nodeid.rfind("[")
-    params_section = nodeid[bracket_pos + 1 : -1]
-
-    def _replace(match: re.Match[str]) -> str:
-        prefix, _, suffix = match.groups()
-        # If both boundaries are hyphens, keep one hyphen
-        if prefix == "-" and suffix == "-":
-            return "-"
-        return ""
-
-    pattern = _get_fixture_format_pattern()
-    params_section = pattern.sub(_replace, params_section, count=1)
-
-    return nodeid[: bracket_pos + 1] + params_section + "]"
+    assert len(fixture_format_id_marker.args) == 1
+    fixture_id = fixture_format_id_marker.args[0]
+    if fixture_id not in nodeid:
+        return nodeid
+    return nodeid.replace(fixture_id, "")

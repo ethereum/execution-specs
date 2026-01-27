@@ -1,16 +1,20 @@
 """Unit tests for the t8n output cache functionality."""
 
 import hashlib
-from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
 
 from execution_testing.fixtures import (
-    get_all_fixture_format_names,
-    strip_fixture_format_from_nodeid,
+    BlockchainEngineFixture,
+    BlockchainFixture,
+    FixtureFormat,
+    LabeledFixtureFormat,
+    StateFixture,
+    strip_fixture_format_from_node,
 )
 
+from ...shared.helpers import labeled_format_parameter_set
 from ..filler import T8nOutputCache, _strip_xdist_group_suffix
 
 
@@ -134,133 +138,189 @@ class TestT8nOutputCache:
         assert cache.get(key2) is None
 
 
+class MockItem:
+    """Mock pytest.Item for testing collection sorting behavior."""
+
+    nodeid: str
+    name: str
+    _markers: list[pytest.Mark]
+
+    def __init__(
+        self,
+        nodeid: str,
+        fixture_format: LabeledFixtureFormat | FixtureFormat | None,
+        name: str | None = None,
+    ) -> None:
+        """Initialize name from nodeid if not provided."""
+        self.nodeid = nodeid
+        if not name:
+            parts = nodeid.split("::")
+            name = parts[-1] if "::" in nodeid else nodeid
+        self.name = name
+        self._markers = []
+        if fixture_format is not None:
+            param = labeled_format_parameter_set(fixture_format)
+            for mark in param.marks:
+                self._markers.append(mark)  # type: ignore[arg-type]
+
+    def get_closest_marker(self, name: str) -> pytest.Mark | None:
+        """Return marker by name if present."""
+        for marker in self._markers:
+            if marker.name == name:
+                return marker
+        return None
+
+    def add_marker(self, marker: Any) -> None:
+        """Add a marker to the item."""
+        self._markers.append(marker)
+
+
 class TestStripFixtureFormatFromNodeid:
-    """Test cases for strip_fixture_format_from_nodeid function."""
+    """Test cases for strip_fixture_format_from_node function."""
 
     def test_strip_blockchain_test(self) -> None:
         """Test stripping blockchain_test format."""
-        nodeid = "tests/test.py::test_foo[fork_Osaka-blockchain_test]"
-        expected = "tests/test.py::test_foo[fork_Osaka]"
-        assert strip_fixture_format_from_nodeid(nodeid) == expected
+        item = MockItem(
+            "tests/test.py::test_foo[fork_Osaka-blockchain_test]",
+            BlockchainFixture,
+        )
+        expected = "tests/test.py::test_foo[fork_Osaka-]"
+        assert strip_fixture_format_from_node(item) == expected
 
     def test_strip_blockchain_test_engine(self) -> None:
         """Test stripping blockchain_test_engine format."""
-        nodeid = "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]"
-        expected = "tests/test.py::test_foo[fork_Osaka]"
-        assert strip_fixture_format_from_nodeid(nodeid) == expected
+        item = MockItem(
+            "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]",
+            BlockchainEngineFixture,
+        )
+        expected = "tests/test.py::test_foo[fork_Osaka-]"
+        assert strip_fixture_format_from_node(item) == expected
 
     def test_strip_state_test(self) -> None:
         """Test stripping state_test format."""
-        nodeid = "tests/test.py::test_foo[fork_Osaka-state_test]"
-        expected = "tests/test.py::test_foo[fork_Osaka]"
-        assert strip_fixture_format_from_nodeid(nodeid) == expected
+        item = MockItem(
+            "tests/test.py::test_foo[fork_Osaka-state_test]",
+            StateFixture,
+        )
+        expected = "tests/test.py::test_foo[fork_Osaka-]"
+        assert strip_fixture_format_from_node(item) == expected
 
     def test_strip_format_in_middle(self) -> None:
         """Test stripping format when it's in the middle of params."""
-        nodeid = "tests/test.py::test_foo[fork_Osaka-blockchain_test-param1]"
-        expected = "tests/test.py::test_foo[fork_Osaka-param1]"
-        assert strip_fixture_format_from_nodeid(nodeid) == expected
+        item = MockItem(
+            "tests/test.py::test_foo[fork_Osaka-blockchain_test-param1]",
+            BlockchainFixture,
+        )
+        expected = "tests/test.py::test_foo[fork_Osaka--param1]"
+        assert strip_fixture_format_from_node(item) == expected
 
     def test_no_format_unchanged(self) -> None:
         """Test that nodeids without fixture format are unchanged."""
-        nodeid = "tests/test.py::test_foo[fork_Osaka-some_param]"
-        assert strip_fixture_format_from_nodeid(nodeid) == nodeid
+        item = MockItem(
+            "tests/test.py::test_foo[fork_Osaka-some_param]",
+            None,
+        )
+        assert strip_fixture_format_from_node(item) == item.nodeid
 
     def test_no_params_unchanged(self) -> None:
         """Test that nodeids without parameters are unchanged."""
-        nodeid = "tests/test.py::test_foo"
-        assert strip_fixture_format_from_nodeid(nodeid) == nodeid
+        item = MockItem(
+            "tests/test.py::test_foo",
+            None,
+        )
+        assert strip_fixture_format_from_node(item) == item.nodeid
 
     def test_empty_params_unchanged(self) -> None:
         """Test that nodeids with empty params are unchanged."""
-        nodeid = "tests/test.py::test_foo[]"
-        assert strip_fixture_format_from_nodeid(nodeid) == nodeid
+        item = MockItem(
+            "tests/test.py::test_foo[]",
+            None,
+        )
+        assert strip_fixture_format_from_node(item) == item.nodeid
 
     def test_format_at_start(self) -> None:
         """Test stripping format at start of params."""
-        nodeid = "tests/test.py::test_foo[blockchain_test-fork_Osaka]"
-        expected = "tests/test.py::test_foo[fork_Osaka]"
-        assert strip_fixture_format_from_nodeid(nodeid) == expected
+        item = MockItem(
+            "tests/test.py::test_foo[blockchain_test-fork_Osaka]",
+            BlockchainFixture,
+        )
+        expected = "tests/test.py::test_foo[-fork_Osaka]"
+        assert strip_fixture_format_from_node(item) == expected
+
+    def test_only_format(self) -> None:
+        """Test stripping format at start of params."""
+        item = MockItem(
+            "tests/test.py::test_foo[blockchain_test]",
+            BlockchainFixture,
+        )
+        expected = "tests/test.py::test_foo[]"
+        assert strip_fixture_format_from_node(item) == expected
 
     def test_related_formats_same_base(self) -> None:
         """Test that related formats produce the same base nodeid."""
-        base_nodeid = "tests/test.py::test_foo[fork_Osaka-param1]"
+        base_nodeid = "tests/test.py::test_foo[fork_Osaka--param1]"
 
-        nodeid_bt = (
-            "tests/test.py::test_foo[fork_Osaka-blockchain_test-param1]"
+        node_bt = MockItem(
+            "tests/test.py::test_foo[fork_Osaka-blockchain_test-param1]",
+            BlockchainFixture,
         )
-        nodeid_bte = (
-            "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine-param1]"
+        node_bte = MockItem(
+            "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine-param1]",
+            BlockchainEngineFixture,
         )
 
         # Both should strip to the same base.
-        assert strip_fixture_format_from_nodeid(nodeid_bt) == base_nodeid
-        assert strip_fixture_format_from_nodeid(nodeid_bte) == base_nodeid
+        assert strip_fixture_format_from_node(node_bt) == base_nodeid
+        assert strip_fixture_format_from_node(node_bte) == base_nodeid
 
     def test_longer_format_matched_first(self) -> None:
         """Test that longer format names are matched before shorter ones."""
         # blockchain_test_engine should match before blockchain_test.
-        nodeid = "tests/test.py::test[fork_Osaka-blockchain_test_engine]"
-        expected = "tests/test.py::test[fork_Osaka]"
-        result = strip_fixture_format_from_nodeid(nodeid)
+        node = MockItem(
+            "tests/test.py::test[fork_Osaka-blockchain_test_engine]",
+            BlockchainEngineFixture,
+        )
+        expected = "tests/test.py::test[fork_Osaka-]"
+        result = strip_fixture_format_from_node(node)
         assert result == expected
         # Verify it didn't partially match blockchain_test.
         assert "blockchain_test" not in result
-
-
-class TestGetAllFixtureFormatNames:
-    """Test cases for get_all_fixture_format_names function."""
-
-    def test_returns_tuple(self) -> None:
-        """Test that function returns a tuple (hashable for lru_cache)."""
-        result = get_all_fixture_format_names()
-        assert isinstance(result, tuple)
-
-    def test_contains_known_formats(self) -> None:
-        """Test that common fixture formats are included."""
-        formats = get_all_fixture_format_names()
-        assert "blockchain_test" in formats
-        assert "state_test" in formats
-
-    def test_sorted_by_length_descending(self) -> None:
-        """Test that formats are sorted by length (longest first)."""
-        formats = get_all_fixture_format_names()
-        lengths = [len(f) for f in formats]
-        assert lengths == sorted(lengths, reverse=True)
-
-    def test_blockchain_test_engine_before_blockchain_test(self) -> None:
-        """Test that longer names come before their prefixes."""
-        formats = get_all_fixture_format_names()
-        # blockchain_test_engine is longer and should come first.
-        has_engine = "blockchain_test_engine" in formats
-        has_bt = "blockchain_test" in formats
-        if has_engine and has_bt:
-            idx_engine = formats.index("blockchain_test_engine")
-            idx_bt = formats.index("blockchain_test")
-            assert idx_engine < idx_bt
 
 
 class TestCacheKeyConsistency:
     """Test that cache keys are consistent across fixture formats."""
 
     @pytest.mark.parametrize(
-        "format_name",
+        "labeled_fixture_format,format_name",
         [
-            "blockchain_test",
-            "blockchain_test_engine",
-            "state_test",
-            "blockchain_test_from_state_test",
-            "blockchain_test_engine_from_state_test",
+            (BlockchainFixture, "blockchain_test"),
+            (BlockchainEngineFixture, "blockchain_test_engine"),
+            (StateFixture, "state_test"),
+            (
+                LabeledFixtureFormat(
+                    BlockchainFixture, "blockchain_test_from_state_test", ""
+                ),
+                "blockchain_test_from_state_test",
+            ),
+            (
+                LabeledFixtureFormat(
+                    BlockchainEngineFixture,
+                    "blockchain_test_engine_from_state_test",
+                    "",
+                ),
+                "blockchain_test_engine_from_state_test",
+            ),
         ],
     )
     def test_format_stripping_produces_consistent_key(
-        self, format_name: str
+        self, labeled_fixture_format: LabeledFixtureFormat, format_name: str
     ) -> None:
         """Test that all format variants produce the same base key."""
-        base = "tests/test.py::test_case[fork_Osaka-param1]"
+        base = "tests/test.py::test_case[fork_Osaka--param1]"
         nodeid = f"tests/test.py::test_case[fork_Osaka-{format_name}-param1]"
+        node = MockItem(nodeid, labeled_fixture_format)
 
-        result = strip_fixture_format_from_nodeid(nodeid)
+        result = strip_fixture_format_from_node(node)
         assert result == base, f"Format {format_name} did not strip correctly"
 
 
@@ -306,22 +366,34 @@ class TestCacheExecutionOrder:
 
     def test_related_formats_group_together_when_sorted(self) -> None:
         """Test that sorting by base nodeid groups related formats together."""
-        nodeids = [
-            "tests/test.py::test_foo[fork_Osaka-blockchain_test]",
-            "tests/test.py::test_bar[fork_Osaka-blockchain_test]",
-            "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]",
-            "tests/test.py::test_bar[fork_Osaka-blockchain_test_engine]",
+        nodes = [
+            MockItem(
+                "tests/test.py::test_foo[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_bar[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]",
+                BlockchainEngineFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_bar[fork_Osaka-blockchain_test_engine]",
+                BlockchainEngineFixture,
+            ),
         ]
 
         # Sort by base nodeid (as the collection hook does).
-        sorted_nodeids = sorted(nodeids, key=strip_fixture_format_from_nodeid)
+        sorted_nodes = sorted(nodes, key=strip_fixture_format_from_node)
 
         # Related formats should be adjacent after sorting.
         test_bar_indices = [
-            i for i, n in enumerate(sorted_nodeids) if "test_bar" in n
+            i for i, n in enumerate(sorted_nodes) if "test_bar" in n.nodeid
         ]
         test_foo_indices = [
-            i for i, n in enumerate(sorted_nodeids) if "test_foo" in n
+            i for i, n in enumerate(sorted_nodes) if "test_foo" in n.nodeid
         ]
 
         # Check adjacency: indices should be consecutive.
@@ -330,21 +402,30 @@ class TestCacheExecutionOrder:
 
     def test_related_formats_grouped_when_sorted(self) -> None:
         """Test sorting groups related formats together (same base nodeid)."""
-        nodeids = [
-            "tests/test.py::test_foo[fork_Osaka-blockchain_test]",
-            "tests/test.py::test_bar[fork_Osaka-blockchain_test]",
-            "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]",
+        nodes = [
+            MockItem(
+                "tests/test.py::test_foo[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_bar[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]",
+                BlockchainEngineFixture,
+            ),
         ]
 
         # Sort by base nodeid.
-        sorted_nodeids = sorted(nodeids, key=strip_fixture_format_from_nodeid)
+        sorted_nodes = sorted(nodes, key=strip_fixture_format_from_node)
 
         # test_bar items should be adjacent, test_foo items should be adjacent.
         foo_indices = [
-            i for i, n in enumerate(sorted_nodeids) if "test_foo" in n
+            i for i, n in enumerate(sorted_nodes) if "test_foo" in n.nodeid
         ]
         bar_indices = [
-            i for i, n in enumerate(sorted_nodeids) if "test_bar" in n
+            i for i, n in enumerate(sorted_nodes) if "test_bar" in n.nodeid
         ]
 
         # Check foo items are adjacent (difference is 1).
@@ -354,23 +435,35 @@ class TestCacheExecutionOrder:
 
     def test_sorting_groups_multiple_tests_by_base_nodeid(self) -> None:
         """Test sorting groups items by base nodeid."""
-        nodeids = [
+        nodes = [
             # Deliberately interleaved: test_a and test_b formats mixed.
-            "tests/test.py::test_b[fork_Osaka-blockchain_test_engine]",
-            "tests/test.py::test_a[fork_Osaka-blockchain_test]",
-            "tests/test.py::test_b[fork_Osaka-blockchain_test]",
-            "tests/test.py::test_a[fork_Osaka-blockchain_test_engine]",
+            MockItem(
+                "tests/test.py::test_b[fork_Osaka-blockchain_test_engine]",
+                BlockchainEngineFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_a[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_b[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_a[fork_Osaka-blockchain_test_engine]",
+                BlockchainEngineFixture,
+            ),
         ]
 
         # Sort by base nodeid.
-        sorted_nodeids = sorted(nodeids, key=strip_fixture_format_from_nodeid)
+        sorted_nodes = sorted(nodes, key=strip_fixture_format_from_node)
 
         # After sorting, test_a formats should be adjacent, test_b adjacent.
         test_a_indices = [
-            i for i, n in enumerate(sorted_nodeids) if "test_a" in n
+            i for i, n in enumerate(sorted_nodes) if "test_a" in n.nodeid
         ]
         test_b_indices = [
-            i for i, n in enumerate(sorted_nodeids) if "test_b" in n
+            i for i, n in enumerate(sorted_nodes) if "test_b" in n.nodeid
         ]
 
         # Check test_a items are adjacent.
@@ -379,46 +472,20 @@ class TestCacheExecutionOrder:
         assert max(test_b_indices) - min(test_b_indices) == 1
 
 
-@dataclass
-class MockItem:
-    """Mock pytest.Item for testing collection sorting behavior."""
-
-    nodeid: str
-    name: str = ""
-    _markers: list[Any] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        """Initialize name from nodeid if not provided."""
-        if not self.name:
-            parts = self.nodeid.split("::")
-            self.name = parts[-1] if "::" in self.nodeid else self.nodeid
-
-    def get_closest_marker(self, name: str) -> Any:
-        """Return marker by name if present."""
-        for marker in self._markers:
-            if hasattr(marker, "name") and marker.name == name:
-                return marker
-        return None
-
-    def add_marker(self, marker: Any) -> None:
-        """Add a marker to the item."""
-        self._markers.append(marker)
-
-
 class TestCollectionSortingBehavior:
     """Test collection sorting behavior ensures cache hits."""
 
     def _sort_items_by_base_nodeid(self, items: list[MockItem]) -> None:
         """Sort items by base nodeid (cache-friendly order)."""
-        items.sort(
-            key=lambda item: strip_fixture_format_from_nodeid(item.nodeid)
-        )
+        items.sort(key=lambda item: strip_fixture_format_from_node(item))
 
     def _add_xdist_markers(self, items: list[MockItem]) -> None:
         """Add xdist_group markers based on base nodeid hash."""
         for item in items:
-            base_nodeid = strip_fixture_format_from_nodeid(item.nodeid)
-            h = hashlib.md5(base_nodeid.encode()).hexdigest()[:8]
+            base_nodeid = strip_fixture_format_from_node(item)
+            h = hashlib.md5(
+                base_nodeid.encode(), usedforsecurity=False
+            ).hexdigest()[:8]
             item.add_marker(pytest.mark.xdist_group(name=f"t8n-cache-{h}"))
 
     def _simulate_collection_without_xdist(
@@ -445,8 +512,14 @@ class TestCollectionSortingBehavior:
     def test_items_sorted_without_xdist(self) -> None:
         """Test that items are sorted when xdist is NOT enabled."""
         items = [
-            MockItem("tests/test.py::test_b[fork_Osaka-blockchain_test]"),
-            MockItem("tests/test.py::test_a[fork_Osaka-blockchain_test]"),
+            MockItem(
+                "tests/test.py::test_b[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_a[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
         ]
 
         self._simulate_collection_without_xdist(items)
@@ -458,8 +531,14 @@ class TestCollectionSortingBehavior:
     def test_items_not_sorted_with_xdist_current_behavior(self) -> None:
         """Test current behavior: items NOT sorted with xdist (BUG)."""
         items = [
-            MockItem("tests/test.py::test_b[fork_Osaka-blockchain_test]"),
-            MockItem("tests/test.py::test_a[fork_Osaka-blockchain_test]"),
+            MockItem(
+                "tests/test.py::test_b[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_a[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
         ]
 
         self._simulate_collection_with_xdist_current(items)
@@ -474,8 +553,14 @@ class TestCollectionSortingBehavior:
     def test_items_should_be_sorted_with_xdist(self) -> None:
         """Test items SHOULD be sorted with xdist (expected fix)."""
         items = [
-            MockItem("tests/test.py::test_b[fork_Osaka-blockchain_test]"),
-            MockItem("tests/test.py::test_a[fork_Osaka-blockchain_test]"),
+            MockItem(
+                "tests/test.py::test_b[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_a[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
         ]
 
         self._simulate_collection_with_xdist_fixed(items)
@@ -487,9 +572,13 @@ class TestCollectionSortingBehavior:
     def test_xdist_groups_have_consistent_hash(self) -> None:
         """Test xdist_group markers use consistent hashes."""
         items = [
-            MockItem("tests/test.py::test_foo[fork_Osaka-blockchain_test]"),
             MockItem(
-                "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]"
+                "tests/test.py::test_foo[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]",
+                BlockchainEngineFixture,
             ),
         ]
 
@@ -512,40 +601,63 @@ class TestCollectionSortingBehavior:
 
     def test_current_vs_expected_behavior_xdist(self) -> None:
         """Test CURRENT xdist behavior differs from EXPECTED (catches bug)."""
-        nodeids = [
-            "tests/test.py::test_b[fork_Osaka-blockchain_test]",
-            "tests/test.py::test_a[fork_Osaka-blockchain_test]",
+        items = [
+            MockItem(
+                "tests/test.py::test_b[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_a[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
         ]
 
-        # Simulate current (buggy) behavior.
-        current_items = [MockItem(n) for n in nodeids]
+        # Simulate current (no sorting) behavior.
+        current_items = [
+            MockItem(i.nodeid, BlockchainFixture) for i in items
+        ]
         self._simulate_collection_with_xdist_current(current_items)
         current_order = [i.nodeid for i in current_items]
 
-        # Simulate expected (fixed) behavior.
-        expected_items = [MockItem(n) for n in nodeids]
+        # Simulate expected (with sorting) behavior.
+        expected_items = [
+            MockItem(i.nodeid, BlockchainFixture) for i in items
+        ]
         self._simulate_collection_with_xdist_fixed(expected_items)
         expected_order = [i.nodeid for i in expected_items]
 
-        # BUG: Current order differs from expected order.
-        # This assertion should FAIL after the fix is applied.
+        # Current behavior does not sort (by design - loadgroup handles this).
+        # This test documents that sorting is intentionally skipped with xdist.
         assert current_order != expected_order, (
-            "Bug is fixed! Update test to expect sorted order. "
+            "Sorting was added! Update test if sorting is now expected. "
             f"Current: {current_order}, Expected: {expected_order}"
         )
 
     @pytest.mark.xfail(
-        reason="BUG: Items not sorted with xdist. Remove xfail after fix."
+        reason=(
+            "Items not sorted with xdist"
+            " (by design - loadgroup handles grouping)."
+        )
     )
-    def test_xdist_sorting_required_for_cache_hits(self) -> None:
-        """Test xdist collection sorts items (FAILS until bug is fixed)."""
-        nodeids = [
-            "tests/test.py::test_b[fork_Osaka-blockchain_test]",
-            "tests/test.py::test_a[fork_Osaka-blockchain_test]",
-        ]
+    def test_xdist_sorting_required_for_cache_hits(
+        self,
+    ) -> None:
+        """
+        Test xdist collection sorts items.
 
+        Expected to fail — no sorting with xdist.
+        """
+        items = [
+            MockItem(
+                "tests/test.py::test_b[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+            MockItem(
+                "tests/test.py::test_a[fork_Osaka-blockchain_test]",
+                BlockchainFixture,
+            ),
+        ]
         # Simulate current behavior with xdist.
-        items = [MockItem(n) for n in nodeids]
         self._simulate_collection_with_xdist_current(items)
 
         # EXPECTED: Items should be sorted (test_a before test_b).

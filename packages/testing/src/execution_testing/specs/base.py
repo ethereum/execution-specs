@@ -42,7 +42,7 @@ from execution_testing.fixtures import (
     BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
-    strip_fixture_format_from_nodeid,
+    strip_fixture_format_from_node,
 )
 from execution_testing.forks import Fork
 from execution_testing.forks.base_fork import BaseFork
@@ -106,6 +106,7 @@ class BaseTest(BaseModel):
         # default to BaseFork to allow the filler to set it,
         # instead of each test having to set it
     )
+    fixture_format: FixtureFormat | None = None
 
     _request: pytest.FixtureRequest | None = PrivateAttr(None)
     _operation_mode: OpMode | None = PrivateAttr(None)
@@ -174,6 +175,7 @@ class BaseTest(BaseModel):
         new_instance = cls(
             tag=base_test.tag,
             fork=base_test.fork,
+            fixture_format=base_test.fixture_format,
             t8n_dump_dir=base_test.t8n_dump_dir,
             expected_benchmark_gas_used=base_test.expected_benchmark_gas_used,
             skip_gas_used_validation=base_test.skip_gas_used_validation,
@@ -267,11 +269,11 @@ class BaseTest(BaseModel):
             )
         return None
 
-    def node_id(self) -> str:
+    def node(self) -> pytest.Item | pytest.Function | None:
         """Return the node ID of the test."""
         if self._request is not None and hasattr(self._request, "node"):
-            return self._request.node.nodeid
-        return ""
+            return self._request.node
+        return None
 
     def check_exception_test(
         self,
@@ -310,7 +312,10 @@ class BaseTest(BaseModel):
 
     def _get_base_nodeid(self) -> str:
         """Get base nodeid without fixture_format for cache key."""
-        return strip_fixture_format_from_nodeid(self.node_id())
+        node = self.node()
+        if node is None:
+            return ""
+        return strip_fixture_format_from_node(node)
 
     def _get_t8n_cache_key(
         self, fork_name: str, block_index: int = 0

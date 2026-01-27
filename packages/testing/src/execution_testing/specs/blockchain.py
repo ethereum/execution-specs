@@ -618,7 +618,6 @@ class BlockchainTest(BaseTest):
         # On cache hit, the t8n call is skipped.
         # Skip cache for engine_x/engine_sync variants (different execution).
         filling_session = self._get_filling_session()
-        nodeid = self.node_id()
         cache_key = self._get_t8n_cache_key(
             self.fork.name(), block_index=int(env.number)
         )
@@ -627,11 +626,12 @@ class BlockchainTest(BaseTest):
         cache = None
         if filling_session is not None:
             cache = filling_session.t8n_output_cache
-        can_use_cache = (
-            "engine_x" not in nodeid and "engine_sync" not in nodeid
-        )
 
-        if cache is not None and can_use_cache:
+        if (
+            cache is not None
+            and self.fixture_format is not None
+            and self.fixture_format.can_use_cache
+        ):
             transition_tool_output = cache.get(cache_key)
 
         if transition_tool_output is None:
@@ -650,7 +650,11 @@ class BlockchainTest(BaseTest):
                 debug_output_path=self.get_next_transition_tool_output_path(),
                 slow_request=self.is_tx_gas_heavy_test(),
             )
-            if cache is not None and can_use_cache:
+            if (
+                cache is not None
+                and self.fixture_format is not None
+                and self.fixture_format.can_use_cache
+            ):
                 cache.set(cache_key, transition_tool_output)
 
         if transition_tool_output.result.opcode_count is not None:

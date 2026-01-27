@@ -55,7 +55,7 @@ from execution_testing.fixtures import (
     StateFixture,
     TestInfo,
     merge_partial_fixture_files,
-    strip_fixture_format_from_nodeid,
+    strip_fixture_format_from_node,
 )
 from execution_testing.fixtures.pre_alloc_groups import (
     _get_worker_id,
@@ -1514,6 +1514,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 if "expected_benchmark_gas_used" not in kwargs:
                     kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
                 kwargs["fork"] = fork
+                kwargs["fixture_format"] = fixture_format
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters
@@ -1802,7 +1803,7 @@ def pytest_collection_modifyitems(
         # "]" characters which would break the detection.
         for item in items:
             if not item.get_closest_marker("xdist_group"):
-                base_nodeid = strip_fixture_format_from_nodeid(item.nodeid)
+                base_nodeid = strip_fixture_format_from_node(item)
                 h = hashlib.md5(
                     base_nodeid.encode(), usedforsecurity=False
                 ).hexdigest()[:8]
