@@ -170,80 +170,58 @@ def render_hash_report(
     )
 
 
-def parse_hash_lines(
-    lines: List[str], strip_root: bool = False
-) -> List[tuple[str, str]]:
-    """
-    Parse hash lines, reconstructing full paths from indentation hierarchy.
+def collect_hashes(
+    item: HashableItem,
+    *,
+    path: str = "",
+    print_type: Optional[HashableItemType] = None,
+    max_depth: Optional[int] = None,
+    depth: int = 0,
+) -> Dict[str, str]:
+    """Collect hashes from item tree as {path: hash_hex}."""
+    result: Dict[str, str] = {}
 
-    Returns list of (full_path, hash) tuples preserving order.
-    """
-    results: List[tuple[str, str]] = []
-    path_stack: List[tuple[int, str]] = []
+    if print_type is None or item.type >= print_type:
+        if path:
+            result[path] = f"0x{item.hash().hex()}"
+        depth += 1
+        if max_depth is not None and depth > max_depth:
+            return result
 
-    for line in lines:
-        if ": 0x" not in line:
-            continue
+    if item.items:
+        for name, child in sorted(item.items.items()):
+            child_path = f"{path}/{name}" if path else name
+            result.update(
+                collect_hashes(
+                    child,
+                    path=child_path,
+                    print_type=print_type,
+                    max_depth=max_depth,
+                    depth=depth,
+                )
+            )
 
-        stripped = line.lstrip()
-        indent = len(line) - len(stripped)
-
-        name, hash_val = stripped.rsplit(": ", 1)
-
-        while path_stack and path_stack[-1][0] >= indent:
-            path_stack.pop()
-
-        if path_stack:
-            parent_path = path_stack[-1][1]
-            full_path = f"{parent_path}/{name}"
-        else:
-            full_path = name
-
-        path_stack.append((indent, full_path))
-
-        if strip_root and "/" in full_path:
-            full_path = full_path.split("/", 1)[1]
-
-        results.append((full_path, hash_val))
-
-    return results
+    return result
 
 
 def display_diff(
-    left_lines: List[str],
-    right_lines: List[str],
+    left: Dict[str, str],
+    right: Dict[str, str],
     *,
     left_label: str,
     right_label: str,
 ) -> None:
-    """Render diff showing only changed hashes with clear formatting."""
-    left_parsed = parse_hash_lines(left_lines, strip_root=True)
-    right_parsed = parse_hash_lines(right_lines, strip_root=True)
-
-    left_paths: List[str] = []
-    left_hashes: Dict[str, str] = {}
-    right_hashes: Dict[str, str] = {}
-
-    for path, hash_val in left_parsed:
-        left_paths.append(path)
-        left_hashes[path] = hash_val
-
-    for path, hash_val in right_parsed:
-        right_hashes[path] = hash_val
-
+    """Render diff showing only changed hashes."""
     differences: List[tuple[str, str, str]] = []
-    seen_paths: set[str] = set()
 
-    for path in left_paths:
-        seen_paths.add(path)
-        left_hash = left_hashes[path]
-        right_hash = right_hashes.get(path, "<missing>")
-        if left_hash != right_hash:
-            differences.append((path, left_hash, right_hash))
+    for path in left:
+        right_hash = right.get(path, "<missing>")
+        if left[path] != right_hash:
+            differences.append((path, left[path], right_hash))
 
-    for path, right_hash in right_hashes.items():
-        if path not in seen_paths:
-            differences.append((path, "<missing>", right_hash))
+    for path in right:
+        if path not in left:
+            differences.append((path, "<missing>", right[path]))
 
     if not differences:
         return
@@ -365,29 +343,34 @@ def compare_cmd(
 ) -> None:
     """Compare two fixture directories and show differences."""
     try:
-        # Use a common name for both to compare only content, not folder names
-        common_name = "fixtures"
-        left_lines = render_hash_report(
-            Path(left_folder),
-            files=files,
-            tests=tests,
-            root=root,
-            name_override=common_name,
-            max_depth=depth,
-        )
-        right_lines = render_hash_report(
-            Path(right_folder),
-            files=files,
-            tests=tests,
-            root=root,
-            name_override=common_name,
-            max_depth=depth,
-        )
-        if left_lines == right_lines:
+        left_item = HashableItem.from_folder(folder_path=Path(left_folder))
+        right_item = HashableItem.from_folder(folder_path=Path(right_folder))
+
+        if root:
+            if left_item.hash() == right_item.hash():
+                sys.exit(0)
+            left_hashes = {"root": f"0x{left_item.hash().hex()}"}
+            right_hashes = {"root": f"0x{right_item.hash().hex()}"}
+        else:
+            print_type: Optional[HashableItemType] = None
+            if files:
+                print_type = HashableItemType.FILE
+            elif tests:
+                print_type = HashableItemType.TEST
+
+            left_hashes = collect_hashes(
+                left_item, print_type=print_type, max_depth=depth
+            )
+            right_hashes = collect_hashes(
+                right_item, print_type=print_type, max_depth=depth
+            )
+
+        if left_hashes == right_hashes:
             sys.exit(0)
+
         display_diff(
-            left_lines,
-            right_lines,
+            left_hashes,
+            right_hashes,
             left_label=left_folder,
             right_label=right_folder,
         )
