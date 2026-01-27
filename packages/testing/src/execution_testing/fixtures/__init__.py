@@ -4,8 +4,8 @@ from .base import (
     BaseFixture,
     FixtureFillingPhase,
     FixtureFormat,
-    get_all_fixture_format_names,
     LabeledFixtureFormat,
+    get_all_fixture_format_names,
     strip_fixture_format_from_nodeid,
 )
 from .blockchain import (

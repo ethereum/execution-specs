@@ -488,7 +488,9 @@ class TestCollectionSortingBehavior:
         """Test xdist_group markers use consistent hashes."""
         items = [
             MockItem("tests/test.py::test_foo[fork_Osaka-blockchain_test]"),
-            MockItem("tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]"),
+            MockItem(
+                "tests/test.py::test_foo[fork_Osaka-blockchain_test_engine]"
+            ),
         ]
 
         self._simulate_collection_with_xdist_current(items)

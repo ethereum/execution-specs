@@ -1396,7 +1396,7 @@ def filler_path(request: pytest.FixtureRequest) -> Path:
 
 
 def _strip_xdist_group_suffix(s: str) -> str:
-    """Strip @t8n-cache-* suffix added for cache locality, preserving other groups."""
+    """Strip @t8n-cache-* suffix, preserving other xdist_group markers."""
     if "@" in s:
         base, suffix = s.rsplit("@", 1)
         if suffix.startswith("t8n-cache-"):
