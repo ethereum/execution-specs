@@ -14,9 +14,12 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Fork,
+    Initcode,
     Op,
     Transaction,
     Withdrawal,
+    compute_create_address,
 )
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
@@ -1127,4 +1130,166 @@ def test_bal_withdrawal_to_7702_delegation(
         pre=pre,
         blocks=[block],
         post=post,
+    )
+
+
+def test_bal_7702_delegated_create(
+    fork: Fork,
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    BAL tracks EIP-7702 delegation indicator write and contract creation.
+
+    Alice sends a type-4 (7702) tx authorizing herself to delegate to
+    Deployer code which executes CREATE.
+    """
+    # Alice (EOA) will receive delegation then receive withdrawal
+    alice_initial_balance = 10**18  # 1 ETH default
+    alice = pre.fund_eoa(amount=alice_initial_balance)
+
+    # Simple init code that deploys STOP
+    deploy_code = Op.STOP
+    init_code = Initcode(deploy_code=deploy_code)
+    init_code_bytes = bytes(init_code)
+
+    # Deployer code: CREATE and store result in slot 0
+    deployer_code = (
+        # Push init code to memory
+        Op.MSTORE(
+            0,
+            Op.PUSH32(init_code_bytes),
+            new_memory_size=32,
+            old_memory_size=0,
+        )
+        # SSTORE(0, CREATE(offset, size))
+        + Op.SSTORE(
+            0x00,
+            Op.CREATE(
+                offset=32 - len(init_code_bytes),
+                size=len(init_code_bytes),
+                init_code_size=len(init_code_bytes),
+            ),
+            original_value=0xDEAD,
+        )
+        + Op.STOP
+    )
+
+    deployer_initial_balance = 10**18  # 1 ETH default
+    # Deploy factory
+    deployer = pre.deploy_contract(
+        code=deployer_code,
+        balance=deployer_initial_balance,
+        storage={0x00: 0xDEAD},  # Initial value to prove SSTORE works
+    )
+
+    # Calculate what the contract address WOULD be (but it won't be created)
+    would_be_contract_address = compute_create_address(
+        address=deployer, nonce=1
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=deployer,
+        gas_limit=1_000_000,
+        authorization_list=[
+            AuthorizationTuple(
+                address=deployer,
+                nonce=1,
+                signer=alice,
+            )
+        ],
+    )
+
+    # Calculate gas cost
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    gsc = fork.gas_costs()
+    max_refund_quotient = fork.max_refund_quotient()
+    gas_used = (
+        intrinsic_gas_calculator(
+            return_cost_deducted_prior_execution=True,
+            authorization_list_or_count=tx.authorization_list,
+        )
+        + deployer_code.gas_cost(fork)
+        + init_code.execution_gas
+        + gsc.G_CODE_DEPOSIT_BYTE * len(deploy_code)
+    )
+
+    refund_counter = gsc.R_AUTHORIZATION_EXISTING_AUTHORITY
+
+    effective_refund = min(refund_counter, gas_used // max_refund_quotient)
+    gas_used_post_refund = gas_used - effective_refund
+
+    assert tx.max_fee_per_gas is not None
+    alice_expected_balance = alice_initial_balance - (
+        gas_used_post_refund * tx.max_fee_per_gas
+    )
+
+    block = Block(
+        txs=[tx],
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations={
+                alice: BalAccountExpectation(
+                    nonce_changes=[
+                        # sending the tx + delegation processing
+                        BalNonceChange(block_access_index=1, post_nonce=2)
+                    ],
+                    balance_changes=[
+                        BalBalanceChange(
+                            block_access_index=1,
+                            post_balance=alice_expected_balance,
+                        )
+                    ],
+                    code_changes=[
+                        BalCodeChange(
+                            block_access_index=1,
+                            new_code=Spec7702.delegation_designation(deployer),
+                        ),
+                    ],
+                ),
+                deployer: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=2)
+                    ],
+                    # Storage changes: slot 0 = 0xDEAD → contract_addesss
+                    # since CREATE returned contract_address
+                    storage_changes=[
+                        BalStorageSlot(
+                            slot=0x00,
+                            slot_changes=[
+                                BalStorageChange(
+                                    block_access_index=1,
+                                    post_value=would_be_contract_address,
+                                )
+                            ],
+                        )
+                    ],
+                ),
+                would_be_contract_address: BalAccountExpectation(
+                    nonce_changes=[
+                        BalNonceChange(block_access_index=1, post_nonce=1)
+                    ],
+                    code_changes=[
+                        BalCodeChange(block_access_index=1, new_code=Op.STOP)
+                    ],
+                ),
+            }
+        ),
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[block],
+        post={
+            alice: Account(
+                nonce=2,
+                balance=alice_expected_balance,
+                code=Spec7702.delegation_designation(deployer),
+            ),
+            deployer: Account(
+                nonce=2,
+                storage={0x00: would_be_contract_address},
+            ),
+            would_be_contract_address: Account(nonce=1, code=Op.STOP),
+        },
     )
