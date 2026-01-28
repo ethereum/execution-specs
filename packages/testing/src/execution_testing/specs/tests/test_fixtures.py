@@ -152,10 +152,10 @@ def test_fill_state_test(
         number=1,
         timestamp=1000,
     )
-
+    contract_code = Op.SSTORE(1, Op.CHAINID) + Op.LOG1(0, 1, 2) + Op.STOP
     pre = {
         0x1000000000000000000000000000000000000000: Account(
-            code="0x4660015500"
+            code=contract_code
         ),
         "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
             balance=1000000000000000000000
@@ -189,7 +189,7 @@ def test_fill_state_test(
 
     post = {
         "0x1000000000000000000000000000000000000000": Account(
-            code="0x4660015500", storage={"0x01": "0x01"}
+            code=contract_code, storage={"0x01": "0x01"}
         ),
     }
 
