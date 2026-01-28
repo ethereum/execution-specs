@@ -106,14 +106,18 @@ class FixtureTransactionReceipt(TransactionReceipt):
     """Fixture variant of the TransactionReceipt type."""
 
     gas_used: ZeroPaddedHexNumber | None = None
-    logs: List[FixtureTransactionLog] = Field(default_factory=list)
+    logs: List[FixtureTransactionLog] | None = Field(  # type: ignore[assignment]
+        default_factory=list
+    )
     status: ZeroPaddedHexNumber | None = None
     cumulative_gas_used: ZeroPaddedHexNumber | None = None
     effective_gas_price: ZeroPaddedHexNumber | None = None
     transaction_index: ZeroPaddedHexNumber | None = None
     blob_gas_used: ZeroPaddedHexNumber | None = None
     blob_gas_price: ZeroPaddedHexNumber | None = None
-    delegations: List[FixtureReceiptDelegation] | None = None
+    delegations: List[FixtureReceiptDelegation] | None = Field(  # type: ignore[assignment]
+        None
+    )
 
     @classmethod
     def from_transaction_receipt(

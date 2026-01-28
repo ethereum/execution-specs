@@ -43,8 +43,8 @@ from execution_testing.fixtures.state import (
     FixtureConfig,
     FixtureEnvironment,
     FixtureForkPost,
-    FixtureTransactionReceipt,
     FixtureTransaction,
+    FixtureTransactionReceipt,
 )
 from execution_testing.forks import Fork
 from execution_testing.logging import (
@@ -475,8 +475,8 @@ class StateTest(BaseTest):
                 )
         if len(transition_tool_output.result.receipts) == 1:
             receipt = FixtureTransactionReceipt.from_transaction_receipt(
-                            transition_tool_output.result.receipts[0]
-                        )
+                transition_tool_output.result.receipts[0]
+            )
         else:
             receipt = None
 
