@@ -235,3 +235,86 @@ def test_selfdestruct_same_tx_via_call(
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+def test_finalization_selfdestruct_logs(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+) -> None:
+    """
+    Test Selfdestruct logs at finalization for post-selfdestruct balance.
+
+    Multiple contracts selfdestruct then receive ETH. At finalization, logs
+    are emitted in lexicographical order of contract addresses.
+    """
+    beneficiary = pre.deploy_contract(Op.STOP)
+
+    runtime = Op.SELFDESTRUCT(beneficiary)
+    initcode = Initcode(deploy_code=runtime)
+    initcode_len = len(initcode)
+
+    # C1 and C2 selfdestruct to addresses in calldata
+    c1_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
+    c2_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
+    c1 = pre.deploy_contract(c1_code, balance=100)
+    c2 = pre.deploy_contract(c2_code, balance=200)
+
+    # Factory: CREATE A, CREATE B, CALL A, CALL B, then CALL C1/C2 to send ETH
+    factory_code = (
+        Om.MSTORE(initcode, 0)
+        # CREATE A (nonce 1) and B (nonce 2)
+        + Op.SSTORE(0, Op.CREATE(value=1000, offset=0, size=initcode_len))
+        + Op.SSTORE(1, Op.CREATE(value=2000, offset=0, size=initcode_len))
+        # CALL A and B to trigger selfdestructs
+        + Op.CALL(gas=100_000, address=Op.SLOAD(0), value=0)
+        + Op.CALL(gas=100_000, address=Op.SLOAD(1), value=0)
+        # CALL C1 with A's address, CALL C2 with B's address
+        + Op.MSTORE(0, Op.SLOAD(0))
+        + Op.CALL(gas=100_000, address=c1, args_offset=0, args_size=32)
+        + Op.MSTORE(0, Op.SLOAD(1))
+        + Op.CALL(gas=100_000, address=c2, args_offset=0, args_size=32)
+    )
+
+    factory = pre.deploy_contract(factory_code, balance=3000)
+    addr_a = compute_create_address(address=factory, nonce=1)
+    addr_b = compute_create_address(address=factory, nonce=2)
+
+    # Sort addresses for expected finalization log order
+    sorted_addrs = sorted([addr_a, addr_b])
+    amounts = {addr_a: 100, addr_b: 200}
+
+    # Execution logs: CREATE A, CREATE B, SD A, SD B, C1->A, C2->B
+    execution_logs = [
+        transfer_log(factory, addr_a, 1000),
+        transfer_log(factory, addr_b, 2000),
+        transfer_log(addr_a, beneficiary, 1000),
+        transfer_log(addr_b, beneficiary, 2000),
+        transfer_log(c1, addr_a, 100),
+        transfer_log(c2, addr_b, 200),
+    ]
+    # Finalization logs in sorted address order
+    finalization_logs = [
+        selfdestruct_log(addr, amounts[addr]) for addr in sorted_addrs
+    ]
+
+    tx = Transaction(
+        sender=sender,
+        to=factory,
+        value=0,
+        gas_limit=1_000_000,
+        expected_receipt=TransactionReceipt(
+            logs=execution_logs + finalization_logs
+        ),
+    )
+
+    post = {
+        addr_a: Account.NONEXISTENT,
+        addr_b: Account.NONEXISTENT,
+        beneficiary: Account(balance=3000),
+        c1: Account(balance=0),
+        c2: Account(balance=0),
+    }
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
