@@ -1549,7 +1549,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 if "expected_benchmark_gas_used" not in kwargs:
                     kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
                 kwargs["fork"] = fork
-                kwargs["fixture_format"] = fixture_format
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters

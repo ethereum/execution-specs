@@ -95,7 +95,6 @@ class BaseTest(BaseModel):
         # default to BaseFork to allow the filler to set it,
         # instead of each test having to set it
     )
-    fixture_format: FixtureFormat | None = None
 
     _request: pytest.FixtureRequest | None = PrivateAttr(None)
     _operation_mode: OpMode | None = PrivateAttr(None)
@@ -159,7 +158,6 @@ class BaseTest(BaseModel):
         new_instance = cls(
             tag=base_test.tag,
             fork=base_test.fork,
-            fixture_format=base_test.fixture_format,
             expected_benchmark_gas_used=base_test.expected_benchmark_gas_used,
             skip_gas_used_validation=base_test.skip_gas_used_validation,
             **kwargs,
