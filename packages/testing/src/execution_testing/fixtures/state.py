@@ -16,17 +16,17 @@ from execution_testing.base_types import (
 from execution_testing.exceptions import TransactionExceptionInstanceOrList
 from execution_testing.forks import Fork
 from execution_testing.test_types.block_types import EnvironmentGeneric
-from execution_testing.test_types.receipt_types import (
-    ReceiptDelegation,
-    TransactionReceipt,
-)
 from execution_testing.test_types.transaction_types import (
     Transaction,
     TransactionFixtureConverter,
 )
 
 from .base import BaseFixture
-from .common import FixtureAuthorizationTuple, FixtureBlobSchedule
+from .common import (
+    FixtureAuthorizationTuple,
+    FixtureBlobSchedule,
+    FixtureTransactionReceipt,
+)
 
 
 class FixtureEnvironment(EnvironmentGeneric[ZeroPaddedHexNumber]):
@@ -86,48 +86,6 @@ class FixtureForkPostIndexes(BaseModel):
     data: int = 0
     gas: int = 0
     value: int = 0
-
-
-class FixtureTransactionLog(CamelModel):
-    """Fixture variant of the TransactionLog type."""
-
-    address: Address | None = None
-    topics: List[Hash] | None = None
-    data: Bytes | None = None
-
-
-class FixtureReceiptDelegation(ReceiptDelegation):
-    """Fixture variant of the ReceiptDelegation type."""
-
-    nonce: ZeroPaddedHexNumber
-
-
-class FixtureTransactionReceipt(TransactionReceipt):
-    """Fixture variant of the TransactionReceipt type."""
-
-    gas_used: ZeroPaddedHexNumber | None = None
-    logs: List[FixtureTransactionLog] | None = Field(  # type: ignore[assignment]
-        default_factory=list
-    )
-    status: ZeroPaddedHexNumber | None = None
-    cumulative_gas_used: ZeroPaddedHexNumber | None = None
-    effective_gas_price: ZeroPaddedHexNumber | None = None
-    transaction_index: ZeroPaddedHexNumber | None = None
-    blob_gas_used: ZeroPaddedHexNumber | None = None
-    blob_gas_price: ZeroPaddedHexNumber | None = None
-    delegations: List[FixtureReceiptDelegation] | None = Field(  # type: ignore[assignment]
-        None
-    )
-
-    @classmethod
-    def from_transaction_receipt(
-        cls, receipt: TransactionReceipt
-    ) -> "FixtureTransactionReceipt":
-        """Return FixtureTransactionReceipt from a TransactionReceipt."""
-        model_as_dict = receipt.model_dump(
-            exclude_none=True,
-        )
-        return cls(**model_as_dict)
 
 
 class FixtureForkPost(CamelModel):

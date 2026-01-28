@@ -64,7 +64,11 @@ from execution_testing.test_types.transaction_types import (
 )
 
 from .base import BaseFixture, FixtureFillingPhase
-from .common import FixtureAuthorizationTuple, FixtureBlobSchedule
+from .common import (
+    FixtureAuthorizationTuple,
+    FixtureBlobSchedule,
+    FixtureTransactionReceipt,
+)
 
 
 def post_state_validator(
@@ -638,6 +642,7 @@ class FixtureBlockBase(CamelModel):
         default_factory=list, alias="uncleHeaders"
     )
     withdrawals: List[FixtureWithdrawal] | None = None
+    receipts: List[FixtureTransactionReceipt] | None = None
     execution_witness: WitnessChunk | None = None
     block_access_list: BlockAccessList | None = Field(
         None, description="EIP-7928 Block Access List"

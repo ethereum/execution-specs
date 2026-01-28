@@ -64,7 +64,10 @@ from execution_testing.fixtures.blockchain import (
     FixtureWithdrawal,
     InvalidFixtureBlock,
 )
-from execution_testing.fixtures.common import FixtureBlobSchedule
+from execution_testing.fixtures.common import (
+    FixtureBlobSchedule,
+    FixtureTransactionReceipt,
+)
 from execution_testing.forks import Fork
 from execution_testing.test_types import (
     Alloc,
@@ -379,6 +382,14 @@ class BuiltBlock(CamelModel):
                     for w in self.withdrawals
                 ]
                 if self.withdrawals is not None
+                else None
+            ),
+            receipts=(
+                [
+                    FixtureTransactionReceipt.from_transaction_receipt(r)
+                    for r in self.result.receipts
+                ]
+                if self.result.receipts
                 else None
             ),
             block_access_list=self.block_access_list

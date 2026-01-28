@@ -1,17 +1,23 @@
 """Common types used to define multiple fixture types."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from pydantic import AliasChoices, Field, model_validator
 
 from execution_testing.base_types import (
     BlobSchedule,
+    Bytes,
     CamelModel,
     EthereumTestRootModel,
+    Hash,
     SignableRLPSerializable,
     ZeroPaddedHexNumber,
 )
 from execution_testing.test_types.account_types import Address
+from execution_testing.test_types.receipt_types import (
+    ReceiptDelegation,
+    TransactionReceipt,
+)
 from execution_testing.test_types.transaction_types import (
     AuthorizationTupleGeneric,
 )
@@ -88,3 +94,41 @@ class FixtureAuthorizationTuple(
         """Sign the current object for further serialization."""
         # No-op, as the object is always already signed
         return
+
+
+class FixtureTransactionLog(CamelModel):
+    """Fixture variant of the TransactionLog type."""
+
+    address: Address | None = None
+    topics: List[Hash] | None = None
+    data: Bytes | None = None
+
+
+class FixtureReceiptDelegation(ReceiptDelegation):
+    """Fixture variant of the ReceiptDelegation type."""
+
+    nonce: ZeroPaddedHexNumber
+
+
+class FixtureTransactionReceipt(TransactionReceipt):
+    """Fixture variant of the TransactionReceipt type."""
+
+    gas_used: ZeroPaddedHexNumber | None = None
+    logs: List[FixtureTransactionLog] = Field(default_factory=list)  # type: ignore[assignment]
+    status: ZeroPaddedHexNumber | None = None
+    cumulative_gas_used: ZeroPaddedHexNumber | None = None
+    effective_gas_price: ZeroPaddedHexNumber | None = None
+    transaction_index: ZeroPaddedHexNumber | None = None
+    blob_gas_used: ZeroPaddedHexNumber | None = None
+    blob_gas_price: ZeroPaddedHexNumber | None = None
+    delegations: List[FixtureReceiptDelegation] | None = None  # type: ignore[assignment]
+
+    @classmethod
+    def from_transaction_receipt(
+        cls, receipt: TransactionReceipt
+    ) -> "FixtureTransactionReceipt":
+        """Return FixtureTransactionReceipt from a TransactionReceipt."""
+        model_as_dict = receipt.model_dump(
+            exclude_none=True,
+        )
+        return cls(**model_as_dict)
