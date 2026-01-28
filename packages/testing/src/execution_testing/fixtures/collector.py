@@ -203,7 +203,6 @@ class FixtureCollector:
     # Internal state
     all_fixtures: Dict[Path, Fixtures] = field(default_factory=dict)
     json_path_to_test_item: Dict[Path, TestInfo] = field(default_factory=dict)
-    _pre_serialized: Dict[str, str] = field(default_factory=dict)
     # Store index entries as simple dicts
     # (avoid Pydantic overhead during collection)
     index_entries: List[Dict] = field(default_factory=list)
@@ -243,13 +242,6 @@ class FixtureCollector:
             self.json_path_to_test_item[fixture_path] = info
 
         self.all_fixtures[fixture_path][info.get_id()] = fixture
-
-        # Pre-serialize fixture JSON during test execution (parallelized
-        # across xdist workers) to avoid a single giant json.dumps() at
-        # teardown.
-        self._pre_serialized[info.get_id()] = json.dumps(
-            fixture.json_dict_with_info(), indent=4
-        )
 
         # Collect index entry while data is in memory (if indexing enabled)
         # Store as simple dict to avoid Pydantic overhead during collection
@@ -295,7 +287,6 @@ class FixtureCollector:
             self._write_partial_fixtures(fixture_path, fixtures, worker_id)
 
         self.all_fixtures.clear()
-        self._pre_serialized.clear()
 
     def _write_partial_fixtures(
         self, file_path: Path, fixtures: Fixtures, worker_id: str | None
@@ -314,13 +305,8 @@ class FixtureCollector:
 
         lines = []
         for name in fixtures:
-            if name in self._pre_serialized:
-                value = self._pre_serialized[name]
-            else:
-                value = json.dumps(
-                    fixtures[name].json_dict_with_info(), indent=4
-                )
-            # Store as JSONL: {"k": key, "v": pre-serialized value string}
+            value = json.dumps(fixtures[name].json_dict_with_info(), indent=4)
+            # Store as JSONL: {"k": key, "v": serialized value string}
             lines.append(json.dumps({"k": name, "v": value}) + "\n")
 
         with FileLock(lock_file_path):

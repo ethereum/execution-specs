@@ -62,53 +62,6 @@ def module_path(filler_path: Path) -> Path:
     return mod
 
 
-class TestPreSerialization:
-    """Tests for the pre-serialization optimization in FixtureCollector."""
-
-    def test_add_fixture_populates_pre_serialized(
-        self, output_dir: Path, filler_path: Path, module_path: Path
-    ) -> None:
-        """
-        add_fixture() stores a pre-serialized JSON string for each fixture.
-        """
-        collector = FixtureCollector(
-            output_dir=output_dir,
-            fill_static_tests=False,
-            single_fixture_per_file=False,
-            filler_path=filler_path,
-            generate_index=False,
-        )
-        fixture = _make_fixture(1)
-        info = _make_info("tx_test", module_path)
-        collector.add_fixture(info, fixture)
-
-        fixture_id = info.get_id()
-        assert fixture_id in collector._pre_serialized
-        # The pre-serialized string must be valid JSON matching the fixture
-        parsed = json.loads(collector._pre_serialized[fixture_id])
-        assert parsed == fixture.json_dict_with_info()
-
-    def test_dump_fixtures_clears_pre_serialized(
-        self, output_dir: Path, filler_path: Path, module_path: Path
-    ) -> None:
-        """dump_fixtures() clears _pre_serialized alongside all_fixtures."""
-        collector = FixtureCollector(
-            output_dir=output_dir,
-            fill_static_tests=False,
-            single_fixture_per_file=False,
-            filler_path=filler_path,
-            generate_index=False,
-        )
-        fixture = _make_fixture(1)
-        info = _make_info("tx_test", module_path)
-        collector.add_fixture(info, fixture)
-
-        assert len(collector._pre_serialized) == 1
-        collector.dump_fixtures()
-        assert len(collector._pre_serialized) == 0
-        assert len(collector.all_fixtures) == 0
-
-
 class TestPartialFixtureFiles:
     """Tests for partial fixture file writing and merging."""
 
