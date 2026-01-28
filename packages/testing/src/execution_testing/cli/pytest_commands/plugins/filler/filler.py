@@ -434,6 +434,32 @@ class TransitionToolCacheStats:
     subkey_test_hits: int = 0
     subkey_test_miss: int = 0
 
+    def to_dict(self) -> Dict[str, int]:
+        """Convert stats to dict for xdist worker transfer."""
+        return {
+            "key_test_hits": self.key_test_hits,
+            "key_test_miss": self.key_test_miss,
+            "subkey_test_hits": self.subkey_test_hits,
+            "subkey_test_miss": self.subkey_test_miss,
+        }
+
+    def add(self, other: "TransitionToolCacheStats") -> None:
+        """Add another stats object to this one."""
+        self.key_test_hits += other.key_test_hits
+        self.key_test_miss += other.key_test_miss
+        self.subkey_test_hits += other.subkey_test_hits
+        self.subkey_test_miss += other.subkey_test_miss
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, int]) -> "TransitionToolCacheStats":
+        """Create stats from dict (xdist worker transfer)."""
+        return cls(
+            key_test_hits=data.get("key_test_hits", 0),
+            key_test_miss=data.get("key_test_miss", 0),
+            subkey_test_hits=data.get("subkey_test_hits", 0),
+            subkey_test_miss=data.get("subkey_test_miss", 0),
+        )
+
 
 def calculate_post_state_diff(
     post_state: BaseAlloc, genesis_state: BaseAlloc
@@ -871,6 +897,16 @@ def pytest_configure(config: pytest.Config) -> None:
         f"<code>{command_line_args}</code>"
     )
 
+    # Initialize aggregated cache stats on xdist controller.
+    # Controller = xdist active but not a worker.
+    numprocesses = config.getoption("numprocesses", None)
+    is_xdist_active = isinstance(numprocesses, int) and numprocesses > 0
+    is_controller = is_xdist_active and not hasattr(config, "workerinput")
+    if is_controller:
+        config.t8n_cache_stats_aggregated = (  # type: ignore[attr-defined]
+            TransitionToolCacheStats()
+        )
+
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config: pytest.Config) -> List[str]:
@@ -919,20 +955,43 @@ def pytest_terminal_summary(
     yield
     if config.fixture_output.is_stdout or hasattr(config, "workerinput"):  # type: ignore[attr-defined]
         return
+
+    # Get cache stats: try aggregated (xdist), else local (sequential)
     t8n_cache_stats: TransitionToolCacheStats | None = getattr(
-        config, "transition_tool_cache_stats", None
-    )
+        config, "t8n_cache_stats_aggregated", None
+    ) or getattr(config, "transition_tool_cache_stats", None)
+
     if t8n_cache_stats is not None:
-        terminalreporter.write_sep(
-            "=",
-            f" Transition tool cache stats:"
-            f"- Key test hits: {t8n_cache_stats.key_test_hits}"
-            f"- Key test misses: {t8n_cache_stats.key_test_miss}"
-            f"- Subkey test hits: {t8n_cache_stats.subkey_test_hits}"
-            f"- Subkey test misses: {t8n_cache_stats.subkey_test_miss}",
-            bold=True,
-            green=True,
+        total_key = (
+            t8n_cache_stats.key_test_hits + t8n_cache_stats.key_test_miss
         )
+        total_subkey = (
+            t8n_cache_stats.subkey_test_hits + t8n_cache_stats.subkey_test_miss
+        )
+        if total_key > 0 or total_subkey > 0:
+            key_rate = (
+                t8n_cache_stats.key_test_hits / total_key * 100
+                if total_key > 0
+                else 0
+            )
+            subkey_rate = (
+                t8n_cache_stats.subkey_test_hits / total_subkey * 100
+                if total_subkey > 0
+                else 0
+            )
+            terminalreporter.write_sep(
+                "=",
+                (
+                    f" T8n cache: key_hits={t8n_cache_stats.key_test_hits}, "
+                    f"key_misses={t8n_cache_stats.key_test_miss} "
+                    f"({key_rate:.1f}%), "
+                    f"subkey_hits={t8n_cache_stats.subkey_test_hits}, "
+                    f"subkey_misses={t8n_cache_stats.subkey_test_miss} "
+                    f"({subkey_rate:.1f}%)"
+                ),
+                bold=True,
+                green=True,
+            )
     stats = terminalreporter.stats
     if "passed" in stats and stats["passed"]:
         # Custom message for Phase 1 (pre-allocation group generation)
@@ -985,6 +1044,20 @@ def pytest_terminal_summary(
                 bold=True,
                 yellow=True,
             )
+
+
+def pytest_testnodedown(node: Any, error: Any) -> None:
+    """
+    Aggregate t8n cache stats from xdist workers.
+
+    Called on the controller when a worker node finishes.
+    """
+    del error
+    worker_stats = getattr(node, "workeroutput", {}).get("t8n_cache_stats")
+    if worker_stats and hasattr(node.config, "t8n_cache_stats_aggregated"):
+        node.config.t8n_cache_stats_aggregated.add(
+            TransitionToolCacheStats.from_dict(worker_stats)
+        )
 
 
 def pytest_metadata(metadata: Any) -> None:
@@ -1138,7 +1211,11 @@ def transition_tool_cache_stats(
     """Get the transition tool cache stats."""
     stats = TransitionToolCacheStats()
     yield stats
+    # Store stats for later access
     request.config.transition_tool_cache_stats = stats  # type: ignore[attr-defined]
+    # For xdist workers, send stats to controller via workeroutput
+    if hasattr(request.config, "workeroutput"):
+        request.config.workeroutput["t8n_cache_stats"] = stats.to_dict()
 
 
 @pytest.fixture(autouse=True, scope="function")
