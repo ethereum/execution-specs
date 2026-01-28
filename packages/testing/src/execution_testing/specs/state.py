@@ -43,6 +43,7 @@ from execution_testing.fixtures.state import (
     FixtureConfig,
     FixtureEnvironment,
     FixtureForkPost,
+    FixtureTransactionReceipt,
     FixtureTransaction,
 )
 from execution_testing.forks import Fork
@@ -481,6 +482,9 @@ class StateTest(BaseTest):
                     FixtureForkPost(
                         state_root=transition_tool_output.result.state_root,
                         logs_hash=transition_tool_output.result.logs_hash,
+                        receipt=FixtureTransactionReceipt.from_transaction_receipt(
+                            transition_tool_output.result.receipts[0]
+                        ),
                         tx_bytes=tx.rlp(),
                         expect_exception=tx.error,
                         state=output_alloc,

@@ -16,6 +16,10 @@ from execution_testing.base_types import (
 from execution_testing.exceptions import TransactionExceptionInstanceOrList
 from execution_testing.forks import Fork
 from execution_testing.test_types.block_types import EnvironmentGeneric
+from execution_testing.test_types.receipt_types import (
+    ReceiptDelegation,
+    TransactionReceipt,
+)
 from execution_testing.test_types.transaction_types import (
     Transaction,
     TransactionFixtureConverter,
@@ -84,11 +88,50 @@ class FixtureForkPostIndexes(BaseModel):
     value: int = 0
 
 
+class FixtureTransactionLog(CamelModel):
+    """Fixture variant of the TransactionLog type."""
+
+    block_number: ZeroPaddedHexNumber
+    transaction_index: ZeroPaddedHexNumber
+    log_index: ZeroPaddedHexNumber
+
+
+class FixtureReceiptDelegation(ReceiptDelegation):
+    """Fixture variant of the ReceiptDelegation type."""
+
+    nonce: ZeroPaddedHexNumber
+
+
+class FixtureTransactionReceipt(TransactionReceipt):
+    """Fixture variant of the TransactionReceipt type."""
+
+    gas_used: ZeroPaddedHexNumber | None = None
+    logs: List[FixtureTransactionLog] = Field(default_factory=list)
+    status: ZeroPaddedHexNumber | None = None
+    cumulative_gas_used: ZeroPaddedHexNumber | None = None
+    effective_gas_price: ZeroPaddedHexNumber | None = None
+    transaction_index: ZeroPaddedHexNumber | None = None
+    blob_gas_used: ZeroPaddedHexNumber | None = None
+    blob_gas_price: ZeroPaddedHexNumber | None = None
+    delegations: List[FixtureReceiptDelegation] | None = None
+
+    @classmethod
+    def from_transaction_receipt(
+        cls, receipt: TransactionReceipt
+    ) -> "FixtureTransactionReceipt":
+        """Return FixtureTransactionReceipt from a TransactionReceipt."""
+        model_as_dict = receipt.model_dump(
+            exclude_none=True,
+        )
+        return cls(**model_as_dict)
+
+
 class FixtureForkPost(CamelModel):
     """Type used to describe the post state of a single Fork."""
 
     state_root: Hash = Field(..., alias="hash")
     logs_hash: Hash = Field(..., alias="logs")
+    receipt: FixtureTransactionReceipt
     tx_bytes: Bytes = Field(..., alias="txbytes")
     indexes: FixtureForkPostIndexes = Field(
         default_factory=FixtureForkPostIndexes
