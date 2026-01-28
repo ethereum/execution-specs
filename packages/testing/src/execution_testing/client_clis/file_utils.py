@@ -3,6 +3,7 @@
 import os
 import stat
 from json import dump
+from pathlib import Path
 from typing import Any, Dict
 
 from pydantic import BaseModel, RootModel
@@ -14,9 +15,9 @@ from execution_testing.client_clis.cli_types import (
 )
 
 
-def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
+def dump_files_to_directory(output_path: Path, files: Dict[str, Any]) -> None:
     """Dump the files to the given directory."""
-    os.makedirs(output_path, exist_ok=True)
+    output_path.mkdir(parents=True, exist_ok=True)
     for file_rel_path_flags, file_contents in files.items():
         file_rel_path, flags = (
             file_rel_path_flags.split("+")
@@ -25,8 +26,8 @@ def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
         )
         rel_path = os.path.dirname(file_rel_path)
         if rel_path:
-            os.makedirs(os.path.join(output_path, rel_path), exist_ok=True)
-        file_path = os.path.join(output_path, file_rel_path)
+            os.makedirs(output_path / rel_path, exist_ok=True)
+        file_path = output_path / file_rel_path
         with open(file_path, "w") as f:
             if isinstance(file_contents, (LazyAllocStr, LazyAllocJson)):
                 if isinstance(file_contents, LazyAllocJson):

@@ -750,6 +750,7 @@ class BlockchainFixture(BlockchainFixtureCommon):
     genesis_rlp: Bytes = Field(..., alias="genesisRLP")
     blocks: List[FixtureBlock | InvalidFixtureBlock]
     seal_engine: Literal["NoProof"] = Field("NoProof")
+    transition_tool_cache_key: ClassVar[str] = "blockchain_test"
 
 
 @post_state_validator()
@@ -794,6 +795,7 @@ class BlockchainEngineFixture(BlockchainEngineFixtureCommon):
     payloads: List[FixtureEngineNewPayload] = Field(
         ..., alias="engineNewPayloads"
     )
+    transition_tool_cache_key: ClassVar[str] = "blockchain_test"
 
 
 @post_state_validator(alternate_field="post_state_diff")

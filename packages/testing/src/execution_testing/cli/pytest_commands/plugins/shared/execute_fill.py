@@ -188,6 +188,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "fixture_format_id: ID used to describe the fixture format.",
     )
+    config.addinivalue_line(
+        "markers",
+        "transition_tool_cache_key: Key used to match the transition tool "
+        "cache for the test during fill.",
+    )
 
 
 @pytest.fixture(scope="function")

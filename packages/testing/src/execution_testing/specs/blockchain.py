@@ -614,56 +614,20 @@ class BlockchainTest(BaseTest):
                     "exception must be the last transaction in the block"
                 )
 
-        # Try cache lookup (blockchain_test -> blockchain_test_engine reuse).
-        # On cache hit, the t8n call is skipped.
-        # Skip cache for engine_x/engine_sync variants (different execution).
-        filling_session = self._get_filling_session()
-        cache_key = self._get_t8n_cache_key(
-            self.fork.name(), block_index=int(env.number)
-        )
-
-        transition_tool_output = None
-        cache = None
-        if filling_session is not None:
-            cache = filling_session.t8n_output_cache
-
-        if (
-            cache is not None
-            and self.fixture_format is not None
-            and self.fixture_format.can_use_cache
-        ):
-            transition_tool_output = cache.get(cache_key)
-
-        if transition_tool_output is None:
-            transition_tool_output = t8n.evaluate(
-                transition_tool_data=TransitionTool.TransitionToolData(
-                    alloc=previous_alloc,
-                    txs=txs,
-                    env=env,
-                    fork=self.fork,
-                    chain_id=self.chain_id,
-                    reward=self.fork.get_reward(
-                        block_number=env.number, timestamp=env.timestamp
-                    ),
-                    blob_schedule=self.fork.blob_schedule(),
+        transition_tool_output = t8n.evaluate(
+            transition_tool_data=TransitionTool.TransitionToolData(
+                alloc=previous_alloc,
+                txs=txs,
+                env=env,
+                fork=self.fork,
+                chain_id=self.chain_id,
+                reward=self.fork.get_reward(
+                    block_number=env.number, timestamp=env.timestamp
                 ),
-                debug_output_path=self.get_next_transition_tool_output_path(),
-                slow_request=self.is_tx_gas_heavy_test(),
-            )
-            if (
-                cache is not None
-                and self.fixture_format is not None
-                and self.fixture_format.can_use_cache
-            ):
-                cache.set(cache_key, transition_tool_output)
-
-        if transition_tool_output.result.opcode_count is not None:
-            if self._opcode_count is None:
-                self._opcode_count = transition_tool_output.result.opcode_count
-            else:
-                self._opcode_count += (
-                    transition_tool_output.result.opcode_count
-                )
+                blob_schedule=self.fork.blob_schedule(),
+            ),
+            slow_request=self.is_tx_gas_heavy_test(),
+        )
 
         # One special case of the invalid transactions is the blob gas used,
         # since this value is not included in the transition tool result, but
@@ -922,8 +886,8 @@ class BlockchainTest(BaseTest):
         alloc = alloc.get() if isinstance(alloc, LazyAlloc) else alloc
         self.verify_post_state(t8n, t8n_state=alloc)
         info = {}
-        if self._opcode_count is not None:
-            info["opcode_count"] = self._opcode_count.model_dump()
+        if t8n.opcode_count is not None:
+            info["opcode_count"] = t8n.opcode_count.model_dump()
         return BlockchainFixture(
             fork=self.fork,
             genesis=genesis.header,
@@ -1010,8 +974,8 @@ class BlockchainTest(BaseTest):
 
         # Create base fixture data, common to all fixture formats
         info = {}
-        if self._opcode_count is not None:
-            info["opcode_count"] = self._opcode_count.model_dump()
+        if t8n.opcode_count is not None:
+            info["opcode_count"] = t8n.opcode_count.model_dump()
         fixture_data = {
             "fork": self.fork,
             "genesis": genesis.header,
@@ -1089,7 +1053,6 @@ class BlockchainTest(BaseTest):
         fixture_format: FixtureFormat,
     ) -> BaseFixture:
         """Generate the BlockchainTest fixture."""
-        t8n.reset_traces()
         if fixture_format in [
             BlockchainEngineFixture,
             BlockchainEngineXFixture,

@@ -81,7 +81,7 @@ class BaseFixture(CamelModel):
     format_phases: ClassVar[Set[FixtureFillingPhase]] = {
         FixtureFillingPhase.FILL
     }
-    can_use_cache: ClassVar[bool] = True
+    transition_tool_cache_key: ClassVar[str] = ""
 
     @classmethod
     def output_base_dir_name(cls) -> str:
@@ -240,6 +240,11 @@ class LabeledFixtureFormat:
     def format_phases(self) -> Set[FixtureFillingPhase]:
         """Get the filling format phases where it should be included."""
         return self.format.format_phases
+
+    @property
+    def transition_tool_cache_key(self) -> str:
+        """Get the transition tool cache key."""
+        return self.format.transition_tool_cache_key
 
     def __eq__(self, other: Any) -> bool:
         """

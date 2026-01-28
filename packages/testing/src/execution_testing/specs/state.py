@@ -153,7 +153,6 @@ class StateTest(BaseTest):
                 blob_schedule=fork.blob_schedule(),
                 state_test=True,
             ),
-            debug_output_path=self.get_next_transition_tool_output_path(),
             slow_request=self.is_tx_gas_heavy_test(),
         )
         modified_traces = modified_tool_output.result.traces
@@ -367,7 +366,6 @@ class StateTest(BaseTest):
                 blob_schedule=fork.blob_schedule(),
                 state_test=True,
             ),
-            debug_output_path=self.get_next_transition_tool_output_path(),
             slow_request=self.is_tx_gas_heavy_test(),
         )
         output_alloc = transition_tool_output.alloc.get()

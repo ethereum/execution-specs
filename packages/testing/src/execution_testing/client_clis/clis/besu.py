@@ -21,6 +21,7 @@ from execution_testing.forks import Fork
 
 from ..cli_types import TransitionToolOutput
 from ..transition_tool import (
+    Profiler,
     TransitionTool,
     dump_files_to_directory,
     model_dump_config,
@@ -113,15 +114,16 @@ class BesuTransitionTool(TransitionTool):
         if self.besu_trace_dir:
             self.besu_trace_dir.cleanup()
 
-    def evaluate(
+    def _evaluate(
         self,
         *,
         transition_tool_data: TransitionTool.TransitionToolData,
-        debug_output_path: str = "",
-        slow_request: bool = False,
+        debug_output_path: Path | None,
+        slow_request: bool,
+        profiler: Profiler,
     ) -> TransitionToolOutput:
         """Execute `evm t8n` with the specified arguments."""
-        del slow_request
+        del slow_request, profiler
 
         if not self.process:
             self.start_server()

@@ -19,6 +19,7 @@ from execution_testing.client_clis.file_utils import (
     dump_files_to_directory,
 )
 from execution_testing.client_clis.transition_tool import (
+    Profiler,
     TransitionTool,
     model_dump_config,
 )
@@ -62,17 +63,18 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         """Return True if the fork is supported by the tool."""
         return fork.transition_tool_name() in get_supported_forks()
 
-    def evaluate(
+    def _evaluate(
         self,
         *,
         transition_tool_data: TransitionTool.TransitionToolData,
-        debug_output_path: str = "",
-        slow_request: bool = False,
+        debug_output_path: Path | None,
+        slow_request: bool,
+        profiler: Profiler,
     ) -> TransitionToolOutput:
         """
         Evaluate using the EELS T8N entry point.
         """
-        del slow_request
+        del slow_request, profiler
         request_data = transition_tool_data.get_request_data()
         request_data_json = request_data.model_dump(
             mode="json", **model_dump_config

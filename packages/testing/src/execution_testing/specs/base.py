@@ -5,10 +5,7 @@ Base test class and helper functions for Ethereum state and blockchain tests.
 from abc import abstractmethod
 from enum import StrEnum, unique
 from functools import reduce
-from os import path
-from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
@@ -16,23 +13,15 @@ from typing import (
     Generator,
     List,
     Sequence,
-    Tuple,
     Type,
 )
 
-if TYPE_CHECKING:
-    # Guarded import to avoid circular dependency: filler.py imports BaseTest
-    from execution_testing.cli.pytest_commands.plugins.filler.filler import (
-        FillingSession,
-    )
-
 import pytest
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, PrivateAttr
 from typing_extensions import Self
 
 from execution_testing.base_types import to_hex
 from execution_testing.client_clis import Result, TransitionTool
-from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.execution import (
     BaseExecute,
     ExecuteFormat,
@@ -112,16 +101,11 @@ class BaseTest(BaseModel):
     _operation_mode: OpMode | None = PrivateAttr(None)
     _gas_optimization: int | None = PrivateAttr(None)
     _gas_optimization_max_gas_limit: int | None = PrivateAttr(None)
-    _opcode_count: OpcodeCount | None = PrivateAttr(None)
 
     expected_benchmark_gas_used: int | None = None
     skip_gas_used_validation: bool = False
 
     spec_types: ClassVar[Dict[str, Type["BaseTest"]]] = {}
-
-    # Transition tool specific fields
-    t8n_dump_dir: Path | None = Field(None, exclude=True)
-    t8n_call_counter: int = Field(0, exclude=True)
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -176,14 +160,12 @@ class BaseTest(BaseModel):
             tag=base_test.tag,
             fork=base_test.fork,
             fixture_format=base_test.fixture_format,
-            t8n_dump_dir=base_test.t8n_dump_dir,
             expected_benchmark_gas_used=base_test.expected_benchmark_gas_used,
             skip_gas_used_validation=base_test.skip_gas_used_validation,
             **kwargs,
         )
         new_instance._request = base_test._request
         new_instance._operation_mode = base_test._operation_mode
-        new_instance._opcode_count = base_test._opcode_count
         return new_instance
 
     @classmethod
@@ -231,17 +213,6 @@ class BaseTest(BaseModel):
         return reduce(
             lambda x, y: x + ("_" if y.isupper() else "") + y, cls.__name__
         ).lower()
-
-    def get_next_transition_tool_output_path(self) -> str:
-        """Return path to the next transition tool output file."""
-        if not self.t8n_dump_dir:
-            return ""
-        current_value = self.t8n_call_counter
-        self.t8n_call_counter += 1
-        return path.join(
-            self.t8n_dump_dir,
-            str(current_value),
-        )
 
     def is_tx_gas_heavy_test(self) -> bool:
         """Check if the test is gas-heavy for transaction execution."""

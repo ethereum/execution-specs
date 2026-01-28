@@ -534,7 +534,10 @@ class BenchmarkTest(BaseTest):
                 self.target_opcode is not None
                 and self.fixed_opcode_count is not None
             ):
-                self._verify_target_opcode_count(blockchain_test._opcode_count)
+                opcode_count = t8n.opcode_count
+                if opcode_count is None:
+                    raise Exception("Opcode count is not available")
+                self._verify_target_opcode_count(opcode_count)
             return fixture
         else:
             raise Exception(f"Unsupported fixture format: {fixture_format}")

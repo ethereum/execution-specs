@@ -649,7 +649,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
 
         class BaseTestWrapper(cls):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                kwargs["t8n_dump_dir"] = None
                 if "pre" not in kwargs:
                     kwargs["pre"] = pre
                 elif kwargs["pre"] != pre:
