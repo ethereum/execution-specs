@@ -139,6 +139,7 @@ class FixtureCollector:
     # Internal state
     all_fixtures: Dict[Path, Fixtures] = field(default_factory=dict)
     json_path_to_test_item: Dict[Path, TestInfo] = field(default_factory=dict)
+    _pre_serialized: Dict[str, str] = field(default_factory=dict)
     # Store index entries as simple dicts
     # (avoid Pydantic overhead during collection)
     index_entries: List[Dict] = field(default_factory=list)
@@ -178,6 +179,13 @@ class FixtureCollector:
             self.json_path_to_test_item[fixture_path] = info
 
         self.all_fixtures[fixture_path][info.get_id()] = fixture
+
+        # Pre-serialize fixture JSON during test execution (parallelized
+        # across xdist workers) to avoid a single giant json.dumps() at
+        # teardown.
+        self._pre_serialized[info.get_id()] = json.dumps(
+            fixture.json_dict_with_info(), indent=4
+        )
 
         # Collect index entry while data is in memory (if indexing enabled)
         # Store as simple dict to avoid Pydantic overhead during collection
@@ -220,9 +228,97 @@ class FixtureCollector:
                 raise TypeError(
                     "All fixtures in a single file must have the same format."
                 )
-            fixtures.collect_into_file(fixture_path)
+            self._write_fixture_file(fixture_path, fixtures)
 
         self.all_fixtures.clear()
+        self._pre_serialized.clear()
+
+    def _write_fixture_file(self, file_path: Path, fixtures: Fixtures) -> None:
+        """
+        Write fixtures to file using pre-serialized JSON strings.
+
+        Concatenates individually pre-serialized fixture values into a valid
+        JSON object, avoiding a single large json.dumps() call at teardown.
+        """
+        entries: Dict[str, str] = {}
+        lock_file_path = file_path.with_suffix(".lock")
+        with FileLock(lock_file_path):
+            # Merge with any existing entries on disk (xdist workers writing
+            # to same file). Extract entries as raw strings to avoid
+            # re-serializing thousands of fixtures.
+            if file_path.exists():
+                entries = self._extract_entries_from_file(file_path)
+
+            # Look up pre-serialized strings for current fixtures
+            for name in fixtures:
+                if name in self._pre_serialized:
+                    entries[name] = self._pre_serialized[name]
+                else:
+                    entries[name] = json.dumps(
+                        fixtures[name].json_dict_with_info(), indent=4
+                    )
+
+            # Write sorted entries as a JSON object by concatenating strings
+            sorted_keys = sorted(entries.keys())
+            with open(file_path, "w") as f:
+                f.write("{\n")
+                for i, key in enumerate(sorted_keys):
+                    key_json = json.dumps(key)
+                    value_str = entries[key].replace("\n", "\n    ")
+                    f.write(f"    {key_json}: {value_str}")
+                    if i < len(sorted_keys) - 1:
+                        f.write(",\n")
+                    else:
+                        f.write("\n")
+                f.write("}")
+
+    def _extract_entries_from_file(self, file_path: Path) -> Dict[str, str]:
+        """
+        Extract fixture entries from an existing file as raw JSON strings.
+
+        This avoids re-serializing entries written by other xdist workers,
+        which would be O(n) json.dumps() calls at teardown time.
+        """
+        content = file_path.read_text()
+        entries: Dict[str, str] = {}
+        decoder = json.JSONDecoder()
+
+        # Skip opening brace and whitespace
+        pos = content.find("{") + 1
+
+        while pos < len(content):
+            # Skip whitespace
+            while pos < len(content) and content[pos] in " \t\n":
+                pos += 1
+
+            if pos >= len(content) or content[pos] == "}":
+                break
+
+            # Decode the key
+            key, end = decoder.raw_decode(content, pos)
+            pos = end
+
+            # Skip colon and whitespace
+            while pos < len(content) and content[pos] in " \t\n:":
+                pos += 1
+
+            # Decode the value and capture its string boundaries
+            value_start = pos
+            _, end = decoder.raw_decode(content, pos)
+            value_end = end
+
+            # Extract the raw value string and remove outer indentation
+            raw_value = content[value_start:value_end]
+            # The file format adds 4-space indent; remove it to get original
+            entries[key] = raw_value.replace("\n    ", "\n")
+
+            pos = value_end
+
+            # Skip comma and whitespace
+            while pos < len(content) and content[pos] in " \t\n,":
+                pos += 1
+
+        return entries
 
     def verify_fixture_files(
         self, evm_fixture_verification: FixtureConsumer
