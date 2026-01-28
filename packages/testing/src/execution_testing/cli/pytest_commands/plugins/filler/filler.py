@@ -1162,15 +1162,8 @@ def t8n(
     session_t8n.reset_traces()
     session_t8n.call_counter = 0
     session_t8n.debug_dump_dir = dump_dir_parameter_level
-    # Configure the transition tool to count opcodes only when required.
-    if (
-        request.node.get_closest_marker("benchmark")
-        or request.node.get_closest_marker("stateful")
-        or request.node.get_closest_marker("repricing")
-    ):
-        session_t8n.reset_opcode_count()
-    else:
-        session_t8n.remove_opcode_count()
+    # TODO: Configure the transition tool to count opcodes only when required.
+    session_t8n.reset_opcode_count()
     yield session_t8n
     if session_t8n.output_cache is not None:
         transition_tool_cache_stats.subkey_test_hits += (
