@@ -890,7 +890,7 @@ class TransitionTool(EthereumCLI):
             result.result.opcode_count is not None
             and self.opcode_count is not None
         ):
-            result.result.opcode_count += self.opcode_count
+            self.opcode_count += result.result.opcode_count
         return result
 
     def evaluate(
