@@ -1,6 +1,6 @@
 # Detailed Code Standards
 
-This page provides in-depth information about the code standards and verification processes in @ethereum/execution-spec-tests.
+This page provides in-depth information about the code standards and verification processes in @ethereum/execution-specs.
 
 ## Running Tox Environments
 
@@ -24,6 +24,16 @@ List all available environments:
 uvx tox -av
 ```
 
+### Fast Checks
+
+Run all fast static checks before pushing (recommended):
+
+```console
+uvx tox -e fast-checks
+```
+
+This runs lint, format, typecheck, spellcheck, spec-lint, lockcheck, actionlint, markdownlint, and changelog validation in sequence. On failure, each check provides a **fix hint** explaining how to resolve the issue.
+
 ### Specific Environment Commands
 
 Run specific environments using the `-e` flag:
@@ -35,19 +45,19 @@ uvx tox -e lint,typecheck,spellcheck
 #### For Test Case Changes (`./tests/`)
 
 ```console
-uvx tox -e lint,typecheck,spellcheck,tests-deployed
+uvx tox -e fast-checks,py3
 ```
 
 #### For Framework and Library Changes (`./src/`)
 
 ```console
-uvx tox -e lint,typecheck,spellcheck,pytest
+uvx tox -e fast-checks,tests_pytest_py3
 ```
 
 #### For Documentation Changes (`./docs/`)
 
 ```console
-uvx tox -e spellcheck,markdownlint,mkdocs,changelog
+uvx tox -e fast-checks,mkdocs
 ```
 
 !!! note "Tox Virtual Environment"
@@ -93,7 +103,7 @@ For more information, see [Pre-commit Hooks Documentation](../dev/precommit.md).
 
 ## Formatting and Line Length
 
-The Python code in @ethereum/execution-spec-tests is formatted with `ruff` with a line length of 100 characters.
+The Python code in @ethereum/execution-specs is formatted with `ruff` with a line length of 100 characters.
 
 ### Ignoring Bulk Change Commits
 

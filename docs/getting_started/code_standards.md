@@ -1,18 +1,18 @@
 # Code Standards
 
-This document outlines the coding standards and practices used in the @ethereum/execution-spec-tests repository.
+This document outlines the coding standards and practices used in the @ethereum/execution-specs repository.
 
 ## Code and CI Requirements
 
-Code pushed to @ethereum/execution-spec-tests must fulfill the following checks in [CI](https://github.com/ethereum/execution-spec-tests/actions/workflows/tox_verify.yaml):
+Code pushed to @ethereum/execution-specs must fulfill the following checks in [CI](https://github.com/ethereum/execution-specs/actions/workflows/fast-checks.yaml):
 
 | Type                   | Tox Command                                     | Explanation                                                                                                 |
 | ---------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | Lint & code formatting | `uvx tox -e lint`                 | Python lint, format and module import check via `ruff`                                                      |
 | Typecheck              | `uvx tox -e typecheck`            | Objects that provide typehints pass type-checking via `mypy`.                                               |
-| Framework unit tests   | `uvx tox -e pytest`               | All framework unit tests must execute correctly.                                                            |
-| EL Client test cases   | `uvx tox -e tests-deployed`       | All client test cases for deployed forks can be generated.                                                  |
-| Benchmark EL Test cases    | `uvx tox -e tests-deployed-benchmark` | All client test cases specific to benchmarks for deployed forks can be generated.                               |
+| Framework unit tests   | `uvx tox -e tests_pytest_py3`     | All framework unit tests must execute correctly.                                                            |
+| Fill tests             | `uvx tox -e py3`                  | All test cases for deployed forks can be generated.                                                         |
+| Benchmark tests        | `uvx tox -e benchmark-gas-values` | Benchmark test cases can be generated.                                                                      |
 | HTML doc build         | `uvx tox -e mkdocs`               | Documentation generated without warnings.                                                                   |
 | Spellcheck             | `uvx tox -e spellcheck`           | Code and documentation spell-check using codespell. |
 | Markdown lint          | `uvx tox -e markdownlint`         | Markdown lint (requires [additional dependency](code_standards_details.md#additional-dependencies)).        |

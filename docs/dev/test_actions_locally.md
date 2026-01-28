@@ -44,23 +44,18 @@ will output something similar to:
 
 ```bash
 INFO[0000] Using docker host 'unix:///var/run/docker.sock', and daemon socket 'unix:///var/run/docker.sock'
-Stage  Job ID                Job name                                                      Workflow name                             Workflow file          Events                             
-0      evmone-coverage-diff  evmone-coverage-diff                                          Evmone Coverage Report                    coverage.yaml          pull_request                       
-0      deploy                deploy                                                        Deploy Docs Main                          docs_main.yaml         push                               
-0      deploy                deploy                                                        Deploy Docs Tags                          docs_tags.yaml         push                               
-0      features              features                                                      Build and Package Fixtures                fixtures.yaml          push,workflow_dispatch             
-0      feature-names         feature-names                                                 Build and Package Fixtures for a feature  fixtures_feature.yaml  push,workflow_dispatch             
-0      lint                  Lint python sources with ruff                                 Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      typecheck             Typecheck python sources with mypy                            Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      spellcheck            Spellcheck sources with pyspelling                            Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      markdownlint          Lint markdown files with markdownlint                         Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      mkdocs                Build html documentation with mkdocs                          Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      pytest_framework      Run unit tests, ${{ matrix.os }}, ${{ matrix.python }}        Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-0      tests_deployed        Fill tests, deployed, ${{ matrix.os }}, ${{ matrix.python }}  Tox                                       tox_verify.yaml        push,pull_request,workflow_dispatch
-1      build                 build                                                         Build and Package Fixtures                fixtures.yaml          push,workflow_dispatch             
-1      build                 build                                                         Build and Package Fixtures for a feature  fixtures_feature.yaml  push,workflow_dispatch             
-2      release               release                                                       Build and Package Fixtures                fixtures.yaml          push,workflow_dispatch             
-2      release               release                                                       Build and Package Fixtures for a feature  fixtures_feature.yaml  push,workflow_dispatch
+Stage  Job ID              Job name          Workflow name   Workflow file      Events
+0      checks              Spellcheck        Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Python Lint       Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Python Format     Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Python Typecheck  Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Spec Lint         Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Lock Check        Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Action Lint       Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Changelog         Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      markdownlint        Markdown Lint     Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      sha-pinned-actions  SHA Pinned Actions Fast Checks    fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+...
 ```
 
 The `Job ID` is required to run a specific workflow and is provided to the `-j` option of `gh act`.
@@ -77,15 +72,15 @@ DEFAULT_PYTHON_VERSION=3.12
 and use the `--var-file` option to specify the file:
 
 ```bash
-gh act --workflows .github/workflows/tox_verify.yaml -s GITHUB_TOKEN=$(gh auth token) --var-file=gh_vars.txt -j lint 
+gh act --workflows .github/workflows/fast-checks.yaml --var-file=gh_vars.txt
 ```
 
 ### Running Workflows that use a Matrix Strategy
 
-This is optional, recent versions will automatically detect the matrix strategy and run supported values. To run a specific matrix value, use the `--matrix` option:
+This is optional, recent versions will automatically detect the matrix strategy and run supported values. To run a specific matrix item, use the `--matrix` option:
 
 ```bash
-gh act --workflows .github/workflows/tox_verify.yaml -s GITHUB_TOKEN=$(gh auth token) --matrix python:3.12 -j pytest_framework
+gh act --workflows .github/workflows/fast-checks.yaml --var-file=gh_vars.txt --matrix name:"Python Lint"
 ```
 
 ### Running Release Workflows
@@ -103,7 +98,7 @@ Release builds require the `ref` input to be specified. To test a release build 
 2. Run `act` and specify the workflow file, the Github token, and the event file:
 
     ```bash
-    gh act -j build --workflows .github/workflows/fixtures_feature.yaml -s GITHUB_TOKEN=$(gh auth token) -e event.json
+    gh act -j build --workflows .github/workflows/release_fixture_feature.yaml -s GITHUB_TOKEN=$(gh auth token) -e event.json
     ```
 
 ### Manually Specifying the Docker Image
@@ -115,3 +110,21 @@ It's possible to specify the Docker image used by the `act` tool for a specific 
 ```
 
 This can be added to any `gh act` command.
+
+### Fixing Permission Errors with Tool Cache
+
+When running workflows that use `setup-uv` or similar setup actions, you may encounter permission errors like:
+
+```text
+::error::EACCES: permission denied, mkdir '/opt/hostedtoolcache/uv/0.9.27'
+```
+
+This happens because the container user doesn't have write access to `/opt/hostedtoolcache/`. Fix this by redirecting the tool cache to a writable location:
+
+```bash
+gh act --workflows .github/workflows/fast-checks.yaml \
+  -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:runner-latest \
+  --env RUNNER_TOOL_CACHE=/tmp/tool_cache
+```
+
+The `RUNNER_TOOL_CACHE` environment variable tells setup actions where to install tools, avoiding the permission issue without requiring root access.
