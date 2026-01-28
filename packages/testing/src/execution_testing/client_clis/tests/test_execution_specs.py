@@ -190,8 +190,6 @@ def test_evm_t8n(
             # eels are handled here.
             missing_receipt_fields = [
                 "root",
-                "status",
-                "cumulativeGasUsed",
                 "contractAddress",
                 "blockHash",
                 "transactionIndex",

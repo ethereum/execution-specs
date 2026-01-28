@@ -386,8 +386,10 @@ class BuiltBlock(CamelModel):
             ),
             receipts=(
                 [
-                    FixtureTransactionReceipt.from_transaction_receipt(r)
-                    for r in self.result.receipts
+                    FixtureTransactionReceipt.from_transaction_receipt(
+                        r, self.txs[i]
+                    )
+                    for i, r in enumerate(self.result.receipts)
                 ]
                 if self.result.receipts
                 else None

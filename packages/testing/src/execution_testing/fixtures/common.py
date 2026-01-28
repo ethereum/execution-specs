@@ -22,6 +22,7 @@ from execution_testing.test_types.receipt_types import (
 )
 from execution_testing.test_types.transaction_types import (
     AuthorizationTupleGeneric,
+    Transaction,
 )
 
 
@@ -111,11 +112,6 @@ class FixtureTransactionLog(CamelModel, RLPSerializable):
         "data",
     ]
 
-    @computed_field(alias="rlp")
-    def rlp_field(self) -> Bytes:
-        """Return the RLP."""
-        return self.rlp()
-
 
 class FixtureReceiptDelegation(ReceiptDelegation):
     """Fixture variant of the ReceiptDelegation type."""
@@ -127,6 +123,7 @@ class FixtureTransactionReceipt(CamelModel, RLPSerializable):
     """Fixture variant of the TransactionReceipt type."""
 
     transaction_hash: Hash
+    ty: ZeroPaddedHexNumber = Field(..., alias="type")
     cumulative_gas_used: ZeroPaddedHexNumber
     bloom: Bloom
     logs: List[FixtureTransactionLog]
@@ -140,13 +137,40 @@ class FixtureTransactionReceipt(CamelModel, RLPSerializable):
         "bloom",
         "logs",
     ]
+    rlp_exclude_none: ClassVar[bool] = True
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_computed_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            data = dict(data)
+            data.pop("rlp", None)
+            data.pop("rlp_field", None)
+        return data
+
+    @computed_field(alias="rlp")
+    def rlp_field(self) -> Bytes:
+        """Return the RLP."""
+        return self.rlp()
+
+    def get_rlp_prefix(self) -> bytes:
+        """
+        Return a prefix that has to be appended to the serialized object.
+
+        By default, an empty string is returned.
+        """
+        if self.ty > 0:
+            return bytes([self.ty])
+        return b""
 
     @classmethod
     def from_transaction_receipt(
-        cls, receipt: TransactionReceipt
+        cls,
+        receipt: TransactionReceipt,
+        tx: Transaction,
     ) -> "FixtureTransactionReceipt":
         """Return FixtureTransactionReceipt from a TransactionReceipt."""
         model_as_dict = receipt.model_dump(
             exclude_none=True, include=set(cls.model_fields.keys())
-        )
+        ) | {"ty": tx.ty, "transaction_hash": tx.hash}
         return cls(**model_as_dict)

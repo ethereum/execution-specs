@@ -34,6 +34,7 @@ class RLPSerializable:
     signable: ClassVar[bool] = False
     rlp_fields: ClassVar[List[str]]
     rlp_signing_fields: ClassVar[List[str]]
+    rlp_exclude_none: ClassVar[bool] = False
 
     def get_rlp_fields(self) -> List[str]:
         """
@@ -103,9 +104,10 @@ class RLPSerializable:
                 f'in object type "{self.__class__.__name__}"'
             )
             try:
-                values_list.append(
-                    to_serializable_element(getattr(self, field))
-                )
+                value = getattr(self, field)
+                if self.rlp_exclude_none and value is None:
+                    continue
+                values_list.append(to_serializable_element(value))
             except Exception as e:
                 raise Exception(
                     f'Unable to rlp serialize field "{field}" '

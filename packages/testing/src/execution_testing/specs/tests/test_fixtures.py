@@ -545,6 +545,12 @@ class TestFillBlockchainValidTxs:
             BlockchainEngineFixtureCommon,
         )
 
+        with open("/tmp/actual.json", "w") as f:
+            f.write(
+                json.dumps(
+                    blockchain_test_fixture.json_dict_with_info(), indent=4
+                )
+            )
         assert isinstance(
             blockchain_test_fixture,
             (BlockchainFixtureCommon, BlockchainEngineFixtureCommon),
@@ -566,6 +572,7 @@ class TestFillBlockchainValidTxs:
         remove_info_metadata(fixture)
         assert fixture_name in fixture
         assert fixture_name in expected
+
         assert fixture[fixture_name] == expected[fixture_name]
 
     @pytest.mark.parametrize("fork", [London], indirect=True)
@@ -946,4 +953,12 @@ def test_fill_blockchain_invalid_txs(
     remove_info_metadata(fixture)
     assert fixture_name in fixture
     assert fixture_name in expected
-    assert fixture[fixture_name] == expected[fixture_name]
+    with open("/tmp/actual.json", "w") as f:
+        f.write(
+            json.dumps(
+                generated_fixture.json_dict_with_info(hash_only=True), indent=4
+            )
+        )
+    assert fixture[fixture_name] == expected[fixture_name], (
+        f"EXPECTED: {json.dumps(expected[fixture_name])}"
+    )

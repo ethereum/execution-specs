@@ -475,11 +475,16 @@ class StateTest(BaseTest):
                 )
         if len(transition_tool_output.result.receipts) == 1:
             receipt = FixtureTransactionReceipt.from_transaction_receipt(
-                transition_tool_output.result.receipts[0]
+                transition_tool_output.result.receipts[0], tx
             )
+            receipt_root = FixtureTransactionReceipt.list_root([receipt])
             assert (
-                transition_tool_output.result.receipts_root
-                == FixtureTransactionReceipt.list_root([receipt])
+                transition_tool_output.result.receipts_root == receipt_root
+            ), (
+                f"Receipts root mismatch: "
+                f"{transition_tool_output.result.receipts_root} != "
+                f"{receipt_root.hex()}"
+                f"Receipt: {receipt.rlp()}"
             )
         else:
             receipt = None

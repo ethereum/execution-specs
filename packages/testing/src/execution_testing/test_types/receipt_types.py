@@ -57,13 +57,12 @@ class TransactionReceipt(CamelModel):
     status: HexNumber | None = Field(
         None, validation_alias=AliasChoices("status", "succeeded")
     )
-    cumulative_gas_used: HexNumber | None = Field(
-        None, validation_alias=AliasChoices("gasUsed", "cumulativeGasUsed")
-    )
+    cumulative_gas_used: HexNumber | None = None
     bloom: Bloom | None = Field(
         None, validation_alias=AliasChoices("logs_bloom", "logsBloom", "bloom")
     )
     logs: List[TransactionLog] | None = None
+    gas_used: HexNumber | None = None
     contract_address: Address | None = None
     effective_gas_price: HexNumber | None = None
     block_hash: Hash | None = None

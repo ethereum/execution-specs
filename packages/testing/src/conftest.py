@@ -8,6 +8,7 @@ import pytest
 from execution_testing.client_clis import (
     BesuTransitionTool,
     ExecutionSpecsTransitionTool,
+    GethTransitionTool,
     TransitionTool,
 )
 
@@ -49,11 +50,16 @@ def installed_transition_tool_instances() -> Generator[
 
 
 @pytest.fixture(
-    params=INSTALLED_TRANSITION_TOOLS,
-    ids=[
-        transition_tool_class.__name__
-        for transition_tool_class in INSTALLED_TRANSITION_TOOLS
-    ],
+    params=[
+        pytest.param(
+            transition_tool,
+            marks=[pytest.mark.xfail(reason="Geth t8n needs update")]
+            if transition_tool == GethTransitionTool
+            else [],
+            id=transition_tool.__name__,
+        )
+        for transition_tool in INSTALLED_TRANSITION_TOOLS
+    ]
 )
 def installed_t8n(
     request: pytest.FixtureRequest,
