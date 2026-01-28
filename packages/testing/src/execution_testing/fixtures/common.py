@@ -1,15 +1,17 @@
 """Common types used to define multiple fixture types."""
 
-from typing import Any, Dict, List
+from typing import Any, ClassVar, Dict, List
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, computed_field, model_validator
 
 from execution_testing.base_types import (
     BlobSchedule,
+    Bloom,
     Bytes,
     CamelModel,
     EthereumTestRootModel,
     Hash,
+    RLPSerializable,
     SignableRLPSerializable,
     ZeroPaddedHexNumber,
 )
@@ -96,12 +98,23 @@ class FixtureAuthorizationTuple(
         return
 
 
-class FixtureTransactionLog(CamelModel):
+class FixtureTransactionLog(CamelModel, RLPSerializable):
     """Fixture variant of the TransactionLog type."""
 
     address: Address | None = None
     topics: List[Hash] | None = None
     data: Bytes | None = None
+
+    rlp_fields: ClassVar[List[str]] = [
+        "address",
+        "topics",
+        "data",
+    ]
+
+    @computed_field(alias="rlp")
+    def rlp_field(self) -> Bytes:
+        """Return the RLP."""
+        return self.rlp()
 
 
 class FixtureReceiptDelegation(ReceiptDelegation):
@@ -110,18 +123,23 @@ class FixtureReceiptDelegation(ReceiptDelegation):
     nonce: ZeroPaddedHexNumber
 
 
-class FixtureTransactionReceipt(TransactionReceipt):
+class FixtureTransactionReceipt(CamelModel, RLPSerializable):
     """Fixture variant of the TransactionReceipt type."""
 
-    gas_used: ZeroPaddedHexNumber | None = None
-    logs: List[FixtureTransactionLog] = Field(default_factory=list)  # type: ignore[assignment]
-    status: ZeroPaddedHexNumber | None = None
-    cumulative_gas_used: ZeroPaddedHexNumber | None = None
-    effective_gas_price: ZeroPaddedHexNumber | None = None
-    transaction_index: ZeroPaddedHexNumber | None = None
-    blob_gas_used: ZeroPaddedHexNumber | None = None
-    blob_gas_price: ZeroPaddedHexNumber | None = None
-    delegations: List[FixtureReceiptDelegation] | None = None  # type: ignore[assignment]
+    transaction_hash: Hash
+    cumulative_gas_used: ZeroPaddedHexNumber
+    bloom: Bloom
+    logs: List[FixtureTransactionLog]
+    post_state: Hash | None = None
+    status: bool | None = None
+
+    rlp_fields: ClassVar[List[str]] = [
+        "post_state",
+        "status",
+        "cumulative_gas_used",
+        "bloom",
+        "logs",
+    ]
 
     @classmethod
     def from_transaction_receipt(
@@ -129,6 +147,6 @@ class FixtureTransactionReceipt(TransactionReceipt):
     ) -> "FixtureTransactionReceipt":
         """Return FixtureTransactionReceipt from a TransactionReceipt."""
         model_as_dict = receipt.model_dump(
-            exclude_none=True,
+            exclude_none=True, include=set(cls.model_fields.keys())
         )
         return cls(**model_as_dict)

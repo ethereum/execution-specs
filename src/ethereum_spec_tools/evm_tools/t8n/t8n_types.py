@@ -413,7 +413,9 @@ class Result:
                 assert hasattr(receipt, "post_state")
                 receipt_dict["post_state"] = "0x" + receipt.post_state.hex()
 
-            receipt_dict["gasUsed"] = hex(receipt.cumulative_gas_used)
+            receipt_dict["cumulativeGasUsed"] = hex(
+                receipt.cumulative_gas_used
+            )
             receipt_dict["bloom"] = "0x" + receipt.bloom.hex()
 
             # Add logs to receipts

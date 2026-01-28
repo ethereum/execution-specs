@@ -135,7 +135,7 @@ def tx(  # noqa: D103
         access_list=tx_access_list,
         data=initial_memory,
         gas_limit=tx_gas_limit,
-        expected_receipt=TransactionReceipt(gas_used=tx_gas_limit),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=tx_gas_limit),
     )
 
 

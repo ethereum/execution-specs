@@ -312,14 +312,15 @@ def verify_transaction_receipt(
         return
     assert actual_receipt is not None
     if (
-        expected_receipt.gas_used is not None
-        and actual_receipt.gas_used != expected_receipt.gas_used
+        expected_receipt.cumulative_gas_used is not None
+        and actual_receipt.cumulative_gas_used
+        != expected_receipt.cumulative_gas_used
     ):
         raise TransactionReceiptMismatchError(
             index=transaction_index,
             field_name="gas_used",
-            expected_value=expected_receipt.gas_used,
-            actual_value=actual_receipt.gas_used,
+            expected_value=expected_receipt.cumulative_gas_used,
+            actual_value=actual_receipt.cumulative_gas_used,
         )
     if expected_receipt.logs is not None and actual_receipt.logs is not None:
         actual_logs = actual_receipt.logs

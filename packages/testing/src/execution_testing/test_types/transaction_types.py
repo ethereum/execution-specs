@@ -8,7 +8,6 @@ from typing import Any, ClassVar, Dict, Generic, List, Literal, Self, Sequence
 
 import ethereum_rlp as eth_rlp
 from coincurve.keys import PrivateKey, PublicKey
-from ethereum_types.numeric import Uint
 from pydantic import (
     AliasChoices,
     BaseModel,
@@ -18,7 +17,6 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
-from trie import HexaryTrie
 
 from execution_testing.base_types import (
     AccessList,
@@ -758,14 +756,6 @@ class Transaction(
         object.
         """
         return self.rlp() if self.ty > 0 else self.to_list(signing=False)
-
-    @staticmethod
-    def list_root(input_txs: List["Transaction"]) -> Hash:
-        """Return transactions root of a list of transactions."""
-        t = HexaryTrie(db={})
-        for i, tx in enumerate(input_txs):
-            t.set(eth_rlp.encode(Uint(i)), tx.rlp())
-        return Hash(t.root_hash)
 
     @staticmethod
     def list_blob_versioned_hashes(

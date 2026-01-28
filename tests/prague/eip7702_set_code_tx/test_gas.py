@@ -940,7 +940,7 @@ def test_gas_cost(
         authorization_list=authorization_list,
         access_list=access_list,
         sender=sender,
-        expected_receipt=TransactionReceipt(gas_used=gas_used),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
 
     state_test(

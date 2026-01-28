@@ -87,7 +87,9 @@ class TestGasConsumption:
         Test executing a transaction that fully consumes its execution gas
         allocation.
         """
-        tx.expected_receipt = TransactionReceipt(gas_used=tx.gas_limit)
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=tx.gas_limit
+        )
         state_test(
             pre=pre,
             post={},
@@ -163,7 +165,9 @@ class TestGasConsumptionBelowDataFloor:
         """
         Test executing a transaction that almost consumes the floor data cost.
         """
-        tx.expected_receipt = TransactionReceipt(gas_used=tx_floor_data_cost)
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=tx_floor_data_cost
+        )
         state_test(
             pre=pre,
             post={},

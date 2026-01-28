@@ -44,22 +44,23 @@ class TransactionReceipt(CamelModel):
     def strip_extra_fields(cls, data: Any) -> Any:
         """Strip extra fields from t8n tool output not part of model."""
         if isinstance(data, dict):
-            # t8n tool returns 'succeeded' which is redundant with 'status'
-            data.pop("succeeded", None)
-            # t8n tool may return 'post_state' which is not part of this model
-            data.pop("post_state", None)
-            data.pop("postState", None)
             # geth (1.16+) returns extra fields in receipts
             data.pop("type", None)
             data.pop("blockNumber", None)
         return data
 
     transaction_hash: Hash | None = None
-    gas_used: HexNumber | None = None
+    post_state: Hash | None = Field(
+        None, validation_alias=AliasChoices("post_state", "postState")
+    )
     root: Bytes | None = None
-    status: HexNumber | None = None
-    cumulative_gas_used: HexNumber | None = None
-    logs_bloom: Bloom | None = Field(
+    status: HexNumber | None = Field(
+        None, validation_alias=AliasChoices("status", "succeeded")
+    )
+    cumulative_gas_used: HexNumber | None = Field(
+        None, validation_alias=AliasChoices("gasUsed", "cumulativeGasUsed")
+    )
+    bloom: Bloom | None = Field(
         None, validation_alias=AliasChoices("logs_bloom", "logsBloom", "bloom")
     )
     logs: List[TransactionLog] | None = None

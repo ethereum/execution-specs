@@ -2930,7 +2930,9 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
         value=1,
         authorization_list=[auth],
         # explicitly check expected gas, no precompile code executed
-        expected_receipt=TransactionReceipt(gas_used=intrinsic_gas - discount),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=intrinsic_gas - discount
+        ),
     )
 
     state_test(

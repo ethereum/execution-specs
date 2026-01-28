@@ -336,7 +336,7 @@ class TestContractCreationGasUsage:
             error=tx_error,
             sender=sender,
             # The entire gas limit is expected to be consumed.
-            expected_receipt=TransactionReceipt(gas_used=gas_limit),
+            expected_receipt=TransactionReceipt(cumulative_gas_used=gas_limit),
         )
 
     @pytest.fixture

@@ -477,6 +477,10 @@ class StateTest(BaseTest):
             receipt = FixtureTransactionReceipt.from_transaction_receipt(
                 transition_tool_output.result.receipts[0]
             )
+            assert (
+                transition_tool_output.result.receipts_root
+                == FixtureTransactionReceipt.list_root([receipt])
+            )
         else:
             receipt = None
 

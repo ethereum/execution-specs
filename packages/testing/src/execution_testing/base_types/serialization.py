@@ -1,9 +1,10 @@
 """Ethereum test types for serialization and encoding."""
 
-from typing import Any, ClassVar, List
+from typing import Any, ClassVar, List, Self, Sequence
 
 import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
+from trie import HexaryTrie
 
 from execution_testing.base_types import Bytes
 
@@ -150,6 +151,17 @@ class RLPSerializable:
         return Bytes(
             self.get_rlp_prefix() + eth_rlp.encode(self.to_list(signing=False))
         )
+
+    @classmethod
+    def list_root(cls, element_list: Sequence[Self]) -> bytes:
+        """Return the root of a list of the given type."""
+        t = HexaryTrie(db={})
+        for i, e in enumerate(element_list):
+            t.set(
+                eth_rlp.encode(Uint(i)),
+                e.rlp(),
+            )
+        return t.root_hash
 
 
 class SignableRLPSerializable(RLPSerializable):

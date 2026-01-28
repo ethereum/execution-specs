@@ -383,7 +383,9 @@ def test_post_account_mismatch(
             Transaction(
                 secret_key=TestPrivateKey,
                 error=TransactionException.INTRINSIC_GAS_TOO_LOW,
-                expected_receipt=TransactionReceipt(gas_used=21_000),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=21_000
+                ),
             ),
             UnexpectedExecutionSuccessError,
             id="TransactionUnexpectedExecutionSuccessError",
@@ -392,7 +394,9 @@ def test_post_account_mismatch(
             Transaction(
                 secret_key=TestPrivateKey,
                 gas_limit=20_999,
-                expected_receipt=TransactionReceipt(gas_used=21_000),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=21_000
+                ),
             ),
             UnexpectedExecutionFailError,
             id="TransactionUnexpectedExecutionFailError",
@@ -400,7 +404,9 @@ def test_post_account_mismatch(
         pytest.param(
             Transaction(
                 secret_key=TestPrivateKey,
-                expected_receipt=TransactionReceipt(gas_used=21_001),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=21_001
+                ),
             ),
             TransactionReceiptMismatchError,
             id="TransactionReceiptMismatchError",
@@ -409,7 +415,9 @@ def test_post_account_mismatch(
             Transaction(
                 secret_key=TestPrivateKey,
                 gas_limit=20_999,
-                expected_receipt=TransactionReceipt(gas_used=21_001),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=21_001
+                ),
             ),
             UnexpectedExecutionFailError,
             id="TransactionUnexpectedExecutionFailError+TransactionReceiptMismatchError",
@@ -418,7 +426,9 @@ def test_post_account_mismatch(
             Transaction(
                 secret_key=TestPrivateKey,
                 error=TransactionException.INTRINSIC_GAS_TOO_LOW,
-                expected_receipt=TransactionReceipt(gas_used=21_001),
+                expected_receipt=TransactionReceipt(
+                    cumulative_gas_used=21_001
+                ),
             ),
             UnexpectedExecutionSuccessError,
             id="TransactionUnexpectedExecutionSuccessError+TransactionReceiptMismatchError",

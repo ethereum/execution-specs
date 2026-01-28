@@ -330,7 +330,7 @@ def test_gas_refunds_from_data_floor(
     #     (t8n) is verified against the expected receipt.
     #   - During test consumption, this is reflected in the balance difference
     #     and the state root.
-    tx.expected_receipt = TransactionReceipt(gas_used=gas_used)
+    tx.expected_receipt = TransactionReceipt(cumulative_gas_used=gas_used)
     state_test(
         pre=pre,
         post={

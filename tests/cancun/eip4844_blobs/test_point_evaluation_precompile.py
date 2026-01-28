@@ -599,7 +599,7 @@ def test_tx_entry_point(
         access_list=access_list,
         to=Address(Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS),
         gas_limit=call_gas + intrinsic_gas_cost,
-        expected_receipt=TransactionReceipt(gas_used=consumed_gas),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=consumed_gas),
     )
 
     post = {
