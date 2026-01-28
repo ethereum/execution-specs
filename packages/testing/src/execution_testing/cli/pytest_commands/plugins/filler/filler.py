@@ -44,6 +44,7 @@ from execution_testing.fixtures import (
     PreAllocGroupBuilders,
     PreAllocGroups,
     TestInfo,
+    merge_partial_fixture_files,
 )
 from execution_testing.forks import (
     Fork,
@@ -1240,12 +1241,12 @@ def fixture_collector(
         generate_index=request.config.getoption("generate_index"),
     )
     yield fixture_collector
-    fixture_collector.dump_fixtures()
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
+    fixture_collector.dump_fixtures(worker_id)
     if do_fixture_verification:
         fixture_collector.verify_fixture_files(evm_fixture_verification)
     # Write partial index for this worker/scope
     if fixture_collector.generate_index:
-        worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
         fixture_collector.write_partial_index(worker_id)
 
 
@@ -1647,6 +1648,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
     if fixture_output.is_stdout or is_help_or_collectonly_mode(session.config):
         return
+
+    # Merge partial fixture files from all workers into final JSON files
+    merge_partial_fixture_files(fixture_output.directory)
 
     # Remove any lock files that may have been created.
     for file in fixture_output.directory.rglob("*.lock"):

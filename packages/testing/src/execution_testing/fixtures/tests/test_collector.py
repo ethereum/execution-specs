@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from ..collector import FixtureCollector, TestInfo
+from ..base import BaseFixture
+from ..collector import FixtureCollector, TestInfo, merge_partial_fixture_files
+from ..file import Fixtures
 from ..transaction import FixtureResult, TransactionFixture
 
 
@@ -107,8 +109,8 @@ class TestPreSerialization:
         assert len(collector.all_fixtures) == 0
 
 
-class TestWriteFixtureFile:
-    """Tests for _write_fixture_file output format correctness."""
+class TestPartialFixtureFiles:
+    """Tests for partial fixture file writing and merging."""
 
     def test_single_fixture_matches_json_dumps(
         self, output_dir: Path, filler_path: Path, module_path: Path
@@ -124,7 +126,8 @@ class TestWriteFixtureFile:
         fixture = _make_fixture(1)
         info = _make_info("tx_test", module_path)
         collector.add_fixture(info, fixture)
-        collector.dump_fixtures()
+        collector.dump_fixtures(worker_id="gw0")
+        merge_partial_fixture_files(output_dir)
 
         # Find the written file
         json_files = list(output_dir.rglob("*.json"))
@@ -157,7 +160,8 @@ class TestWriteFixtureFile:
             collector.add_fixture(info, fixture)
             fixtures_and_infos.append((info, fixture))
 
-        collector.dump_fixtures()
+        collector.dump_fixtures(worker_id="gw0")
+        merge_partial_fixture_files(output_dir)
 
         json_files = list(output_dir.rglob("*.json"))
         assert len(json_files) == 1
@@ -170,39 +174,56 @@ class TestWriteFixtureFile:
         expected = json.dumps(dict(sorted(expected_dict.items())), indent=4)
         assert written == expected
 
-    def test_flush_then_append_matches_json_dumps(
+    def test_multiple_workers_merge_correctly(
         self, output_dir: Path, filler_path: Path, module_path: Path
     ) -> None:
         """
-        When flush_interval triggers a mid-run dump, subsequent fixtures
-        appended to the same file must produce output matching json.dumps.
+        Simulates xdist: worker A and B write partial files, merge at end.
+        Final output should match json.dumps of all fixtures.
         """
-        collector = FixtureCollector(
+        collector1 = FixtureCollector(
             output_dir=output_dir,
             fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
-            flush_interval=2,
             generate_index=False,
         )
-        all_pairs = []
-        # Add 3 fixtures — the 2nd add triggers a flush, then a 3rd is added
+        # Worker A writes fixtures 0-2
+        pairs_a = []
         for i in range(3):
             fixture = _make_fixture(i)
             info = _make_info(f"tx_test_{i}", module_path)
-            collector.add_fixture(info, fixture)
-            all_pairs.append((info, fixture))
+            collector1.add_fixture(info, fixture)
+            pairs_a.append((info, fixture))
+        collector1.dump_fixtures(worker_id="gw0")
 
-        # Final dump for remaining fixtures
-        collector.dump_fixtures()
+        # Worker B writes fixtures 3-5 (separate partial file)
+        collector2 = FixtureCollector(
+            output_dir=output_dir,
+            fill_static_tests=False,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        pairs_b = []
+        for i in range(3, 6):
+            fixture = _make_fixture(i)
+            info = _make_info(f"tx_test_{i}", module_path)
+            collector2.add_fixture(info, fixture)
+            pairs_b.append((info, fixture))
+        collector2.dump_fixtures(worker_id="gw1")
 
+        # Merge at session end
+        merge_partial_fixture_files(output_dir)
+
+        # Verify final output matches json.dumps of all 6 fixtures
         json_files = list(output_dir.rglob("*.json"))
         assert len(json_files) == 1
         written = json_files[0].read_text()
 
         expected_dict = {
             info.get_id(): fixture.json_dict_with_info()
-            for info, fixture in all_pairs
+            for info, fixture in pairs_a + pairs_b
         }
         expected = json.dumps(dict(sorted(expected_dict.items())), indent=4)
         assert written == expected
@@ -223,7 +244,8 @@ class TestWriteFixtureFile:
             info = _make_info(f"tx_test_{i}", module_path)
             collector.add_fixture(info, fixture)
 
-        collector.dump_fixtures()
+        collector.dump_fixtures(worker_id="gw0")
+        merge_partial_fixture_files(output_dir)
 
         json_files = list(output_dir.rglob("*.json"))
         assert len(json_files) == 1
@@ -248,7 +270,8 @@ class TestWriteFixtureFile:
             info = _make_info(f"tx_test_{i}", module_path)
             collector.add_fixture(info, fixture)
 
-        collector.dump_fixtures()
+        collector.dump_fixtures(worker_id="gw0")
+        merge_partial_fixture_files(output_dir)
 
         json_files = list(output_dir.rglob("*.json"))
         assert len(json_files) == 1
@@ -257,14 +280,10 @@ class TestWriteFixtureFile:
         keys = list(parsed.keys())
         assert keys == sorted(keys)
 
-
-class TestExtractEntriesFromFile:
-    """Tests for _extract_entries_from_file to avoid re-serialization."""
-
-    def test_extract_preserves_json_format(
+    def test_partial_files_cleaned_up_after_merge(
         self, output_dir: Path, filler_path: Path, module_path: Path
     ) -> None:
-        """Extracted entries produce identical output when re-written."""
+        """Partial JSONL files are deleted after merging."""
         collector = FixtureCollector(
             output_dir=output_dir,
             fill_static_tests=False,
@@ -272,73 +291,192 @@ class TestExtractEntriesFromFile:
             filler_path=filler_path,
             generate_index=False,
         )
-        # Write initial fixtures
-        for i in range(3):
+        fixture = _make_fixture(1)
+        info = _make_info("tx_test", module_path)
+        collector.add_fixture(info, fixture)
+        collector.dump_fixtures(worker_id="gw0")
+
+        # Verify partial file exists before merge
+        partial_files = list(output_dir.rglob("*.partial.*.jsonl"))
+        assert len(partial_files) == 1
+
+        merge_partial_fixture_files(output_dir)
+
+        # Verify partial file is deleted after merge
+        partial_files = list(output_dir.rglob("*.partial.*.jsonl"))
+        assert len(partial_files) == 0
+
+
+class TestLegacyCompatibility:
+    """
+    Tests verifying the new partial file approach produces byte-identical
+    output to the legacy Fixtures.collect_into_file() method.
+    """
+
+    def test_single_fixture_matches_legacy(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """Single fixture output matches legacy collect_into_file()."""
+        fixture: BaseFixture = _make_fixture(1)
+        info = _make_info("tx_test", module_path)
+        fixture_id = info.get_id()
+
+        # Legacy approach: use Fixtures.collect_into_file()
+        legacy_dir = output_dir / "legacy"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "test.json"
+        legacy_fixtures = Fixtures(root={fixture_id: fixture})
+        legacy_fixtures.collect_into_file(legacy_file)
+        legacy_output = legacy_file.read_text()
+
+        # New approach: use partial files + merge
+        new_dir = output_dir / "new"
+        new_dir.mkdir()
+        collector = FixtureCollector(
+            output_dir=new_dir,
+            fill_static_tests=False,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        collector.add_fixture(info, fixture)
+        collector.dump_fixtures(worker_id="gw0")
+        merge_partial_fixture_files(new_dir)
+        new_files = list(new_dir.rglob("*.json"))
+        assert len(new_files) == 1
+        new_output = new_files[0].read_text()
+
+        assert new_output == legacy_output
+
+    def test_multiple_fixtures_match_legacy(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """Multiple fixtures output matches legacy collect_into_file()."""
+        fixtures_dict: dict[str, BaseFixture] = {}
+        infos = []
+        for i in range(5):
             fixture = _make_fixture(i)
             info = _make_info(f"tx_test_{i}", module_path)
-            collector.add_fixture(info, fixture)
-        collector.dump_fixtures()
+            fixtures_dict[info.get_id()] = fixture
+            infos.append(info)
 
-        json_files = list(output_dir.rglob("*.json"))
+        # Legacy approach
+        legacy_dir = output_dir / "legacy"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "test.json"
+        legacy_fixtures = Fixtures(root=fixtures_dict)
+        legacy_fixtures.collect_into_file(legacy_file)
+        legacy_output = legacy_file.read_text()
 
-        # Extract and verify the entries match what json.dumps would produce
-        extracted = collector._extract_entries_from_file(json_files[0])
-        assert len(extracted) == 3
+        # New approach
+        new_dir = output_dir / "new"
+        new_dir.mkdir()
+        collector = FixtureCollector(
+            output_dir=new_dir,
+            fill_static_tests=False,
+            single_fixture_per_file=False,
+            filler_path=filler_path,
+            generate_index=False,
+        )
+        for i, info in enumerate(infos):
+            collector.add_fixture(info, list(fixtures_dict.values())[i])
+        collector.dump_fixtures(worker_id="gw0")
+        merge_partial_fixture_files(new_dir)
+        new_files = list(new_dir.rglob("*.json"))
+        assert len(new_files) == 1
+        new_output = new_files[0].read_text()
 
-        for _, value_str in extracted.items():
-            # Each extracted value should be valid JSON
-            parsed = json.loads(value_str)
-            # And should match json.dumps with indent=4
-            expected = json.dumps(parsed, indent=4)
-            assert value_str == expected
+        assert new_output == legacy_output
 
-    def test_extract_then_write_is_identical(
+    def test_multiple_workers_match_legacy(
         self, output_dir: Path, filler_path: Path, module_path: Path
     ) -> None:
         """
-        Simulates xdist: worker A writes, worker B reads and adds more.
-        Final output should match json.dumps of all fixtures.
+        Multiple workers writing to same logical file matches legacy output.
         """
-        collector1 = FixtureCollector(
-            output_dir=output_dir,
+        fixtures_dict: dict[str, BaseFixture] = {}
+        infos = []
+        for i in range(6):
+            fixture = _make_fixture(i)
+            info = _make_info(f"tx_test_{i}", module_path)
+            fixtures_dict[info.get_id()] = fixture
+            infos.append(info)
+
+        # Legacy approach: all fixtures in one call
+        legacy_dir = output_dir / "legacy"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "test.json"
+        legacy_fixtures = Fixtures(root=fixtures_dict)
+        legacy_fixtures.collect_into_file(legacy_file)
+        legacy_output = legacy_file.read_text()
+
+        # New approach: simulate 3 workers, each with 2 fixtures
+        new_dir = output_dir / "new"
+        new_dir.mkdir()
+        fixture_values = list(fixtures_dict.values())
+        for worker_idx in range(3):
+            collector = FixtureCollector(
+                output_dir=new_dir,
+                fill_static_tests=False,
+                single_fixture_per_file=False,
+                filler_path=filler_path,
+                generate_index=False,
+            )
+            start = worker_idx * 2
+            for i in range(start, start + 2):
+                collector.add_fixture(infos[i], fixture_values[i])
+            collector.dump_fixtures(worker_id=f"gw{worker_idx}")
+
+        merge_partial_fixture_files(new_dir)
+        new_files = list(new_dir.rglob("*.json"))
+        assert len(new_files) == 1
+        new_output = new_files[0].read_text()
+
+        assert new_output == legacy_output
+
+    def test_special_characters_in_keys_match_legacy(
+        self, output_dir: Path, filler_path: Path, module_path: Path
+    ) -> None:
+        """Fixture IDs with special characters produce identical output."""
+        # Create fixtures with complex IDs (typical pytest node IDs)
+        fixtures_dict: dict[str, BaseFixture] = {}
+        infos = []
+        complex_ids = [
+            "param[fork_Paris-state_test]",
+            "param[fork_Shanghai-blockchain_test]",
+            'param[value="quoted"]',
+            "param[path/with/slashes]",
+        ]
+        for i, test_id in enumerate(complex_ids):
+            fixture = _make_fixture(i)
+            info = _make_info(test_id, module_path)
+            fixtures_dict[info.get_id()] = fixture
+            infos.append(info)
+
+        # Legacy approach
+        legacy_dir = output_dir / "legacy"
+        legacy_dir.mkdir()
+        legacy_file = legacy_dir / "test.json"
+        legacy_fixtures = Fixtures(root=fixtures_dict)
+        legacy_fixtures.collect_into_file(legacy_file)
+        legacy_output = legacy_file.read_text()
+
+        # New approach
+        new_dir = output_dir / "new"
+        new_dir.mkdir()
+        collector = FixtureCollector(
+            output_dir=new_dir,
             fill_static_tests=False,
             single_fixture_per_file=False,
             filler_path=filler_path,
             generate_index=False,
         )
-        # Worker A writes fixtures 0-2
-        pairs_a = []
-        for i in range(3):
-            fixture = _make_fixture(i)
-            info = _make_info(f"tx_test_{i}", module_path)
-            collector1.add_fixture(info, fixture)
-            pairs_a.append((info, fixture))
-        collector1.dump_fixtures()
+        for i, info in enumerate(infos):
+            collector.add_fixture(info, list(fixtures_dict.values())[i])
+        collector.dump_fixtures(worker_id="gw0")
+        merge_partial_fixture_files(new_dir)
+        new_files = list(new_dir.rglob("*.json"))
+        assert len(new_files) == 1
+        new_output = new_files[0].read_text()
 
-        # Worker B writes fixtures 3-5 to the same file
-        collector2 = FixtureCollector(
-            output_dir=output_dir,
-            fill_static_tests=False,
-            single_fixture_per_file=False,
-            filler_path=filler_path,
-            generate_index=False,
-        )
-        pairs_b = []
-        for i in range(3, 6):
-            fixture = _make_fixture(i)
-            info = _make_info(f"tx_test_{i}", module_path)
-            collector2.add_fixture(info, fixture)
-            pairs_b.append((info, fixture))
-        collector2.dump_fixtures()
-
-        # Verify final output matches json.dumps of all 6 fixtures
-        json_files = list(output_dir.rglob("*.json"))
-        assert len(json_files) == 1
-        written = json_files[0].read_text()
-
-        expected_dict = {
-            info.get_id(): fixture.json_dict_with_info()
-            for info, fixture in pairs_a + pairs_b
-        }
-        expected = json.dumps(dict(sorted(expected_dict.items())), indent=4)
-        assert written == expected
+        assert new_output == legacy_output
