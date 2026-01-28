@@ -91,9 +91,9 @@ class FixtureForkPostIndexes(BaseModel):
 class FixtureTransactionLog(CamelModel):
     """Fixture variant of the TransactionLog type."""
 
-    block_number: ZeroPaddedHexNumber
-    transaction_index: ZeroPaddedHexNumber
-    log_index: ZeroPaddedHexNumber
+    address: Address | None = None
+    topics: List[Hash] | None = None
+    data: Bytes | None = None
 
 
 class FixtureReceiptDelegation(ReceiptDelegation):
@@ -131,7 +131,7 @@ class FixtureForkPost(CamelModel):
 
     state_root: Hash = Field(..., alias="hash")
     logs_hash: Hash = Field(..., alias="logs")
-    receipt: FixtureTransactionReceipt
+    receipt: FixtureTransactionReceipt | None = None
     tx_bytes: Bytes = Field(..., alias="txbytes")
     indexes: FixtureForkPostIndexes = Field(
         default_factory=FixtureForkPostIndexes

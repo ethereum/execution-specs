@@ -473,6 +473,12 @@ class StateTest(BaseTest):
                     f"expected_benchmark_gas_used "
                     f"({expected_benchmark_gas_used}), difference: {diff}"
                 )
+        if len(transition_tool_output.result.receipts) == 1:
+            receipt = FixtureTransactionReceipt.from_transaction_receipt(
+                            transition_tool_output.result.receipts[0]
+                        )
+        else:
+            receipt = None
 
         return StateFixture(
             env=FixtureEnvironment(**env.model_dump(exclude_none=True)),
@@ -482,9 +488,7 @@ class StateTest(BaseTest):
                     FixtureForkPost(
                         state_root=transition_tool_output.result.state_root,
                         logs_hash=transition_tool_output.result.logs_hash,
-                        receipt=FixtureTransactionReceipt.from_transaction_receipt(
-                            transition_tool_output.result.receipts[0]
-                        ),
+                        receipt=receipt,
                         tx_bytes=tx.rlp(),
                         expect_exception=tx.error,
                         state=output_alloc,
