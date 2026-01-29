@@ -610,11 +610,12 @@ def selfdestruct(evm: Evm) -> None:
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
 
-    # EIP-7708: Emit appropriate log based on beneficiary
-    if beneficiary == originator:
-        # Self-destruct to self burns the balance
+    # EIP-7708: Emit appropriate log based on whether ETH is burned
+    # or transferred to a different account
+    if originator in tx_state.created_accounts and beneficiary == originator:
+        # Self-destruct to self in same tx burns the balance
         emit_selfdestruct_log(evm, originator, originator_balance)
-    else:
+    elif beneficiary != originator:
         # Transfer to different beneficiary
         emit_transfer_log(evm, originator, beneficiary, originator_balance)
 

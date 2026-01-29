@@ -272,9 +272,11 @@ def process_message(message: Message) -> Evm:
             message.current_target,
             message.value,
         )
-        emit_transfer_log(
-            evm, message.caller, message.current_target, message.value
-        )
+        # EIP-7708: Only emit transfer log to a different account
+        if message.caller != message.current_target:
+            emit_transfer_log(
+                evm, message.caller, message.current_target, message.value
+            )
 
     # Execute message code and handle errors
     try:
