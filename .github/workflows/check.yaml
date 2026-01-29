@@ -1,4 +1,4 @@
-name: Fast Checks
+name: Check
 
 on:
   push:

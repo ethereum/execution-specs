@@ -57,8 +57,8 @@ runs:
           exit 1
         fi
 
-        echo "Running fast checks on rebased branch"
-        uvx tox -e fast-checks
+        echo "Running static checks on rebased branch"
+        uvx tox -e check
 
         echo "Rebase successful"
 

@@ -30,12 +30,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  fast-checks:
-    uses: ./.github/workflows/fast-checks.yaml
+  check:
+    uses: ./.github/workflows/check.yaml
 
   py3:
     runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: fast-checks
+    needs: check
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
@@ -56,7 +56,7 @@ jobs:
 
   pypy3:
     runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: fast-checks
+    needs: check
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
@@ -74,7 +74,7 @@ jobs:
 
   json_infra:
     runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: fast-checks
+    needs: check
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
@@ -92,7 +92,7 @@ jobs:
 
   optimized:
     runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: fast-checks
+    needs: check
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
@@ -110,7 +110,7 @@ jobs:
 
   tests_pytest_py3:
     runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: fast-checks
+    needs: check
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
@@ -126,7 +126,7 @@ jobs:
 
   tests_pytest_pypy3:
     runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: fast-checks
+    needs: check
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:

@@ -23,12 +23,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  fast-checks:
-    uses: ./.github/workflows/fast-checks.yaml
+  check:
+    uses: ./.github/workflows/check.yaml
 
   mkdocs:
     name: Test html documentation build with mkdocs
-    needs: fast-checks
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout ethereum/execution-specs

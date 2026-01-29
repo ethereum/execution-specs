@@ -236,14 +236,30 @@ CHECKS: dict[str, Check] = {
     "lint": Check(
         name="Python lint check (via ruff)",
         fix_hint=(
-            "To (potentially) auto-fix:\n```bash\nuv run ruff check --fix\n```"
+            "To (potentially) auto-fix:\n"
+            "```bash\n"
+            "uv run ruff check --fix\n"
+            "```\n\n"
+            "Or fix all lint/format issues:\n"
+            "```bash\n"
+            "just fix  # or: make fix\n"
+            "```"
         ),
         verify_cmd="uv run ruff check",
         run=run_ruff_check,
     ),
     "format": Check(
         name="Python format check (via ruff)",
-        fix_hint=("To auto-fix:\n```bash\nuv run ruff format\n```"),
+        fix_hint=(
+            "To auto-fix:\n"
+            "```bash\n"
+            "uv run ruff format\n"
+            "```\n\n"
+            "Or fix all lint/format issues:\n"
+            "```bash\n"
+            "just fix  # or: make fix\n"
+            "```"
+        ),
         verify_cmd="uv run ruff format --check",
         run=run_ruff_format,
     ),
@@ -316,9 +332,7 @@ def main() -> None:
         print_fix_hint(check)
         # Only show aggregate hint when not running under tox
         if "TOX_ENV_NAME" not in os.environ:
-            print(
-                "\nRun all fast checks: tox -e fast-checks\n", file=sys.stderr
-            )
+            print("\nRun all static checks: tox -e check\n", file=sys.stderr)
         # For changelog, we already built the output message
         if args.check != "changelog":
             write_github_summary(check, args.check, "See check output above")
