@@ -10,8 +10,8 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-check: ## Run all static checks
-	uvx tox -e check
+check: ## Run all static checks (parallel)
+	uvx tox --parallel -e lint,format,typecheck,spellcheck,spec-lint,lockcheck,actionlint,markdownlint,changelog
 
 lint: ## Python linting (ruff)
 	uvx tox -e lint

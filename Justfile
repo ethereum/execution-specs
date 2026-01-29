@@ -6,9 +6,9 @@ set quiet := true
 default:
     @just --list
 
-# Static checks
+# Static checks (parallel for speed)
 check:
-    uvx tox -e check
+    uvx tox --parallel -e lint,format,typecheck,spellcheck,spec-lint,lockcheck,actionlint,markdownlint,changelog
 
 lint:
     uvx tox -e lint
