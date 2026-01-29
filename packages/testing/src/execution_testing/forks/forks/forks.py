@@ -970,6 +970,13 @@ class Frontier(
         return False
 
     @classmethod
+    def engine_payload_attribute_slot_number(cls) -> bool:
+        """
+        At genesis, payload attributes do not include the slot number.
+        """
+        return False
+
+    @classmethod
     def get_reward(cls) -> int:
         """
         At Genesis the expected reward amount in wei is

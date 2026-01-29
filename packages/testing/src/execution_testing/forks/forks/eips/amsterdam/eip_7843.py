@@ -32,6 +32,11 @@ class EIP7843(
         return True
 
     @classmethod
+    def engine_payload_attribute_slot_number(cls) -> bool:
+        """Payload attributes include the slot number."""
+        return True
+
+    @classmethod
     def opcode_gas_map(
         cls,
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:

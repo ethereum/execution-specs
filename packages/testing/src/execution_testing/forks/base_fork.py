@@ -902,6 +902,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def engine_payload_attribute_slot_number(cls) -> bool:
+        """
+        Return true if the payload attributes include the slot number.
+        """
+        pass
+
     # Engine API method versions
     @classmethod
     def engine_new_payload_version(cls) -> Optional[int]:
