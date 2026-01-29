@@ -35,34 +35,21 @@ class Check:
     run: Callable[[], int]  # Function that runs the check, returns exit code
 
 
-def write_github_summary(check: Check, check_key: str, output: str) -> None:
+def write_github_summary(check: Check, check_key: str) -> None:
     """Write failure summary to GITHUB_STEP_SUMMARY if in CI."""
     summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
     if not summary_file:
         return
 
-    # Truncate output if too long
-    max_output = 2000
-    if len(output) > max_output:
-        output = output[:max_output] + "\n... (truncated)"
-
     with open(summary_file, "a") as f:
         f.write(f"## ❌ {check.name} failed\n\n")
-        f.write("```\n")
-        f.write(output)
-        f.write("\n```\n\n")
+        f.write("Expand the failed step above to see full output.\n\n")
         f.write("### How to fix\n\n")
-        f.write("```bash\n")
         f.write(check.fix_hint)
-        f.write("\n```\n\n")
+        f.write("\n\n")
         f.write("### How to verify\n\n")
-        f.write("Run the tool directly:\n\n")
         f.write("```bash\n")
-        f.write(check.verify_cmd)
-        f.write("\n```\n\n")
-        f.write("Or via tox:\n\n")
-        f.write("```bash\n")
-        f.write(f"tox -e {check_key}\n")
+        f.write(f"just check  # or: make check, uvx tox -e {check_key}\n")
         f.write("```\n")
 
 
@@ -72,7 +59,7 @@ def strip_markdown_code_blocks(text: str) -> str:
     return re.sub(r"```\w*\n?", "", text)
 
 
-def print_fix_hint(check: Check) -> None:
+def print_fix_hint(check: Check, check_key: str) -> None:
     """Print fix hint to stderr."""
     sep = "=" * 60
     hint = strip_markdown_code_blocks(check.fix_hint).strip()
@@ -80,7 +67,11 @@ def print_fix_hint(check: Check) -> None:
     print(f"{check.name} failed:", file=sys.stderr)
     print(sep, file=sys.stderr)
     print(hint, file=sys.stderr)
-    print(f"\nVerify fix:\n{check.verify_cmd}", file=sys.stderr)
+    print("\nVerify fix:", file=sys.stderr)
+    print(
+        f"just check  # or: make check, uvx tox -e {check_key}",
+        file=sys.stderr,
+    )
     print(sep, file=sys.stderr)
 
 
@@ -329,13 +320,13 @@ def main() -> None:
     exit_code = check.run()
 
     if exit_code != 0:
-        print_fix_hint(check)
+        print_fix_hint(check, args.check)
         # Only show aggregate hint when not running under tox
         if "TOX_ENV_NAME" not in os.environ:
             print("\nRun all static checks: tox -e check\n", file=sys.stderr)
         # For changelog, we already built the output message
         if args.check != "changelog":
-            write_github_summary(check, args.check, "See check output above")
+            write_github_summary(check, args.check)
 
     sys.exit(exit_code)
 

@@ -21,8 +21,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check:
+    uses: ./.github/workflows/check.yaml
+
   build:
     name: "Build Documentation"
+    needs: check
     runs-on: "ubuntu-latest"
 
     steps:
