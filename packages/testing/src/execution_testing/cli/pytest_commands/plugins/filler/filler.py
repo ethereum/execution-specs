@@ -1905,6 +1905,8 @@ def pytest_collection_modifyitems(
     if is_xdist:
         # With xdist: add xdist_group markers for --dist=loadgroup.
         # Skip if test already has an xdist_group marker (e.g., bigmem).
+        # Tests with existing markers still benefit from the cache within their
+        # worker, just with potentially more interleaving.
         # IMPORTANT: Use hash for group name because loadgroup's _split_scope
         # uses rfind("]") to detect group suffix, and our base_nodeid contains
         # "]" characters which would break the detection.

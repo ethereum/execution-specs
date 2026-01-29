@@ -493,16 +493,12 @@ class TestCollectionSortingBehavior:
         ]
 
         # Simulate current (no sorting) behavior.
-        current_items = [
-            MockItem(i.nodeid, BlockchainFixture) for i in items
-        ]
+        current_items = [MockItem(i.nodeid, BlockchainFixture) for i in items]
         self._simulate_collection_with_xdist_current(current_items)
         current_order = [i.nodeid for i in current_items]
 
         # Simulate expected (with sorting) behavior.
-        expected_items = [
-            MockItem(i.nodeid, BlockchainFixture) for i in items
-        ]
+        expected_items = [MockItem(i.nodeid, BlockchainFixture) for i in items]
         self._simulate_collection_with_xdist_fixed(expected_items)
         expected_order = [i.nodeid for i in expected_items]
 
@@ -516,7 +512,7 @@ class TestCollectionSortingBehavior:
     @pytest.mark.xfail(
         reason=(
             "Items not sorted with xdist"
-            " (by design - loadgroup handles grouping)."
+            " (loadgroup handles grouping)."
         )
     )
     def test_xdist_sorting_required_for_cache_hits(
