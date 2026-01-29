@@ -1109,6 +1109,16 @@ class Frontier(BaseFork, solc_name="homestead"):
         return False
 
     @classmethod
+    def engine_payload_attribute_slot_number(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        At genesis, payload attributes do not include the slot number.
+        """
+        del block_number, timestamp
+        return False
+
+    @classmethod
     def engine_forkchoice_updated_version(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
@@ -3561,5 +3571,21 @@ class Amsterdam(BPO2):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:
         """Slot number in header required from Amsterdam (EIP-7843)."""
+        del block_number, timestamp
+        return True
+
+    @classmethod
+    def engine_forkchoice_updated_version(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """From Amsterdam, forkchoice updated calls must use version 4."""
+        del block_number, timestamp
+        return 4
+
+    @classmethod
+    def engine_payload_attribute_slot_number(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """From Amsterdam, payload attributes include the slot number."""
         del block_number, timestamp
         return True
