@@ -78,7 +78,7 @@ class BlockChain:
     chain_id: U64
 
 
-def apply_fork(old) -> BlockChain:
+def apply_fork(old: BlockChain) -> BlockChain:
     """
     Transforms the state from the previous hard fork (`old`) into the block
     chain object for this hard fork and returns it.
