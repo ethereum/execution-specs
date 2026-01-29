@@ -1249,6 +1249,9 @@ def t8n(
         transition_tool_cache_stats.subkey_test_miss += (
             session_t8n.output_cache.misses
         )
+        # Reset counters to avoid double-counting (cache persists across tests)
+        session_t8n.output_cache.hits = 0
+        session_t8n.output_cache.misses = 0
 
 
 @pytest.fixture(scope="session")
