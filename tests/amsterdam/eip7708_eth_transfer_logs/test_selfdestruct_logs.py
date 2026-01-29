@@ -351,7 +351,9 @@ def test_finalization_selfdestruct_logs(
     # Pre-compute factory address and created contract addresses
     # so we can call them in reverse sorted order to prove finalization
     # logs are sorted by address, not by call order
-    factory_address = Address(0xFACF)
+    factory_address = compute_create_address(
+        address=sender, nonce=sender.nonce
+    )
     x1 = compute_create_address(address=factory_address, nonce=1)
     x2 = compute_create_address(address=factory_address, nonce=2)
     x3 = compute_create_address(address=factory_address, nonce=3)
@@ -406,9 +408,8 @@ def test_finalization_selfdestruct_logs(
         + Op.CALL(gas=100_000, address=p3, args_offset=0, args_size=32)
     )
 
-    factory = pre.deploy_contract(
-        factory_code, balance=6000, address=factory_address
-    )
+    factory_balance = 1000 + 2000 + 3000
+    pre.fund_address(factory_address, factory_balance)
 
     # Amounts based on reverse call order:
     # p1→reverse[0], p2→reverse[1], p3→reverse[2]
@@ -447,7 +448,7 @@ def test_finalization_selfdestruct_logs(
                 transfer_log(x3, beneficiary, 3000),
             ]
         )
-        beneficiary_balance = 6000
+        beneficiary_balance = factory_balance
 
     if not eth_transferred:
         # Reverted CALLs emit no logs, no ETH transferred, no finalization logs
@@ -486,8 +487,9 @@ def test_finalization_selfdestruct_logs(
 
     tx = Transaction(
         sender=sender,
-        to=factory,
+        to=None,
         value=0,
+        data=factory_code,
         gas_limit=1_000_000,
         expected_receipt=TransactionReceipt(
             logs=execution_logs + finalization_logs
