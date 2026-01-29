@@ -18,6 +18,7 @@ from execution_testing import (
     Bytecode,
     Bytes,
     Environment,
+    Initcode,
     Op,
     StateTestFiller,
     Transaction,
@@ -85,6 +86,24 @@ def test_transfer_to_delegated_account_emits_log(
 
     post = {recipient: Account(balance=1)}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+def test_transfer_to_self_no_log(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+) -> None:
+    """Test that a transaction sending value to self emits no transfer log."""
+    tx = Transaction(
+        sender=sender,
+        to=sender,
+        value=1,
+        gas_limit=21_000,
+        expected_receipt=TransactionReceipt(logs=[]),
+    )
+
+    state_test(env=env, pre=pre, post={}, tx=tx)
 
 
 def test_zero_value_transfer_no_log(
@@ -179,9 +198,9 @@ def test_call_opcodes_transfer_log_behavior(
         expected_logs.append(transfer_log(contract, callee, 1))
         post = {callee: Account(balance=1)}
     elif call_opcode == Op.CALLCODE:
-        # CALLCODE transfers value but stays in caller's context
-        # This is a self-transfer (contract -> contract)
-        expected_logs.append(transfer_log(contract, contract, 1))
+        # CALLCODE transfers value but stays in caller's context.
+        # This is a self-transfer (contract -> contract), so no transfer
+        # log per EIP-7708 ("CALL to a different account").
         post = {}
     else:
         # DELEGATECALL and STATICCALL: no value transfer, no additional log
@@ -777,6 +796,50 @@ def test_zero_value_operations_no_log(
 
 
 @pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALL, id="call"),
+        pytest.param(Op.CALLCODE, id="callcode"),
+    ],
+)
+def test_call_to_self_no_log(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: EOA,
+    call_opcode: Op,
+) -> None:
+    """
+    Test that CALL/CALLCODE with value to self emits no transfer log.
+
+    Uses CALLDATASIZE to detect recursion: external call has no calldata,
+    recursive call passes 1 byte of calldata to signal stop.
+    """
+    # CALLDATASIZE > 0 means recursive call, jump to end
+    # Byte offsets: CALLDATASIZE(1) + PUSH1(2) + JUMPI(1) = 4
+    # CALL with args_size=1: ~16 bytes, JUMPDEST at offset 20
+    contract_code = (
+        Op.CALLDATASIZE
+        + Op.PUSH1(20)
+        + Op.JUMPI
+        + call_opcode(gas=100_000, address=Op.ADDRESS, value=1, args_size=1)
+        + Op.JUMPDEST
+        + Op.STOP
+    )
+    contract = pre.deploy_contract(contract_code, balance=1)
+
+    tx = Transaction(
+        sender=sender,
+        to=contract,
+        value=0,
+        gas_limit=200_000,
+        expected_receipt=TransactionReceipt(logs=[]),
+    )
+
+    state_test(env=env, pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.parametrize(
     "recipient_code,call_gas,call_value,recipient_balance,contract_balance",
     [
         pytest.param(Op.REVERT(0, 0), 50_000, 500, 0, 500, id="call_reverted"),
@@ -1199,6 +1262,73 @@ def test_selfdestruct_then_transfer_same_block(
         post={
             beneficiary: Account(balance=600),
             contract: Account(balance=0),
+        },
+    )
+
+
+def test_selfdestruct_to_self_cross_tx_no_log(
+    blockchain_test: BlockchainTestFiller, pre: Alloc
+) -> None:
+    """
+    Test that selfdestruct-to-self in a cross-tx context emits no log.
+
+    A contract created in Tx1 is not in created_accounts during Tx2.
+    Selfdestruct-to-self in Tx2 emits no log per EIP-7708: no Selfdestruct
+    log (not same-tx) and no Transfer log (not a different account).
+
+    Tx1: Contract creation tx (to=None) deploying SELFDESTRUCT(ADDRESS),
+         value=2000. Logs: [transfer_log(sender, created, 2000)]
+    Tx2: Call created contract directly, value=0. Logs: []
+    Post: contract keeps balance (not deleted, not in created_accounts in Tx2)
+    """
+    contract_balance = 2000
+    sender = pre.fund_eoa()
+
+    runtime_code = Op.SELFDESTRUCT(Op.ADDRESS)
+    initcode = Initcode(deploy_code=runtime_code)
+
+    # Calculate the address that will be created by the first tx
+    created_address = compute_create_address(address=sender, nonce=0)
+
+    blocks = [
+        Block(
+            txs=[
+                # Tx1: Create the contract directly via contract creation tx
+                Transaction(
+                    to=None,
+                    sender=sender,
+                    nonce=0,
+                    value=contract_balance,
+                    data=bytes(initcode),
+                    gas_limit=300_000,
+                    expected_receipt=TransactionReceipt(
+                        logs=[
+                            transfer_log(
+                                sender, created_address, contract_balance
+                            ),
+                        ]
+                    ),
+                ),
+                # Tx2: Call the created contract directly (cross-tx)
+                Transaction(
+                    to=created_address,
+                    sender=sender,
+                    nonce=1,
+                    value=0,
+                    gas_limit=100_000,
+                    expected_receipt=TransactionReceipt(logs=[]),
+                ),
+            ],
+        ),
+    ]
+
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post={
+            # Contract keeps balance: not deleted since not in
+            # created_accounts during Tx2
+            created_address: Account(balance=contract_balance),
         },
     )
 
