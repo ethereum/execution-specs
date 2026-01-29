@@ -124,21 +124,35 @@ def get_valid_transition_tool_names() -> set[str]:
 
 class OutputCache:
     """
-    Unbounded cache for t8n outputs.
+    Single-key cache for t8n outputs.
 
-    With xdist_group ensuring related formats run consecutively on the same
-    worker.
+    Stores results for one test at a time. When the key changes, the previous
+    cache is cleared. Works with xdist loadgroup which ensures related fixture
+    formats run consecutively on the same worker.
     """
 
-    def __init__(self, *, key: str):
-        """Initialize the cache with a maximum size."""
+    def __init__(self) -> None:
+        """Initialize the cache."""
         self._cache: Dict[int, TransitionToolOutput] = {}
-        self.key = key
+        self.key: str | None = None
         self.hits = 0
         self.misses = 0
 
+    def set_key(self, key: str) -> bool:
+        """
+        Set the current key, returning True if it was already cached.
+
+        Clears the cache when the key changes.
+        """
+        if key == self.key:
+            return True
+        # New key - clear cache and start fresh
+        self._cache.clear()
+        self.key = key
+        return False
+
     def get(self, subkey: int) -> TransitionToolOutput | None:
-        """Get a value from the cache, marking it as recently used."""
+        """Get a value from the cache for the current key."""
         if subkey in self._cache:
             self.hits += 1
             return self._cache[subkey]
@@ -146,14 +160,8 @@ class OutputCache:
         return None
 
     def set(self, subkey: int, value: TransitionToolOutput) -> None:
-        """Set a value in the cache, evicting oldest if at capacity."""
+        """Set a value in the cache for the current key."""
         self._cache[subkey] = value
-
-    def stats(self) -> str:
-        """Return cache statistics."""
-        total = self.hits + self.misses
-        rate = (self.hits / total * 100) if total > 0 else 0
-        return f"hits={self.hits}, misses={self.misses}, rate={rate:.1f}%"
 
 
 class TransitionTool(EthereumCLI):
@@ -263,20 +271,24 @@ class TransitionTool(EthereumCLI):
         return traces
 
     def set_cache(self, *, key: str) -> bool:
-        """Sets the output cache."""
-        if self.output_cache is None or key != self.output_cache.key:
-            self.output_cache = OutputCache(key=key)
-            return False
-        self.output_cache.hits = 0
-        self.output_cache.misses = 0
-        return True
+        """
+        Set the current cache key.
+
+        Creates the cache on first call, then reuses it for LRU behavior.
+        Returns True if the key was already in the cache (hit).
+        """
+        if self.output_cache is None:
+            self.output_cache = OutputCache()
+        return self.output_cache.set_key(key)
 
     def remove_cache(self) -> None:
         """
-        Remove the output cache to be garbage collected since it
-        will no longer be used.
+        Clear the current key (test doesn't use cache).
+
+        Does not remove the entire cache to preserve LRU entries.
         """
-        self.output_cache = None
+        if self.output_cache is not None:
+            self.output_cache.key = None
 
     def reset_opcode_count(self) -> None:
         """
