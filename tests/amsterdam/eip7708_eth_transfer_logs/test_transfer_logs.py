@@ -795,14 +795,37 @@ def test_zero_value_operations_no_log(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALL, id="call"),
+        pytest.param(Op.CALLCODE, id="callcode"),
+    ],
+)
 def test_call_to_self_no_log(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
+    call_opcode: Op,
 ) -> None:
-    """Test that CALL with value to self emits no transfer log."""
-    contract_code = Op.CALL(gas=100_000, address=Op.ADDRESS, value=1)
+    """
+    Test that CALL/CALLCODE with value to self emits no transfer log.
+
+    Uses CALLDATASIZE to detect recursion: external call has no calldata,
+    recursive call passes 1 byte of calldata to signal stop.
+    """
+    # CALLDATASIZE > 0 means recursive call, jump to end
+    # Byte offsets: CALLDATASIZE(1) + PUSH1(2) + JUMPI(1) = 4
+    # CALL with args_size=1: ~16 bytes, JUMPDEST at offset 20
+    contract_code = (
+        Op.CALLDATASIZE
+        + Op.PUSH1(20)
+        + Op.JUMPI
+        + call_opcode(gas=100_000, address=Op.ADDRESS, value=1, args_size=1)
+        + Op.JUMPDEST
+        + Op.STOP
+    )
     contract = pre.deploy_contract(contract_code, balance=1)
 
     tx = Transaction(

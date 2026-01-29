@@ -10,10 +10,13 @@ import pytest
 from execution_testing import (
     EOA,
     Account,
+    Address,
     Alloc,
+    Bytecode,
     Environment,
     Initcode,
     Op,
+    Opcodes,
     StateTestFiller,
     Transaction,
     TransactionReceipt,
@@ -287,63 +290,199 @@ def test_selfdestruct_same_tx_via_call(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "payer_code,eth_transferred",
+    [
+        pytest.param(
+            Op.SELFDESTRUCT(Op.CALLDATALOAD(0)),
+            True,
+            id="via_selfdestruct",
+        ),
+        pytest.param(
+            Op.CALL(
+                gas=50_000,
+                address=Op.CALLDATALOAD(0),
+                value=Op.BALANCE(Op.ADDRESS),
+            ),
+            True,
+            id="via_call",
+        ),
+        pytest.param(
+            Op.CALL(
+                gas=50_000,
+                address=Op.CALLDATALOAD(0),
+                value=Op.BALANCE(Op.ADDRESS),
+            )
+            + Op.REVERT(0, 0),
+            False,
+            id="via_call_revert",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "to_self",
+    [
+        pytest.param(False, id="to_beneficiary"),
+        pytest.param(True, id="to_self"),
+    ],
+)
 def test_finalization_selfdestruct_logs(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
+    payer_code: Bytecode,
+    eth_transferred: bool,
+    to_self: bool,
 ) -> None:
     """
     Test Selfdestruct logs at finalization for post-selfdestruct balance.
 
-    Contracts A and B selfdestruct, then receive ETH via C1/C2's selfdestruct.
-    At finalization, A and B emit Selfdestruct logs for their remaining balance
-    in lexicographical address order.
+    X contracts (x1, x2, x3) selfdestruct, then receive ETH via payer contracts
+    (p1, p2, p3). At finalization, X contracts emit SELFDESTRUCT logs for their
+    in lexicographical address order (only if they received ETH).
+
+    When to_self=True, X contracts SELFDESTRUCT to themselves (burning ETH
+    with LOG2). When to_self=False, X contracts SELFDESTRUCT to a beneficiary
+    (Transfer LOG3).
     """
     beneficiary = pre.deploy_contract(Op.STOP)
 
-    runtime = Op.SELFDESTRUCT(beneficiary)
+    # Pre-compute factory address and created contract addresses
+    # so we can call them in reverse sorted order to prove finalization
+    # logs are sorted by address, not by call order
+    factory_address = Address(0xFACF)
+    x1 = compute_create_address(address=factory_address, nonce=1)
+    x2 = compute_create_address(address=factory_address, nonce=2)
+    x3 = compute_create_address(address=factory_address, nonce=3)
+
+    # sort() + call in REVERSE order to prove finalization
+    # lexicographical sorting
+    sorted_addrs = sorted([x1, x2, x3])
+    reverse_sorted = list(reversed(sorted_addrs))
+
+    # Runtime: selfdestruct on first call, STOP on subsequent calls
+    selfdestruct_target: Address | Opcodes
+    if to_self:
+        selfdestruct_target = Op.ADDRESS
+    else:
+        selfdestruct_target = beneficiary
+    runtime = (
+        Op.TLOAD(0)
+        + Op.ISZERO
+        + Op.PUSH1(8)
+        + Op.JUMPI
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.TSTORE(0, 1)
+        + Op.SELFDESTRUCT(selfdestruct_target)
+    )
     initcode = Initcode(deploy_code=runtime)
     initcode_len = len(initcode)
 
-    c1_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
-    c2_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
-    c1 = pre.deploy_contract(c1_code, balance=100)
-    c2 = pre.deploy_contract(c2_code, balance=200)
+    # Payer contracts (p1, p2, p3) will send ETH to created contracts
+    p1 = pre.deploy_contract(payer_code, balance=100)
+    p2 = pre.deploy_contract(payer_code, balance=200)
+    p3 = pre.deploy_contract(payer_code, balance=300)
 
+    # Call p1/p2/p3 targeting addresses in REVERSE sorted order
+    # This proves finalization logs are sorted by address, not call order
     factory_code = (
         Om.MSTORE(initcode, 0)
+        # Create x1, x2, x3
         + Op.TSTORE(0, Op.CREATE(value=1000, offset=0, size=initcode_len))
         + Op.TSTORE(1, Op.CREATE(value=2000, offset=0, size=initcode_len))
+        + Op.TSTORE(2, Op.CREATE(value=3000, offset=0, size=initcode_len))
+        # Call x1, x2, x3 to trigger SELFDESTRUCT
         + Op.CALL(gas=100_000, address=Op.TLOAD(0), value=0)
         + Op.CALL(gas=100_000, address=Op.TLOAD(1), value=0)
-        + Op.MSTORE(0, Op.TLOAD(0))
-        + Op.CALL(gas=100_000, address=c1, args_offset=0, args_size=32)
-        + Op.MSTORE(0, Op.TLOAD(1))
-        + Op.CALL(gas=100_000, address=c2, args_offset=0, args_size=32)
+        + Op.CALL(gas=100_000, address=Op.TLOAD(2), value=0)
+        # p1/p2/p3 send ETH in REVERSE sorted address order
+        + Op.MSTORE(0, reverse_sorted[0])
+        + Op.CALL(gas=100_000, address=p1, args_offset=0, args_size=32)
+        + Op.MSTORE(0, reverse_sorted[1])
+        + Op.CALL(gas=100_000, address=p2, args_offset=0, args_size=32)
+        + Op.MSTORE(0, reverse_sorted[2])
+        + Op.CALL(gas=100_000, address=p3, args_offset=0, args_size=32)
     )
 
-    factory = pre.deploy_contract(factory_code, balance=3000)
-    addr_a = compute_create_address(address=factory, nonce=1)
-    addr_b = compute_create_address(address=factory, nonce=2)
+    factory = pre.deploy_contract(
+        factory_code, balance=6000, address=factory_address
+    )
 
-    # Sort addresses for expected finalization log order
-    sorted_addrs = sorted([addr_a, addr_b])
-    amounts = {addr_a: 100, addr_b: 200}
+    # Amounts based on reverse call order:
+    # p1→reverse[0], p2→reverse[1], p3→reverse[2]
+    amounts = {
+        reverse_sorted[0]: 100,
+        reverse_sorted[1]: 200,
+        reverse_sorted[2]: 300,
+    }
 
-    # Execution logs: CREATE A, CREATE B, SD A, SD B, C1->A, C2->B
+    # Execution logs:
+    # 1. CREATE x1, x2, x3 → LOG3 Transfer (factory → created)
+    # 2. CALL x1, x2, x3 → LOG3 or LOG2 depending on `to_self`
+    # 3. p1/p2/p3 send to reverse_sorted order
     execution_logs = [
-        transfer_log(factory, addr_a, 1000),
-        transfer_log(factory, addr_b, 2000),
-        transfer_log(addr_a, beneficiary, 1000),
-        transfer_log(addr_b, beneficiary, 2000),
-        transfer_log(c1, addr_a, 100),
-        transfer_log(c2, addr_b, 200),
+        transfer_log(factory_address, x1, 1000),
+        transfer_log(factory_address, x2, 2000),
+        transfer_log(factory_address, x3, 3000),
     ]
-    # Finalization logs in sorted address order
-    finalization_logs = [
-        selfdestruct_log(addr, amounts[addr]) for addr in sorted_addrs
-    ]
+
+    if to_self:
+        # SELFDESTRUCT to self burns ETH → LOG2 Selfdestruct
+        execution_logs.extend(
+            [
+                selfdestruct_log(x1, 1000),
+                selfdestruct_log(x2, 2000),
+                selfdestruct_log(x3, 3000),
+            ]
+        )
+        beneficiary_balance = 0
+    else:
+        # SELFDESTRUCT to beneficiary → LOG3 Transfer
+        execution_logs.extend(
+            [
+                transfer_log(x1, beneficiary, 1000),
+                transfer_log(x2, beneficiary, 2000),
+                transfer_log(x3, beneficiary, 3000),
+            ]
+        )
+        beneficiary_balance = 6000
+
+    if not eth_transferred:
+        # Reverted CALLs emit no logs, no ETH transferred, no finalization logs
+        finalization_logs = []
+        post = {
+            x1: Account.NONEXISTENT,
+            x2: Account.NONEXISTENT,
+            x3: Account.NONEXISTENT,
+            beneficiary: Account(balance=beneficiary_balance),
+            p1: Account(balance=100),
+            p2: Account(balance=200),
+            p3: Account(balance=300),
+        }
+    else:
+        # p1/p2/p3 send ETH in reverse sorted order
+        execution_logs.extend(
+            [
+                transfer_log(p1, reverse_sorted[0], 100),
+                transfer_log(p2, reverse_sorted[1], 200),
+                transfer_log(p3, reverse_sorted[2], 300),
+            ]
+        )
+        # Finalization logs emitted in SORTED address order (not call order)
+        finalization_logs = [
+            selfdestruct_log(addr, amounts[addr]) for addr in sorted_addrs
+        ]
+        post = {
+            x1: Account.NONEXISTENT,
+            x2: Account.NONEXISTENT,
+            x3: Account.NONEXISTENT,
+            beneficiary: Account(balance=beneficiary_balance),
+            p1: Account(balance=0),
+            p2: Account(balance=0),
+            p3: Account(balance=0),
+        }
 
     tx = Transaction(
         sender=sender,
@@ -354,13 +493,5 @@ def test_finalization_selfdestruct_logs(
             logs=execution_logs + finalization_logs
         ),
     )
-
-    post = {
-        addr_a: Account.NONEXISTENT,
-        addr_b: Account.NONEXISTENT,
-        beneficiary: Account(balance=3000),
-        c1: Account(balance=0),
-        c2: Account(balance=0),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
