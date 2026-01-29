@@ -81,7 +81,7 @@ def test_blobhash(
     benchmark_test(
         target_opcode=Op.BLOBHASH,
         code_generator=ExtCallGenerator(
-            attack_block=Op.POP(Op.BLOBHASH(0)),
+            attack_block=Op.BLOBHASH(Op.PUSH0),
             tx_kwargs=tx_kwargs,
         ),
     )
