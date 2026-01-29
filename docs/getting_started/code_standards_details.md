@@ -29,7 +29,7 @@ uvx tox -av
 Run all fast static checks before pushing (recommended):
 
 ```console
-uvx tox -e fast-checks
+uvx tox -e check
 ```
 
 This runs lint, format, typecheck, spellcheck, spec-lint, lockcheck, actionlint, markdownlint, and changelog validation in sequence. On failure, each check provides a **fix hint** explaining how to resolve the issue.
@@ -45,19 +45,19 @@ uvx tox -e lint,typecheck,spellcheck
 #### For Test Case Changes (`./tests/`)
 
 ```console
-uvx tox -e fast-checks,py3
+uvx tox -e check,py3
 ```
 
 #### For Framework and Library Changes (`./src/`)
 
 ```console
-uvx tox -e fast-checks,tests_pytest_py3
+uvx tox -e check,tests_pytest_py3
 ```
 
 #### For Documentation Changes (`./docs/`)
 
 ```console
-uvx tox -e fast-checks,mkdocs
+uvx tox -e check,mkdocs
 ```
 
 !!! note "Tox Virtual Environment"

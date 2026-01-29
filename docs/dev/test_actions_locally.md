@@ -45,16 +45,16 @@ will output something similar to:
 ```bash
 INFO[0000] Using docker host 'unix:///var/run/docker.sock', and daemon socket 'unix:///var/run/docker.sock'
 Stage  Job ID              Job name          Workflow name   Workflow file      Events
-0      checks              Spellcheck        Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
-0      checks              Python Lint       Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
-0      checks              Python Format     Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
-0      checks              Python Typecheck  Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
-0      checks              Spec Lint         Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
-0      checks              Lock Check        Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
-0      checks              Action Lint       Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
-0      checks              Changelog         Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
-0      markdownlint        Markdown Lint     Fast Checks     fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
-0      sha-pinned-actions  SHA Pinned Actions Fast Checks    fast-checks.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Spellcheck        Check     check.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Python Lint       Check     check.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Python Format     Check     check.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Python Typecheck  Check     check.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Spec Lint         Check     check.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Lock Check        Check     check.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Action Lint       Check     check.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      checks              Changelog         Check     check.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      markdownlint        Markdown Lint     Check     check.yaml   push,pull_request,workflow_dispatch,workflow_call
+0      sha-pinned-actions  SHA Pinned Actions Check    check.yaml   push,pull_request,workflow_dispatch,workflow_call
 ...
 ```
 
@@ -72,7 +72,7 @@ DEFAULT_PYTHON_VERSION=3.12
 and use the `--var-file` option to specify the file:
 
 ```bash
-gh act --workflows .github/workflows/fast-checks.yaml --var-file=gh_vars.txt
+gh act --workflows .github/workflows/check.yaml --var-file=gh_vars.txt
 ```
 
 ### Running Workflows that use a Matrix Strategy
@@ -80,7 +80,7 @@ gh act --workflows .github/workflows/fast-checks.yaml --var-file=gh_vars.txt
 This is optional, recent versions will automatically detect the matrix strategy and run supported values. To run a specific matrix item, use the `--matrix` option:
 
 ```bash
-gh act --workflows .github/workflows/fast-checks.yaml --var-file=gh_vars.txt --matrix name:"Python Lint"
+gh act --workflows .github/workflows/check.yaml --var-file=gh_vars.txt --matrix name:"Python Lint"
 ```
 
 ### Running Release Workflows
@@ -122,7 +122,7 @@ When running workflows that use `setup-uv` or similar setup actions, you may enc
 This happens because the container user doesn't have write access to `/opt/hostedtoolcache/`. Fix this by redirecting the tool cache to a writable location:
 
 ```bash
-gh act --workflows .github/workflows/fast-checks.yaml \
+gh act --workflows .github/workflows/check.yaml \
   -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:runner-latest \
   --env RUNNER_TOOL_CACHE=/tmp/tool_cache
 ```

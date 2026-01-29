@@ -4,11 +4,11 @@ This document outlines the coding standards and practices used in the @ethereum/
 
 ## Code and CI Requirements
 
-Code pushed to @ethereum/execution-specs must fulfill the following checks in [CI](https://github.com/ethereum/execution-specs/actions/workflows/fast-checks.yaml):
+Code pushed to @ethereum/execution-specs must fulfill the following checks in [CI](https://github.com/ethereum/execution-specs/actions/workflows/check.yaml):
 
-| Type                   | Tox Command                                     | Explanation                                                                                                 |
+| Type                   | Command                                         | Explanation                                                                                                 |
 | ---------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **All fast checks**    | `uvx tox -e fast-checks`          | Run all fast static checks (lint, format, typecheck, spellcheck, etc.) in sequence.                        |
+| **All static checks**  | `just check` / `make check` / `uvx tox -e check`| Run all static checks (lint, format, typecheck, spellcheck, etc.) in sequence.                              |
 | Lint                   | `uvx tox -e lint`                 | Python lint check via `ruff`.                                                                               |
 | Format                 | `uvx tox -e format`               | Python code formatting check via `ruff`.                                                                    |
 | Typecheck              | `uvx tox -e typecheck`            | Objects that provide typehints pass type-checking via `mypy`.                                               |
@@ -32,29 +32,26 @@ Code pushed to @ethereum/execution-specs must fulfill the following checks in [C
 
 !!! tip "Running checks easily"
 
-    Add an alias:
+    Run all static checks (recommended before pushing):
 
     ```console
-    alias tox="uvx tox"
+    just check      # or: make check, uvx tox -e check
     ```
 
-    Run all fast static checks (recommended before pushing):
+    Auto-fix lint and format issues:
 
     ```console
-    uvx tox -e fast-checks
-    ```
-
-    Run all checks in parallel:
-
-    ```console
-    uvx tox run-parallel
+    just fix        # or: make fix
     ```
 
     Run specific checks:
 
     ```console
-    uvx tox -e lint,typecheck
+    just lint       # or: uvx tox -e lint
+    just typecheck  # or: uvx tox -e typecheck
     ```
+
+    See [Build Tools](../dev/build_tools.md) for all available commands.
 
 !!! info "Fix hints on failure"
 
@@ -79,7 +76,7 @@ Code pushed to @ethereum/execution-specs must fulfill the following checks in [C
     On the command-line, solve fixable issues with:
 
     ```console
-    uv run ruff check --fix
+    just fix        # or: make fix
     ```
 
     Use VS Code, see [VS Code Setup](../getting_started/setup_vs_code.md), to autoformat code, automatically organize Python module imports and highlight typechecking and spelling issues.

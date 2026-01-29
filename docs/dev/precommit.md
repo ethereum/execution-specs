@@ -32,7 +32,7 @@ Pre-commit runs the following checks on staged files:
     To run all fast checks without committing:
 
     ```console
-    uvx tox -e fast-checks
+    uvx tox -e check
     ```
 
 !!! note "Bypassing pre-commit checks"

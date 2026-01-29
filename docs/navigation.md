@@ -75,6 +75,7 @@
       * [Logging](dev/logging.md)
       * [Enabling Precommit Checks](dev/precommit.md)
       * [Running Github Actions Locally](dev/test_actions_locally.md)
+      * [Build Tools](dev/build_tools.md)
   * [Changelog](CHANGELOG.md)
   * [Library Reference](library/index.md)
       * [EEST CLI Tools](library/cli/index.md)
