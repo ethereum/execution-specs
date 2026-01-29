@@ -314,9 +314,11 @@ def process_message(message: Message) -> Evm:
         move_ether(
             state, message.caller, message.current_target, message.value
         )
-        emit_transfer_log(
-            evm, message.caller, message.current_target, message.value
-        )
+        # EIP-7708: Only emit transfer log to a different account
+        if message.caller != message.current_target:
+            emit_transfer_log(
+                evm, message.caller, message.current_target, message.value
+            )
 
         sender_new_balance = get_account(state, message.caller).balance
         recipient_new_balance = get_account(
