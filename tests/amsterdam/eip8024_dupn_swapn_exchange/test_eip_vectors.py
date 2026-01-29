@@ -588,3 +588,48 @@ def test_vector_exchange_invalid_0x50(
     post = {contract_address: Account(storage={})}
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "eip8024_opcode,stack_items",
+    [
+        pytest.param(Op.DUPN, 17, id="dupn"),
+        pytest.param(Op.SWAPN, 18, id="swapn"),
+        pytest.param(Op.EXCHANGE, 30, id="exchange"),
+    ],
+)
+def test_eip_vector_end_of_code(
+    pre: Alloc,
+    state_test: StateTestFiller,
+    eip8024_opcode: Op,
+    stack_items: int,
+) -> None:
+    """
+    Test EIP-8024 opcodes at end of code (no immediate byte).
+
+    When an opcode appears at end of code, code[pc+1] = 0 beyond end of code.
+    - DUPN: decode_single(0) = 17, needs 17 items on stack
+    - SWAPN: decode_single(0) = 17, needs 18 items on stack
+    - EXCHANGE: decode_pair(0) = (1, 29), needs 30 items on stack
+
+    Store a marker before the opcode to verify the transaction succeeded,
+    since adding any opcode after would make that opcode byte the immediate.
+    """
+    sender = pre.fund_eoa()
+    marker_value = 0x42
+
+    code = (
+        # store marker for verification
+        Op.SSTORE(0, marker_value)
+        # push minimum required stack items for the opcode
+        + Op.PUSH0 * stack_items
+        # end-of-code EIP-8024 opcode
+        + eip8024_opcode
+    )
+    contract_address = pre.deploy_contract(code=code)
+
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    # verify marker was stored (tx succeeded)
+    post = {contract_address: Account(storage={0: marker_value})}
+    state_test(pre=pre, post=post, tx=tx)
