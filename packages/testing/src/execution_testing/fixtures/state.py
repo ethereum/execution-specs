@@ -16,10 +16,7 @@ from execution_testing.base_types import (
 from execution_testing.exceptions import TransactionExceptionInstanceOrList
 from execution_testing.forks import Fork
 from execution_testing.test_types.block_types import EnvironmentGeneric
-from execution_testing.test_types.transaction_types import (
-    Transaction,
-    TransactionFixtureConverter,
-)
+from execution_testing.test_types.transaction_types import Transaction, TransactionFixtureConverter
 
 from .base import BaseFixture
 from .common import FixtureAuthorizationTuple, FixtureBlobSchedule
