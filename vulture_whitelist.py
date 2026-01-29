@@ -83,9 +83,6 @@ EELST8N.version
 EELST8N.is_fork_supported
 EELST8N.evaluate
 
-# src/ethereum_spec_tools/loaders/fixture_loader.py
-Load._network
-
 # src/ethereum_spec_tools/loaders/transaction_loader.py
 TransactionLoad.json_to_authorizations
 TransactionLoad.json_to_chain_id
