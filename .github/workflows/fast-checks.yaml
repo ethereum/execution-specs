@@ -1,0 +1,58 @@
+name: Fast Checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Spellcheck", tox-env: spellcheck }
+          - { name: "Python Lint", tox-env: lint }
+          - { name: "Python Format", tox-env: format }
+          - { name: "Python Typecheck", tox-env: typecheck }
+          - { name: "Spec Lint", tox-env: spec-lint }
+          - { name: "Lock Check", tox-env: lockcheck }
+          - { name: "Action Lint", tox-env: actionlint }
+          - { name: "Changelog", tox-env: changelog }
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+      - name: Run ${{ matrix.name }}
+        run: uvx tox -e ${{ matrix.tox-env }}
+
+  markdownlint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: DavidAnson/markdownlint-cli2-action@05f32210e84442804257b2a6f20b273450ec8265
+        with:
+          globs: |
+            docs/**/*.md
+            *.md
+
+  sha-pinned-actions:
+    name: SHA Pinned Actions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Ensure SHA pinned actions
+        uses: zgosalvez/github-actions-ensure-sha-pinned-actions@6124774845927d14c601359ab8138699fa5b70c3

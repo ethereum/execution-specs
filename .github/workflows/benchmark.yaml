@@ -26,8 +26,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  fast-checks:
+    uses: ./.github/workflows/fast-checks.yaml
+
   unit-tests:
     name: Benchmark Unit Tests
+    needs: fast-checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683

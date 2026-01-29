@@ -4,3 +4,8 @@ self-hosted-runner:
     - size-l-x64
     - size-xl-x64
     - size-gigachungus-x64
+
+# Validate vars.* references in workflows
+config-variables:
+  - DEFAULT_PYTHON_VERSION
+  - UV_VERSION

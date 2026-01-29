@@ -113,8 +113,8 @@ runs:
           fi
         done
 
-        echo "Running static checks on merged branch"
-        uvx --with=tox-uv tox -e static
+        echo "Running fast checks on merged branch"
+        uvx tox -e fast-checks
 
         echo "All EIP branches merged successfully"
 

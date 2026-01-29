@@ -48,8 +48,12 @@ env:
   FIXTURES_URL: https://github.com/ethereum/execution-spec-tests/releases/download/v5.3.0/fixtures_develop.tar.gz
 
 jobs:
+  fast-checks:
+    uses: ./.github/workflows/fast-checks.yaml
+
   cache-docker-images:
     name: Cache Docker Images
+    needs: fast-checks
     runs-on: [self-hosted-ghr, size-l-x64]
     steps:
       - name: Checkout execution-specs
