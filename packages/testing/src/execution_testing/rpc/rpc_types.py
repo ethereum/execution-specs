@@ -212,6 +212,7 @@ class PayloadAttributes(CamelModel):
     parent_beacon_block_root: Hash | None = None
     target_blobs_per_block: HexNumber | None = None
     max_blobs_per_block: HexNumber | None = None
+    slot_number: HexNumber | None = None
 
 
 class BlobsBundle(CamelModel):
