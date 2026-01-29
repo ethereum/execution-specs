@@ -180,12 +180,30 @@ def test_selfdestruct_to_different_address_same_tx(
         pytest.param(False, id="to_other"),
     ],
 )
+@pytest.mark.parametrize(
+    "call_twice,second_call_value",
+    [
+        pytest.param(True, 1, id="call_twice_with_value"),
+        pytest.param(True, 0, id="call_twice"),
+        pytest.param(False, 0, id="call_once"),
+    ],
+)
+@pytest.mark.parametrize(
+    "transfer_during_create",
+    [
+        pytest.param(True, id="transfer_during_create"),
+        pytest.param(False, id="transfer_during_call"),
+    ],
+)
 def test_selfdestruct_same_tx_via_call(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
     to_self: bool,
+    call_twice: bool,
+    second_call_value: int,
+    transfer_during_create: bool,
 ) -> None:
     """
     Test selfdestruct via CREATE-then-CALL (not initcode selfdestruct).
@@ -204,15 +222,28 @@ def test_selfdestruct_same_tx_via_call(
     initcode = Initcode(deploy_code=runtime_code)
     initcode_len = len(initcode)
 
+    if transfer_during_create:
+        create_value = contract_balance
+        first_call_value = 0
+    else:
+        create_value = 0
+        first_call_value = contract_balance
+
     factory_code = (
         Om.MSTORE(initcode, 0)
         + Op.TSTORE(
-            0, Op.CREATE(value=contract_balance, offset=0, size=initcode_len)
+            0, Op.CREATE(value=create_value, offset=0, size=initcode_len)
         )
-        + Op.CALL(gas=100_000, address=Op.TLOAD(0), value=0)
+        + Op.CALL(gas=100_000, address=Op.TLOAD(0), value=first_call_value)
     )
+    if call_twice:
+        factory_code += Op.CALL(
+            gas=100_000, address=Op.TLOAD(0), value=second_call_value
+        )
 
-    factory = pre.deploy_contract(factory_code, balance=contract_balance)
+    factory = pre.deploy_contract(
+        factory_code, balance=contract_balance + second_call_value
+    )
     created_address = compute_create_address(address=factory, nonce=1)
 
     if to_self:
@@ -220,13 +251,25 @@ def test_selfdestruct_same_tx_via_call(
             transfer_log(factory, created_address, contract_balance),
             selfdestruct_log(created_address, contract_balance),
         ]
+        if call_twice and second_call_value > 0:
+            expected_logs += [
+                transfer_log(factory, created_address, second_call_value),
+                selfdestruct_log(created_address, second_call_value),
+            ]
         post = {}
     else:
         expected_logs = [
             transfer_log(factory, created_address, contract_balance),
             transfer_log(created_address, beneficiary, contract_balance),
         ]
-        post = {beneficiary: Account(balance=contract_balance)}
+        if call_twice and second_call_value > 0:
+            expected_logs += [
+                transfer_log(factory, created_address, second_call_value),
+                transfer_log(created_address, beneficiary, second_call_value),
+            ]
+        post = {
+            beneficiary: Account(balance=contract_balance + second_call_value)
+        }
 
     tx = Transaction(
         sender=sender,
