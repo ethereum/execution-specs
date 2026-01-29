@@ -1,0 +1,66 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      # Fast file-level checks (run on changed files only)
+      - id: ruff-check
+        name: Python lint (ruff)
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+
+      - id: ruff-format
+        name: Python format (ruff)
+        entry: uv run ruff format
+        language: system
+        types: [python]
+
+      - id: codespell
+        name: Spellcheck (codespell)
+        entry: uv run codespell
+        language: system
+        types_or: [python, markdown, yaml, ini]
+
+      # Project-level checks (run on whole project)
+      - id: mypy
+        name: Python typecheck (mypy)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: spec-lint
+        name: Ethereum spec lint
+        entry: uv run ethereum-spec-lint
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: lockcheck
+        name: Lock file check (uv)
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      - id: actionlint
+        name: GitHub Actions lint
+        entry: uv run actionlint
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+        pass_filenames: false
+
+      - id: changelog
+        name: Changelog validation
+        entry: uv run python scripts/fast_checks.py changelog
+        language: system
+        files: ^docs/CHANGELOG\.md$
+        pass_filenames: false

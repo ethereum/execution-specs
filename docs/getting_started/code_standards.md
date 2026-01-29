@@ -8,13 +8,15 @@ Code pushed to @ethereum/execution-specs must fulfill the following checks in [C
 
 | Type                   | Tox Command                                     | Explanation                                                                                                 |
 | ---------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Lint & code formatting | `uvx tox -e lint`                 | Python lint, format and module import check via `ruff`                                                      |
+| **All fast checks**    | `uvx tox -e fast-checks`          | Run all fast static checks (lint, format, typecheck, spellcheck, etc.) in sequence.                        |
+| Lint                   | `uvx tox -e lint`                 | Python lint check via `ruff`.                                                                               |
+| Format                 | `uvx tox -e format`               | Python code formatting check via `ruff`.                                                                    |
 | Typecheck              | `uvx tox -e typecheck`            | Objects that provide typehints pass type-checking via `mypy`.                                               |
 | Framework unit tests   | `uvx tox -e tests_pytest_py3`     | All framework unit tests must execute correctly.                                                            |
 | Fill tests             | `uvx tox -e py3`                  | All test cases for deployed forks can be generated.                                                         |
 | Benchmark tests        | `uvx tox -e benchmark-gas-values` | Benchmark test cases can be generated.                                                                      |
 | HTML doc build         | `uvx tox -e mkdocs`               | Documentation generated without warnings.                                                                   |
-| Spellcheck             | `uvx tox -e spellcheck`           | Code and documentation spell-check using codespell. |
+| Spellcheck             | `uvx tox -e spellcheck`           | Code and documentation spell-check using codespell.                                                         |
 | Markdown lint          | `uvx tox -e markdownlint`         | Markdown lint (requires [additional dependency](code_standards_details.md#additional-dependencies)).        |
 | Changelog validation   | `uvx tox -e changelog`            | Validates changelog entries format and structure in `docs/CHANGELOG.md`.                                    |
 
@@ -25,7 +27,7 @@ Code pushed to @ethereum/execution-specs must fulfill the following checks in [C
     ```console
     uvx pre-commit install
     ```
-    
+
     This saves you time by catching formatting issues, type errors, and spelling mistakes before they reach CI.
 
 !!! tip "Running checks easily"
@@ -36,23 +38,41 @@ Code pushed to @ethereum/execution-specs must fulfill the following checks in [C
     alias tox="uvx tox"
     ```
 
+    Run all fast static checks (recommended before pushing):
+
+    ```console
+    uvx tox -e fast-checks
+    ```
+
     Run all checks in parallel:
 
     ```console
     uvx tox run-parallel
     ```
 
-    Run sequentially:
-
-    ```console
-    uvx tox
-    ```
-
-    Run specific, faster checks:
+    Run specific checks:
 
     ```console
     uvx tox -e lint,typecheck
     ```
+
+!!! info "Fix hints on failure"
+
+    When a check fails, you'll see a **fix hint** with instructions on how to resolve the issue:
+
+    ```
+    ============================================================
+    Python lint check (via ruff) failed:
+    ============================================================
+    Try:
+        uv run ruff check --fix .
+
+    Verify:
+    uv run ruff check
+    ============================================================
+    ```
+
+    In GitHub Actions, these hints also appear in the job summary for easy access.
 
 !!! tip "Lint & code formatting: Using `ruff` and VS Code to help autoformat and fix module imports"
 
