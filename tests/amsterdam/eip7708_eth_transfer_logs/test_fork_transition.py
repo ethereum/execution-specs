@@ -14,6 +14,7 @@ from execution_testing import (
     Op,
     Transaction,
     TransactionReceipt,
+    compute_create_address,
 )
 
 from .spec import ref_spec_7708, selfdestruct_log, transfer_log
@@ -22,68 +23,116 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7708.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7708.version
 
 
+@pytest.mark.parametrize(
+    "same_tx,to_self",
+    [
+        pytest.param(True, True, id="same_tx_to_self"),
+        pytest.param(False, True, id="pre_existing_to_self"),
+        pytest.param(False, False, id="pre_existing_to_other"),
+    ],
+)
 @pytest.mark.valid_at_transition_to("Amsterdam")
 def test_selfdestruct_log_at_fork_transition(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    same_tx: bool,
+    to_self: bool,
 ) -> None:
     """
-    Test ETH selfdestruct log behavior at fork transition.
+    Test selfdestruct log emission across the Amsterdam fork transition.
 
-    Before Amsterdam: ETH selfdestructs do NOT emit logs.
-    At/after Amsterdam: ETH selfdestructs emit Selfdestruct logs.
+    same_tx_to_self: Factory CREATEs and selfdestructs to self in one tx.
+    At/after Amsterdam emits a CREATE transfer log + Selfdestruct log.
+
+    pre_existing_to_self: Pre-existing contract selfdestructs to self.
+    No logs at any fork — SELFDESTRUCT to same account emits nothing.
+
+    pre_existing_to_other: Pre-existing contract selfdestructs to a different
+    account. At/after Amsterdam emits a Transfer log.
     """
     sender = pre.fund_eoa()
-    contract1 = pre.deploy_contract(Op.SELFDESTRUCT(Op.ADDRESS), balance=1)
-    contract2 = pre.deploy_contract(Op.SELFDESTRUCT(Op.ADDRESS), balance=2)
-    contract3 = pre.deploy_contract(Op.SELFDESTRUCT(Op.ADDRESS), balance=3)
+    contract_balance = 1000
+
+    if same_tx:
+        initcode = Op.SELFDESTRUCT(Op.ADDRESS)
+        initcode_bytes = bytes(initcode)
+        initcode_len = len(initcode_bytes)
+
+        factory_code = Op.MSTORE(
+            0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
+        ) + Op.CREATE(
+            value=contract_balance, offset=32 - initcode_len, size=initcode_len
+        )
+
+        factory = pre.deploy_contract(
+            factory_code, balance=contract_balance * 3
+        )
+        created = [
+            compute_create_address(address=factory, nonce=n)
+            for n in range(1, 4)
+        ]
+        targets = [factory] * 3
+
+        expected_logs = [
+            [],
+            [
+                transfer_log(factory, created[1], contract_balance),
+                selfdestruct_log(created[1], contract_balance),
+            ],
+            [
+                transfer_log(factory, created[2], contract_balance),
+                selfdestruct_log(created[2], contract_balance),
+            ],
+        ]
+        post: dict = {
+            sender: Account(nonce=3),
+            created[0]: Account.NONEXISTENT,
+            created[1]: Account.NONEXISTENT,
+            created[2]: Account.NONEXISTENT,
+        }
+    elif to_self:
+        targets = [
+            pre.deploy_contract(
+                Op.SELFDESTRUCT(Op.ADDRESS), balance=contract_balance
+            )
+            for _ in range(3)
+        ]
+        expected_logs = [[], [], []]
+        post = {sender: Account(nonce=3)}
+    else:
+        beneficiary = pre.empty_account()
+        targets = [
+            pre.deploy_contract(
+                Op.SELFDESTRUCT(beneficiary), balance=contract_balance
+            )
+            for _ in range(3)
+        ]
+        expected_logs = [
+            [],
+            [transfer_log(targets[1], beneficiary, contract_balance)],
+            [transfer_log(targets[2], beneficiary, contract_balance)],
+        ]
+        post = {
+            sender: Account(nonce=3),
+            beneficiary: Account(balance=contract_balance * 3),
+        }
 
     blocks = [
         Block(
-            timestamp=14_999,
+            timestamp=ts,
             txs=[
                 Transaction(
-                    to=contract1,
+                    to=targets[i],
                     sender=sender,
-                    gas_limit=100_000,
-                    expected_receipt=TransactionReceipt(logs=[]),
+                    gas_limit=200_000,
+                    expected_receipt=TransactionReceipt(logs=expected_logs[i]),
                 )
             ],
-        ),
-        Block(
-            timestamp=15_000,
-            txs=[
-                Transaction(
-                    to=contract2,
-                    sender=sender,
-                    gas_limit=100_000,
-                    expected_receipt=TransactionReceipt(
-                        logs=[selfdestruct_log(contract2, 2)]
-                    ),
-                )
-            ],
-        ),
-        Block(
-            timestamp=15_001,
-            txs=[
-                Transaction(
-                    to=contract3,
-                    sender=sender,
-                    gas_limit=100_000,
-                    expected_receipt=TransactionReceipt(
-                        logs=[selfdestruct_log(contract3, 3)]
-                    ),
-                )
-            ],
-        ),
+        )
+        for i, ts in enumerate([14_999, 15_000, 15_001])
     ]
 
-    blockchain_test(
-        pre=pre,
-        blocks=blocks,
-        post={
-            sender: Account(nonce=3),
-        },
-    )
+    blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
 @pytest.mark.valid_at_transition_to("Amsterdam")
