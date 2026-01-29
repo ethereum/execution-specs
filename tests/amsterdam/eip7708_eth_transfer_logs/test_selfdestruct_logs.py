@@ -208,8 +208,13 @@ def test_selfdestruct_same_tx_via_call(
     """
     Test selfdestruct via CREATE-then-CALL (not initcode selfdestruct).
 
-    Factory CREATEs contract with runtime code, then CALLs to trigger
-    SELFDESTRUCT. Contract is still in created_accounts.
+    Factory CREATEs contract with runtime code, then CALLs the contract that
+    was just created to trigger SELFDESTRUCT (depending on
+    `transfer_during_create`, the value of the contract is transferred during
+    the CREATE or CALL opcodes). Contract is still in created_accounts.
+
+    Depending on `call_twice`, the contract can be called twice during the
+    same call frame where it was created.
     """
     contract_balance = 2000
     beneficiary = pre.deploy_contract(Op.STOP)
