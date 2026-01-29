@@ -40,9 +40,7 @@ def test_selfdestruct_to_self_pre_existing_no_log(
     """
     Test that selfdestruct-to-self emits NO log for pre-existing contracts.
 
-    Per EIP-7708, SELFDESTRUCT to the same account does not emit a Transfer
-    log. The Selfdestruct log is only emitted when the account is created
-    and destroyed in the same transaction (actual ETH burn).
+    Selfdestruct log only emitted when created and destroyed in same tx.
     """
     contract_balance = 2000
 
@@ -66,24 +64,26 @@ def test_selfdestruct_to_self_pre_existing_no_log(
     )
 
 
-def test_selfdestruct_to_self_same_tx_emits_log(
+@pytest.mark.parametrize(
+    "contract_balance",
+    [
+        pytest.param(2000, id="with_balance"),
+        pytest.param(0, id="zero_balance"),
+    ],
+)
+def test_selfdestruct_to_self_same_tx(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
+    contract_balance: int,
 ) -> None:
     """
-    Test that selfdestruct-to-self emits a Selfdestruct log when created in
-    same tx.
+    Test selfdestruct-to-self for same-tx created contracts.
 
-    A contract created via CREATE that immediately selfdestructs to itself
-    in initcode is both created and destroyed in the same transaction.
-    Expected logs:
-    - CREATE transfer: factory -> created_address
-    - Selfdestruct: created_address burns its balance
+    - With balance, SELFDESTRUCT log emitted (burns ETH).
+    - No balance, no logs expected.
     """
-    contract_balance = 2000
-
     initcode = Op.SELFDESTRUCT(Op.ADDRESS)
     initcode_bytes = bytes(initcode)
     initcode_len = len(initcode_bytes)
@@ -91,76 +91,86 @@ def test_selfdestruct_to_self_same_tx_emits_log(
     factory_code = Op.MSTORE(
         0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
     ) + Op.CREATE(
-        value=contract_balance, offset=32 - initcode_len, size=initcode_len
+        value=Op.CALLVALUE, offset=32 - initcode_len, size=initcode_len
     )
 
-    factory = pre.deploy_contract(factory_code, balance=contract_balance)
+    factory = pre.deploy_contract(factory_code)
     created_address = compute_create_address(address=factory, nonce=1)
+
+    if contract_balance > 0:
+        expected_logs = [
+            transfer_log(sender, factory, contract_balance),
+            transfer_log(factory, created_address, contract_balance),
+            selfdestruct_log(created_address, contract_balance),
+        ]
+    else:
+        expected_logs = []
 
     tx = Transaction(
         sender=sender,
         to=factory,
-        value=0,
+        value=contract_balance,
         gas_limit=200_000,
-        expected_receipt=TransactionReceipt(
-            logs=[
-                # CREATE transfers value to new contract
-                transfer_log(factory, created_address, contract_balance),
-                # Selfdestruct-to-self burns the balance
-                selfdestruct_log(created_address, contract_balance),
-            ]
-        ),
+        expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
 @pytest.mark.parametrize(
-    "to_self",
+    "contract_balance",
     [
-        pytest.param(True, id="to_self"),
-        pytest.param(False, id="to_other"),
+        pytest.param(2000, id="with_balance"),
+        pytest.param(0, id="zero_balance"),
     ],
 )
-def test_selfdestruct_same_tx_zero_balance_no_log(
+def test_selfdestruct_to_different_address_same_tx(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
-    to_self: bool,
+    contract_balance: int,
 ) -> None:
     """
-    Test that same-tx selfdestruct with zero balance emits no logs.
+    Test same-tx selfdestruct to different address.
 
-    Both emit_selfdestruct_log and emit_transfer_log skip zero amounts.
-    A contract created with zero value that immediately selfdestructs in
-    initcode should produce no logs regardless of beneficiary.
+    With balance: Transfer log emitted. Zero balance: no logs.
     """
     beneficiary = pre.deploy_contract(Op.STOP)
 
-    if to_self:
-        initcode = Op.SELFDESTRUCT(Op.ADDRESS)
-    else:
-        initcode = Op.SELFDESTRUCT(beneficiary)
-
+    initcode = Op.SELFDESTRUCT(beneficiary)
     initcode_bytes = bytes(initcode)
     initcode_len = len(initcode_bytes)
 
     factory_code = Op.MSTORE(
         0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
-    ) + Op.CREATE(value=0, offset=32 - initcode_len, size=initcode_len)
+    ) + Op.CREATE(
+        value=Op.CALLVALUE, offset=32 - initcode_len, size=initcode_len
+    )
 
     factory = pre.deploy_contract(factory_code)
+    created_address = compute_create_address(address=factory, nonce=1)
+
+    if contract_balance > 0:
+        expected_logs = [
+            transfer_log(sender, factory, contract_balance),
+            transfer_log(factory, created_address, contract_balance),
+            transfer_log(created_address, beneficiary, contract_balance),
+        ]
+        post = {beneficiary: Account(balance=contract_balance)}
+    else:
+        expected_logs = []
+        post = {}
 
     tx = Transaction(
         sender=sender,
         to=factory,
-        value=0,
+        value=contract_balance,
         gas_limit=200_000,
-        expected_receipt=TransactionReceipt(logs=[]),
+        expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -178,18 +188,10 @@ def test_selfdestruct_same_tx_via_call(
     to_self: bool,
 ) -> None:
     """
-    Test selfdestruct log for contract created via CREATE then called.
+    Test selfdestruct via CREATE-then-CALL (not initcode selfdestruct).
 
-    All existing same-tx tests use initcode selfdestruct. This tests the
-    create-then-call path: factory CREATEs a contract with deployed runtime
-    code, then CALLs it to trigger SELFDESTRUCT. Contract is still in
-    created_accounts.
-
-    Expected logs:
-    - to_self: transfer_log(factory, created, 2000) +
-               selfdestruct_log(created, 2000)
-    - to_other: transfer_log(factory, created, 2000) +
-                transfer_log(created, beneficiary, 2000)
+    Factory CREATEs contract with runtime code, then CALLs to trigger
+    SELFDESTRUCT. Contract is still in created_accounts.
     """
     contract_balance = 2000
     beneficiary = pre.deploy_contract(Op.STOP)
@@ -204,10 +206,10 @@ def test_selfdestruct_same_tx_via_call(
 
     factory_code = (
         Om.MSTORE(initcode, 0)
-        + Op.SSTORE(
+        + Op.TSTORE(
             0, Op.CREATE(value=contract_balance, offset=0, size=initcode_len)
         )
-        + Op.CALL(gas=100_000, address=Op.SLOAD(0), value=0)
+        + Op.CALL(gas=100_000, address=Op.TLOAD(0), value=0)
     )
 
     factory = pre.deploy_contract(factory_code, balance=contract_balance)
@@ -246,8 +248,9 @@ def test_finalization_selfdestruct_logs(
     """
     Test Selfdestruct logs at finalization for post-selfdestruct balance.
 
-    Multiple contracts selfdestruct then receive ETH. At finalization, logs
-    are emitted in lexicographical order of contract addresses.
+    Contracts A and B selfdestruct, then receive ETH via C1/C2's selfdestruct.
+    At finalization, A and B emit Selfdestruct logs for their remaining balance
+    in lexicographical address order.
     """
     beneficiary = pre.deploy_contract(Op.STOP)
 
@@ -255,25 +258,20 @@ def test_finalization_selfdestruct_logs(
     initcode = Initcode(deploy_code=runtime)
     initcode_len = len(initcode)
 
-    # C1 and C2 selfdestruct to addresses in calldata
     c1_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
     c2_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
     c1 = pre.deploy_contract(c1_code, balance=100)
     c2 = pre.deploy_contract(c2_code, balance=200)
 
-    # Factory: CREATE A, CREATE B, CALL A, CALL B, then CALL C1/C2 to send ETH
     factory_code = (
         Om.MSTORE(initcode, 0)
-        # CREATE A (nonce 1) and B (nonce 2)
-        + Op.SSTORE(0, Op.CREATE(value=1000, offset=0, size=initcode_len))
-        + Op.SSTORE(1, Op.CREATE(value=2000, offset=0, size=initcode_len))
-        # CALL A and B to trigger selfdestructs
-        + Op.CALL(gas=100_000, address=Op.SLOAD(0), value=0)
-        + Op.CALL(gas=100_000, address=Op.SLOAD(1), value=0)
-        # CALL C1 with A's address, CALL C2 with B's address
-        + Op.MSTORE(0, Op.SLOAD(0))
+        + Op.TSTORE(0, Op.CREATE(value=1000, offset=0, size=initcode_len))
+        + Op.TSTORE(1, Op.CREATE(value=2000, offset=0, size=initcode_len))
+        + Op.CALL(gas=100_000, address=Op.TLOAD(0), value=0)
+        + Op.CALL(gas=100_000, address=Op.TLOAD(1), value=0)
+        + Op.MSTORE(0, Op.TLOAD(0))
         + Op.CALL(gas=100_000, address=c1, args_offset=0, args_size=32)
-        + Op.MSTORE(0, Op.SLOAD(1))
+        + Op.MSTORE(0, Op.TLOAD(1))
         + Op.CALL(gas=100_000, address=c2, args_offset=0, args_size=32)
     )
 

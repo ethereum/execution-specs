@@ -27,9 +27,6 @@ from execution_testing import (
     compute_create2_address,
     compute_create_address,
 )
-from execution_testing import (
-    Macros as Om,
-)
 
 from .spec import Spec, ref_spec_7708, transfer_log
 
@@ -1256,8 +1253,8 @@ def test_selfdestruct_to_self_cross_tx_no_log(
     Selfdestruct-to-self in Tx2 emits no log per EIP-7708: no Selfdestruct
     log (not same-tx) and no Transfer log (not a different account).
 
-    Tx1: Factory CREATEs contract with runtime code SELFDESTRUCT(ADDRESS),
-         value=2000. Logs: [transfer_log(factory, created, 2000)]
+    Tx1: Contract creation tx (to=None) deploying SELFDESTRUCT(ADDRESS),
+         value=2000. Logs: [transfer_log(sender, created, 2000)]
     Tx2: Call created contract directly, value=0. Logs: []
     Post: contract keeps balance (not deleted, not in created_accounts in Tx2)
     """
@@ -1266,29 +1263,25 @@ def test_selfdestruct_to_self_cross_tx_no_log(
 
     runtime_code = Op.SELFDESTRUCT(Op.ADDRESS)
     initcode = Initcode(deploy_code=runtime_code)
-    initcode_len = len(initcode)
 
-    factory_code = Om.MSTORE(initcode, 0) + Op.CREATE(
-        value=contract_balance, offset=0, size=initcode_len
-    )
-
-    factory = pre.deploy_contract(factory_code, balance=contract_balance)
-    created_address = compute_create_address(address=factory, nonce=1)
+    # Calculate the address that will be created by the first tx
+    created_address = compute_create_address(address=sender, nonce=0)
 
     blocks = [
         Block(
             txs=[
-                # Tx1: Create the contract via factory
+                # Tx1: Create the contract directly via contract creation tx
                 Transaction(
-                    to=factory,
+                    to=None,
                     sender=sender,
                     nonce=0,
-                    value=0,
+                    value=contract_balance,
+                    data=bytes(initcode),
                     gas_limit=300_000,
                     expected_receipt=TransactionReceipt(
                         logs=[
                             transfer_log(
-                                factory, created_address, contract_balance
+                                sender, created_address, contract_balance
                             ),
                         ]
                     ),
