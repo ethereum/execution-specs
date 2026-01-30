@@ -31,7 +31,6 @@ from execution_testing import (
 from .helpers import (
     INITCODE_RESULTING_DEPLOYED_CODE,
     get_create_id,
-    get_initcode_name,
 )
 from .spec import Spec, ref_spec_3860
 
@@ -41,94 +40,101 @@ REFERENCE_SPEC_VERSION = ref_spec_3860.version
 pytestmark = pytest.mark.valid_from("Shanghai")
 
 
-"""Initcode templates used throughout the tests"""
-INITCODE_ONES_MAX_LIMIT = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=Spec.MAX_INITCODE_SIZE,
-    padding_byte=0x01,
-    name="max_size_ones",
-)
+@pytest.fixture
+def initcode(fork: Fork, initcode_name: str) -> Initcode:
+    """Create an Initcode object with fork-specific gas calculations."""
+    if initcode_name == "max_size_ones":
+        return Initcode(
+            name=initcode_name,
+            fork=fork,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=Spec.MAX_INITCODE_SIZE,
+            padding_byte=0x01,
+        )
+    elif initcode_name == "max_size_zeros":
+        return Initcode(
+            name=initcode_name,
+            fork=fork,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=Spec.MAX_INITCODE_SIZE,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "over_limit_ones":
+        return Initcode(
+            name=initcode_name,
+            fork=fork,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=Spec.MAX_INITCODE_SIZE + 1,
+            padding_byte=0x01,
+        )
+    elif initcode_name == "over_limit_zeros":
+        return Initcode(
+            name=initcode_name,
+            fork=fork,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=Spec.MAX_INITCODE_SIZE + 1,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "32_bytes":
+        return Initcode(
+            name=initcode_name,
+            fork=fork,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=32,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "33_bytes":
+        return Initcode(
+            name=initcode_name,
+            fork=fork,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=33,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "49120_bytes":
+        return Initcode(
+            name=initcode_name,
+            fork=fork,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=49120,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "49121_bytes":
+        return Initcode(
+            name=initcode_name,
+            fork=fork,
+            deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
+            initcode_length=49121,
+            padding_byte=0x00,
+        )
+    elif initcode_name == "empty":
+        ic = Initcode(name=initcode_name, fork=fork)
+        ic._bytes_ = bytes()
+        ic.deployment_gas = 0
+        ic.execution_gas = 0
+        return ic
+    elif initcode_name == "single_byte":
+        ic = Initcode(name=initcode_name, fork=fork)
+        ic._bytes_ = bytes(Op.STOP)
+        ic.deployment_gas = 0
+        ic.execution_gas = 0
+        return ic
+    else:
+        raise ValueError(f"Unknown initcode_name: {initcode_name}")
 
-INITCODE_ZEROS_MAX_LIMIT = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=Spec.MAX_INITCODE_SIZE,
-    padding_byte=0x00,
-    name="max_size_zeros",
-)
-
-INITCODE_ONES_OVER_LIMIT = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=Spec.MAX_INITCODE_SIZE + 1,
-    padding_byte=0x01,
-    name="over_limit_ones",
-)
-
-INITCODE_ZEROS_OVER_LIMIT = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=Spec.MAX_INITCODE_SIZE + 1,
-    padding_byte=0x00,
-    name="over_limit_zeros",
-)
-
-INITCODE_ZEROS_32_BYTES = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=32,
-    padding_byte=0x00,
-    name="32_bytes",
-)
-
-INITCODE_ZEROS_33_BYTES = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=33,
-    padding_byte=0x00,
-    name="33_bytes",
-)
-
-INITCODE_ZEROS_49120_BYTES = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=49120,
-    padding_byte=0x00,
-    name="49120_bytes",
-)
-
-INITCODE_ZEROS_49121_BYTES = Initcode(
-    deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-    initcode_length=49121,
-    padding_byte=0x00,
-    name="49121_bytes",
-)
-
-EMPTY_INITCODE = Initcode(
-    name="empty",
-)
-EMPTY_INITCODE._bytes_ = bytes()
-EMPTY_INITCODE.deployment_gas = 0
-EMPTY_INITCODE.execution_gas = 0
-
-SINGLE_BYTE_INITCODE = Initcode(
-    name="single_byte",
-)
-SINGLE_BYTE_INITCODE._bytes_ = bytes(Op.STOP)
-SINGLE_BYTE_INITCODE.deployment_gas = 0
-SINGLE_BYTE_INITCODE.execution_gas = 0
 
 """Test cases using a contract creating transaction"""
 
 
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize(
-    "initcode",
+    "initcode_name",
     [
-        INITCODE_ZEROS_MAX_LIMIT,
-        INITCODE_ONES_MAX_LIMIT,
-        pytest.param(
-            INITCODE_ZEROS_OVER_LIMIT, marks=pytest.mark.exception_test
-        ),
-        pytest.param(
-            INITCODE_ONES_OVER_LIMIT, marks=pytest.mark.exception_test
-        ),
+        pytest.param("max_size_zeros"),
+        pytest.param("max_size_ones"),
+        pytest.param("over_limit_zeros", marks=pytest.mark.exception_test),
+        pytest.param("over_limit_ones", marks=pytest.mark.exception_test),
     ],
-    ids=get_initcode_name,
 )
 def test_contract_creating_tx(
     state_test: StateTestFiller,
@@ -173,15 +179,21 @@ def test_contract_creating_tx(
     )
 
 
-def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
-    """Filter out invalid gas test case/initcode combinations."""
-    if gas_test_case == "too_little_execution_gas":
-        return (initcode.deployment_gas + initcode.execution_gas) > 0
+ZERO_GAS_SPECS = {"empty", "single_byte"}
+
+
+def valid_gas_test_case(initcode_name: str, gas_case: str) -> bool:
+    """Filter invalid gas test case combinations."""
+    if (
+        gas_case == "too_little_execution_gas"
+        and initcode_name in ZERO_GAS_SPECS
+    ):
+        return False
     return True
 
 
 @pytest.mark.parametrize(
-    "initcode,gas_test_case",
+    "initcode_name,gas_test_case",
     [
         pytest.param(
             i,
@@ -193,14 +205,14 @@ def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
             ),
         )
         for i in [
-            INITCODE_ZEROS_MAX_LIMIT,
-            INITCODE_ONES_MAX_LIMIT,
-            EMPTY_INITCODE,
-            SINGLE_BYTE_INITCODE,
-            INITCODE_ZEROS_32_BYTES,
-            INITCODE_ZEROS_33_BYTES,
-            INITCODE_ZEROS_49120_BYTES,
-            INITCODE_ZEROS_49121_BYTES,
+            "max_size_zeros",
+            "max_size_ones",
+            "empty",
+            "single_byte",
+            "32_bytes",
+            "33_bytes",
+            "49120_bytes",
+            "49121_bytes",
         ]
         for g in [
             "too_little_intrinsic_gas",
@@ -210,9 +222,6 @@ def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
         ]
         if valid_gas_test_case(i, g)
     ],
-    ids=lambda x: (
-        f"{get_initcode_name(x[0])}-{x[1]}" if isinstance(x, tuple) else x
-    ),
 )
 class TestContractCreationGasUsage:
     """
@@ -391,20 +400,19 @@ class TestContractCreationGasUsage:
 
 
 @pytest.mark.parametrize(
-    "initcode",
+    "initcode_name",
     [
-        INITCODE_ZEROS_MAX_LIMIT,
-        INITCODE_ONES_MAX_LIMIT,
-        INITCODE_ZEROS_OVER_LIMIT,
-        INITCODE_ONES_OVER_LIMIT,
-        EMPTY_INITCODE,
-        SINGLE_BYTE_INITCODE,
-        INITCODE_ZEROS_32_BYTES,
-        INITCODE_ZEROS_33_BYTES,
-        INITCODE_ZEROS_49120_BYTES,
-        INITCODE_ZEROS_49121_BYTES,
+        "max_size_zeros",
+        "max_size_ones",
+        "over_limit_zeros",
+        "over_limit_ones",
+        "empty",
+        "single_byte",
+        "32_bytes",
+        "33_bytes",
+        "49120_bytes",
+        "49121_bytes",
     ],
-    ids=get_initcode_name,
 )
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2], ids=get_create_id)
 class TestCreateInitcode:
