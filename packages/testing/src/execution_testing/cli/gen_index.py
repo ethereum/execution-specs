@@ -310,10 +310,14 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
         # Write header
         out_f.write("{\n")
         out_f.write(f'  "root_hash": "0x{root_hash.hex()}",\n')
-        out_f.write(f'  "created_at": "{datetime.datetime.now().isoformat()}",\n')
-        out_f.write(f"  \"test_count\": {test_count},\n")
+        out_f.write(
+            f'  "created_at": "{datetime.datetime.now().isoformat()}",\n'
+        )
+        out_f.write(f'  "test_count": {test_count},\n')
         out_f.write(f'  "forks": {json.dumps(sorted(all_forks))},\n')
-        out_f.write(f'  "fixture_formats": {json.dumps(sorted(all_formats))},\n')
+        out_f.write(
+            f'  "fixture_formats": {json.dumps(sorted(all_formats))},\n'
+        )
         out_f.write('  "test_cases": [\n')
 
         # Stream test cases from partials (second read)

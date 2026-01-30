@@ -1755,8 +1755,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     - Generate index file for all produced fixtures.
     - Create tarball of the output directory if the output is a tarball.
     """
-    import time
     import sys
+    import time
 
     def _log_timing(msg: str) -> None:
         """Log with timestamp and flush immediately for CI visibility."""
@@ -1781,7 +1781,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         _log_timing("Phase 1: saving pre-alloc groups...")
         t0 = time.time()
         session_instance.save_pre_alloc_groups()
-        _log_timing(f"Phase 1: save_pre_alloc_groups done in {time.time() - t0:.1f}s")
+        _log_timing(
+            f"Phase 1: save_pre_alloc_groups done in {time.time() - t0:.1f}s"
+        )
         return
 
     if session.config.getoption("optimize_gas", False):
@@ -1812,7 +1814,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     _log_timing("merge_partial_fixture_files: starting...")
     t0 = time.time()
     merge_partial_fixture_files(fixture_output.directory)
-    _log_timing(f"merge_partial_fixture_files: done in {time.time() - t0:.1f}s")
+    _log_timing(
+        f"merge_partial_fixture_files: done in {time.time() - t0:.1f}s"
+    )
 
     # Remove any lock files that may have been created.
     _log_timing("Removing lock files...")
@@ -1825,7 +1829,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     _log_timing("_verify_fixtures_post_merge: starting...")
     t0 = time.time()
     _verify_fixtures_post_merge(session.config, fixture_output.directory)
-    _log_timing(f"_verify_fixtures_post_merge: done in {time.time() - t0:.1f}s")
+    _log_timing(
+        f"_verify_fixtures_post_merge: done in {time.time() - t0:.1f}s"
+    )
 
     # Generate index file for all produced fixtures by merging partial indexes.
     # Only merge if partial indexes were actually written (i.e., tests produced
@@ -1840,7 +1846,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             _log_timing("merge_partial_indexes: starting...")
             t0 = time.time()
             merge_partial_indexes(fixture_output.directory, quiet_mode=True)
-            _log_timing(f"merge_partial_indexes: done in {time.time() - t0:.1f}s")
+            _log_timing(
+                f"merge_partial_indexes: done in {time.time() - t0:.1f}s"
+            )
 
     # Create tarball of the output directory if the output is a tarball.
     _log_timing("create_tarball: starting...")
