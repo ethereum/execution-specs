@@ -362,3 +362,48 @@ class ForkLoad:
     def apply_dao(self) -> Any:
         """apply_dao function of the fork."""
         return self._module("dao").apply_dao
+
+    @property
+    def has_engine(self) -> bool:
+        """Check if this fork has an engine module."""
+        try:
+            self._module("engine")
+            return True
+        except ModuleNotFoundError:
+            return False
+
+    @property
+    def validate_execution_payload(self) -> Any:
+        """validate_execution_payload function of the fork."""
+        return self._module("engine").validate_execution_payload
+
+    @property
+    def Valid(self) -> Any:
+        """Valid class of the fork."""
+        return self._module("engine").Valid
+
+    @property
+    def ValidationError(self) -> Any:
+        """ValidationError class of the fork."""
+        return self._module("engine").ValidationError
+
+    @property
+    def ExecutionPayload(self) -> Any:
+        """ExecutionPayload class of the fork."""
+        # Different versions have different names
+        engine = self._module("engine")
+        for name in ["ExecutionPayloadV4", "ExecutionPayloadV3",
+                     "ExecutionPayloadV2", "ExecutionPayloadV1"]:
+            if hasattr(engine, name):
+                return getattr(engine, name)
+        raise AttributeError("No ExecutionPayload class found")
+
+    @property
+    def NewPayloadRequest(self) -> Any:
+        """NewPayloadRequest class of the fork."""
+        engine = self._module("engine")
+        for name in ["NewPayloadRequestV4", "NewPayloadRequestV3",
+                     "NewPayloadRequestV2", "NewPayloadRequestV1"]:
+            if hasattr(engine, name):
+                return getattr(engine, name)
+        raise AttributeError("No NewPayloadRequest class found")

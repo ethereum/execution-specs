@@ -30,6 +30,8 @@ from .env import Env
 from .evm_trace.count import CountTracer
 from .evm_trace.eip3155 import Eip3155Tracer
 from .evm_trace.group import GroupTracer
+from .payload import Payload
+from .payload_status import PayloadStatus
 from .t8n_types import Alloc, Result, Txs
 
 T = TypeVar("T")
@@ -49,6 +51,13 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     )
     t8n_parser.add_argument(
         "--input.txs", dest="input_txs", type=str, default="txs.json"
+    )
+    t8n_parser.add_argument(
+        "--input.payload",
+        dest="input_payload",
+        type=str,
+        default=None,
+        help="Engine API execution payload JSON (enables engine mode)",
     )
     t8n_parser.add_argument(
         "--input.blobParams",
@@ -178,6 +187,7 @@ class T8N(Load):
             options.input_alloc,
             options.input_txs,
             options.blob_parameters,
+            options.input_payload,
         ):
             stdin = json.load(in_file)
         else:
@@ -263,11 +273,25 @@ class T8N(Load):
 
         self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
         self.alloc = Alloc(self, stdin)
-        self.env = Env(self, stdin)
-        self.txs = Txs(self, stdin)
-        self.result = Result(
-            self.env.block_difficulty, self.env.base_fee_per_gas
-        )
+
+        # Detect engine mode: when --input.payload is provided
+        self.engine_mode = options.input_payload is not None
+
+        if self.engine_mode:
+            # Engine mode: validate execution payload instead of transactions
+            self.payload: Payload | None = Payload(self, stdin)
+            # env and txs are not needed in engine mode
+            self.env = None  # type: ignore[assignment]
+            self.txs = None  # type: ignore[assignment]
+            self.result = None  # type: ignore[assignment]
+        else:
+            # Standard mode: process transactions
+            self.payload = None
+            self.env = Env(self, stdin)
+            self.txs = Txs(self, stdin)
+            self.result = Result(
+                self.env.block_difficulty, self.env.base_fee_per_gas
+            )
 
     def _tracer(self, type_: Type[T]) -> T:
         group = self.tracers
@@ -441,6 +465,40 @@ class T8N(Load):
                 block_env.state_changes
             )
 
+    def run_engine_validation(self) -> PayloadStatus:
+        """
+        Validate an Engine API execution payload.
+
+        Returns PayloadStatus indicating VALID or INVALID with error details.
+        """
+        assert self.payload is not None
+
+        # Create the ExecutionPayload for this fork
+        execution_payload = self.payload.to_execution_payload(self.fork)
+
+        # Build the NewPayloadRequest
+        NewPayloadRequest = self.fork.NewPayloadRequest
+        request = NewPayloadRequest(payload=execution_payload)
+
+        # Call validate_execution_payload
+        result = self.fork.validate_execution_payload(
+            request=request,
+            parent_header=None,  # Placeholder
+            state=self.alloc.state,
+            chain_id=self.chain_id,
+            block_hashes=[],  # Placeholder
+        )
+
+        # Check if result is Valid or ValidationError
+        if isinstance(result, self.fork.Valid):
+            return PayloadStatus.valid(self.payload.block_hash)
+        else:
+            # ValidationError
+            return PayloadStatus.invalid(
+                str(result),
+                latest_valid_hash=self.payload.parent_hash,
+            )
+
     def run_blockchain_test(self) -> None:
         """
         Apply a block on the pre-state. Also includes system operations.
@@ -458,6 +516,47 @@ class T8N(Load):
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs."""
+        # Handle engine mode separately
+        if self.engine_mode:
+            return self._run_engine_mode()
+
+        return self._run_standard_mode()
+
+    def _run_engine_mode(self) -> int:
+        """Run engine mode: validate execution payload."""
+        try:
+            payload_status = self.run_engine_validation()
+        except FatalError as e:
+            self.logger.error(str(e))
+            return 1
+        except Exception as e:
+            # Any unexpected error during validation
+            self.logger.error(f"Engine validation error: {e}")
+            payload_status = PayloadStatus.invalid(
+                str(e),
+                latest_valid_hash=self.payload.parent_hash
+                if self.payload
+                else None,
+            )
+
+        # Output the PayloadStatus JSON
+        json_output = payload_status.to_json()
+
+        if self.options.output_result == "stdout":
+            json.dump({"payloadStatus": json_output}, self.out_file, indent=4)
+        else:
+            result_output_path = os.path.join(
+                self.options.output_basedir,
+                self.options.output_result,
+            )
+            with open(result_output_path, "w") as f:
+                json.dump(json_output, f, indent=4)
+            self.logger.info(f"Wrote payload status to {result_output_path}")
+
+        return 0
+
+    def _run_standard_mode(self) -> int:
+        """Run standard mode: process transactions."""
         # Clear files that may have been created in a previous
         # run of the t8n tool.
         # Define the specific files and pattern to delete
