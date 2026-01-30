@@ -12,8 +12,12 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Block,
+    BlockchainTestFiller,
     Bytecode,
     Environment,
+    Fork,
+    Header,
     Initcode,
     Op,
     Opcodes,
@@ -74,12 +78,14 @@ def test_selfdestruct_to_self_pre_existing_no_log(
         pytest.param(0, id="zero_balance"),
     ],
 )
+@pytest.mark.with_all_create_opcodes
 def test_selfdestruct_to_self_same_tx(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
     contract_balance: int,
+    create_opcode: Op,
 ) -> None:
     """
     Test selfdestruct-to-self for same-tx created contracts.
@@ -93,12 +99,18 @@ def test_selfdestruct_to_self_same_tx(
 
     factory_code = Op.MSTORE(
         0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
-    ) + Op.CREATE(
+    ) + create_opcode(
         value=Op.CALLVALUE, offset=32 - initcode_len, size=initcode_len
     )
 
     factory = pre.deploy_contract(factory_code)
-    created_address = compute_create_address(address=factory, nonce=1)
+    created_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
 
     if contract_balance > 0:
         expected_logs = [
@@ -127,12 +139,14 @@ def test_selfdestruct_to_self_same_tx(
         pytest.param(0, id="zero_balance"),
     ],
 )
+@pytest.mark.with_all_create_opcodes
 def test_selfdestruct_to_different_address_same_tx(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
     sender: EOA,
     contract_balance: int,
+    create_opcode: Op,
 ) -> None:
     """
     Test same-tx selfdestruct to different address.
@@ -147,12 +161,18 @@ def test_selfdestruct_to_different_address_same_tx(
 
     factory_code = Op.MSTORE(
         0, Op.PUSH32(initcode_bytes.rjust(32, b"\x00"))
-    ) + Op.CREATE(
+    ) + create_opcode(
         value=Op.CALLVALUE, offset=32 - initcode_len, size=initcode_len
     )
 
     factory = pre.deploy_contract(factory_code)
-    created_address = compute_create_address(address=factory, nonce=1)
+    created_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0,
+        initcode=initcode_bytes,
+        opcode=create_opcode,
+    )
 
     if contract_balance > 0:
         expected_logs = [
@@ -364,11 +384,7 @@ def test_finalization_selfdestruct_logs(
     reverse_sorted = list(reversed(sorted_addrs))
 
     # Runtime: selfdestruct on first call, STOP on subsequent calls
-    selfdestruct_target: Address | Opcodes
-    if to_self:
-        selfdestruct_target = Op.ADDRESS
-    else:
-        selfdestruct_target = beneficiary
+    target: Address | Opcodes = Op.ADDRESS if to_self else beneficiary
     runtime = (
         Op.TLOAD(0)
         + Op.ISZERO
@@ -377,7 +393,7 @@ def test_finalization_selfdestruct_logs(
         + Op.STOP
         + Op.JUMPDEST
         + Op.TSTORE(0, 1)
-        + Op.SELFDESTRUCT(selfdestruct_target)
+        + Op.SELFDESTRUCT(target)
     )
     initcode = Initcode(deploy_code=runtime)
     initcode_len = len(initcode)
@@ -497,3 +513,155 @@ def test_finalization_selfdestruct_logs(
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "funded_after_selfdestruct",
+    [
+        pytest.param(True, id="funded_after_selfdestruct"),
+        pytest.param(False, id="miner_fee_only"),
+    ],
+)
+def test_selfdestruct_finalization_after_priority_fee(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    funded_after_selfdestruct: bool,
+) -> None:
+    """
+    Verify finalization burn logs are emitted after priority fee payment.
+
+    Sets coinbase to a contract that self-destructs in the same tx. The
+    finalization burn log includes the priority fee, proving finalization
+    happens after fee payment per EIP-7708.
+
+    funded_after_selfdestruct:
+    - if True: payer sends ETH, finalization = funding + priority_fee
+    - if False: no payer, finalization = priority_fee only
+    """
+    contract_balance = 1000
+    funding_amount = 10_000 if funded_after_selfdestruct else 0
+
+    sender = pre.fund_eoa()
+
+    factory_address = compute_create_address(address=sender, nonce=0)
+    created_address = compute_create_address(address=factory_address, nonce=1)
+    coinbase = created_address  # coinbase == self-destructed contract
+
+    # inner contract: simple SELFDESTRUCT to self
+    runtime_code = Op.SELFDESTRUCT(Op.ADDRESS)
+    initcode = Initcode(deploy_code=runtime_code)
+    initcode_len = len(initcode)
+
+    gas_costs = fork.gas_costs()
+    mem_after_mstore = ((initcode_len + 31) // 32) * 32
+
+    # The base factory code: CREATE + CALL to trigger selfdestruct
+    factory_code = Om.MSTORE(
+        initcode, 0, new_memory_size=mem_after_mstore
+    ) + Op.CALL(
+        gas=100_000,
+        address=Op.CREATE(
+            value=contract_balance,
+            offset=0,
+            size=initcode_len,
+            init_code_size=initcode_len,
+        ),
+        address_warm=True,
+    )
+
+    # optionally add payer call to fund coinbase after selfdestruct
+    payer = None
+    payer_runtime_gas = 0
+    if funded_after_selfdestruct:
+        payer_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
+        payer = pre.deploy_contract(payer_code, balance=funding_amount)
+        factory_code += Op.MSTORE(0, created_address)
+        factory_code += Op.CALL(
+            gas=100_000, address=payer, args_offset=0, args_size=32
+        )
+        payer_runtime_gas = Op.SELFDESTRUCT(
+            Op.CALLDATALOAD(0), address_warm=True, account_new=False
+        ).gas_cost(fork)
+
+    pre.fund_address(factory_address, contract_balance)
+
+    # prio fee calc
+    genesis_base_fee = 7
+    gas_price = 10
+    base_fee = fork.base_fee_per_gas_calculator()(
+        parent_base_fee_per_gas=genesis_base_fee,
+        parent_gas_used=0,
+        parent_gas_limit=Environment().gas_limit,
+    )
+    priority_fee_per_gas = gas_price - base_fee
+
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=bytes(factory_code),
+        contract_creation=True,
+    )
+    factory_gas = factory_code.gas_cost(fork)
+    initcode_exec_gas = initcode.execution_gas
+    code_deposit_gas = len(runtime_code) * gas_costs.GAS_CODE_DEPOSIT_PER_BYTE
+    inner_runtime_gas = Op.SELFDESTRUCT(
+        Op.ADDRESS, address_warm=True, account_new=False
+    ).gas_cost(fork)
+
+    gas_used = (
+        intrinsic_gas
+        + factory_gas
+        + initcode_exec_gas
+        + code_deposit_gas
+        + inner_runtime_gas
+        + payer_runtime_gas
+    )
+    priority_fee = priority_fee_per_gas * gas_used
+
+    # Finalization burn log proves coinbase received priority fee before log
+    finalization_balance = funding_amount + priority_fee
+
+    expected_logs = [
+        transfer_log(factory_address, created_address, contract_balance),
+        selfdestruct_log(created_address, contract_balance),
+    ]
+
+    # if funded after selfdestruct, expect transfer log from payer
+    if funded_after_selfdestruct:
+        assert payer is not None
+        expected_logs.append(
+            transfer_log(payer, created_address, funding_amount)
+        )
+
+    # finalization selfdestruct log
+    expected_logs.append(
+        selfdestruct_log(created_address, finalization_balance)
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=None,
+        value=0,
+        data=factory_code,
+        gas_limit=500_000,
+        gas_price=gas_price,
+        expected_receipt=TransactionReceipt(logs=expected_logs),
+    )
+
+    post: dict[Address, Account | None] = {
+        created_address: Account.NONEXISTENT,
+    }
+    if payer is not None:
+        post[payer] = Account(balance=0)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                fee_recipient=coinbase,
+                header_verify=Header(base_fee_per_gas=base_fee),
+            )
+        ],
+        post=post,
+        genesis_environment=Environment(base_fee_per_gas=genesis_base_fee),
+    )

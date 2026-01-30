@@ -1064,9 +1064,17 @@ def process_transaction(
     )
     set_account_balance(tx_state, sender, sender_balance_after_refund)
 
-    # EIP-7708: Emit selfdestruct logs for remaining balance at finalization.
-    # This handles the case where a contract receives ETH after being flagged
-    # for SELFDESTRUCT but before finalization.
+    # transfer miner fees
+    coinbase_balance_after_mining_fee = get_account(
+        tx_state, block_env.coinbase
+    ).balance + U256(transaction_fee)
+
+    set_account_balance(
+        tx_state, block_env.coinbase, coinbase_balance_after_mining_fee
+    )
+
+    # EIP-7708: Emit burn logs for balances held by accounts marked for
+    # deletion AFTER miner fee transfer.
     finalization_logs: List[Log] = []
     for address in sorted(tx_output.accounts_to_delete):
         balance = get_account(tx_state, address).balance
@@ -1084,14 +1092,6 @@ def process_transaction(
             )
 
     all_logs = tx_output.logs + tuple(finalization_logs)
-
-    coinbase_balance_after_mining_fee = get_account(
-        tx_state, block_env.coinbase
-    ).balance + U256(transaction_fee)
-
-    set_account_balance(
-        tx_state, block_env.coinbase, coinbase_balance_after_mining_fee
-    )
 
     if coinbase_balance_after_mining_fee == 0 and account_exists_and_is_empty(
         tx_state, block_env.coinbase
