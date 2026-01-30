@@ -190,15 +190,15 @@ def test_block_full_of_ether_transfers(
 
 
 @pytest.fixture
-def total_cost_floor_per_token() -> int:
-    """Total cost floor per token."""
-    return 10
+def total_cost_floor_per_token(fork: Fork) -> int:
+    """Total cost floor per token (EIP-7623)."""
+    return fork.gas_costs().G_TX_DATA_FLOOR_TOKEN_COST
 
 
 @pytest.fixture
-def total_cost_standard_per_token() -> int:
-    """Total cost floor per token."""
-    return 4
+def total_cost_standard_per_token(fork: Fork) -> int:
+    """Standard cost per token (EIP-7623)."""
+    return fork.gas_costs().G_TX_DATA_STANDARD_TOKEN_COST
 
 
 def calldata_generator(
@@ -251,13 +251,37 @@ def test_block_full_data(
     tx_gas_limit: int,
     fork: Fork,
 ) -> None:
-    """Test a block with empty payload."""
+    """Test a block full of calldata, respecting RLP size limits."""
     iteration_count = math.ceil(gas_benchmark_value / tx_gas_limit)
 
-    gas_remaining = gas_benchmark_value
+    # check for EIP-7934 block RLP size limit and cap gas to stay under it
+    block_rlp_limit = fork.block_rlp_size_limit()
+    effective_gas = gas_benchmark_value
+
+    if block_rlp_limit:
+        # Max calldata bytes at 99% of limit (Osaka: 8,388,608 * 0.99 ≈ 8.3 MB)
+        safe_calldata_bytes = int(block_rlp_limit * 0.99)
+
+        # convert to gas: zero bytes = 10 gas/byte, non-zero = 40 gas/byte
+        gas_per_byte = (
+            total_cost_floor_per_token
+            if zero_byte
+            else total_cost_floor_per_token * 4
+        )
+        # For zero bytes: 8.3MB * 10 = 83M gas just for calldata
+        max_calldata_gas = safe_calldata_bytes * gas_per_byte
+        # Add intrinsic cost per tx (Osaka): 83M + 6 txs * 21k ≈ 83.1M total
+        rlp_limited_gas = max_calldata_gas + iteration_count * intrinsic_cost
+
+        # use the min between benchmark target and the RLP limit
+        effective_gas = min(gas_benchmark_value, rlp_limited_gas)
+
+    gas_remaining = effective_gas
     total_gas_used = 0
     txs = []
     for _ in range(iteration_count):
+        if gas_remaining <= intrinsic_cost:
+            break
         gas_available = min(tx_gas_limit, gas_remaining) - intrinsic_cost
         data = calldata_generator(
             gas_available,
