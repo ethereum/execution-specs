@@ -30,6 +30,7 @@ from execution_testing.base_types import (
     HeaderNonce,
     HexNumber,
     Number,
+    ZeroPaddedHexNumber,
 )
 from execution_testing.client_clis import (
     BlockExceptionWithMessage,
@@ -661,19 +662,32 @@ class BlockchainTest(BaseTest):
         ) > 0:
             blob_gas_used = blob_gas_per_blob * count_blobs(txs)
 
+        # Prepare slot_number for header initialization
+        slot_number_value: ZeroPaddedHexNumber | None = None
+        if self.fork.header_slot_number_required(
+            block_number=int(env.number), timestamp=int(env.timestamp)
+        ):
+            slot_number_value = ZeroPaddedHexNumber(
+                int(env.slot_number) if env.slot_number is not None else 0
+            )
+
         header = FixtureHeader(
             **(
                 transition_tool_output.result.model_dump(
                     exclude_none=True,
                     exclude={"blob_gas_used", "transactions_trie"},
                 )
-                | env.model_dump(exclude_none=True, exclude={"blob_gas_used"})
+                | env.model_dump(
+                    exclude_none=True,
+                    exclude={"blob_gas_used", "slot_number"},
+                )
             ),
             blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
             extra_data=block.extra_data
             if block.extra_data is not None
             else b"",
+            slot_number=slot_number_value,
             fork=self.fork,
         )
 
