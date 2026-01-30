@@ -978,6 +978,14 @@ class Frontier(BaseFork, solc_name="homestead"):
         return False
 
     @classmethod
+    def header_slot_number_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """At genesis, header must not contain slot number (EIP-7843)."""
+        del block_number, timestamp
+        return False
+
+    @classmethod
     def engine_new_payload_blob_hashes(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:
@@ -1037,6 +1045,16 @@ class Frontier(BaseFork, solc_name="homestead"):
     ) -> bool:
         """
         At genesis, payload attributes do not include the max blobs per block.
+        """
+        del block_number, timestamp
+        return False
+
+    @classmethod
+    def engine_payload_attribute_slot_number(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        At genesis, payload attributes do not include the slot number.
         """
         del block_number, timestamp
         return False
@@ -3362,9 +3380,7 @@ class Amsterdam(BPO2):
     def header_bal_hash_required(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:
-        """
-        From Amsterdam, header must contain block access list hash (EIP-7928).
-        """
+        """BAL hash in header required from Amsterdam (EIP-7928)."""
         del block_number, timestamp
         return True
 
@@ -3372,6 +3388,31 @@ class Amsterdam(BPO2):
     def is_deployed(cls) -> bool:
         """Return True if this fork is deployed."""
         return False
+
+    @classmethod
+    def valid_opcodes(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Opcodes]:
+        """Add SLOTNUM opcode for Amsterdam (EIP-7843)."""
+        return [Opcodes.SLOTNUM] + super(Amsterdam, cls).valid_opcodes(
+            block_number=block_number, timestamp=timestamp
+        )
+
+    @classmethod
+    def opcode_gas_map(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """Add SLOTNUM opcode gas cost for Amsterdam (EIP-7843)."""
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
+        base_map = super(Amsterdam, cls).opcode_gas_map(
+            block_number=block_number, timestamp=timestamp
+        )
+        return {
+            **base_map,
+            Opcodes.SLOTNUM: gas_costs.G_BASE,
+        }
 
     @classmethod
     def engine_new_payload_version(
@@ -3389,5 +3430,29 @@ class Amsterdam(BPO2):
         From Amsterdam, engine execution payload includes `block_access_list`
         as a parameter.
         """
+        del block_number, timestamp
+        return True
+
+    @classmethod
+    def header_slot_number_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """Slot number in header required from Amsterdam (EIP-7843)."""
+        del block_number, timestamp
+        return True
+
+    @classmethod
+    def engine_forkchoice_updated_version(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """From Amsterdam, forkchoice updated calls must use version 4."""
+        del block_number, timestamp
+        return 4
+
+    @classmethod
+    def engine_payload_attribute_slot_number(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """From Amsterdam, payload attributes include the slot number."""
         del block_number, timestamp
         return True
