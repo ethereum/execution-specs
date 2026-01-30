@@ -23,7 +23,9 @@ from ethereum_types.numeric import U16, U64, U256, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
 
+from .exceptions import BlockAccessListGasLimitExceededError
 from .state_tracker import BlockState, TransactionState, get_code
+from .transactions import TX_ACCESS_LIST_STORAGE_KEY_COST
 
 # TODO: Either remove or generalize these type aliases (#2260).
 
@@ -728,3 +730,53 @@ def hash_block_access_list(
     Compute the hash of a Block Access List.
     """
     return keccak256(rlp.encode(block_access_list))
+
+
+def validate_block_access_list_gas_limit(
+    block_access_list: BlockAccessList,
+    block_gas_limit: Uint,
+) -> None:
+    """
+    Validate that the block access list does not exceed the gas limit.
+
+    The constraint is:
+    ``bal_items <= block_gas_limit // ITEM_COST``
+
+    Where ``bal_items = storage_keys + addresses`` and
+    ``ITEM_COST = GAS_WARM_ACCESS + TX_ACCESS_LIST_STORAGE_KEY_COST``.
+
+    Parameters
+    ----------
+    block_access_list :
+        The block access list to validate.
+    block_gas_limit :
+        The gas limit of the block.
+
+    Raises
+    ------
+    BlockAccessListGasLimitExceededError :
+        If the block access list exceeds the gas limit constraint.
+
+    """
+    from .vm.gas import GAS_WARM_ACCESS
+
+    count_bal_items = Uint(0)
+    for account in block_access_list:
+        # Count each address as one item
+        count_bal_items += Uint(1)
+
+        # Collect unique storage keys across both
+        # reads and writes
+        unique_slots: Set[U256] = set()
+        for slot_change in account.storage_changes:
+            unique_slots.add(slot_change.slot)
+        for slot in account.storage_reads:
+            unique_slots.add(slot)
+
+        # Count each unique storage key as one item
+        count_bal_items += Uint(len(unique_slots))
+
+    item_cost = GAS_WARM_ACCESS + TX_ACCESS_LIST_STORAGE_KEY_COST
+
+    if bal_items > block_gas_limit // item_cost:
+        raise BlockAccessListGasLimitExceededError
