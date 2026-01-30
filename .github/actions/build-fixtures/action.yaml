@@ -32,6 +32,9 @@ runs:
       id: evm-builder
       with:
         type: ${{ steps.properties.outputs.evm-type }}
+    - name: Install pigz for parallel tarball compression
+      shell: bash
+      run: sudo apt-get install -y pigz
     - name: Generate fixtures using fill
       shell: bash
       run: |
