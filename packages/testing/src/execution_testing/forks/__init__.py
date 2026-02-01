@@ -30,6 +30,7 @@ from .forks.forks import (
 from .forks.transition import (
     BerlinToLondonAt5,
     BPO1ToBPO2AtTime15k,
+    BPO2ToAmsterdamAtTime15k,
     BPO2ToBPO3AtTime15k,
     BPO3ToBPO4AtTime15k,
     CancunToPragueAtTime15k,
@@ -117,6 +118,7 @@ __all__ = [
     "BPO1ToBPO2AtTime15k",
     "BPO2",
     "BPO2ToBPO3AtTime15k",
+    "BPO2ToAmsterdamAtTime15k",
     "BPO3",
     "BPO3ToBPO4AtTime15k",
     "BPO4",
