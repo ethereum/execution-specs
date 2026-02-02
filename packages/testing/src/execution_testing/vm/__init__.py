@@ -5,7 +5,7 @@ from .bases import (
     OpcodeBase,
     OpcodeGasCalculator,
 )
-from .bytecode import Bytecode
+from .bytecode import Bytecode, Placeholder
 from .helpers import MemoryVariable, call_return_code
 from .opcodes import (
     Macro,
@@ -30,5 +30,6 @@ __all__ = (
     "OpcodeCallArg",
     "OpcodeGasCalculator",
     "Opcodes",
+    "Placeholder",
     "call_return_code",
 )

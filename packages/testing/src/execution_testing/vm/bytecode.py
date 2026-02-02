@@ -1,6 +1,6 @@
 """Ethereum Virtual Machine bytecode primitives and utilities."""
 
-from typing import Any, List, Self, SupportsBytes, Type
+from typing import Any, Dict, List, Self, SupportsBytes, Type
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core.core_schema import (
@@ -12,6 +12,49 @@ from pydantic_core.core_schema import (
 from execution_testing.base_types import Bytes, Hash
 
 from .bases import ForkOpcodeInterface, OpcodeBase
+
+
+class Placeholder:
+    """
+    Placeholder for a value to be filled in later.
+
+    Used to break circular dependencies where a value (like gas cost)
+    needs to be embedded in bytecode, but the bytecode structure is
+    needed to calculate that value.
+
+    Since PUSH1-PUSH32 all have the same gas cost (G_VERY_LOW = 3),
+    the placeholder can be used in gas calculations before being filled.
+
+    Example:
+        >>> loop_cost = Placeholder(width=2)
+        >>> code = Op.JUMPI(Op.GT(Op.GAS, loop_cost), 0)
+        >>> actual_cost = code.gas_cost(fork)
+        >>> final_code = code.fill(loop_cost, actual_cost)
+
+    """
+
+    _counter: int = 0
+
+    def __init__(self, width: int = 2):
+        """
+        Create a placeholder with a specific byte width.
+
+        Args:
+            width: Number of bytes (1-32). Determines max value:
+                   - width=1: max 255 (PUSH1)
+                   - width=2: max 65535 (PUSH2)
+                   - width=3: max 16777215 (PUSH3)
+
+        """
+        if not 1 <= width <= 32:
+            raise ValueError("width must be between 1 and 32")
+        self.width = width
+        self._id = Placeholder._counter
+        Placeholder._counter += 1
+
+    def __repr__(self) -> str:
+        """Return string representation of the placeholder."""
+        return f"Placeholder(width={self.width}, id={self._id})"
 
 
 class Bytecode:
@@ -52,6 +95,7 @@ class Bytecode:
 
     terminating: bool
     opcode_list: List[OpcodeBase]
+    _placeholders: Dict[Placeholder, int]
 
     def __new__(
         cls,
@@ -78,6 +122,7 @@ class Bytecode:
             instance.terminating = False
             instance._name_ = name
             instance.opcode_list = opcode_list
+            instance._placeholders = {}
             return instance
 
         if isinstance(bytes_or_byte_code_base, Bytecode):
@@ -92,6 +137,7 @@ class Bytecode:
             obj.terminating = bytes_or_byte_code_base.terminating
             obj.opcode_list = bytes_or_byte_code_base.opcode_list[:]
             obj._name_ = bytes_or_byte_code_base._name_
+            obj._placeholders = bytes_or_byte_code_base._placeholders.copy()
             return obj
 
         if isinstance(bytes_or_byte_code_base, bytes):
@@ -114,6 +160,7 @@ class Bytecode:
             obj.terminating = terminating
             obj.opcode_list = opcode_list
             obj._name_ = name
+            obj._placeholders = {}
             return obj
 
         raise TypeError(
@@ -228,7 +275,7 @@ class Bytecode:
             c_min + a_max - a_min, c_min - a_pop + a_push + b_max - b_min
         )
 
-        return Bytecode(
+        c = Bytecode(
             self._bytes_ + other._bytes_,
             popped_stack_items=c_pop,
             pushed_stack_items=c_push,
@@ -237,6 +284,11 @@ class Bytecode:
             terminating=other.terminating,
             opcode_list=self.opcode_list + other.opcode_list,
         )
+        # Merge placeholders, adjusting offsets for 'other'
+        c._placeholders = self._placeholders.copy()
+        for placeholder, offset in other._placeholders.items():
+            c._placeholders[placeholder] = offset + len(self)
+        return c
 
     def __radd__(self, other: "Bytecode | int | None") -> "Bytecode":
         """
@@ -344,6 +396,60 @@ class Bytecode:
             for opcode in self.opcode_list:
                 self._refund_ += opcode_refund_calculator(opcode)
         return self._refund_
+
+    def fill(self, placeholder: Placeholder, value: int) -> "Bytecode":
+        """
+        Replace a placeholder with an actual value.
+
+        Args:
+            placeholder: The placeholder to fill
+            value: The value to insert (must fit in placeholder's width)
+
+        Returns:
+            New Bytecode with the placeholder replaced
+
+        Raises:
+            ValueError: If value doesn't fit in placeholder's width
+            KeyError: If placeholder not found in this bytecode
+
+        """
+        if placeholder not in self._placeholders:
+            raise KeyError(f"Placeholder {placeholder} not found in bytecode")
+
+        max_value = (1 << (placeholder.width * 8)) - 1
+        if value < 0 or value > max_value:
+            raise ValueError(
+                f"Value {value} doesn't fit in {placeholder.width} bytes "
+                f"(max {max_value})"
+            )
+
+        offset = self._placeholders[placeholder]
+        value_bytes = value.to_bytes(placeholder.width, "big")
+
+        # Replace the placeholder bytes with the actual value
+        new_bytes = (
+            self._bytes_[:offset]
+            + value_bytes
+            + self._bytes_[offset + placeholder.width :]
+        )
+
+        # Create new Bytecode with updated bytes
+        result = Bytecode(
+            new_bytes,
+            popped_stack_items=self.popped_stack_items,
+            pushed_stack_items=self.pushed_stack_items,
+            max_stack_height=self.max_stack_height,
+            min_stack_height=self.min_stack_height,
+            terminating=self.terminating,
+            opcode_list=self.opcode_list[:],
+        )
+
+        # Copy placeholders except the one we just filled
+        result._placeholders = {
+            p: o for p, o in self._placeholders.items() if p is not placeholder
+        }
+
+        return result
 
     def state_refund(self, fork: Type[ForkOpcodeInterface]) -> int:
         """

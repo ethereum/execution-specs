@@ -127,6 +127,7 @@ from .vm import (
     Opcode,
     OpcodeCallArg,
     Opcodes,
+    Placeholder,
     call_return_code,
 )
 
@@ -197,6 +198,7 @@ __all__ = (
     "OpcodeCallArg",
     "Opcodes",
     "ParameterSet",
+    "Placeholder",
     "RecipientType",
     "ReferenceSpec",
     "ReferenceSpecTypes",

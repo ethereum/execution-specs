@@ -4,6 +4,7 @@ import pytest
 
 from execution_testing.base_types import Address
 
+from ..bytecode import Placeholder
 from ..opcodes import Bytecode
 from ..opcodes import Macros as Om
 from ..opcodes import Opcodes as Op
@@ -467,3 +468,197 @@ def test_opcode_kwargs_validation() -> None:
         ValueError, match=r"Invalid keyword argument\(s\).*for opcode MSTORE"
     ):
         Op.MSTORE(offest=0, valu=1, extra=2)  # codespell:ignore offest,valu
+
+
+def test_placeholder_width_validation() -> None:
+    """Test that placeholder width is validated correctly."""
+    valid_width_ranges = 32
+
+    for i in range(1, valid_width_ranges + 1):
+        p = Placeholder(width=i)
+        assert p.width == i
+
+    # Invalid widths
+    with pytest.raises(ValueError, match="width must be between 1 and 32"):
+        Placeholder(width=0)
+
+    with pytest.raises(ValueError, match="width must be between 1 and 32"):
+        Placeholder(width=33)
+
+    with pytest.raises(ValueError, match="width must be between 1 and 32"):
+        Placeholder(width=-1)
+
+
+def test_placeholder_unique_id() -> None:
+    """Test that each placeholder gets a unique ID."""
+    p1 = Placeholder(width=2)
+    p2 = Placeholder(width=2)
+    p3 = Placeholder(width=1)
+
+    assert p1._id != p2._id
+    assert p2._id != p3._id
+    assert p1._id != p3._id
+
+
+def test_placeholder_repr() -> None:
+    """Test placeholder string representation."""
+    p = Placeholder(width=2)
+    repr_str = repr(p)
+    assert "Placeholder" in repr_str
+    assert "width=2" in repr_str
+
+
+def test_placeholder_in_bytecode() -> None:
+    """Test that placeholder can be used in bytecode construction."""
+    p = Placeholder(width=2)
+    code = Op.GT(Op.GAS, p)
+
+    # Should have placeholder tracked
+    assert p in code._placeholders
+    # Placeholder offset should be tracked (PUSH2 opcode + data)
+    assert code._placeholders[p] > 0
+
+
+def test_placeholder_creates_correct_push_opcode() -> None:
+    """Test that placeholder creates the correct PUSH opcode."""
+    # PUSH1 (0x60) for width=1
+    p1 = Placeholder(width=1)
+    code1 = Op.ADD(p1, 0)
+    assert bytes(code1)[2] == Op.PUSH1.int()
+
+    # PUSH2 (0x61) for width=2
+    p2 = Placeholder(width=2)
+    code2 = Op.ADD(p2, 0)
+    assert bytes(code2)[2] == Op.PUSH2.int()
+
+    # PUSH3 (0x62) for width=3
+    p3 = Placeholder(width=3)
+    code3 = Op.ADD(p3, 0)
+    assert bytes(code3)[2] == Op.PUSH3.int()
+
+
+def test_placeholder_fill_basic() -> None:
+    """Test basic placeholder fill functionality."""
+    p = Placeholder(width=2)
+    # Use placeholder as stack argument - creates PUSH2 with zeros
+    code = Op.POP(p)
+
+    # Before fill, bytecode should contain PUSH2 with zeros, then POP
+    # PUSH2 (0x61) + 2 zero bytes + POP (0x50)
+    assert bytes(code) == bytes(Op.POP(Op.PUSH2(0x0000)))
+
+    # Fill with actual value
+    filled = code.fill(p, 0x1234)
+    assert bytes(filled) == bytes(Op.POP(Op.PUSH2(0x1234)))
+
+
+def test_placeholder_fill_removes_placeholder() -> None:
+    """Test that fill removes the placeholder from tracking."""
+    p = Placeholder(width=2)
+    code = Op.POP(p)
+
+    assert p in code._placeholders
+    filled = code.fill(p, 0x1234)
+    assert p not in filled._placeholders
+
+
+def test_placeholder_fill_overflow() -> None:
+    """Test that fill raises error for value overflow."""
+    p = Placeholder(width=1)
+    code = Op.POP(p)
+
+    # Value 256 doesn't fit in 1 byte
+    with pytest.raises(ValueError, match="doesn't fit in 1 bytes"):
+        code.fill(p, 256)
+
+    # Value 255 should work
+    filled = code.fill(p, 255)
+    # PUSH1 (0x60) + 0xFF + POP (0x50)
+    assert bytes(filled) == bytes(Op.POP(Op.PUSH1(0xFF)))
+
+
+def test_placeholder_fill_negative_value() -> None:
+    """Test that fill raises error for negative values."""
+    p = Placeholder(width=2)
+    code = Op.POP(p)
+
+    with pytest.raises(ValueError, match="doesn't fit"):
+        code.fill(p, -1)
+
+
+def test_placeholder_fill_not_found() -> None:
+    """Test that fill raises error for non-existent placeholder."""
+    p1 = Placeholder(width=2)
+    p2 = Placeholder(width=2)
+    code = Op.POP(p1)
+
+    with pytest.raises(KeyError, match="not found in bytecode"):
+        code.fill(p2, 0x1234)
+
+
+def test_placeholder_in_complex_bytecode() -> None:
+    """Test placeholder in more complex bytecode constructions."""
+    loop_cost = Placeholder(width=2)
+
+    code = (
+        Op.JUMPDEST
+        + Op.PUSH1(1)
+        + Op.ADD
+        + Op.DUP1
+        + Op.JUMPI(Op.GT(Op.GAS, loop_cost), 0)
+        + Op.STOP
+    )
+
+    # Placeholder should be tracked
+    assert loop_cost in code._placeholders
+
+    # Fill and verify the bytecode is valid
+    filled = code.fill(loop_cost, 1000)
+    assert loop_cost not in filled._placeholders
+
+    # Verify the value 1000 (0x03E8) appears in the bytecode
+    filled_bytes = bytes(filled)
+    assert b"\x03\xe8" in filled_bytes
+
+
+def test_placeholder_immutability() -> None:
+    """Test that fill returns a new bytecode without modifying original."""
+    p = Placeholder(width=2)
+    original = Op.POP(p)
+    original_bytes = bytes(original)
+
+    filled = original.fill(p, 0x1234)
+
+    # Original should be unchanged
+    assert bytes(original) == original_bytes
+    assert p in original._placeholders
+
+    # Filled should be different
+    assert bytes(filled) != original_bytes
+    assert p not in filled._placeholders
+
+
+@pytest.mark.parametrize(
+    "width,max_value",
+    [
+        pytest.param(1, 256**1 - 1, id="width=1"),
+        pytest.param(2, 256**2 - 1, id="width=2"),
+        pytest.param(3, 256**3 - 1, id="width=3"),
+        pytest.param(4, 256**4 - 1, id="width=4"),
+    ],
+)
+def test_placeholder_max_values(width: int, max_value: int) -> None:
+    """Test that placeholders accept their maximum values."""
+    p = Placeholder(width=width)
+    # Use placeholder as stack argument
+    code = Op.POP(p)
+
+    # Should work with max value
+    filled = code.fill(p, max_value)
+    assert p not in filled._placeholders
+
+    # Should fail with max value + 1
+    p2 = Placeholder(width=width)
+    code2 = Op.POP(p2)
+    with pytest.raises(ValueError, match="doesn't fit"):
+        code2.fill(p2, max_value + 1)

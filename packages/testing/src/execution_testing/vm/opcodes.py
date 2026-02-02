@@ -24,7 +24,7 @@ from typing import (
 from execution_testing.base_types import to_bytes
 
 from .bases import OpcodeBase
-from .bytecode import Bytecode
+from .bytecode import Bytecode, Placeholder
 
 
 def _get_int_size(n: int) -> int:
@@ -45,12 +45,28 @@ KW_ARGS_DEFAULTS_TYPE = Mapping[str, "int | bytes | str | Opcode | Bytecode"]
 
 def _stack_argument_to_bytecode(
     arg: (
-        "int | bytes | SupportsBytes | str | Opcode | Bytecode | Iterable[int]"
+        "int | bytes | SupportsBytes | str | Opcode"
+        " | Bytecode | Iterable[int] | Placeholder"
     ),
 ) -> Bytecode:
     """Convert stack argument in an opcode or macro to bytecode."""
     if isinstance(arg, Bytecode):
         return arg
+
+    # Handle Placeholder - create appropriate PUSH with zeros
+    if isinstance(arg, Placeholder):
+        # PUSH1 is 0x60, PUSH2 is 0x61, ..., PUSH32 is 0x7f
+        push_opcode = 0x5F + arg.width
+        bytecode_bytes = bytes([push_opcode]) + bytes(arg.width)
+        bytecode = Bytecode(
+            bytecode_bytes,
+            popped_stack_items=0,
+            pushed_stack_items=1,
+            min_stack_height=0,
+            max_stack_height=1,
+        )
+        bytecode._placeholders = {arg: 1}
+        return bytecode
 
     # We are going to push a constant to the stack.
     data_size = 0
@@ -329,7 +345,10 @@ class Opcode(Bytecode, OpcodeBase):
 
     def __call__(
         self,
-        *args_t: "int | bytes | str | Opcode | Bytecode | Iterable[int]",
+        *args_t: (
+            "int | bytes | str | Opcode"
+            " | Bytecode | Iterable[int] | Placeholder"
+        ),
         unchecked: bool = False,
         **kwargs: "int | bytes | str | Opcode | Bytecode",
     ) -> "Bytecode | Opcode":
@@ -362,9 +381,10 @@ class Opcode(Bytecode, OpcodeBase):
 
         Hex-strings will be automatically converted to bytes.
         """
-        args: List["int | bytes | str | Opcode | Bytecode | Iterable[int]"] = (
-            list(args_t)
-        )
+        args: List[
+            "int | bytes | str | Opcode"
+            " | Bytecode | Iterable[int] | Placeholder"
+        ] = list(args_t)
         opcode = self
 
         # handle metadata first
@@ -386,6 +406,7 @@ class Opcode(Bytecode, OpcodeBase):
             assert type(opcode) is Opcode
             get_item_arg = args.pop()
             assert not isinstance(get_item_arg, Bytecode)
+            assert not isinstance(get_item_arg, Placeholder)
             return opcode[get_item_arg](*args)
 
         if opcode.kwargs is not None and len(kwargs) > 0:
