@@ -128,7 +128,7 @@ class OutputCache:
 
     Stores results for one test at a time. When the key changes, the previous
     cache is cleared. Works with xdist loadgroup which ensures related fixture
-    formats run consecutively on the same worker.
+    formats run on the same worker.
     """
 
     def __init__(self) -> None:
@@ -282,13 +282,10 @@ class TransitionTool(EthereumCLI):
         return self.output_cache.set_key(key)
 
     def remove_cache(self) -> None:
-        """
-        Clear the current key (test doesn't use cache).
-
-        Does not remove the entire cache to preserve LRU entries.
-        """
+        """Clear the cache (test doesn't use caching)."""
         if self.output_cache is not None:
             self.output_cache.key = None
+            self.output_cache._cache.clear()
 
     def reset_opcode_count(self) -> None:
         """
