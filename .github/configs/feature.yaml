@@ -11,11 +11,6 @@ benchmark:
   evm-type: benchmark
   fill-params: --no-html --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 -m benchmark ./tests/benchmark
 
-benchmark_develop:
-  evm-type: benchmark
-  fill-params: --no-html --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 -m "benchmark" ./tests/benchmark
-  feature_only: true
-
 benchmark_fast:
   evm-type: benchmark
   fill-params: --no-html --fork=Osaka --gas-benchmark-values 100 -m "benchmark" ./tests/benchmark

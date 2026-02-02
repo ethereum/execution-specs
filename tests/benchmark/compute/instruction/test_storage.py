@@ -178,7 +178,7 @@ def create_benchmark_executor(
                 key_warm=False,
                 original_value=original,
                 current_value=original,
-                new_value=original + 1,
+                new_value=2**256 - 1,
             )
 
     # [index, num]
@@ -498,14 +498,15 @@ def test_storage_access_warm(
     """Benchmark warm storage slot accesses."""
     blocks = []
 
-    if storage_action == StorageAction.WRITE_SAME_VALUE:
-        execution_code_body = Op.SSTORE(0, Op.DUP1)
-    elif storage_action == StorageAction.WRITE_NEW_VALUE:
-        execution_code_body = Op.SSTORE(0, Op.GAS)
-    elif storage_action == StorageAction.READ:
-        execution_code_body = Op.POP(Op.SLOAD(0))
-    else:
-        execution_code_body = Bytecode()
+    match storage_action:
+        case StorageAction.WRITE_SAME_VALUE:
+            execution_code_body = Op.SSTORE(0, Op.DUP1)
+        case StorageAction.WRITE_NEW_VALUE:
+            execution_code_body = Op.SSTORE(0, Op.GAS)
+        case StorageAction.READ:
+            execution_code_body = Op.POP(Op.SLOAD(0))
+        case _:
+            raise ValueError("Unspecified storage action")
 
     execution_code = Op.SLOAD(0) + While(body=execution_code_body)
     execution_code_address = pre.deploy_contract(code=execution_code)
@@ -571,14 +572,15 @@ def test_storage_access_warm_benchmark(
     Each iteration accesses a different storage slot (incrementing key)
     to ensure warm access costs are measured.
     """
-    if storage_action == StorageAction.WRITE_SAME_VALUE:
-        attack_block = Op.SSTORE(Op.PUSH0, Op.PUSH0)
-    elif storage_action == StorageAction.WRITE_NEW_VALUE:
-        attack_block = Op.SSTORE(Op.PUSH0, Op.GAS)
-    elif storage_action == StorageAction.READ:
-        attack_block = Op.SLOAD(Op.PUSH0)
-    else:
-        attack_block = Bytecode()
+    match storage_action:
+        case StorageAction.WRITE_SAME_VALUE:
+            attack_block = Op.SSTORE(Op.PUSH0, Op.PUSH0)
+        case StorageAction.WRITE_NEW_VALUE:
+            attack_block = Op.SSTORE(Op.PUSH0, Op.GAS)
+        case StorageAction.READ:
+            attack_block = Op.SLOAD(Op.PUSH0)
+        case _:
+            raise ValueError("Unspecified storage action")
 
     benchmark_test(
         target_opcode=Op.SLOAD
