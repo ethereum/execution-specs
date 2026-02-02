@@ -6,10 +6,12 @@ and that modifies pytest hooks in order to fill test specs for all tests
 and writes the generated fixtures to file.
 """
 
+import atexit
 import configparser
 import datetime
 import json
 import os
+import signal
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -69,6 +71,36 @@ from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
 from .fixture_output import FixtureOutput
+
+# Fixture output dir for keyboard interrupt cleanup (set in pytest_configure).
+# Used by _merge_on_exit to merge partial JSONL files on Ctrl+C.
+_fixture_output_dir: Path | None = None
+_atexit_registered: bool = False
+_interrupt_count: int = 0
+_original_sigint_handler: Any = None
+
+
+def _sigint_handler(signum: int, frame: Any) -> None:
+    """Handle SIGINT (Ctrl+C) gracefully during test filling."""
+    del signum, frame
+    global _interrupt_count, _original_sigint_handler
+    _interrupt_count += 1
+
+    if _interrupt_count == 1:
+        # First interrupt: restore original handler and re-raise
+        if _original_sigint_handler is not None:
+            signal.signal(signal.SIGINT, _original_sigint_handler)
+        raise KeyboardInterrupt
+    # Subsequent interrupts: ignore and print message
+    print("\nMerging fixtures, please wait...", flush=True)
+
+
+def _merge_on_exit() -> None:
+    """Atexit handler to merge partial JSONL files. Ignores SIGINT."""
+    global _fixture_output_dir
+    if _fixture_output_dir is not None:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        merge_partial_fixture_files(_fixture_output_dir)
 
 
 @dataclass(kw_only=True)
@@ -705,6 +737,18 @@ def pytest_configure(config: pytest.Config) -> None:
         )
     except ValueError as e:
         pytest.exit(str(e), returncode=pytest.ExitCode.USAGE_ERROR)
+
+    # Register atexit handler for Ctrl+C cleanup (master only, not workers).
+    global _fixture_output_dir, _atexit_registered, _original_sigint_handler
+    is_xdist_worker = hasattr(config, "workerinput")
+    if not config.fixture_output.is_stdout:  # type: ignore[attr-defined]
+        _fixture_output_dir = config.fixture_output.directory  # type: ignore[attr-defined]
+        if not _atexit_registered and not is_xdist_worker:
+            atexit.register(_merge_on_exit)
+            _original_sigint_handler = signal.signal(
+                signal.SIGINT, _sigint_handler
+            )
+            _atexit_registered = True
 
     if (
         not config.getoption("disable_html")
