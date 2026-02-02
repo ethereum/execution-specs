@@ -374,19 +374,9 @@ class TestCollectionSortingBehavior:
         """Simulate collection behavior WITHOUT xdist (sorts items)."""
         self._sort_items_by_base_nodeid(items)
 
-    def _simulate_collection_with_xdist_current(
-        self, items: list[MockItem]
-    ) -> None:
-        """Simulate CURRENT behavior WITH xdist (NO sorting - BUG)."""
+    def _simulate_collection_with_xdist(self, items: list[MockItem]) -> None:
+        """Simulate collection behavior WITH xdist (adds markers AND sorts)."""
         self._add_xdist_markers(items)
-        # BUG: Missing sort here!
-
-    def _simulate_collection_with_xdist_fixed(
-        self, items: list[MockItem]
-    ) -> None:
-        """Simulate FIXED behavior WITH xdist (adds markers AND sorts)."""
-        self._add_xdist_markers(items)
-        # FIX: Add sorting.
         self._sort_items_by_base_nodeid(items)
 
     def test_items_sorted_without_xdist(self) -> None:
@@ -408,8 +398,8 @@ class TestCollectionSortingBehavior:
         assert "test_a" in items[0].nodeid
         assert "test_b" in items[1].nodeid
 
-    def test_items_not_sorted_with_xdist_current_behavior(self) -> None:
-        """Test current behavior: items NOT sorted with xdist (BUG)."""
+    def test_items_sorted_with_xdist(self) -> None:
+        """Test items are sorted with xdist for cache locality."""
         items = [
             MockItem(
                 "tests/test.py::test_b[fork_Osaka-blockchain_test]",
@@ -421,31 +411,9 @@ class TestCollectionSortingBehavior:
             ),
         ]
 
-        self._simulate_collection_with_xdist_current(items)
+        self._simulate_collection_with_xdist(items)
 
-        # BUG: Items are NOT sorted - order unchanged from input.
-        # test_b is still first (wrong order - should be test_a first).
-        assert "test_b" in items[0].nodeid, (
-            "Current behavior: items not sorted with xdist. "
-            f"Got: {[i.nodeid for i in items]}"
-        )
-
-    def test_items_should_be_sorted_with_xdist(self) -> None:
-        """Test items SHOULD be sorted with xdist (expected fix)."""
-        items = [
-            MockItem(
-                "tests/test.py::test_b[fork_Osaka-blockchain_test]",
-                BlockchainFixture,
-            ),
-            MockItem(
-                "tests/test.py::test_a[fork_Osaka-blockchain_test]",
-                BlockchainFixture,
-            ),
-        ]
-
-        self._simulate_collection_with_xdist_fixed(items)
-
-        # After fix: test_a should come before test_b.
+        # After sorting by base nodeid, test_a should come before test_b.
         assert "test_a" in items[0].nodeid
         assert "test_b" in items[1].nodeid
 
@@ -462,7 +430,7 @@ class TestCollectionSortingBehavior:
             ),
         ]
 
-        self._simulate_collection_with_xdist_current(items)
+        self._simulate_collection_with_xdist(items)
 
         marker0 = items[0].get_closest_marker("xdist_group")
         marker1 = items[1].get_closest_marker("xdist_group")
@@ -479,8 +447,8 @@ class TestCollectionSortingBehavior:
         )
         assert group0.startswith("t8n-cache-")
 
-    def test_current_vs_expected_behavior_xdist(self) -> None:
-        """Test CURRENT xdist behavior differs from EXPECTED (catches bug)."""
+    def test_xdist_sorting_groups_related_formats(self) -> None:
+        """Test xdist collection groups related formats together."""
         items = [
             MockItem(
                 "tests/test.py::test_b[fork_Osaka-blockchain_test]",
@@ -490,55 +458,24 @@ class TestCollectionSortingBehavior:
                 "tests/test.py::test_a[fork_Osaka-blockchain_test]",
                 BlockchainFixture,
             ),
-        ]
-
-        # Simulate current (no sorting) behavior.
-        current_items = [MockItem(i.nodeid, BlockchainFixture) for i in items]
-        self._simulate_collection_with_xdist_current(current_items)
-        current_order = [i.nodeid for i in current_items]
-
-        # Simulate expected (with sorting) behavior.
-        expected_items = [MockItem(i.nodeid, BlockchainFixture) for i in items]
-        self._simulate_collection_with_xdist_fixed(expected_items)
-        expected_order = [i.nodeid for i in expected_items]
-
-        # Current behavior does not sort (by design - loadgroup handles this).
-        # This test documents that sorting is intentionally skipped with xdist.
-        assert current_order != expected_order, (
-            "Sorting was added! Update test if sorting is now expected. "
-            f"Current: {current_order}, Expected: {expected_order}"
-        )
-
-    @pytest.mark.xfail(
-        reason=(
-            "Items not sorted with xdist"
-            " (loadgroup handles grouping)."
-        )
-    )
-    def test_xdist_sorting_required_for_cache_hits(
-        self,
-    ) -> None:
-        """
-        Test xdist collection sorts items.
-
-        Expected to fail — no sorting with xdist.
-        """
-        items = [
             MockItem(
-                "tests/test.py::test_b[fork_Osaka-blockchain_test]",
-                BlockchainFixture,
+                "tests/test.py::test_b[fork_Osaka-blockchain_test_engine]",
+                BlockchainEngineFixture,
             ),
             MockItem(
-                "tests/test.py::test_a[fork_Osaka-blockchain_test]",
-                BlockchainFixture,
+                "tests/test.py::test_a[fork_Osaka-blockchain_test_engine]",
+                BlockchainEngineFixture,
             ),
         ]
-        # Simulate current behavior with xdist.
-        self._simulate_collection_with_xdist_current(items)
 
-        # EXPECTED: Items should be sorted (test_a before test_b).
-        # BUG: Items are NOT sorted - this assertion fails.
-        assert "test_a" in items[0].nodeid, (
-            "Items should be sorted with xdist for deterministic cache hits. "
-            f"Got: {[i.nodeid for i in items]}"
-        )
+        self._simulate_collection_with_xdist(items)
+
+        # Items should be sorted so related formats are adjacent.
+        nodeids = [i.nodeid for i in items]
+        # test_a variants should be together, test_b variants together.
+        test_a_indices = [i for i, n in enumerate(nodeids) if "test_a" in n]
+        test_b_indices = [i for i, n in enumerate(nodeids) if "test_b" in n]
+
+        # Check adjacency (difference between indices should be 1).
+        assert max(test_a_indices) - min(test_a_indices) == 1
+        assert max(test_b_indices) - min(test_b_indices) == 1

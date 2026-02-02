@@ -1879,20 +1879,29 @@ def pytest_collection_modifyitems(
     for i in reversed(items_for_removal):
         items.pop(i)
 
-    # Schedule slow-marked tests first (Longest Processing Time First).
-    # Workers each grab the next test from the queue, so slow tests get
-    # distributed across workers and finish before the fast-test tail.
-    slow_items = []
-    normal_items = []
+    # Build base_nodeid cache and identify slow groups.
+    # If ANY fixture format variant is marked slow, treat ALL variants as slow
+    # to keep them grouped together for cache locality.
+    item_base_nodeids: Dict[int, str] = {}
+    slow_base_nodeids: set[str] = set()
     for item in items:
+        base_nodeid = strip_fixture_format_from_node(item)
+        item_base_nodeids[id(item)] = base_nodeid
         if item.get_closest_marker("slow") is not None:
-            slow_items.append(item)
-        else:
-            normal_items.append(item)
-    if slow_items:
-        items[:] = slow_items + normal_items
+            slow_base_nodeids.add(base_nodeid)
 
-    # Group related fixture formats for cache locality.
+    # Sort items for optimal execution order:
+    # 1. Slow groups first (LPT scheduling for xdist load balance)
+    # 2. Related fixture formats together (cache locality)
+    # 3. Deterministic order within groups (alphabetical by nodeid)
+    def sort_key(item: pytest.Item) -> tuple[bool, str, str]:
+        base = item_base_nodeids[id(item)]
+        is_slow = base in slow_base_nodeids
+        return (not is_slow, base, item.nodeid)
+
+    items.sort(key=sort_key)
+
+    # Group related fixture formats for cache locality with xdist.
     # Detect xdist: check for -n in original args (collection happens before
     # xdist initializes, so config.option.numprocesses is None).
     orig_args = (
@@ -1903,7 +1912,7 @@ def pytest_collection_modifyitems(
     is_xdist = any(arg == "-n" or arg.startswith("-n") for arg in orig_args)
 
     if is_xdist:
-        # With xdist: add xdist_group markers for --dist=loadgroup.
+        # Add xdist_group markers for --dist=loadgroup.
         # Skip if test already has an xdist_group marker (e.g., bigmem).
         # Tests with existing markers still benefit from the cache within their
         # worker, just with potentially more interleaving.
@@ -1912,7 +1921,7 @@ def pytest_collection_modifyitems(
         # "]" characters which would break the detection.
         for item in items:
             if not item.get_closest_marker("xdist_group"):
-                base_nodeid = strip_fixture_format_from_node(item)
+                base_nodeid = item_base_nodeids[id(item)]
                 h = hashlib.md5(
                     base_nodeid.encode(), usedforsecurity=False
                 ).hexdigest()[:8]

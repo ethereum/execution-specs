@@ -6,6 +6,7 @@ from abc import abstractmethod
 from enum import StrEnum, unique
 from functools import reduce
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
@@ -15,6 +16,12 @@ from typing import (
     Sequence,
     Type,
 )
+
+if TYPE_CHECKING:
+    # Guarded import to avoid circular dependency: filler.py imports BaseTest.
+    from execution_testing.cli.pytest_commands.plugins.filler.filler import (
+        FillingSession,
+    )
 
 import pytest
 from pydantic import BaseModel, ConfigDict, PrivateAttr
@@ -288,7 +295,7 @@ class BaseTest(BaseModel):
 
     def _get_t8n_cache_key(
         self, fork_name: str, block_index: int = 0
-    ) -> Tuple[str, str, int]:
+    ) -> tuple[str, str, int]:
         """Get cache key for t8n output."""
         return (self._get_base_nodeid(), fork_name, block_index)
 
