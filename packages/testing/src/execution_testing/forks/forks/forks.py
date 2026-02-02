@@ -3485,6 +3485,14 @@ class Amsterdam(BPO2):
         return 5
 
     @classmethod
+    def engine_get_payload_version(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """From Amsterdam, get payload calls must use version 6."""
+        del block_number, timestamp
+        return 6
+
+    @classmethod
     def engine_execution_payload_block_access_list(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:

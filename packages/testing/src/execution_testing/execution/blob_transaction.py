@@ -72,6 +72,7 @@ class BlobTransaction(BaseExecute):
 
     txs: List[NetworkWrappedTransaction | Transaction]
     nonexisting_blob_hashes: List[Hash] | None = None
+    get_blobs_version: int | None = None
 
     def get_required_sender_balances(
         self,
@@ -144,12 +145,17 @@ class BlobTransaction(BaseExecute):
                 benchmark_gas_used=None,
             )
 
-        version = fork.engine_get_blobs_version()
-        assert version is not None, (
-            "Engine get blobs version is not supported by the fork."
-        )
+        # Use explicit version if provided, otherwise derive from fork
+        if self.get_blobs_version is not None:
+            version = self.get_blobs_version
+        else:
+            fork_version = fork.engine_get_blobs_version()
+            assert fork_version is not None, (
+                "Engine get blobs version is not supported by the fork."
+            )
+            version = fork_version
 
-        # ensure that clients respond 'null' when they have no access to at
+        # ensure that clients respond correctly when they have no access to at
         # least one blob
         list_versioned_hashes = list(versioned_hashes.keys())
         if self.nonexisting_blob_hashes is not None:
@@ -159,19 +165,68 @@ class BlobTransaction(BaseExecute):
             list_versioned_hashes, version=version
         )
 
-        # if non-existing blob hashes were requested then the response must be
-        # 'null'
+        # if non-existing blob hashes were requested, behavior depends on
+        # engine_getBlobsV* version:
+        # - V1/V2: entire response must be 'null' (all-or-nothing)
+        # - V3+: partial responses allowed (null only for missing blobs)
         if self.nonexisting_blob_hashes is not None:
-            if blob_response is not None:
-                raise ValueError(
-                    "Non-existing blob hashes were requested and the client "
-                    "was expected to respond with 'null', but instead it "
-                    f"replied: {blob_response.root}"
-                )
+            if version <= 2:
+                # V1/V2 behavior: entire response is null if any blob missing
+                if blob_response is not None:
+                    raise ValueError(
+                        "Non-existing blob hashes were requested and the "
+                        f"client (using getBlobsV{version}) was expected to "
+                        "respond with 'null', but instead it replied: "
+                        f"{blob_response.root}"
+                    )
+                else:
+                    logger.info(
+                        f"Test passed: getBlobsV{version} correctly returned "
+                        "'null' (partial responses not allowed in V1/V2)"
+                    )
+                    eth_rpc.wait_for_transactions(sent_txs)
+                    return ExecuteResult(
+                        benchmark_gas_used=None,
+                    )
             else:
+                # V3+ behavior: partial responses with null for missing blobs
+                if blob_response is None:
+                    raise ValueError(
+                        "Non-existing blob hashes were requested and the "
+                        f"client (using getBlobsV{version}) was expected to "
+                        "respond with a partial response containing null "
+                        "entries for missing blobs, but instead it replied "
+                        "with 'null' for the entire response."
+                    )
+                # Verify we got the expected number of responses
+                expected_count = len(list_versioned_hashes)
+                if len(blob_response) != expected_count:
+                    raise ValueError(
+                        f"Expected {expected_count} blob responses, "
+                        f"got {len(blob_response)}."
+                    )
+                # Verify existing blobs are returned and non-existing are null
+                existing_count = len(versioned_hashes)
+                nonexisting_count = len(self.nonexisting_blob_hashes)
+                for i, received_blob in enumerate(blob_response.root):
+                    if i < existing_count:
+                        # This should be an existing blob
+                        if received_blob is None:
+                            raise ValueError(
+                                f"Blob at index {i} should exist but client "
+                                "returned null."
+                            )
+                    else:
+                        # This should be a non-existing blob (null)
+                        if received_blob is not None:
+                            raise ValueError(
+                                f"Blob at index {i} should not exist but "
+                                f"client returned: {received_blob}"
+                            )
                 logger.info(
-                    "Test was passed (partial responses are not allowed and "
-                    "the client correctly returned 'null')"
+                    f"Test passed: getBlobsV{version} correctly returned "
+                    f"partial response with {existing_count} existing blobs "
+                    f"and {nonexisting_count} null entries for missing blobs"
                 )
                 eth_rpc.wait_for_transactions(sent_txs)
                 return ExecuteResult(

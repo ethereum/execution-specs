@@ -12,6 +12,7 @@ from pytest_metadata.plugin import metadata_key
 from execution_testing.base_types import Address, Number, Wei
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
+from execution_testing.rpc.rpc_types import JSONRPCError
 from execution_testing.test_types import (
     EOA,
     Transaction,
@@ -411,11 +412,17 @@ def worker_key(
 ) -> Generator[EOA, None, None]:
     """Prepare the worker key for the current test."""
     logger.debug(f"Preparing worker key {session_worker_key} for test")
-    session_worker_account = eth_rpc.get_account(
-        session_worker_key, block_number="pending", skip_code=True
-    )
+    try:
+        session_worker_account = eth_rpc.get_account(
+            session_worker_key, block_number="latest", skip_code=True
+        )
+    except JSONRPCError:
+        logger.debug("Latest state not available, falling back to pending")
+        session_worker_account = eth_rpc.get_account(
+            session_worker_key, block_number="pending", skip_code=True
+        )
     rpc_nonce = Number(session_worker_account.nonce)
-    if rpc_nonce != session_worker_key.nonce:
+    if rpc_nonce > session_worker_key.nonce:
         wk_nonce = session_worker_key.nonce
         logger.info(f"Worker key nonce mismatch: {wk_nonce} != {rpc_nonce}")
         logger.info(f"Updating worker key nonce to {rpc_nonce}")

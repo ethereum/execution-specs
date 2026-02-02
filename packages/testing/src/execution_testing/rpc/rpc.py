@@ -85,7 +85,14 @@ class SendTransactionExceptionError(Exception):
         if self.tx is not None:
             return f"{base} Transaction={self.tx.model_dump_json()}"
         elif self.tx_rlp is not None:
-            return f"{base} Transaction RLP={self.tx_rlp.hex()}"
+            rlp_hex = self.tx_rlp.hex()
+            # Cap RLP output at 200 characters to avoid overwhelming output
+            max_rlp_length = 200
+            if len(rlp_hex) > max_rlp_length:
+                rlp_display = f"{rlp_hex[:max_rlp_length]}... (truncated)"
+            else:
+                rlp_display = rlp_hex
+            return f"{base} Transaction RLP={rlp_display}"
         return base
 
 
