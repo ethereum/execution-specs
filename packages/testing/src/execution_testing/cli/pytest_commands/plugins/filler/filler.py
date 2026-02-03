@@ -1296,13 +1296,14 @@ def fixture_collector(
         generate_index=request.config.getoption("generate_index"),
     )
     yield fixture_collector
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
-    fixture_collector.dump_fixtures(worker_id)
-    if do_fixture_verification:
-        fixture_collector.verify_fixture_files(evm_fixture_verification)
-    # Write partial index for this worker/scope
-    if fixture_collector.generate_index:
-        fixture_collector.write_partial_index(worker_id)
+    try:
+        # dump_fixtures() only needed for stdout mode
+        fixture_collector.dump_fixtures()
+        if do_fixture_verification:
+            fixture_collector.verify_fixture_files(evm_fixture_verification)
+    finally:
+        # Always close streaming file handles, even on error
+        fixture_collector.close_streaming_files()
 
 
 @pytest.fixture(autouse=True, scope="session")
