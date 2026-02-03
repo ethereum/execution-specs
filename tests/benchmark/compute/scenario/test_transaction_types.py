@@ -322,6 +322,13 @@ def test_block_full_access_list_and_data(
     Test a block with access lists (60% gas) and calldata (40% gas) using
     random mixed bytes.
     """
+    # Skip if EIP-7934 block RLP size limit would be exceeded
+    block_rlp_limit = fork.block_rlp_size_limit()
+    if block_rlp_limit:
+        pytest.skip(
+            "Test skipped: EIP-7934 block RLP size limit might be exceeded"
+        )
+
     iteration_count = math.ceil(gas_benchmark_value / tx_gas_limit)
 
     gas_remaining = gas_benchmark_value
