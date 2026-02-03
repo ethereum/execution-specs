@@ -108,6 +108,10 @@ def _merge_on_exit() -> None:
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
         merge_partial_fixture_files(_fixture_output_dir)
+        # Also merge index if partial indexes exist
+        meta_dir = _fixture_output_dir / ".meta"
+        if meta_dir.exists() and any(meta_dir.glob("partial_index*.jsonl")):
+            merge_partial_indexes(_fixture_output_dir, quiet_mode=True)
 
 
 @dataclass(kw_only=True)
