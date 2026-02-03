@@ -428,11 +428,9 @@ def sstore_helper_contract(
     cleanup = Bytecode()
 
     setup += (
-        Op.ADD(
-            Op.CALLDATALOAD(0), Op.CALLDATALOAD(32)
-        )  # num_slots + start_slot = end_slot
+        Op.CALLDATALOAD(32)  # end_slot
         + Op.CALLDATALOAD(64)  # value
-        + Op.CALLDATALOAD(32)  # start_slot = counter
+        + Op.CALLDATALOAD(0)  # start_slot = counter
     )
 
     # [counter, value, end_slot]
@@ -536,7 +534,11 @@ def test_sstore_variants(
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
     def get_calldata(iteration_count: int, start_slot: int) -> bytes:
-        return Hash(iteration_count) + Hash(start_slot) + Hash(write_value)
+        return (
+            Hash(start_slot)
+            + Hash(start_slot + iteration_count)
+            + Hash(write_value)
+        )
 
     def get_access_list(
         iteration_count: int, start_slot: int, contract_addr: Address
