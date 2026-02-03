@@ -236,6 +236,9 @@ class BesuExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             "transaction invalid gasPrice is less than the current BaseFee"
         ),
+        BlockException.GAS_USED_OVERFLOW: (
+            "provided gas insufficient"
+        ),
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
             "provided gas insufficient"
         ),
