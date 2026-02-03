@@ -1104,7 +1104,6 @@ def process_transaction(
         tx,
         tx_output.error,
         block_output.cumulative_gas_used,
-        tx_gas_used,
         all_logs,
     )
 
