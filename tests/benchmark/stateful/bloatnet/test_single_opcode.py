@@ -414,7 +414,7 @@ def sstore_helper_contract(sloads_before_sstore: bool) -> Bytecode:
     cleanup = Bytecode()
 
     start_marker = 10
-    end_marker = 30 + (2 if sloads_before_sstore else 0)
+    end_marker = 30 + (3 if sloads_before_sstore else 0)
 
     setup += (
         Op.CALLDATALOAD(0)  # num_slots
@@ -446,6 +446,7 @@ def sstore_helper_contract(sloads_before_sstore: bool) -> Bytecode:
         loop += Op.DUP2
         loop += Op.SLOAD
         loop += Op.POP
+        loop += Op.SWAP1
         loop += Op.SSTORE
     else:
         loop += Op.SWAP1
@@ -486,7 +487,7 @@ def test_sstore_variants(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    gas_benchmark_values: int,
+    gas_benchmark_value: int,
     slot_count: int,
     use_access_list: bool,
     sloads_before_sstore: bool,
@@ -513,7 +514,7 @@ def test_sstore_variants(
     post = {}
 
     base_gas_per_contract = min(
-        tx_gas_limit, gas_benchmark_values // num_contracts
+        tx_gas_limit, gas_benchmark_value // num_contracts
     )
     gas_remainder = tx_gas_limit % num_contracts
 
