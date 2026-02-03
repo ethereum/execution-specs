@@ -581,24 +581,26 @@ def test_sstore_variants(
             if gas_limit_cap is not None
             else remaining_gas
         )
-        current_iteration_count = 0
-        next_iteration_count = current_iteration_count + 1
-        while True:
-            if (
-                calc_gas_required(next_iteration_count, start_slot, Address(0))
-                > gas_limit
-            ):
-                break
-            current_iteration_count += 1
-            next_iteration_count += 1
-
-        if current_iteration_count > 0:
-            iteration_counts.append(current_iteration_count)
-            start_slot += current_iteration_count
-        else:
+        if calc_gas_required(0, start_slot, Address(0)) > gas_limit:
             break
+
+        # Binary search the optimal number of iterations given the gas limit
+        low, high = 1, 2
+        while calc_gas_required(high, start_slot, Address(0)) <= gas_limit:
+            high *= 2
+
+        while low < high:
+            mid = (low + high) // 2
+            if calc_gas_required(mid, start_slot, Address(0)) > gas_limit:
+                high = mid
+            else:
+                low = mid + 1
+
+        iteration_count = low - 1
+        iteration_counts.append(iteration_count)
+        start_slot += iteration_count
         remaining_gas -= calc_gas_required(
-            current_iteration_count, start_slot, Address(0)
+            iteration_count, start_slot, Address(0)
         )
 
     assert len(iteration_counts) > 0, (
