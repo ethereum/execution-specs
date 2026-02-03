@@ -71,16 +71,15 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
 
         # Write final JSON file
         sorted_keys = sorted(entries.keys())
-        parts = ["{\n"]
         last_idx = len(sorted_keys) - 1
-        for i, key in enumerate(sorted_keys):
-            key_json = json.dumps(key)
-            # Add indentation for nesting inside outer JSON object
-            value_indented = entries[key].replace("\n", "\n    ")
-            parts.append(f"    {key_json}: {value_indented}")
-            parts.append(",\n" if i < last_idx else "\n")
-        parts.append("}")
-        target_path.write_text("".join(parts))
+        with open(target_path, "w") as f:
+            f.write("{\n")
+            for i, key in enumerate(sorted_keys):
+                key_json = json.dumps(key)
+                value_indented = entries[key].replace("\n", "\n    ")
+                f.write(f"    {key_json}: {value_indented}")
+                f.write(",\n" if i < last_idx else "\n")
+            f.write("}")
 
         # Clean up partial files
         for partial in partials:
