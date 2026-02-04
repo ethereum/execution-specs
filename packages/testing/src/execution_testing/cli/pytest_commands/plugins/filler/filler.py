@@ -9,6 +9,7 @@ and writes the generated fixtures to file.
 import atexit
 import configparser
 import datetime
+import gc
 import json
 import os
 import signal
@@ -50,6 +51,10 @@ from execution_testing.fixtures import (
     StateFixture,
     TestInfo,
     merge_partial_fixture_files,
+)
+from execution_testing.fixtures.pre_alloc_groups import (
+    _get_worker_id,
+    merge_partial_group_files,
 )
 from execution_testing.forks import (
     Fork,
@@ -402,13 +407,17 @@ class FillingSession:
         self.pre_alloc_group_builders.root[hash_key] = group_builder
 
     def save_pre_alloc_groups(self) -> None:
-        """Save pre-allocation groups to disk."""
+        """Save pre-allocation groups to disk as partial files."""
         if self.pre_alloc_group_builders is None:
             return
 
         pre_alloc_folder = self.fixture_output.pre_alloc_groups_folder_path
         pre_alloc_folder.mkdir(parents=True, exist_ok=True)
-        self.pre_alloc_group_builders.to_folder(pre_alloc_folder)
+        # Pass worker_id so each worker writes its own partial files
+        # (no lock contention). Master merges them after all workers finish.
+        self.pre_alloc_group_builders.to_folder(
+            pre_alloc_folder, worker_id=_get_worker_id()
+        )
 
 
 def calculate_post_state_diff(
@@ -1778,12 +1787,28 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     fixture_output: FixtureOutput = session.config.fixture_output  # type: ignore[attr-defined]
     session_instance: FillingSession = session.config.filling_session  # type: ignore[attr-defined]
     if session_instance.phase_manager.is_pre_alloc_generation:
-        _log_timing("Phase 1: saving pre-alloc groups...")
+        _log_timing("Phase 1: saving pre-alloc groups (partial)...")
         t0 = time.time()
         session_instance.save_pre_alloc_groups()
         _log_timing(
             f"Phase 1: save_pre_alloc_groups done in {time.time() - t0:.1f}s"
         )
+
+        # Master merges all worker partial files after all workers finish
+        if not is_worker:
+            _log_timing("Phase 1 (master): merging partial group files...")
+            t0 = time.time()
+            pre_alloc_folder = fixture_output.pre_alloc_groups_folder_path
+            merge_partial_group_files(pre_alloc_folder)
+            _log_timing(
+                f"Phase 1 (master): merge done in {time.time() - t0:.1f}s"
+            )
+        else:
+            # Workers: clear in-memory state to reduce memory pressure while
+            # waiting for other workers to finish
+            session_instance.pre_alloc_group_builders = None
+            gc.collect()
+
         return
 
     if session.config.getoption("optimize_gas", False):
@@ -1803,6 +1828,14 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             )
 
     if is_worker:
+        # Workers: clear in-memory state to reduce memory pressure while
+        # waiting for other workers to finish
+        session_instance.pre_alloc_groups = None
+        if hasattr(session.config, "fixture_collector"):
+            fc = session.config.fixture_collector
+            fc.all_fixtures.clear()
+            fc._fixtures_to_verify.clear()
+        gc.collect()
         return
 
     if fixture_output.is_stdout or is_help_or_collectonly_mode(session.config):
