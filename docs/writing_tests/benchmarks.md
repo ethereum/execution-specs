@@ -69,6 +69,16 @@ This mode is designed for gas limit testing, and gas repricing, where it enables
 - `--gas-benchmark-values 1,2,3` runs the test with 1M, 2M, and 3M block gas limits
 - `--fixed-opcode-count 4,5` runs the test with approximately 4K and 5K opcode executions
 
+**Output layout with gas benchmark values:** When `--gas-benchmark-values` is provided and benchmark tests are filled, fixtures are written into per‑value subdirectories under the output path:
+
+```text
+<output>/
+  gas_limit_0001M/...
+  gas_limit_0002M/...
+```
+
+Non‑benchmark fixtures are still written to the root output directory.
+
 ## Developing Benchmarks
 
 Before writing benchmark-specific tests, please refer to the [general documentation](./writing_a_new_test.md) for the fundamentals of writing tests in the EELS framework.
