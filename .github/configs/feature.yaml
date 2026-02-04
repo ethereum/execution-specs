@@ -9,7 +9,7 @@ develop:
 
 benchmark:
   evm-type: benchmark
-  fill-params: --no-html --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 -m benchmark ./tests/benchmark
+  fill-params: --no-html --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 -m benchmark ./tests/benchmark --maxprocesses=30 --durations=50
 
 benchmark_fast:
   evm-type: benchmark
