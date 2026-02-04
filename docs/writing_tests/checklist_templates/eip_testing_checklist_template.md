@@ -18,7 +18,8 @@ Depending on the changes introduced by an EIP, the following template is the min
 | ID                                    | Description                                                                                                                                                                                                  | Status | Tests |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ----- |
 | `general/code_coverage/eels`          | Run produced tests against [EELS](https://github.com/ethereum/execution-specs) and verify that line code coverage of new added lines for the EIP is 100%, with only exceptions being unreachable code lines. |        |       |
-| `general/code_coverage/test_coverage` | Run coverage on the test code itself (as a basic logic sanity check), i.e., `uv run fill --cov tests`.                                                                                                       |        |       |
+| `general/code_coverage/test_coverage` | Run coverage on the test code itself (as a basic logic sanity check), i.e., `uv run fill --cov tests`. |        |       |
+| `general/code_coverage/missed_lines`  | Document any lines missed in coverage reports and explain why they are acceptable (e.g., unreachable code, general infrastructure not related to the EIP).                                                                                                        |        |       |
 | `general/code_coverage/second_client` | Optional - Run against a second client and verify sufficient code coverage over new code added for the EIP.                                                                                                  |        |       |
 
 #### Fuzzing
