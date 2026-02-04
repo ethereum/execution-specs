@@ -14,6 +14,16 @@ from execution_testing.tools import ParameterSet
 from .execute_fill import OpMode
 
 
+def format_gas_limit_subdir(
+    gas_benchmark_value: int, gas_values_millions: list[int]
+) -> str:
+    """Return a stable, sortable gas-limit subdirectory name."""
+    gas_value_millions = gas_benchmark_value // 1_000_000
+    max_value = max(gas_values_millions) if gas_values_millions else 0
+    width = max(4, len(str(max_value)))
+    return f"gas_limit_{gas_value_millions:0{width}d}M"
+
+
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command line options for benchmark tests."""
     benchmark_group = parser.getgroup(
@@ -28,6 +38,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Gas limits (in millions) for benchmark tests. "
             "Example: '100,500' runs tests with 100M and 500M gas. "
+            "Benchmark outputs are grouped under gas_limit_XXXXM/ "
+            "subdirectories. "
             f"Cannot be used with {OpcodeCountsConfig.flag}."
         ),
     )

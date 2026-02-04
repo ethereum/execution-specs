@@ -202,7 +202,109 @@ def test_benchmarking_mode_configured_with_option(
     assert any("benchmark-gas-value_20M" in line for line in result.outlines)
     assert any("benchmark-gas-value_30M" in line for line in result.outlines)
 
+def test_benchmark_gas_values_split_into_subdirs(
+    pytester: pytest.Pytester, tmp_path: Path
+) -> None:
+    """Ensure per-gas-limit outputs are written to separate directories."""
+    benchmark_marked_module = textwrap.dedent(
+        """\
+        import pytest
+        from execution_testing import (
+            BenchmarkTestFiller,
+            JumpLoopGenerator,
+            Op,
+        )
 
+        @pytest.mark.valid_at("Prague")
+        @pytest.mark.benchmark
+        def test_dummy_benchmark_test(
+            benchmark_test: BenchmarkTestFiller,
+        ) -> None:
+            benchmark_test(
+                target_opcode=Op.JUMPDEST,
+                code_generator=JumpLoopGenerator(attack_block=Op.JUMPDEST),
+            )
+        """
+    )
+    setup_test_directory_structure(
+        pytester, benchmark_marked_module, "test_dummy_benchmark.py"
+    )
+
+    output_dir = tmp_path / "fixtures"
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        "Prague",
+        "--gas-benchmark-values",
+        "1,2",
+        "-m",
+        "benchmark and blockchain_test and not derived_test",
+        "--no-html",
+        "--skip-index",
+        f"--output={output_dir}",
+        "tests/benchmark/dummy_test_module/",
+        "-q",
+    )
+
+    assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
+
+    gas_1_dir = output_dir / "gas_limit_0001M"
+    gas_2_dir = output_dir / "gas_limit_0002M"
+    assert gas_1_dir.exists()
+    assert gas_2_dir.exists()
+
+    gas_1_files = list(gas_1_dir.rglob("*.json"))
+    gas_2_files = list(gas_2_dir.rglob("*.json"))
+    assert gas_1_files, "Expected fixtures under gas_limit_0001M"
+    assert gas_2_files, "Expected fixtures under gas_limit_0002M"
+
+    def _assert_keys(
+        files: list[Path], expected: str, unexpected: str
+    ) -> None:
+        for file_path in files:
+            data = json.loads(file_path.read_text())
+            assert data, f"Empty fixture file: {file_path}"
+            for key in data.keys():
+                assert expected in key, (
+                    f"Expected {expected} in key {key} ({file_path})"
+                )
+                assert unexpected not in key, (
+                    f"Unexpected {unexpected} in key {key} ({file_path})"
+                )
+
+    _assert_keys(gas_1_files, "benchmark-gas-value_1M", "2M")
+    _assert_keys(gas_2_files, "benchmark-gas-value_2M", "1M")
+
+    root_json = []
+    for json_path in output_dir.rglob("*.json"):
+        rel = json_path.relative_to(output_dir)
+        if not rel.parts:
+            continue
+        if rel.parts[0].startswith("gas_limit_"):
+            continue
+        if rel.parts[0] == ".meta":
+            continue
+        root_json.append(json_path)
+    assert not root_json, f"Unexpected root JSON files: {root_json}"
+                assert unexpected not in key, (
+                    f"Unexpected {unexpected} in key {key} ({file_path})"
+                )
+
+    _assert_keys(gas_1_files, "benchmark-gas-value_1M", "2M")
+    _assert_keys(gas_2_files, "benchmark-gas-value_2M", "1M")
+
+    root_json = []
+    for json_path in output_dir.rglob("*.json"):
+        rel = json_path.relative_to(output_dir)
+        if not rel.parts:
+            continue
+        if rel.parts[0].startswith("gas_limit_"):
+            continue
+        if rel.parts[0] == ".meta":
+            continue
+        root_json.append(json_path)
+    assert not root_json, f"Unexpected root JSON files: {root_json}"
 def test_benchmarking_mode_not_configured_without_option(
     pytester: pytest.Pytester,
 ) -> None:

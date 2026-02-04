@@ -810,6 +810,16 @@ def pytest_configure(config: pytest.Config) -> None:
     if is_help_or_collectonly_mode(config):
         return
 
+    from ..shared.benchmarking import GasBenchmarkValues
+
+    gas_benchmark_values = GasBenchmarkValues.from_config(config)
+    if gas_benchmark_values is not None and config.fixture_output.is_stdout:  # type: ignore[attr-defined]
+        pytest.exit(
+            "--gas-benchmark-values cannot be used with --output=stdout. "
+            "Use a directory output.",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
+
     try:
         # Check whether the directory exists and is not empty; if --clean is
         # set, it will delete it
@@ -1770,9 +1780,31 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     _info_metadata=t8n._info_metadata,
                 )
 
+                from ..shared.benchmarking import (
+                    GasBenchmarkValues,
+                    format_gas_limit_subdir,
+                )
+
+                output_subdir = None
+                gas_benchmark_values = GasBenchmarkValues.from_config(
+                    request.config
+                )
+                is_benchmark_test = any(
+                    request.node.get_closest_marker(name)
+                    for name in ("benchmark", "stateful", "repricing")
+                )
+                if gas_benchmark_values is not None and is_benchmark_test:
+                    output_subdir = Path(
+                        format_gas_limit_subdir(
+                            gas_benchmark_value,
+                            gas_benchmark_values.root,
+                        )
+                    )
+
                 fixture_path = fixture_collector.add_fixture(
                     node_to_test_info(request.node),
                     fixture,
+                    output_subdir=output_subdir,
                 )
 
                 # NOTE: Use str for compatibility with pytest-dist
@@ -2008,6 +2040,8 @@ def _verify_fixtures_post_merge(
             continue
 
         top_dir = relative_path.parts[0]
+        if top_dir.startswith("gas_limit_") and len(relative_path.parts) > 1:
+            top_dir = relative_path.parts[1]
         fixture_format = dir_to_format.get(top_dir)
         if fixture_format is None:
             continue

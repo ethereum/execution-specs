@@ -249,12 +249,21 @@ class FixtureCollector:
             self._worker_id_cached = True
         return self.worker_id
 
-    def add_fixture(self, info: TestInfo, fixture: BaseFixture) -> Path:
+    def add_fixture(
+        self,
+        info: TestInfo,
+        fixture: BaseFixture,
+        output_subdir: Path | None = None,
+    ) -> Path:
         """Add fixture and immediately stream to partial JSONL file."""
         fixture_basename = self.get_fixture_basename(info)
 
+        effective_output_dir = self.output_dir
+        if output_subdir is not None and self.output_dir.name != "stdout":
+            effective_output_dir = self.output_dir / output_subdir
+
         fixture_path = (
-            self.output_dir
+            effective_output_dir
             / fixture.output_base_dir_name()
             / fixture_basename.with_suffix(fixture.output_file_extension)
         )
