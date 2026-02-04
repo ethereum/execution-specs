@@ -20,6 +20,7 @@ from execution_testing import (
     ExtCallGenerator,
     Fork,
     Hash,
+    IteratingBytecode,
     JumpLoopGenerator,
     Op,
     TestPhaseManager,
@@ -87,7 +88,7 @@ def test_tstore(
     )
 
 
-def create_storage_initializer(fork: Fork) -> tuple[Bytecode, int, int]:
+def create_storage_initializer() -> IteratingBytecode:
     """
     Create a contract that initializes storage slots from calldata parameters.
 
@@ -121,15 +122,14 @@ def create_storage_initializer(fork: Fork) -> tuple[Bytecode, int, int]:
         + Op.JUMPI(len(prefix), Op.GT(Op.DUP2, Op.DUP2))
     )
 
-    return prefix + loop, loop.gas_cost(fork), prefix.gas_cost(fork)
+    return IteratingBytecode(setup=prefix, iterating=loop)
 
 
 def create_benchmark_executor(
     storage_action: StorageAction,
     absent_slots: bool,
     tx_result: TransactionResult,
-    fork: Fork,
-) -> tuple[Bytecode, int, int]:
+) -> IteratingBytecode:
     """
     Create a contract that executes benchmark operations.
 
@@ -205,9 +205,8 @@ def create_benchmark_executor(
         + operation
         + Op.JUMPI(len(prefix), loop_condition)
     )
-    code = prefix + loop + suffix
 
-    return code, loop.gas_cost(fork), (prefix + suffix).gas_cost(fork)
+    return IteratingBytecode(setup=prefix, iterating=loop, cleanup=suffix)
 
 
 @pytest.mark.parametrize(
@@ -266,177 +265,105 @@ def test_storage_access_cold(
     - StorageInitializer: storage[i] = i for each slot (absent_slots=False)
     - BenchmarkExecutor: performs the benchmark operation (SLOAD/SSTORE)
     """
-    intrinsic_calc = fork.transaction_intrinsic_cost_calculator()
-    gas_costs = fork.gas_costs()
-
-    executor_code, exec_loop_cost, exec_overhead = create_benchmark_executor(
-        storage_action, absent_slots, tx_result, fork
+    executor_code = create_benchmark_executor(
+        storage_action, absent_slots, tx_result
     )
-    initializer_code, init_loop_cost, init_overhead = (
-        create_storage_initializer(fork)
-    )
+    initializer_code = create_storage_initializer()
 
     authority = pre.fund_eoa(amount=0)
     initializer_addr = pre.deploy_contract(code=initializer_code)
     executor_addr = pre.deploy_contract(code=executor_code)
 
-    delegation_intrinsic = intrinsic_calc(authorization_list_or_count=1)
-    max_intrinsic = intrinsic_calc(calldata=bytes([0xFF] * 64))
+    # Calldata generator for both the executor and initializer.
+    def calldata_generator(
+        iteration_count: int, start_iteration: int
+    ) -> bytes:
+        return Hash(start_iteration) + Hash(iteration_count)
 
     # Number of slots that can be processed in the execution phase
-    num_target_slots = 0
-    current_slot = 1
-    gas_remaining = gas_benchmark_value - delegation_intrinsic
-    while gas_remaining > 0:
-        tx_gas = min(tx_gas_limit, gas_remaining)
-        if tx_gas < max_intrinsic + exec_overhead + exec_loop_cost:
-            break
-
-        slots = (tx_gas - max_intrinsic - exec_overhead) // exec_loop_cost
-
-        calldata = bytes(Hash(current_slot)) + bytes(Hash(slots))
-        execution_intrinsic = intrinsic_calc(calldata=calldata)
-
-        slots = (
-            tx_gas - execution_intrinsic - exec_overhead
-        ) // exec_loop_cost
-
-        num_target_slots += slots
-        current_slot += slots
-        gas_remaining -= tx_gas
+    num_target_slots = sum(
+        executor_code.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_benchmark_value,
+            calldata=calldata_generator,
+        )
+    )
 
     blocks = []
-    authority_nonce = 0
+    delegation_sender = pre.fund_eoa()
 
     # Setup phase: initialize storage slots (only if absent_slots=False)
-    if not absent_slots:
+    with TestPhaseManager.setup():
         setup_txs = []
+        authority_nonce = 0
+        if not absent_slots:
+            setup_txs.append(
+                Transaction(
+                    to=delegation_sender,
+                    gas_limit=tx_gas_limit,
+                    sender=delegation_sender,
+                    authorization_list=[
+                        AuthorizationTuple(
+                            address=initializer_addr,
+                            nonce=authority_nonce,
+                            signer=authority,
+                        ),
+                    ],
+                )
+            )
+            authority_nonce += 1
 
-        with TestPhaseManager.setup():
-            delegation_sender = pre.fund_eoa()
-            delegation_tx = Transaction(
+            setup_txs += list(
+                initializer_code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=num_target_slots,
+                    sender=pre.fund_eoa(),
+                    to=authority,
+                    start_iteration=1,
+                    calldata=calldata_generator,
+                )
+            )
+
+        setup_txs.append(
+            Transaction(
                 to=delegation_sender,
                 gas_limit=tx_gas_limit,
                 sender=delegation_sender,
                 authorization_list=[
                     AuthorizationTuple(
-                        address=initializer_addr,
+                        address=executor_addr,
                         nonce=authority_nonce,
                         signer=authority,
                     ),
                 ],
             )
-            authority_nonce += 1
-
-            setup_txs.append(delegation_tx)
-
-            current_slot = 1
-            remaining_slots = num_target_slots
-
-            while remaining_slots > 0:
-                if (
-                    tx_gas_limit
-                    < max_intrinsic + init_overhead + init_loop_cost
-                ):
-                    break
-
-                slots = (
-                    tx_gas_limit - max_intrinsic - init_overhead
-                ) // init_loop_cost
-                slots = min(slots, remaining_slots)
-
-                calldata = bytes(Hash(current_slot)) + bytes(Hash(slots))
-                execution_intrinsic = intrinsic_calc(calldata=calldata)
-
-                slots = (
-                    tx_gas_limit - execution_intrinsic - init_overhead
-                ) // init_loop_cost
-                slots = min(slots, remaining_slots)
-
-                setup_txs.append(
-                    Transaction(
-                        to=authority,
-                        gas_limit=tx_gas_limit,
-                        data=Hash(current_slot) + Hash(slots),
-                        sender=pre.fund_eoa(),
-                    )
-                )
-                current_slot += slots
-                remaining_slots -= slots
-
-            blocks.append(Block(txs=setup_txs))
+        )
+        blocks.append(Block(txs=setup_txs))
 
     # Execution phase: run benchmark
     # For absent_slots=False, authority has storage, triggering refund
-    expected_gas_used = delegation_intrinsic
-    exec_txs = []
-
-    if not absent_slots:
-        expected_gas_used -= min(
-            gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY,
-            delegation_intrinsic // 5,
-        )
-
-    with TestPhaseManager.setup():
-        delegation_sender = pre.fund_eoa()
-        delegation_tx = Transaction(
-            to=delegation_sender,
-            gas_limit=tx_gas_limit,
-            sender=delegation_sender,
-            authorization_list=[
-                AuthorizationTuple(
-                    address=executor_addr,
-                    nonce=authority_nonce,
-                    signer=authority,
-                ),
-            ],
-        )
-
-    exec_txs.append(delegation_tx)
-    current_slot = 1
-    gas_remaining = gas_benchmark_value - delegation_intrinsic
+    expected_gas_used = 0
 
     with TestPhaseManager.execution():
-        while gas_remaining > 0:
-            tx_gas = min(tx_gas_limit, gas_remaining)
-
-            if tx_gas < max_intrinsic + exec_overhead + exec_loop_cost:
-                break
-
-            slots = (tx_gas - max_intrinsic - exec_overhead) // exec_loop_cost
-
-            calldata = bytes(Hash(current_slot)) + bytes(Hash(slots))
-            execution_intrinsic = intrinsic_calc(calldata=calldata)
-            slots = (
-                tx_gas - execution_intrinsic - exec_overhead
-            ) // exec_loop_cost
-
-            if tx_result == TransactionResult.OUT_OF_GAS:
-                slots = slots * 2
-
-            exec_txs.append(
-                Transaction(
-                    to=authority,
-                    gas_limit=tx_gas,
-                    data=Hash(current_slot) + Hash(slots),
-                    sender=pre.fund_eoa(),
-                )
+        tx_gas_limit_delta = (
+            -1 if tx_result == TransactionResult.OUT_OF_GAS else 0
+        )
+        exec_txs = list(
+            executor_code.transactions_by_gas_limit(
+                fork=fork,
+                gas_limit=gas_benchmark_value,
+                sender=pre.fund_eoa(),
+                to=authority,
+                calldata=calldata_generator,
+                start_iteration=1,
+                tx_gas_limit_delta=tx_gas_limit_delta,
             )
-
+        )
+        for exec_tx in exec_txs:
             if tx_result == TransactionResult.OUT_OF_GAS:
-                expected_gas_used += tx_gas
+                expected_gas_used += exec_tx.gas_limit
             else:
-                expected_gas_used += (
-                    intrinsic_calc(
-                        calldata=calldata,
-                        return_cost_deducted_prior_execution=True,
-                    )
-                    + slots * exec_loop_cost
-                    + exec_overhead
-                )
-                current_slot += slots
-
-            gas_remaining -= tx_gas
+                expected_gas_used += exec_tx.gas_cost
 
     blocks.append(Block(txs=exec_txs))
 
