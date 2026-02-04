@@ -855,6 +855,7 @@ class IteratingBytecode(Bytecode):
         start_iteration: int = 0,
         sender: EOA,
         to: Address | None,
+        tx_gas_limit_delta: int = 0,
         **tx_kwargs: Any,
     ) -> Generator[TransactionWithCost, None, None]:
         """
@@ -907,7 +908,7 @@ class IteratingBytecode(Bytecode):
                     )
             yield TransactionWithCost(
                 to=to,
-                gas_limit=tx_gas_limit,
+                gas_limit=tx_gas_limit + tx_gas_limit_delta,
                 sender=sender,
                 gas_cost=tx_gas_cost,
                 **current_tx_kwargs,
@@ -922,6 +923,7 @@ class IteratingBytecode(Bytecode):
         start_iteration: int = 0,
         sender: EOA,
         to: Address | None,
+        tx_gas_limit_delta: int = 0,
         **tx_kwargs: Any,
     ) -> Generator[TransactionWithCost, None, None]:
         """
@@ -974,7 +976,7 @@ class IteratingBytecode(Bytecode):
                     )
             yield TransactionWithCost(
                 to=to,
-                gas_limit=tx_gas_limit,
+                gas_limit=tx_gas_limit + tx_gas_limit_delta,
                 sender=sender,
                 gas_cost=tx_gas_cost,
                 **current_tx_kwargs,
