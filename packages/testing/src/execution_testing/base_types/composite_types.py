@@ -1,5 +1,7 @@
 """Base composite types for Ethereum test cases."""
 
+import hashlib
+import json
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -346,6 +348,15 @@ class Storage(
         )
 
 
+class FrozenStorage(Storage):
+    """Frozen storage."""
+
+    model_config = {
+        **Storage.model_config,
+        "frozen": True,
+    }
+
+
 class Account(CamelModel):
     """State associated with an address."""
 
@@ -366,6 +377,11 @@ class Account(CamelModel):
     Sentinel object used to specify when an account should not exist in the
     state.
     """
+
+    model_config = {
+        **CamelModel.model_config,
+        "frozen": True,
+    }
 
     @dataclass(kw_only=True)
     class NonceMismatchError(Exception):
@@ -513,6 +529,12 @@ class Account(CamelModel):
     def __bool__(self: "Account") -> bool:
         """Return True on a non-empty account."""
         return any((self.nonce, self.balance, self.code, self.storage))
+
+    def hash(self) -> Hash:
+        """Return the hash of the account given its properties."""
+        data = self.model_dump(mode="json")
+        blob = json.dumps(data, sort_keys=True).encode("utf-8")
+        return Hash(hashlib.sha256(blob).digest())
 
     @classmethod
     def with_code(cls: Type, code: BytesConvertible) -> "Account":

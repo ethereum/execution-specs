@@ -4,8 +4,7 @@ import inspect
 from enum import IntEnum
 from functools import cache
 from hashlib import sha256
-from itertools import count
-from typing import Any, Iterator, List, Literal
+from typing import Any, Dict, List, Literal
 
 import pytest
 from pydantic import PrivateAttr
@@ -20,7 +19,6 @@ from execution_testing.base_types import (
     StorageRootType,
     TestPrivateKey,
     TestPrivateKey2,
-    ZeroPaddedHexNumber,
 )
 from execution_testing.base_types.conversions import (
     BytesConvertible,
@@ -88,6 +86,31 @@ class AllocMode(IntEnum):
 
 
 DELEGATION_DESIGNATION = b"\xef\x01\x00"
+EMPTY_ACCOUNT_HASH = Account().hash()
+
+
+def contract_address_from_account(account_hash: Hash, salt: int) -> Address:
+    """
+    Calculate a deterministic address for a contract given the properties of
+    the account.
+
+    Useful to not duplicate accounts in the pre-allocation when grouping
+    many tests.
+    """
+    return Address(
+        Bytes(account_hash + salt.to_bytes(64, "big")).sha256()[12:]
+    )
+
+
+def eoa_from_account(account_hash: Hash, salt: int) -> EOA:
+    """
+    Calculate a deterministic EOA for a contract given the properties of
+    the account.
+
+    Useful to not duplicate accounts in the pre-allocation when grouping
+    many tests.
+    """
+    return EOA(key=Bytes(account_hash + salt.to_bytes(64, "big")).sha256())
 
 
 class Alloc(BaseAlloc):
@@ -95,24 +118,20 @@ class Alloc(BaseAlloc):
 
     _eoa_fund_amount_default: int = PrivateAttr(10**21)
     _alloc_mode: AllocMode = PrivateAttr()
-    _contract_address_iterator: Iterator[Address] = PrivateAttr()
-    _eoa_iterator: Iterator[EOA] = PrivateAttr()
+    _account_salt: Dict[Hash, int] = PrivateAttr()
     _fork: Fork = PrivateAttr()
 
     def __init__(
         self,
         *args: Any,
         alloc_mode: AllocMode,
-        contract_address_iterator: Iterator[Address],
-        eoa_iterator: Iterator[EOA],
         fork: Fork,
         **kwargs: Any,
     ) -> None:
         """Initialize allocation with the given properties."""
         super().__init__(*args, **kwargs)
         self._alloc_mode = alloc_mode
-        self._contract_address_iterator = contract_address_iterator
-        self._eoa_iterator = eoa_iterator
+        self._account_salt = {}
         self._fork = fork
 
     def __setitem__(
@@ -124,6 +143,12 @@ class Alloc(BaseAlloc):
         if self._alloc_mode == AllocMode.STRICT:
             raise ValueError("Cannot set items in strict mode")
         super().__setitem__(address, account)
+
+    def get_next_account_salt(self, account_hash: Hash) -> int:
+        """Retrieve the next salt for this account."""
+        salt = self._account_salt.get(account_hash, 0)
+        self._account_salt[account_hash] = salt + 1
+        return salt
 
     def code_pre_processor(self, code: BytesConvertible) -> BytesConvertible:
         """Pre-processes the code before setting it."""
@@ -231,12 +256,6 @@ class Alloc(BaseAlloc):
             assert self._alloc_mode == AllocMode.PERMISSIVE, (
                 "address parameter is not supported"
             )
-            assert address not in self, (
-                f"address {address} already in allocation"
-            )
-            contract_address = address
-        else:
-            contract_address = next(self._contract_address_iterator)
 
         if self._alloc_mode == AllocMode.STRICT:
             assert Number(nonce) >= 1, (
@@ -252,15 +271,26 @@ class Alloc(BaseAlloc):
             f"code too large: {len(code_bytes)} > {max_code_size}"
         )
 
-        super().__setitem__(
-            contract_address,
-            Account(
-                nonce=nonce,
-                balance=balance,
-                code=code,
-                storage=storage,
-            ),
+        account = Account(
+            nonce=nonce,
+            balance=balance,
+            code=code,
+            storage=storage,
         )
+
+        if address is not None:
+            assert address not in self, (
+                f"address {address} already in allocation"
+            )
+            contract_address = address
+        else:
+            account_hash = account.hash()
+            salt = self.get_next_account_salt(account_hash)
+            contract_address = contract_address_from_account(
+                account_hash, salt
+            )
+
+        super().__setitem__(contract_address, account)
         if label is None:
             # Try to deduce the label from the code
             frame = inspect.currentframe()
@@ -295,7 +325,6 @@ class Alloc(BaseAlloc):
         """
         del label
 
-        eoa = next(self._eoa_iterator)
         if amount is None:
             amount = self._eoa_fund_amount_default
         if (
@@ -310,16 +339,20 @@ class Alloc(BaseAlloc):
                     nonce=nonce,
                     balance=amount,
                 )
-                if nonce > 0:
-                    eoa.nonce = nonce
             else:
                 # Type-4 transaction is sent to the EOA to set the storage, so
                 # the nonce must be 1
-                if (
-                    not isinstance(delegation, Address)
-                    and delegation == "Self"
-                ):
-                    delegation = eoa
+                code = b""
+                if delegation is not None:
+                    if (
+                        not isinstance(delegation, Address)
+                        and delegation == "Self"
+                    ):
+                        # This is a placeholder value, since we don't know
+                        # the address until the end of the function.
+                        code = DELEGATION_DESIGNATION + b"Self"
+                    else:
+                        code = DELEGATION_DESIGNATION + delegation
                 # If delegation is None but storage is not, realistically the
                 # nonce should be 2 because the account must have delegated to
                 # set the storage and then again to reset the delegation (but
@@ -330,12 +363,22 @@ class Alloc(BaseAlloc):
                     nonce=nonce,
                     balance=amount,
                     storage=storage if storage is not None else {},
-                    code=DELEGATION_DESIGNATION + bytes(delegation)
-                    if delegation is not None
-                    else b"",
+                    code=code,
                 )
-                eoa.nonce = nonce
 
+        else:
+            account = Account()
+
+        account_hash = account.hash()
+        salt = self.get_next_account_salt(account_hash)
+        eoa = eoa_from_account(account_hash, salt)
+
+        if account.nonce > 0:
+            eoa.nonce = account.nonce
+
+        if not isinstance(delegation, Address) and delegation == "Self":
+            account = account.copy(code=DELEGATION_DESIGNATION + eoa)
+        if account:
             super().__setitem__(eoa, account)
         return eoa
 
@@ -352,20 +395,13 @@ class Alloc(BaseAlloc):
         If the address is already present in the pre-alloc the amount will be
         added to its existing balance.
         """
+        del minimum_balance
         if address in self:
-            account = self[address]
-            if account is not None:
-                current_balance = account.balance or 0
-                fund_amount = Number(amount)
-                if minimum_balance:
-                    if current_balance >= fund_amount:
-                        return
-                    account.balance = ZeroPaddedHexNumber(fund_amount)
-                else:
-                    account.balance = ZeroPaddedHexNumber(
-                        current_balance + fund_amount
-                    )
-                return
+            raise Exception(
+                "Cannot fund an account already in state. "
+                "Use the appropriate `amount`, `balance` arguments "
+                "when creating the account."
+            )
         super().__setitem__(address, Account(balance=amount))
 
     def empty_account(self) -> Address:
@@ -387,9 +423,8 @@ class Alloc(BaseAlloc):
             Address: The address of the created empty account.
 
         """
-        eoa = next(self._eoa_iterator)
-
-        return Address(eoa)
+        salt = self.get_next_account_salt(EMPTY_ACCOUNT_HASH)
+        return Address(eoa_from_account(EMPTY_ACCOUNT_HASH, salt))
 
 
 @pytest.fixture(scope="session")
@@ -467,31 +502,6 @@ def node_id_for_entropy(
     raise Exception(f"Fixture format name not found in test {node_id}")
 
 
-@pytest.fixture(scope="function")
-def contract_address_iterator(
-    request: pytest.FixtureRequest,
-    contract_start_address: int,
-    contract_address_increments: int,
-    node_id_for_entropy: str,
-) -> Iterator[Address]:
-    """Return iterator over contract addresses with dynamic scoping."""
-    if request.config.getoption(
-        # TODO: Ideally, we should check the fixture format instead of checking
-        # parameters.
-        "generate_pre_alloc_groups",
-        default=False,
-    ) or request.config.getoption("use_pre_alloc_groups", default=False):
-        # Use a starting address that is derived from the test node
-        contract_start_address = sha256_from_string(node_id_for_entropy)
-    return iter(
-        Address(
-            (contract_start_address + (i * contract_address_increments))
-            % 2**160
-        )
-        for i in count()
-    )
-
-
 @cache
 def eoa_by_index(i: int) -> EOA:
     """Return EOA by index."""
@@ -499,38 +509,8 @@ def eoa_by_index(i: int) -> EOA:
 
 
 @pytest.fixture(scope="function")
-def eoa_iterator(
-    request: pytest.FixtureRequest,
-    node_id_for_entropy: str,
-) -> Iterator[EOA]:
-    """Return iterator over EOAs copies with dynamic scoping."""
-    if request.config.getoption(
-        # TODO: Ideally, we should check the fixture format instead of checking
-        # parameters.
-        "generate_pre_alloc_groups",
-        default=False,
-    ) or request.config.getoption("use_pre_alloc_groups", default=False):
-        # Use a starting address that is derived from the test node
-        eoa_start_pk = sha256_from_string(node_id_for_entropy)
-        # secp256k1 curve order constant
-        curve_order = (  # noqa: E501
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-        )
-        return iter(
-            EOA(
-                key=(eoa_start_pk + i) % curve_order,
-                nonce=0,
-            )
-            for i in count()
-        )
-    return iter(eoa_by_index(i).copy() for i in count())
-
-
-@pytest.fixture(scope="function")
 def pre(
     alloc_mode: AllocMode,
-    contract_address_iterator: Iterator[Address],
-    eoa_iterator: Iterator[EOA],
     fork: Fork | None,
     request: pytest.FixtureRequest,
 ) -> Alloc:
@@ -543,7 +523,5 @@ def pre(
 
     return Alloc(
         alloc_mode=alloc_mode,
-        contract_address_iterator=contract_address_iterator,
-        eoa_iterator=eoa_iterator,
         fork=actual_fork,
     )
