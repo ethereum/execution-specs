@@ -414,8 +414,8 @@ def sstore_helper_contract(
     Storage contract for benchmark slot access.
 
     # Calldata Layout:
-    # - CALLDATA[0..31]: Ending slot
-    # - CALLDATA[32..63]: Starting slot
+    # - CALLDATA[0..31]: Starting slot
+    # - CALLDATA[32..63]: Ending slot
     # - CALLDATA[64..95]: Value to write
 
     Returns:
@@ -470,7 +470,7 @@ def sstore_helper_contract(
     loop += Op.ISZERO
     loop += Op.PUSH1(len(setup))
     loop += Op.JUMPI
-    # [counter, value, end_slot]
+    # [counter + 1, value, end_slot]
 
     # Cleanup: Stop
     cleanup += Op.STOP
@@ -488,7 +488,7 @@ def sstore_helper_contract(
         pytest.param(0, 0xDEADBEEF, id="zero_to_nonzero"),
         pytest.param(0xDEADBEEF, 0, id="nonzero_to_zero"),
         pytest.param(0xDEADBEEF, 0xBEEFBEEF, id="nonzero_to_diff"),
-        pytest.param(0xDEADBEEF, 0xBEEFBEEF, id="nonzero_to_same"),
+        pytest.param(0xDEADBEEF, 0xDEADBEEF, id="nonzero_to_same"),
     ],
 )
 def test_sstore_variants(
@@ -719,7 +719,7 @@ def sload_helper_contract(
     loop += Op.ISZERO
     loop += Op.PUSH1(len(setup))
     loop += Op.JUMPI
-    # [counter, value, end_slot]
+    # [counter + 1, value, end_slot]
 
     # Cleanup: Stop
     cleanup += Op.STOP
@@ -880,12 +880,13 @@ def test_storage_sload_same_key_benchmark(
     """
     contract_storage = Storage()
     if storage_keys_pre_set:
-        contract_storage[0] = 1
+        contract_storage[1] = 1
 
     benchmark_test(
         target_opcode=Op.SLOAD,
         code_generator=JumpLoopGenerator(
-            attack_block=Op.POP(Op.SLOAD(Op.PUSH1[0])),
+            setup=Op.PUSH1(1) if storage_keys_pre_set else Op.PUSH0,
+            attack_block=Op.SLOAD,
             contract_storage=contract_storage,
         ),
     )
