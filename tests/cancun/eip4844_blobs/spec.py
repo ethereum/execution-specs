@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import List, Optional, Set, Tuple
 
-from execution_testing import Fork, Transaction
+import pytest
+from execution_testing import Fork, ParameterSet, Transaction
 
 
 @dataclass(frozen=True)
@@ -297,7 +298,7 @@ class SpecHelpers:
         return combinations
 
     @classmethod
-    def all_valid_blob_combinations(cls, fork: Fork) -> List[Tuple[int, ...]]:
+    def all_valid_blob_combinations(cls, fork: Fork) -> List[ParameterSet]:
         """
         Return all valid blob tx combinations for a given block, assuming the
         given MAX_BLOBS_PER_BLOCK, whilst respecting MAX_BLOBS_PER_TX.
@@ -314,10 +315,16 @@ class SpecHelpers:
                 combinations += cls.get_representative_blob_combinations(
                     i, max_blobs_per_tx
                 )
-        return combinations
+        return [
+            pytest.param(
+                combination,
+                id=f"blobs_per_tx_{repr(combination).replace(' ', '')}",
+            )
+            for combination in combinations
+        ]
 
     @classmethod
-    def invalid_blob_combinations(cls, fork: Fork) -> List[Tuple[int, ...]]:
+    def invalid_blob_combinations(cls, fork: Fork) -> List[ParameterSet]:
         """
         Return invalid blob tx combinations for a given block that use up to
         MAX_BLOBS_PER_BLOCK+1 blobs.
@@ -325,12 +332,21 @@ class SpecHelpers:
         max_blobs_per_block = fork.max_blobs_per_block()
         max_blobs_per_tx = fork.max_blobs_per_tx()
 
+        invalid_combinations: List[Tuple[int, ...]] = []
         if max_blobs_per_block <= cls._EXHAUSTIVE_MAX_BLOBS_PER_BLOCK:
-            invalid_combinations = cls.get_blob_combinations(
+            invalid_combinations += cls.get_blob_combinations(
                 max_blobs_per_block + 1,
                 max_blobs_per_tx,
             )
             invalid_combinations.append((max_blobs_per_block + 1,))
-            return invalid_combinations
         else:
-            return cls.get_representative_invalid_blob_combinations(fork)
+            invalid_combinations = (
+                cls.get_representative_invalid_blob_combinations(fork)
+            )
+        return [
+            pytest.param(
+                combination,
+                id=f"blobs_per_tx_{repr(combination).replace(' ', '')}",
+            )
+            for combination in invalid_combinations
+        ]
