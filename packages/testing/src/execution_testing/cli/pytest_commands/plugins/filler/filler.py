@@ -901,21 +901,30 @@ def pytest_terminal_summary(
         session_instance: FillingSession = config.filling_session  # type: ignore[attr-defined]
         if session_instance.phase_manager.is_pre_alloc_generation:
             # Generate summary stats
-            pre_alloc_groups: PreAllocGroups
+            # For xdist, count files and accounts without fully loading groups
+            # (avoids expensive state_root computation just for summary stats)
             if config.pluginmanager.hasplugin("xdist"):
-                # Load pre-allocation groups from disk
-                pre_alloc_groups = PreAllocGroups.from_folder(
-                    config.fixture_output.pre_alloc_groups_folder_path,  # type: ignore[attr-defined]
-                    lazy_load=False,
+                pre_alloc_folder = (
+                    config.fixture_output.pre_alloc_groups_folder_path  # type: ignore[attr-defined]
                 )
+                group_files = list(pre_alloc_folder.glob("*.json"))
+                total_groups = len(group_files)
+                # Count accounts by loading as builder (no genesis computation)
+                total_accounts = 0
+                for group_file in group_files:
+                    builder = PreAllocGroupBuilder.model_validate_json(
+                        group_file.read_text()
+                    )
+                    total_accounts += builder.get_pre_account_count()
             else:
-                assert session_instance.pre_alloc_groups is not None
-                pre_alloc_groups = session_instance.pre_alloc_groups
-
-            total_groups = len(pre_alloc_groups.root)
-            total_accounts = sum(
-                group.pre_account_count for group in pre_alloc_groups.values()
-            )
+                assert session_instance.pre_alloc_group_builders is not None
+                total_groups = len(
+                    session_instance.pre_alloc_group_builders.root
+                )
+                total_accounts = sum(
+                    builder.get_pre_account_count()
+                    for builder in session_instance.pre_alloc_group_builders.root.values()  # noqa: E501
+                )
 
             terminalreporter.write_sep(
                 "=",

@@ -77,16 +77,24 @@ class PreAllocGroupBuilder(CamelModel):
         )
 
     def to_file(self, file: Path) -> None:
-        """Save PreAllocGroup to a file."""
+        """
+        Save PreAllocGroupBuilder to a file.
+
+        Saves the builder format (without genesis/state_root) to avoid
+        expensive state root computation during Phase 1. State root is
+        computed once when loading in Phase 2 via PreAllocGroup.from_file().
+        """
         lock_file_path = file.with_suffix(".lock")
         with FileLock(lock_file_path):
             if file.exists():
                 with open(file, "r") as f:
-                    previous_pre_alloc_group = (
-                        PreAllocGroup.model_validate_json(f.read())
+                    # Read as builder format (works for both builder and group
+                    # files since PreAllocGroup extends PreAllocGroupBuilder)
+                    previous_builder = (
+                        PreAllocGroupBuilder.model_validate_json(f.read())
                     )
-                for account in previous_pre_alloc_group.pre:
-                    existing_account = previous_pre_alloc_group.pre[account]
+                for account in previous_builder.pre:
+                    existing_account = previous_builder.pre[account]
                     if account not in self.pre:
                         self.pre[account] = existing_account
                     else:
@@ -107,10 +115,11 @@ class PreAllocGroupBuilder(CamelModel):
                                     json.dumps(collision_exception.to_json())
                                 )
                             raise collision_exception
-                self.test_ids.extend(previous_pre_alloc_group.test_ids)
+                self.test_ids.extend(previous_builder.test_ids)
             with open(file, "w") as f:
+                # Save builder format WITHOUT computing genesis/state_root
                 f.write(
-                    self.build().model_dump_json(
+                    self.model_dump_json(
                         by_alias=True, exclude_none=True, indent=2
                     )
                 )
@@ -271,9 +280,28 @@ class PreAllocGroup(PreAllocGroupBuilder):
 
     @classmethod
     def from_file(cls, file: Path) -> Self:
-        """Load a pre-allocation group from a JSON file."""
+        """
+        Load a pre-allocation group from a JSON file.
+
+        Handles both builder format (without genesis) and full format (with
+        genesis). If genesis is missing, computes it from the pre-allocation
+        state. This ensures state root computation happens exactly once when
+        loading in Phase 2, not during Phase 1 merging.
+        """
         with open(file) as f:
-            return cls.model_validate_json(f.read())
+            data = f.read()
+
+        # Try loading as full PreAllocGroup first (backwards compatibility)
+        try:
+            return cls.model_validate_json(data)
+        except Exception:
+            pass
+
+        # Load as builder format and compute genesis
+        builder = PreAllocGroupBuilder.model_validate_json(data)
+        built = builder.build()
+        # Use cls.model_validate to ensure proper Self return type
+        return cls.model_validate(built.model_dump())
 
 
 class PreAllocGroups(EthereumTestRootModel):
