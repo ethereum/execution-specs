@@ -2,7 +2,7 @@
 
 import math
 from enum import Enum, auto
-from typing import List, Self, Sequence, cast
+from typing import Generator, Self, Sequence, cast
 
 from execution_testing import (
     EOA,
@@ -15,7 +15,7 @@ from execution_testing import (
     Initcode,
     IteratingBytecode,
     Op,
-    Transaction,
+    TransactionWithCost,
     While,
     compute_create2_address,
     compute_deterministic_create2_address,
@@ -387,84 +387,33 @@ class MaxSizedContractFactory(IteratingBytecode):
         assert deployed_address == instance.address(fork=fork)
         return instance
 
-    def tx_gas_cost_by_index_range(
-        self, *, fork: Fork, index_start: int, index_end: int
-    ) -> int:
-        """
-        Calculate the exact gas cost of a transaction calling the factory
-        for a given index range.
-        """
-        iteration_count = index_end - index_start + 1
-        calldata = Hash(index_start) + Hash(index_end)
-        return self.tx_gas_cost_by_iteration_count(
-            fork=fork, iteration_count=iteration_count, calldata=calldata
-        )
-
-    def tx_gas_limit_by_index_range(
-        self, *, fork: Fork, index_start: int, index_end: int
-    ) -> int:
-        """
-        Calculate the minimum gas limit of a transaction calling the factory
-        for a given index range.
-        """
-        iteration_count = index_end - index_start + 1
-        calldata = Hash(index_start) + Hash(index_end)
-        return self.tx_gas_limit_by_iteration_count(
-            fork=fork, iteration_count=iteration_count, calldata=calldata
-        )
-
-    def tx(
+    def transactions_by_total_contract_count(
         self,
         *,
         fork: Fork,
         sender: EOA,
-        index_start: int,
-        index_end: int,
-    ) -> Transaction:
+        contract_count: int,
+        contract_start_index: int = 0,
+    ) -> Generator[TransactionWithCost, None, None]:
         """
-        Create a single transaction calling the factory for a given index
-        range.
+        Create a list of transactions calling the factory to create the
+        given number of contracts, each capped tx properly capped by the
+        gas limit cap of the fork.
         """
-        return Transaction(
-            to=self.address(fork=fork),
-            gas_limit=self.tx_gas_limit_by_index_range(
-                fork=fork, index_start=index_start, index_end=index_end
-            ),
-            data=Hash(index_start) + Hash(index_end),
-            sender=sender,
-        )
+        to = self.address(fork=fork)
 
-    def txs_with_gas_limit_cap(
-        self,
-        *,
-        fork: Fork,
-        sender: EOA,
-        index_start: int,
-        index_end: int,
-    ) -> List[Transaction]:
-        """
-        Create a list of transactions calling the factory for a given index
-        range, each capped by the given gas limit cap.
-        """
-        worst_case_index = 2 ** (index_end.bit_length()) - 1  # All bits set
-        tx_iterations = self.tx_iterations_by_total_iteration_count(
+        def calldata(iteration_count: int, start_iteration: int) -> bytes:
+            index_end = iteration_count + start_iteration - 1
+            return Hash(start_iteration) + Hash(index_end)
+
+        yield from self.transactions_by_total_iteration_count(
             fork=fork,
-            total_iterations=index_end - index_start + 1,
-            calldata=Hash(worst_case_index) + Hash(worst_case_index),
+            total_iterations=contract_count,
+            start_iteration=contract_start_index,
+            sender=sender,
+            to=to,
+            calldata=calldata,
         )
-        txs = []
-        for tx_iteration in tx_iterations:
-            index_end = index_start + tx_iteration - 1
-            txs.append(
-                self.tx(
-                    fork=fork,
-                    sender=sender,
-                    index_start=index_start,
-                    index_end=index_end,
-                )
-            )
-            index_start = index_end + 1
-        return txs
 
     def address(self, *, fork: Fork) -> Address:
         """Get the deterministic address of the initcode."""

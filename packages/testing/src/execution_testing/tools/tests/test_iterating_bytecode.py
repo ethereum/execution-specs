@@ -180,7 +180,9 @@ def test_tx_gas_cost_by_iteration_count() -> None:
     )
     expected = bytecode.gas_cost_by_iteration_count(
         fork=Osaka, iteration_count=5
-    ) + intrinsic_gas_cost_calc(calldata=b"hello")
+    ) + intrinsic_gas_cost_calc(
+        calldata=b"hello", return_cost_deducted_prior_execution=True
+    )
     assert tx_gas == expected
 
 
@@ -236,9 +238,11 @@ def test_tx_iterations_by_gas_limit(
         iterating=Op.ADD(1, 2) + Op.SSTORE(0, 1),
     )
 
-    result = bytecode.tx_iterations_by_gas_limit(
-        fork=fork,
-        gas_limit=gas_limit,
+    result = list(
+        bytecode.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_limit,
+        )
     )
 
     # Check we got the expected number of transactions
@@ -293,9 +297,11 @@ def test_tx_iterations_by_total_iteration_count(
         iterating=Op.ADD(1, 2) + Op.SSTORE(0, 1),
     )
 
-    result = bytecode.tx_iterations_by_total_iteration_count(
-        fork=CustomOsaka.with_tx_gas_limit_cap(gas_limit_cap),
-        total_iterations=total_iterations,
+    result = list(
+        bytecode.tx_iterations_by_total_iteration_count(
+            fork=CustomOsaka.with_tx_gas_limit_cap(gas_limit_cap),
+            total_iterations=total_iterations,
+        )
     )
 
     # Check we got at least the expected number of transactions
@@ -322,9 +328,11 @@ def test_tx_iterations_by_total_iteration_count_raises_on_impossible() -> None:
 
     with pytest.raises(
         ValueError,
-        match="No iterations possible with the given gas limit cap.",
+        match="Single iteration gas cost is greater than gas limit.",
     ):
-        bytecode.tx_iterations_by_total_iteration_count(
-            fork=CustomOsaka.with_tx_gas_limit_cap(1000),
-            total_iterations=10,
+        list(
+            bytecode.tx_iterations_by_total_iteration_count(
+                fork=CustomOsaka.with_tx_gas_limit_cap(1000),
+                total_iterations=10,
+            )
         )

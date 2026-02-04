@@ -13,6 +13,7 @@ from .tools_code import (
     Initcode,
     IteratingBytecode,
     Switch,
+    TransactionWithCost,
     While,
 )
 from .utility.generators import (
@@ -36,6 +37,7 @@ __all__ = (
     "IteratingBytecode",
     "ParameterSet",
     "Switch",
+    "TransactionWithCost",
     "While",
     "extend_with_defaults",
     "gas_test",

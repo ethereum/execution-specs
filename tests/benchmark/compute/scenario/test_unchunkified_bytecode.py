@@ -15,7 +15,6 @@ from execution_testing import (
     Hash,
     Op,
     TestPhaseManager,
-    Transaction,
     While,
 )
 
@@ -43,7 +42,6 @@ def test_unchunkified_bytecode(
     fork: Fork,
     opcode: Op,
     gas_benchmark_value: int,
-    tx_gas_limit: int,
 ) -> None:
     """Benchmark scenario of accessing max-code size bytecode."""
     # The attack gas limit represents the transaction gas limit cap or
@@ -52,8 +50,6 @@ def test_unchunkified_bytecode(
     # for the 200 gas per byte cost and the quadratic memory-expansion
     # costs, which must be paid each time memory is initialized.
     attack_gas_limit = gas_benchmark_value
-
-    intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
     # Create the max-sized fork-dependent contract factory.
     max_sized_contract_factory = MaxSizedContractFactory(pre=pre, fork=fork)
@@ -110,61 +106,46 @@ def test_unchunkified_bytecode(
         iterating_subcall=Op.STOP,
     )
 
+    # Calldata generator for each transaction of the iterating bytecode.
+    def calldata(iteration_count: int, start_iteration: int) -> bytes:
+        del iteration_count
+        # We only pass the start iteration index as calldata for this bytecode
+        return Hash(start_iteration)
+
     attack_address = pre.deploy_contract(code=attack_code)
 
-    # Calculate an upper bound of the number of contracts to be targeted
-    num_contracts = (
-        # Base available gas = GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-        attack_gas_limit
-        - intrinsic_gas_cost_calc()
-        - attack_code.setup.gas_cost(fork)
-    ) // attack_code.iterating.gas_cost(fork)
+    # Calculate the number of contracts to be targeted.
+    num_contracts = sum(
+        attack_code.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=attack_gas_limit,
+            calldata=calldata,
+        )
+    )
 
     # Deploy num_contracts via multiple txs (each capped by tx gas limit).
     with TestPhaseManager.setup():
         setup_sender = pre.fund_eoa()
-        contracts_deployment_txs = (
-            max_sized_contract_factory.txs_with_gas_limit_cap(
+        contracts_deployment_txs = list(
+            max_sized_contract_factory.transactions_by_total_contract_count(
                 fork=fork,
                 sender=setup_sender,
-                index_start=0,
-                index_end=num_contracts - 1,
+                contract_count=num_contracts,
             )
         )
 
     with TestPhaseManager.execution():
         attack_sender = pre.fund_eoa()
-        full_txs = attack_gas_limit // tx_gas_limit
-        remainder = attack_gas_limit % tx_gas_limit
-
-        num_targeted_contracts_per_full_tx = (
-            # Base available gas:
-            # TX_GAS_LIMIT - intrinsic - (out of loop MSTOREs)
-            tx_gas_limit
-            - intrinsic_gas_cost_calc()
-            - attack_code.setup.gas_cost(fork)
-        ) // attack_code.iterating.gas_cost(fork)
-        contract_start_index = 0
-        opcode_txs = []
-        for _ in range(full_txs):
-            opcode_txs.append(
-                Transaction(
-                    to=attack_address,
-                    gas_limit=tx_gas_limit,
-                    data=Hash(contract_start_index),
-                    sender=attack_sender,
-                )
+        attack_txs = list(
+            attack_code.transactions_by_gas_limit(
+                fork=fork,
+                gas_limit=attack_gas_limit,
+                sender=attack_sender,
+                to=attack_address,
+                calldata=calldata,
             )
-            contract_start_index += num_targeted_contracts_per_full_tx
-        if remainder > intrinsic_gas_cost_calc(calldata=bytes(32)):
-            opcode_txs.append(
-                Transaction(
-                    to=attack_address,
-                    gas_limit=remainder,
-                    data=Hash(contract_start_index),
-                    sender=attack_sender,
-                )
-            )
+        )
+        total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
 
     post = {}
     for i in range(num_contracts):
@@ -180,7 +161,8 @@ def test_unchunkified_bytecode(
         post=post,
         blocks=[
             Block(txs=contracts_deployment_txs),
-            Block(txs=opcode_txs),
+            Block(txs=attack_txs),
         ],
         exclude_full_post_state_in_output=True,
+        expected_benchmark_gas_used=total_gas_cost,
     )

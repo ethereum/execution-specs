@@ -10,6 +10,7 @@ from .generators import (
     Initcode,
     IteratingBytecode,
     Switch,
+    TransactionWithCost,
     While,
 )
 from .yul import Solc, Yul, YulCompiler
@@ -25,6 +26,7 @@ __all__ = (
     "IteratingBytecode",
     "Solc",
     "Switch",
+    "TransactionWithCost",
     "While",
     "Yul",
     "YulCompiler",

@@ -1,11 +1,13 @@
 """Code generating classes and functions."""
 
 from dataclasses import dataclass
-from typing import Any, List, Self, SupportsBytes, Tuple, Type
+from typing import Any, Generator, List, Self, SupportsBytes, Tuple, Type
 
-from execution_testing.base_types import Bytes
+from pydantic import Field
+
+from execution_testing.base_types import Address, Bytes
 from execution_testing.forks import Fork
-from execution_testing.test_types import ceiling_division
+from execution_testing.test_types import EOA, Transaction, ceiling_division
 from execution_testing.vm import Bytecode, ForkOpcodeInterface, Op
 
 GAS_PER_DEPLOYED_CODE_BYTE = 0xC8
@@ -471,6 +473,12 @@ class Create2PreimageLayout(Bytecode):
         )
 
 
+class TransactionWithCost(Transaction):
+    """Transaction object that can include the expected gas to be consumed."""
+
+    gas_cost: int = Field(..., exclude=True)
+
+
 class IteratingBytecode(Bytecode):
     """
     Bytecode composed of distinct execution phases: setup, iteration, and
@@ -625,14 +633,38 @@ class IteratingBytecode(Bytecode):
         *,
         fork: Fork,
         iteration_count: int,
+        start_iteration: int = 0,
         **intrinsic_cost_kwargs: Any,
     ) -> int:
         """
         Calculate the exact gas cost of a transaction calling the bytecode
         for a given number of iterations.
+
+        The method accepts intrinsic gas cost kwargs to allow for the
+        calculation of the intrinsic gas cost of the transaction.
+
+        If any of the intrinsic gas cost kwarg is callable, it will be called
+        with iteration_count and start_iteration as keyword arguments.
         """
         intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
-        # Required extra gas for the last iteration due to the 63/64 rule.
+        if "data" in intrinsic_cost_kwargs:
+            intrinsic_cost_kwargs["calldata"] = intrinsic_cost_kwargs.pop(
+                "data"
+            )
+        if "authorization_list" in intrinsic_cost_kwargs:
+            intrinsic_cost_kwargs["authorization_list_or_count"] = len(
+                intrinsic_cost_kwargs.pop("authorization_list")
+            )
+        if "return_cost_deducted_prior_execution" not in intrinsic_cost_kwargs:
+            intrinsic_cost_kwargs["return_cost_deducted_prior_execution"] = (
+                True
+            )
+        for key, value in intrinsic_cost_kwargs.items():
+            if callable(value):
+                intrinsic_cost_kwargs[key] = value(
+                    iteration_count=iteration_count,
+                    start_iteration=start_iteration,
+                )
         return self.gas_cost_by_iteration_count(
             fork=fork, iteration_count=iteration_count
         ) + intrinsic_gas_cost_calc(**intrinsic_cost_kwargs)
@@ -642,6 +674,7 @@ class IteratingBytecode(Bytecode):
         *,
         fork: Fork,
         iteration_count: int,
+        start_iteration: int = 0,
         **intrinsic_cost_kwargs: Any,
     ) -> int:
         """
@@ -654,63 +687,76 @@ class IteratingBytecode(Bytecode):
         return self.tx_gas_cost_by_iteration_count(
             fork=fork,
             iteration_count=iteration_count,
+            start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
         ) + self.iterating_subcall_reserve(fork=fork)
 
-    def tx_iterations_by_gas_limit_cap(
+    def _binary_search_iterations(
         self,
         *,
         fork: Fork,
+        gas_limit: int,
+        start_iteration: int,
         **intrinsic_cost_kwargs: Any,
     ) -> Tuple[int, int]:
         """
-        Calculate the number of iterations needed to reach the fork's
-        transaction gas limit cap.
+        Binary search for the maximum iterations that fit within a gas limit.
         """
-        gas_limit_cap = fork.transaction_gas_limit_cap()
-        if gas_limit_cap is None:
-            raise ValueError("Fork has no gas limit cap.")
+        single_iteration_gas = self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=1,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        )
+        if single_iteration_gas > gas_limit:
+            raise ValueError(
+                "Single iteration gas cost is greater than gas limit."
+            )
+        low = 1
+        high = 2
 
-        # Estimate maximum possible iterations
-        low = 0
-        high = 1
+        # Exponential search to find upper bound
         high_gas_cost = self.tx_gas_limit_by_iteration_count(
             fork=fork,
             iteration_count=high,
+            start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
         )
-        while high_gas_cost < gas_limit_cap:
+        while high_gas_cost < gas_limit:
             low = high
             high *= 2
             high_gas_cost = self.tx_gas_limit_by_iteration_count(
                 fork=fork,
                 iteration_count=high,
+                start_iteration=start_iteration,
                 **intrinsic_cost_kwargs,
             )
 
-        # Binary search for the maximum number of iterations that fits
-        # within both remaining_gas and gas_limit_cap
+        # Binary search for exact fit
         best_iterations = 0
-        best_iterations_gas = 0
-
-        while low <= high:
+        while low < high:
             mid = (low + high) // 2
-            if mid == 0:
-                break
 
-            tx_gas = self.tx_gas_limit_by_iteration_count(
-                fork=fork,
-                iteration_count=mid,
-                **intrinsic_cost_kwargs,
-            )
-
-            if tx_gas <= gas_limit_cap:
-                best_iterations = mid
-                best_iterations_gas = tx_gas
-                low = mid + 1
+            if (
+                self.tx_gas_limit_by_iteration_count(
+                    fork=fork,
+                    iteration_count=mid,
+                    start_iteration=start_iteration,
+                    **intrinsic_cost_kwargs,
+                )
+                > gas_limit
+            ):
+                high = mid
             else:
-                high = mid - 1
+                low = mid + 1
 
+        best_iterations = low - 1
+        best_iterations_gas = self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=best_iterations,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        )
         return best_iterations, best_iterations_gas
 
     def tx_iterations_by_gas_limit(
@@ -718,11 +764,15 @@ class IteratingBytecode(Bytecode):
         *,
         fork: Fork,
         gas_limit: int,
+        start_iteration: int = 0,
         **intrinsic_cost_kwargs: Any,
-    ) -> List[int]:
+    ) -> Generator[int, None, None]:
         """
         Calculate the number of iterations needed to reach the given a
         gas-to-be-used value.
+
+        Each element of the returned list represents the number of iterations
+        for a single transaction.
 
         If the fork's transaction gas limit cap is not `None`, the returned
         list will contain one item per transaction that represents the
@@ -730,86 +780,41 @@ class IteratingBytecode(Bytecode):
         the gas limit cap.
         """
         gas_limit_cap = fork.transaction_gas_limit_cap()
-        result: List[int] = []
         remaining_gas = gas_limit
 
-        if gas_limit_cap is not None and remaining_gas > gas_limit_cap:
-            max_iterations_per_tx, gas_used = (
-                self.tx_iterations_by_gas_limit_cap(
-                    fork=fork,
-                    **intrinsic_cost_kwargs,
-                )
-            )
-            if max_iterations_per_tx == 0:
-                raise ValueError(
-                    "No iterations possible with the given gas limit cap."
-                )
-            txs_with_max_iterations = remaining_gas // gas_used
-            result.extend(
-                max_iterations_per_tx for _ in range(txs_with_max_iterations)
-            )
-            remaining_gas -= gas_used * txs_with_max_iterations
-        single_iteration_gas = self.tx_gas_limit_by_iteration_count(
+        while remaining_gas >= self.tx_gas_limit_by_iteration_count(
             fork=fork,
             iteration_count=1,
+            start_iteration=start_iteration,
             **intrinsic_cost_kwargs,
-        )
-        while remaining_gas >= single_iteration_gas:
-            # Estimate maximum possible iterations
-            low = 1
-            high = 2
-            high_gas_cost = self.tx_gas_limit_by_iteration_count(
-                fork=fork,
-                iteration_count=high,
-                **intrinsic_cost_kwargs,
-            )
-            while high_gas_cost < remaining_gas:
-                low = high
-                high *= 2
-                high_gas_cost = self.tx_gas_limit_by_iteration_count(
-                    fork=fork,
-                    iteration_count=high,
-                    **intrinsic_cost_kwargs,
-                )
-
+        ):
             # Binary search for the maximum number of iterations that fits
             # within remaining_gas
-            best_iterations = 0
-            best_iterations_gas = 0
-            while low <= high:
-                mid = (low + high) // 2
-                if mid == 0:
-                    break
-
-                tx_gas = self.tx_gas_limit_by_iteration_count(
+            max_gas_limit = (
+                min(remaining_gas, gas_limit_cap)
+                if gas_limit_cap is not None
+                else remaining_gas
+            )
+            best_iterations, best_iterations_gas = (
+                self._binary_search_iterations(
                     fork=fork,
-                    iteration_count=mid,
+                    gas_limit=max_gas_limit,
+                    start_iteration=start_iteration,
                     **intrinsic_cost_kwargs,
                 )
-
-                if tx_gas <= remaining_gas:
-                    best_iterations = mid
-                    best_iterations_gas = tx_gas
-                    low = mid + 1
-                else:
-                    high = mid - 1
-
-            if best_iterations == 0:
-                # Can't fit any more iterations
-                break
-
-            result.append(best_iterations)
+            )
+            yield best_iterations
             remaining_gas -= best_iterations_gas
-
-        return result
+            start_iteration += best_iterations
 
     def tx_iterations_by_total_iteration_count(
         self,
         *,
         fork: Fork,
         total_iterations: int,
+        start_iteration: int = 0,
         **intrinsic_cost_kwargs: Any,
-    ) -> List[int]:
+    ) -> Generator[int, None, None]:
         """
         Calculate how to split a total number of iterations across multiple
         transactions so that each transaction fits within the gas limit cap.
@@ -820,23 +825,161 @@ class IteratingBytecode(Bytecode):
         gas_limit_cap = fork.transaction_gas_limit_cap()
         if gas_limit_cap is None:
             # No limit, all iterations fit in a single transaction.
-            return [total_iterations]
+            yield total_iterations
+            return
         remaining_iterations = total_iterations
 
-        max_iterations_per_tx, _ = self.tx_iterations_by_gas_limit_cap(
-            fork=fork,
-            **intrinsic_cost_kwargs,
-        )
-
-        if max_iterations_per_tx == 0:
-            raise ValueError(
-                "No iterations possible with the given gas limit cap."
+        while remaining_iterations > 0:
+            best_iterations, _ = self._binary_search_iterations(
+                fork=fork,
+                gas_limit=gas_limit_cap,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
             )
+            if best_iterations >= remaining_iterations:
+                yield remaining_iterations
+                return
+            else:
+                yield best_iterations
+                remaining_iterations -= best_iterations
+                start_iteration += best_iterations
 
-        full_txs = remaining_iterations // max_iterations_per_tx
-        result = [max_iterations_per_tx] * full_txs
-        remaining_iterations -= max_iterations_per_tx * full_txs
-        return result + [remaining_iterations]
+    # Transaction generators that call the iterating bytecode with given
+    # limits.
+
+    def transactions_by_gas_limit(
+        self,
+        *,
+        fork: Fork,
+        gas_limit: int,
+        start_iteration: int = 0,
+        sender: EOA,
+        to: Address | None,
+        **tx_kwargs: Any,
+    ) -> Generator[TransactionWithCost, None, None]:
+        """
+        Generate a list of transactions calling the bytecode with a given gas
+        limit.
+
+        The method accepts all keyword arguments that can be passed to the
+        `Transaction` constructor.
+
+        If any of the keyword arguments is callable, it will be called with
+        iteration_count and start_iteration as keyword arguments.
+        E.g. when the calldata that needs to be passed to the iterating
+        bytecode changes with each iteration, the calldata can be generated
+        dynamically by passing a callable to the calldata keyword argument.
+
+        The returned object also contains an extra field with the expected
+        gas cost of the transaction by the end of execution.
+        """
+        intrinsic_cost_kwargs = tx_kwargs.copy()
+
+        if "calldata" in tx_kwargs:
+            tx_kwargs["data"] = tx_kwargs.pop("calldata")
+        if "return_cost_deducted_prior_execution" in tx_kwargs:
+            tx_kwargs.pop("return_cost_deducted_prior_execution")
+        for iteration_count in self.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_limit,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        ):
+            tx_gas_limit = self.tx_gas_limit_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
+            tx_gas_cost = self.tx_gas_cost_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
+            current_tx_kwargs = tx_kwargs.copy()
+
+            for key, value in current_tx_kwargs.items():
+                if callable(value):
+                    current_tx_kwargs[key] = value(
+                        iteration_count=iteration_count,
+                        start_iteration=start_iteration,
+                    )
+            yield TransactionWithCost(
+                to=to,
+                gas_limit=tx_gas_limit,
+                sender=sender,
+                gas_cost=tx_gas_cost,
+                **current_tx_kwargs,
+            )
+            start_iteration += iteration_count
+
+    def transactions_by_total_iteration_count(
+        self,
+        *,
+        fork: Fork,
+        total_iterations: int,
+        start_iteration: int = 0,
+        sender: EOA,
+        to: Address | None,
+        **tx_kwargs: Any,
+    ) -> Generator[TransactionWithCost, None, None]:
+        """
+        Generate a list of transactions calling the bytecode with a given
+        total iteration count.
+
+        The method accepts all keyword arguments that can be passed to the
+        `Transaction` constructor.
+
+        If any of the keyword arguments is callable, it will be called with
+        iteration_count and start_iteration as keyword arguments.
+        E.g. when the calldata that needs to be passed to the iterating
+        bytecode changes with each iteration, the calldata can be generated
+        dynamically by passing a callable to the calldata keyword argument.
+
+        The returned object also contains an extra field with the expected
+        gas cost of the transaction by the end of execution.
+        """
+        intrinsic_cost_kwargs = tx_kwargs.copy()
+
+        if "calldata" in tx_kwargs:
+            tx_kwargs["data"] = tx_kwargs.pop("calldata")
+        if "return_cost_deducted_prior_execution" in tx_kwargs:
+            tx_kwargs.pop("return_cost_deducted_prior_execution")
+        for iteration_count in self.tx_iterations_by_total_iteration_count(
+            fork=fork,
+            total_iterations=total_iterations,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        ):
+            tx_gas_limit = self.tx_gas_limit_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
+            tx_gas_cost = self.tx_gas_cost_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
+            current_tx_kwargs = tx_kwargs.copy()
+
+            for key, value in current_tx_kwargs.items():
+                if callable(value):
+                    current_tx_kwargs[key] = value(
+                        iteration_count=iteration_count,
+                        start_iteration=start_iteration,
+                    )
+            yield TransactionWithCost(
+                to=to,
+                gas_limit=tx_gas_limit,
+                sender=sender,
+                gas_cost=tx_gas_cost,
+                **current_tx_kwargs,
+            )
+            start_iteration += iteration_count
 
 
 class FixedIterationsBytecode(IteratingBytecode):
