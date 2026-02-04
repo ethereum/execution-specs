@@ -202,6 +202,7 @@ def test_benchmarking_mode_configured_with_option(
     assert any("benchmark-gas-value_20M" in line for line in result.outlines)
     assert any("benchmark-gas-value_30M" in line for line in result.outlines)
 
+
 def test_benchmark_gas_values_split_into_subdirs(
     pytester: pytest.Pytester, tmp_path: Path
 ) -> None:
@@ -287,24 +288,8 @@ def test_benchmark_gas_values_split_into_subdirs(
             continue
         root_json.append(json_path)
     assert not root_json, f"Unexpected root JSON files: {root_json}"
-                assert unexpected not in key, (
-                    f"Unexpected {unexpected} in key {key} ({file_path})"
-                )
 
-    _assert_keys(gas_1_files, "benchmark-gas-value_1M", "2M")
-    _assert_keys(gas_2_files, "benchmark-gas-value_2M", "1M")
 
-    root_json = []
-    for json_path in output_dir.rglob("*.json"):
-        rel = json_path.relative_to(output_dir)
-        if not rel.parts:
-            continue
-        if rel.parts[0].startswith("gas_limit_"):
-            continue
-        if rel.parts[0] == ".meta":
-            continue
-        root_json.append(json_path)
-    assert not root_json, f"Unexpected root JSON files: {root_json}"
 def test_benchmarking_mode_not_configured_without_option(
     pytester: pytest.Pytester,
 ) -> None:
