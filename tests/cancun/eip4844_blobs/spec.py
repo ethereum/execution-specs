@@ -88,7 +88,9 @@ class SpecHelpers:
     """
 
     BYTES_PER_FIELD_ELEMENT = 32
-    _EXHAUSTIVE_MAX_BLOBS_PER_BLOCK = 9  # Osaka max; exhaustive is tractable up to here
+    _EXHAUSTIVE_MAX_BLOBS_PER_BLOCK = (
+        9  # Osaka max; exhaustive is tractable up to here
+    )
 
     @classmethod
     def get_representative_blob_combinations(
@@ -201,10 +203,10 @@ class SpecHelpers:
             add((m, overflow))
 
         # 5. One blob + full block — e.g. (1,21)
-        # Per-tx-oversized elements must be last: the test sends all txs from one
-        # sender with sequential nonces, so a rejected non-last tx creates a nonce
-        # gap that causes subsequent txs to fail with NONCE_MISMATCH, not the
-        # expected blob error.
+        # Per-tx-oversized elements must be last: the test sends all txs from
+        # one sender with sequential nonces, so a rejected non-last tx creates
+        # a nonce gap that causes subsequent txs to fail with NONCE_MISMATCH,
+        # not the expected blob error.
         add((1, max_blobs_per_block))
 
         # 6. Balanced all-valid: near-equal tx sizes, all within per-tx limit
