@@ -33,12 +33,14 @@ Base cost of a transaction in gas units. This is the minimum amount of gas
 required to execute a transaction.
 """
 
-FLOOR_CALLDATA_COST = Uint(10)
+FLOOR_CALLDATA_COST = Uint(15)
 """
-Minimum gas cost per byte of calldata as per [EIP-7623]. Used to calculate
-the minimum gas cost for transactions that include calldata.
+Minimum gas cost per byte of calldata as per [EIP-7623] and [EIP-7976].
+Used to calculate the minimum gas cost for transactions that include
+calldata.
 
 [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
+[EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
 """
 
 STANDARD_CALLDATA_TOKEN_COST = Uint(4)
@@ -603,10 +605,6 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             zero_bytes += 1
 
     tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
-    # EIP-7623 floor price (note: no EVM costs)
-    calldata_floor_gas_cost = (
-        tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
-    )
 
     data_cost = tokens_in_calldata * STANDARD_CALLDATA_TOKEN_COST
 
@@ -616,6 +614,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         create_cost = Uint(0)
 
     access_list_cost = Uint(0)
+    tokens_in_access_list = Uint(0)
     if isinstance(
         tx,
         (
@@ -631,6 +630,30 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
                 ulen(access.slots) * TX_ACCESS_LIST_STORAGE_KEY_COST
             )
 
+        # EIP-7981: Count data tokens in access list
+        al_zero_bytes = 0
+        for access in tx.access_list:
+            for byte in access.account:
+                if byte == 0:
+                    al_zero_bytes += 1
+            for slot in access.slots:
+                for byte in slot:
+                    if byte == 0:
+                        al_zero_bytes += 1
+        al_total_bytes = sum(
+            len(access.account) + len(access.slots) * 32
+            for access in tx.access_list
+        )
+        tokens_in_access_list = Uint(
+            al_zero_bytes + (al_total_bytes - al_zero_bytes) * 4
+        )
+        # EIP-7981: Always charge data cost for access list
+        access_list_cost += tokens_in_access_list * FLOOR_CALLDATA_COST
+
+    # EIP-7623/7976/7981: Floor includes all data tokens
+    total_data_tokens = tokens_in_calldata + tokens_in_access_list
+    floor_gas_cost = total_data_tokens * FLOOR_CALLDATA_COST + TX_BASE_COST
+
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
         auth_cost += Uint(PER_EMPTY_ACCOUNT_COST * len(tx.authorizations))
@@ -643,7 +666,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             + access_list_cost
             + auth_cost
         ),
-        calldata_floor_gas_cost,
+        floor_gas_cost,
     )
 
 
