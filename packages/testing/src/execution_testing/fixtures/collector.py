@@ -3,7 +3,6 @@ Fixture collector class used to collect, sort and combine the different types
 of generated fixtures.
 """
 
-import heapq
 import json
 import os
 import re
@@ -14,7 +13,6 @@ from typing import (
     IO,
     ClassVar,
     Dict,
-    Generator,
     List,
     Literal,
     Optional,
@@ -28,26 +26,6 @@ from .consume import FixtureConsumer
 from .file import Fixtures
 
 
-def _sorted_entries_from_partial(
-    partial_path: Path,
-) -> Generator[Tuple[str, str], None, None]:
-    """
-    Generator yielding (key, value) pairs from a partial file, sorted by key.
-
-    Loads one partial file into memory at a time (not all partials together).
-    Each worker's partial file is typically small relative to the total.
-    """
-    entries = []
-    with open(partial_path) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                entry = json.loads(line)
-                entries.append((entry["k"], entry["v"]))
-    entries.sort(key=lambda x: x[0])
-    yield from entries
-
-
 def merge_partial_fixture_files(output_dir: Path) -> None:
     """
     Merge all partial fixture JSONL files into final JSON fixture files.
@@ -55,9 +33,8 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
     Called at session end after all workers have written their partials.
     Each partial file contains JSONL lines: {"k": fixture_id, "v": json_str}
 
-    Uses k-way merge: each partial file is sorted individually, then merged
-    using heapq.merge. This keeps memory usage proportional to the largest
-    single partial file, not the total of all partials.
+    Processes one target file at a time, reading its partials sequentially
+    into a dict. Memory = O(entries per target), freed before next target.
     """
     # Find all partial files
     partial_files = list(output_dir.rglob("*.partial.*.jsonl"))
@@ -82,25 +59,30 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
 
     # Merge each group into its target file
     for target_path, partials in partials_by_target.items():
-        # K-way merge: sort each partial individually, then merge streams
-        # Memory = O(largest single partial), not O(sum of all partials)
-        sorted_iterators = [_sorted_entries_from_partial(p) for p in partials]
-        merged = heapq.merge(*sorted_iterators, key=lambda x: x[0])
+        # Read partials sequentially into dict (one at a time)
+        entries: Dict[str, str] = {}
+        for partial in partials:
+            with open(partial) as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        entry = json.loads(line)
+                        entries[entry["k"]] = entry["v"]
 
-        # Stream merged entries to output file
+        # Write sorted entries to output file
         with open(target_path, "w") as out_f:
             out_f.write("{\n")
-            first = True
-            for key, value in merged:
-                if not first:
-                    out_f.write(",\n")
-                first = False
+            sorted_keys = sorted(entries.keys())
+            last_idx = len(sorted_keys) - 1
+            for i, key in enumerate(sorted_keys):
                 key_json = json.dumps(key)
-                value_indented = value.replace("\n", "\n    ")
+                value_indented = entries[key].replace("\n", "\n    ")
                 out_f.write(f"    {key_json}: {value_indented}")
-            if not first:
-                out_f.write("\n")
+                out_f.write(",\n" if i < last_idx else "\n")
             out_f.write("}")
+
+        # Free memory before processing next target
+        entries.clear()
 
         # Clean up partial files
         for partial in partials:

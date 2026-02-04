@@ -1755,13 +1755,33 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     - Generate index file for all produced fixtures.
     - Create tarball of the output directory if the output is a tarball.
     """
+    import time
+    import sys
+
+    def _log_timing(msg: str) -> None:
+        """Log with timestamp and flush immediately for CI visibility."""
+        log_line = f"[sessionfinish] {time.strftime('%H:%M:%S')} {msg}"
+        # Print to both stdout and stderr for CI visibility
+        # (stderr is unbuffered)
+        print(log_line, flush=True)
+        print(log_line, file=sys.stderr, flush=True)
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+    # Log immediately when hook is entered (before any early returns)
+    is_worker = xdist.is_xdist_worker(session)
+    _log_timing(f"pytest_sessionfinish ENTERED (worker={is_worker})")
+
     del exitstatus
 
     # Save pre-allocation groups after phase 1
     fixture_output: FixtureOutput = session.config.fixture_output  # type: ignore[attr-defined]
     session_instance: FillingSession = session.config.filling_session  # type: ignore[attr-defined]
     if session_instance.phase_manager.is_pre_alloc_generation:
+        _log_timing("Phase 1: saving pre-alloc groups...")
+        t0 = time.time()
         session_instance.save_pre_alloc_groups()
+        _log_timing(f"Phase 1: save_pre_alloc_groups done in {time.time() - t0:.1f}s")
         return
 
     if session.config.getoption("optimize_gas", False):
@@ -1780,21 +1800,32 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
                 json.dumps(gas_optimized_tests, indent=2, sort_keys=True)
             )
 
-    if xdist.is_xdist_worker(session):
+    if is_worker:
         return
 
     if fixture_output.is_stdout or is_help_or_collectonly_mode(session.config):
         return
 
+    _log_timing("Finalization (master): starting...")
+
     # Merge partial fixture files from all workers into final JSON files
+    _log_timing("merge_partial_fixture_files: starting...")
+    t0 = time.time()
     merge_partial_fixture_files(fixture_output.directory)
+    _log_timing(f"merge_partial_fixture_files: done in {time.time() - t0:.1f}s")
 
     # Remove any lock files that may have been created.
+    _log_timing("Removing lock files...")
+    t0 = time.time()
     for file in fixture_output.directory.rglob("*.lock"):
         file.unlink()
+    _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
 
     # Verify fixtures after merge if verification is enabled
+    _log_timing("_verify_fixtures_post_merge: starting...")
+    t0 = time.time()
     _verify_fixtures_post_merge(session.config, fixture_output.directory)
+    _log_timing(f"_verify_fixtures_post_merge: done in {time.time() - t0:.1f}s")
 
     # Generate index file for all produced fixtures by merging partial indexes.
     # Only merge if partial indexes were actually written (i.e., tests produced
@@ -1806,7 +1837,15 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     ):
         meta_dir = fixture_output.directory / ".meta"
         if meta_dir.exists() and any(meta_dir.glob("partial_index*.jsonl")):
+            _log_timing("merge_partial_indexes: starting...")
+            t0 = time.time()
             merge_partial_indexes(fixture_output.directory, quiet_mode=True)
+            _log_timing(f"merge_partial_indexes: done in {time.time() - t0:.1f}s")
 
     # Create tarball of the output directory if the output is a tarball.
+    _log_timing("create_tarball: starting...")
+    t0 = time.time()
     fixture_output.create_tarball()
+    _log_timing(f"create_tarball: done in {time.time() - t0:.1f}s")
+
+    _log_timing("Finalization (master): COMPLETE")
