@@ -13,15 +13,13 @@ from execution_testing import (
     Create2PreimageLayout,
     Fork,
     Hash,
+    IteratingBytecode,
     Op,
     TestPhaseManager,
     While,
 )
 
-from tests.benchmark.compute.helpers import (
-    IteratingBytecode,
-    MaxSizedContractFactory,
-)
+from tests.benchmark.compute.helpers import MaxSizedContractFactory
 
 
 @pytest.mark.parametrize(
