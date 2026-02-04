@@ -17,7 +17,7 @@ from typing import (
     Tuple,
 )
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, ValidationError
 
 from execution_testing.base_types import (
     CamelModel,
@@ -351,7 +351,7 @@ class PreAllocGroup(PreAllocGroupBuilder):
         # Try loading as full PreAllocGroup first (backwards compatibility)
         try:
             return cls.model_validate_json(data)
-        except Exception:
+        except ValidationError:
             pass
 
         # Load as builder format and compute genesis

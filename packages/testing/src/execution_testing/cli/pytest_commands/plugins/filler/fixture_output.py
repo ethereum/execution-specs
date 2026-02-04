@@ -3,6 +3,7 @@
 import shutil
 import subprocess
 import tarfile
+import warnings
 from pathlib import Path
 
 import pytest
@@ -275,11 +276,16 @@ class FixtureOutput(BaseModel):
             subprocess.run(
                 ["pigz", "-f", str(temp_tar)], check=True, capture_output=True
             )
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, OSError) as e:
             # Clean up temp file if it exists
             if temp_tar.exists():
                 temp_tar.unlink()
-            # Fall back to standard tarball creation
+            # Fall back to standard tarball creation with warning
+            warnings.warn(
+                f"pigz compression failed ({type(e).__name__}: {e}), "
+                "falling back to standard gzip",
+                stacklevel=2,
+            )
             self._create_tarball_standard()
 
     @classmethod

@@ -13,6 +13,8 @@ import gc
 import json
 import os
 import signal
+import sys
+import time
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1764,18 +1766,12 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     - Generate index file for all produced fixtures.
     - Create tarball of the output directory if the output is a tarball.
     """
-    import sys
-    import time
 
     def _log_timing(msg: str) -> None:
         """Log with timestamp and flush immediately for CI visibility."""
         log_line = f"[sessionfinish] {time.strftime('%H:%M:%S')} {msg}"
-        # Print to both stdout and stderr for CI visibility
-        # (stderr is unbuffered)
-        print(log_line, flush=True)
+        # Print to stderr (unbuffered) for immediate CI visibility
         print(log_line, file=sys.stderr, flush=True)
-        sys.stdout.flush()
-        sys.stderr.flush()
 
     # Log immediately when hook is entered (before any early returns)
     is_worker = xdist.is_xdist_worker(session)
