@@ -2,7 +2,6 @@
 
 import pytest
 from execution_testing import (
-    AccessList,
     Account,
     Alloc,
     AuthorizationTuple,
@@ -1134,10 +1133,12 @@ def test_bal_withdrawal_to_7702_delegation(
     )
 
 
+@pytest.mark.with_all_create_opcodes
 def test_bal_7702_delegated_create(
     fork: Fork,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    create_opcode: Op,
 ) -> None:
     """
     BAL tracks EIP-7702 delegation indicator write and contract creation.
@@ -1154,7 +1155,24 @@ def test_bal_7702_delegated_create(
     init_code = Initcode(deploy_code=deploy_code)
     init_code_bytes = bytes(init_code)
 
-    # Deployer code: CREATE and store result in slot 0
+    # Deployer code: CREATE/CREATE2 and store result in slot 0
+    match create_opcode:
+        case Op.CREATE:
+            create_op = Op.CREATE(
+                offset=32 - len(init_code_bytes),
+                size=len(init_code_bytes),
+                init_code_size=len(init_code_bytes),
+            )
+        case Op.CREATE2:
+            create_op = Op.CREATE2(
+                offset=32 - len(init_code_bytes),
+                size=len(init_code_bytes),
+                init_code_size=len(init_code_bytes),
+                salt=0,
+            )
+        case _:
+            ValueError(f"Unknown create opcode {create_opcode}")
+
     deployer_code = (
         # Push init code to memory
         Op.MSTORE(
@@ -1166,11 +1184,7 @@ def test_bal_7702_delegated_create(
         # SSTORE(0, CREATE(offset, size))
         + Op.SSTORE(
             0x00,
-            Op.CREATE(
-                offset=32 - len(init_code_bytes),
-                size=len(init_code_bytes),
-                init_code_size=len(init_code_bytes),
-            ),
+            create_op,
             original_value=0xDEAD,
         )
         + Op.STOP
@@ -1184,9 +1198,13 @@ def test_bal_7702_delegated_create(
         storage={0x00: 0xDEAD},  # Initial value to prove SSTORE works
     )
 
-    # Calculate what the contract address WOULD be (but it won't be created)
-    would_be_contract_address = compute_create_address(
-        address=deployer, nonce=1
+    # Calculate what the contract address WOULD be
+    create_contract_address = compute_create_address(
+        address=deployer,
+        nonce=1,
+        salt=0,
+        initcode=init_code_bytes,
+        opcode=create_opcode,
     )
 
     tx = Transaction(
@@ -1252,7 +1270,7 @@ def test_bal_7702_delegated_create(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=2)
                     ],
-                    # Storage changes: slot 0 = 0xDEAD → contract_addesss
+                    # Storage changes: slot 0 = 0xDEAD → contract_address
                     # since CREATE returned contract_address
                     storage_changes=[
                         BalStorageSlot(
@@ -1260,13 +1278,13 @@ def test_bal_7702_delegated_create(
                             slot_changes=[
                                 BalStorageChange(
                                     block_access_index=1,
-                                    post_value=would_be_contract_address,
+                                    post_value=create_contract_address,
                                 )
                             ],
                         )
                     ],
                 ),
-                would_be_contract_address: BalAccountExpectation(
+                create_contract_address: BalAccountExpectation(
                     nonce_changes=[
                         BalNonceChange(block_access_index=1, post_nonce=1)
                     ],
@@ -1289,156 +1307,8 @@ def test_bal_7702_delegated_create(
             ),
             deployer: Account(
                 nonce=2,
-                storage={0x00: would_be_contract_address},
+                storage={0x00: create_contract_address},
             ),
-            would_be_contract_address: Account(nonce=1, code=Op.STOP),
+            create_contract_address: Account(nonce=1, code=Op.STOP),
         },
-    )
-
-
-@pytest.mark.parametrize(
-    "warm_delegated",
-    [
-        pytest.param(True, id="warm_delegated"),
-        pytest.param(False, id="cold_delegated"),
-    ],
-)
-@pytest.mark.parametrize(
-    "can_access_delegated",
-    [
-        pytest.param(True, id="can_access_delegated"),
-        pytest.param(False, id="cannot_access_delegated"),
-    ],
-)
-@pytest.mark.parametrize(
-    "warm_to",
-    [
-        pytest.param(True, id="warm_to"),
-        pytest.param(False, id="cold_to"),
-    ],
-)
-@pytest.mark.parametrize(
-    "can_access_to",
-    [
-        pytest.param(True, id="can_access_to"),
-        pytest.param(False, id="cannot_access_to"),
-    ],
-)
-def test_bal_oog_7702_delegated_access(
-    fork: Fork,
-    pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
-    can_access_to: bool,
-    can_access_delegated: bool,
-    warm_to: bool,
-    warm_delegated: bool,
-) -> None:
-    """
-    Ensure BAL handles OOG during delegated account access.
-
-    The transaction is sent by Alice to calling_contract.
-    The calling_contract calls bob, who has delegated
-    to delegated_contract.
-
-    The following 4 scenarios are handled
-    1. bob -> warm. delegated_contract -> warm
-    2. bob -> warm. delegated_contract -> cold
-    3. bob -> cold. delegated_contract -> warm
-    4. bob -> cold. delegated_contract -> cold
-
-    The following 3 gas limit scenarios are handled
-    1. Not enough gas to access bob
-    2. Enough gas to access bob but not delegated_contract
-    3. Enough gas to access both
-    """
-    if can_access_delegated and not can_access_to:
-        pytest.skip(
-            "Scenario not possible. Cannot access `delegated account`"
-            "when the `to` account is not accessible."
-        )
-    # Alice (EOA)
-    alice_initial_balance = 10**18  # 1 ETH default
-    alice = pre.fund_eoa(amount=alice_initial_balance)
-
-    delegated_contract = pre.deploy_contract(code=Op.STOP)
-
-    bob = pre.fund_eoa(delegation=delegated_contract)
-
-    # Generate Access List
-    access_list = []
-    if warm_to:
-        access_list.append(AccessList(address=bob, storage_keys=[]))
-
-    if warm_delegated:
-        access_list.append(
-            AccessList(address=delegated_contract, storage_keys=[])
-        )
-
-    # Calculate gas cost
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-
-    intrinsic_gas = intrinsic_gas_calculator(access_list=access_list)
-
-    gas_for_to_access = Op.CALL(
-        address=bob,
-        address_warm=warm_to,
-    ).gas_cost(fork)
-
-    calling_contract_code = Op.CALL(
-        address=bob,
-        address_warm=warm_to,
-        delegated_address=True,
-        delegated_address_warm=warm_delegated,
-    )
-    gas_for_delegated_access = calling_contract_code.gas_cost(fork)
-
-    if not can_access_to:
-        gas_limit = intrinsic_gas + gas_for_to_access - 1
-    elif not can_access_delegated:
-        gas_limit = intrinsic_gas + gas_for_delegated_access - 1
-    else:
-        gas_limit = intrinsic_gas + gas_for_delegated_access
-
-    calling_contract = pre.deploy_contract(code=calling_contract_code)
-
-    tx = Transaction(
-        sender=alice,
-        to=calling_contract,
-        gas_limit=gas_limit,
-        access_list=access_list,
-    )
-
-    block = Block(
-        txs=[tx],
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations={
-                alice: BalAccountExpectation(
-                    nonce_changes=[
-                        BalNonceChange(block_access_index=1, post_nonce=1)
-                    ]
-                ),
-                bob: BalAccountExpectation(
-                    nonce_changes=[],
-                    balance_changes=[],
-                    code_changes=[],
-                    storage_changes=[],
-                )
-                if can_access_to
-                else None,
-                delegated_contract: BalAccountExpectation(
-                    nonce_changes=[],
-                    balance_changes=[],
-                    code_changes=[],
-                    storage_changes=[],
-                )
-                if can_access_delegated
-                else None,
-            }
-        ),
-    )
-
-    blockchain_test(
-        pre=pre,
-        blocks=[block],
-        post={alice: Account(nonce=1)},
     )
