@@ -227,6 +227,7 @@ dev = [
     { include-group = "doc" },
     { include-group = "mkdocs" },
     "ethereum-execution[optimized]",
+    "psutil>=7.2.2",
 ]
 
 [tool.setuptools.dynamic]
