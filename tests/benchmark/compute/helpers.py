@@ -425,7 +425,7 @@ class MaxSizedContractFactory(IteratingBytecode):
         ):
             if (
                 tx_gas_limit is None
-                or tx_gas_limit is None
+                or tx_gas_cost is None
                 or iteration_count != last_iteration_count
             ):
                 tx_gas_limit = self.tx_gas_limit_by_iteration_count(
