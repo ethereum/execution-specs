@@ -806,8 +806,12 @@ class Frontier(BaseFork, solc_name="homestead"):
         """At frontier, the transaction data floor cost is a constant zero."""
         del block_number, timestamp
 
-        def fn(*, data: BytesConvertible) -> int:
-            del data
+        def fn(
+            *,
+            data: BytesConvertible,
+            access_list: List[AccessList] | None = None,
+        ) -> int:
+            del data, access_list
             return 0
 
         return fn
@@ -2862,7 +2866,12 @@ class Prague(Cancun):
             block_number=block_number, timestamp=timestamp
         )
 
-        def fn(*, data: BytesConvertible) -> int:
+        def fn(
+            *,
+            data: BytesConvertible,
+            access_list: List[AccessList] | None = None,
+        ) -> int:
+            del access_list
             return (
                 calldata_gas_calculator(data=data, floor=True)
                 + gas_costs.G_TRANSACTION
@@ -3422,6 +3431,110 @@ class Amsterdam(BPO2):
     def is_deployed(cls) -> bool:
         """Return True if this fork is deployed."""
         return False
+
+    @classmethod
+    def _access_list_token_count(
+        cls, access_list: List[AccessList] | None
+    ) -> int:
+        """
+        Return the total number of data tokens contributed by an access list.
+
+        Tokens are counted per EIP-7981:
+        - zero byte = 1 token
+        - non-zero byte = 4 tokens
+        """
+        if not access_list:
+            return 0
+
+        tokens = 0
+        for access in access_list:
+            for b in access.address:
+                tokens += 1 if b == 0 else 4
+            for slot in access.storage_keys:
+                for b in slot:
+                    tokens += 1 if b == 0 else 4
+        return tokens
+
+    @classmethod
+    def transaction_data_floor_cost_calculator(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionDataFloorCostCalculator:
+        """
+        On Amsterdam, the floor cost includes calldata and access list tokens
+        per EIP-7981.
+        """
+        calldata_gas_calculator = cls.calldata_gas_calculator(
+            block_number=block_number, timestamp=timestamp
+        )
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
+
+        def fn(
+            *,
+            data: BytesConvertible,
+            access_list: List[AccessList] | None = None,
+        ) -> int:
+            access_list_tokens = cls._access_list_token_count(access_list)
+            return (
+                calldata_gas_calculator(data=data, floor=True)
+                + access_list_tokens * gas_costs.G_TX_DATA_FLOOR_TOKEN_COST
+                + gas_costs.G_TRANSACTION
+            )
+
+        return fn
+
+    @classmethod
+    def transaction_intrinsic_cost_calculator(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionIntrinsicCostCalculator:
+        """
+        On Amsterdam, access list data is charged at the floor token cost and
+        contributes to the floor gas cost per EIP-7981.
+        """
+        super_fn = super(Amsterdam, cls).transaction_intrinsic_cost_calculator(
+            block_number=block_number, timestamp=timestamp
+        )
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
+        transaction_data_floor_cost_calculator = (
+            cls.transaction_data_floor_cost_calculator(
+                block_number=block_number, timestamp=timestamp
+            )
+        )
+
+        def fn(
+            *,
+            calldata: BytesConvertible = b"",
+            contract_creation: bool = False,
+            access_list: List[AccessList] | None = None,
+            authorization_list_or_count: Sized | int | None = None,
+            return_cost_deducted_prior_execution: bool = False,
+        ) -> int:
+            intrinsic_cost: int = super_fn(
+                calldata=calldata,
+                contract_creation=contract_creation,
+                access_list=access_list,
+                authorization_list_or_count=authorization_list_or_count,
+                return_cost_deducted_prior_execution=True,
+            )
+            access_list_tokens = cls._access_list_token_count(access_list)
+            intrinsic_cost += (
+                access_list_tokens * gas_costs.G_TX_DATA_FLOOR_TOKEN_COST
+            )
+
+            if return_cost_deducted_prior_execution:
+                return intrinsic_cost
+
+            transaction_floor_data_cost = (
+                transaction_data_floor_cost_calculator(
+                    data=calldata, access_list=access_list
+                )
+            )
+            return max(intrinsic_cost, transaction_floor_data_cost)
+
+        return fn
 
     @classmethod
     def engine_new_payload_version(
