@@ -19,7 +19,7 @@ from execution_testing import (
     While,
 )
 
-from tests.benchmark.compute.helpers import MaxSizedContractFactory
+from tests.benchmark.compute.helpers import CustomSizedContractFactory
 
 
 @pytest.mark.parametrize(
@@ -50,9 +50,11 @@ def test_unchunkified_bytecode(
     attack_gas_limit = gas_benchmark_value
 
     # Create the max-sized fork-dependent contract factory.
-    max_sized_contract_factory = MaxSizedContractFactory(pre=pre, fork=fork)
-    factory_address = max_sized_contract_factory.address()
-    initcode = max_sized_contract_factory.initcode
+    custom_sized_contract_factory = CustomSizedContractFactory(
+        pre=pre, fork=fork
+    )
+    factory_address = custom_sized_contract_factory.address()
+    initcode = custom_sized_contract_factory.initcode
 
     # Prepare the attack iterating bytecode.
     # Setup is just placing the CREATE2 Preimage in memory.
@@ -125,7 +127,7 @@ def test_unchunkified_bytecode(
     with TestPhaseManager.setup():
         setup_sender = pre.fund_eoa()
         contracts_deployment_txs = list(
-            max_sized_contract_factory.transactions_by_total_contract_count(
+            custom_sized_contract_factory.transactions_by_total_contract_count(
                 fork=fork,
                 sender=setup_sender,
                 contract_count=num_contracts,
@@ -148,7 +150,7 @@ def test_unchunkified_bytecode(
     post = {}
     for i in range(num_contracts):
         deployed_contract_address = (
-            max_sized_contract_factory.created_contract_address(salt=i)
+            custom_sized_contract_factory.created_contract_address(salt=i)
         )
         post[deployed_contract_address] = Account(nonce=1)
 
