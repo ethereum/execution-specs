@@ -39,9 +39,9 @@ runs:
       shell: bash
       run: |
         if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG
         else
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG
         fi
     - name: Generate Benchmark Genesis Files
       if: contains(inputs.release_name, 'benchmark')

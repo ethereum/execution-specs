@@ -11,9 +11,9 @@ import configparser
 import datetime
 import gc
 import json
+import logging
 import os
 import signal
-import sys
 import time
 import warnings
 from dataclasses import dataclass, field
@@ -1766,15 +1766,21 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     - Generate index file for all produced fixtures.
     - Create tarball of the output directory if the output is a tarball.
     """
+    logger = logging.getLogger("fill.sessionfinish")
+    is_worker = xdist.is_xdist_worker(session)
+
+    # Workers collect logs to forward to master via workeroutput
+    worker_timing_logs: list[str] = []
 
     def _log_timing(msg: str) -> None:
-        """Log with timestamp and flush immediately for CI visibility."""
+        """Log with timestamp. Workers collect logs; master logs directly."""
         log_line = f"[sessionfinish] {time.strftime('%H:%M:%S')} {msg}"
-        # Print to stderr (unbuffered) for immediate CI visibility
-        print(log_line, file=sys.stderr, flush=True)
+        if is_worker:
+            worker_timing_logs.append(log_line)
+        else:
+            logger.debug(log_line)
 
     # Log immediately when hook is entered (before any early returns)
-    is_worker = xdist.is_xdist_worker(session)
     _log_timing(f"pytest_sessionfinish ENTERED (worker={is_worker})")
 
     del exitstatus
@@ -1804,6 +1810,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             # waiting for other workers to finish
             session_instance.pre_alloc_group_builders = None
             gc.collect()
+            # Store timing logs for master to print when this worker finishes
+            session.config.workeroutput["timing_logs"] = worker_timing_logs  # type: ignore[attr-defined] # noqa: E501
 
         return
 
@@ -1832,6 +1840,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             fc.all_fixtures.clear()
             fc._fixtures_to_verify.clear()
         gc.collect()
+        # Store timing logs for master to print when this worker finishes
+        session.config.workeroutput["timing_logs"] = worker_timing_logs  # type: ignore[attr-defined] # noqa: E501
         return
 
     if fixture_output.is_stdout or is_help_or_collectonly_mode(session.config):
@@ -1848,19 +1858,22 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     )
 
     # Remove any lock files that may have been created.
-    _log_timing("Removing lock files...")
-    t0 = time.time()
-    for file in fixture_output.directory.rglob("*.lock"):
-        file.unlink()
-    _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
+    lock_files = list(fixture_output.directory.rglob("*.lock"))
+    if lock_files:
+        _log_timing(f"Removing {len(lock_files)} lock files...")
+        t0 = time.time()
+        for file in lock_files:
+            file.unlink()
+        _log_timing(f"Lock files removed in {time.time() - t0:.1f}s")
 
     # Verify fixtures after merge if verification is enabled
-    _log_timing("_verify_fixtures_post_merge: starting...")
-    t0 = time.time()
-    _verify_fixtures_post_merge(session.config, fixture_output.directory)
-    _log_timing(
-        f"_verify_fixtures_post_merge: done in {time.time() - t0:.1f}s"
-    )
+    if session.config.getoption("verify_fixtures"):
+        _log_timing("_verify_fixtures_post_merge: starting...")
+        t0 = time.time()
+        _verify_fixtures_post_merge(session.config, fixture_output.directory)
+        _log_timing(
+            f"_verify_fixtures_post_merge: done in {time.time() - t0:.1f}s"
+        )
 
     # Generate index file for all produced fixtures by merging partial indexes.
     # Only merge if partial indexes were actually written (i.e., tests produced
@@ -1880,9 +1893,24 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             )
 
     # Create tarball of the output directory if the output is a tarball.
-    _log_timing("create_tarball: starting...")
-    t0 = time.time()
-    fixture_output.create_tarball()
-    _log_timing(f"create_tarball: done in {time.time() - t0:.1f}s")
+    if fixture_output.is_tarball:
+        _log_timing("create_tarball: starting...")
+        t0 = time.time()
+        fixture_output.create_tarball()
+        _log_timing(f"create_tarball: done in {time.time() - t0:.1f}s")
 
     _log_timing("Finalization (master): COMPLETE")
+
+
+def pytest_testnodedown(node: Any, error: Any) -> None:
+    """
+    Called on master when a worker node finishes.
+
+    Prints any timing logs collected by the worker during sessionfinish.
+    """
+    del error
+    logger = logging.getLogger("fill.sessionfinish")
+    worker_id = getattr(node, "workerinput", {}).get("workerid", "unknown")
+    timing_logs = getattr(node, "workeroutput", {}).get("timing_logs", [])
+    for log_line in timing_logs:
+        logger.debug(f"[worker {worker_id}] {log_line}")

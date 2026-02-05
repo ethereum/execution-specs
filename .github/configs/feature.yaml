@@ -1,22 +1,22 @@
 # Unless filling for special features, all features should fill for previous forks (starting from Frontier) too
 stable:
   evm-type: stable
-  fill-params: --until=Prague --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest --no-html --durations=50
+  fill-params: --until=Prague --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
 
 develop:
   evm-type: develop
-  fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest --no-html --durations=50
+  fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
 
 benchmark:
   evm-type: benchmark
-  fill-params: --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 -m benchmark ./tests/benchmark --no-html --durations=50 --maxprocesses=30 --dist=worksteal
+  fill-params: --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 -m benchmark ./tests/benchmark --maxprocesses=30 --dist=worksteal
 
 benchmark_fast:
   evm-type: benchmark
-  fill-params: --fork=Osaka --gas-benchmark-values 100 -m "benchmark" ./tests/benchmark --no-html --durations=50
+  fill-params: --fork=Osaka --gas-benchmark-values 100 -m "benchmark" ./tests/benchmark
   feature_only: true
 
 bal:
   evm-type: develop
-  fill-params: --fork=Amsterdam --fill-static-tests --no-html --durations=50
+  fill-params: --fork=Amsterdam --fill-static-tests
   feature_only: true
