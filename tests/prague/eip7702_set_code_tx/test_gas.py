@@ -22,7 +22,6 @@ from execution_testing import (
     BalNonceChange,
     BlockAccessListExpectation,
     Bytecode,
-    Bytes,
     ChainConfig,
     CodeGasMeasure,
     Fork,
@@ -181,10 +180,7 @@ def authority_iterator(
                     assert not self_sponsored or i > 0, (
                         "Self-sponsored contract authority is not supported"
                     )
-                    authority = pre.fund_eoa()
-                    authority_account = pre[authority]
-                    assert authority_account is not None
-                    authority_account.code = Bytes(Op.STOP)
+                    authority = pre.fund_eoa(code=Op.STOP)
                     yield AuthorityWithProperties(
                         authority=authority,
                         address_type=current_authority_type,
@@ -726,7 +722,14 @@ def gas_test_parameter_args(
             {
                 "authority_type": AddressType.CONTRACT,
             },
-            marks=pytest.mark.pre_alloc_modify,
+            marks=[
+                pytest.mark.pre_alloc_modify,
+                pytest.mark.execute(
+                    pytest.mark.skip(
+                        reason="Requires contract-eoa address collision"
+                    )
+                ),
+            ],
             id="single_valid_authorization_invalid_contract_authority",
         ),
         pytest.param(
@@ -738,7 +741,14 @@ def gas_test_parameter_args(
                 ],
                 "authorizations_count": multiple_authorizations_count,
             },
-            marks=pytest.mark.pre_alloc_modify,
+            marks=[
+                pytest.mark.pre_alloc_modify,
+                pytest.mark.execute(
+                    pytest.mark.skip(
+                        reason="Requires contract-eoa address collision"
+                    )
+                ),
+            ],
             id="multiple_authorizations_empty_account_then_contract_authority",
         ),
         pytest.param(
@@ -747,7 +757,14 @@ def gas_test_parameter_args(
                 "authority_type": [AddressType.EOA, AddressType.CONTRACT],
                 "authorizations_count": multiple_authorizations_count,
             },
-            marks=pytest.mark.pre_alloc_modify,
+            marks=[
+                pytest.mark.pre_alloc_modify,
+                pytest.mark.execute(
+                    pytest.mark.skip(
+                        reason="Requires contract-eoa address collision"
+                    )
+                ),
+            ],
             id="multiple_authorizations_eoa_then_contract_authority",
         ),
         pytest.param(
@@ -757,7 +774,14 @@ def gas_test_parameter_args(
                 "authority_type": [AddressType.EOA, AddressType.CONTRACT],
                 "authorizations_count": multiple_authorizations_count,
             },
-            marks=pytest.mark.pre_alloc_modify,
+            marks=[
+                pytest.mark.pre_alloc_modify,
+                pytest.mark.execute(
+                    pytest.mark.skip(
+                        reason="Requires contract-eoa address collision"
+                    )
+                ),
+            ],
             id="multiple_authorizations_eoa_self_sponsored_then_contract_authority",
         ),
     ]

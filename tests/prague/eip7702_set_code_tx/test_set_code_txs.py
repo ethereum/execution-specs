@@ -4011,7 +4011,9 @@ def test_set_code_from_account_with_non_delegating_code(
     delegating) But at the same time it has auth tuple that will point this
     sender account To be eoa, delegation, contract .. etc
     """
-    sender = pre.fund_eoa(nonce=1)
+    # Set the sender account to have some code, that is specifically not a
+    # delegation.
+    sender = pre.fund_eoa(nonce=1, code=Op.STOP)
     random_address = pre.fund_eoa(0)
 
     set_code_to_address: Address
@@ -4028,12 +4030,6 @@ def test_set_code_from_account_with_non_delegating_code(
         case _:
             raise ValueError(f"Unsupported set code type: {set_code_type}")
     callee_address = pre.deploy_contract(Op.SSTORE(0, 1) + Op.STOP)
-
-    # Set the sender account to have some code, that is specifically not a
-    # delegation.
-    sender_account = pre[sender]
-    assert sender_account is not None
-    sender_account.code = Bytes(Op.STOP)
 
     tx = Transaction(
         gas_limit=100_000,
