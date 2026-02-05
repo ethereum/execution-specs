@@ -227,6 +227,9 @@ class MaxSizedContractInitcode(FixedIterationsBytecode):
     fork's limits.
     """
 
+    _cached_address: Address
+    """Cached address to avoid expensive recomputation."""
+
     def __new__(cls, *, pre: Alloc, fork: Fork) -> Self:
         """
         Create a new MaxSizedContractInitcode instance.
@@ -292,19 +295,21 @@ class MaxSizedContractInitcode(FixedIterationsBytecode):
             cleanup=cleanup,
             iteration_count=iteration_count,
         )
+        # Cache the address to avoid expensive recomputation
+        instance._cached_address = compute_deterministic_create2_address(
+            salt=0,
+            initcode=Initcode(deploy_code=instance),
+            fork=fork,
+        )
         deployed_address = pre.deterministic_deploy_contract(
             deploy_code=instance
         )
-        assert deployed_address == instance.address(fork=fork)
+        assert deployed_address == instance._cached_address
         return instance
 
-    def address(self, *, fork: Fork) -> Address:
+    def address(self) -> Address:
         """Get the deterministic address of the initcode."""
-        return compute_deterministic_create2_address(
-            salt=0,
-            initcode=Initcode(deploy_code=self),
-            fork=fork,
-        )
+        return self._cached_address
 
 
 class MaxSizedContractFactory(IteratingBytecode):
@@ -322,6 +327,9 @@ class MaxSizedContractFactory(IteratingBytecode):
     initcode: MaxSizedContractInitcode
     """The initcode used to deploy maximum-sized contracts via CREATE2."""
 
+    _cached_address: Address
+    """Cached address to avoid expensive recomputation."""
+
     def __new__(cls, *, pre: Alloc, fork: Fork) -> Self:
         """
         Create a new MaxSizedContractFactory instance.
@@ -337,7 +345,7 @@ class MaxSizedContractFactory(IteratingBytecode):
 
         """
         initcode = MaxSizedContractInitcode(pre=pre, fork=fork)
-        initcode_address = initcode.address(fork=fork)
+        initcode_address = initcode.address()
         setup = (
             Op.EXTCODECOPY(
                 address=initcode_address,
@@ -381,10 +389,16 @@ class MaxSizedContractFactory(IteratingBytecode):
             cleanup=cleanup,
         )
         instance.initcode = initcode
+        # Cache the address to avoid expensive recomputation
+        instance._cached_address = compute_deterministic_create2_address(
+            salt=0,
+            initcode=Initcode(deploy_code=instance),
+            fork=fork,
+        )
         deployed_address = pre.deterministic_deploy_contract(
             deploy_code=instance
         )
-        assert deployed_address == instance.address(fork=fork)
+        assert deployed_address == instance._cached_address
         return instance
 
     def transactions_by_total_contract_count(
@@ -400,7 +414,7 @@ class MaxSizedContractFactory(IteratingBytecode):
         given number of contracts, each capped tx properly capped by the
         gas limit cap of the fork.
         """
-        to = self.address(fork=fork)
+        to = self.address()
 
         # Use a sensible hardcoded maximum for the calldata, to avoid
         # binary searching.
@@ -450,18 +464,14 @@ class MaxSizedContractFactory(IteratingBytecode):
             start_iteration += iteration_count
             last_iteration_count = iteration_count
 
-    def address(self, *, fork: Fork) -> Address:
-        """Get the deterministic address of the initcode."""
-        return compute_deterministic_create2_address(
-            salt=0,
-            initcode=Initcode(deploy_code=self),
-            fork=fork,
-        )
+    def address(self) -> Address:
+        """Get the deterministic address of the factory contract."""
+        return self._cached_address
 
-    def created_contract_address(self, *, fork: Fork, salt: int) -> Address:
+    def created_contract_address(self, *, salt: int) -> Address:
         """Get the deterministic address of the created contract."""
         return compute_create2_address(
-            address=self.address(fork=fork),
+            address=self.address(),
             salt=salt,
             initcode=self.initcode,
         )

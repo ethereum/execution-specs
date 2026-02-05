@@ -51,7 +51,7 @@ def test_unchunkified_bytecode(
 
     # Create the max-sized fork-dependent contract factory.
     max_sized_contract_factory = MaxSizedContractFactory(pre=pre, fork=fork)
-    factory_address = max_sized_contract_factory.address(fork=fork)
+    factory_address = max_sized_contract_factory.address()
     initcode = max_sized_contract_factory.initcode
 
     # Prepare the attack iterating bytecode.
@@ -148,9 +148,7 @@ def test_unchunkified_bytecode(
     post = {}
     for i in range(num_contracts):
         deployed_contract_address = (
-            max_sized_contract_factory.created_contract_address(
-                fork=fork, salt=i
-            )
+            max_sized_contract_factory.created_contract_address(salt=i)
         )
         post[deployed_contract_address] = Account(nonce=1)
 
