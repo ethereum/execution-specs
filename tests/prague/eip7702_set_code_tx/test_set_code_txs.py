@@ -3094,8 +3094,6 @@ def test_set_code_to_system_contract(
     )
     caller_code_address = pre.deploy_contract(caller_code)
     sender = pre.fund_eoa()
-    if call_value > 0:
-        pre.fund_address(sender, call_value)
 
     txs = [
         Transaction(

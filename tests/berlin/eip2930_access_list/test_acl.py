@@ -233,7 +233,6 @@ def test_transaction_intrinsic_gas_cost(
     )
     sender = pre.fund_eoa()
     tx_value = 1
-    pre.fund_address(sender, tx_value)
 
     contract_creation = False
     tx_data = b""

@@ -51,7 +51,6 @@ def test_system_contract_deployment(
         fee=Spec.get_fee(0),
         source_address=sender,
     )
-    pre.fund_address(sender, consolidation_request.value)
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     test_transaction_gas = intrinsic_gas_calculator(
         calldata=consolidation_request.calldata
