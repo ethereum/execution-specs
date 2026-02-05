@@ -133,6 +133,11 @@ class EIPChecklist:
 
                 pass
 
+            class MissedLines(ChecklistItem):
+                """Document missed lines in coverage reports."""
+
+                pass
+
             class SecondClient(ChecklistItem):
                 """Second client code coverage."""
 

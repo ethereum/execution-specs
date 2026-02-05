@@ -1,0 +1,37 @@
+name: Test checklist consistency
+
+on:
+  push:
+    branches:
+      - master
+      - mainnet
+    paths: &checklist_paths
+      - "docs/writing_tests/checklist_templates/**"
+      - "packages/testing/src/execution_testing/checklists/eip_checklist.py"
+      - "packages/testing/src/execution_testing/checklists/eip_checklist.pyi"
+      - "packages/testing/src/execution_testing/checklists/tests/test_checklist_template_consistency.py"
+      - ".github/workflows/test-checklist.yaml"
+  pull_request:
+    paths: *checklist_paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  checklist-consistency:
+    name: Test checklist template consistency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ethereum/execution-specs
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+      - name: Run checklist consistency test
+        run: uvx tox -e tests_pytest_py3 -- -k test_checklist_template_consistency
