@@ -4,15 +4,18 @@ runs:
   using: "composite"
   steps:
     - name: Install Rust
+      uses: dtolnay/rust-toolchain@888c2e1ea69ab0d4330cbf0af1ecc7b68f368cc1
+      with:
+        toolchain: 1.89.0
+
+    - name: Install build-essential
       shell: bash
-      run: |
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential rustup
-        rustup update --no-self-update 1.89.0 && rustup default 1.89.0
+      run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes build-essential
 
     - name: Install Tox and any other packages
       shell: bash
       run: |
-        DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes build-essential pkg-config
         pip install 'tox>=4.11,<5' requests
 
     - name: Download Geth and add to $PATH
