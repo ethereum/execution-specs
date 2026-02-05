@@ -250,15 +250,15 @@ def test_benchmark_gas_values_split_into_subdirs(
 
     assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
 
-    gas_1_dir = output_dir / "gas_limit_0001M"
-    gas_2_dir = output_dir / "gas_limit_0002M"
+    gas_1_dir = output_dir / "blockchain_tests" / "benchmark_gas_limit_0001M"
+    gas_2_dir = output_dir / "blockchain_tests" / "benchmark_gas_limit_0002M"
     assert gas_1_dir.exists()
     assert gas_2_dir.exists()
 
     gas_1_files = list(gas_1_dir.rglob("*.json"))
     gas_2_files = list(gas_2_dir.rglob("*.json"))
-    assert gas_1_files, "Expected fixtures under gas_limit_0001M"
-    assert gas_2_files, "Expected fixtures under gas_limit_0002M"
+    assert gas_1_files, "Expected fixtures under benchmark_gas_limit_0001M"
+    assert gas_2_files, "Expected fixtures under benchmark_gas_limit_0002M"
 
     def _assert_keys(
         files: list[Path], expected: str, unexpected: str
@@ -282,12 +282,28 @@ def test_benchmark_gas_values_split_into_subdirs(
         rel = json_path.relative_to(output_dir)
         if not rel.parts:
             continue
-        if rel.parts[0].startswith("gas_limit_"):
+        if rel.parts[0].startswith("benchmark_gas_limit_"):
             continue
         if rel.parts[0] == ".meta":
             continue
+        if rel.parts[0] in (
+            "blockchain_tests",
+            "blockchain_tests_engine",
+            "blockchain_tests_engine_x",
+        ):
+            continue
         root_json.append(json_path)
     assert not root_json, f"Unexpected root JSON files: {root_json}"
+
+    top_level_benchmark_dirs = [
+        p
+        for p in output_dir.iterdir()
+        if p.is_dir() and p.name.startswith("benchmark_gas_limit_")
+    ]
+    assert not top_level_benchmark_dirs, (
+        "Unexpected top-level benchmark_gas_limit dirs: "
+        f"{top_level_benchmark_dirs}"
+    )
 
 
 def test_benchmarking_mode_not_configured_without_option(

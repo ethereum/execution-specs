@@ -1794,12 +1794,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     for name in ("benchmark", "stateful", "repricing")
                 )
                 if gas_benchmark_values is not None and is_benchmark_test:
-                    output_subdir = Path(
-                        format_gas_limit_subdir(
-                            gas_benchmark_value,
-                            gas_benchmark_values.root,
-                        )
+                    gas_limit_subdir = format_gas_limit_subdir(
+                        gas_benchmark_value,
+                        gas_benchmark_values.root,
                     )
+                    output_subdir = Path(f"benchmark_{gas_limit_subdir}")
 
                 fixture_path = fixture_collector.add_fixture(
                     node_to_test_info(request.node),

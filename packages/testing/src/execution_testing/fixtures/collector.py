@@ -257,15 +257,19 @@ class FixtureCollector:
     ) -> Path:
         """Add fixture and immediately stream to partial JSONL file."""
         fixture_basename = self.get_fixture_basename(info)
+        if output_subdir is not None and output_subdir.name.startswith(
+            "benchmark_gas_limit_"
+        ):
+            parts = fixture_basename.parts
+            if parts and parts[0] == "benchmark":
+                fixture_basename = Path(*parts[1:])
 
-        effective_output_dir = self.output_dir
+        format_output_dir = self.output_dir / fixture.output_base_dir_name()
         if output_subdir is not None and self.output_dir.name != "stdout":
-            effective_output_dir = self.output_dir / output_subdir
+            format_output_dir = format_output_dir / output_subdir
 
-        fixture_path = (
-            effective_output_dir
-            / fixture.output_base_dir_name()
-            / fixture_basename.with_suffix(fixture.output_file_extension)
+        fixture_path = format_output_dir / fixture_basename.with_suffix(
+            fixture.output_file_extension
         )
 
         # Stream fixture directly to partial JSONL (no memory accumulation)

@@ -38,8 +38,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Gas limits (in millions) for benchmark tests. "
             "Example: '100,500' runs tests with 100M and 500M gas. "
-            "Benchmark outputs are grouped under gas_limit_XXXXM/ "
-            "subdirectories. "
+            "Benchmark outputs are grouped under "
+            "benchmark_gas_limit_XXXXM/ subdirectories. "
             f"Cannot be used with {OpcodeCountsConfig.flag}."
         ),
     )
