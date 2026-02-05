@@ -547,7 +547,7 @@ def test_account_query(
             for i in range(start_iteration, start_iteration + iteration_count)
         ]
 
-    attack_address = pre.deploy_contract(code=attack_code)
+    attack_address = pre.deploy_contract(code=attack_code, balance=10**21)
 
     # Calculate the number of contracts to be targeted.
     num_contracts = sum(
