@@ -402,18 +402,53 @@ class MaxSizedContractFactory(IteratingBytecode):
         """
         to = self.address(fork=fork)
 
+        # Use a sensible hardcoded maximum for the calldata, to avoid
+        # binary searching.
+        max_number = (2 ** (contract_count.bit_length() + 1)) - 1
+        calldata_max = Hash(max_number) + Hash(max_number)
+
         def calldata(iteration_count: int, start_iteration: int) -> bytes:
             index_end = iteration_count + start_iteration - 1
             return Hash(start_iteration) + Hash(index_end)
 
-        yield from self.transactions_by_total_iteration_count(
+        start_iteration: int = contract_start_index
+
+        tx_gas_limit: int | None = None
+        tx_gas_cost: int | None = None
+        last_iteration_count: int = 0
+
+        for iteration_count in self.tx_iterations_by_total_iteration_count(
             fork=fork,
             total_iterations=contract_count,
-            start_iteration=contract_start_index,
-            sender=sender,
-            to=to,
-            calldata=calldata,
-        )
+            start_iteration=start_iteration,
+            calldata=calldata_max,
+        ):
+            if (
+                tx_gas_limit is None
+                or tx_gas_limit is None
+                or iteration_count != last_iteration_count
+            ):
+                tx_gas_limit = self.tx_gas_limit_by_iteration_count(
+                    fork=fork,
+                    iteration_count=iteration_count,
+                    start_iteration=start_iteration,
+                    calldata=calldata_max,
+                )
+                tx_gas_cost = self.tx_gas_cost_by_iteration_count(
+                    fork=fork,
+                    iteration_count=iteration_count,
+                    start_iteration=start_iteration,
+                    calldata=calldata_max,
+                )
+            yield TransactionWithCost(
+                to=to,
+                gas_limit=tx_gas_limit,
+                sender=sender,
+                gas_cost=tx_gas_cost,
+                data=calldata(iteration_count, start_iteration),
+            )
+            start_iteration += iteration_count
+            last_iteration_count = iteration_count
 
     def address(self, *, fork: Fork) -> Address:
         """Get the deterministic address of the initcode."""

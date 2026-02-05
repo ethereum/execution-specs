@@ -1,7 +1,7 @@
 """Code generating classes and functions."""
 
 from dataclasses import dataclass
-from typing import Any, Generator, List, Self, SupportsBytes, Tuple, Type
+from typing import Any, Dict, Generator, List, Self, SupportsBytes, Tuple, Type
 
 from pydantic import Field
 
@@ -807,6 +807,16 @@ class IteratingBytecode(Bytecode):
             remaining_gas -= best_iterations_gas
             start_iteration += best_iterations
 
+    def _intrinsic_cost_is_constant(
+        self,
+        intrinsic_cost_kwargs: Dict[str, Any],
+    ) -> bool:
+        """If none of the kwarg values is callable, return True."""
+        for _, value in intrinsic_cost_kwargs.items():
+            if callable(value):
+                return False
+        return True
+
     def tx_iterations_by_total_iteration_count(
         self,
         *,
@@ -828,14 +838,19 @@ class IteratingBytecode(Bytecode):
             yield total_iterations
             return
         remaining_iterations = total_iterations
+        best_iterations: int | None = None
+        constant_intrinsic_gas_cost = self._intrinsic_cost_is_constant(
+            intrinsic_cost_kwargs
+        )
 
         while remaining_iterations > 0:
-            best_iterations, _ = self._binary_search_iterations(
-                fork=fork,
-                gas_limit=gas_limit_cap,
-                start_iteration=start_iteration,
-                **intrinsic_cost_kwargs,
-            )
+            if best_iterations is None or not constant_intrinsic_gas_cost:
+                best_iterations, _ = self._binary_search_iterations(
+                    fork=fork,
+                    gas_limit=gas_limit_cap,
+                    start_iteration=start_iteration,
+                    **intrinsic_cost_kwargs,
+                )
             if best_iterations >= remaining_iterations:
                 yield remaining_iterations
                 return
