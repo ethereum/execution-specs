@@ -241,6 +241,55 @@ def test_macros() -> None:
 
 
 @pytest.mark.parametrize(
+    "data,offset",
+    [
+        pytest.param(b"", 0, id="empty"),
+        pytest.param(bytes(range(32)), 0, id="exactly_32_bytes_offset_0"),
+        pytest.param(bytes(range(64)), 0, id="exactly_64_bytes_offset_0"),
+        pytest.param(bytes(range(12)), 0, id="partial_12_bytes_offset_0"),
+        pytest.param(bytes(range(33)), 0, id="33_bytes_offset_0"),
+        pytest.param(bytes(range(63)), 0, id="63_bytes_offset_0"),
+        pytest.param(bytes(range(32)), 32, id="exactly_32_bytes_offset_32"),
+        pytest.param(bytes(range(12)), 64, id="partial_12_bytes_offset_64"),
+    ],
+)
+def test_mstore_macro_memory_metadata(data: bytes, offset: int) -> None:
+    """Test that Om.MSTORE sets memory size metadata on emitted opcodes."""
+    bytecode = Om.MSTORE(data, offset)
+    if len(data) == 0:
+        assert len(bytecode.opcode_list) == 0
+        return
+
+    # Collect all memory metadata from the opcode list
+    memory_opcodes = [
+        op
+        for op in bytecode.opcode_list
+        if op.metadata.get("new_memory_size", 0) > 0
+    ]
+
+    # At least one opcode must carry memory expansion metadata
+    assert len(memory_opcodes) > 0, "No opcodes with memory metadata found"
+
+    # The maximum new_memory_size should reflect the full data stored
+    num_chunks = (len(data) + 31) // 32
+    expected_final_memory_size = offset + num_chunks * 32
+    max_new_memory = max(
+        op.metadata["new_memory_size"] for op in memory_opcodes
+    )
+    assert max_new_memory == expected_final_memory_size
+
+    # First memory-expanding opcode should have old_memory_size=0
+    assert memory_opcodes[0].metadata["old_memory_size"] == 0
+
+    # Each subsequent memory opcode should chain: old = previous new
+    for i in range(1, len(memory_opcodes)):
+        assert (
+            memory_opcodes[i].metadata["old_memory_size"]
+            == memory_opcodes[i - 1].metadata["new_memory_size"]
+        )
+
+
+@pytest.mark.parametrize(
     "bytecode,expected_popped_items,expected_pushed_items,"
     "expected_max_stack_height,expected_min_stack_height",
     [

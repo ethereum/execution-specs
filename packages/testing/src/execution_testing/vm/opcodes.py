@@ -5694,14 +5694,25 @@ def _mstore_operation(
         data = data.to_bytes(32, "big")
     data = to_bytes(data)  # type: ignore
     bytecode = Bytecode()
+    current_memory_size = 0
     for i in range(0, len(data), 32):
         chunk = data[i : i + 32]
+        new_memory_size = offset + 32
         if len(chunk) == 32:
-            bytecode += Opcodes.MSTORE(offset, chunk)
+            bytecode += Opcodes.MSTORE(
+                offset,
+                chunk,
+                old_memory_size=current_memory_size,
+                new_memory_size=new_memory_size,
+            )
         else:
             # We need to MLOAD the existing data at the offset and then
             # do a bitwise OR with the new data to store it in memory.
-            bytecode += Opcodes.MLOAD(offset)
+            bytecode += Opcodes.MLOAD(
+                offset,
+                old_memory_size=current_memory_size,
+                new_memory_size=new_memory_size,
+            )
             # Create a mask to zero out the leftmost bytes of
             # the existing data.
             mask_size = 32 - len(chunk)
@@ -5711,6 +5722,7 @@ def _mstore_operation(
             bytecode += Opcodes.OR
             bytecode += _stack_argument_to_bytecode(offset)
             bytecode += Opcodes.MSTORE
+        current_memory_size = new_memory_size
         offset += len(chunk)
     return bytecode
 

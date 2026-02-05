@@ -21,6 +21,9 @@ from execution_testing import (
     Withdrawal,
     compute_create_address,
 )
+from execution_testing import (
+    Macros as Om,
+)
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import ref_spec_7928
@@ -1153,41 +1156,16 @@ def test_bal_7702_delegated_create(
     # Simple init code that deploys STOP
     deploy_code = Op.STOP
     init_code = Initcode(deploy_code=deploy_code)
-    init_code_bytes = bytes(init_code)
 
     # Deployer code: CREATE/CREATE2 and store result in slot 0
-    match create_opcode:
-        case Op.CREATE:
-            create_op = Op.CREATE(
-                offset=32 - len(init_code_bytes),
-                size=len(init_code_bytes),
-                init_code_size=len(init_code_bytes),
-            )
-        case Op.CREATE2:
-            create_op = Op.CREATE2(
-                offset=32 - len(init_code_bytes),
-                size=len(init_code_bytes),
-                init_code_size=len(init_code_bytes),
-                salt=0,
-            )
-        case _:
-            ValueError(f"Unknown create opcode {create_opcode}")
-
-    deployer_code = (
-        # Push init code to memory
-        Op.MSTORE(
-            0,
-            Op.PUSH32(init_code_bytes),
-            new_memory_size=32,
-            old_memory_size=0,
-        )
-        # SSTORE(0, CREATE(offset, size))
-        + Op.SSTORE(
-            0x00,
-            create_op,
-            original_value=0xDEAD,
-        )
-        + Op.STOP
+    deployer_code = Om.MSTORE(init_code) + Op.SSTORE(
+        0,
+        create_opcode(
+            offset=0,
+            size=len(init_code),
+            init_code_size=len(init_code),
+        ),
+        original_value=0xDEAD,
     )
 
     deployer_initial_balance = 10**18  # 1 ETH default
@@ -1201,9 +1179,8 @@ def test_bal_7702_delegated_create(
     # Calculate what the contract address WOULD be
     create_contract_address = compute_create_address(
         address=deployer,
+        initcode=init_code,
         nonce=1,
-        salt=0,
-        initcode=init_code_bytes,
         opcode=create_opcode,
     )
 
