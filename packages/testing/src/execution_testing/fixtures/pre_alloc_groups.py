@@ -17,7 +17,7 @@ from typing import (
     Tuple,
 )
 
-from pydantic import Field, PrivateAttr, ValidationError
+from pydantic import Field, PrivateAttr
 
 from execution_testing.base_types import (
     CamelModel,
@@ -340,21 +340,13 @@ class PreAllocGroup(PreAllocGroupBuilder):
         """
         Load a pre-allocation group from a JSON file.
 
-        Handles both builder format (without genesis) and full format (with
-        genesis). If genesis is missing, computes it from the pre-allocation
-        state. This ensures state root computation happens exactly once when
-        loading in Phase 2, not during Phase 1 merging.
+        Files are stored in builder format (without genesis). Genesis is
+        computed on-demand when loading, ensuring state root computation
+        happens exactly once in Phase 2, not during Phase 1 merging.
         """
         with open(file) as f:
             data = f.read()
 
-        # Try loading as full PreAllocGroup first (backwards compatibility)
-        try:
-            return cls.model_validate_json(data)
-        except ValidationError:
-            pass
-
-        # Load as builder format and compute genesis
         builder = PreAllocGroupBuilder.model_validate_json(data)
         built = builder.build()
         # Use cls.model_validate to ensure proper Self return type
