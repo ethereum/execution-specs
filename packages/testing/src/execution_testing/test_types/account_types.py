@@ -442,6 +442,7 @@ class Alloc(BaseAlloc):
         amount: NumberConvertible | None = None,
         label: str | None = None,
         storage: Storage | None = None,
+        code: BytesConvertible | None = None,
         delegation: Address | Literal["Self"] | None = None,
         nonce: NumberConvertible | None = None,
     ) -> EOA:

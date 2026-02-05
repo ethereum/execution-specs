@@ -313,6 +313,7 @@ class Alloc(BaseAlloc):
         amount: NumberConvertible | None = None,
         label: str | None = None,
         storage: Storage | None = None,
+        code: BytesConvertible | None = None,
         delegation: Address | Literal["Self"] | None = None,
         nonce: NumberConvertible | None = None,
     ) -> EOA:
@@ -330,9 +331,14 @@ class Alloc(BaseAlloc):
         if (
             Number(amount) > 0
             or storage is not None
+            or code is not None
             or delegation is not None
             or (nonce is not None and Number(nonce) > 0)
         ):
+            if code is not None and delegation is not None:
+                raise Exception(
+                    "code and delegation cannot be set at the same time"
+                )
             if storage is None and delegation is None:
                 nonce = Number(0 if nonce is None else nonce)
                 account = Account(
@@ -353,6 +359,8 @@ class Alloc(BaseAlloc):
                         code = DELEGATION_DESIGNATION + b"Self"
                     else:
                         code = DELEGATION_DESIGNATION + delegation
+                elif code is not None:
+                    code = Bytes(code)
                 # If delegation is None but storage is not, realistically the
                 # nonce should be 2 because the account must have delegated to
                 # set the storage and then again to reset the delegation (but

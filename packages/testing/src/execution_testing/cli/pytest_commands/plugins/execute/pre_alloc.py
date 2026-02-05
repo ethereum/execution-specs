@@ -20,7 +20,6 @@ from execution_testing.base_types import (
     Number,
     Storage,
     StorageRootType,
-    ZeroPaddedHexNumber,
 )
 from execution_testing.base_types.conversions import (
     BytesConvertible,
@@ -578,6 +577,7 @@ class Alloc(BaseAlloc):
         amount: NumberConvertible | None = None,
         label: str | None = None,
         storage: Storage | StorageRootType | None = None,
+        code: BytesConvertible | None = None,
         delegation: Address | Literal["Self"] | None = None,
         nonce: NumberConvertible | None = None,
     ) -> EOA:
@@ -586,6 +586,7 @@ class Alloc(BaseAlloc):
         by `amount`.
         """
         assert nonce is None, "nonce parameter is not supported for execute"
+        assert code is None, "code parameter is not supported for execute"
         eoa = next(self._eoa_iterator)
         eoa.label = label
         amount_str = (
@@ -743,7 +744,7 @@ class Alloc(BaseAlloc):
                 if address in self:
                     account = self[address]
                     if account is not None:
-                        account.balance = ZeroPaddedHexNumber(current_balance)
+                        self[address] = account.copy(balance=current_balance)
                 else:
                     super().__setitem__(
                         address, Account(balance=current_balance)
@@ -778,7 +779,7 @@ class Alloc(BaseAlloc):
         if address in self:
             account = self[address]
             if account is not None:
-                account.balance = ZeroPaddedHexNumber(new_balance)
+                self[address] = account.copy(balance=new_balance)
                 cur_eth = current_balance / 10**18
                 new_eth = new_balance / 10**18
                 logger.debug(
