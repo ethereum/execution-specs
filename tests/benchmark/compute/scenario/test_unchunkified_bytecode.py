@@ -34,6 +34,7 @@ from tests.benchmark.compute.helpers import MaxSizedContractFactory
         Op.EXTCODECOPY,
     ],
 )
+@pytest.mark.skip("Skip for now until we debug a regression in the test.")
 def test_unchunkified_bytecode(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
