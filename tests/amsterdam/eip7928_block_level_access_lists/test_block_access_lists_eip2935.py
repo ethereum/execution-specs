@@ -82,7 +82,7 @@ def test_bal_2935_simple(
                     storage_changes=[
                         BalStorageSlot(
                             slot=get_history_storage_slot(0),
-                            slot_changes=[],
+                            validate_any_change=True,
                         ),
                     ],
                 ),
@@ -142,7 +142,7 @@ def test_bal_2935_empty_block(
                     storage_changes=[
                         BalStorageSlot(
                             slot=get_history_storage_slot(0),
-                            slot_changes=[],
+                            validate_any_change=True,
                         ),
                     ],
                 ),
@@ -246,13 +246,13 @@ def test_bal_2935_query(
     )
 
     account_expectations[oracle] = BalAccountExpectation(
-        # Valid: write the returned hash (unknown value, empty slot_changes)
+        # Valid: write the returned hash (value is framework-computed)
         # Invalid: no-op SSTORE(0, 0) becomes implicit read
         storage_reads=[] if is_valid else [0],
         storage_changes=[
             BalStorageSlot(
                 slot=0,
-                slot_changes=[],
+                validate_any_change=True,
             ),
         ]
         if is_valid
