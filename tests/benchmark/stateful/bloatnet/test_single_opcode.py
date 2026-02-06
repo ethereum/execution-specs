@@ -561,6 +561,38 @@ def initializer_calldata_generator(
     return Hash(start_iteration) + Hash(iteration_count)
 
 
+def pack_transactions_into_blocks(
+    transactions: List[Transaction],
+    gas_limit: int,
+) -> List[Block]:
+    """
+    Pack transactions into blocks without exceeding gas_limit per block.
+
+    Greedily adds transactions to the current block until adding another
+    would exceed the gas limit, then starts a new block.
+    """
+    if not transactions:
+        return []
+
+    blocks: List[Block] = []
+    current_txs: List[Transaction] = []
+    current_gas = 0
+
+    for tx in transactions:
+        if current_gas + tx.gas_limit > gas_limit and current_txs:
+            blocks.append(Block(txs=current_txs))
+            current_txs = []
+            current_gas = 0
+
+        current_txs.append(tx)
+        current_gas += tx.gas_limit
+
+    if current_txs:
+        blocks.append(Block(txs=current_txs))
+
+    return blocks
+
+
 def build_delegated_storage_setup(
     *,
     pre: Alloc,
@@ -607,19 +639,19 @@ def build_delegated_storage_setup(
         )
         authority_nonce += 1
 
-        # Calculate slots per block based on init gas cost
-        single_slot_gas = initializer_code.tx_gas_limit_by_iteration_count(
+        # Calculate max slots per transaction based on gas cost
+        iteration_cost = initializer_code.tx_gas_limit_by_iteration_count(
             fork=fork,
             iteration_count=1,
             start_iteration=1,
             calldata=initializer_calldata_generator,
         )
-        slots_per_block = max(1, tx_gas_limit // single_slot_gas)
+        iteration_count = max(1, tx_gas_limit // iteration_cost)
 
-        # Blocks 2+: Initialization (one block per chunk)
-        for start in range(1, num_target_slots + 1, slots_per_block):
-            chunk_size = min(slots_per_block, num_target_slots - start + 1)
-            init_txs = list(
+        init_txs: List[Transaction] = []
+        for start in range(1, num_target_slots + 1, iteration_count):
+            chunk_size = min(iteration_count, num_target_slots - start + 1)
+            init_txs.extend(
                 initializer_code.transactions_by_total_iteration_count(
                     fork=fork,
                     total_iterations=chunk_size,
@@ -629,7 +661,9 @@ def build_delegated_storage_setup(
                     calldata=initializer_calldata_generator,
                 )
             )
-            blocks.append(Block(txs=init_txs))
+
+        # Pack init transactions into blocks
+        blocks.extend(pack_transactions_into_blocks(init_txs, tx_gas_limit))
 
     # Final block: Authorize to executor
     blocks.append(
