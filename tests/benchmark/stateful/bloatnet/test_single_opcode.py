@@ -15,6 +15,7 @@ from typing import Callable, List
 
 import pytest
 from execution_testing import (
+    EOA,
     AccessList,
     Account,
     Address,
@@ -24,7 +25,6 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    EOA,
     Fork,
     Hash,
     IteratingBytecode,
@@ -428,7 +428,7 @@ def create_sstore_initializer(init_val: int) -> IteratingBytecode:
     )
 
     # Loop: decrement counter and store at current position
-    # Stack after substraction: [index, current]
+    # Stack after subtraction: [index, current]
     # where current goes from index+num-1 down to index
     loop = (
         Op.JUMPDEST
@@ -557,7 +557,7 @@ def executor_calldata_generator(
 def initializer_calldata_generator(
     iteration_count: int, start_iteration: int
 ) -> bytes:
-    """Calldata generator for the storage initializer: Hash(start) + Hash(count)."""
+    """Calldata generator for the storage: Hash(start) + Hash(count)."""
     return Hash(start_iteration) + Hash(iteration_count)
 
 
@@ -581,6 +581,7 @@ def build_delegated_storage_setup(
 
     Returns:
         List of blocks for the setup phase.
+
     """
     blocks: List[Block] = []
 

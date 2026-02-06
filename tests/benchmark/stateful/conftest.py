@@ -4,23 +4,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from execution_testing.test_types import Environment
 
 DEFAULT_BENCHMARK_FORK = "Prague"
-
-# # Use a very high gas limit for stateful tests to allow large setup phases
-# STATEFUL_TEST_GAS_LIMIT = 1_000_000_000_000
-
-
-# @pytest.fixture
-# def env() -> Environment:
-#     """
-#     Return an Environment with a high gas limit for stateful benchmark tests.
-
-#     Stateful tests often require initializing large amounts of storage in the
-#     setup phase, which can exceed the default block gas limit.
-#     """
-#     return Environment(gas_limit=STATEFUL_TEST_GAS_LIMIT)
 
 
 def pytest_generate_tests(metafunc: Any) -> None:
