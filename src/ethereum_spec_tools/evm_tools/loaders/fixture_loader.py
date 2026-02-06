@@ -51,7 +51,7 @@ class Load(BaseLoad):
 
     fork: ForkLoad
 
-    def __init__(self, network: str, fork_module: str | Hardfork):
+    def __init__(self, fork_module: str | Hardfork):
         if isinstance(fork_module, Hardfork):
             self.fork = ForkLoad(fork_module)
         else:

@@ -256,10 +256,7 @@ class T8N(Load):
 
         self.logger = get_stream_logger("T8N")
 
-        super().__init__(
-            self.options.state_fork,
-            fork,
-        )
+        super().__init__(fork)
 
         self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
         self.alloc = Alloc(self, stdin)

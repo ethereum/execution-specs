@@ -16,7 +16,6 @@ from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
 from ethereum_spec_tools.docc import *
 from ethereum_spec_tools.evm_tools.daemon import _EvmToolHandler
-from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
