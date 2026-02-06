@@ -8,6 +8,7 @@ from execution_testing import (
     EOA,
     Address,
     Alloc,
+    Bytecode,
     BytesConcatenation,
     FixedIterationsBytecode,
     Fork,
@@ -255,7 +256,6 @@ class CustomSizedContractInitcode(FixedIterationsBytecode):
         if contract_size is None:
             contract_size = fork.max_code_size()
         xor_table_byte_size = XOR_TABLE_SIZE * 32
-        iteration_count = ((contract_size - 32) // xor_table_byte_size) + 1
         setup = Op.MSTORE(
             0,
             Op.ADDRESS,
@@ -263,25 +263,32 @@ class CustomSizedContractInitcode(FixedIterationsBytecode):
             old_memory_size=0,
             new_memory_size=32,
         )
-        iterating = While(
-            body=(
-                Op.SHA3(Op.SUB(Op.MSIZE, 32), 32, data_size=32)
-                # Use a xor table to avoid having to call the "expensive" sha3
-                # opcode as much
-                + sum(
-                    (
-                        Op.PUSH32[xor_value]
-                        + Op.XOR
-                        + Op.DUP1
-                        + Op.MSIZE
-                        + Op.MSTORE
+        if contract_size > 32:
+            iteration_count = ((contract_size - 32) // xor_table_byte_size) + 1
+            iterating = While(
+                body=(
+                    Op.SHA3(Op.SUB(Op.MSIZE, 32), 32, data_size=32)
+                    # Use a xor table to avoid having to call the "expensive" sha3
+                    # opcode as much
+                    + sum(
+                        (
+                            Op.PUSH32[xor_value]
+                            + Op.XOR
+                            + Op.DUP1
+                            + Op.MSIZE
+                            + Op.MSTORE
+                        )
+                        for xor_value in XOR_TABLE
                     )
-                    for xor_value in XOR_TABLE
-                )
-                + Op.POP
-            ),
-            condition=Op.LT(Op.MSIZE, contract_size),
-        )
+                    + Op.POP
+                ),
+                condition=Op.LT(Op.MSIZE, contract_size),
+            )
+            final_memory_size = (xor_table_byte_size * iteration_count) + 32
+        else:
+            iteration_count = 0
+            iterating = Bytecode()
+            final_memory_size = 32
         cleanup = (
             # Despite the whole contract has random bytecode, we need the first
             # opcode be a STOP so CALL-like attacks return as soon as possible.
@@ -294,7 +301,7 @@ class CustomSizedContractInitcode(FixedIterationsBytecode):
                 code_deposit_size=contract_size,
                 # Memory is not expanded here, but it is expanded in the loop.
                 old_memory_size=32,
-                new_memory_size=(xor_table_byte_size * iteration_count) + 32,
+                new_memory_size=final_memory_size,
             )
         )
         instance = super(CustomSizedContractInitcode, cls).__new__(
@@ -393,12 +400,7 @@ class CustomSizedContractFactory(IteratingBytecode):
                     init_code_size=len(initcode),
                 )
             ),
-            condition=Op.PUSH1(1)
-            + Op.ADD
-            + Op.DUP1
-            + Op.DUP3
-            + Op.LT
-            + Op.ISZERO,
+            condition=Op.PUSH1(1) + Op.ADD + Op.DUP1 + Op.DUP3 + Op.GT,
         )
         cleanup = Op.STOP
         instance = super(CustomSizedContractFactory, cls).__new__(
