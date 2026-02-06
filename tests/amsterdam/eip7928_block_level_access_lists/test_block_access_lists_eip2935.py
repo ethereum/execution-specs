@@ -275,7 +275,7 @@ def test_bal_2935_query(
         ),
     )
 
-    post_state = {
+    post_state: dict[Address, Account] = {
         alice: Account(nonce=1),
     }
 
