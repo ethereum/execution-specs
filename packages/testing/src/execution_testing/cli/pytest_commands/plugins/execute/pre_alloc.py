@@ -23,7 +23,6 @@ from execution_testing.base_types import (
 )
 from execution_testing.base_types.conversions import (
     BytesConvertible,
-    FixedSizeBytesConvertible,
     NumberConvertible,
 )
 from execution_testing.forks import Fork
@@ -39,10 +38,11 @@ from execution_testing.test_types import (
     TransactionTestMetadata,
     compute_deterministic_create2_address,
 )
-from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.tools import Initcode
 from execution_testing.vm import Bytecode, Op
 
+from ..shared.pre_alloc import Alloc as BaseAlloc
+from ..shared.pre_alloc import AllocFlags
 from .contracts import (
     check_deterministic_factory_deployment,
     deploy_deterministic_factory_contract,
@@ -228,7 +228,6 @@ class PendingTransaction(Transaction):
 class Alloc(BaseAlloc):
     """A custom class that inherits from the original Alloc class."""
 
-    _fork: Fork = PrivateAttr()
     _sender: EOA = PrivateAttr()
     _eth_rpc: EthRPC = PrivateAttr()
     _pending_txs: List[PendingTransaction] = PrivateAttr(default_factory=list)
@@ -243,7 +242,6 @@ class Alloc(BaseAlloc):
     def __init__(
         self,
         *args: Any,
-        fork: Fork,
         sender: EOA,
         eth_rpc: EthRPC,
         eoa_iterator: Iterator[EOA],
@@ -254,23 +252,12 @@ class Alloc(BaseAlloc):
     ) -> None:
         """Initialize the pre-alloc with the given parameters."""
         super().__init__(*args, **kwargs)
-        self._fork = fork
         self._sender = sender
         self._eth_rpc = eth_rpc
         self._eoa_iterator = eoa_iterator
         self._chain_id = chain_id
         self._node_id = node_id
         self._address_stubs = address_stubs or AddressStubs(root={})
-
-    def __setitem__(
-        self,
-        address: Address | FixedSizeBytesConvertible,
-        account: Account | None,
-    ) -> None:
-        """Set account associated with an address."""
-        raise ValueError(
-            "Tests are not allowed to set pre-alloc items in execute mode"
-        )
 
     def code_pre_processor(self, code: Bytecode) -> Bytecode:
         """Pre-processes the code before setting it."""
@@ -302,18 +289,18 @@ class Alloc(BaseAlloc):
         self._pending_txs.append(pending_tx)
         return pending_tx
 
-    def deterministic_deploy_contract(
+    def _deterministic_deploy_contract(
         self,
         *,
         deploy_code: BytesConvertible,
-        salt: Hash | int = 0,
-        initcode: BytesConvertible | None = None,
-        storage: Storage | StorageRootType | None = None,
-        label: str | None = None,
+        salt: Hash | int,
+        initcode: BytesConvertible | None,
+        storage: Storage | StorageRootType | None,
+        label: str | None,
     ) -> Address:
         """
-        Deploy a contract to the allocation at a deterministic location
-        using a deterministic deployment proxy.
+        Execute implementation of contract deployment to a deterministic
+        location.
         """
         del storage
         gas_costs = self._fork.gas_costs()
@@ -409,7 +396,7 @@ class Alloc(BaseAlloc):
 
         balance = self._eth_rpc.get_balance(contract_address)
         nonce = self._eth_rpc.get_transaction_count(contract_address)
-        super().__setitem__(
+        self.__internal_setitem__(
             contract_address,
             Account(
                 nonce=nonce,
@@ -422,18 +409,18 @@ class Alloc(BaseAlloc):
         contract_address.label = label
         return contract_address
 
-    def deploy_contract(
+    def _deploy_contract(
         self,
         code: BytesConvertible,
         *,
-        storage: Storage | StorageRootType | None = None,
-        balance: NumberConvertible = 0,
-        nonce: NumberConvertible = 1,
-        address: Address | None = None,
-        label: str | None = None,
-        stub: str | None = None,
+        storage: Storage | StorageRootType | None,
+        balance: NumberConvertible,
+        nonce: NumberConvertible,
+        address: Address | None,
+        label: str | None,
+        stub: str | None,
     ) -> Address:
-        """Deploy a contract to the allocation."""
+        """Execute implementation of contract deployment."""
         if storage is None:
             storage = {}
         assert address is None, "address parameter is not supported"
@@ -471,7 +458,7 @@ class Alloc(BaseAlloc):
                 f"Stub contract {contract_address}: balance={bal_eth:.18f} "
                 f"ETH, nonce={nonce}, code_size={len(code)} bytes"
             )
-            super().__setitem__(
+            self.__internal_setitem__(
                 contract_address,
                 Account(
                     nonce=nonce,
@@ -559,7 +546,7 @@ class Alloc(BaseAlloc):
             "impossible to deploy contract with nonce lower than one"
         )
 
-        super().__setitem__(
+        self.__internal_setitem__(
             contract_address,
             Account(
                 nonce=nonce,
@@ -572,18 +559,17 @@ class Alloc(BaseAlloc):
         contract_address.label = label
         return contract_address
 
-    def fund_eoa(
+    def _fund_eoa(
         self,
-        amount: NumberConvertible | None = None,
-        label: str | None = None,
-        storage: Storage | StorageRootType | None = None,
-        code: BytesConvertible | None = None,
-        delegation: Address | Literal["Self"] | None = None,
-        nonce: NumberConvertible | None = None,
+        amount: NumberConvertible | None,
+        label: str | None,
+        storage: Storage | StorageRootType | None,
+        code: BytesConvertible | None,
+        delegation: Address | Literal["Self"] | None,
+        nonce: NumberConvertible | None,
     ) -> EOA:
         """
-        Add a previously unused EOA to the pre-alloc with the balance specified
-        by `amount`.
+        Execute implementation of EOA funding.
         """
         assert nonce is None, "nonce parameter is not supported for execute"
         assert code is None, "code parameter is not supported for execute"
@@ -703,7 +689,7 @@ class Alloc(BaseAlloc):
         if amount is not None:
             account_kwargs["balance"] = amount
         account = Account(**account_kwargs)
-        super().__setitem__(eoa, account)
+        self.__internal_setitem__(eoa, account)
         self._funded_eoa.append(eoa)
         balance_str = (
             f"{Number(amount) / 10**18:.18f} ETH"
@@ -716,18 +702,15 @@ class Alloc(BaseAlloc):
         )
         return eoa
 
-    def fund_address(
+    def _fund_address(
         self,
         address: Address,
         amount: NumberConvertible,
         *,
-        minimum_balance: bool = False,
+        minimum_balance: bool,
     ) -> None:
         """
-        Fund an address with a given amount.
-
-        If the address is already present in the pre-alloc the amount will be
-        added to its existing balance.
+        Execute implementation of address funding.
         """
         current_balance = self._eth_rpc.get_balance(address)
         fund_amount = int(Number(amount))
@@ -746,7 +729,7 @@ class Alloc(BaseAlloc):
                     if account is not None:
                         self[address] = account.copy(balance=current_balance)
                 else:
-                    super().__setitem__(
+                    self.__internal_setitem__(
                         address, Account(balance=current_balance)
                     )
                 return
@@ -787,38 +770,25 @@ class Alloc(BaseAlloc):
                     f"{cur_eth:.18f} ETH -> {new_eth:.18f} ETH"
                 )
             else:
-                super().__setitem__(address, Account(balance=new_balance))
+                self.__internal_setitem__(
+                    address, Account(balance=new_balance)
+                )
         else:
-            super().__setitem__(address, Account(balance=new_balance))
+            self.__internal_setitem__(address, Account(balance=new_balance))
 
         logger.info(
             f"Address {address} funding tx created (label={address.label}): "
             f"{Number(amount) / 10**18:.18f} ETH"
         )
 
-    def empty_account(self) -> Address:
+    def _empty_account(self) -> Address:
         """
-        Add a previously unused account guaranteed to be empty to the
-        pre-alloc.
-
-        This ensures the account has:
-        - Zero balance
-        - Zero nonce
-        - No code
-        - No storage
-
-        This is different from precompiles or system contracts. The function
-        does not send any transactions, ensuring that the account remains
-        "empty."
-
-        Returns:
-            Address: The address of the created empty account.
-
+        Execute implementation of empty account creation.
         """
         eoa = next(self._eoa_iterator)
         logger.debug(f"Creating empty account at {eoa}")
 
-        super().__setitem__(
+        self.__internal_setitem__(
             eoa,
             Account(
                 nonce=0,
@@ -914,9 +884,55 @@ class Alloc(BaseAlloc):
         return responses
 
 
+@pytest.fixture(scope="function")
+def alloc_flags(
+    alloc_flags_from_test_markers: AllocFlags,
+) -> AllocFlags:
+    """
+    Verify this test does not require flags that are unsupported by execute.
+
+    Otherwise skip.
+    """
+    if (
+        AllocFlags.ALLOW_ADDRESS_SET_TO_ACCOUNT
+        in alloc_flags_from_test_markers
+    ):
+        pytest.skip(
+            "Execute mode does not allow setting an address directly in the "
+            "pre-alloc."
+        )
+
+    if (
+        AllocFlags.ALLOW_DEPLOY_TO_HARDCODED_ADDRESS
+        in alloc_flags_from_test_markers
+    ):
+        pytest.skip(
+            "Execute mode does not allow deploying to a hardcoded address."
+        )
+
+    if AllocFlags.ALLOW_ZERO_NONCE_CONTRACTS in alloc_flags_from_test_markers:
+        pytest.skip(
+            "Execute mode does not allow deploying contracts with zero nonce."
+        )
+
+    if AllocFlags.ALLOW_EOA_WITH_CODE in alloc_flags_from_test_markers:
+        pytest.skip("Execute mode does not allow creating EOAs with code.")
+
+    if (
+        AllocFlags.ALLOW_EOA_WITH_HARDCODED_NONCE
+        in alloc_flags_from_test_markers
+    ):
+        pytest.skip(
+            "Execute mode does not allow creating EOAs with a hardcoded nonce."
+        )
+
+    return alloc_flags_from_test_markers
+
+
 @pytest.fixture(autouse=True, scope="function")
 def pre(
     fork: Fork,
+    alloc_flags: AllocFlags,
     worker_key: EOA,
     eoa_iterator: Iterator[EOA],
     eth_rpc: EthRPC,
@@ -942,6 +958,7 @@ def pre(
     )
     pre = Alloc(
         fork=actual_fork,
+        flags=alloc_flags,
         sender=worker_key,
         eth_rpc=eth_rpc,
         eoa_iterator=eoa_iterator,

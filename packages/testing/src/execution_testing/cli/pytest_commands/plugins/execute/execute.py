@@ -812,7 +812,7 @@ def pytest_collection_modifyitems(
             elif marker.name == "valid_at_transition_to":
                 items_for_removal.append(i)
                 continue
-            elif marker.name == "pre_alloc_modify":
+            elif marker.name == "pre_alloc_mutable":
                 item.add_marker(
                     pytest.mark.skip(
                         reason="Pre-alloc modification not supported"

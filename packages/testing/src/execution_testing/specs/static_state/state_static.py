@@ -227,7 +227,7 @@ class StateStaticTest(BaseStaticTest):
                 "separate", reason="Uses hard-coded addresses"
             )(test_state_vectors)
         if not fully_tagged:
-            test_state_vectors = pytest.mark.pre_alloc_modify(
+            test_state_vectors = pytest.mark.pre_alloc_mutable(
                 test_state_vectors
             )
 

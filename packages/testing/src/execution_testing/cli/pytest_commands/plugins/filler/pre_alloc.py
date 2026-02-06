@@ -1,10 +1,9 @@
 """Pre-alloc specifically conditioned for test filling."""
 
 import inspect
-from enum import IntEnum
 from functools import cache
 from hashlib import sha256
-from typing import Any, Dict, List, Literal
+from typing import Dict, List, Literal
 
 import pytest
 from pydantic import PrivateAttr
@@ -22,7 +21,6 @@ from execution_testing.base_types import (
 )
 from execution_testing.base_types.conversions import (
     BytesConvertible,
-    FixedSizeBytesConvertible,
     NumberConvertible,
 )
 from execution_testing.fixtures import LabeledFixtureFormat
@@ -34,11 +32,10 @@ from execution_testing.test_types import (
     EOA,
     compute_deterministic_create2_address,
 )
-from execution_testing.test_types import Alloc as BaseAlloc
 from execution_testing.tools import Initcode
 
-CONTRACT_START_ADDRESS_DEFAULT = 0x1000000000000000000000000000000000001000
-CONTRACT_ADDRESS_INCREMENTS_DEFAULT = 0x100
+from ..shared.pre_alloc import Alloc as BaseAlloc
+from ..shared.pre_alloc import AllocFlags
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -48,41 +45,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "Arguments defining pre-allocation behavior during test filling.",
     )
 
-    pre_alloc_group.addoption(
-        "--strict-alloc",
-        action="store_true",
-        dest="strict_alloc",
-        default=False,
-        help=(
-            "[DEBUG ONLY] Disallows deploying a contract in a predefined "
-            "address."
-        ),
-    )
-    pre_alloc_group.addoption(
-        "--ca-start",
-        "--contract-address-start",
-        action="store",
-        dest="test_contract_start_address",
-        default=f"{CONTRACT_START_ADDRESS_DEFAULT}",
-        type=str,
-        help="Starting address from which tests will deploy contracts.",
-    )
-    pre_alloc_group.addoption(
-        "--ca-incr",
-        "--contract-address-increment",
-        action="store",
-        dest="test_contract_address_increments",
-        default=f"{CONTRACT_ADDRESS_INCREMENTS_DEFAULT}",
-        type=str,
-        help="Address increment value for each deployed contract by a test.",
-    )
-
-
-class AllocMode(IntEnum):
-    """Allocation mode for the state."""
-
-    PERMISSIVE = 0
-    STRICT = 1
+    # No options for now
+    del pre_alloc_group
 
 
 DELEGATION_DESIGNATION = b"\xef\x01\x00"
@@ -117,32 +81,7 @@ class Alloc(BaseAlloc):
     """Allocation of accounts in the state, pre and post test execution."""
 
     _eoa_fund_amount_default: int = PrivateAttr(10**21)
-    _alloc_mode: AllocMode = PrivateAttr()
-    _account_salt: Dict[Hash, int] = PrivateAttr()
-    _fork: Fork = PrivateAttr()
-
-    def __init__(
-        self,
-        *args: Any,
-        alloc_mode: AllocMode,
-        fork: Fork,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize allocation with the given properties."""
-        super().__init__(*args, **kwargs)
-        self._alloc_mode = alloc_mode
-        self._account_salt = {}
-        self._fork = fork
-
-    def __setitem__(
-        self,
-        address: Address | FixedSizeBytesConvertible,
-        account: Account | None,
-    ) -> None:
-        """Set account associated with an address."""
-        if self._alloc_mode == AllocMode.STRICT:
-            raise ValueError("Cannot set items in strict mode")
-        super().__setitem__(address, account)
+    _account_salt: Dict[Hash, int] = PrivateAttr(default_factory=dict)
 
     def get_next_account_salt(self, account_hash: Hash) -> int:
         """Retrieve the next salt for this account."""
@@ -154,18 +93,18 @@ class Alloc(BaseAlloc):
         """Pre-processes the code before setting it."""
         return code
 
-    def deterministic_deploy_contract(
+    def _deterministic_deploy_contract(
         self,
         *,
         deploy_code: BytesConvertible,
-        salt: Hash | int = 0,
-        initcode: BytesConvertible | None = None,
-        storage: Storage | StorageRootType | None = None,
-        label: str | None = None,
+        salt: Hash | int,
+        initcode: BytesConvertible | None,
+        storage: Storage | StorageRootType | None,
+        label: str | None,
     ) -> Address:
         """
-        Deploy a contract to the allocation at a deterministic location
-        using a deterministic deployment proxy.
+        Filler implementation of contract deployment to a deterministic
+        location.
         """
         if not isinstance(deploy_code, Bytes):
             deploy_code = Bytes(deploy_code)
@@ -196,7 +135,7 @@ class Alloc(BaseAlloc):
             fork_deterministic_factory_address is None
             and DETERMINISTIC_FACTORY_ADDRESS not in self
         ):
-            super().__setitem__(
+            self.__internal_setitem__(
                 DETERMINISTIC_FACTORY_ADDRESS,
                 Account(
                     nonce=1,
@@ -205,7 +144,7 @@ class Alloc(BaseAlloc):
                 ),
             )
 
-        super().__setitem__(
+        self.__internal_setitem__(
             contract_address,
             Account(
                 nonce=1,
@@ -230,38 +169,24 @@ class Alloc(BaseAlloc):
         contract_address.label = label
         return contract_address
 
-    def deploy_contract(
+    def _deploy_contract(
         self,
         code: BytesConvertible,
         *,
-        storage: Storage | StorageRootType | None = None,
-        balance: NumberConvertible = 0,
-        nonce: NumberConvertible = 1,
-        address: Address | None = None,
-        label: str | None = None,
-        stub: str | None = None,
+        storage: Storage | StorageRootType | None,
+        balance: NumberConvertible,
+        nonce: NumberConvertible,
+        address: Address | None,
+        label: str | None,
+        stub: str | None,
     ) -> Address:
         """
-        Deploy a contract to the allocation.
-
-        Warning: `address` parameter is a temporary solution to allow tests to
-        hard-code the contract address. Do NOT use in new tests as it will be
-        removed in the future!
+        Filler implementation of contract deployment.
         """
         del stub
 
         if storage is None:
             storage = {}
-        if address is not None:
-            assert self._alloc_mode == AllocMode.PERMISSIVE, (
-                "address parameter is not supported"
-            )
-
-        if self._alloc_mode == AllocMode.STRICT:
-            assert Number(nonce) >= 1, (
-                "impossible to deploy contract with nonce lower than one"
-            )
-
         code = self.code_pre_processor(code)
         code_bytes = (
             bytes(code) if not isinstance(code, (bytes, str)) else code
@@ -290,7 +215,7 @@ class Alloc(BaseAlloc):
                 account_hash, salt
             )
 
-        super().__setitem__(contract_address, account)
+        self.__internal_setitem__(contract_address, account)
         if label is None:
             # Try to deduce the label from the code
             frame = inspect.currentframe()
@@ -308,18 +233,17 @@ class Alloc(BaseAlloc):
         contract_address.label = label
         return contract_address
 
-    def fund_eoa(
+    def _fund_eoa(
         self,
-        amount: NumberConvertible | None = None,
-        label: str | None = None,
-        storage: Storage | None = None,
-        code: BytesConvertible | None = None,
-        delegation: Address | Literal["Self"] | None = None,
-        nonce: NumberConvertible | None = None,
+        amount: NumberConvertible | None,
+        label: str | None,
+        storage: Storage | None,
+        code: BytesConvertible | None,
+        delegation: Address | Literal["Self"] | None,
+        nonce: NumberConvertible | None,
     ) -> EOA:
         """
-        Add a previously unused EOA to the pre-alloc with the balance specified
-        by `amount`.
+        Filler implementation of EOA funding.
 
         If amount is 0, nothing will be added to the pre-alloc but a new and
         unique EOA will be returned.
@@ -387,21 +311,18 @@ class Alloc(BaseAlloc):
         if not isinstance(delegation, Address) and delegation == "Self":
             account = account.copy(code=DELEGATION_DESIGNATION + eoa)
         if account:
-            super().__setitem__(eoa, account)
+            self.__internal_setitem__(eoa, account)
         return eoa
 
-    def fund_address(
+    def _fund_address(
         self,
         address: Address,
         amount: NumberConvertible,
         *,
-        minimum_balance: bool = False,
+        minimum_balance: bool,
     ) -> None:
         """
-        Fund an address with a given amount.
-
-        If the address is already present in the pre-alloc the amount will be
-        added to its existing balance.
+        Filler implementation of address funding.
         """
         del minimum_balance
         if address in self:
@@ -410,49 +331,14 @@ class Alloc(BaseAlloc):
                 "Use the appropriate `amount`, `balance` arguments "
                 "when creating the account."
             )
-        super().__setitem__(address, Account(balance=amount))
+        self.__internal_setitem__(address, Account(balance=amount))
 
-    def empty_account(self) -> Address:
+    def _empty_account(self) -> Address:
         """
-        Add a previously unused account guaranteed to be empty to the
-        pre-alloc.
-
-        This ensures the account has:
-        - Zero balance
-        - Zero nonce
-        - No code
-        - No storage
-
-        This is different from precompiles or system contracts. The function
-        does not send any transactions, ensuring that the account remains
-        "empty."
-
-        Returns:
-            Address: The address of the created empty account.
-
+        Filler implementation of empty account creation.
         """
         salt = self.get_next_account_salt(EMPTY_ACCOUNT_HASH)
         return Address(eoa_from_account(EMPTY_ACCOUNT_HASH, salt))
-
-
-@pytest.fixture(scope="session")
-def alloc_mode(request: pytest.FixtureRequest) -> AllocMode:
-    """Return allocation mode for the tests."""
-    if request.config.getoption("strict_alloc"):
-        return AllocMode.STRICT
-    return AllocMode.PERMISSIVE
-
-
-@pytest.fixture(scope="session")
-def contract_start_address(request: pytest.FixtureRequest) -> int:
-    """Return starting address for contract deployment."""
-    return int(request.config.getoption("test_contract_start_address"), 0)
-
-
-@pytest.fixture(scope="session")
-def contract_address_increments(request: pytest.FixtureRequest) -> int:
-    """Return address increment for contract deployment."""
-    return int(request.config.getoption("test_contract_address_increments"), 0)
 
 
 def sha256_from_string(s: str) -> int:
@@ -518,7 +404,7 @@ def eoa_by_index(i: int) -> EOA:
 
 @pytest.fixture(scope="function")
 def pre(
-    alloc_mode: AllocMode,
+    alloc_flags: AllocFlags,
     fork: Fork | None,
     request: pytest.FixtureRequest,
 ) -> Alloc:
@@ -530,6 +416,6 @@ def pre(
         actual_fork = request.node.fork
 
     return Alloc(
-        alloc_mode=alloc_mode,
+        flags=alloc_flags,
         fork=actual_fork,
     )

@@ -2,6 +2,7 @@
 Shared pytest fixtures and hooks for EEST generation modes (fill and execute).
 """
 
+from dataclasses import dataclass
 from typing import List
 
 import pytest
@@ -15,6 +16,7 @@ from execution_testing.specs import BaseTest
 from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Alloc, ChainConfig
 
+from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 ALL_FIXTURE_PARAMETERS = {
@@ -31,6 +33,62 @@ when calling from the test function.
 All parameter names included in this list must define a fixture in one of the
 plugins.
 """
+
+
+@dataclass
+class AllocFlagsMarker:
+    """Marker for allocation flags."""
+
+    name: str
+    description: str
+    flag: AllocFlags
+
+
+ALLOC_FLAGS_MARKERS = [
+    AllocFlagsMarker(
+        name="pre_alloc_mutable",
+        description=(
+            "Marks a test to allow impossible mutations in the pre-state."
+        ),
+        flag=AllocFlags.MUTABLE,
+    ),
+    AllocFlagsMarker(
+        name="pre_fund_address",
+        description="Marks a test to so it can use the `pre.fund_eoa` method.",
+        flag=AllocFlags.ALLOW_FUND_ADDRESS,
+    ),
+    AllocFlagsMarker(
+        name="pre_eoa_with_code",
+        description="Marks a test to allow creating EOAs with code.",
+        flag=AllocFlags.ALLOW_EOA_WITH_CODE,
+    ),
+    AllocFlagsMarker(
+        name="pre_eoa_with_hardcoded_nonce",
+        description=(
+            "Marks a test to allow creating EOAs with a hardcoded nonce."
+        ),
+        flag=AllocFlags.ALLOW_EOA_WITH_HARDCODED_NONCE,
+    ),
+    AllocFlagsMarker(
+        name="pre_zero_nonce_contracts",
+        description=(
+            "Marks a test to allow deploying contracts with zero nonce."
+        ),
+        flag=AllocFlags.ALLOW_ZERO_NONCE_CONTRACTS,
+    ),
+    AllocFlagsMarker(
+        name="pre_deploy_to_hardcoded_address",
+        description=(
+            "Marks a test to allow deploying to a hardcoded address."
+        ),
+        flag=AllocFlags.ALLOW_DEPLOY_TO_HARDCODED_ADDRESS,
+    ),
+    AllocFlagsMarker(
+        name="pre_address_set_to_account",
+        description="Marks a test to allow setting an address to an account.",
+        flag=AllocFlags.ALLOW_ADDRESS_SET_TO_ACCOUNT,
+    ),
+]
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -159,11 +217,6 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "pre_alloc_modify: Marks a test to apply plugin-specific "
-        "pre_alloc_group modifiers",
-    )
-    config.addinivalue_line(
-        "markers",
         "slow: Marks a test as slow (deselect with '-m \"not slow\"')",
     )
     config.addinivalue_line(
@@ -183,6 +236,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "fully_tagged: Marks a static test as fully tagged with all metadata.",
     )
+    for flags in ALLOC_FLAGS_MARKERS:
+        config.addinivalue_line(
+            "markers",
+            f"{flags.name}: {flags.description}",
+        )
 
 
 @pytest.fixture(scope="function")
@@ -268,6 +326,31 @@ def sender(pre: Alloc) -> EOA:
 def chain_config() -> ChainConfig:
     """Return chain configuration."""
     return ChainConfig()
+
+
+@pytest.fixture(scope="function")
+def alloc_flags_from_test_markers(
+    request: pytest.FixtureRequest,
+) -> AllocFlags:
+    """Return allocation mode for a given test based on its markers."""
+    flags = AllocFlags.NONE
+    for flag in ALLOC_FLAGS_MARKERS:
+        if request.node.get_closest_marker(flag.name):
+            flags |= flag.flag
+    return flags
+
+
+@pytest.fixture(scope="function")
+def alloc_flags(
+    alloc_flags_from_test_markers: AllocFlags,
+) -> AllocFlags:
+    """
+    Return allocation mode for the test.
+
+    By default, this is based on markers tests only, but plugins can
+    override this behavior.
+    """
+    return alloc_flags_from_test_markers
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
