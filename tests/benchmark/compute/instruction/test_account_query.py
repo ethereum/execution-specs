@@ -446,7 +446,7 @@ def test_account_query(
 
     if (
         opcode in (Op.CALL, Op.CALLCODE, Op.STATICCALL, Op.DELEGATECALL)
-        and code_size > 0
+        and code_size != 0
     ):
         pytest.skip(f"No code size configuration for {opcode}")
 
