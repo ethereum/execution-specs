@@ -263,6 +263,7 @@ class CustomSizedContractInitcode(FixedIterationsBytecode):
             old_memory_size=0,
             new_memory_size=32,
         )
+        iterating: While | Bytecode
         if contract_size > 32:
             iteration_count = ((contract_size - 32) // xor_table_byte_size) + 1
             iterating = While(
