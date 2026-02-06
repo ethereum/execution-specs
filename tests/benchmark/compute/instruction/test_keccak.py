@@ -75,12 +75,13 @@ def test_keccak(
     benchmark_test: BenchmarkTestFiller,
     offset: int,
     mem_alloc: bytes,
-    mem_update: bool
+    mem_update: bool,
 ) -> None:
     """Benchmark KECCAK256 instruction with diff input data and offsets."""
-
     code_hash = Op.SHA3(offset, Op.CALLDATASIZE)
-    attack_block = Op.MSTORE(Op.PUSH0, code_hash) if mem_update else Op.POP(code_hash)
+    attack_block = (
+        Op.MSTORE(Op.PUSH0, code_hash) if mem_update else Op.POP(code_hash)
+    )
 
     benchmark_test(
         target_opcode=Op.SHA3,
