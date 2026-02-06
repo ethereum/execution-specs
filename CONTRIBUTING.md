@@ -21,15 +21,79 @@ This specification aims to be:
 2. **Complete** - Capture the entirety of _consensus critical_ parts of Ethereum.
 3. **Accessible** - Prioritize readability, clarity, and plain language over performance and brevity.
 
-### Spelling and Naming
+### Style
+
+#### Spelling and Naming
 
 - Attempt to use descriptive English words (or _very common_ abbreviations) in documentation and identifiers.
-- Avoid using EIP numbers in identifiers.
+- Avoid using EIP numbers in identifiers, and prefer descriptive text instead (eg. `FeeMarketTransaction` instead of `Eip1559Transaction`).
 - If necessary, there is a custom dictionary `whitelist.txt`.
+
+#### Comments
+
+- Don't repeat what is obvious from the code.
+- <details>
+    <summary><em>(expand)</em> Consider how future changes will interleave with yours, especially when creating sementic blocks.</summary>
+
+    <br>Consider:
+    <table valign="top">
+
+    <tr valign="top">
+    <th>Fork T</th>
+    <th>Fork T+1</th>
+    </tr>
+
+    <tr valign="top">
+
+    <td>
+
+    <!--
+        Note that the trailing whitespace is necessary to move the copy button
+        in the github UI over so it doesn't obscure the text.
+    -->
+
+    ```python
+    # EIP-1234: The dingus is the rate of fleep      
+    dingus = a + b
+    dingus += c ^ d
+    dingus /= fleep(e)
+    ```
+
+    </td>
+
+    <td>
+
+    ```python
+    # EIP-1234: The dingus is the rate of fleep      
+    dingus = a + b
+
+    # EIP-4567: Frobulate the dingus
+    dingus = frobulate(dingus)
+
+    dingus += c ^ d        # <-
+    dingus /= fleep(e)     # <-
+    ```
+
+    </td>
+
+    </tr>
+
+    </table>
+
+    The marked lines (`<-`) are now incorrectly attributed to EIP-4567 in Fork+1. Instead, omit the EIP identifier in the comments, and describe the changes introduced by the EIP in the function's docstrings. The rendered diffs will make it pretty obvious what's changed.
+  </details>
+
+#### Docstrings
+
+- Don't include the function's signature.
+- Format using markdown.
+- Don't begin with an article ("the"/"a") or a pronoun ("it", "they", etc.).
+- Write in complete sentences, providing background and context for the associated code.
+- Link to relevant standards/EIPs.
 
 ### Changes across various Forks
 
-Many contributions require changes across multiple forks, organized under `src/ethereum/*`. When making such changes, please ensure that differences between the forks are minimal and consist only of necessary differences. This will help with getting cleaner [diff outputs](https://ethereum.github.io/execution-specs/diffs/index.html).
+Many contributions require changes across multiple forks, organized under `src/ethereum/forks/*`. When making such changes, please ensure that differences between the forks are minimal and consist only of necessary differences. This will help with getting cleaner [diff outputs](https://ethereum.github.io/execution-specs/diffs/index.html).
 
 When creating pull requests affecting multiple forks, we recommended submitting your PR in two steps:
 
