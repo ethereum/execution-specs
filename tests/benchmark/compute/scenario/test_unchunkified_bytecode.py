@@ -7,8 +7,8 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Block,
     BenchmarkTestFiller,
+    Block,
     Bytecode,
     Create2PreimageLayout,
     Fork,
