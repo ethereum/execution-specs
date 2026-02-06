@@ -435,9 +435,8 @@ def test_account_query(
     gas_benchmark_value: int,
 ) -> None:
     """Benchmark scenario of accessing max-code size bytecode."""
-    if (
-        opcode in (Op.EXTCODESIZE, Op.EXTCODEHASH, Op.BALANCE)
-        and mem_size != 0
+    if opcode in (Op.EXTCODESIZE, Op.EXTCODEHASH, Op.BALANCE) and (
+        mem_size != 0 or code_size != 0
     ):
         pytest.skip(f"No memory size configuration for {opcode}")
 
