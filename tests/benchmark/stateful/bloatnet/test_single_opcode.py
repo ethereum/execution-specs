@@ -16,7 +16,6 @@ import pytest
 from execution_testing import (
     AccessList,
     Account,
-    Address,
     Alloc,
     AuthorizationTuple,
     BenchmarkTestFiller,
@@ -426,7 +425,8 @@ def create_sstore_initializer(init_val: int) -> IteratingBytecode:
     )
 
     # Loop: decrement counter and store at current position
-    # Stack after SUB: [index, current] where current goes from index+num-1 down to index
+    # Stack after SUB: [index, current]
+    # where current goes from index+num-1 down to index
     loop = (
         Op.JUMPDEST
         + Op.PUSH1(1)  # [index, current, 1]
@@ -470,7 +470,8 @@ def create_sstore_executor(
     )
     # [counter, value, end_slot]
 
-    loop = Op.JUMPDEST
+    loop = Bytecode()
+    loop += Op.JUMPDEST
     # Loop Body: Store Value at Start Slot + Counter
     if sloads_before_sstore:
         loop += Op.DUP1  # [counter, counter, value, end_slot]
@@ -509,93 +510,20 @@ def create_sstore_executor(
     loop += Op.JUMPI
     # [counter + 1, value, end_slot]
 
-    cleanup = Op.STOP
+    cleanup = Bytecode()
+    cleanup += Op.STOP
 
     return IteratingBytecode(setup=setup, iterating=loop, cleanup=cleanup)
 
 
-def sstore_helper_contract(
-    *,
-    sloads_before_sstore: bool,
-    key_warm: bool,
-    original_value: int,
-    new_value: int,
-) -> Tuple[Bytecode, Bytecode, Bytecode]:
-    """
-    Storage contract for benchmark slot access.
-
-    # Calldata Layout:
-    # - CALLDATA[0..31]: Starting slot
-    # - CALLDATA[32..63]: Ending slot
-    # - CALLDATA[64..95]: Value to write
-
-    Returns:
-    - setup: Bytecode of the setup of the contract
-    - loop: Bytecode of the loop of the contract
-    - cleanup: Bytecode of the cleanup of the contract
-
-    """
-    setup = Bytecode()
-    loop = Bytecode()
-    cleanup = Bytecode()
-
-    setup += (
-        Op.CALLDATALOAD(32)  # end_slot
-        + Op.CALLDATALOAD(64)  # value
-        + Op.CALLDATALOAD(0)  # start_slot = counter
-    )
-    # [counter, value, end_slot]
-
-    loop += Op.JUMPDEST
-    # Loop Body: Store Value at Start Slot + Counter
-    if sloads_before_sstore:
-        loop += Op.DUP1  # [counter, counter, value, end_slot]
-        loop += Op.SLOAD(key_warm=key_warm)
-        loop += Op.POP
-        loop += Op.DUP2  # [value, counter, value, end_slot]
-        loop += Op.DUP2  # [counter, value, counter, value, end_slot]
-        loop += Op.SSTORE(
-            key_warm=True,
-            original_value=original_value,
-            new_value=new_value,
-        )
-    else:
-        loop += Op.DUP2  # [value, counter, value, end_slot]
-        loop += Op.DUP2  # [counter, value, counter, value, end_slot]
-        loop += Op.SSTORE(  # STORAGE[counter, value] = value
-            key_warm=key_warm,
-            original_value=original_value,
-            new_value=new_value,
-        )
-
-    # Loop Post: Increment Counter
-    loop += Op.PUSH1(1)
-    loop += Op.ADD
-    # [counter + 1, value, end_slot]
-
-    # Loop Condition: Counter < Num Slots
-    loop += Op.DUP3  # [end_slot, counter + 1, value, end_slot]
-    loop += Op.DUP2  # [counter + 1, end_slot, counter + 1, value, end_slot]
-    loop += Op.LT  # [counter + 1 < end_slot, counter + 1, value, end_slot]
-    loop += Op.ISZERO
-    loop += Op.ISZERO
-    loop += Op.PUSH1(len(setup))
-    loop += Op.JUMPI
-    # [counter + 1, value, end_slot]
-
-    # Cleanup: Stop
-    cleanup += Op.STOP
-
-    return setup, loop, cleanup
-
-
-@pytest.mark.parametrize("use_access_list", [True, False])
+@pytest.mark.parametrize("access_warm", [True, False])
 @pytest.mark.parametrize("sloads_before_sstore", [True, False])
 @pytest.mark.parametrize(
     "initial_value,write_value",
     [
         pytest.param(0, 0, id="zero_to_zero"),
         pytest.param(0, 0xDEADBEEF, id="zero_to_nonzero"),
+        # TODO: Resolve refund mechanism
         # pytest.param(0xDEADBEEF, 0, id="nonzero_to_zero"),
         pytest.param(0xDEADBEEF, 0xBEEFBEEF, id="nonzero_to_diff"),
         pytest.param(0xDEADBEEF, 0xDEADBEEF, id="nonzero_to_same"),
@@ -607,34 +535,36 @@ def test_sstore_variants(
     pre: Alloc,
     tx_gas_limit: int,
     gas_benchmark_value: int,
-    use_access_list: bool,
+    access_warm: bool,
     sloads_before_sstore: bool,
     initial_value: int,
     write_value: int,
 ) -> None:
     """
-    Benchmark SSTORE instruction with various configurations using EIP-7702 delegation.
+    Benchmark SSTORE instruction with various configurations.
 
-    The authority EOA delegates to:
-    - StorageInitializer: storage[i] = initial_value for each slot (if initial_value != 0)
+    Uses EIP-7702 delegation. The authority EOA delegates to:
+    - StorageInitializer: storage[i] = initial_value (initial_value != 0)
     - BenchmarkExecutor: performs the benchmark operation (SSTORE)
 
     Variants:
-    - use_access_list: Warm storage slots via access list
-    - sloads_before_sstore: Number of SLOADs per slot before SSTORE
+    - access_warm: Warm storage slots via access list
+    - sloads_before_sstore: SLOADs per slot before SSTORE
     - initial_value/write_value: Storage transitions
       (zero_to_zero, zero_to_nonzero, nonzero_to_zero, nonzero_to_nonzero)
     """
+    # Initial Storage Construction
+    initializer_code = create_sstore_initializer(initial_value)
+    initializer_addr = pre.deploy_contract(code=initializer_code)
+
+    # Actual Benchmark Execution
     executor_code = create_sstore_executor(
         sloads_before_sstore=sloads_before_sstore,
-        key_warm=use_access_list,
+        key_warm=access_warm,
         original_value=initial_value,
         new_value=write_value,
     )
-    initializer_code = create_sstore_initializer(initial_value)
-
     executor_addr = pre.deploy_contract(code=executor_code)
-    initializer_addr = pre.deploy_contract(code=initializer_code)
 
     # Calldata generator for the executor
     def executor_calldata_generator(
@@ -725,7 +655,7 @@ def test_sstore_variants(
     def access_list_generator(
         iteration_count: int, start_iteration: int
     ) -> list[AccessList] | None:
-        if use_access_list:
+        if access_warm:
             storage_keys = [
                 Hash(i)
                 for i in range(
@@ -786,53 +716,6 @@ def test_sstore_variants(
     )
 
 
-def sload_helper_contract(
-    *, key_warm: bool
-) -> Tuple[Bytecode, Bytecode, Bytecode]:
-    """
-    Storage contract for benchmark slot access.
-
-    # Calldata Layout:
-    # - CALLDATA[0..31]: Starting slot
-    # - CALLDATA[32..63]: Ending slot
-    """
-    setup = Bytecode()
-    loop = Bytecode()
-    cleanup = Bytecode()
-
-    setup += Op.CALLDATALOAD(32)  # end_slot
-    setup += Op.CALLDATALOAD(0)  # start slot = counter
-    # [counter, end_slot]
-
-    loop += Op.JUMPDEST
-
-    # Loop Body: Load key from storage
-    loop += Op.DUP1
-    loop += Op.SLOAD(key_warm=key_warm)
-    loop += Op.POP
-    # [counter, end_slot]
-
-    # Loop Post: Increment Counter
-    loop += Op.PUSH1(1)
-    loop += Op.ADD
-    # [counter + 1, end_slot]
-
-    # Loop Condition: Counter < Num Slots
-    loop += Op.DUP2  # [end_slot, counter + 1, end_slot]
-    loop += Op.DUP2  # [counter + 1, end_slot, counter + 1, end_slot]
-    loop += Op.LT  # [counter + 1 < end_slot, counter + 1, end_slot]
-    loop += Op.ISZERO
-    loop += Op.ISZERO
-    loop += Op.PUSH1(len(setup))
-    loop += Op.JUMPI
-    # [counter + 1, value, end_slot]
-
-    # Cleanup: Stop
-    cleanup += Op.STOP
-
-    return setup, loop, cleanup
-
-
 def create_sload_executor(key_warm: bool) -> IteratingBytecode:
     """
     Create a contract that executes SLOAD benchmark operations.
@@ -848,7 +731,8 @@ def create_sload_executor(key_warm: bool) -> IteratingBytecode:
     )
     # [counter, end_slot]
 
-    loop = Op.JUMPDEST
+    loop = Bytecode()
+    loop += Op.JUMPDEST
     # Loop Body: Load from current slot
     loop += Op.DUP1  # [counter, counter, end_slot]
     loop += Op.SLOAD(key_warm=key_warm)
@@ -869,7 +753,8 @@ def create_sload_executor(key_warm: bool) -> IteratingBytecode:
     loop += Op.JUMPI
     # [counter + 1, end_slot]
 
-    cleanup = Op.STOP
+    cleanup = Bytecode()
+    cleanup += Op.STOP
 
     return IteratingBytecode(setup=setup, iterating=loop, cleanup=cleanup)
 
@@ -886,10 +771,10 @@ def test_storage_sload_benchmark(
     tx_gas_limit: int,
 ) -> None:
     """
-    Benchmark SLOAD instruction with various configurations using EIP-7702 delegation.
+    Benchmark SLOAD instruction with various configurations.
 
-    The authority EOA delegates to:
-    - StorageInitializer: storage[i] = 1 for each slot (if storage_keys_pre_set)
+    Uses EIP-7702 delegation. The authority EOA delegates to:
+    - StorageInitializer: storage[i] = 1 (if storage_keys_pre_set)
     - BenchmarkExecutor: performs the benchmark operation (SLOAD)
 
     Variants:
