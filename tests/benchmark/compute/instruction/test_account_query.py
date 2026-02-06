@@ -419,7 +419,9 @@ def test_ext_account_query_cold(
 )
 @pytest.mark.parametrize("access_warm", [True, False])
 @pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
-@pytest.mark.parametrize("code_size", [0, 32, 256, 1024, 24576])
+@pytest.mark.parametrize(
+    "code_size", [0, 32, 256, 1024, pytest.param(None, id="max_code_size")]
+)
 @pytest.mark.parametrize("value_sent", [0, 1])
 def test_account_query(
     benchmark_test: BenchmarkTestFiller,
@@ -585,11 +587,12 @@ def test_account_query(
         total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
 
     post = {}
-    for i in range(num_contracts):
-        deployed_contract_address = (
-            custom_sized_contract_factory.created_contract_address(salt=i)
-        )
-        post[deployed_contract_address] = Account(nonce=1)
+    if custom_sized_contract_factory.contract_size > 0:
+        for i in range(num_contracts):
+            deployed_contract_address = (
+                custom_sized_contract_factory.created_contract_address(salt=i)
+            )
+            post[deployed_contract_address] = Account(nonce=1)
 
     benchmark_test(
         pre=pre,
