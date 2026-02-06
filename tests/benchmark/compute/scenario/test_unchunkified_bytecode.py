@@ -8,7 +8,7 @@ from execution_testing import (
     Account,
     Alloc,
     Block,
-    BlockchainTestFiller,
+    BenchmarkTestFiller,
     Bytecode,
     Create2PreimageLayout,
     Fork,
@@ -35,7 +35,7 @@ from tests.benchmark.compute.helpers import CustomSizedContractFactory
     ],
 )
 def test_unchunkified_bytecode(
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     opcode: Op,
@@ -154,13 +154,12 @@ def test_unchunkified_bytecode(
         )
         post[deployed_contract_address] = Account(nonce=1)
 
-    blockchain_test(
+    benchmark_test(
         pre=pre,
         post=post,
         blocks=[
             Block(txs=contracts_deployment_txs),
             Block(txs=attack_txs),
         ],
-        exclude_full_post_state_in_output=True,
         expected_benchmark_gas_used=total_gas_cost,
     )

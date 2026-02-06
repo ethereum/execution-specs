@@ -441,8 +441,14 @@ def test_account_query(
     ):
         pytest.skip(f"No memory size configuration for {opcode}")
 
-    if opcode in (Op.CALL, Op.CALLCODE) and value_sent > 0:
+    if opcode not in (Op.CALL, Op.CALLCODE) and value_sent > 0:
         pytest.skip(f"No value configuration for {opcode}")
+
+    if (
+        opcode in (Op.CALL, Op.CALLCODE, Op.STATICCALL, Op.DELEGATECALL)
+        and code_size > 0
+    ):
+        pytest.skip(f"No code size configuration for {opcode}")
 
     attack_gas_limit = gas_benchmark_value
 
