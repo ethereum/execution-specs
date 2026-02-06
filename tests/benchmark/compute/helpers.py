@@ -268,8 +268,8 @@ class CustomSizedContractInitcode(FixedIterationsBytecode):
             iterating = While(
                 body=(
                     Op.SHA3(Op.SUB(Op.MSIZE, 32), 32, data_size=32)
-                    # Use a xor table to avoid having to call the "expensive" sha3
-                    # opcode as much
+                    # Use a xor table to avoid having to call the "expensive"
+                    # sha3 opcode as much
                     + sum(
                         (
                             Op.PUSH32[xor_value]
