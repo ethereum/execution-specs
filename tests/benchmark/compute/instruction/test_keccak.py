@@ -103,6 +103,6 @@ def test_keccak_diff_mem_msg_sizes(
         target_opcode=Op.SHA3,
         code_generator=JumpLoopGenerator(
             setup=setup,
-            attack_block=Op.POP(Op.SHA3(0, msg_size)),
+            attack_block=Op.MSTORE(Op.PUSH0, Op.SHA3(Op.PUSH0, msg_size)),
         ),
     )
