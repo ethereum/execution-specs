@@ -9,19 +9,22 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
 
 import json
 import math
+from functools import partial
 from pathlib import Path
-from typing import Tuple
+from typing import Callable, List
 
 import pytest
 from execution_testing import (
     AccessList,
     Account,
+    Address,
     Alloc,
     AuthorizationTuple,
     BenchmarkTestFiller,
     Block,
     BlockchainTestFiller,
     Bytecode,
+    EOA,
     Fork,
     Hash,
     IteratingBytecode,
@@ -425,17 +428,18 @@ def create_sstore_initializer(init_val: int) -> IteratingBytecode:
     )
 
     # Loop: decrement counter and store at current position
-    # Stack after SUB: [index, current]
+    # Stack after substraction: [index, current]
     # where current goes from index+num-1 down to index
     loop = (
         Op.JUMPDEST
         + Op.PUSH1(1)  # [index, current, 1]
         + Op.SWAP1  # [index, 1, current]
         + Op.SUB  # [index, current - 1]
-        + Op.SSTORE(
-            Op.DUP1,  # key = current - 1 (top of stack after decrement)
+        + Op.SSTORE(  # STORAGE[current-1] = initial_value
+            Op.DUP2,
             init_val,
             key_warm=False,
+            # gas accounting
             original_value=0,
             current_value=0,
             new_value=init_val,
@@ -475,11 +479,14 @@ def create_sstore_executor(
     # Loop Body: Store Value at Start Slot + Counter
     if sloads_before_sstore:
         loop += Op.DUP1  # [counter, counter, value, end_slot]
-        loop += Op.SLOAD(key_warm=key_warm)
+        loop += Op.SLOAD(
+            # gas accounting
+            key_warm=key_warm
+        )
         loop += Op.POP
         loop += Op.DUP2  # [value, counter, value, end_slot]
         loop += Op.DUP2  # [counter, value, counter, value, end_slot]
-        loop += Op.SSTORE(
+        loop += Op.SSTORE(  # STORAGE[counter] = value
             key_warm=True,
             original_value=original_value,
             current_value=original_value,
@@ -488,12 +495,13 @@ def create_sstore_executor(
     else:
         loop += Op.DUP2  # [value, counter, value, end_slot]
         loop += Op.DUP2  # [counter, value, counter, value, end_slot]
-        loop += Op.SSTORE(  # STORAGE[counter, value] = value
+        loop += Op.SSTORE(  # STORAGE[counter] = value
             key_warm=key_warm,
             original_value=original_value,
             current_value=original_value,
             new_value=new_value,
         )
+    # [counter, value, end_slot]
 
     # Loop Post: Increment Counter
     loop += Op.PUSH1(1)
@@ -504,8 +512,6 @@ def create_sstore_executor(
     loop += Op.DUP3  # [end_slot, counter + 1, value, end_slot]
     loop += Op.DUP2  # [counter + 1, end_slot, counter + 1, value, end_slot]
     loop += Op.LT  # [counter + 1 < end_slot, counter + 1, value, end_slot]
-    loop += Op.ISZERO
-    loop += Op.ISZERO
     loop += Op.PUSH1(len(setup))
     loop += Op.JUMPI
     # [counter + 1, value, end_slot]
@@ -514,6 +520,137 @@ def create_sstore_executor(
     cleanup += Op.STOP
 
     return IteratingBytecode(setup=setup, iterating=loop, cleanup=cleanup)
+
+
+def access_list_generator(
+    iteration_count: int,
+    start_iteration: int,
+    access_warm: bool,
+    authority: Address,
+) -> list[AccessList] | None:
+    """Access list generator for warming storage slots."""
+    if access_warm:
+        storage_keys = [
+            Hash(i)
+            for i in range(start_iteration, start_iteration + iteration_count)
+        ]
+        return [AccessList(address=authority, storage_keys=storage_keys)]
+    return None
+
+
+def executor_calldata_generator(
+    iteration_count: int,
+    start_iteration: int,
+    write_value: int | None = None,
+) -> bytes:
+    """
+    Calldata generator for executor operations.
+
+    Generates: Hash(start) + Hash(start + count) [+ Hash(write_value)]
+    """
+    result = Hash(start_iteration) + Hash(start_iteration + iteration_count)
+    if write_value is not None:
+        result += Hash(write_value)
+    return result
+
+
+def initializer_calldata_generator(
+    iteration_count: int, start_iteration: int
+) -> bytes:
+    """Calldata generator for the storage initializer: Hash(start) + Hash(count)."""
+    return Hash(start_iteration) + Hash(iteration_count)
+
+
+def build_delegated_storage_setup(
+    *,
+    pre: Alloc,
+    fork: Fork,
+    tx_gas_limit: int,
+    needs_init: bool,
+    num_target_slots: int,
+    initializer_code: IteratingBytecode,
+    initializer_addr: Address,
+    executor_addr: Address,
+    authority: EOA,
+    authority_nonce: int,
+    delegation_sender: EOA,
+    initializer_calldata_generator: Callable[[int, int], bytes],
+) -> List[Block]:
+    """
+    Build setup blocks for delegated storage benchmarks.
+
+    Returns:
+        List of blocks for the setup phase.
+    """
+    blocks: List[Block] = []
+
+    if needs_init:
+        # Block 1: Authorize to initializer
+        blocks.append(
+            Block(
+                txs=[
+                    Transaction(
+                        to=delegation_sender,
+                        gas_limit=tx_gas_limit,
+                        sender=delegation_sender,
+                        authorization_list=[
+                            AuthorizationTuple(
+                                address=initializer_addr,
+                                nonce=authority_nonce,
+                                signer=authority,
+                            ),
+                        ],
+                    )
+                ]
+            )
+        )
+        authority_nonce += 1
+
+        # Calculate slots per block based on init gas cost
+        single_slot_gas = initializer_code.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=1,
+            start_iteration=1,
+            calldata=initializer_calldata_generator,
+        )
+        slots_per_block = max(1, tx_gas_limit // single_slot_gas)
+
+        # Blocks 2+: Initialization (one block per chunk)
+        for start in range(1, num_target_slots + 1, slots_per_block):
+            chunk_size = min(slots_per_block, num_target_slots - start + 1)
+            init_txs = list(
+                initializer_code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=chunk_size,
+                    sender=pre.fund_eoa(),
+                    to=authority,
+                    start_iteration=start,
+                    calldata=initializer_calldata_generator,
+                )
+            )
+            blocks.append(Block(txs=init_txs))
+
+    # Final block: Authorize to executor
+    blocks.append(
+        Block(
+            txs=[
+                Transaction(
+                    to=delegation_sender,
+                    gas_limit=tx_gas_limit,
+                    sender=delegation_sender,
+                    authorization_list=[
+                        AuthorizationTuple(
+                            address=executor_addr,
+                            nonce=authority_nonce,
+                            signer=authority,
+                        ),
+                    ],
+                )
+            ]
+        )
+    )
+
+    return blocks
 
 
 @pytest.mark.parametrize("access_warm", [True, False])
@@ -566,111 +703,47 @@ def test_sstore_variants(
     )
     executor_addr = pre.deploy_contract(code=executor_code)
 
-    # Calldata generator for the executor
-    def executor_calldata_generator(
-        iteration_count: int, start_iteration: int
-    ) -> bytes:
-        return (
-            Hash(start_iteration)
-            + Hash(start_iteration + iteration_count)
-            + Hash(write_value)
-        )
+    authority = pre.fund_eoa(amount=0)
+    authority_nonce = 0
 
-    # Calldata generator for the initializer
-    def initializer_calldata_generator(
-        iteration_count: int, start_iteration: int
-    ) -> bytes:
-        return Hash(start_iteration) + Hash(iteration_count)
+    delegation_sender = pre.fund_eoa()
+
+    calldata_gen = partial(
+        executor_calldata_generator, write_value=write_value
+    )
+    access_list_gen = partial(
+        access_list_generator, access_warm=access_warm, authority=authority
+    )
 
     # Number of slots that can be processed in the execution phase
     num_target_slots = sum(
         executor_code.tx_iterations_by_gas_limit(
             fork=fork,
             gas_limit=gas_benchmark_value,
-            calldata=executor_calldata_generator,
+            calldata=calldata_gen,
+            access_list=access_list_gen,
             start_iteration=1,
         )
     )
 
-    blocks = []
-    delegation_sender = pre.fund_eoa()
-
-    # Single authority EOA for all storage operations
-    authority = pre.fund_eoa(amount=0)
-    authority_nonce = 0
-
-    # Setup phase: initialize storage slots (only if initial_value != 0)
+    # Setup phase: initialize storage slots (if initial_value != 0)
     with TestPhaseManager.setup():
-        setup_txs = []
-
-        if initial_value != 0:
-            # Authorize to initializer
-            setup_txs.append(
-                Transaction(
-                    to=delegation_sender,
-                    gas_limit=tx_gas_limit,
-                    sender=delegation_sender,
-                    authorization_list=[
-                        AuthorizationTuple(
-                            address=initializer_addr,
-                            nonce=authority_nonce,
-                            signer=authority,
-                        ),
-                    ],
-                )
-            )
-            authority_nonce += 1
-
-            # Run initialization transactions
-            setup_txs += list(
-                initializer_code.transactions_by_total_iteration_count(
-                    fork=fork,
-                    total_iterations=num_target_slots,
-                    sender=pre.fund_eoa(),
-                    to=authority,
-                    start_iteration=1,
-                    calldata=initializer_calldata_generator,
-                )
-            )
-
-        # Authorize to executor
-        setup_txs.append(
-            Transaction(
-                to=delegation_sender,
-                gas_limit=tx_gas_limit,
-                sender=delegation_sender,
-                authorization_list=[
-                    AuthorizationTuple(
-                        address=executor_addr,
-                        nonce=authority_nonce,
-                        signer=authority,
-                    ),
-                ],
-            )
+        blocks = build_delegated_storage_setup(
+            pre=pre,
+            fork=fork,
+            tx_gas_limit=tx_gas_limit,
+            needs_init=initial_value != 0,
+            num_target_slots=num_target_slots,
+            initializer_code=initializer_code,
+            initializer_addr=initializer_addr,
+            executor_addr=executor_addr,
+            authority=authority,
+            authority_nonce=authority_nonce,
+            delegation_sender=delegation_sender,
+            initializer_calldata_generator=initializer_calldata_generator,
         )
 
-        blocks.append(Block(txs=setup_txs))
-
-    # Access list generator for warming storage slots
-    def access_list_generator(
-        iteration_count: int, start_iteration: int
-    ) -> list[AccessList] | None:
-        if access_warm:
-            storage_keys = [
-                Hash(i)
-                for i in range(
-                    start_iteration, start_iteration + iteration_count
-                )
-            ]
-            return [
-                AccessList(
-                    address=authority,
-                    storage_keys=storage_keys,
-                )
-            ]
-        return None
-
-    # Execution phase: run benchmark
+    # Execution phase
     expected_gas_used = 0
 
     with TestPhaseManager.execution():
@@ -680,33 +753,13 @@ def test_sstore_variants(
                 gas_limit=gas_benchmark_value,
                 sender=pre.fund_eoa(),
                 to=authority,
-                calldata=executor_calldata_generator,
+                calldata=calldata_gen,
                 start_iteration=1,
-                access_list=access_list_generator,
+                access_list=access_list_gen,
             )
         )
 
-        # Calculate expected gas accounting for refunds
-        refund_per_iteration = executor_code.iterating.refund(fork)
-
-        for exec_tx in exec_txs:
-            tx_gas_cost = exec_tx.gas_cost
-            if refund_per_iteration > 0:
-                # Estimate iteration count
-                per_iteration_gross = executor_code.iterating.gas_cost(fork)
-                overhead = executor_code.setup.gas_cost(
-                    fork
-                ) + executor_code.cleanup.gas_cost(fork)
-                iteration_count = (
-                    tx_gas_cost - overhead
-                ) // per_iteration_gross
-                # Apply 20% refund cap
-                total_refund = refund_per_iteration * iteration_count
-                max_refund = tx_gas_cost // 5
-                actual_refund = min(total_refund, max_refund)
-                expected_gas_used += tx_gas_cost - actual_refund
-            else:
-                expected_gas_used += tx_gas_cost
+        expected_gas_used = sum(tx.gas_cost for tx in exec_txs)
 
     blocks.append(Block(txs=exec_txs))
 
@@ -747,8 +800,6 @@ def create_sload_executor(key_warm: bool) -> IteratingBytecode:
     loop += Op.DUP2  # [end_slot, counter + 1, end_slot]
     loop += Op.DUP2  # [counter + 1, end_slot, counter + 1, end_slot]
     loop += Op.LT  # [counter + 1 < end_slot, counter + 1, end_slot]
-    loop += Op.ISZERO
-    loop += Op.ISZERO
     loop += Op.PUSH1(len(setup))
     loop += Op.JUMPI
     # [counter + 1, end_slot]
@@ -759,16 +810,16 @@ def create_sload_executor(key_warm: bool) -> IteratingBytecode:
     return IteratingBytecode(setup=setup, iterating=loop, cleanup=cleanup)
 
 
-@pytest.mark.parametrize("warm_slots", [False, True])
-@pytest.mark.parametrize("storage_keys_pre_set", [False, True])
+@pytest.mark.parametrize("access_warm", [True, False])
+@pytest.mark.parametrize("storage_keys_pre_set", [True, False])
 def test_storage_sload_benchmark(
     benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
     fork: Fork,
-    gas_benchmark_value: int,
-    warm_slots: bool,
-    storage_keys_pre_set: bool,
+    pre: Alloc,
     tx_gas_limit: int,
+    gas_benchmark_value: int,
+    access_warm: bool,
+    storage_keys_pre_set: bool,
 ) -> None:
     """
     Benchmark SLOAD instruction with various configurations.
@@ -778,116 +829,56 @@ def test_storage_sload_benchmark(
     - BenchmarkExecutor: performs the benchmark operation (SLOAD)
 
     Variants:
-    - warm_slots: Warm storage slots via access list
+    - access_warm: Warm storage slots via access list
     - storage_keys_pre_set: Whether the storage keys are pre-set
     """
-    executor_code = create_sload_executor(key_warm=warm_slots)
+    # Initial Storage Construction
     initializer_code = create_sstore_initializer(init_val=1)
-
-    executor_addr = pre.deploy_contract(code=executor_code)
     initializer_addr = pre.deploy_contract(code=initializer_code)
 
-    # Calldata generator for the executor
-    def executor_calldata_generator(
-        iteration_count: int, start_iteration: int
-    ) -> bytes:
-        return Hash(start_iteration) + Hash(start_iteration + iteration_count)
+    # Actual Benchmark Execution
+    executor_code = create_sload_executor(key_warm=access_warm)
+    executor_addr = pre.deploy_contract(code=executor_code)
 
-    # Calldata generator for the initializer
-    def initializer_calldata_generator(
-        iteration_count: int, start_iteration: int
-    ) -> bytes:
-        return Hash(start_iteration) + Hash(iteration_count)
+    authority = pre.fund_eoa(amount=0)
+    authority_nonce = 0
+
+    delegation_sender = pre.fund_eoa()
+
+    calldata_gen = partial(executor_calldata_generator)
+    access_list_gen = partial(
+        access_list_generator, access_warm=access_warm, authority=authority
+    )
 
     # Number of slots that can be processed in the execution phase
     num_target_slots = sum(
         executor_code.tx_iterations_by_gas_limit(
             fork=fork,
             gas_limit=gas_benchmark_value,
-            calldata=executor_calldata_generator,
+            calldata=calldata_gen,
+            access_list=access_list_gen,
             start_iteration=1,
         )
     )
 
-    blocks = []
-    delegation_sender = pre.fund_eoa()
-
-    # Single authority EOA for all storage operations
-    authority = pre.fund_eoa(amount=0)
-    authority_nonce = 0
-
-    # Setup phase: initialize storage slots (only if storage_keys_pre_set)
+    # Setup phase: initialize storage slots (if storage_keys_pre_set)
     with TestPhaseManager.setup():
-        setup_txs = []
-
-        if storage_keys_pre_set:
-            # Authorize to initializer
-            setup_txs.append(
-                Transaction(
-                    to=delegation_sender,
-                    gas_limit=tx_gas_limit,
-                    sender=delegation_sender,
-                    authorization_list=[
-                        AuthorizationTuple(
-                            address=initializer_addr,
-                            nonce=authority_nonce,
-                            signer=authority,
-                        ),
-                    ],
-                )
-            )
-            authority_nonce += 1
-
-            # Run initialization transactions
-            setup_txs += list(
-                initializer_code.transactions_by_total_iteration_count(
-                    fork=fork,
-                    total_iterations=num_target_slots,
-                    sender=pre.fund_eoa(),
-                    to=authority,
-                    start_iteration=1,
-                    calldata=initializer_calldata_generator,
-                )
-            )
-
-        # Authorize to executor
-        setup_txs.append(
-            Transaction(
-                to=delegation_sender,
-                gas_limit=tx_gas_limit,
-                sender=delegation_sender,
-                authorization_list=[
-                    AuthorizationTuple(
-                        address=executor_addr,
-                        nonce=authority_nonce,
-                        signer=authority,
-                    ),
-                ],
-            )
+        blocks = build_delegated_storage_setup(
+            pre=pre,
+            fork=fork,
+            tx_gas_limit=tx_gas_limit,
+            needs_init=storage_keys_pre_set,
+            num_target_slots=num_target_slots,
+            initializer_code=initializer_code,
+            initializer_addr=initializer_addr,
+            executor_addr=executor_addr,
+            authority=authority,
+            authority_nonce=authority_nonce,
+            delegation_sender=delegation_sender,
+            initializer_calldata_generator=initializer_calldata_generator,
         )
 
-        blocks.append(Block(txs=setup_txs))
-
-    # Access list generator for warming storage slots
-    def access_list_generator(
-        iteration_count: int, start_iteration: int
-    ) -> list[AccessList] | None:
-        if warm_slots:
-            storage_keys = [
-                Hash(i)
-                for i in range(
-                    start_iteration, start_iteration + iteration_count
-                )
-            ]
-            return [
-                AccessList(
-                    address=authority,
-                    storage_keys=storage_keys,
-                )
-            ]
-        return None
-
-    # Execution phase: run benchmark
+    # Execution phase
     expected_gas_used = 0
 
     with TestPhaseManager.execution():
@@ -897,14 +888,13 @@ def test_storage_sload_benchmark(
                 gas_limit=gas_benchmark_value,
                 sender=pre.fund_eoa(),
                 to=authority,
-                calldata=executor_calldata_generator,
+                calldata=calldata_gen,
                 start_iteration=1,
-                access_list=access_list_generator,
+                access_list=access_list_gen,
             )
         )
 
-        for exec_tx in exec_txs:
-            expected_gas_used += exec_tx.gas_cost
+        expected_gas_used = sum(tx.gas_cost for tx in exec_txs)
 
     blocks.append(Block(txs=exec_txs))
 
