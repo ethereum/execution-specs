@@ -95,10 +95,10 @@ class Alloc(SharedAlloc):
         """Pre-processes the code before setting it."""
         return code
 
-    def group_salt(self) -> str | None:
+    def modified_accounts_salt(self) -> int:
         """
-        Return a group salt if this pre-allocation was affected by
-        setting addresses to hard-coded accounts or has pre-funded addresses.
+        Return a salt if this pre-allocation was affected by setting addresses
+        to hard-coded accounts or has pre-funded addresses.
 
         Any modification the test does to a hard-coded address must affect
         this salt.
@@ -109,7 +109,7 @@ class Alloc(SharedAlloc):
             and not self._hardcoded_addresses_deployed_to
             and not self._deleted_addresses
         ):
-            return None
+            return 0
 
         # Build a hashable buffer from the modified accounts.
         buffer = b""
@@ -128,7 +128,9 @@ class Alloc(SharedAlloc):
             for deleted_address in sorted(self._deleted_addresses):
                 buffer += deleted_address
 
-        return buffer.hex()
+        return int.from_bytes(
+            hashlib.sha256(buffer).digest()[:8], byteorder="big"
+        )
 
     def compute_pre_alloc_group_hash(
         self,
@@ -140,10 +142,13 @@ class Alloc(SharedAlloc):
         """Hash (fork, env) in order to group tests by genesis config."""
         fork_digest = hashlib.sha256(fork.name().encode("utf-8")).digest()
         fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")
-        combined_hash = fork_hash ^ hash(genesis_environment)
+        combined_hash = (
+            fork_hash
+            ^ hash(genesis_environment)
+            ^ self.modified_accounts_salt()
+        )
 
         # Check if this pre-allocation has a group salt
-        group_salt = group_salt or self.group_salt()
         if group_salt:
             # Add custom salt to hash
             salt_hash = hashlib.sha256(group_salt.encode("utf-8")).digest()

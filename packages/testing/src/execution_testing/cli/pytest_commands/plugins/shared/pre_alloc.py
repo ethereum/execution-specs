@@ -157,11 +157,14 @@ class Alloc(BaseAlloc):
     ) -> None:
         """Set account associated with an address."""
         self._flags.assert_allow_account_address_set()
+        if not isinstance(address, Address):
+            address = Address(address)
+        self._set_addresses.add(address)
         self.__internal_setitem__(address, account)
 
     def __internal_setitem__(
         self,
-        address: Address | FixedSizeBytesConvertible,
+        address: Address,
         account: Account | None,
     ) -> None:
         """
@@ -169,9 +172,6 @@ class Alloc(BaseAlloc):
 
         Called by the pre-alloc implementation to set an account.
         """
-        if not isinstance(address, Address):
-            address = Address(address)
-        self._set_addresses.add(address)
         self.root[address] = account
 
     def __delitem__(
@@ -179,20 +179,20 @@ class Alloc(BaseAlloc):
     ) -> None:
         """Delete account associated with an address."""
         self._flags.assert_allow_account_address_set()
+        if not isinstance(address, Address):
+            address = Address(address)
+        self._deleted_addresses.add(address)
         self.__internal_delitem__(address)
 
     def __internal_delitem__(
         self,
-        address: Address | FixedSizeBytesConvertible,
+        address: Address,
     ) -> None:
         """
         Delete account associated with an address.
 
         Called by the pre-alloc implementation to delete an account.
         """
-        if not isinstance(address, Address):
-            address = Address(address)
-        self._deleted_addresses.add(address)
         self.root.pop(address, None)
 
     def deterministic_deploy_contract(
