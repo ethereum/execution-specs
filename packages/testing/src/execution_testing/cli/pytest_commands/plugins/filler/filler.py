@@ -1429,7 +1429,7 @@ def compute_pre_alloc_group_hash(
             else:
                 group_salt = "separate"
         else:
-            if not alloc_flags.incompatible_with_alloc_grouping():
+            if alloc_flags.incompatible_with_alloc_grouping():
                 group_salt = "separate"
 
         if group_salt:
