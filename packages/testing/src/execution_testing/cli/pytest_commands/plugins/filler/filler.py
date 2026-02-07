@@ -10,7 +10,6 @@ import atexit
 import configparser
 import datetime
 import gc
-import hashlib
 import json
 import logging
 import os
@@ -31,9 +30,9 @@ from pytest_metadata.plugin import metadata_key
 from execution_testing.base_types import (
     Account,
     Address,
-    Alloc,
     ReferenceSpec,
 )
+from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.cli.gen_index import (
     merge_partial_indexes,
 )
@@ -78,11 +77,11 @@ from ..shared.helpers import (
     is_help_or_collectonly_mode,
     labeled_format_parameter_set,
 )
-from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
 from .fixture_output import FixtureOutput
+from .pre_alloc import Alloc
 
 # Fixture output dir for keyboard interrupt cleanup (set in pytest_configure).
 # Used by _merge_on_exit to merge partial JSONL files on Ctrl+C or SIGTERM.
@@ -425,8 +424,8 @@ class FillingSession:
 
 
 def calculate_post_state_diff(
-    post_state: Alloc, genesis_state: Alloc
-) -> Alloc:
+    post_state: BaseAlloc, genesis_state: BaseAlloc
+) -> BaseAlloc:
     """
     Calculate the state difference between post_state and genesis_state.
 
@@ -472,7 +471,7 @@ def calculate_post_state_diff(
 
         # Account unchanged - don't include in diff
 
-    return Alloc(diff)
+    return BaseAlloc(diff)
 
 
 def default_output_directory() -> str:
@@ -1397,83 +1396,6 @@ def fixture_source_url(
     return github_url
 
 
-def compute_pre_alloc_group_hash(
-    *,
-    base_test: BaseTest,
-    alloc_flags: AllocFlags,
-) -> str:
-    """Hash (fork, env) in order to group tests by genesis config."""
-    if not hasattr(base_test, "pre"):
-        raise AttributeError(
-            f"{base_test.__class__.__name__} does not have a 'pre' field. "
-            "Pre-allocation group usage is only supported for test "
-            "types that define pre-allocs."
-        )
-    fork_digest = hashlib.sha256(
-        base_test.fork.name().encode("utf-8")
-    ).digest()
-    fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")
-    genesis_env = base_test.get_genesis_environment()
-    combined_hash = fork_hash ^ hash(genesis_env)
-
-    # Check if test has pre_alloc_group marker
-    if base_test._request is not None and hasattr(base_test._request, "node"):
-        pre_alloc_group_marker = base_test._request.node.get_closest_marker(
-            "pre_alloc_group"
-        )
-        group_salt: str = ""
-        if pre_alloc_group_marker:
-            # Get the group name/salt from marker args
-            if pre_alloc_group_marker.args:
-                group_salt = str(pre_alloc_group_marker.args[0])
-            else:
-                group_salt = "separate"
-        else:
-            if alloc_flags.incompatible_with_alloc_grouping():
-                group_salt = "separate"
-
-        if group_salt:
-            if group_salt == "separate":
-                # Use nodeid for unique group per test
-                group_salt = base_test._request.node.nodeid
-            # Add custom salt to hash
-            salt_hash = hashlib.sha256(group_salt.encode("utf-8")).digest()
-            salt_int = int.from_bytes(salt_hash[:8], byteorder="big")
-            combined_hash = combined_hash ^ salt_int
-
-    return f"0x{combined_hash:016x}"
-
-
-def update_pre_alloc_groups(
-    *,
-    base_test: BaseTest,
-    pre_alloc_group_builders: PreAllocGroupBuilders,
-    test_id: str,
-    alloc_flags: AllocFlags = AllocFlags.NONE,
-) -> None:
-    """
-    Create or update the pre-allocation group with the pre from the current
-    spec.
-    """
-    if not hasattr(base_test, "pre"):
-        raise AttributeError(
-            f"{base_test.__class__.__name__} does not have a 'pre' field. "
-            "Pre-allocation groups are only supported for test types "
-            "that define pre-allocation."
-        )
-    pre_alloc_hash = compute_pre_alloc_group_hash(
-        base_test=base_test,
-        alloc_flags=alloc_flags,
-    )
-    pre_alloc_group_builders.add_test_pre(
-        pre_alloc_hash=pre_alloc_hash,
-        test_id=str(test_id),
-        fork=base_test.fork,
-        environment=base_test.get_genesis_environment(),
-        pre=base_test.pre,
-    )
-
-
 def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     """
     Generate pytest.fixture for a given BaseTest subclass.
@@ -1503,7 +1425,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         gas_benchmark_value: int,
         fixed_opcode_count: int | None,
         witness_generator: Any,
-        alloc_flags: AllocFlags,
     ) -> Any:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -1560,16 +1481,35 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 session: FillingSession = request.config.filling_session  # type: ignore
                 assert isinstance(session, FillingSession)
 
+                group_salt: str | None = None
+                if pre_alloc_group_marker := request.node.get_closest_marker(
+                    "pre_alloc_group"
+                ):
+                    # Get the group name/salt from marker args
+                    if pre_alloc_group_marker.args:
+                        group_salt = str(pre_alloc_group_marker.args[0])
+                    else:
+                        # We got the marker but unspecified, pass test name
+                        group_salt = request.node.nodeid
+
                 # Phase 1: Generate pre-allocation groups
                 if session.phase_manager.is_pre_alloc_generation:
                     # Use the original update_pre_alloc_groups method which
                     # returns the groups
                     assert session.pre_alloc_group_builders is not None
-                    update_pre_alloc_groups(
-                        base_test=self,
-                        pre_alloc_group_builders=session.pre_alloc_group_builders,
-                        test_id=request.node.nodeid,
-                        alloc_flags=alloc_flags,
+                    test_id = str(request.node.nodeid)
+                    genesis_environment = self.get_genesis_environment()
+                    pre_alloc_hash = pre.compute_pre_alloc_group_hash(
+                        fork=fork,
+                        genesis_environment=genesis_environment,
+                        group_salt=group_salt,
+                    )
+                    session.pre_alloc_group_builders.add_test_pre(
+                        pre_alloc_hash=pre_alloc_hash,
+                        test_id=test_id,
+                        fork=fork,
+                        environment=genesis_environment,
+                        pre=pre,
                     )
                     return  # Skip fixture generation in phase 1
 
@@ -1580,9 +1520,10 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     FixtureFillingPhase.PRE_ALLOC_GENERATION
                     in fixture_format.format_phases
                 ):
-                    pre_alloc_hash = compute_pre_alloc_group_hash(
-                        base_test=self,
-                        alloc_flags=alloc_flags,
+                    pre_alloc_hash = pre.compute_pre_alloc_group_hash(
+                        fork=fork,
+                        genesis_environment=self.get_genesis_environment(),
+                        group_salt=group_salt,
                     )
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre

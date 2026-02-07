@@ -1,5 +1,6 @@
 """Pre-alloc specifically conditioned for test filling."""
 
+import hashlib
 import inspect
 from functools import cache
 from hashlib import sha256
@@ -30,6 +31,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
+    Environment,
     compute_deterministic_create2_address,
 )
 from execution_testing.tools import Initcode
@@ -92,6 +94,63 @@ class Alloc(SharedAlloc):
     def code_pre_processor(self, code: BytesConvertible) -> BytesConvertible:
         """Pre-processes the code before setting it."""
         return code
+
+    def group_salt(self) -> str | None:
+        """
+        Return a group salt if this pre-allocation was affected by
+        setting addresses to hard-coded accounts or has pre-funded addresses.
+
+        Any modification the test does to a hard-coded address must affect
+        this salt.
+        """
+        if (
+            not self._set_addresses
+            and not self._pre_funded_addresses
+            and not self._hardcoded_addresses_deployed_to
+            and not self._deleted_addresses
+        ):
+            return None
+
+        # Build a hashable buffer from the modified accounts.
+        buffer = b""
+        altered_accounts = (
+            self._set_addresses
+            | self._pre_funded_addresses
+            | self._hardcoded_addresses_deployed_to
+        )
+        if altered_accounts:
+            buffer += b"\0"
+            for altered_account in sorted(altered_accounts):
+                buffer += altered_account
+                buffer += self[altered_account].hash()
+        if self._deleted_addresses:
+            buffer += b"\1"
+            for deleted_address in sorted(self._deleted_addresses):
+                buffer += deleted_address
+
+        return buffer.hex()
+
+    def compute_pre_alloc_group_hash(
+        self,
+        *,
+        fork: Fork,
+        genesis_environment: Environment,
+        group_salt: str | None,
+    ) -> str:
+        """Hash (fork, env) in order to group tests by genesis config."""
+        fork_digest = hashlib.sha256(fork.name().encode("utf-8")).digest()
+        fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")
+        combined_hash = fork_hash ^ hash(genesis_environment)
+
+        # Check if this pre-allocation has a group salt
+        group_salt = group_salt or self.group_salt()
+        if group_salt:
+            # Add custom salt to hash
+            salt_hash = hashlib.sha256(group_salt.encode("utf-8")).digest()
+            salt_int = int.from_bytes(salt_hash[:8], byteorder="big")
+            combined_hash = combined_hash ^ salt_int
+
+        return f"0x{combined_hash:016x}"
 
     def _deterministic_deploy_contract(
         self,

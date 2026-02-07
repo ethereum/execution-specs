@@ -1,7 +1,7 @@
 """Shared pre-alloc functionality."""
 
 from enum import IntFlag, auto
-from typing import Any, Literal
+from typing import Any, Literal, Set
 
 from pydantic import PrivateAttr
 
@@ -45,16 +45,6 @@ class AllocFlags(IntFlag):
     def is_mutable(self) -> bool:
         """Return whether the pre-alloc is mutable."""
         return bool(self & AllocFlags.MUTABLE)
-
-    def incompatible_with_alloc_grouping(self) -> bool:
-        """Return True if the restrictions allow pre-alloc grouping."""
-        if (
-            AllocFlags.ALLOW_ADDRESS_SET_TO_ACCOUNT in self
-            or AllocFlags.ALLOW_DEPLOY_TO_HARDCODED_ADDRESS in self
-            or AllocFlags.ALLOW_FUND_ADDRESS in self
-        ):
-            return True
-        return False
 
     def assert_allow_account_address_set(self) -> None:
         """
@@ -141,6 +131,12 @@ class Alloc(BaseAlloc):
 
     _fork: Fork = PrivateAttr()
     _flags: AllocFlags = PrivateAttr(AllocFlags.NONE)
+    _set_addresses: Set[Address] = PrivateAttr(default_factory=set)
+    _deleted_addresses: Set[Address] = PrivateAttr(default_factory=set)
+    _pre_funded_addresses: Set[Address] = PrivateAttr(default_factory=set)
+    _hardcoded_addresses_deployed_to: Set[Address] = PrivateAttr(
+        default_factory=set
+    )
 
     def __init__(
         self,
@@ -175,6 +171,7 @@ class Alloc(BaseAlloc):
         """
         if not isinstance(address, Address):
             address = Address(address)
+        self._set_addresses.add(address)
         self.root[address] = account
 
     def __delitem__(
@@ -195,6 +192,7 @@ class Alloc(BaseAlloc):
         """
         if not isinstance(address, Address):
             address = Address(address)
+        self._deleted_addresses.add(address)
         self.root.pop(address, None)
 
     def deterministic_deploy_contract(
@@ -270,6 +268,7 @@ class Alloc(BaseAlloc):
         """
         if address is not None:
             self._flags.assert_allow_deploy_to_hardcoded_address()
+            self._hardcoded_addresses_deployed_to.add(Address(address))
 
         if Number(nonce) == 0:
             self._flags.assert_allow_zero_nonce_contracts()
@@ -371,6 +370,7 @@ class Alloc(BaseAlloc):
 
         """
         self._flags.assert_allow_fund_address()
+        self._pre_funded_addresses.add(address)
         return self._fund_address(
             address=address,
             amount=amount,
