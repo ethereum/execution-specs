@@ -2,7 +2,6 @@
 Base test class and helper functions for Ethereum state and blockchain tests.
 """
 
-import hashlib
 from abc import abstractmethod
 from enum import StrEnum, unique
 from functools import reduce
@@ -35,7 +34,6 @@ from execution_testing.fixtures import (
     BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
-    PreAllocGroupBuilders,
 )
 from execution_testing.forks import Fork
 from execution_testing.forks.base_fork import BaseFork
@@ -300,62 +298,6 @@ class BaseTest(BaseModel):
             f"{self.__class__.__name__} must implement genesis environment "
             "access for use with pre-allocation groups."
         )
-
-    def update_pre_alloc_groups(
-        self, pre_alloc_group_builders: PreAllocGroupBuilders, test_id: str
-    ) -> None:
-        """
-        Create or update the pre-allocation group with the pre from the current
-        spec.
-        """
-        if not hasattr(self, "pre"):
-            raise AttributeError(
-                f"{self.__class__.__name__} does not have a 'pre' field. "
-                "Pre-allocation groups are only supported for test types "
-                "that define pre-allocation."
-            )
-        pre_alloc_hash = self.compute_pre_alloc_group_hash()
-        pre_alloc_group_builders.add_test_pre(
-            pre_alloc_hash=pre_alloc_hash,
-            test_id=str(test_id),
-            fork=self.fork,
-            environment=self.get_genesis_environment(),
-            pre=self.pre,
-        )
-
-    def compute_pre_alloc_group_hash(self) -> str:
-        """Hash (fork, env) in order to group tests by genesis config."""
-        if not hasattr(self, "pre"):
-            raise AttributeError(
-                f"{self.__class__.__name__} does not have a 'pre' field. "
-                "Pre-allocation group usage is only supported for test "
-                "types that define pre-allocs."
-            )
-        fork_digest = hashlib.sha256(self.fork.name().encode("utf-8")).digest()
-        fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")
-        genesis_env = self.get_genesis_environment()
-        combined_hash = fork_hash ^ hash(genesis_env)
-
-        # Check if test has pre_alloc_group marker
-        if self._request is not None and hasattr(self._request, "node"):
-            pre_alloc_group_marker = self._request.node.get_closest_marker(
-                "pre_alloc_group"
-            )
-            if pre_alloc_group_marker:
-                # Get the group name/salt from marker args
-                if pre_alloc_group_marker.args:
-                    group_salt = str(pre_alloc_group_marker.args[0])
-                    if group_salt == "separate":
-                        # Use nodeid for unique group per test
-                        group_salt = self._request.node.nodeid
-                    # Add custom salt to hash
-                    salt_hash = hashlib.sha256(
-                        group_salt.encode("utf-8")
-                    ).digest()
-                    salt_int = int.from_bytes(salt_hash[:8], byteorder="big")
-                    combined_hash = combined_hash ^ salt_int
-
-        return f"0x{combined_hash:016x}"
 
 
 TestSpec = Callable[[Fork], Generator[BaseTest, None, None]]

@@ -41,7 +41,7 @@ from execution_testing.test_types import (
 from execution_testing.tools import Initcode
 from execution_testing.vm import Bytecode, Op
 
-from ..shared.pre_alloc import Alloc as BaseAlloc
+from ..shared.pre_alloc import Alloc as SharedAlloc
 from ..shared.pre_alloc import AllocFlags
 from .contracts import (
     check_deterministic_factory_deployment,
@@ -225,7 +225,7 @@ class PendingTransaction(Transaction):
     value: HexNumber | None = None  # type: ignore
 
 
-class Alloc(BaseAlloc):
+class Alloc(SharedAlloc):
     """A custom class that inherits from the original Alloc class."""
 
     _sender: EOA = PrivateAttr()

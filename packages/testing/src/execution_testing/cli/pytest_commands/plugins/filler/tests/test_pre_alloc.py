@@ -98,7 +98,7 @@ def test_alloc_deploy_contract_with_storage() -> None:
         Op.STOP,
         storage=storage_a,  # type: ignore
     )
-    contract_without_storage = pre.deploy_contract(Op.STOP, storage={})  # type: ignore
+    contract_without_storage = pre.deploy_contract(Op.STOP, storage={})
     assert contract_with_storage_1 != contract_without_storage
     assert contract_with_storage_1 != contract_with_storage_2
 
@@ -268,7 +268,9 @@ def test_alloc_flag_allow_fund_address() -> None:
     # Should work for new address (not in pre yet)
     pre_with_flag.fund_address(address, amount)
     assert address in pre_with_flag
-    assert pre_with_flag[address].balance == amount
+    account = pre_with_flag[address]
+    assert account is not None
+    assert account.balance == amount
 
 
 def test_alloc_mutable_flag_combines_permissions() -> None:
@@ -288,7 +290,10 @@ def test_alloc_mutable_flag_combines_permissions() -> None:
 
     # Should allow zero nonce contracts
     zero_nonce_contract = pre.deploy_contract(Op.STOP, nonce=0)
-    assert pre[zero_nonce_contract].nonce == 0
+    assert zero_nonce_contract in pre
+    account = pre[zero_nonce_contract]
+    assert account is not None
+    assert account.nonce == 0
 
 
 def test_global_address_allocation_consistency() -> None:

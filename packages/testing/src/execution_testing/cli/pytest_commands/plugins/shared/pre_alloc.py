@@ -46,6 +46,16 @@ class AllocFlags(IntFlag):
         """Return whether the pre-alloc is mutable."""
         return bool(self & AllocFlags.MUTABLE)
 
+    def incompatible_with_alloc_grouping(self) -> bool:
+        """Return True if the restrictions allow pre-alloc grouping."""
+        if (
+            AllocFlags.ALLOW_ADDRESS_SET_TO_ACCOUNT in self
+            or AllocFlags.ALLOW_DEPLOY_TO_HARDCODED_ADDRESS in self
+            or AllocFlags.ALLOW_FUND_ADDRESS in self
+        ):
+            return True
+        return False
+
     def assert_allow_account_address_set(self) -> None:
         """
         Raise an exception if the ALLOW_ADDRESS_SET_TO_ACCOUNT flag is not set.
@@ -371,6 +381,7 @@ class Alloc(BaseAlloc):
         self,
         address: Address,
         amount: NumberConvertible,
+        *,
         minimum_balance: bool,
     ) -> None:
         """

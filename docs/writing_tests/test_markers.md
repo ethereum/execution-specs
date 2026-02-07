@@ -327,7 +327,7 @@ In this example, the test will be marked as expected to fail when it is being ex
 
 This marker is used to mark tests that are slow to run. These tests are not run during [`tox` checks](./verifying_changes.md), and are only run when a release is being prepared.
 
-### `@pytest.mark.pre_alloc_modify`
+### `@pytest.mark.pre_alloc_mutable`
 
 This marker is used to mark tests that modify the pre-alloc in a way that would be impractical to reproduce in a real-world scenario.
 
@@ -335,6 +335,30 @@ Examples of this include:
 
 - Modifying the pre-alloc to have a balance of 2^256 - 1.
 - Address collisions that would require hash collisions.
+
+### `@pytest.mark.pre_fund_address`
+
+This marker is used to mark tests that use the `pre.fund_eoa()` method to create and fund EOAs dynamically.
+
+### `@pytest.mark.pre_eoa_with_code`
+
+This marker is used to mark tests that create EOAs with code, which is not possible in a real-world scenario but may be useful for testing edge cases.
+
+### `@pytest.mark.pre_eoa_with_hardcoded_nonce`
+
+This marker is used to mark tests that create EOAs with a hardcoded nonce value, rather than the default nonce of 0.
+
+### `@pytest.mark.pre_zero_nonce_contracts`
+
+This marker is used to mark tests that deploy contracts with a nonce of zero, which is not possible in a real-world scenario.
+
+### `@pytest.mark.pre_deploy_to_hardcoded_address`
+
+This marker is used to mark tests that deploy contracts to a hardcoded address, rather than using the standard address derivation from the sender and nonce.
+
+### `@pytest.mark.pre_address_set_to_account`
+
+This marker is used to mark tests that set an address to an account directly in the pre-allocation.
 
 ### `@pytest.mark.skip()`
 

@@ -34,7 +34,7 @@ from execution_testing.test_types import (
 )
 from execution_testing.tools import Initcode
 
-from ..shared.pre_alloc import Alloc as BaseAlloc
+from ..shared.pre_alloc import Alloc as SharedAlloc
 from ..shared.pre_alloc import AllocFlags
 
 
@@ -77,7 +77,7 @@ def eoa_from_account(account_hash: Hash, salt: int) -> EOA:
     return EOA(key=Bytes(account_hash + salt.to_bytes(64, "big")).sha256())
 
 
-class Alloc(BaseAlloc):
+class Alloc(SharedAlloc):
     """Allocation of accounts in the state, pre and post test execution."""
 
     _eoa_fund_amount_default: int = PrivateAttr(10**21)
@@ -263,7 +263,7 @@ class Alloc(BaseAlloc):
                 raise Exception(
                     "code and delegation cannot be set at the same time"
                 )
-            if storage is None and delegation is None:
+            if storage is None and delegation is None and code is None:
                 nonce = Number(0 if nonce is None else nonce)
                 account = Account(
                     nonce=nonce,
@@ -272,7 +272,6 @@ class Alloc(BaseAlloc):
             else:
                 # Type-4 transaction is sent to the EOA to set the storage, so
                 # the nonce must be 1
-                code = b""
                 if delegation is not None:
                     if (
                         not isinstance(delegation, Address)
@@ -285,6 +284,8 @@ class Alloc(BaseAlloc):
                         code = DELEGATION_DESIGNATION + delegation
                 elif code is not None:
                     code = Bytes(code)
+                else:
+                    code = b""
                 # If delegation is None but storage is not, realistically the
                 # nonce should be 2 because the account must have delegated to
                 # set the storage and then again to reset the delegation (but
