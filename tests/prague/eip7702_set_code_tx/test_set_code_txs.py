@@ -53,13 +53,7 @@ from .spec import Spec, ref_spec_7702
 REFERENCE_SPEC_GIT_PATH = ref_spec_7702.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7702.version
 
-pytestmark = [
-    pytest.mark.valid_from("Prague"),
-    pytest.mark.pre_alloc_group(
-        "set_code_tests",
-        reason="Tests EIP-7702 set code transactions with system contracts",
-    ),
-]
+pytestmark = pytest.mark.valid_from("Prague")
 
 auth_account_start_balance = 0
 
@@ -2610,17 +2604,11 @@ def test_valid_tx_invalid_chain_id(
             Spec.MAX_NONCE,
             Spec.MAX_NONCE,
             id="nonce=2**64-1",
-            marks=pytest.mark.execute(
-                pytest.mark.skip(reason="Impossible account nonce")
-            ),
         ),
         pytest.param(
             Spec.MAX_NONCE - 1,
             Spec.MAX_NONCE - 1,
             id="nonce=2**64-2",
-            marks=pytest.mark.execute(
-                pytest.mark.skip(reason="Impossible account nonce")
-            ),
         ),
         pytest.param(
             0,
@@ -2634,7 +2622,7 @@ def test_valid_tx_invalid_chain_id(
         ),
     ],
 )
-@pytest.mark.execute(pytest.mark.skip(reason="Non-zero nonce not supported"))
+@pytest.mark.pre_eoa_with_hardcoded_nonce()
 def test_nonce_validity(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2706,7 +2694,7 @@ def test_nonce_validity(
     )
 
 
-@pytest.mark.execute(pytest.mark.skip(reason="Impossible account nonce"))
+@pytest.mark.pre_eoa_with_hardcoded_nonce()
 def test_nonce_overflow_after_first_authorization(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -3994,9 +3982,8 @@ def test_authorization_reusing_nonce(
     [True, False],
 )
 @pytest.mark.exception_test
-@pytest.mark.execute(
-    pytest.mark.skip(reason="Requires contract-eoa address collision")
-)
+@pytest.mark.pre_eoa_with_code
+@pytest.mark.pre_eoa_with_hardcoded_nonce
 def test_set_code_from_account_with_non_delegating_code(
     state_test: StateTestFiller,
     pre: Alloc,

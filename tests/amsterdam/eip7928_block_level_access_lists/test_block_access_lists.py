@@ -2198,10 +2198,7 @@ def test_bal_cross_tx_storage_revert_to_zero(
     )
 
 
-@pytest.mark.pre_alloc_group(
-    "ripemd160_state_leak",
-    reason="Pre-funds RIPEMD-160, must be isolated in EngineX format",
-)
+@pytest.mark.pre_fund_address()
 def test_bal_cross_block_ripemd160_state_leak(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -2550,6 +2547,7 @@ def test_bal_all_transaction_types(
     )
 
 
+@pytest.mark.pre_address_set_to_account()
 def test_bal_lexicographic_address_ordering(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

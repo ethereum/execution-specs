@@ -2434,6 +2434,7 @@ def test_bal_create_selfdestruct_to_self_with_call(
     )
 
 
+@pytest.mark.pre_address_set_to_account()
 def test_bal_create2_collision(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

@@ -22,7 +22,7 @@ from .spec import Spec, ref_spec_6110
 
 pytestmark = [
     pytest.mark.valid_from("Prague"),
-    pytest.mark.execute(pytest.mark.skip(reason="modifies pre-alloc")),
+    pytest.mark.pre_address_set_to_account(),
 ]
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path
@@ -73,38 +73,10 @@ DEFAULT_REQUEST_LOG = create_deposit_log_bytes(
 @pytest.mark.parametrize(
     "include_deposit_event,extra_event_type",
     [
-        pytest.param(
-            True,
-            "transfer_log",
-            marks=pytest.mark.pre_alloc_group(
-                "deposit_extra_logs_with_event_transfer",
-                reason="Deposit contract with Transfer log AND deposit event",
-            ),
-        ),
-        pytest.param(
-            True,
-            "no_topics",
-            marks=pytest.mark.pre_alloc_group(
-                "deposit_extra_logs_with_event_no_topics",
-                reason="Deposit contract with no-topics log AND deposit event",
-            ),
-        ),
-        pytest.param(
-            False,
-            "transfer_log",
-            marks=pytest.mark.pre_alloc_group(
-                "deposit_extra_logs_no_event_transfer",
-                reason="Deposit contract with Transfer log NO deposit event",
-            ),
-        ),
-        pytest.param(
-            False,
-            "no_topics",
-            marks=pytest.mark.pre_alloc_group(
-                "deposit_extra_logs_no_event_no_topics",
-                reason="Deposit contract with no-topics log NO deposit event",
-            ),
-        ),
+        pytest.param(True, "transfer_log"),
+        pytest.param(True, "no_topics"),
+        pytest.param(False, "transfer_log"),
+        pytest.param(False, "no_topics"),
     ],
 )
 def test_extra_logs(
@@ -205,14 +177,7 @@ def test_extra_logs(
 @pytest.mark.parametrize(
     "log_argument,value",
     [
-        pytest.param(
-            arg,
-            val,
-            marks=pytest.mark.pre_alloc_group(
-                f"deposit_layout_{arg}_{val}",
-                reason=f"Deposit contract with invalid {arg} set to {val}",
-            ),
-        )
+        pytest.param(arg, val)
         for arg in EVENT_ARGUMENTS
         for val in EVENT_ARGUMENT_VALUES
     ],
@@ -266,25 +231,7 @@ def test_invalid_layout(
     )
 
 
-@pytest.mark.parametrize(
-    "slice_bytes",
-    [
-        pytest.param(
-            True,
-            marks=pytest.mark.pre_alloc_group(
-                "deposit_log_length_short",
-                reason="Deposit contract with shortened log data",
-            ),
-        ),
-        pytest.param(
-            False,
-            marks=pytest.mark.pre_alloc_group(
-                "deposit_log_length_long",
-                reason="Deposit contract with lengthened log data",
-            ),
-        ),
-    ],
-)
+@pytest.mark.parametrize("slice_bytes", [True, False])
 @pytest.mark.exception_test
 def test_invalid_log_length(
     blockchain_test: BlockchainTestFiller, pre: Alloc, slice_bytes: bool

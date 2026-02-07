@@ -56,7 +56,7 @@ pytestmark = [
         ],
     ),
     # We need to modify the pre-alloc to include the collision
-    pytest.mark.pre_alloc_modify,
+    pytest.mark.pre_address_set_to_account,
 ]
 
 

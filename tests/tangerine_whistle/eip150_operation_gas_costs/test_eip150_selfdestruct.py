@@ -576,19 +576,11 @@ def test_selfdestruct_state_access_boundary(
 @pytest.mark.parametrize(
     "beneficiary_initial_balance",
     [
-        pytest.param(
-            0,
-            id="dead_beneficiary",
-            marks=pytest.mark.pre_alloc_group(
-                "eip150_selfdestruct_precompile_dead"
-            ),
-        ),
+        pytest.param(0, id="dead_beneficiary"),
         pytest.param(
             1,
             id="alive_beneficiary",
-            marks=pytest.mark.pre_alloc_group(
-                "eip150_selfdestruct_precompile_alive"
-            ),
+            marks=pytest.mark.pre_fund_address(),
         ),
     ],
 )
@@ -697,19 +689,11 @@ def test_selfdestruct_to_precompile(
 @pytest.mark.parametrize(
     "beneficiary_initial_balance",
     [
-        pytest.param(
-            0,
-            id="dead_beneficiary",
-            marks=pytest.mark.pre_alloc_group(
-                "eip150_selfdestruct_precompile_boundary_dead"
-            ),
-        ),
+        pytest.param(0, id="dead_beneficiary"),
         pytest.param(
             1,
             id="alive_beneficiary",
-            marks=pytest.mark.pre_alloc_group(
-                "eip150_selfdestruct_precompile_boundary_alive"
-            ),
+            marks=pytest.mark.pre_fund_address(),
         ),
     ],
 )

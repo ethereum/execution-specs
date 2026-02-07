@@ -130,29 +130,16 @@ def test_beacon_root_contract_calls(
 @pytest.mark.parametrize(
     "system_address_balance",
     [
-        pytest.param(
-            0,
-            id="empty_system_address",
-            marks=pytest.mark.pre_alloc_group(
-                "beacon_root_empty_system",
-                reason="Tests with empty system address balance",
-            ),
-        ),
+        pytest.param(0, id="empty_system_address"),
         pytest.param(
             1,
             id="one_wei_system_address",
-            marks=pytest.mark.pre_alloc_group(
-                "beacon_root_one_wei_system",
-                reason="Tests with 1 wei system address balance",
-            ),
+            marks=pytest.mark.pre_fund_address(),
         ),
         pytest.param(
             int(1e18),
             id="one_eth_system_address",
-            marks=pytest.mark.pre_alloc_group(
-                "beacon_root_one_eth_system",
-                reason="Tests with 1 ETH system address balance",
-            ),
+            marks=pytest.mark.pre_fund_address(),
         ),
     ],
 )

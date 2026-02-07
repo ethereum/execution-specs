@@ -722,14 +722,7 @@ def gas_test_parameter_args(
             {
                 "authority_type": AddressType.CONTRACT,
             },
-            marks=[
-                pytest.mark.pre_alloc_modify,
-                pytest.mark.execute(
-                    pytest.mark.skip(
-                        reason="Requires contract-eoa address collision"
-                    )
-                ),
-            ],
+            marks=[pytest.mark.pre_eoa_with_code],
             id="single_valid_authorization_invalid_contract_authority",
         ),
         pytest.param(
@@ -741,14 +734,7 @@ def gas_test_parameter_args(
                 ],
                 "authorizations_count": multiple_authorizations_count,
             },
-            marks=[
-                pytest.mark.pre_alloc_modify,
-                pytest.mark.execute(
-                    pytest.mark.skip(
-                        reason="Requires contract-eoa address collision"
-                    )
-                ),
-            ],
+            marks=[pytest.mark.pre_eoa_with_code],
             id="multiple_authorizations_empty_account_then_contract_authority",
         ),
         pytest.param(
@@ -757,14 +743,7 @@ def gas_test_parameter_args(
                 "authority_type": [AddressType.EOA, AddressType.CONTRACT],
                 "authorizations_count": multiple_authorizations_count,
             },
-            marks=[
-                pytest.mark.pre_alloc_modify,
-                pytest.mark.execute(
-                    pytest.mark.skip(
-                        reason="Requires contract-eoa address collision"
-                    )
-                ),
-            ],
+            marks=[pytest.mark.pre_eoa_with_code],
             id="multiple_authorizations_eoa_then_contract_authority",
         ),
         pytest.param(
@@ -774,14 +753,7 @@ def gas_test_parameter_args(
                 "authority_type": [AddressType.EOA, AddressType.CONTRACT],
                 "authorizations_count": multiple_authorizations_count,
             },
-            marks=[
-                pytest.mark.pre_alloc_modify,
-                pytest.mark.execute(
-                    pytest.mark.skip(
-                        reason="Requires contract-eoa address collision"
-                    )
-                ),
-            ],
+            marks=[pytest.mark.pre_eoa_with_code],
             id="multiple_authorizations_eoa_self_sponsored_then_contract_authority",
         ),
     ]
