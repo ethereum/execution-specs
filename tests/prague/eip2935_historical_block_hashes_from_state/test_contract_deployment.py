@@ -6,7 +6,6 @@ from os.path import realpath
 from pathlib import Path
 from typing import Dict, Generator
 
-import pytest
 from execution_testing import (
     Account,
     Address,
@@ -25,10 +24,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_2935.git_path
 REFERENCE_SPEC_VERSION = ref_spec_2935.version
 
 
-@pytest.mark.pre_alloc_group(
-    "separate",
-    reason="Deploys history storage system contract at hardcoded address",
-)
 @generate_system_contract_deploy_test(
     fork=Prague,
     tx_json_path=Path(realpath(__file__)).parent / "contract_deploy_tx.json",

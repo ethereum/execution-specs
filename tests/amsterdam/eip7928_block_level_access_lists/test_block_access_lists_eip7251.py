@@ -93,10 +93,6 @@ SYSTEM_ADDRESS = Address(Spec.SYSTEM_ADDRESS)
         ),
     ],
 )
-@pytest.mark.pre_alloc_group(
-    "consolidation_requests",
-    reason="Tests standard consolidation request functionality",
-)
 def test_bal_system_dequeue_consolidations_eip7251(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

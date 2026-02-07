@@ -623,10 +623,6 @@ def test_bal_zero_withdrawal(
     )
 
 
-@pytest.mark.pre_alloc_group(
-    "withdrawal_to_precompiles",
-    reason="Expects clean precompile balances, isolate in EngineX",
-)
 @pytest.mark.parametrize_by_fork(
     "precompile",
     lambda fork: [

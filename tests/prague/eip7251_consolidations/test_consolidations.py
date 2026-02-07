@@ -677,10 +677,6 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
     ],
 )
-@pytest.mark.pre_alloc_group(
-    "consolidation_requests",
-    reason="Tests standard consolidation request functionality",
-)
 def test_consolidation_requests(
     blockchain_test: BlockchainTestFiller,
     blocks: List[Block],
@@ -876,10 +872,6 @@ def test_consolidation_requests(
     ],
 )
 @pytest.mark.exception_test
-@pytest.mark.pre_alloc_group(
-    "consolidation_requests",
-    reason="Tests standard consolidation request functionality",
-)
 def test_consolidation_requests_negative(
     pre: Alloc,
     fork: Fork,
