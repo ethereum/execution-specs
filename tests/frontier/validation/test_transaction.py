@@ -64,7 +64,7 @@ def test_tx_gas_limit(
         ),
     ],
 )
-@pytest.mark.pre_eoa_with_hardcoded_nonce
+@pytest.mark.pre_alloc_mutable
 def test_tx_nonce(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

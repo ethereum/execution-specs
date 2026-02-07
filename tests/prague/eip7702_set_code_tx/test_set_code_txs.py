@@ -2622,7 +2622,7 @@ def test_valid_tx_invalid_chain_id(
         ),
     ],
 )
-@pytest.mark.pre_eoa_with_hardcoded_nonce()
+@pytest.mark.pre_alloc_mutable()
 def test_nonce_validity(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2694,7 +2694,7 @@ def test_nonce_validity(
     )
 
 
-@pytest.mark.pre_eoa_with_hardcoded_nonce()
+@pytest.mark.pre_alloc_mutable()
 def test_nonce_overflow_after_first_authorization(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -3982,8 +3982,8 @@ def test_authorization_reusing_nonce(
     [True, False],
 )
 @pytest.mark.exception_test
-@pytest.mark.pre_eoa_with_code
-@pytest.mark.pre_eoa_with_hardcoded_nonce
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.pre_alloc_mutable
 def test_set_code_from_account_with_non_delegating_code(
     state_test: StateTestFiller,
     pre: Alloc,

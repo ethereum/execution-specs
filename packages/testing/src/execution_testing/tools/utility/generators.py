@@ -179,7 +179,7 @@ def generate_system_contract_deploy_test(
             ],
             ids=lambda x: x.name.lower(),
         )
-        @pytest.mark.pre_address_set_to_account
+        @pytest.mark.pre_alloc_mutable
         @pytest.mark.valid_at_transition_to(fork.name())
         def wrapper(
             blockchain_test: BlockchainTestFiller,

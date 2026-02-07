@@ -22,7 +22,7 @@ from .spec import Spec, ref_spec_6110
 
 pytestmark = [
     pytest.mark.valid_from("Prague"),
-    pytest.mark.pre_address_set_to_account(),
+    pytest.mark.pre_alloc_mutable(),
 ]
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path

@@ -27,91 +27,7 @@ class AllocFlags(IntFlag):
     """Feature flags for allocation behavior."""
 
     NONE = 0
-    ALLOW_ADDRESS_SET_TO_ACCOUNT = auto()
-    ALLOW_DEPLOY_TO_HARDCODED_ADDRESS = auto()
-    ALLOW_ZERO_NONCE_CONTRACTS = auto()
-    ALLOW_EOA_WITH_CODE = auto()
-    ALLOW_EOA_WITH_HARDCODED_NONCE = auto()
-
-    MUTABLE = (
-        ALLOW_ADDRESS_SET_TO_ACCOUNT
-        | ALLOW_DEPLOY_TO_HARDCODED_ADDRESS
-        | ALLOW_ZERO_NONCE_CONTRACTS
-        | ALLOW_EOA_WITH_CODE
-        | ALLOW_EOA_WITH_HARDCODED_NONCE
-    )
-
-    def is_mutable(self) -> bool:
-        """Return whether the pre-alloc is mutable."""
-        return bool(self & AllocFlags.MUTABLE)
-
-    def assert_allow_account_address_set(self) -> None:
-        """
-        Raise an exception if the ALLOW_ADDRESS_SET_TO_ACCOUNT flag is not set.
-        """
-        if AllocFlags.ALLOW_ADDRESS_SET_TO_ACCOUNT not in self:
-            raise ValueError(
-                "Cannot set an account to an address (pre[a] = b) without "
-                "proper marker. "
-                "Use `pytest.mark.pre_address_set_to_account` to allow this."
-            )
-        return
-
-    def assert_allow_deploy_to_hardcoded_address(self) -> None:
-        """
-        Raise an exception if the ALLOW_DEPLOY_TO_HARDCODED_ADDRESS flag is
-        not set.
-        """
-        if AllocFlags.ALLOW_DEPLOY_TO_HARDCODED_ADDRESS not in self:
-            raise ValueError(
-                "Cannot deploy to hardcoded address without proper marker. "
-                "Use `pytest.mark.pre_deploy_to_hardcoded_address` to allow "
-                "this."
-            )
-        return
-
-    def assert_allow_zero_nonce_contracts(self) -> None:
-        """
-        Raise an exception if the ALLOW_ZERO_NONCE_CONTRACTS flag is not set.
-        """
-        if AllocFlags.ALLOW_ZERO_NONCE_CONTRACTS not in self:
-            raise ValueError(
-                "Cannot deploy contracts with zero nonce without proper "
-                "marker. "
-                "Use `pytest.mark.pre_zero_nonce_contracts` to allow this."
-            )
-        return
-
-    def assert_allow_eoa_with_code(self) -> None:
-        """Raise an exception if the ALLOW_EOA_WITH_CODE flag is not set."""
-        if AllocFlags.ALLOW_EOA_WITH_CODE not in self:
-            raise ValueError(
-                "Cannot create EOAs with code without proper marker. "
-                "Use `pytest.mark.pre_eoa_with_code` to allow this."
-            )
-        return
-
-    def assert_allow_eoa_with_hardcoded_nonce(self) -> None:
-        """
-        Raise an exception if the ALLOW_EOA_WITH_HARDCODED_NONCE flag is not
-        set.
-        """
-        if AllocFlags.ALLOW_EOA_WITH_HARDCODED_NONCE not in self:
-            raise ValueError(
-                "Cannot create EOAs with a hardcoded nonce without proper "
-                "marker. "
-                "Use `pytest.mark.pre_eoa_with_hardcoded_nonce` to allow this."
-            )
-        return
-
-    def assert_mutable(self) -> None:
-        """Raises an exception if the MUTABLE flag is not set."""
-        if self.is_mutable():
-            raise ValueError(
-                "Cannot set items in immutable mode. "
-                "Use `pytest.mark.pre_alloc_mutable` to allow mutable mode."
-            )
-        return
+    MUTABLE = auto()
 
 
 class Alloc(BaseAlloc):
@@ -127,6 +43,19 @@ class Alloc(BaseAlloc):
     _hardcoded_addresses_deployed_to: Set[Address] = PrivateAttr(
         default_factory=set
     )
+
+    def is_mutable(self) -> bool:
+        """Return whether the pre-alloc is mutable."""
+        return bool(self._flags & AllocFlags.MUTABLE)
+
+    def assert_mutable(self) -> None:
+        """Raises an exception if the MUTABLE flag is not set."""
+        if not self.is_mutable():
+            raise ValueError(
+                "Cannot set items in immutable mode. "
+                "Use `pytest.mark.pre_alloc_mutable` to allow mutable mode."
+            )
+        return
 
     def __init__(
         self,
@@ -146,7 +75,7 @@ class Alloc(BaseAlloc):
         account: Account | None,
     ) -> None:
         """Set account associated with an address."""
-        self._flags.assert_allow_account_address_set()
+        self.assert_mutable()
         if not isinstance(address, Address):
             address = Address(address)
         self._set_addresses.add(address)
@@ -168,7 +97,7 @@ class Alloc(BaseAlloc):
         self, address: Address | FixedSizeBytesConvertible
     ) -> None:
         """Delete account associated with an address."""
-        self._flags.assert_allow_account_address_set()
+        self.assert_mutable()
         if not isinstance(address, Address):
             address = Address(address)
         self._deleted_addresses.add(address)
@@ -257,11 +186,11 @@ class Alloc(BaseAlloc):
         removed in the future!
         """
         if address is not None:
-            self._flags.assert_allow_deploy_to_hardcoded_address()
+            self.assert_mutable()
             self._hardcoded_addresses_deployed_to.add(Address(address))
 
         if Number(nonce) == 0:
-            self._flags.assert_allow_zero_nonce_contracts()
+            self.assert_mutable()
 
         return self._deploy_contract(
             code=code,
@@ -308,10 +237,10 @@ class Alloc(BaseAlloc):
         unique EOA will be returned.
         """
         if code is not None:
-            self._flags.assert_allow_eoa_with_code()
+            self.assert_mutable()
 
         if nonce is not None:
-            self._flags.assert_allow_eoa_with_hardcoded_nonce()
+            self.assert_mutable()
 
         return self._fund_eoa(
             amount=amount,

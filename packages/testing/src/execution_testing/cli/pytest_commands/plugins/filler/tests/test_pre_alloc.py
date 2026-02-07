@@ -180,11 +180,12 @@ def test_alloc_flags(flags: AllocFlags) -> None:
 
 
 def test_alloc_flag_allow_account_address_set() -> None:
-    """Test ALLOW_ADDRESS_SET_TO_ACCOUNT flag."""
+    """
+    Test that setting a hard-coded address to an account only works
+    when mutable.
+    """
     # With flag: should allow setting accounts directly
-    pre_with_flag = create_test_alloc(
-        flags=AllocFlags.ALLOW_ADDRESS_SET_TO_ACCOUNT
-    )
+    pre_with_flag = create_test_alloc(flags=AllocFlags.MUTABLE)
     address = Address(0x1234567890123456789012345678901234567890)
 
     pre_with_flag[address] = Account(balance=100)
@@ -192,18 +193,14 @@ def test_alloc_flag_allow_account_address_set() -> None:
 
     # Without flag: should raise
     pre_without_flag = create_test_alloc(flags=AllocFlags.NONE)
-    with pytest.raises(
-        ValueError, match="Cannot set an account to an address"
-    ):
+    with pytest.raises(ValueError, match="Cannot set items in immutable mode"):
         pre_without_flag[address] = Account(balance=100)
 
 
 def test_alloc_flag_allow_deploy_to_hardcoded_address() -> None:
-    """Test ALLOW_DEPLOY_TO_HARDCODED_ADDRESS flag."""
+    """Test that deploying to hardcoded addresses requires MUTABLE flag."""
     # With flag: should allow deploying to hardcoded address
-    pre_with_flag = create_test_alloc(
-        flags=AllocFlags.ALLOW_DEPLOY_TO_HARDCODED_ADDRESS
-    )
+    pre_with_flag = create_test_alloc(flags=AllocFlags.MUTABLE)
     hardcoded_address = Address(0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF)
     contract = pre_with_flag.deploy_contract(
         Op.STOP, address=hardcoded_address
@@ -213,16 +210,14 @@ def test_alloc_flag_allow_deploy_to_hardcoded_address() -> None:
 
     # Without flag: should raise
     pre_without_flag = create_test_alloc(flags=AllocFlags.NONE)
-    with pytest.raises(ValueError, match="Cannot deploy to hardcoded address"):
+    with pytest.raises(ValueError, match="Cannot set items in immutable mode"):
         pre_without_flag.deploy_contract(Op.STOP, address=hardcoded_address)
 
 
 def test_alloc_flag_allow_zero_nonce_contracts() -> None:
-    """Test ALLOW_ZERO_NONCE_CONTRACTS flag."""
+    """Test that deploying contracts with zero nonce requires MUTABLE flag."""
     # With flag: should allow deploying contracts with nonce 0
-    pre_with_flag = create_test_alloc(
-        flags=AllocFlags.ALLOW_ZERO_NONCE_CONTRACTS
-    )
+    pre_with_flag = create_test_alloc(flags=AllocFlags.MUTABLE)
     contract = pre_with_flag.deploy_contract(Op.STOP, nonce=0)
     assert contract in pre_with_flag
     account = pre_with_flag[contract]
@@ -231,9 +226,7 @@ def test_alloc_flag_allow_zero_nonce_contracts() -> None:
 
     # Without flag: should raise
     pre_without_flag = create_test_alloc(flags=AllocFlags.NONE)
-    with pytest.raises(
-        ValueError, match="Cannot deploy contracts with zero nonce"
-    ):
+    with pytest.raises(ValueError, match="Cannot set items in immutable mode"):
         pre_without_flag.deploy_contract(Op.STOP, nonce=0)
 
 

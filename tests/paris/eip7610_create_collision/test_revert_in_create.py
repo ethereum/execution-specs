@@ -20,7 +20,7 @@ REFERENCE_SPEC_VERSION = "80ef48d0bbb5a4939ade51caaaac57b5df6acd4e"
 pytestmark = [
     pytest.mark.valid_from("Paris"),
     # We need to modify the pre-alloc to include the collision
-    pytest.mark.pre_address_set_to_account,
+    pytest.mark.pre_alloc_mutable,
 ]
 
 

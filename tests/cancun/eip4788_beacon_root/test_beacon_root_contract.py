@@ -670,7 +670,7 @@ def test_beacon_root_transition(
 
 @pytest.mark.parametrize("timestamp", [15_000])
 @pytest.mark.valid_at_transition_to("Cancun")
-@pytest.mark.pre_address_set_to_account()
+@pytest.mark.pre_alloc_mutable()
 def test_no_beacon_root_contract_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -749,7 +749,7 @@ def test_no_beacon_root_contract_at_transition(
     ],
 )
 @pytest.mark.valid_at_transition_to("Cancun")
-@pytest.mark.pre_address_set_to_account()
+@pytest.mark.pre_alloc_mutable()
 def test_beacon_root_contract_deploy(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

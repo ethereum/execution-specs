@@ -31,7 +31,7 @@ REFERENCE_SPEC_VERSION: str = ref_spec_7251.version
 
 pytestmark: List[pytest.MarkDecorator] = [
     pytest.mark.valid_from("Prague"),
-    pytest.mark.pre_address_set_to_account(),
+    pytest.mark.pre_alloc_mutable(),
 ]
 
 

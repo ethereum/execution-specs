@@ -2542,7 +2542,7 @@ def test_bal_all_transaction_types(
     )
 
 
-@pytest.mark.pre_address_set_to_account()
+@pytest.mark.pre_alloc_mutable()
 def test_bal_lexicographic_address_ordering(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
