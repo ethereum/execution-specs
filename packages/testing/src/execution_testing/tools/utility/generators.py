@@ -179,7 +179,8 @@ def generate_system_contract_deploy_test(
             ],
             ids=lambda x: x.name.lower(),
         )
-        @pytest.mark.execute(pytest.mark.skip(reason="modifies pre-alloc"))
+        @pytest.mark.pre_address_set_to_account
+        @pytest.mark.pre_fund_address
         @pytest.mark.valid_at_transition_to(fork.name())
         def wrapper(
             blockchain_test: BlockchainTestFiller,
@@ -248,9 +249,7 @@ def generate_system_contract_deploy_test(
                 nonce=0,
                 balance=balance,
             )
-            pre[deployer_address] = Account(
-                balance=deployer_required_balance,
-            )
+            pre.fund_address(deployer_address, deployer_required_balance)
 
             expected_deploy_address_int = int.from_bytes(
                 expected_deploy_address, "big"
