@@ -15,6 +15,7 @@ from execution_testing.rpc import (
 )
 from execution_testing.test_types import (
     NetworkWrappedTransaction,
+    TestPhase,
     Transaction,
     TransactionTestMetadata,
 )
@@ -105,9 +106,9 @@ class TransactionPost(BaseExecute):
                     else None
                 )
                 phase = (
-                    "testing"
-                    if (tx.test_phase == "execution" or tx.test_phase is None)
-                    else "setup"
+                    tx.test_phase
+                    if tx.test_phase is not None
+                    else TestPhase.SETUP
                 )
                 tx.metadata = TransactionTestMetadata(
                     test_id=request.node.nodeid,

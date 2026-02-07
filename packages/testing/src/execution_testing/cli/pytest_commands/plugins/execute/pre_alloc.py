@@ -192,6 +192,7 @@ def execute_required_contracts(
         logger.info(
             "Checking if deterministic factory contract is already deployed"
         )
+        tx_index = 0
         if (
             check_deterministic_factory_deployment(
                 eth_rpc=eth_rpc, fork=session_fork
@@ -199,10 +200,11 @@ def execute_required_contracts(
             is None
         ):
             try:
-                deploy_deterministic_factory_contract(
+                tx_index = deploy_deterministic_factory_contract(
                     eth_rpc=eth_rpc,
                     seed_key=session_worker_key,
                     gas_price=sender_funding_transactions_gas_price,
+                    tx_index=tx_index,
                 )
             except Exception as e:
                 raise RuntimeError(

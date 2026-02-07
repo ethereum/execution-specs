@@ -9,6 +9,7 @@ from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
     Transaction,
+    TransactionTestMetadata,
 )
 
 logger = get_logger(__name__)
@@ -38,7 +39,8 @@ def deploy_deterministic_factory_contract(
     eth_rpc: EthRPC,
     seed_key: EOA,
     gas_price: int,
-) -> None:
+    tx_index: int = 0,
+) -> int:
     """Deploy the deterministic deployment contract."""
     deploy_tx_gas_price = 0x174876E800
     deploy_tx_gas_limit = 0x0186A0
@@ -79,11 +81,27 @@ def deploy_deterministic_factory_contract(
             gas_price=gas_price,
             sender=seed_key,
         )
+        fund_tx.metadata = TransactionTestMetadata(
+            test_id="global",
+            phase="setup",
+            action="fund_eoa",
+            target="Deterministic Factory Deployer",
+            tx_index=tx_index,
+        )
+        tx_index += 1
         eth_rpc.send_wait_transaction(fund_tx)
         logger.info(f"Funding transaction mined: {fund_tx.hash}")
 
     # Add deployment transaction.
     logger.info("Sending deployment transaction...")
+    deploy_tx.metadata = TransactionTestMetadata(
+        test_id="global",
+        phase="setup",
+        action="deploy_contract",
+        target="Deterministic Factory",
+        tx_index=tx_index,
+    )
+    tx_index += 1
     eth_rpc.send_wait_transaction(deploy_tx)
     logger.info(f"Deployment transaction mined: {deploy_tx.hash}")
     deployment_contract_code = eth_rpc.get_code(DETERMINISTIC_FACTORY_ADDRESS)
@@ -92,3 +110,4 @@ def deploy_deterministic_factory_contract(
         f"Deployment contract code is not the expected code: "
         f"{deployment_contract_code} != {DETERMINISTIC_FACTORY_BYTECODE}"
     )
+    return tx_index

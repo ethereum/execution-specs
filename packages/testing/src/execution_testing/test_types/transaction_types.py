@@ -279,7 +279,7 @@ class TransactionTestMetadata(CamelModel):
     """Represents the metadata for a transaction."""
 
     test_id: str | None = None
-    phase: str | None = None
+    phase: TestPhase | None = None
     action: str | None = None  # e.g. deploy / fund / execute
     target: str | None = None  # account/contract label
     tx_index: int | None = None  # index within this phase

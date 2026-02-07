@@ -5,28 +5,31 @@ from enum import Enum
 from typing import ClassVar, Iterator, Optional
 
 
-class TestPhase(Enum):
+class TestPhase(str, Enum):
     """Test phase for state and blockchain tests."""
 
     SETUP = "setup"
-    EXECUTION = "execution"
+    # TODO: Change string to "execution", remain as "testing" for backwards
+    # compatibility
+    EXECUTION = "testing"
+    CLEANUP = "cleanup"
 
 
 class TestPhaseManager:
     """
     Manages test phases for transactions and blocks.
 
-    This singleton class provides context managers for "setup" and
-    "execution" phases. Transactions automatically detect and tag
+    This singleton class provides context managers for SETUP and
+    EXECUTION phases. Transactions automatically detect and tag
     themselves with the current phase.
 
     Usage:
         with TestPhaseManager.setup():
-            # Transactions created here have test_phase = "setup"
+            # Transactions created here have test_phase = SETUP
             setup_tx = Transaction(...)
 
         with TestPhaseManager.execution():
-            # Transactions created here have test_phase = "execution"
+            # Transactions created here have test_phase = EXECUTION
             benchmark_tx = Transaction(...)
     """
 
