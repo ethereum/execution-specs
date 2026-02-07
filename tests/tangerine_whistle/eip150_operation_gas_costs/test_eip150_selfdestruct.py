@@ -577,11 +577,7 @@ def test_selfdestruct_state_access_boundary(
     "beneficiary_initial_balance",
     [
         pytest.param(0, id="dead_beneficiary"),
-        pytest.param(
-            1,
-            id="alive_beneficiary",
-            marks=pytest.mark.pre_fund_address(),
-        ),
+        pytest.param(1, id="alive_beneficiary"),
     ],
 )
 @pytest.mark.valid_from("TangerineWhistle")
@@ -690,11 +686,7 @@ def test_selfdestruct_to_precompile(
     "beneficiary_initial_balance",
     [
         pytest.param(0, id="dead_beneficiary"),
-        pytest.param(
-            1,
-            id="alive_beneficiary",
-            marks=pytest.mark.pre_fund_address(),
-        ),
+        pytest.param(1, id="alive_beneficiary"),
     ],
 )
 @pytest.mark.valid_from("TangerineWhistle")

@@ -101,7 +101,7 @@ def type_4_default_transaction(sender: Account, pre: Alloc):
 @pytest.mark.with_all_typed_transactions
 @pytest.mark.valid_from("Prague")
 def test_something_with_all_tx_types(
-    state_test: StateTestFiller, 
+    state_test: StateTestFiller,
     pre: Alloc,
     typed_transaction: Transaction
 ):
@@ -335,10 +335,6 @@ Examples of this include:
 
 - Modifying the pre-alloc to have a balance of 2^256 - 1.
 - Address collisions that would require hash collisions.
-
-### `@pytest.mark.pre_fund_address`
-
-This marker is used to mark tests that use the `pre.fund_eoa()` method to create and fund EOAs dynamically.
 
 ### `@pytest.mark.pre_eoa_with_code`
 

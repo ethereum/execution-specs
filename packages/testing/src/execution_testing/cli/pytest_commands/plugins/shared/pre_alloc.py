@@ -32,7 +32,6 @@ class AllocFlags(IntFlag):
     ALLOW_ZERO_NONCE_CONTRACTS = auto()
     ALLOW_EOA_WITH_CODE = auto()
     ALLOW_EOA_WITH_HARDCODED_NONCE = auto()
-    ALLOW_FUND_ADDRESS = auto()
 
     MUTABLE = (
         ALLOW_ADDRESS_SET_TO_ACCOUNT
@@ -80,15 +79,6 @@ class AllocFlags(IntFlag):
                 "Cannot deploy contracts with zero nonce without proper "
                 "marker. "
                 "Use `pytest.mark.pre_zero_nonce_contracts` to allow this."
-            )
-        return
-
-    def assert_allow_fund_address(self) -> None:
-        """Raise an exception if the ALLOW_FUND_ADDRESS flag is not set."""
-        if AllocFlags.ALLOW_FUND_ADDRESS not in self:
-            raise ValueError(
-                "Cannot use pre.fund_address without proper marker. "
-                "Use `pytest.mark.pre_fund_address` to allow this."
             )
         return
 
@@ -369,7 +359,6 @@ class Alloc(BaseAlloc):
                 insufficient
 
         """
-        self._flags.assert_allow_fund_address()
         self._pre_funded_addresses.add(address)
         return self._fund_address(
             address=address,

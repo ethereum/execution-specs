@@ -190,10 +190,7 @@ def selfdestruct_code(
 )
 @pytest.mark.parametrize(
     "selfdestruct_contract_initial_balance",
-    [
-        0,
-        pytest.param(100_000, marks=pytest.mark.pre_fund_address()),
-    ],
+    [0, 100_000],
 )
 @pytest.mark.valid_from("Shanghai")
 def test_create_selfdestruct_same_tx(
@@ -366,7 +363,7 @@ def test_create_selfdestruct_same_tx(
 @pytest.mark.parametrize("call_times", [0, 1])
 @pytest.mark.parametrize(
     "selfdestruct_contract_initial_balance",
-    [0, pytest.param(100_000, marks=pytest.mark.pre_fund_address())],
+    [0, 100_000],
 )
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode(
@@ -498,7 +495,7 @@ def test_self_destructing_initcode(
 @pytest.mark.parametrize("tx_value", [0, 100_000])
 @pytest.mark.parametrize(
     "selfdestruct_contract_initial_balance",
-    [0, pytest.param(100_000, marks=pytest.mark.pre_fund_address())],
+    [0, 100_000],
 )
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode_create_tx(
@@ -565,7 +562,7 @@ def test_self_destructing_initcode_create_tx(
 )
 @pytest.mark.parametrize(
     "selfdestruct_contract_initial_balance",
-    [0, pytest.param(100_000, marks=pytest.mark.pre_fund_address())],
+    [0, 100_000],
 )
 @pytest.mark.parametrize("recreate_times", [1])
 @pytest.mark.parametrize("call_times", [1])
@@ -983,10 +980,7 @@ def test_selfdestruct_created_same_block_different_tx(
 
 
 @pytest.mark.parametrize("call_times", [1])
-@pytest.mark.parametrize(
-    "selfdestruct_contract_initial_balance",
-    [0, pytest.param(1, marks=pytest.mark.pre_fund_address())],
-)
+@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 1])
 @pytest.mark.parametrize("call_opcode", [Op.DELEGATECALL, Op.CALLCODE])
 @pytest.mark.parametrize("create_opcode", [Op.CREATE])
 @pytest.mark.valid_from("Shanghai")
@@ -1287,10 +1281,7 @@ def test_calling_from_pre_existing_contract_to_new_contract(
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
-@pytest.mark.parametrize(
-    "selfdestruct_contract_initial_balance",
-    [0, pytest.param(100_000, marks=pytest.mark.pre_fund_address())],
-)
+@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
 @pytest.mark.parametrize(
     "call_times,sendall_recipient_addresses",
     [

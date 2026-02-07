@@ -142,28 +142,6 @@ def test_alloc_fund_eoa_basic() -> None:
     assert account_2.balance == 2 * 10**18
 
 
-def test_alloc_fund_address() -> None:
-    """Test `Alloc.fund_address` functionality."""
-    pre = create_test_alloc(flags=AllocFlags.ALLOW_FUND_ADDRESS)
-    address = Address(0x1234567890123456789012345678901234567890)
-    amount = 5 * 10**18
-
-    pre.fund_address(address, amount)
-
-    assert address in pre
-    account = pre[address]
-    assert account is not None
-    assert account.balance == amount
-
-    # Without flag: should raise
-    pre_without_flag = create_test_alloc()
-    with pytest.raises(
-        ValueError,
-        match="Cannot use pre.fund_address without proper marker",
-    ):
-        pre_without_flag.fund_address(address, amount)
-
-
 def test_alloc_empty_account() -> None:
     """Test `Alloc.empty_account` functionality."""
     pre = create_test_alloc()
@@ -257,20 +235,6 @@ def test_alloc_flag_allow_zero_nonce_contracts() -> None:
         ValueError, match="Cannot deploy contracts with zero nonce"
     ):
         pre_without_flag.deploy_contract(Op.STOP, nonce=0)
-
-
-def test_alloc_flag_allow_fund_address() -> None:
-    """Test ALLOW_FUND_ADDRESS flag."""
-    pre_with_flag = create_test_alloc(flags=AllocFlags.ALLOW_FUND_ADDRESS)
-    address = Address(0x9999999999999999999999999999999999999999)
-    amount = 5 * 10**18
-
-    # Should work for new address (not in pre yet)
-    pre_with_flag.fund_address(address, amount)
-    assert address in pre_with_flag
-    account = pre_with_flag[address]
-    assert account is not None
-    assert account.balance == amount
 
 
 def test_alloc_mutable_flag_combines_permissions() -> None:

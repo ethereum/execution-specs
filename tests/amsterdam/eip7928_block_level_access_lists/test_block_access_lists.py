@@ -2194,7 +2194,6 @@ def test_bal_cross_tx_storage_revert_to_zero(
     )
 
 
-@pytest.mark.pre_fund_address()
 def test_bal_cross_block_ripemd160_state_leak(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

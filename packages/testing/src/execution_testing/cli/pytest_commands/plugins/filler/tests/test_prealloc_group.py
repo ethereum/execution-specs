@@ -327,7 +327,7 @@ def test_pre_alloc_group_with_modified_alloc() -> None:
     )
 
     # Create pre-allocation with a funded address
-    pre2 = Alloc(fork=fork, flags=AllocFlags.ALLOW_FUND_ADDRESS)
+    pre2 = Alloc(fork=fork, flags=AllocFlags.NONE)
     pre2.fund_address(
         Address("0x1234567890123456789012345678901234567890"), amount=100
     )
@@ -347,7 +347,7 @@ def test_pre_alloc_explicit_salt_overrides_group_salt() -> None:
     fork = Prague
 
     # Create pre-allocation with modifications
-    pre = Alloc(fork=fork, flags=AllocFlags.ALLOW_FUND_ADDRESS)
+    pre = Alloc(fork=fork, flags=AllocFlags.NONE)
     pre.fund_address(
         Address("0x1234567890123456789012345678901234567890"), amount=100
     )
@@ -375,12 +375,12 @@ def test_pre_alloc_group_same_modifications() -> None:
     fork = Prague
 
     # Create two pre-allocations with same modification
-    pre1 = Alloc(fork=fork, flags=AllocFlags.ALLOW_FUND_ADDRESS)
+    pre1 = Alloc(fork=fork, flags=AllocFlags.NONE)
     pre1.fund_address(
         Address("0x1234567890123456789012345678901234567890"), amount=100
     )
 
-    pre2 = Alloc(fork=fork, flags=AllocFlags.ALLOW_FUND_ADDRESS)
+    pre2 = Alloc(fork=fork, flags=AllocFlags.NONE)
     pre2.fund_address(
         Address("0x1234567890123456789012345678901234567890"), amount=100
     )

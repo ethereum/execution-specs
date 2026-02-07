@@ -53,11 +53,6 @@ ALLOC_FLAGS_MARKERS = [
         flag=AllocFlags.MUTABLE,
     ),
     AllocFlagsMarker(
-        name="pre_fund_address",
-        description="Marks a test to so it can use the `pre.fund_eoa` method.",
-        flag=AllocFlags.ALLOW_FUND_ADDRESS,
-    ),
-    AllocFlagsMarker(
         name="pre_eoa_with_code",
         description="Marks a test to allow creating EOAs with code.",
         flag=AllocFlags.ALLOW_EOA_WITH_CODE,

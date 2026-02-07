@@ -82,7 +82,6 @@ BLOCKS_BEFORE_FORK = 2
 )
 @pytest.mark.parametrize("timestamp", [15_000 - BLOCKS_BEFORE_FORK], ids=[""])
 @pytest.mark.pre_address_set_to_account
-@pytest.mark.pre_fund_address
 def test_withdrawal_requests_during_fork(
     blockchain_test: BlockchainTestFiller,
     blocks: List[Block],
