@@ -893,37 +893,9 @@ def alloc_flags(
 
     Otherwise skip.
     """
-    if (
-        AllocFlags.ALLOW_ADDRESS_SET_TO_ACCOUNT
-        in alloc_flags_from_test_markers
-    ):
+    if AllocFlags.MUTABLE in alloc_flags_from_test_markers:
         pytest.skip(
-            "Execute mode does not allow setting an address directly in the "
-            "pre-alloc."
-        )
-
-    if (
-        AllocFlags.ALLOW_DEPLOY_TO_HARDCODED_ADDRESS
-        in alloc_flags_from_test_markers
-    ):
-        pytest.skip(
-            "Execute mode does not allow deploying to a hardcoded address."
-        )
-
-    if AllocFlags.ALLOW_ZERO_NONCE_CONTRACTS in alloc_flags_from_test_markers:
-        pytest.skip(
-            "Execute mode does not allow deploying contracts with zero nonce."
-        )
-
-    if AllocFlags.ALLOW_EOA_WITH_CODE in alloc_flags_from_test_markers:
-        pytest.skip("Execute mode does not allow creating EOAs with code.")
-
-    if (
-        AllocFlags.ALLOW_EOA_WITH_HARDCODED_NONCE
-        in alloc_flags_from_test_markers
-    ):
-        pytest.skip(
-            "Execute mode does not allow creating EOAs with a hardcoded nonce."
+            "Execute mode cannot run tests where the pre-alloction is mutated."
         )
 
     return alloc_flags_from_test_markers
