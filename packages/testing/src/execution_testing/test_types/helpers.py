@@ -143,6 +143,28 @@ def add_kzg_version(
     return kzg_versioned_hashes
 
 
+def contract_address_from_hash(account_hash: Hash, salt: int) -> Address:
+    """
+    Calculate an address from a given (account) hash plus a salt.
+
+    Useful to not duplicate accounts in the pre-allocation when grouping
+    many tests.
+    """
+    return Address(
+        Bytes(account_hash + salt.to_bytes(64, "big")).sha256()[12:]
+    )
+
+
+def eoa_from_hash(account_hash: Hash, salt: int) -> EOA:
+    """
+    Calculate an EOA from a given (account) hash plus a salt.
+
+    Useful to not duplicate accounts in the pre-allocation when grouping
+    many tests.
+    """
+    return EOA(key=Bytes(account_hash + salt.to_bytes(64, "big")).sha256())
+
+
 class TestParameterGroup(BaseModel):
     """
     Base class for grouping test parameters in a dataclass. Provides a generic

@@ -33,6 +33,8 @@ from execution_testing.test_types import (
     EOA,
     Environment,
     compute_deterministic_create2_address,
+    contract_address_from_hash,
+    eoa_from_hash,
 )
 from execution_testing.tools import Initcode
 
@@ -53,30 +55,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 DELEGATION_DESIGNATION = b"\xef\x01\x00"
 EMPTY_ACCOUNT_HASH = Account().hash()
-
-
-def contract_address_from_account(account_hash: Hash, salt: int) -> Address:
-    """
-    Calculate a deterministic address for a contract given the properties of
-    the account.
-
-    Useful to not duplicate accounts in the pre-allocation when grouping
-    many tests.
-    """
-    return Address(
-        Bytes(account_hash + salt.to_bytes(64, "big")).sha256()[12:]
-    )
-
-
-def eoa_from_account(account_hash: Hash, salt: int) -> EOA:
-    """
-    Calculate a deterministic EOA for a contract given the properties of
-    the account.
-
-    Useful to not duplicate accounts in the pre-allocation when grouping
-    many tests.
-    """
-    return EOA(key=Bytes(account_hash + salt.to_bytes(64, "big")).sha256())
 
 
 class Alloc(SharedAlloc):
@@ -275,9 +253,7 @@ class Alloc(SharedAlloc):
         else:
             account_hash = account.hash()
             salt = self.get_next_account_salt(account_hash)
-            contract_address = contract_address_from_account(
-                account_hash, salt
-            )
+            contract_address = contract_address_from_hash(account_hash, salt)
 
         self.__internal_setitem__(contract_address, account)
         if label is None:
@@ -368,7 +344,7 @@ class Alloc(SharedAlloc):
 
         account_hash = account.hash()
         salt = self.get_next_account_salt(account_hash)
-        eoa = eoa_from_account(account_hash, salt)
+        eoa = eoa_from_hash(account_hash, salt)
 
         if account.nonce > 0:
             eoa.nonce = account.nonce
@@ -403,7 +379,7 @@ class Alloc(SharedAlloc):
         Filler implementation of empty account creation.
         """
         salt = self.get_next_account_salt(EMPTY_ACCOUNT_HASH)
-        return Address(eoa_from_account(EMPTY_ACCOUNT_HASH, salt))
+        return Address(eoa_from_hash(EMPTY_ACCOUNT_HASH, salt))
 
 
 def sha256_from_string(s: str) -> int:

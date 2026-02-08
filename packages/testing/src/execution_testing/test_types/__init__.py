@@ -28,6 +28,8 @@ from .helpers import (
     compute_create2_address,
     compute_create_address,
     compute_deterministic_create2_address,
+    contract_address_from_hash,
+    eoa_from_hash,
 )
 from .phase_manager import TestPhase, TestPhaseManager
 from .receipt_types import TransactionLog, TransactionReceipt
@@ -88,5 +90,7 @@ __all__ = (
     "compute_create_address",
     "compute_create2_address",
     "compute_deterministic_create2_address",
+    "contract_address_from_hash",
+    "eoa_from_hash",
     "keccak256",
 )
