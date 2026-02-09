@@ -108,7 +108,7 @@ class TransactionPost(BaseExecute):
                 phase = (
                     tx.test_phase
                     if tx.test_phase is not None
-                    else TestPhase.SETUP
+                    else TestPhase.EXECUTION
                 )
                 tx.metadata = TransactionTestMetadata(
                     test_id=request.node.nodeid,
