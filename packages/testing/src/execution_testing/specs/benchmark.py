@@ -39,7 +39,12 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
 )
 from execution_testing.forks import Fork
-from execution_testing.test_types import Alloc, Environment, Transaction
+from execution_testing.test_types import (
+    Alloc,
+    Environment,
+    TestPhaseManager,
+    Transaction,
+)
 from execution_testing.vm import Bytecode, Op
 
 from .base import BaseTest
@@ -453,9 +458,10 @@ class BenchmarkTest(BaseTest):
         gas_limit = (
             self.fork.transaction_gas_limit_cap() or self.gas_benchmark_value
         )
-        benchmark_tx = self.code_generator.generate_transaction(
-            pre=self.pre, gas_benchmark_value=gas_limit
-        )
+        with TestPhaseManager.execution():
+            benchmark_tx = self.code_generator.generate_transaction(
+                pre=self.pre, gas_benchmark_value=gas_limit
+            )
 
         execution_txs = self.split_transaction(benchmark_tx, gas_limit)
         execution_block = Block(txs=execution_txs)
@@ -472,9 +478,10 @@ class BenchmarkTest(BaseTest):
         gas_limit = (
             self.fork.transaction_gas_limit_cap() or self.gas_benchmark_value
         )
-        benchmark_tx = self.code_generator.generate_transaction(
-            pre=self.pre, gas_benchmark_value=gas_limit
-        )
+        with TestPhaseManager.execution():
+            benchmark_tx = self.code_generator.generate_transaction(
+                pre=self.pre, gas_benchmark_value=gas_limit
+            )
         execution_block = Block(txs=[benchmark_tx])
         return [execution_block]
 
