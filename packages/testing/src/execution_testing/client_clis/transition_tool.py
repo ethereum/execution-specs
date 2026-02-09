@@ -643,6 +643,23 @@ class TransitionTool(EthereumCLI):
                     },
                 )
 
+        if self.supports_opcode_count:
+            opcode_count_file_path = Path(temp_dir.name) / "opcodes.json"
+            if opcode_count_file_path.exists():
+                opcode_count = OpcodeCount.model_validate_json(
+                    opcode_count_file_path.read_text()
+                )
+                output.result.opcode_count = opcode_count
+
+                if debug_output_path:
+                    with profiler.pause():
+                        dump_files_to_directory(
+                            debug_output_path,
+                            {
+                                "opcodes.json": opcode_count.model_dump(),
+                            },
+                        )
+
         if self.trace:
             output.result.traces = self.collect_traces(
                 output.result.receipts, temp_dir, debug_output_path
@@ -694,8 +711,12 @@ class TransitionTool(EthereumCLI):
             f"--state.reward={reward}",
         ]
 
-        if self.trace and temp_dir:
-            args.extend([trace_flag, f"--output.basedir={temp_dir.name}"])
+        if temp_dir and (self.trace or self.supports_opcode_count):
+            args.append(f"--output.basedir={temp_dir.name}")
+        if self.trace:
+            args.append(trace_flag)
+        if self.supports_opcode_count and temp_dir:
+            args.extend(["--opcode.count", "opcodes.json"])
 
         return args
 
