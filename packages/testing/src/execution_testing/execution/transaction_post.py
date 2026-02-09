@@ -2,6 +2,7 @@
 
 from typing import ClassVar, Dict, List
 
+from execution_testing.test_types.phase_manager import TestPhase
 import pytest
 from pytest import FixtureRequest
 
@@ -106,7 +107,8 @@ class TransactionPost(BaseExecute):
                 )
                 phase = (
                     "testing"
-                    if (tx.test_phase == "execution" or tx.test_phase is None)
+                    if (tx.test_phase == TestPhase.EXECUTION
+                        or tx.test_phase is None)
                     else "setup"
                 )
                 tx.metadata = TransactionTestMetadata(
