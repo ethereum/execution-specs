@@ -342,7 +342,9 @@ def test_pre_alloc_group_with_modified_alloc() -> None:
 
 
 def test_pre_alloc_explicit_salt_overrides_group_salt() -> None:
-    """Test that explicit group_salt parameter overrides group_salt() method."""
+    """
+    Test that explicit group_salt parameter overrides group_salt() method.
+    """
     env = Environment()
     fork = Prague
 

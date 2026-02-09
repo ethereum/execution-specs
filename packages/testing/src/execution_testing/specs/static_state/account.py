@@ -96,13 +96,15 @@ class AccountInFiller(BaseModel, TagDependentData):
     def hash(self) -> Hash:
         """Return a hash of the account as it is in the filler."""
         dumped = self.model_dump(mode="json", exclude_none=True)
-        return hashlib.sha256(
-            json.dumps(
-                dumped,
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode("utf-8")
-        ).digest()
+        return Hash(
+            hashlib.sha256(
+                json.dumps(
+                    dumped,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).digest()
+        )
 
 
 class PreInFiller(EthereumTestRootModel):

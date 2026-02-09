@@ -1492,6 +1492,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         # We got the marker but unspecified, pass test name
                         group_salt = request.node.nodeid
 
+                pre_alloc_hash: str | None = None
                 # Phase 1: Generate pre-allocation groups
                 if session.phase_manager.is_pre_alloc_generation:
                     # Use the original update_pre_alloc_groups method which
@@ -1515,7 +1516,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
 
                 # Phase 2: Use pre-allocation groups (only for
                 # BlockchainEngineXFixture)
-                pre_alloc_hash = None
                 if (
                     FixtureFillingPhase.PRE_ALLOC_GENERATION
                     in fixture_format.format_phases

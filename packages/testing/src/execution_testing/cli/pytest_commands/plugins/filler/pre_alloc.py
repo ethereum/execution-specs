@@ -4,7 +4,7 @@ import hashlib
 import inspect
 from functools import cache
 from hashlib import sha256
-from typing import Dict, List, Literal
+from typing import Any, Dict, List, Literal
 
 import pytest
 from pydantic import PrivateAttr
@@ -63,6 +63,12 @@ class Alloc(SharedAlloc):
     _eoa_fund_amount_default: int = PrivateAttr(10**21)
     _account_salt: Dict[Hash, int] = PrivateAttr(default_factory=dict)
 
+    def __init__(
+        self, *args: Any, fork: Fork, flags: AllocFlags, **kwargs: Any
+    ) -> None:
+        """Initialize the pre-alloc."""
+        super().__init__(*args, fork=fork, flags=flags, **kwargs)
+
     def get_next_account_salt(self, account_hash: Hash) -> int:
         """Retrieve the next salt for this account."""
         salt = self._account_salt.get(account_hash, 0)
@@ -100,7 +106,9 @@ class Alloc(SharedAlloc):
             buffer += b"\0"
             for altered_account in sorted(altered_accounts):
                 buffer += altered_account
-                buffer += self[altered_account].hash()
+                account = self[altered_account]
+                assert account is not None
+                buffer += account.hash()
         if self._deleted_addresses:
             buffer += b"\1"
             for deleted_address in sorted(self._deleted_addresses):

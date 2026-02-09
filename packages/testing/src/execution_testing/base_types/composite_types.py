@@ -348,15 +348,6 @@ class Storage(
         )
 
 
-class FrozenStorage(Storage):
-    """Frozen storage."""
-
-    model_config = {
-        **Storage.model_config,
-        "frozen": True,
-    }
-
-
 class Account(CamelModel):
     """State associated with an address."""
 
