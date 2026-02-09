@@ -17,6 +17,15 @@ from execution_testing.base_types import (
 class TransactionLog(CamelModel):
     """Transaction log."""
 
+    @model_validator(mode="before")
+    @classmethod
+    def strip_extra_fields(cls, data: Any) -> Any:
+        """Strip extra fields from t8n tool output not part of model."""
+        if isinstance(data, dict):
+            # geth includes extra fields in log entries
+            data.pop("blockTimestamp", None)
+        return data
+
     address: Address | None = None
     topics: List[Hash] | None = None
     data: Bytes | None = None
