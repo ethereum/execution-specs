@@ -446,7 +446,7 @@ def create_sstore_initializer(init_val: int) -> IteratingBytecode:
         )
         # After SSTORE: [index, current - 1]
         # Continue while current - 1 > index
-        + Op.JUMPI(len(prefix), Op.GT(Op.DUP1, Op.DUP2))
+        + Op.JUMPI(len(prefix), Op.GT(Op.DUP2, Op.DUP2))
     )
 
     return IteratingBytecode(setup=prefix, iterating=loop)
