@@ -1893,11 +1893,18 @@ def pytest_collection_modifyitems(
     # Sort items for optimal execution order:
     # 1. Slow groups first (LPT scheduling for xdist load balance)
     # 2. Related fixture formats together (cache locality)
-    # 3. Deterministic order within groups (alphabetical by nodeid)
-    def sort_key(item: pytest.Item) -> tuple[bool, str, str]:
+    # 3. Cacheable formats first within a group (so non-cacheable formats
+    #    don't clear the cache between two cacheable ones; e.g., for
+    #    StateTest the _from_state_test labels sort engine_x between the
+    #    two cacheable formats alphabetically, breaking cache hits)
+    # 4. Deterministic order within groups (alphabetical by nodeid)
+    def sort_key(item: pytest.Item) -> tuple[bool, str, bool, str]:
         base = item_base_nodeids[id(item)]
         is_slow = base in slow_base_nodeids
-        return (not is_slow, base, item.nodeid)
+        has_cache_key = (
+            item.get_closest_marker("transition_tool_cache_key") is not None
+        )
+        return (not is_slow, base, not has_cache_key, item.nodeid)
 
     items.sort(key=sort_key)
 
