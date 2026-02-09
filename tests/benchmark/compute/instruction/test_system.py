@@ -171,6 +171,7 @@ def test_create(
         Op.CREATE2,
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_creates_collisions(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
