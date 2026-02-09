@@ -18,7 +18,10 @@ from execution_testing import (
     Hash,
     Op,
     Transaction,
+    compute_create_address,
 )
+
+from tests.benchmark.compute.helpers import CustomSizedContractInitcode
 
 
 def test_empty_block(
@@ -29,21 +32,6 @@ def test_empty_block(
         blocks=[Block(txs=[])],
         expected_benchmark_gas_used=0,
     )
-
-
-@pytest.fixture
-def iteration_count(intrinsic_cost: int, gas_benchmark_value: int) -> int:
-    """
-    Calculate the number of iterations based on the gas limit and intrinsic
-    cost.
-    """
-    return gas_benchmark_value // intrinsic_cost
-
-
-@pytest.fixture
-def transfer_amount() -> int:
-    """Ether to transfer in each transaction."""
-    return 1
 
 
 @pytest.fixture
@@ -85,9 +73,10 @@ def get_single_receiver_list(
 
 @pytest.fixture
 def ether_transfer_case(
-    case_id: str, pre: Alloc, balance: int
+    case_id: str, pre: Alloc, empty_account: bool
 ) -> Tuple[Generator[Address, None, None], Generator[Address, None, None]]:
     """Generate sender and receiver generators based on the test case."""
+    balance = 0 if empty_account else 1
     if case_id == "a_to_a":
         """Sending to self."""
         senders = get_single_sender_list(pre)
@@ -129,15 +118,18 @@ def ether_transfer_case(
         "diff_acc_to_diff_acc",
     ],
 )
-@pytest.mark.parametrize("balance", [0, 1])
-def test_block_full_of_ether_transfers(
+@pytest.mark.parametrize("transfer_amount", [0, 1])
+@pytest.mark.parametrize("empty_account", [True, False])
+@pytest.mark.parametrize("warm_access", [False, True])
+def test_ether_transfers(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     case_id: str,
-    balance: int,
-    iteration_count: int,
+    empty_account: bool,
     transfer_amount: int,
-    intrinsic_cost: int,
+    fork: Fork,
+    gas_benchmark_value: int,
+    warm_access: bool,
     ether_transfer_case: Tuple[
         Generator[Address, None, None], Generator[Address, None, None]
     ],
@@ -151,39 +143,90 @@ def test_block_full_of_ether_transfers(
     - diff_acc_to_b: multiple senders → one receiver
     - a_to_diff_acc: one sender → multiple receivers
     - diff_acc_to_diff_acc: multiple senders → multiple receivers
+
+    When warm_access is True, each transaction includes an access list
+    entry for the receiver to warm the account before the transfer.
     """
     senders, receivers = ether_transfer_case
 
-    # Create a single block with all transactions
+    balance = 0 if empty_account else 1
+
     txs = []
     token_transfers: dict[Address, int] = {}
+
+    access_list = (
+        [AccessList(address=Address(0x100), storage_keys=[])]
+        if warm_access
+        else None
+    )
+    iteration_cost = fork.transaction_intrinsic_cost_calculator()(
+        access_list=access_list,
+    )
+    iteration_count = gas_benchmark_value // iteration_cost
+
     for _ in range(iteration_count):
         receiver = next(receivers)
         token_transfers[receiver] = (
             token_transfers.get(receiver, 0) + transfer_amount
         )
+        access_list = (
+            [AccessList(address=receiver, storage_keys=[])]
+            if warm_access
+            else None
+        )
         txs.append(
             Transaction(
                 to=receiver,
                 value=transfer_amount,
-                gas_limit=intrinsic_cost,
+                gas_limit=iteration_cost,
                 sender=next(senders),
+                access_list=access_list,
             )
         )
 
-    # Only include post state for non a_to_a cases
     post_state = (
         {}
         if case_id == "a_to_a"
         else {
             receiver: Account(balance=balance + transferred_amount)
             for receiver, transferred_amount in token_transfers.items()
+            if balance + transferred_amount > 0
         }
     )
 
     benchmark_test(
         pre=pre,
         post=post_state,
+        blocks=[Block(txs=txs)],
+        expected_benchmark_gas_used=iteration_count * iteration_cost,
+    )
+
+
+@pytest.mark.with_all_precompiles
+@pytest.mark.parametrize("transfer_amount", [0, 1])
+def test_ether_transfers_to_precompile(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    precompile: int,
+    gas_benchmark_value: int,
+    transfer_amount: int,
+    intrinsic_cost: int,
+) -> None:
+    """Test a block full of ether transfers to a precompile address."""
+    iteration_count = gas_benchmark_value // intrinsic_cost
+    txs = []
+    for _ in range(iteration_count):
+        txs.append(
+            Transaction(
+                to=Address(precompile),
+                value=transfer_amount,
+                gas_limit=intrinsic_cost,
+                sender=pre.fund_eoa(),
+            )
+        )
+
+    benchmark_test(
+        pre=pre,
         blocks=[Block(txs=txs)],
         expected_benchmark_gas_used=iteration_count * intrinsic_cost,
     )
@@ -510,4 +553,57 @@ def test_auth_transaction(
         post={},
         blocks=[Block(txs=txs)],
         expected_benchmark_gas_used=total_gas_used - total_refund,
+    )
+
+
+@pytest.mark.parametrize("transfer_amount", [0, 1])
+def test_contract_creation(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    transfer_amount: int,
+    gas_benchmark_value: int,
+) -> None:
+    """Benchmark max code size contract creation."""
+    initcode = CustomSizedContractInitcode(
+        pre=pre, fork=fork, contract_size=fork.max_code_size()
+    )
+    intrinsic_gas_calc = fork.transaction_intrinsic_cost_calculator()
+
+    # EIP-7623: actual gas used = max(standard + execution, floor)
+    standard_intrinsic = intrinsic_gas_calc(
+        calldata=bytes(initcode),
+        contract_creation=True,
+        return_cost_deducted_prior_execution=True,
+    )
+    floor_intrinsic = intrinsic_gas_calc(
+        calldata=bytes(initcode),
+        contract_creation=True,
+    )
+    execution_gas = initcode.gas_cost(fork)
+    tx_cost = max(standard_intrinsic + execution_gas, floor_intrinsic)
+
+    iteration_count = gas_benchmark_value // tx_cost
+
+    sender = pre.fund_eoa()
+    txs = []
+    post = {}
+    for nonce in range(iteration_count):
+        txs.append(
+            Transaction(
+                to=None,
+                data=initcode,
+                value=transfer_amount,
+                gas_limit=tx_cost,
+                sender=sender,
+            )
+        )
+        created_address = compute_create_address(address=sender, nonce=nonce)
+        post[created_address] = Account(nonce=1)
+
+    benchmark_test(
+        pre=pre,
+        post=post,
+        blocks=[Block(txs=txs)],
+        expected_benchmark_gas_used=iteration_count * tx_cost,
     )
