@@ -833,6 +833,36 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     """Engine API payloads for blockchain execution."""
 
 
+class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
+    """
+    Engine fixture for snapshot-based stateful testing.
+
+    Instead of embedding pre-allocation or referencing a computed group,
+    this fixture references an external snapshot that the consumer must
+    pre-load. Setup payloads deploy contracts and seed accounts on top
+    of the snapshot before the actual test payloads execute.
+    """
+
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
+    format_name: ClassVar[str] = "blockchain_test_stateful_engine"
+    description: ClassVar[str] = (
+        "Tests that generate a Blockchain Test fixture for "
+        "snapshot-based stateful Engine API testing."
+    )
+
+    snapshot_id: str
+    snapshot_block_number: HexNumber
+    snapshot_block_hash: Hash
+
+    setup_payloads: List[FixtureEngineNewPayload] = Field(
+        ..., alias="setupEngineNewPayloads"
+    )
+    payloads: List[FixtureEngineNewPayload] = Field(
+        ..., alias="engineNewPayloads"
+    )
+
+
 class BlockchainEngineSyncFixture(BlockchainEngineFixture):
     """
     Engine Sync specific test fixture information.
