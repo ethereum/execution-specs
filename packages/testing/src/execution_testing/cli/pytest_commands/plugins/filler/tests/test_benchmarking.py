@@ -1,6 +1,7 @@
 """Test the benchmarking pytest plugin for gas benchmark values."""
 
 import json
+import os
 import textwrap
 from pathlib import Path
 from typing import List
@@ -12,8 +13,8 @@ from execution_testing.cli.pytest_commands.plugins.shared.benchmarking import (
     OpcodeCountsConfig,
 )
 
-# EVM binary for tests that actually fill (not just collect)
-BENCHMARK_EVM_T8N = "evmone-t8n"
+# EVM binary for fill tests; defaults to geth evm
+BENCHMARK_EVM_T8N = os.environ.get("EVM_BIN", "evm")
 
 test_module_dummy = textwrap.dedent(
     """\
