@@ -13,6 +13,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "precompile_address,calldata",
     [
@@ -28,7 +29,6 @@ from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
                 ]
             ),
             id="point_evaluation",
-            marks=pytest.mark.repricing,
         ),
     ],
 )

@@ -44,11 +44,9 @@ class HashableItem:
             return self.root
         if self.items is None:
             raise ValueError("No items to hash")
-        all_hash_bytes = b""
-        for _, item in sorted(self.items.items()):
-            item_hash_bytes = item.hash()
-            all_hash_bytes += item_hash_bytes
-        return hashlib.sha256(all_hash_bytes).digest()
+        # Use list + join instead of += to avoid O(n²) byte concatenation
+        hash_parts = [item.hash() for _, item in sorted(self.items.items())]
+        return hashlib.sha256(b"".join(hash_parts)).digest()
 
     def format_lines(
         self,

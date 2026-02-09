@@ -486,6 +486,7 @@ epilog
 eq
 ERC
 Erigon
+errlines
 esbenp
 etc
 ETH
@@ -761,6 +762,7 @@ makereport
 marcin
 marioevz
 markdownlint
+markexpr
 master
 matchers
 mcopy
@@ -847,6 +849,7 @@ ommers
 oneliner
 oob
 opc
+opcount
 opcode's
 OpenSSL
 oprypin
@@ -867,6 +870,7 @@ P7692
 paradigmxyz
 param
 parametrization
+parametrizations
 parametrize
 parametrized
 parametrizer

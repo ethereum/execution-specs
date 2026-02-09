@@ -417,12 +417,14 @@ def test_set_code_to_tstore_reentry(
 
 
 @pytest.mark.with_all_call_opcodes(
-    selector=lambda call_opcode: call_opcode
-    not in [
-        Op.DELEGATECALL,
-        Op.CALLCODE,
-        Op.STATICCALL,
-    ]
+    selector=lambda call_opcode: (
+        call_opcode
+        not in [
+            Op.DELEGATECALL,
+            Op.CALLCODE,
+            Op.STATICCALL,
+        ]
+    )
 )
 @pytest.mark.parametrize("call_eoa_first", [True, False])
 def test_set_code_to_tstore_available_at_correct_address(
@@ -2964,12 +2966,14 @@ def deposit_contract_initial_storage() -> Storage:
 
 @pytest.mark.with_all_call_opcodes(
     selector=(
-        lambda opcode: opcode
-        not in [
-            Op.STATICCALL,
-            Op.CALLCODE,
-            Op.DELEGATECALL,
-        ]
+        lambda opcode: (
+            opcode
+            not in [
+                Op.STATICCALL,
+                Op.CALLCODE,
+                Op.DELEGATECALL,
+            ]
+        )
     )
 )
 @pytest.mark.with_all_system_contracts
@@ -3133,11 +3137,11 @@ def test_set_code_to_system_contract(
 
 @pytest.mark.with_all_tx_types(
     selector=lambda tx_type: tx_type != 4,
-    marks=lambda tx_type: pytest.mark.execute(
-        pytest.mark.skip("incompatible tx")
-    )
-    if tx_type in [0, 3]
-    else None,
+    marks=lambda tx_type: (
+        pytest.mark.execute(pytest.mark.skip("incompatible tx"))
+        if tx_type in [0, 3]
+        else None
+    ),
 )
 @pytest.mark.parametrize(
     "same_block",

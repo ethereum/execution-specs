@@ -40,8 +40,15 @@ jobs:
           enable-cache: false
           version: ${{ vars.UV_VERSION }}
 
+      - uses: ./.github/actions/build-evm-base
+        id: evm-builder
+        with:
+          type: benchmark
+
       - name: Run benchmark unit tests
         run: uvx tox -e tests_benchmark_pytest_py3
+        env:
+          EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
   sanity-checks:
     name: ${{ matrix.name }}

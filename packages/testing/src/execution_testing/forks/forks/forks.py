@@ -321,9 +321,11 @@ class Frontier(BaseFork, solc_name="homestead"):
             Opcodes.SMOD: gas_costs.G_LOW,
             Opcodes.ADDMOD: gas_costs.G_MID,
             Opcodes.MULMOD: gas_costs.G_MID,
-            Opcodes.EXP: lambda op: gas_costs.G_EXP
-            + gas_costs.G_EXP_BYTE
-            * ((op.metadata["exponent"].bit_length() + 7) // 8),
+            Opcodes.EXP: lambda op: (
+                gas_costs.G_EXP
+                + gas_costs.G_EXP_BYTE
+                * ((op.metadata["exponent"].bit_length() + 7) // 8)
+            ),
             Opcodes.SIGNEXTEND: gas_costs.G_LOW,
             # Comparison & bitwise logic operations
             Opcodes.LT: gas_costs.G_VERY_LOW,
@@ -339,9 +341,11 @@ class Frontier(BaseFork, solc_name="homestead"):
             Opcodes.BYTE: gas_costs.G_VERY_LOW,
             # SHA3
             Opcodes.SHA3: cls._with_memory_expansion(
-                lambda op: gas_costs.G_KECCAK_256
-                + gas_costs.G_KECCAK_256_WORD
-                * ((op.metadata["data_size"] + 31) // 32),
+                lambda op: (
+                    gas_costs.G_KECCAK_256
+                    + gas_costs.G_KECCAK_256_WORD
+                    * ((op.metadata["data_size"] + 31) // 32)
+                ),
                 memory_expansion_calculator,
             ),
             # Environmental information
@@ -388,9 +392,11 @@ class Frontier(BaseFork, solc_name="homestead"):
             Opcodes.MSTORE8: cls._with_memory_expansion(
                 gas_costs.G_VERY_LOW, memory_expansion_calculator
             ),
-            Opcodes.SLOAD: lambda op: gas_costs.G_WARM_SLOAD
-            if op.metadata["key_warm"]
-            else gas_costs.G_COLD_SLOAD,
+            Opcodes.SLOAD: lambda op: (
+                gas_costs.G_WARM_SLOAD
+                if op.metadata["key_warm"]
+                else gas_costs.G_COLD_SLOAD
+            ),
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_gas(
                 op, gas_costs
             ),
@@ -417,32 +423,42 @@ class Frontier(BaseFork, solc_name="homestead"):
             },
             # Logging operations
             Opcodes.LOG0: cls._with_memory_expansion(
-                lambda op: gas_costs.G_LOG
-                + gas_costs.G_LOG_DATA * op.metadata["data_size"],
+                lambda op: (
+                    gas_costs.G_LOG
+                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
+                ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG1: cls._with_memory_expansion(
-                lambda op: gas_costs.G_LOG
-                + gas_costs.G_LOG_DATA * op.metadata["data_size"]
-                + gas_costs.G_LOG_TOPIC,
+                lambda op: (
+                    gas_costs.G_LOG
+                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
+                    + gas_costs.G_LOG_TOPIC
+                ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG2: cls._with_memory_expansion(
-                lambda op: gas_costs.G_LOG
-                + gas_costs.G_LOG_DATA * op.metadata["data_size"]
-                + gas_costs.G_LOG_TOPIC * 2,
+                lambda op: (
+                    gas_costs.G_LOG
+                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
+                    + gas_costs.G_LOG_TOPIC * 2
+                ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG3: cls._with_memory_expansion(
-                lambda op: gas_costs.G_LOG
-                + gas_costs.G_LOG_DATA * op.metadata["data_size"]
-                + gas_costs.G_LOG_TOPIC * 3,
+                lambda op: (
+                    gas_costs.G_LOG
+                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
+                    + gas_costs.G_LOG_TOPIC * 3
+                ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG4: cls._with_memory_expansion(
-                lambda op: gas_costs.G_LOG
-                + gas_costs.G_LOG_DATA * op.metadata["data_size"]
-                + gas_costs.G_LOG_TOPIC * 4,
+                lambda op: (
+                    gas_costs.G_LOG
+                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
+                    + gas_costs.G_LOG_TOPIC * 4
+                ),
                 memory_expansion_calculator,
             ),
             # System operations

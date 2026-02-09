@@ -107,6 +107,7 @@ class EIPChecklist:
     class General(_CallableChecklistItem):
         class CodeCoverage(_CallableChecklistItem):
             Eels: _CallableChecklistItem
+            MissedLines: _CallableChecklistItem
             SecondClient: _CallableChecklistItem
             TestCoverage: _CallableChecklistItem
 

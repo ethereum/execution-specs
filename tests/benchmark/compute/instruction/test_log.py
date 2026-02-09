@@ -21,11 +21,11 @@ from execution_testing import (
 @pytest.mark.parametrize(
     "opcode",
     [
-        pytest.param(Op.LOG0, id="log0"),
-        pytest.param(Op.LOG1, id="log1"),
-        pytest.param(Op.LOG2, id="log2"),
-        pytest.param(Op.LOG3, id="log3"),
-        pytest.param(Op.LOG4, id="log4"),
+        Op.LOG0,
+        Op.LOG1,
+        Op.LOG2,
+        Op.LOG3,
+        Op.LOG4,
     ],
 )
 @pytest.mark.parametrize(
@@ -88,11 +88,11 @@ def test_log(
 @pytest.mark.parametrize(
     "opcode",
     [
-        pytest.param(Op.LOG0, id="log0"),
-        pytest.param(Op.LOG1, id="log1"),
-        pytest.param(Op.LOG2, id="log2"),
-        pytest.param(Op.LOG3, id="log3"),
-        pytest.param(Op.LOG4, id="log4"),
+        Op.LOG0,
+        Op.LOG1,
+        Op.LOG2,
+        Op.LOG3,
+        Op.LOG4,
     ],
 )
 @pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])

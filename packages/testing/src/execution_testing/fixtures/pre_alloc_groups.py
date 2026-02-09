@@ -1,6 +1,7 @@
 """Pre-allocation group models for test fixture generation."""
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
@@ -11,11 +12,11 @@ from typing import (
     KeysView,
     List,
     Literal,
+    Optional,
     Self,
     Tuple,
 )
 
-from filelock import FileLock
 from pydantic import Field, PrivateAttr
 
 from execution_testing.base_types import (
@@ -76,44 +77,104 @@ class PreAllocGroupBuilder(CamelModel):
             genesis=self.calculate_genesis(),
         )
 
-    def to_file(self, file: Path) -> None:
-        """Save PreAllocGroup to a file."""
-        lock_file_path = file.with_suffix(".lock")
-        with FileLock(lock_file_path):
-            if file.exists():
-                with open(file, "r") as f:
-                    previous_pre_alloc_group = (
-                        PreAllocGroup.model_validate_json(f.read())
-                    )
-                for account in previous_pre_alloc_group.pre:
-                    existing_account = previous_pre_alloc_group.pre[account]
-                    if account not in self.pre:
-                        self.pre[account] = existing_account
+    def to_partial_file(
+        self, file: Path, worker_id: Optional[str] = None
+    ) -> None:
+        """
+        Save PreAllocGroupBuilder to a partial file (no locking).
+
+        Each worker writes its own partial file, which are merged at session
+        end by merge_partial_group_files(). This eliminates lock contention
+        that caused workers to take 30-180+ seconds each.
+
+        Saves the builder format (without genesis/state_root) to avoid
+        expensive state root computation during Phase 1. State root is
+        computed once when loading in Phase 2 via PreAllocGroup.from_file().
+        """
+        suffix = f".{worker_id}" if worker_id else ".main"
+        partial_path = file.with_suffix(f".partial{suffix}.json")
+        partial_path.write_text(
+            self.model_dump_json(by_alias=True, exclude_none=True, indent=2)
+        )
+
+
+def _get_worker_id() -> Optional[str]:
+    """Get the xdist worker ID from environment, or None if not in xdist."""
+    return os.environ.get("PYTEST_XDIST_WORKER")
+
+
+def merge_partial_group_files(folder: Path) -> None:
+    """
+    Merge all partial group files into final group files.
+
+    Called by master process after all workers have finished Phase 1.
+    Each worker writes {group_hash}.partial.{worker_id}.json files,
+    which are merged here into {group_hash}.json files.
+    """
+    partial_files = list(folder.glob("*.partial.*.json"))
+    if not partial_files:
+        return
+
+    # Group partials by target: {hash}.partial.{worker}.json -> {hash}.json
+    partials_by_target: Dict[Path, List[Path]] = {}
+    for partial in partial_files:
+        name = partial.name
+        idx = name.find(".partial.")
+        if idx == -1:
+            continue
+        target_name = name[:idx] + ".json"
+        target_path = partial.parent / target_name
+        if target_path not in partials_by_target:
+            partials_by_target[target_path] = []
+        partials_by_target[target_path].append(partial)
+
+    # Merge each group's partials
+    for target_path, partials in partials_by_target.items():
+        merged_builder: Optional[PreAllocGroupBuilder] = None
+
+        for partial in partials:
+            builder = PreAllocGroupBuilder.model_validate_json(
+                partial.read_text()
+            )
+
+            if merged_builder is None:
+                merged_builder = builder
+            else:
+                # Merge pre-allocations (check for collisions)
+                for account in builder.pre:
+                    new_account = builder.pre[account]
+                    if account not in merged_builder.pre:
+                        merged_builder.pre[account] = new_account
                     else:
-                        new_account = self.pre[account]
+                        existing_account = merged_builder.pre[account]
                         if new_account != existing_account:
-                            # This procedure fails during xdist worker's
-                            # pytest_sessionfinish and is not reported to the
-                            # master thread. We signal here that the groups
-                            # created contain a collision.
-                            collision_file_path = file.with_suffix(".fail")
+                            # Write collision file for error reporting
+                            collision_file_path = target_path.with_suffix(
+                                ".fail"
+                            )
                             collision_exception = Alloc.CollisionError(
                                 address=account,
                                 account_1=existing_account,
                                 account_2=new_account,
                             )
-                            with open(collision_file_path, "w") as f:
-                                f.write(
-                                    json.dumps(collision_exception.to_json())
-                                )
+                            collision_file_path.write_text(
+                                json.dumps(collision_exception.to_json())
+                            )
                             raise collision_exception
-                self.test_ids.extend(previous_pre_alloc_group.test_ids)
-            with open(file, "w") as f:
-                f.write(
-                    self.build().model_dump_json(
-                        by_alias=True, exclude_none=True, indent=2
-                    )
+
+                # Merge test_ids
+                merged_builder.test_ids.extend(builder.test_ids)
+
+            # Clean up partial file after processing
+            partial.unlink()
+
+        # Write final merged file
+        if merged_builder is not None:
+            target_path.write_text(
+                merged_builder.model_dump_json(
+                    by_alias=True, exclude_none=True, indent=2
                 )
+            )
 
 
 class PreAllocGroupBuilders(EthereumTestRootModel):
@@ -128,11 +189,16 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
 
     root: Dict[str, PreAllocGroupBuilder]
 
-    def to_folder(self, folder: Path) -> None:
-        """Save PreAllocGroups to a folder of pre-allocation files."""
+    def to_folder(self, folder: Path, worker_id: Optional[str] = None) -> None:
+        """
+        Save PreAllocGroups to a folder as partial files.
+
+        Each worker writes its own partial files (no lock contention).
+        Call merge_partial_group_files() on master after all workers finish.
+        """
         for key, value in self.root.items():
             assert value is not None, f"Value for key {key} is None"
-            value.to_file(folder / f"{key}.json")
+            value.to_partial_file(folder / f"{key}.json", worker_id=worker_id)
 
     def add_test_pre(
         self,
@@ -271,9 +337,20 @@ class PreAllocGroup(PreAllocGroupBuilder):
 
     @classmethod
     def from_file(cls, file: Path) -> Self:
-        """Load a pre-allocation group from a JSON file."""
+        """
+        Load a pre-allocation group from a JSON file.
+
+        Files are stored in builder format (without genesis). Genesis is
+        computed on-demand when loading, ensuring state root computation
+        happens exactly once in Phase 2, not during Phase 1 merging.
+        """
         with open(file) as f:
-            return cls.model_validate_json(f.read())
+            data = f.read()
+
+        builder = PreAllocGroupBuilder.model_validate_json(data)
+        built = builder.build()
+        # Use cls.model_validate to ensure proper Self return type
+        return cls.model_validate(built.model_dump())
 
 
 class PreAllocGroups(EthereumTestRootModel):

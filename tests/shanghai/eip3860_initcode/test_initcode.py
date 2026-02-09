@@ -210,9 +210,9 @@ def valid_gas_test_case(initcode: Initcode, gas_test_case: str) -> bool:
         ]
         if valid_gas_test_case(i, g)
     ],
-    ids=lambda x: f"{get_initcode_name(x[0])}-{x[1]}"
-    if isinstance(x, tuple)
-    else x,
+    ids=lambda x: (
+        f"{get_initcode_name(x[0])}-{x[1]}" if isinstance(x, tuple) else x
+    ),
 )
 class TestContractCreationGasUsage:
     """

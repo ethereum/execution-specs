@@ -1,13 +1,14 @@
 """Code generating classes and functions."""
 
 from dataclasses import dataclass
-from typing import Any, List, SupportsBytes
+from typing import Any, Dict, Generator, List, Self, SupportsBytes, Tuple, Type
 
-from typing_extensions import Self
+from pydantic import Field
 
-from execution_testing.base_types import Bytes
-from execution_testing.test_types import ceiling_division
-from execution_testing.vm import Bytecode, Op
+from execution_testing.base_types import Address, Bytes
+from execution_testing.forks import Fork
+from execution_testing.test_types import EOA, Transaction, ceiling_division
+from execution_testing.vm import Bytecode, ForkOpcodeInterface, Op
 
 GAS_PER_DEPLOYED_CODE_BYTE = 0xC8
 
@@ -469,4 +470,603 @@ class Create2PreimageLayout(Bytecode):
         return Op.MSTORE(
             self.salt_offset,
             Op.ADD(Op.MLOAD(self.salt_offset), increment),
+        )
+
+
+class TransactionWithCost(Transaction):
+    """Transaction object that can include the expected gas to be consumed."""
+
+    gas_cost: int = Field(..., exclude=True)
+
+
+class IteratingBytecode(Bytecode):
+    """
+    Bytecode composed of distinct execution phases: setup, iteration, and
+    cleanup.
+
+    Some phases (warm_iterating and iterating_subcall) are analytical only and
+    exist solely to model gas costs; they are not emitted in the final
+    bytecode.
+    """
+
+    setup: Bytecode
+    """Bytecode executed once at the beginning before iterations start."""
+    iterating: Bytecode
+    """Bytecode executed in the first iteration."""
+    warm_iterating: Bytecode
+    """
+    Analytical bytecode representing subsequent iterations after the first
+    (warm state).
+    This bytecode is _not_ included in the final bytecode, and it's only
+    used for the gas accounting properties of its opcodes and therefore gas
+    calculation.
+    """
+    iterating_subcall: Bytecode | int
+    """
+    Analytical bytecode representing a subcall performed during each iteration.
+    This bytecode is _not_ included in the final bytecode, and it's only
+    used for gas calculation.
+
+    The value can also be an integer, in which case it represents the gas cost
+    of the subcall (e.g. the subcall is a precompiled contract)
+    """
+    cleanup: Bytecode
+    """Bytecode executed once at the end after all iterations complete."""
+
+    def __new__(
+        cls,
+        *,
+        setup: Bytecode | None = None,
+        iterating: Bytecode,
+        cleanup: Bytecode | None = None,
+        warm_iterating: Bytecode | None = None,
+        iterating_subcall: Bytecode | int | None = None,
+    ) -> Self:
+        """
+        Create a new iterating bytecode.
+
+        Args:
+            setup: Bytecode executed once at the beginning before
+                iterations start.
+            iterating: Bytecode executed in the first iteration.
+            cleanup: Bytecode executed once at the end after all
+                iterations complete.
+            warm_iterating: Analytical bytecode representing subsequent
+                iterations after the first (warm state).
+            iterating_subcall: Analytical bytecode representing a subcall
+                performed during each iteration. This bytecode is _not_
+                included in the final bytecode, and it's only used for gas
+                calculation. The value can also be an integer, in which case it
+                represents the gas cost of the subcall (e.g. the subcall is a
+                precompiled contract).
+
+        Returns:
+            A new IteratingBytecode instance.
+
+        """
+        instance = super(IteratingBytecode, cls).__new__(
+            cls,
+            setup + iterating + cleanup,
+        )
+        if setup is None:
+            setup = Bytecode()
+        instance.setup = setup
+        instance.iterating = iterating
+        if warm_iterating is None:
+            instance.warm_iterating = iterating
+        else:
+            assert bytes(iterating) == bytes(warm_iterating), (
+                "iterating and warm_iterating must have the same bytecode"
+            )
+            instance.warm_iterating = warm_iterating
+        if iterating_subcall is None:
+            instance.iterating_subcall = Bytecode()
+        else:
+            instance.iterating_subcall = iterating_subcall
+        if cleanup is None:
+            cleanup = Bytecode()
+        instance.cleanup = cleanup
+        return instance
+
+    def iterating_subcall_gas_cost(
+        self, *, fork: Type[ForkOpcodeInterface]
+    ) -> int:
+        """Return the gas cost of the iterating subcall."""
+        if isinstance(self.iterating_subcall, int):
+            return self.iterating_subcall
+        return self.iterating_subcall.gas_cost(fork=fork)
+
+    def iterating_subcall_reserve(
+        self, *, fork: Type[ForkOpcodeInterface]
+    ) -> int:
+        """
+        Return the gas reserve needed so that the last iterating subcall does
+        not fail due to the 63/64 rule.
+        """
+        iterating_subcall_gas_cost = self.iterating_subcall_gas_cost(fork=fork)
+        return (
+            iterating_subcall_gas_cost * 64 // 63
+        ) - iterating_subcall_gas_cost
+
+    def gas_cost_by_iteration_count(
+        self, *, fork: Type[ForkOpcodeInterface], iteration_count: int
+    ) -> int:
+        """Return the cost of iterating through the bytecode N times."""
+        loop_gas_cost = 0
+        if iteration_count > 0:
+            # Cold cost is just charged for the first iteration
+            loop_gas_cost = self.iterating.gas_cost(fork=fork)
+            # Warm cost is charged for all iterations except the first
+            loop_gas_cost += self.warm_iterating.gas_cost(fork=fork) * (
+                iteration_count - 1
+            )
+            # Subcall cost is charged for all iterations.
+            loop_gas_cost += (
+                self.iterating_subcall_gas_cost(fork=fork) * iteration_count
+            )
+        return (
+            self.setup.gas_cost(fork=fork)
+            + loop_gas_cost
+            + self.cleanup.gas_cost(fork=fork)
+        )
+
+    def with_fixed_iteration_count(
+        self, *, iteration_count: int
+    ) -> "FixedIterationsBytecode":
+        """
+        Return a new FixedIterationsBytecode with the iteration count fixed.
+        """
+        return FixedIterationsBytecode(
+            setup=self.setup,
+            iterating=self.iterating,
+            cleanup=self.cleanup,
+            warm_iterating=self.warm_iterating,
+            iterating_subcall=self.iterating_subcall,
+            iteration_count=iteration_count,
+        )
+
+    # Methods to calculate transactions that call a contract containing the
+    # iterating bytecode.
+
+    def tx_gas_cost_by_iteration_count(
+        self,
+        *,
+        fork: Fork,
+        iteration_count: int,
+        start_iteration: int = 0,
+        **intrinsic_cost_kwargs: Any,
+    ) -> int:
+        """
+        Calculate the exact gas cost of a transaction calling the bytecode
+        for a given number of iterations.
+
+        The method accepts intrinsic gas cost kwargs to allow for the
+        calculation of the intrinsic gas cost of the transaction.
+
+        If any of the intrinsic gas cost kwarg is callable, it will be called
+        with iteration_count and start_iteration as keyword arguments.
+        """
+        intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+        if "data" in intrinsic_cost_kwargs:
+            intrinsic_cost_kwargs["calldata"] = intrinsic_cost_kwargs.pop(
+                "data"
+            )
+        if "authorization_list" in intrinsic_cost_kwargs:
+            intrinsic_cost_kwargs["authorization_list_or_count"] = len(
+                intrinsic_cost_kwargs.pop("authorization_list")
+            )
+        if "return_cost_deducted_prior_execution" not in intrinsic_cost_kwargs:
+            intrinsic_cost_kwargs["return_cost_deducted_prior_execution"] = (
+                True
+            )
+        for key, value in intrinsic_cost_kwargs.items():
+            if callable(value):
+                intrinsic_cost_kwargs[key] = value(
+                    iteration_count=iteration_count,
+                    start_iteration=start_iteration,
+                )
+        return self.gas_cost_by_iteration_count(
+            fork=fork, iteration_count=iteration_count
+        ) + intrinsic_gas_cost_calc(**intrinsic_cost_kwargs)
+
+    def tx_gas_limit_by_iteration_count(
+        self,
+        *,
+        fork: Fork,
+        iteration_count: int,
+        start_iteration: int = 0,
+        **intrinsic_cost_kwargs: Any,
+    ) -> int:
+        """
+        Calculate the minimum gas limit of a transaction calling the bytecode
+        for a given number of iterations.
+
+        The gas limit is calculated by adding the required extra gas for the
+        last iteration due to the 63/64 rule.
+        """
+        return self.tx_gas_cost_by_iteration_count(
+            fork=fork,
+            iteration_count=iteration_count,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        ) + self.iterating_subcall_reserve(fork=fork)
+
+    def _binary_search_iterations(
+        self,
+        *,
+        fork: Fork,
+        gas_limit: int,
+        start_iteration: int,
+        **intrinsic_cost_kwargs: Any,
+    ) -> Tuple[int, int]:
+        """
+        Binary search for the maximum iterations that fit within a gas limit.
+        """
+        single_iteration_gas = self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=1,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        )
+        if single_iteration_gas > gas_limit:
+            raise ValueError(
+                "Single iteration gas cost is greater than gas limit."
+            )
+        low = 1
+        high = 2
+
+        # Exponential search to find upper bound
+        high_gas_cost = self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=high,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        )
+        while high_gas_cost < gas_limit:
+            low = high
+            high *= 2
+            high_gas_cost = self.tx_gas_limit_by_iteration_count(
+                fork=fork,
+                iteration_count=high,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
+
+        # Binary search for exact fit
+        best_iterations = 0
+        while low < high:
+            mid = (low + high) // 2
+
+            if (
+                self.tx_gas_limit_by_iteration_count(
+                    fork=fork,
+                    iteration_count=mid,
+                    start_iteration=start_iteration,
+                    **intrinsic_cost_kwargs,
+                )
+                > gas_limit
+            ):
+                high = mid
+            else:
+                low = mid + 1
+
+        best_iterations = low - 1
+        best_iterations_gas = self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=best_iterations,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        )
+        return best_iterations, best_iterations_gas
+
+    def tx_iterations_by_gas_limit(
+        self,
+        *,
+        fork: Fork,
+        gas_limit: int,
+        start_iteration: int = 0,
+        **intrinsic_cost_kwargs: Any,
+    ) -> Generator[int, None, None]:
+        """
+        Calculate the number of iterations needed to reach the given a
+        gas-to-be-used value.
+
+        Each element of the returned list represents the number of iterations
+        for a single transaction.
+
+        If the fork's transaction gas limit cap is not `None`, the returned
+        list will contain one item per transaction that represents the
+        iteration count for that transaction, and no transaction will exceed
+        the gas limit cap.
+        """
+        gas_limit_cap = fork.transaction_gas_limit_cap()
+        remaining_gas = gas_limit
+
+        while remaining_gas >= self.tx_gas_limit_by_iteration_count(
+            fork=fork,
+            iteration_count=1,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        ):
+            # Binary search for the maximum number of iterations that fits
+            # within remaining_gas
+            max_gas_limit = (
+                min(remaining_gas, gas_limit_cap)
+                if gas_limit_cap is not None
+                else remaining_gas
+            )
+            best_iterations, best_iterations_gas = (
+                self._binary_search_iterations(
+                    fork=fork,
+                    gas_limit=max_gas_limit,
+                    start_iteration=start_iteration,
+                    **intrinsic_cost_kwargs,
+                )
+            )
+            yield best_iterations
+            remaining_gas -= best_iterations_gas
+            start_iteration += best_iterations
+
+    def _intrinsic_cost_is_constant(
+        self,
+        intrinsic_cost_kwargs: Dict[str, Any],
+    ) -> bool:
+        """If none of the kwarg values is callable, return True."""
+        for _, value in intrinsic_cost_kwargs.items():
+            if callable(value):
+                return False
+        return True
+
+    def tx_iterations_by_total_iteration_count(
+        self,
+        *,
+        fork: Fork,
+        total_iterations: int,
+        start_iteration: int = 0,
+        **intrinsic_cost_kwargs: Any,
+    ) -> Generator[int, None, None]:
+        """
+        Calculate how to split a total number of iterations across multiple
+        transactions so that each transaction fits within the gas limit cap.
+
+        Returns a list where each element represents the number of iterations
+        for that transaction, and the sum equals total_iterations.
+        """
+        gas_limit_cap = fork.transaction_gas_limit_cap()
+        if gas_limit_cap is None:
+            # No limit, all iterations fit in a single transaction.
+            yield total_iterations
+            return
+        remaining_iterations = total_iterations
+        best_iterations: int | None = None
+        constant_intrinsic_gas_cost = self._intrinsic_cost_is_constant(
+            intrinsic_cost_kwargs
+        )
+
+        while remaining_iterations > 0:
+            if best_iterations is None or not constant_intrinsic_gas_cost:
+                best_iterations, _ = self._binary_search_iterations(
+                    fork=fork,
+                    gas_limit=gas_limit_cap,
+                    start_iteration=start_iteration,
+                    **intrinsic_cost_kwargs,
+                )
+            if best_iterations >= remaining_iterations:
+                yield remaining_iterations
+                return
+            else:
+                yield best_iterations
+                remaining_iterations -= best_iterations
+                start_iteration += best_iterations
+
+    # Transaction generators that call the iterating bytecode with given
+    # limits.
+
+    def transactions_by_gas_limit(
+        self,
+        *,
+        fork: Fork,
+        gas_limit: int,
+        start_iteration: int = 0,
+        sender: EOA,
+        to: Address | None,
+        tx_gas_limit_delta: int = 0,
+        **tx_kwargs: Any,
+    ) -> Generator[TransactionWithCost, None, None]:
+        """
+        Generate a list of transactions calling the bytecode with a given gas
+        limit.
+
+        The method accepts all keyword arguments that can be passed to the
+        `Transaction` constructor.
+
+        If any of the keyword arguments is callable, it will be called with
+        iteration_count and start_iteration as keyword arguments.
+        E.g. when the calldata that needs to be passed to the iterating
+        bytecode changes with each iteration, the calldata can be generated
+        dynamically by passing a callable to the calldata keyword argument.
+
+        The returned object also contains an extra field with the expected
+        gas cost of the transaction by the end of execution.
+        """
+        intrinsic_cost_kwargs = tx_kwargs.copy()
+
+        if "calldata" in tx_kwargs:
+            tx_kwargs["data"] = tx_kwargs.pop("calldata")
+        if "return_cost_deducted_prior_execution" in tx_kwargs:
+            tx_kwargs.pop("return_cost_deducted_prior_execution")
+        for iteration_count in self.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_limit,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        ):
+            tx_gas_limit = self.tx_gas_limit_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
+            tx_gas_cost = self.tx_gas_cost_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
+            current_tx_kwargs = tx_kwargs.copy()
+
+            for key, value in current_tx_kwargs.items():
+                if callable(value):
+                    current_tx_kwargs[key] = value(
+                        iteration_count=iteration_count,
+                        start_iteration=start_iteration,
+                    )
+            yield TransactionWithCost(
+                to=to,
+                gas_limit=tx_gas_limit + tx_gas_limit_delta,
+                sender=sender,
+                gas_cost=tx_gas_cost,
+                **current_tx_kwargs,
+            )
+            start_iteration += iteration_count
+
+    def transactions_by_total_iteration_count(
+        self,
+        *,
+        fork: Fork,
+        total_iterations: int,
+        start_iteration: int = 0,
+        sender: EOA,
+        to: Address | None,
+        tx_gas_limit_delta: int = 0,
+        **tx_kwargs: Any,
+    ) -> Generator[TransactionWithCost, None, None]:
+        """
+        Generate a list of transactions calling the bytecode with a given
+        total iteration count.
+
+        The method accepts all keyword arguments that can be passed to the
+        `Transaction` constructor.
+
+        If any of the keyword arguments is callable, it will be called with
+        iteration_count and start_iteration as keyword arguments.
+        E.g. when the calldata that needs to be passed to the iterating
+        bytecode changes with each iteration, the calldata can be generated
+        dynamically by passing a callable to the calldata keyword argument.
+
+        The returned object also contains an extra field with the expected
+        gas cost of the transaction by the end of execution.
+        """
+        intrinsic_cost_kwargs = tx_kwargs.copy()
+
+        if "calldata" in tx_kwargs:
+            tx_kwargs["data"] = tx_kwargs.pop("calldata")
+        if "return_cost_deducted_prior_execution" in tx_kwargs:
+            tx_kwargs.pop("return_cost_deducted_prior_execution")
+        for iteration_count in self.tx_iterations_by_total_iteration_count(
+            fork=fork,
+            total_iterations=total_iterations,
+            start_iteration=start_iteration,
+            **intrinsic_cost_kwargs,
+        ):
+            tx_gas_limit = self.tx_gas_limit_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
+            tx_gas_cost = self.tx_gas_cost_by_iteration_count(
+                fork=fork,
+                iteration_count=iteration_count,
+                start_iteration=start_iteration,
+                **intrinsic_cost_kwargs,
+            )
+            current_tx_kwargs = tx_kwargs.copy()
+
+            for key, value in current_tx_kwargs.items():
+                if callable(value):
+                    current_tx_kwargs[key] = value(
+                        iteration_count=iteration_count,
+                        start_iteration=start_iteration,
+                    )
+            yield TransactionWithCost(
+                to=to,
+                gas_limit=tx_gas_limit + tx_gas_limit_delta,
+                sender=sender,
+                gas_cost=tx_gas_cost,
+                **current_tx_kwargs,
+            )
+            start_iteration += iteration_count
+
+
+class FixedIterationsBytecode(IteratingBytecode):
+    """
+    Bytecode that contains a setup phase, an iterating phase, and a cleanup
+    phase, with a fixed number of iterations.
+
+    This type can be used in place of a normal Bytecode and will return the
+    appropriate gas cost for the given number of iterations.
+    """
+
+    iteration_count: int
+    """The fixed number of times the iterating bytecode will be executed."""
+
+    def __new__(
+        cls,
+        *,
+        setup: Bytecode,
+        iterating: Bytecode,
+        cleanup: Bytecode,
+        iteration_count: int,
+        warm_iterating: Bytecode | None = None,
+        iterating_subcall: Bytecode | int | None = None,
+    ) -> Self:
+        """
+        Create a new FixedIterationsBytecode instance.
+
+        Args:
+            setup: Bytecode executed once at the beginning before
+                iterations start.
+            iterating: Bytecode executed in the first iteration.
+            cleanup: Bytecode executed once at the end after all
+                iterations complete.
+            iteration_count: The fixed number of times the iterating
+                bytecode will be executed.
+            warm_iterating: Bytecode executed in subsequent iterations
+                after the first. If None, uses the same bytecode as
+                iterating.
+            iterating_subcall: Analytical bytecode representing a subcall
+                performed during each iteration. This bytecode is _not_
+                included in the final bytecode, and it's only used for gas
+                calculation. The value can also be an integer, in which case it
+                represents the gas cost of the subcall (e.g. the subcall is a
+                precompiled contract).
+
+        Returns:
+            A new FixedIterationsBytecode instance.
+
+        """
+        instance = super(FixedIterationsBytecode, cls).__new__(
+            cls,
+            setup=setup,
+            iterating=iterating,
+            cleanup=cleanup,
+            warm_iterating=warm_iterating,
+            iterating_subcall=iterating_subcall,
+        )
+        instance.iteration_count = iteration_count
+        return instance
+
+    def gas_cost(
+        self,
+        fork: Type[ForkOpcodeInterface],
+        *,
+        block_number: int = 0,
+        timestamp: int = 0,
+    ) -> int:
+        """Return the cost of iterating through the bytecode N times."""
+        del block_number, timestamp
+        return self.gas_cost_by_iteration_count(
+            fork=fork,
+            iteration_count=self.iteration_count,
         )

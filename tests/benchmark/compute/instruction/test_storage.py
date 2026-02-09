@@ -13,12 +13,14 @@ import math
 import pytest
 from execution_testing import (
     Alloc,
+    AuthorizationTuple,
     BenchmarkTestFiller,
     Block,
     Bytecode,
-    Environment,
     ExtCallGenerator,
     Fork,
+    Hash,
+    IteratingBytecode,
     JumpLoopGenerator,
     Op,
     TestPhaseManager,
@@ -75,12 +77,7 @@ def test_tstore(
     init_key = 42
     setup = Op.PUSH1(init_key)
 
-    # If fixed_value is False, we use GAS as a cheap way of always
-    # storing a different value than the previous one.
     attack_block = Op.TSTORE(Op.DUP2, Op.GAS if not fixed_value else Op.DUP1)
-
-    # If fixed_key is False, we mutate the key on every iteration of the
-    # big loop.
     cleanup = Op.POP + Op.GAS if not fixed_key else Bytecode()
 
     benchmark_test(
@@ -91,13 +88,132 @@ def test_tstore(
     )
 
 
+def create_storage_initializer() -> IteratingBytecode:
+    """
+    Create a contract that initializes storage slots from calldata parameters.
+
+    - CALLDATA[0..32] start slot (index)
+    - CALLDATA[32..64] slot count (num)
+
+    storage[i] = i for i in [index, index + num).
+
+    Returns: (bytecode, loop_cost, overhead)
+    """
+    prefix = (
+        Op.CALLDATALOAD(0)  # [index]
+        + Op.DUP1  # [index, index]
+        + Op.CALLDATALOAD(32)  # [index, index, num]
+        + Op.ADD  # [index, index + num]
+    )
+
+    loop = (
+        Op.JUMPDEST
+        + Op.PUSH1(1)  # [index, index + num, 1]
+        + Op.SWAP1  # [index, 1, index + num]
+        + Op.SUB  # [index, index + num - 1]
+        + Op.SSTORE(
+            Op.DUP1,
+            Op.DUP1,
+            key_warm=False,
+            original_value=0,
+            current_value=0,
+            new_value=1,
+        )
+        + Op.JUMPI(len(prefix), Op.GT(Op.DUP2, Op.DUP2))
+    )
+
+    return IteratingBytecode(setup=prefix, iterating=loop)
+
+
+def create_benchmark_executor(
+    storage_action: StorageAction,
+    absent_slots: bool,
+    tx_result: TransactionResult,
+) -> IteratingBytecode:
+    """
+    Create a contract that executes benchmark operations.
+
+    - CALLDATA[0..32] start slot (index)
+    - CALLDATA[32..64] slot count (num)
+
+    Returns: (bytecode, loop_cost, overhead)
+    """
+    prefix = (
+        Op.CALLDATALOAD(0)  # [index]
+        + Op.CALLDATALOAD(32)  # [index, num]
+    )
+
+    slot_calculation = (
+        Op.DUP2  # [index, num, index]
+        + Op.DUP2  # [index, num, index, num]
+        + Op.ADD  # [index, num, index + num]
+        + Op.PUSH1(1)  # [index, num, index + num, 1]
+        + Op.SWAP1  # [index, num, 1, index + num]
+        + Op.SUB  # [index, num, index + num - 1]
+    )
+
+    original = 0 if absent_slots else 1
+
+    # [index, num, index + num - 1]
+    match storage_action:
+        case StorageAction.READ:
+            operation = Op.POP(Op.SLOAD.with_metadata(key_warm=False))
+        case StorageAction.WRITE_SAME_VALUE:
+            new_value = 1 if absent_slots else original
+            operation = (
+                Op.SSTORE(
+                    Op.DUP1,
+                    Op.DUP1,
+                    key_warm=False,
+                    original_value=original,
+                    current_value=original,
+                    new_value=new_value,
+                )
+                + Op.POP
+            )
+        case StorageAction.WRITE_NEW_VALUE:
+            operation = Op.SSTORE(
+                Op.SWAP1,
+                Op.NOT(0),
+                key_warm=False,
+                original_value=original,
+                current_value=original,
+                new_value=2**256 - 1,
+            )
+
+    # [index, num]
+    loop_condition = (
+        Op.PUSH1(1)  # [index, num, 1]
+        + Op.SWAP1  # [index, 1, num]
+        + Op.SUB  # [index, num - 1]
+        + Op.DUP1  # [index, num - 1, num - 1]
+        + Op.ISZERO  # [index, num - 1 == 0]
+        + Op.ISZERO  # [index, num - 1 != 0]
+    )
+
+    match tx_result:
+        case TransactionResult.REVERT:
+            suffix = Op.REVERT(0, 0)
+        case TransactionResult.OUT_OF_GAS:
+            suffix = Bytecode()
+        case _:
+            suffix = Op.STOP
+
+    loop = (
+        Op.JUMPDEST
+        + slot_calculation
+        + operation
+        + Op.JUMPI(len(prefix), loop_condition)
+    )
+
+    return IteratingBytecode(setup=prefix, iterating=loop, cleanup=suffix)
+
+
 @pytest.mark.parametrize(
     "storage_action,tx_result",
     [
         pytest.param(
-            StorageAction.READ,
-            TransactionResult.SUCCESS,
-            id="SSLOAD",
+            StorageAction.READ, TransactionResult.SUCCESS, id="SSLOAD"
         ),
         pytest.param(
             StorageAction.WRITE_SAME_VALUE,
@@ -131,161 +247,129 @@ def test_tstore(
         ),
     ],
 )
-@pytest.mark.parametrize(
-    "absent_slots",
-    [
-        True,
-        False,
-    ],
-)
+@pytest.mark.parametrize("absent_slots", [True, False])
 def test_storage_access_cold(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     storage_action: StorageAction,
     absent_slots: bool,
-    env: Environment,
     gas_benchmark_value: int,
+    tx_gas_limit: int,
     tx_result: TransactionResult,
 ) -> None:
     """
-    Benchmark cold storage slot accesses.
+    Benchmark cold storage slot accesses using EIP-7702 delegation.
+
+    The authority EOA delegates to:
+    - StorageInitializer: storage[i] = i for each slot (absent_slots=False)
+    - BenchmarkExecutor: performs the benchmark operation (SLOAD/SSTORE)
     """
-    gas_costs = fork.gas_costs()
-    intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
-
-    loop_cost = gas_costs.G_COLD_SLOAD  # All accesses are always cold
-    if storage_action == StorageAction.WRITE_NEW_VALUE:
-        if not absent_slots:
-            loop_cost += gas_costs.G_STORAGE_RESET
-        else:
-            loop_cost += gas_costs.G_STORAGE_SET
-    elif storage_action == StorageAction.WRITE_SAME_VALUE:
-        if absent_slots:
-            loop_cost += gas_costs.G_STORAGE_SET
-        else:
-            loop_cost += gas_costs.G_WARM_SLOAD
-    elif storage_action == StorageAction.READ:
-        loop_cost += 0  # Only G_COLD_SLOAD is charged
-
-    # Contract code
-    execution_code_body = Bytecode()
-    if storage_action == StorageAction.WRITE_SAME_VALUE:
-        # All the storage slots in the contract are initialized to their index.
-        # That is, storage slot `i` is initialized to `i`.
-        execution_code_body = Op.SSTORE(Op.DUP1, Op.DUP1)
-        loop_cost += gas_costs.G_VERY_LOW * 2
-    elif storage_action == StorageAction.WRITE_NEW_VALUE:
-        # The new value 2^256-1 is guaranteed to be different from the initial
-        # value.
-        execution_code_body = Op.SSTORE(Op.DUP2, Op.NOT(0))
-        loop_cost += gas_costs.G_VERY_LOW * 3
-    elif storage_action == StorageAction.READ:
-        execution_code_body = Op.POP(Op.SLOAD(Op.DUP1))
-        loop_cost += gas_costs.G_VERY_LOW + gas_costs.G_BASE
-
-    # Add costs jump-logic costs
-    loop_cost += (
-        gas_costs.G_JUMPDEST  # Prefix Jumpdest
-        + gas_costs.G_VERY_LOW * 7  # ISZEROs, PUSHs, SWAPs, SUB, DUP
-        + gas_costs.G_HIGH  # JUMPI
+    executor_code = create_benchmark_executor(
+        storage_action, absent_slots, tx_result
     )
+    initializer_code = create_storage_initializer()
 
-    prefix_cost = (
-        gas_costs.G_VERY_LOW  # Target slots push
-    )
+    authority = pre.fund_eoa(amount=0)
+    initializer_addr = pre.deploy_contract(code=initializer_code)
+    executor_addr = pre.deploy_contract(code=executor_code)
 
-    suffix_cost = 0
-    if tx_result == TransactionResult.REVERT:
-        suffix_cost = (
-            gas_costs.G_VERY_LOW * 2  # Revert PUSHs
+    # Calldata generator for both the executor and initializer.
+    def calldata_generator(
+        iteration_count: int, start_iteration: int
+    ) -> bytes:
+        return Hash(start_iteration) + Hash(iteration_count)
+
+    # Number of slots that can be processed in the execution phase
+    num_target_slots = sum(
+        executor_code.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_benchmark_value,
+            calldata=calldata_generator,
         )
-
-    num_target_slots = (
-        gas_benchmark_value
-        - intrinsic_gas_cost_calc()
-        - prefix_cost
-        - suffix_cost
-    ) // loop_cost
-    if tx_result == TransactionResult.OUT_OF_GAS:
-        # Add an extra slot to make it run out-of-gas
-        num_target_slots += 1
-
-    code_prefix = Op.PUSH4(num_target_slots) + Op.JUMPDEST
-    code_loop = execution_code_body + Op.JUMPI(
-        len(code_prefix) - 1,
-        Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO,
-    )
-    execution_code = code_prefix + code_loop
-
-    if tx_result == TransactionResult.REVERT:
-        execution_code += Op.REVERT(0, 0)
-    else:
-        execution_code += Op.STOP
-
-    execution_code_address = pre.deploy_contract(code=execution_code)
-
-    total_gas_used = (
-        num_target_slots * loop_cost
-        + intrinsic_gas_cost_calc()
-        + prefix_cost
-        + suffix_cost
     )
 
-    # Contract creation
-    slots_init = Bytecode()
-    if not absent_slots:
-        slots_init = Op.PUSH4(num_target_slots) + While(
-            body=Op.SSTORE(Op.DUP1, Op.DUP1),
-            condition=Op.PUSH1(1)
-            + Op.SWAP1
-            + Op.SUB
-            + Op.DUP1
-            + Op.ISZERO
-            + Op.ISZERO,
-        )
+    blocks = []
+    delegation_sender = pre.fund_eoa()
 
-    # To create the contract, we apply the slots_init code to initialize the
-    # storage slots (int the case of absent_slots=False) and then copy the
-    # execution code to the contract.
-    creation_code = (
-        slots_init
-        + Op.EXTCODECOPY(
-            address=execution_code_address,
-            dest_offset=0,
-            offset=0,
-            size=Op.EXTCODESIZE(execution_code_address),
-        )
-        + Op.RETURN(0, Op.MSIZE)
-    )
-    sender_addr = pre.fund_eoa()
+    # Setup phase: initialize storage slots (only if absent_slots=False)
     with TestPhaseManager.setup():
-        setup_tx = Transaction(
-            to=None,
-            gas_limit=env.gas_limit,
-            data=creation_code,
-            sender=sender_addr,
+        setup_txs = []
+        authority_nonce = 0
+        if not absent_slots:
+            setup_txs.append(
+                Transaction(
+                    to=delegation_sender,
+                    gas_limit=tx_gas_limit,
+                    sender=delegation_sender,
+                    authorization_list=[
+                        AuthorizationTuple(
+                            address=initializer_addr,
+                            nonce=authority_nonce,
+                            signer=authority,
+                        ),
+                    ],
+                )
+            )
+            authority_nonce += 1
+
+            setup_txs += list(
+                initializer_code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=num_target_slots,
+                    sender=pre.fund_eoa(),
+                    to=authority,
+                    start_iteration=1,
+                    calldata=calldata_generator,
+                )
+            )
+
+        setup_txs.append(
+            Transaction(
+                to=delegation_sender,
+                gas_limit=tx_gas_limit,
+                sender=delegation_sender,
+                authorization_list=[
+                    AuthorizationTuple(
+                        address=executor_addr,
+                        nonce=authority_nonce,
+                        signer=authority,
+                    ),
+                ],
+            )
         )
+        blocks.append(Block(txs=setup_txs))
 
-    blocks = [Block(txs=[setup_tx])]
-
-    contract_address = compute_create_address(address=sender_addr, nonce=0)
+    # Execution phase: run benchmark
+    # For absent_slots=False, authority has storage, triggering refund
+    expected_gas_used = 0
 
     with TestPhaseManager.execution():
-        op_tx = Transaction(
-            to=contract_address,
-            gas_limit=gas_benchmark_value,
-            sender=pre.fund_eoa(),
+        tx_gas_limit_delta = (
+            -1 if tx_result == TransactionResult.OUT_OF_GAS else 0
         )
-    blocks.append(Block(txs=[op_tx]))
+        exec_txs = list(
+            executor_code.transactions_by_gas_limit(
+                fork=fork,
+                gas_limit=gas_benchmark_value,
+                sender=pre.fund_eoa(),
+                to=authority,
+                calldata=calldata_generator,
+                start_iteration=1,
+                tx_gas_limit_delta=tx_gas_limit_delta,
+            )
+        )
+        for exec_tx in exec_txs:
+            if tx_result == TransactionResult.OUT_OF_GAS:
+                expected_gas_used += exec_tx.gas_limit
+            else:
+                expected_gas_used += exec_tx.gas_cost
+
+    blocks.append(Block(txs=exec_txs))
 
     benchmark_test(
         blocks=blocks,
-        expected_benchmark_gas_used=(
-            total_gas_used
-            if tx_result != TransactionResult.OUT_OF_GAS
-            else gas_benchmark_value
-        ),
+        expected_benchmark_gas_used=expected_gas_used,
     )
 
 
@@ -319,9 +403,7 @@ def test_storage_access_cold_benchmark(
         target_opcode=Op.SLOAD
         if storage_action == StorageAction.READ
         else Op.SSTORE,
-        code_generator=ExtCallGenerator(
-            attack_block=attack_block,
-        ),
+        code_generator=ExtCallGenerator(attack_block=attack_block),
     )
 
 
@@ -340,25 +422,20 @@ def test_storage_access_warm(
     gas_benchmark_value: int,
     tx_gas_limit: int,
 ) -> None:
-    """
-    Benchmark warm storage slot accesses.
-    """
+    """Benchmark warm storage slot accesses."""
     blocks = []
 
-    # The warm access is done in storage slot 0.
+    match storage_action:
+        case StorageAction.WRITE_SAME_VALUE:
+            execution_code_body = Op.SSTORE(0, Op.DUP1)
+        case StorageAction.WRITE_NEW_VALUE:
+            execution_code_body = Op.SSTORE(0, Op.GAS)
+        case StorageAction.READ:
+            execution_code_body = Op.POP(Op.SLOAD(0))
+        case _:
+            raise ValueError("Unspecified storage action")
 
-    # Contract code
-    execution_code_body = Bytecode()
-    if storage_action == StorageAction.WRITE_SAME_VALUE:
-        execution_code_body = Op.SSTORE(0, Op.DUP1)
-    elif storage_action == StorageAction.WRITE_NEW_VALUE:
-        execution_code_body = Op.SSTORE(0, Op.GAS)
-    elif storage_action == StorageAction.READ:
-        execution_code_body = Op.POP(Op.SLOAD(0))
-
-    execution_code = Op.SLOAD(0) + While(
-        body=execution_code_body,
-    )
+    execution_code = Op.SLOAD(0) + While(body=execution_code_body)
     execution_code_address = pre.deploy_contract(code=execution_code)
 
     creation_code = (
@@ -391,12 +468,13 @@ def test_storage_access_warm(
             gas_limit = min(
                 tx_gas_limit, gas_benchmark_value - i * tx_gas_limit
             )
-            op_tx = Transaction(
-                to=contract_address,
-                gas_limit=gas_limit,
-                sender=pre.fund_eoa(),
+            txs.append(
+                Transaction(
+                    to=contract_address,
+                    gas_limit=gas_limit,
+                    sender=pre.fund_eoa(),
+                )
             )
-            txs.append(op_tx)
         blocks.append(Block(txs=txs))
 
     benchmark_test(blocks=blocks)
@@ -421,19 +499,19 @@ def test_storage_access_warm_benchmark(
     Each iteration accesses a different storage slot (incrementing key)
     to ensure warm access costs are measured.
     """
-    attack_block = Bytecode()
-    if storage_action == StorageAction.WRITE_SAME_VALUE:
-        attack_block = Op.SSTORE(Op.PUSH0, Op.PUSH0)
-    elif storage_action == StorageAction.WRITE_NEW_VALUE:
-        attack_block = Op.SSTORE(Op.PUSH0, Op.GAS)
-    elif storage_action == StorageAction.READ:
-        attack_block = Op.SLOAD(Op.PUSH0)
+    match storage_action:
+        case StorageAction.WRITE_SAME_VALUE:
+            attack_block = Op.SSTORE(Op.PUSH0, Op.PUSH0)
+        case StorageAction.WRITE_NEW_VALUE:
+            attack_block = Op.SSTORE(Op.PUSH0, Op.GAS)
+        case StorageAction.READ:
+            attack_block = Op.SLOAD(Op.PUSH0)
+        case _:
+            raise ValueError("Unspecified storage action")
 
     benchmark_test(
         target_opcode=Op.SLOAD
         if storage_action == StorageAction.READ
         else Op.SSTORE,
-        code_generator=ExtCallGenerator(
-            attack_block=attack_block,
-        ),
+        code_generator=ExtCallGenerator(attack_block=attack_block),
     )

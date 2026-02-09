@@ -121,10 +121,7 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
                 f"{self.test_file}[{self.test_key}] has unrelated exceptions"
             )
 
-        load = Load(
-            self.fork_name,
-            self.eels_fork,
-        )
+        load = Load(self.eels_fork)
 
         genesis_header = load.json_to_header(json_data["genesisBlockHeader"])
         parameters = [

@@ -234,7 +234,11 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
     workers have finished and written their partial indexes.
 
     Partial indexes use JSONL format (one JSON object per line) for efficient
-    append-only writes during fill. Entries are validated with Pydantic here.
+    append-only writes during fill.
+
+    Memory-optimized: Builds hash trie directly while streaming entries,
+    avoiding accumulation of all entries in a single list. Writes final
+    JSON by re-reading partials (2x I/O but ~50% less peak memory).
 
     Args:
         output_dir: The fixture output directory.
@@ -247,12 +251,12 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
     if not partial_files:
         raise Exception("No partial indexes found.")
 
-    # Merge all partial indexes (JSONL format: one entry per line)
-    # Read as raw dicts — the data was already validated when collected
-    # from live Pydantic fixture objects in add_fixture().
-    all_raw_entries: list[dict] = []
+    # Pass 1: Build hash trie directly while streaming (no intermediate list)
+    # Only keep what's needed for hash computation: path parts and fixture_hash
+    root_trie: dict = {}
     all_forks: set = set()
     all_formats: set = set()
+    test_count = 0
 
     for partial_file in partial_files:
         with open(partial_file) as f:
@@ -260,44 +264,123 @@ def merge_partial_indexes(output_dir: Path, quiet_mode: bool = False) -> None:
                 line = line.strip()
                 if not line:
                     continue
-                entry_data = json.loads(line)
-                all_raw_entries.append(entry_data)
-                # Collect forks and formats from raw strings
-                if entry_data.get("fork"):
-                    all_forks.add(entry_data["fork"])
-                if entry_data.get("format"):
-                    all_formats.add(entry_data["format"])
+                entry = json.loads(line)
+                test_count += 1
 
-    # Compute root hash from raw dicts (no Pydantic needed)
-    root_hash = HashableItem.from_raw_entries(all_raw_entries).hash()
+                # Collect metadata
+                if entry.get("fork"):
+                    all_forks.add(entry["fork"])
+                if entry.get("format"):
+                    all_formats.add(entry["format"])
 
-    # Build final index — Pydantic validates the entire structure once
-    # via model_validate(), not 96k individual model_validate() calls.
-    index = IndexFile.model_validate(
-        {
-            "test_cases": all_raw_entries,
-            "root_hash": HexNumber(root_hash),
-            "created_at": datetime.datetime.now(),
-            "test_count": len(all_raw_entries),
-            "forks": list(all_forks),
-            "fixture_formats": list(all_formats),
-        }
-    )
+                # Insert directly into trie for hash computation
+                fixture_hash = entry.get("fixture_hash")
+                if not fixture_hash:
+                    continue
 
-    # Write final index
+                path_parts = Path(entry["json_path"]).parts
+                current = root_trie
+
+                # Navigate to parent folder, creating nodes as needed
+                for part in path_parts[:-1]:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+
+                # Add test entry to file node
+                file_name = path_parts[-1]
+                if file_name not in current:
+                    current[file_name] = []
+
+                hash_bytes = int(fixture_hash, 16).to_bytes(32, "big")
+                current[file_name].append((entry["id"], hash_bytes))
+
+    # Compute root hash from trie (reusing hasher's trie_to_hashable logic)
+    root_hash = _trie_to_hash(root_trie)
+
+    # Free trie memory before pass 2
+    del root_trie
+
+    # Pass 2: Stream entries to final JSON file (re-read partials)
+    # This avoids keeping all entries in memory simultaneously
     index_path = meta_dir / "index.json"
     index_path.parent.mkdir(parents=True, exist_ok=True)
-    index_path.write_text(index.model_dump_json(exclude_none=True, indent=2))
+
+    with open(index_path, "w") as out_f:
+        # Write header
+        out_f.write("{\n")
+        out_f.write(f'  "root_hash": "0x{root_hash.hex()}",\n')
+        out_f.write(
+            f'  "created_at": "{datetime.datetime.now().isoformat()}",\n'
+        )
+        out_f.write(f'  "test_count": {test_count},\n')
+        out_f.write(f'  "forks": {json.dumps(sorted(all_forks))},\n')
+        out_f.write(
+            f'  "fixture_formats": {json.dumps(sorted(all_formats))},\n'
+        )
+        out_f.write('  "test_cases": [\n')
+
+        # Stream test cases from partials (second read)
+        first_entry = True
+        for partial_file in partial_files:
+            with open(partial_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if not first_entry:
+                        out_f.write(",\n")
+                    first_entry = False
+                    # Write entry with indentation
+                    entry = json.loads(line)
+                    entry_json = json.dumps(entry, indent=2)
+                    # Indent each line of the entry
+                    indented = "\n".join(
+                        "    " + ln for ln in entry_json.split("\n")
+                    )
+                    out_f.write(indented)
+
+        out_f.write("\n  ]\n")
+        out_f.write("}")
 
     if not quiet_mode:
         rich.print(
             f"[green]Merged {len(partial_files)} partial indexes "
-            f"({len(all_raw_entries)} test cases) into {index_path}[/]"
+            f"({test_count} test cases) into {index_path}[/]"
         )
 
     # Cleanup partial files
     for partial_file in partial_files:
         partial_file.unlink()
+
+
+def _trie_to_hash(root_trie: dict) -> bytes:
+    """
+    Compute hash from trie structure built during streaming.
+
+    Mirrors HashableItem.from_raw_entries logic but works on pre-built trie.
+    """
+    import hashlib
+
+    def hash_node(node: dict) -> bytes:
+        """Recursively hash a trie node."""
+        hash_parts: list[bytes] = []
+
+        for name in sorted(node.keys()):
+            child = node[name]
+            if isinstance(child, list):
+                # File node: child is list of (test_id, hash_bytes)
+                # Hash = sha256(sorted test hashes concatenated)
+                test_hashes = [h for _, h in sorted(child, key=lambda x: x[0])]
+                file_hash = hashlib.sha256(b"".join(test_hashes)).digest()
+                hash_parts.append(file_hash)
+            else:
+                # Folder node: recurse
+                hash_parts.append(hash_node(child))
+
+        return hashlib.sha256(b"".join(hash_parts)).digest()
+
+    return hash_node(root_trie)
 
 
 if __name__ == "__main__":

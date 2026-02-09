@@ -17,21 +17,26 @@ from typing import Any
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Address,
     Alloc,
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    Create2PreimageLayout,
     ExtCallGenerator,
     Fork,
     Hash,
+    IteratingBytecode,
     JumpLoopGenerator,
     Op,
     TestPhaseManager,
     Transaction,
     While,
 )
+
+from tests.benchmark.compute.helpers import CustomSizedContractFactory
 
 
 @pytest.mark.repricing(contract_balance=1)
@@ -394,4 +399,212 @@ def test_ext_account_query_cold(
         target_opcode=opcode,
         post=post,
         blocks=blocks,
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.BALANCE,
+        # CALL*
+        Op.CALL,
+        Op.CALLCODE,
+        Op.DELEGATECALL,
+        Op.STATICCALL,
+        # EXTCODE*
+        Op.EXTCODESIZE,
+        Op.EXTCODEHASH,
+        Op.EXTCODECOPY,
+    ],
+)
+@pytest.mark.parametrize("access_warm", [True, False])
+@pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
+@pytest.mark.parametrize(
+    "code_size", [0, 32, 256, 1024, pytest.param(None, id="max_code_size")]
+)
+@pytest.mark.parametrize("value_sent", [0, 1])
+def test_account_query(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+    access_warm: bool,
+    mem_size: int,
+    code_size: int,
+    value_sent: int,
+    gas_benchmark_value: int,
+) -> None:
+    """Benchmark scenario of accessing max-code size bytecode."""
+    if opcode in (Op.EXTCODESIZE, Op.EXTCODEHASH, Op.BALANCE) and (
+        mem_size != 0 or code_size != 0
+    ):
+        pytest.skip(f"No memory size configuration for {opcode}")
+
+    if opcode not in (Op.CALL, Op.CALLCODE) and value_sent > 0:
+        pytest.skip(f"No value configuration for {opcode}")
+
+    if (
+        opcode in (Op.CALL, Op.CALLCODE, Op.STATICCALL, Op.DELEGATECALL)
+        and code_size != 0
+    ):
+        pytest.skip(f"No code size configuration for {opcode}")
+
+    attack_gas_limit = gas_benchmark_value
+
+    # Create the max-sized fork-dependent contract factory.
+    custom_sized_contract_factory = CustomSizedContractFactory(
+        pre=pre, fork=fork, contract_size=code_size
+    )
+    factory_address = custom_sized_contract_factory.address()
+    initcode = custom_sized_contract_factory.initcode
+
+    # Prepare the attack iterating bytecode.
+    # Setup is just placing the CREATE2 Preimage in memory.
+    create2_preimage = Create2PreimageLayout(
+        factory_address=factory_address,
+        salt=Op.CALLDATALOAD(0),
+        init_code_hash=initcode.keccak256(),
+    )
+    setup_code: Bytecode = create2_preimage
+
+    if mem_size > 96:
+        setup_code += Op.MSTORE8(
+            mem_size - 1,
+            0,
+            # Gas accounting
+            old_memory_size=96,
+            new_memory_size=mem_size,
+        )
+
+    if opcode == Op.EXTCODECOPY:
+        attack_call = Op.EXTCODECOPY(
+            address=create2_preimage.address_op(),
+            dest_offset=0,
+            size=mem_size,
+            # Gas accounting
+            data_size=mem_size,
+            address_warm=access_warm,
+        )
+    elif opcode in (Op.CALL, Op.CALLCODE):
+        # CALL and CALLCODE accept value parameter
+        attack_call = Op.POP(
+            opcode(
+                address=create2_preimage.address_op(),
+                value=value_sent,
+                args_size=mem_size,
+                # Gas accounting
+                address_warm=access_warm,
+                new_memory_size=max(mem_size, 96),
+            )
+        )
+    elif opcode in (Op.STATICCALL, Op.DELEGATECALL):
+        # STATICCALL and DELEGATECALL don't have value parameter
+        attack_call = Op.POP(
+            opcode(
+                address=create2_preimage.address_op(),
+                args_size=mem_size,
+                # Gas accounting
+                address_warm=access_warm,
+                new_memory_size=max(mem_size, 96),
+            )
+        )
+    else:
+        # BALANCE, EXTCODESIZE, EXTCODEHASH
+        attack_call = Op.POP(
+            opcode(
+                address=create2_preimage.address_op(),
+                # Gas accounting
+                address_warm=access_warm,
+            )
+        )
+
+    loop_code = While(
+        body=attack_call + create2_preimage.increment_salt_op(),
+    )
+
+    attack_code = IteratingBytecode(
+        setup=setup_code,
+        iterating=loop_code,
+        # Since the target contract is guaranteed to have a STOP as the first
+        # instruction, we can use a STOP as the iterating subcall code.
+        iterating_subcall=Op.STOP,
+    )
+
+    # Calldata generator for each transaction of the iterating bytecode.
+    def calldata(iteration_count: int, start_iteration: int) -> bytes:
+        del iteration_count
+        # We only pass the start iteration index as calldata for this bytecode
+        return Hash(start_iteration)
+
+    # Access list generator for warm access tests.
+    # When access_warm=True, include all contract addresses that will be
+    # accessed in each transaction to warm them up via access list.
+    def access_list_generator(
+        iteration_count: int, start_iteration: int
+    ) -> list[AccessList] | None:
+        if not access_warm:
+            return None
+        return [
+            AccessList(
+                address=custom_sized_contract_factory.created_contract_address(
+                    salt=i
+                ),
+                storage_keys=[],
+            )
+            for i in range(start_iteration, start_iteration + iteration_count)
+        ]
+
+    attack_address = pre.deploy_contract(code=attack_code, balance=10**21)
+
+    # Calculate the number of contracts to be targeted.
+    num_contracts = sum(
+        attack_code.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=attack_gas_limit,
+            calldata=calldata,
+            access_list=access_list_generator,
+        )
+    )
+
+    # Deploy num_contracts via multiple txs (each capped by tx gas limit).
+    with TestPhaseManager.setup():
+        setup_sender = pre.fund_eoa()
+        contracts_deployment_txs = list(
+            custom_sized_contract_factory.transactions_by_total_contract_count(
+                fork=fork,
+                sender=setup_sender,
+                contract_count=num_contracts,
+            )
+        )
+
+    with TestPhaseManager.execution():
+        attack_sender = pre.fund_eoa()
+        attack_txs = list(
+            attack_code.transactions_by_gas_limit(
+                fork=fork,
+                gas_limit=attack_gas_limit,
+                sender=attack_sender,
+                to=attack_address,
+                calldata=calldata,
+                access_list=access_list_generator,
+            )
+        )
+        total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
+
+    post = {}
+    if custom_sized_contract_factory.contract_size > 0:
+        for i in range(num_contracts):
+            deployed_contract_address = (
+                custom_sized_contract_factory.created_contract_address(salt=i)
+            )
+            post[deployed_contract_address] = Account(nonce=1)
+
+    benchmark_test(
+        pre=pre,
+        post=post,
+        blocks=[
+            Block(txs=contracts_deployment_txs),
+            Block(txs=attack_txs),
+        ],
+        expected_benchmark_gas_used=total_gas_cost,
     )

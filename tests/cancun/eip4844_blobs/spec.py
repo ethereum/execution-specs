@@ -1,11 +1,13 @@
 """Defines EIP-4844 specification constants and functions."""
 
 import itertools
+import math
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
-from execution_testing import Fork, Transaction
+import pytest
+from execution_testing import Fork, ParameterSet, Transaction
 
 
 @dataclass(frozen=True)
@@ -87,6 +89,136 @@ class SpecHelpers:
     """
 
     BYTES_PER_FIELD_ELEMENT = 32
+    _EXHAUSTIVE_MAX_BLOBS_PER_BLOCK = (
+        9  # Osaka max; exhaustive is tractable up to here
+    )
+
+    @classmethod
+    def get_representative_blob_combinations(
+        cls,
+        blob_count: int,
+        max_blobs_per_tx: int,
+    ) -> List[Tuple[int, ...]]:
+        """
+        Get a bounded set of representative blob-per-tx partitions for a given
+        blob count, instead of exhaustively enumerating all valid partitions.
+        """
+        n = blob_count
+        if n < 1:
+            return []
+        m = max_blobs_per_tx
+        seen: Set[Tuple[int, ...]] = set()
+        result: List[Tuple[int, ...]] = []
+
+        def add(combo: Tuple[int, ...]) -> None:
+            if combo not in seen:
+                seen.add(combo)
+                result.append(combo)
+
+        # 1. Single tx (if it fits)
+        # e.g. n=5, m=6 → (5,)
+        if n <= m:
+            add((n,))
+
+        # 2. All singles
+        # e.g. n=10 → (1,1,1,1,1,1,1,1,1,1)
+        if n > 1:
+            add((1,) * n)
+
+        # 3. Greedy pack: fill max-sized txs first
+        # e.g. n=10, m=6 → (6,4)
+        if n > m:
+            q, r = divmod(n, m)
+            greedy = (m,) * q + ((r,) if r else ())
+            add(greedy)
+
+            # 4. Reversed greedy
+            # e.g. n=10, m=6 → (4,6)
+            rev = tuple(reversed(greedy))
+            add(rev)
+
+        # 5. One big tx + singles for the rest (and reversed)
+        # e.g. n=10, m=6 → (6,1,1,1,1) and (1,1,1,1,6)
+        if n > 1:
+            big = min(n - 1, m)
+            rest = n - big
+            combo = (big,) + (1,) * rest
+            add(combo)
+            add(tuple(reversed(combo)))
+
+        # 6. Balanced split into two txs (and reversed)
+        # e.g. n=10, m=6 → (5,5); n=9, m=6 → (5,4) and (4,5)
+        if n > 1:
+            half_hi = math.ceil(n / 2)
+            half_lo = n - half_hi
+            if half_hi <= m and half_lo >= 1:
+                add((half_hi, half_lo))
+                if half_hi != half_lo:
+                    add((half_lo, half_hi))
+
+        # 7. Uniform non-max: all txs same size, 1 < k < m
+        # e.g. n=12, m=6 → (4,4,4); n=15, m=6 → (5,5,5)
+        if n > 1:
+            for k in range(m - 1, 1, -1):
+                if n % k == 0 and n // k > 1:
+                    add((k,) * (n // k))
+                    break
+
+        return result
+
+    @classmethod
+    def get_representative_invalid_blob_combinations(
+        cls,
+        fork: Fork,
+    ) -> List[Tuple[int, ...]]:
+        """
+        Get a bounded set of representative invalid blob-per-tx partitions
+        that exceed the block blob limit by exactly one.
+        """
+        max_blobs_per_block = fork.max_blobs_per_block()
+        max_blobs_per_tx = fork.max_blobs_per_tx()
+        total = max_blobs_per_block + 1
+        m = max_blobs_per_tx
+        seen: Set[Tuple[int, ...]] = set()
+        result: List[Tuple[int, ...]] = []
+
+        def add(combo: Tuple[int, ...]) -> None:
+            if combo not in seen:
+                seen.add(combo)
+                result.append(combo)
+
+        # 1. Single oversized tx — e.g. (16,)
+        add((total,))
+
+        # 2. Greedy pack of total — e.g. total=16, m=6 → (6,6,4)
+        q, r = divmod(total, m)
+        greedy = (m,) * q + ((r,) if r else ())
+        add(greedy)
+
+        # 3. All singles — e.g. (1,)*16
+        add((1,) * total)
+
+        # 4. One full tx + overflow — e.g. total=16, m=6 → (6,10)
+        overflow = total - m
+        if overflow >= 1:
+            add((m, overflow))
+
+        # 5. One blob + full block — e.g. (1,21)
+        # Per-tx-oversized elements must be last: the test sends all txs from
+        # one sender with sequential nonces, so a rejected non-last tx creates
+        # a nonce gap that causes subsequent txs to fail with NONCE_MISMATCH,
+        # not the expected blob error.
+        add((1, max_blobs_per_block))
+
+        # 6. Balanced all-valid: near-equal tx sizes, all within per-tx limit
+        # e.g. total=16, m=6 → (6,5,5)
+        num_txs = math.ceil(total / m)
+        base, extra = divmod(total, num_txs)
+        balanced = (base + 1,) * extra + (base,) * (num_txs - extra)
+        if all(b <= m for b in balanced):
+            add(balanced)
+
+        return result
 
     @classmethod
     def get_min_excess_blob_gas_for_blob_gas_price(
@@ -166,30 +298,55 @@ class SpecHelpers:
         return combinations
 
     @classmethod
-    def all_valid_blob_combinations(cls, fork: Fork) -> List[Tuple[int, ...]]:
+    def all_valid_blob_combinations(cls, fork: Fork) -> List[ParameterSet]:
         """
         Return all valid blob tx combinations for a given block, assuming the
         given MAX_BLOBS_PER_BLOCK, whilst respecting MAX_BLOBS_PER_TX.
         """
         max_blobs_per_block = fork.max_blobs_per_block()
         max_blobs_per_tx = fork.max_blobs_per_tx()
+        exhaustive = max_blobs_per_block <= cls._EXHAUSTIVE_MAX_BLOBS_PER_BLOCK
 
         combinations: List[Tuple[int, ...]] = []
         for i in range(1, max_blobs_per_block + 1):
-            combinations += cls.get_blob_combinations(i, max_blobs_per_tx)
-        return combinations
+            if exhaustive:
+                combinations += cls.get_blob_combinations(i, max_blobs_per_tx)
+            else:
+                combinations += cls.get_representative_blob_combinations(
+                    i, max_blobs_per_tx
+                )
+        return [
+            pytest.param(
+                combination,
+                id=f"blobs_per_tx_{repr(combination).replace(' ', '')}",
+            )
+            for combination in combinations
+        ]
 
     @classmethod
-    def invalid_blob_combinations(cls, fork: Fork) -> List[Tuple[int, ...]]:
+    def invalid_blob_combinations(cls, fork: Fork) -> List[ParameterSet]:
         """
         Return invalid blob tx combinations for a given block that use up to
         MAX_BLOBS_PER_BLOCK+1 blobs.
         """
         max_blobs_per_block = fork.max_blobs_per_block()
         max_blobs_per_tx = fork.max_blobs_per_tx()
-        invalid_combinations = cls.get_blob_combinations(
-            max_blobs_per_block + 1,
-            max_blobs_per_tx,
-        )
-        invalid_combinations.append((max_blobs_per_block + 1,))
-        return invalid_combinations
+
+        invalid_combinations: List[Tuple[int, ...]] = []
+        if max_blobs_per_block <= cls._EXHAUSTIVE_MAX_BLOBS_PER_BLOCK:
+            invalid_combinations += cls.get_blob_combinations(
+                max_blobs_per_block + 1,
+                max_blobs_per_tx,
+            )
+            invalid_combinations.append((max_blobs_per_block + 1,))
+        else:
+            invalid_combinations = (
+                cls.get_representative_invalid_blob_combinations(fork)
+            )
+        return [
+            pytest.param(
+                combination,
+                id=f"blobs_per_tx_{repr(combination).replace(' ', '')}",
+            )
+            for combination in invalid_combinations
+        ]

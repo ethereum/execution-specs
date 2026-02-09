@@ -10,6 +10,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
+    IO,
     ClassVar,
     Dict,
     List,
@@ -17,8 +18,6 @@ from typing import (
     Optional,
     Tuple,
 )
-
-from filelock import FileLock
 
 from execution_testing.base_types import to_json
 
@@ -33,6 +32,9 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
 
     Called at session end after all workers have written their partials.
     Each partial file contains JSONL lines: {"k": fixture_id, "v": json_str}
+
+    Processes one target file at a time, reading its partials sequentially
+    into a dict. Memory = O(entries per target), freed before next target.
     """
     # Find all partial files
     partial_files = list(output_dir.rglob("*.partial.*.jsonl"))
@@ -57,30 +59,30 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
 
     # Merge each group into its target file
     for target_path, partials in partials_by_target.items():
+        # Read partials sequentially into dict (one at a time)
         entries: Dict[str, str] = {}
-
-        # Read all partial files
         for partial in partials:
             with open(partial) as f:
                 for line in f:
                     line = line.strip()
-                    if not line:
-                        continue
-                    entry = json.loads(line)
-                    entries[entry["k"]] = entry["v"]
+                    if line:
+                        entry = json.loads(line)
+                        entries[entry["k"]] = entry["v"]
 
-        # Write final JSON file
-        sorted_keys = sorted(entries.keys())
-        parts = ["{\n"]
-        last_idx = len(sorted_keys) - 1
-        for i, key in enumerate(sorted_keys):
-            key_json = json.dumps(key)
-            # Add indentation for nesting inside outer JSON object
-            value_indented = entries[key].replace("\n", "\n    ")
-            parts.append(f"    {key_json}: {value_indented}")
-            parts.append(",\n" if i < last_idx else "\n")
-        parts.append("}")
-        target_path.write_text("".join(parts))
+        # Write sorted entries to output file
+        with open(target_path, "w") as out_f:
+            out_f.write("{\n")
+            sorted_keys = sorted(entries.keys())
+            last_idx = len(sorted_keys) - 1
+            for i, key in enumerate(sorted_keys):
+                key_json = json.dumps(key)
+                value_indented = entries[key].replace("\n", "\n    ")
+                out_f.write(f"    {key_json}: {value_indented}")
+                out_f.write(",\n" if i < last_idx else "\n")
+            out_f.write("}")
+
+        # Free memory before processing next target
+        entries.clear()
 
         # Clean up partial files
         for partial in partials:
@@ -197,15 +199,23 @@ class FixtureCollector:
     single_fixture_per_file: bool
     filler_path: Path
     base_dump_dir: Optional[Path] = None
-    flush_interval: int = 1000
     generate_index: bool = True
+    # Worker ID for partial files. None = read from env var.
+    worker_id: Optional[str] = None
 
-    # Internal state
+    # Internal state (only used for stdout mode)
     all_fixtures: Dict[Path, Fixtures] = field(default_factory=dict)
-    json_path_to_test_item: Dict[Path, TestInfo] = field(default_factory=dict)
-    # Store index entries as simple dicts
-    # (avoid Pydantic overhead during collection)
-    index_entries: List[Dict] = field(default_factory=list)
+
+    # Streaming file handles - kept open for module duration
+    _partial_fixture_files: Dict[Path, IO[str]] = field(default_factory=dict)
+    _partial_index_file: Optional[IO[str]] = field(default=None)
+    _worker_id_cached: bool = field(default=False, init=False)
+
+    # Lightweight tracking for verification (path, format class, debug_path)
+    # Only stores metadata, not fixture data - memory efficient
+    _fixtures_to_verify: List[Tuple[Path, type, Optional[Path]]] = field(
+        default_factory=list
+    )
 
     def get_fixture_basename(self, info: TestInfo) -> Path:
         """Return basename of the fixture file for a given test case."""
@@ -227,8 +237,20 @@ class FixtureCollector:
             mode="module"
         )
 
+    def _get_worker_id(self) -> str | None:
+        """Get the worker ID (from constructor or environment)."""
+        if self.worker_id is not None:
+            return self.worker_id
+        if not self._worker_id_cached:
+            # Cache the env var lookup
+            env_worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+            if env_worker_id:
+                self.worker_id = env_worker_id
+            self._worker_id_cached = True
+        return self.worker_id
+
     def add_fixture(self, info: TestInfo, fixture: BaseFixture) -> Path:
-        """Add fixture to the list of fixtures of a given test case."""
+        """Add fixture and immediately stream to partial JSONL file."""
         fixture_basename = self.get_fixture_basename(info)
 
         fixture_path = (
@@ -236,16 +258,25 @@ class FixtureCollector:
             / fixture.output_base_dir_name()
             / fixture_basename.with_suffix(fixture.output_file_extension)
         )
-        # relevant when we group by test function
-        if fixture_path not in self.all_fixtures.keys():
-            self.all_fixtures[fixture_path] = Fixtures(root={})
-            self.json_path_to_test_item[fixture_path] = info
 
-        self.all_fixtures[fixture_path][info.get_id()] = fixture
+        # Stream fixture directly to partial JSONL (no memory accumulation)
+        if self.output_dir.name != "stdout":
+            self._stream_fixture_to_partial(
+                fixture_path, info.get_id(), fixture
+            )
+            # Track for verification (lightweight - only path and format class)
+            debug_path = self._get_consume_direct_dump_dir(info)
+            self._fixtures_to_verify.append(
+                (fixture_path, fixture.__class__, debug_path)
+            )
+        else:
+            # stdout mode: accumulate for final JSON dump
+            if fixture_path not in self.all_fixtures:
+                self.all_fixtures[fixture_path] = Fixtures(root={})
+            self.all_fixtures[fixture_path][info.get_id()] = fixture
 
-        # Collect index entry while data is in memory (if indexing enabled)
-        # Store as simple dict to avoid Pydantic overhead during collection
-        if self.generate_index:
+        # Stream index entry directly to partial JSONL
+        if self.generate_index and self.output_dir.name != "stdout":
             relative_path = fixture_path.relative_to(self.output_dir)
             fixture_fork = fixture.get_fork()
             index_entry = {
@@ -257,18 +288,67 @@ class FixtureCollector:
             }
             if (pre_hash := getattr(fixture, "pre_hash", None)) is not None:
                 index_entry["pre_hash"] = pre_hash
-            self.index_entries.append(index_entry)
-
-        if (
-            self.flush_interval > 0
-            and len(self.all_fixtures) >= self.flush_interval
-        ):
-            self.dump_fixtures()
+            self._stream_index_entry_to_partial(index_entry)
 
         return fixture_path
 
-    def dump_fixtures(self, worker_id: str | None = None) -> None:
-        """Dump all collected fixtures to their respective files."""
+    def _get_partial_fixture_file(self, fixture_path: Path) -> "IO[str]":
+        """Get or create a file handle for streaming fixtures."""
+        worker_id = self._get_worker_id()
+        suffix = f".{worker_id}" if worker_id else ".main"
+        partial_path = fixture_path.with_suffix(f".partial{suffix}.jsonl")
+
+        if partial_path not in self._partial_fixture_files:
+            partial_path.parent.mkdir(parents=True, exist_ok=True)
+            self._partial_fixture_files[partial_path] = open(partial_path, "a")
+
+        return self._partial_fixture_files[partial_path]
+
+    def _stream_fixture_to_partial(
+        self,
+        fixture_path: Path,
+        fixture_id: str,
+        fixture: BaseFixture,
+    ) -> None:
+        """Stream a single fixture to its partial JSONL file."""
+        value = json.dumps(fixture.json_dict_with_info(), indent=4)
+        line = json.dumps({"k": fixture_id, "v": value}) + "\n"
+
+        f = self._get_partial_fixture_file(fixture_path)
+        f.write(line)
+        f.flush()  # Ensure data is written immediately
+
+    def _get_partial_index_file(self) -> "IO[str]":
+        """Get or create the file handle for streaming index entries."""
+        if self._partial_index_file is None:
+            worker_id = self._get_worker_id()
+            suffix = f".{worker_id}" if worker_id else ".main"
+            partial_index_path = (
+                self.output_dir / ".meta" / f"partial_index{suffix}.jsonl"
+            )
+            partial_index_path.parent.mkdir(parents=True, exist_ok=True)
+            self._partial_index_file = open(partial_index_path, "a")
+
+        return self._partial_index_file
+
+    def _stream_index_entry_to_partial(self, entry: Dict) -> None:
+        """Stream a single index entry to partial JSONL file."""
+        f = self._get_partial_index_file()
+        f.write(json.dumps(entry) + "\n")
+        f.flush()  # Ensure data is written immediately
+
+    def close_streaming_files(self) -> None:
+        """Close all open streaming file handles."""
+        for f in self._partial_fixture_files.values():
+            f.close()
+        self._partial_fixture_files.clear()
+
+        if self._partial_index_file is not None:
+            self._partial_index_file.close()
+            self._partial_index_file = None
+
+    def dump_fixtures(self) -> None:
+        """Dump collected fixtures (only used for stdout mode)."""
         if self.output_dir.name == "stdout":
             combined_fixtures = {
                 k: to_json(v)
@@ -276,65 +356,10 @@ class FixtureCollector:
                 for k, v in fixture.items()
             }
             json.dump(combined_fixtures, sys.stdout, indent=4)
-            return
-        os.makedirs(self.output_dir, exist_ok=True)
-        for fixture_path, fixtures in self.all_fixtures.items():
-            os.makedirs(fixture_path.parent, exist_ok=True)
-            if len({fixture.__class__ for fixture in fixtures.values()}) != 1:
-                raise TypeError(
-                    "All fixtures in a single file must have the same format."
-                )
-            self._write_partial_fixtures(fixture_path, fixtures, worker_id)
+            self.all_fixtures.clear()
+        # For file output, fixtures are already streamed in add_fixture()
 
-        self.all_fixtures.clear()
-
-    def _write_partial_fixtures(
-        self, file_path: Path, fixtures: Fixtures, worker_id: str | None
-    ) -> None:
-        """
-        Write fixtures to a partial JSONL file (append-only).
-
-        Each line is a JSON object: {"key": "fixture_id", "value": "json_str"}
-        This avoids O(n) merge work per worker - just O(1) append.
-        Final merge to JSON happens at session end.
-        """
-        suffix = f".{worker_id}" if worker_id else ".main"
-        partial_path = file_path.with_suffix(f".partial{suffix}.jsonl")
-        partial_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_file_path = partial_path.with_suffix(".lock")
-
-        lines = []
-        for name in fixtures:
-            value = json.dumps(fixtures[name].json_dict_with_info(), indent=4)
-            # Store as JSONL: {"k": key, "v": serialized value string}
-            lines.append(json.dumps({"k": name, "v": value}) + "\n")
-
-        with FileLock(lock_file_path):
-            with open(partial_path, "a") as f:
-                f.writelines(lines)
-
-    def verify_fixture_files(
-        self, evm_fixture_verification: FixtureConsumer
-    ) -> None:
-        """Run `evm [state|block]test` on each fixture."""
-        for fixture_path, name_fixture_dict in self.all_fixtures.items():
-            for _fixture_name, fixture in name_fixture_dict.items():
-                if evm_fixture_verification.can_consume(fixture.__class__):
-                    info = self.json_path_to_test_item[fixture_path]
-                    consume_direct_dump_dir = (
-                        self._get_consume_direct_dump_dir(info)
-                    )
-                    evm_fixture_verification.consume_fixture(
-                        fixture.__class__,
-                        fixture_path,
-                        fixture_name=None,
-                        debug_output_path=consume_direct_dump_dir,
-                    )
-
-    def _get_consume_direct_dump_dir(
-        self,
-        info: TestInfo,
-    ) -> Path | None:
+    def _get_consume_direct_dump_dir(self, info: TestInfo) -> Path | None:
         """
         Directory to dump the current test function's fixture.json and fixture
         verification debug output.
@@ -350,37 +375,36 @@ class FixtureCollector:
                 self.base_dump_dir, self.filler_path, level="test_function"
             )
 
-    def write_partial_index(self, worker_id: str | None = None) -> Path | None:
+    def verify_fixture_files(
+        self, evm_fixture_verification: FixtureConsumer
+    ) -> None:
         """
-        Append collected index entries to a partial index file using JSONL
-        format.
+        Run `evm [state|block]test` on each fixture.
 
-        Uses append-only JSONL (JSON Lines) format for efficient writes without
-        read-modify-write cycles. Each line is a complete JSON object
-        representing one index entry.
-
-        Args:
-            worker_id: The xdist worker ID (e.g., "gw0"), or None for master.
-
-        Returns:
-            Path to the partial index file, or None if indexing is disabled.
-
+        For streaming mode, uses lightweight tracking of fixture paths/formats
+        rather than keeping full fixtures in memory.
         """
-        if not self.generate_index or not self.index_entries:
-            return None
-
-        suffix = f".{worker_id}" if worker_id else ".master"
-        partial_index_path = (
-            self.output_dir / ".meta" / f"partial_index{suffix}.jsonl"
-        )
-        partial_index_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_file_path = partial_index_path.with_suffix(".lock")
-
-        # Append entries as JSONL (one JSON object per line)
-        # This avoids read-modify-write cycles
-        with FileLock(lock_file_path):
-            with open(partial_index_path, "a") as f:
-                for entry in self.index_entries:
-                    f.write(json.dumps(entry) + "\n")
-
-        return partial_index_path
+        if self.output_dir.name == "stdout":
+            # stdout mode: fixtures are in memory
+            for fixture_path, name_fixture_dict in self.all_fixtures.items():
+                for _fixture_name, fixture in name_fixture_dict.items():
+                    if evm_fixture_verification.can_consume(fixture.__class__):
+                        evm_fixture_verification.consume_fixture(
+                            fixture.__class__,
+                            fixture_path,
+                            fixture_name=None,
+                            debug_output_path=None,
+                        )
+        else:
+            # Streaming mode: use tracked fixture metadata
+            for entry in self._fixtures_to_verify:
+                fixture_path, fixture_format, debug_path = entry
+                if evm_fixture_verification.can_consume(fixture_format):
+                    evm_fixture_verification.consume_fixture(
+                        fixture_format,
+                        fixture_path,
+                        fixture_name=None,
+                        debug_output_path=debug_path,
+                    )
+            # Clear tracking after verification
+            self._fixtures_to_verify.clear()

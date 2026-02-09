@@ -1,7 +1,9 @@
 """Fixture output configuration for generated test fixtures."""
 
 import shutil
+import subprocess
 import tarfile
+import warnings
 from pathlib import Path
 
 import pytest
@@ -219,11 +221,28 @@ class FixtureOutput(BaseModel):
                 parents=True, exist_ok=True
             )
 
+    @staticmethod
+    def _pigz_available() -> bool:
+        """Check if pigz (parallel gzip) is available on the system."""
+        return shutil.which("pigz") is not None
+
     def create_tarball(self) -> None:
-        """Create tarball of the output directory if configured to do so."""
+        """
+        Create tarball of the output directory if configured to do so.
+
+        Automatically uses pigz for parallel compression if available,
+        otherwise falls back to standard single-threaded gzip.
+        """
         if not self.is_tarball:
             return
 
+        if self._pigz_available():
+            self._create_tarball_with_pigz()
+        else:
+            self._create_tarball_standard()
+
+    def _create_tarball_standard(self) -> None:
+        """Create tarball using Python's tarfile module (single-threaded)."""
         with tarfile.open(self.output_path, "w:gz") as tar:
             for file in self.directory.rglob("*"):
                 if file.suffix in {".json", ".ini"}:
@@ -231,6 +250,43 @@ class FixtureOutput(BaseModel):
                         self.directory
                     )
                     tar.add(file, arcname=arcname)
+
+    def _create_tarball_with_pigz(self) -> None:
+        """
+        Create tarball using Python tarfile + pigz for parallel compression.
+
+        This approach uses Python's tarfile to create the uncompressed .tar
+        (which correctly handles arcnames across all platforms), then uses
+        pigz for parallel gzip compression with auto-detected core count.
+        """
+        # Create uncompressed tar first (output_path minus .gz suffix)
+        temp_tar = self.output_path.with_suffix("")  # Remove .gz suffix
+
+        try:
+            # Use Python tarfile for cross-platform tar creation with arcnames
+            with tarfile.open(temp_tar, "w") as tar:
+                for file in self.directory.rglob("*"):
+                    if file.suffix in {".json", ".ini"}:
+                        arcname = Path("fixtures") / file.relative_to(
+                            self.directory
+                        )
+                        tar.add(file, arcname=arcname)
+
+            # Compress with pigz (parallel gzip, auto-detects available cores)
+            subprocess.run(
+                ["pigz", "-f", str(temp_tar)], check=True, capture_output=True
+            )
+        except (subprocess.CalledProcessError, OSError) as e:
+            # Clean up temp file if it exists
+            if temp_tar.exists():
+                temp_tar.unlink()
+            # Fall back to standard tarball creation with warning
+            warnings.warn(
+                f"pigz compression failed ({type(e).__name__}: {e}), "
+                "falling back to standard gzip",
+                stacklevel=2,
+            )
+            self._create_tarball_standard()
 
     @classmethod
     def from_config(cls, config: pytest.Config) -> "FixtureOutput":

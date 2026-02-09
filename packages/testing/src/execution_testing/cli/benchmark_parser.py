@@ -6,17 +6,43 @@ the scenario configs in `.fixed_opcode_counts.json`.
 
 Usage:
     uv run benchmark_parser           # Update `.fixed_opcode_counts.json`
-    uv run benchmark_parser --check   # Check for new/missing entries (CI)
+    uv run benchmark_parser --check   # Check for new/missing entries
 """
 
 import argparse
 import ast
+import re
 import sys
 from pathlib import Path
 
 from execution_testing.cli.pytest_commands.plugins.shared.benchmarking import (
     OpcodeCountsConfig,
 )
+
+
+def is_related_pattern(pattern: str, detected_patterns: set[str]) -> bool:
+    """
+    Check if a pattern is related to any detected patterns or more specific.
+    Related patterns are preserved as they're intentional overrides.
+    """
+    # Check if existing pattern is BROADER than detected
+    try:
+        compiled = re.compile(pattern)
+        for detected in detected_patterns:
+            if compiled.search(detected):
+                return True
+    except re.error:
+        pass
+
+    # Check if existing pattern is MORE SPECIFIC than detected
+    for detected in detected_patterns:
+        try:
+            if re.search(detected, pattern):
+                return True
+        except re.error:
+            continue
+
+    return False
 
 
 def get_repo_root() -> Path:
@@ -209,21 +235,16 @@ class OpcodeExtractor(ast.NodeVisitor):
         return None
 
 
-def scan_benchmark_tests(
-    base_path: Path,
-) -> tuple[dict[str, list[int]], dict[str, Path]]:
+def scan_benchmark_tests(base_path: Path) -> dict[str, list[float]]:
     """
     Scan benchmark test files and extract opcode patterns.
 
     Returns:
-        Tuple of (config, pattern_sources) where:
-        - config: mapping of pattern -> opcode counts
-        - pattern_sources: mapping of pattern -> source file path
+        Mapping of pattern -> opcode counts (default [1] for new patterns).
 
     """
-    config: dict[str, list[int]] = {}
-    pattern_sources: dict[str, Path] = {}
-    default_counts = [1]
+    config: dict[str, list[float]] = {}
+    default_counts: list[float] = [1.0]
 
     test_files = [
         f
@@ -242,12 +263,11 @@ def scan_benchmark_tests(
             for pattern in extractor.patterns:
                 if pattern not in config:
                     config[pattern] = default_counts
-                    pattern_sources[pattern] = test_file
         except Exception as e:
             print(f"Warning: Failed to parse {test_file}: {e}")
             continue
 
-    return config, pattern_sources
+    return config
 
 
 def load_existing_config(config_file: Path) -> OpcodeCountsConfig:
@@ -257,47 +277,12 @@ def load_existing_config(config_file: Path) -> OpcodeCountsConfig:
     return OpcodeCountsConfig.model_validate_json(config_file.read_bytes())
 
 
-def categorize_patterns(
-    config: dict[str, list[int]], pattern_sources: dict[str, Path]
-) -> dict[str, list[str]]:
-    """
-    Categorize patterns by deriving category from source file name.
-
-    Example: test_arithmetic.py -> ARITHMETIC
-    """
-    categories: dict[str, list[str]] = {}
-
-    for pattern in config.keys():
-        if pattern in pattern_sources:
-            source_file = pattern_sources[pattern]
-            file_name = source_file.stem
-            if file_name.startswith("test_"):
-                category = file_name[5:].upper()  # Remove "test_" prefix
-            else:
-                category = "OTHER"
-        else:
-            category = "OTHER"
-
-        if category not in categories:
-            categories[category] = []
-        categories[category].append(pattern)
-
-    return {k: sorted(v) for k, v in sorted(categories.items())}
-
-
 def generate_config_json(
-    config: dict[str, list[int]],
-    pattern_sources: dict[str, Path],
-    default_counts: list[int],
+    config: dict[str, list[float]],
+    default_counts: list[float],
 ) -> OpcodeCountsConfig:
-    """Generate the JSON config file content."""
-    categories = categorize_patterns(config, pattern_sources)
-
-    scenario_configs: dict[str, list[int]] = {}
-    for _, patterns in categories.items():
-        for pattern in patterns:
-            scenario_configs[pattern] = config[pattern]
-
+    """Generate the JSON config file content with sorted patterns."""
+    scenario_configs = {k: config[k] for k in sorted(config.keys())}
     return OpcodeCountsConfig(
         scenario_configs=scenario_configs,
         default_counts=default_counts,
@@ -324,7 +309,7 @@ def main() -> int:
         return 1
 
     print(f"Scanning benchmark tests in {benchmark_dir}...")
-    detected, pattern_sources = scan_benchmark_tests(benchmark_dir)
+    detected = scan_benchmark_tests(benchmark_dir)
     print(f"Detected {len(detected)} opcode patterns")
 
     existing_file = load_existing_config(config_file)
@@ -334,11 +319,28 @@ def main() -> int:
     detected_keys = set(detected.keys())
     existing_keys = set(existing.keys())
     new_patterns = sorted(detected_keys - existing_keys)
-    obsolete_patterns = sorted(existing_keys - detected_keys)
 
+    # Separate truly obsolete patterns from related patterns that should be
+    # kept
+    potentially_obsolete = existing_keys - detected_keys
+    related_patterns: set[str] = set()
+    obsolete_patterns: set[str] = set()
+    for pattern in potentially_obsolete:
+        if is_related_pattern(pattern, detected_keys):
+            related_patterns.add(pattern)
+        else:
+            obsolete_patterns.add(pattern)
+
+    # Merge: start with detected, preserve existing counts, keep related
+    # patterns
     merged = detected.copy()
     for pattern, counts in existing.items():
         if pattern in detected_keys:
+            # Preserve existing counts for detected patterns
+            merged[pattern] = counts
+        elif pattern in related_patterns:
+            # Keep related patterns (broader or more specific) with their
+            # existing counts
             merged[pattern] = counts
 
     print("\n" + "=" * 60)
@@ -352,14 +354,21 @@ def main() -> int:
         if len(new_patterns) > 15:
             print(f"    ... and {len(new_patterns) - 15} more")
 
+    if related_patterns:
+        print(f"\n~ Preserving {len(related_patterns)} RELATED patterns:")
+        for p in sorted(related_patterns)[:15]:
+            print(f"    {p}")
+        if len(related_patterns) > 15:
+            print(f"    ... and {len(related_patterns) - 15} more")
+
     if obsolete_patterns:
         print(f"\n- Found {len(obsolete_patterns)} OBSOLETE patterns:")
-        for p in obsolete_patterns[:15]:
+        for p in sorted(obsolete_patterns)[:15]:
             print(f"    {p}")
         if len(obsolete_patterns) > 15:
             print(f"    ... and {len(obsolete_patterns) - 15} more")
 
-    if not new_patterns and not obsolete_patterns:
+    if not new_patterns and not obsolete_patterns and not related_patterns:
         print("\nConfiguration is up to date!")
 
     print("=" * 60)
@@ -370,14 +379,7 @@ def main() -> int:
             return 1
         return 0
 
-    for pattern in obsolete_patterns:
-        print(f"Removing obsolete: {pattern}")
-        if pattern in merged:
-            del merged[pattern]
-
-    content = generate_config_json(
-        merged, pattern_sources, existing_file.default_counts
-    )
+    content = generate_config_json(merged, existing_file.default_counts)
     config_file.write_text(
         content.model_dump_json(exclude_defaults=True, indent=2)
     )

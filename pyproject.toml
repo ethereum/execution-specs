@@ -13,6 +13,7 @@ urls = { "Homepage" = "https://github.com/ethereum/execution-specs" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: Implementation :: CPython",
     "Intended Audience :: Developers",
@@ -409,6 +410,7 @@ max-complexity = 7
 builtin = "clear,code,usage"
 # Version control & tooling, build artifacts, data files, test fixtures, temp files, lock files
 skip = [
+    ".devcontainer",
     ".git",
     ".tox",
     ".venv",
@@ -454,6 +456,7 @@ mypy_path = ["src", "packages/testing/src", "packages/testing/stubs"]
 files = ["src", "tests", "packages"]
 exclude = [
     "^\\.cache/",
+    "^\\.devcontainer/",
     "^\\.git/",
     "^\\.pytest_cache/",
     "^\\.ruff_cache/",

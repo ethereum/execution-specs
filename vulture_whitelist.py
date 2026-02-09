@@ -16,7 +16,6 @@ from ethereum.utils.hexadecimal import hex_to_bytes256
 from ethereum_optimized.state_db import State
 from ethereum_spec_tools.docc import *
 from ethereum_spec_tools.evm_tools.daemon import _EvmToolHandler
-from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 from ethereum_spec_tools.evm_tools.loaders.transaction_loader import (
     TransactionLoad,
 )
@@ -82,9 +81,6 @@ EELST8N._info_metadata
 EELST8N.version
 EELST8N.is_fork_supported
 EELST8N.evaluate
-
-# src/ethereum_spec_tools/loaders/fixture_loader.py
-Load._network
 
 # src/ethereum_spec_tools/loaders/transaction_loader.py
 TransactionLoad.json_to_authorizations

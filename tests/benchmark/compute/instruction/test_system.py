@@ -122,8 +122,17 @@ def test_create(
     )
 
     if opcode == Op.CREATE2:
-        # For CREATE2, we provide an initial salt.
-        setup += Op.PUSH1(42)
+        # For CREATE2, load salt from storage (persist across outer loop calls)
+        # If storage is 0 (first call), use initial salt of 42.
+        # Stack after setup: [..., value, code_size, salt]
+        setup += (
+            Op.SLOAD(0)  # Load saved salt
+            + Op.DUP1  # Duplicate for check
+            + Op.ISZERO  # Check if zero
+            + Op.PUSH1(42)  # Default salt
+            + Op.MUL  # 42 if zero, 0 if not
+            + Op.ADD  # Add to get final salt (saved or 42)
+        )
 
     attack_block = (
         # For CREATE:
@@ -133,10 +142,16 @@ def test_create(
         if opcode == Op.CREATE
         # For CREATE2: we manually push the arguments because we leverage the
         # return value of previous CREATE2 calls as salt for the next CREATE2
-        # call.
+        # call. After CREATE2, save result to storage for next outer loop call.
         # - DUP4 is targeting the PUSH1(value) from the code_prefix.
         # - DUP3 is targeting the EXTCODESIZE value pushed in code_prefix.
-        else Op.DUP3 + Op.PUSH0 + Op.DUP4 + Op.CREATE2
+        else Op.DUP3
+        + Op.PUSH0
+        + Op.DUP4
+        + Op.CREATE2
+        + Op.DUP1
+        + Op.PUSH0
+        + Op.SSTORE
     )
 
     benchmark_test(

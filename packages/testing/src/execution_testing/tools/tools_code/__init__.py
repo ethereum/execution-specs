@@ -6,8 +6,11 @@ from .generators import (
     CodeGasMeasure,
     Conditional,
     Create2PreimageLayout,
+    FixedIterationsBytecode,
     Initcode,
+    IteratingBytecode,
     Switch,
+    TransactionWithCost,
     While,
 )
 from .yul import Solc, Yul, YulCompiler
@@ -17,11 +20,14 @@ __all__ = (
     "Case",
     "CodeGasMeasure",
     "Conditional",
+    "Create2PreimageLayout",
+    "FixedIterationsBytecode",
     "Initcode",
+    "IteratingBytecode",
     "Solc",
     "Switch",
+    "TransactionWithCost",
     "While",
     "Yul",
     "YulCompiler",
-    "Create2PreimageLayout",
 )
