@@ -533,7 +533,11 @@ class Account(CamelModel):
     def hash(self) -> Hash:
         """Return the hash of the account given its properties."""
         data = self.model_dump(mode="json")
-        blob = json.dumps(data, sort_keys=True).encode("utf-8")
+        blob = json.dumps(
+            data,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
         return Hash(hashlib.sha256(blob).digest())
 
     @classmethod
