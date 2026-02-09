@@ -433,6 +433,19 @@ class TransitionToolCacheStats:
     key_test_miss: int = 0
     subkey_test_hits: int = 0
     subkey_test_miss: int = 0
+    unique_keys: int = 0
+    _seen_keys: Set[str] = field(default_factory=set, repr=False)
+
+    def record_key(self, key: str) -> None:
+        """Record a cache key and update unique_keys count."""
+        self._seen_keys.add(key)
+        self.unique_keys = len(self._seen_keys)
+
+    @property
+    def expected_hits(self) -> int:
+        """Number of tests expected to hit the cache."""
+        total_cacheable = self.key_test_hits + self.key_test_miss
+        return total_cacheable - self.unique_keys
 
     def to_dict(self) -> Dict[str, int]:
         """Convert stats to dict for xdist worker transfer."""
@@ -441,6 +454,7 @@ class TransitionToolCacheStats:
             "key_test_miss": self.key_test_miss,
             "subkey_test_hits": self.subkey_test_hits,
             "subkey_test_miss": self.subkey_test_miss,
+            "unique_keys": self.unique_keys,
         }
 
     def add(self, other: "TransitionToolCacheStats") -> None:
@@ -449,6 +463,7 @@ class TransitionToolCacheStats:
         self.key_test_miss += other.key_test_miss
         self.subkey_test_hits += other.subkey_test_hits
         self.subkey_test_miss += other.subkey_test_miss
+        self.unique_keys += other.unique_keys
 
     @classmethod
     def from_dict(cls, data: Dict[str, int]) -> "TransitionToolCacheStats":
@@ -458,6 +473,7 @@ class TransitionToolCacheStats:
             key_test_miss=data.get("key_test_miss", 0),
             subkey_test_hits=data.get("subkey_test_hits", 0),
             subkey_test_miss=data.get("subkey_test_miss", 0),
+            unique_keys=data.get("unique_keys", 0),
         )
 
 
@@ -962,35 +978,28 @@ def pytest_terminal_summary(
     ) or getattr(config, "transition_tool_cache_stats", None)
 
     if t8n_cache_stats is not None:
-        total_key = (
-            t8n_cache_stats.key_test_hits + t8n_cache_stats.key_test_miss
-        )
-        total_subkey = (
-            t8n_cache_stats.subkey_test_hits + t8n_cache_stats.subkey_test_miss
-        )
-        if total_key > 0 or total_subkey > 0:
-            key_rate = (
-                t8n_cache_stats.key_test_hits / total_key * 100
-                if total_key > 0
-                else 0
-            )
-            subkey_rate = (
-                t8n_cache_stats.subkey_test_hits / total_subkey * 100
-                if total_subkey > 0
-                else 0
-            )
+        expected = t8n_cache_stats.expected_hits
+        actual = t8n_cache_stats.key_test_hits
+        if expected > 0:
+            efficiency = actual / expected * 100
             terminalreporter.write_sep(
                 "=",
                 (
-                    f" T8n cache: key_hits={t8n_cache_stats.key_test_hits}, "
-                    f"key_misses={t8n_cache_stats.key_test_miss} "
-                    f"({key_rate:.1f}%), "
-                    f"subkey_hits={t8n_cache_stats.subkey_test_hits}, "
-                    f"subkey_misses={t8n_cache_stats.subkey_test_miss} "
-                    f"({subkey_rate:.1f}%)"
+                    f" T8n cache: {efficiency:.0f}% hit rate"
+                    f" ({actual}/{expected} tests expected),"
+                    f" {t8n_cache_stats.subkey_test_hits} t8n calls saved"
                 ),
                 bold=True,
-                green=True,
+                green=efficiency == 100,
+            )
+        elif t8n_cache_stats.unique_keys > 0:
+            terminalreporter.write_sep(
+                "=",
+                (
+                    f" T8n cache: {t8n_cache_stats.unique_keys} unique"
+                    " test groups, no cache sharing possible"
+                ),
+                bold=True,
             )
     stats = terminalreporter.stats
     if "passed" in stats and stats["passed"]:
@@ -1228,6 +1237,7 @@ def t8n(
     """Set the transition tool up for the current test."""
     if transition_tool_cache_key := get_t8n_cache_key(request):
         # This test is allowed to cache results
+        transition_tool_cache_stats.record_key(transition_tool_cache_key)
         if session_t8n.set_cache(key=transition_tool_cache_key):
             transition_tool_cache_stats.key_test_hits += 1
         else:
@@ -1242,7 +1252,10 @@ def t8n(
     # TODO: Configure the transition tool to count opcodes only when required.
     session_t8n.reset_opcode_count()
     yield session_t8n
-    if session_t8n.output_cache is not None:
+    # Only collect subkey stats for cacheable tests (non-cacheable tests
+    # still interact with the OutputCache after remove_cache, producing
+    # phantom misses that would skew the hit rate).
+    if transition_tool_cache_key and session_t8n.output_cache is not None:
         transition_tool_cache_stats.subkey_test_hits += (
             session_t8n.output_cache.hits
         )
