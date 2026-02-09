@@ -3983,7 +3983,6 @@ def test_authorization_reusing_nonce(
 )
 @pytest.mark.exception_test
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.pre_alloc_mutable
 def test_set_code_from_account_with_non_delegating_code(
     state_test: StateTestFiller,
     pre: Alloc,
