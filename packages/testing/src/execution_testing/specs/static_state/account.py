@@ -1,16 +1,22 @@
 """Account structure of ethereum/tests fillers."""
 
+import hashlib
+import json
 from typing import Any, Dict, List, Mapping, Set, Tuple
 
 from pydantic import BaseModel, ConfigDict
 
 from execution_testing.base_types import (
-    Bytes,
+    Account,
     EthereumTestRootModel,
+    Hash,
     HexNumber,
-    Storage,
 )
-from execution_testing.test_types import Alloc
+from execution_testing.test_types import (
+    Alloc,
+    contract_address_from_hash,
+    eoa_from_hash,
+)
 
 from .common import (
     AddressOrTagInFiller,
@@ -86,6 +92,17 @@ class AccountInFiller(BaseModel, TagDependentData):
             if resolved_storage := self.storage.resolve(tags):
                 account_properties["storage"] = resolved_storage
         return account_properties
+
+    def hash(self) -> Hash:
+        """Return a hash of the account as it is in the filler."""
+        dumped = self.model_dump(mode="json", exclude_none=True)
+        return hashlib.sha256(
+            json.dumps(
+                dumped,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).digest()
 
 
 class PreInFiller(EthereumTestRootModel):
@@ -174,20 +191,21 @@ class PreInFiller(EthereumTestRootModel):
 
         # Step 4: Pre-deploy all contract tags and pre-fund EOAs to get
         # addresses
+        account_salts: Dict[Hash, int] = {}
         for tag_name in resolution_order:
             if tag_name in tag_to_address:
                 tag = tag_to_address[tag_name]
+                account_hash = self.root[tag].hash()
+                salt = account_salts.get(account_hash, 0)
+                account_salts[account_hash] = salt + 1
                 if isinstance(tag, ContractTag):
-                    # Deploy with placeholder to get address
-                    deployed_address = pre.deploy_contract(
-                        code=b"",  # Temporary placeholder
-                        label=tag_name,
+                    # Get a placeholder address
+                    resolved_accounts[tag_name] = contract_address_from_hash(
+                        account_hash, salt
                     )
-                    resolved_accounts[tag_name] = deployed_address
                 elif isinstance(tag, SenderTag):
-                    # Create EOA to get address - use amount=1 to ensure
-                    # account is created
-                    eoa = pre.fund_eoa(amount=1, label=tag_name)
+                    # Create a placeholder EOA
+                    eoa = eoa_from_hash(account_hash, salt)
                     # Store the EOA object for SenderKeyTag resolution
                     resolved_accounts[tag_name] = eoa
 
@@ -203,62 +221,15 @@ class PreInFiller(EthereumTestRootModel):
                 # All addresses are now available, so resolve properties
                 account_properties = account.resolve(resolved_accounts)
 
-                if isinstance(tag, ContractTag):
-                    # Update the already-deployed contract
+                if isinstance(tag, (ContractTag, SenderTag)):
                     deployed_address = resolved_accounts[tag_name]
-                    deployed_account = pre[deployed_address]
-
-                    if deployed_account is not None:
-                        if "code" in account_properties:
-                            deployed_account.code = Bytes(
-                                account_properties["code"]
-                            )
-                        if "balance" in account_properties:
-                            deployed_account.balance = account_properties[
-                                "balance"
-                            ]
-                        if "nonce" in account_properties:
-                            deployed_account.nonce = account_properties[
-                                "nonce"
-                            ]
-                        if "storage" in account_properties:
-                            deployed_account.storage = Storage(
-                                root=account_properties["storage"]
-                            )
-
-                elif isinstance(tag, SenderTag):
-                    eoa_account = pre[resolved_accounts[tag_name]]
-
-                    if eoa_account is not None:
-                        if "balance" in account_properties:
-                            eoa_account.balance = account_properties["balance"]
-                        if "nonce" in account_properties:
-                            eoa_account.nonce = account_properties["nonce"]
-                        if "code" in account_properties:
-                            eoa_account.code = Bytes(
-                                account_properties["code"]
-                            )
-                        if "storage" in account_properties:
-                            eoa_account.storage = Storage(
-                                root=account_properties["storage"]
-                            )
+                    pre[deployed_address] = Account(**account_properties)
 
         # Step 6: Now process non-tagged accounts (including code compilation)
-        for address, account in non_tagged_to_process:
-            account_properties = account.resolve(resolved_accounts)
-            if "balance" in account_properties:
-                pre.fund_address(address, account_properties["balance"])
-
-            existing_account = pre[address]
-            if existing_account is not None:
-                if "code" in account_properties:
-                    existing_account.code = Bytes(account_properties["code"])
-                if "nonce" in account_properties:
-                    existing_account.nonce = account_properties["nonce"]
-                if "storage" in account_properties:
-                    existing_account.storage = Storage(
-                        root=account_properties["storage"]
-                    )
+        for address, account_in_filler in non_tagged_to_process:
+            pre[address] = Account(
+                **account_in_filler.resolve(resolved_accounts)
+            )
 
         # Step 7: Handle any extra dependencies not in pre
         for extra_dependency in all_dependencies:
