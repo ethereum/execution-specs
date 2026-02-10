@@ -13,7 +13,7 @@ Supported Opcodes:
 """
 
 import math
-from typing import Any
+from typing import Any, Dict
 
 import pytest
 from execution_testing import (
@@ -539,17 +539,25 @@ def test_account_query(
     # Access list generator for warm access tests.
     # When access_warm=True, include all contract addresses that will be
     # accessed in each transaction to warm them up via access list.
+    # Note: This access list generation is very expensive due to the binary
+    # search, which builds different access lists using the same elements
+    # over and over. Caching the elements helps a bit.
+    access_list_cache: Dict[int, AccessList] = {}
+
     def access_list_generator(
         iteration_count: int, start_iteration: int
     ) -> list[AccessList] | None:
         if not access_warm:
             return None
         return [
-            AccessList(
-                address=custom_sized_contract_factory.created_contract_address(
-                    salt=i
+            access_list_cache.setdefault(
+                i,
+                AccessList(
+                    address=custom_sized_contract_factory.created_contract_address(
+                        salt=i
+                    ),
+                    storage_keys=[],
                 ),
-                storage_keys=[],
             )
             for i in range(start_iteration, start_iteration + iteration_count)
         ]
