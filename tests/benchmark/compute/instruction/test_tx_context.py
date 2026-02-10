@@ -42,6 +42,9 @@ def test_call_frame_context_ops(
 
 
 @pytest.mark.repricing
+@pytest.mark.execute(
+    pytest.mark.skip(reason="type 3 tx not supported in execute")
+)
 @pytest.mark.parametrize(
     "blob_present",
     [
