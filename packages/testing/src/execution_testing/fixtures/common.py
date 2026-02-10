@@ -4,7 +4,6 @@ from typing import Any, ClassVar, Dict, List
 
 from pydantic import (
     AliasChoices,
-    ConfigDict,
     Field,
     computed_field,
     model_validator,
@@ -108,7 +107,7 @@ class FixtureAuthorizationTuple(
 class FixtureTransactionLog(CamelModel, RLPSerializable):
     """Fixture variant of the TransactionLog type."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     address: Address | None = None
     topics: List[Hash] | None = None
