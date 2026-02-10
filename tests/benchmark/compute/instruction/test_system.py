@@ -49,6 +49,7 @@ def test_contract_calling_many_addresses(
     transfer_amount: int,
     opcode: Op,
     access_warm: bool,
+    gas_benchmark_value: int,
     tx_gas_limit: int,
 ) -> None:
     """Benchmark a contract that calls many addresses."""
@@ -67,33 +68,46 @@ def test_contract_calling_many_addresses(
     cost = loop(0xFFFF).gas_cost(fork)
     code = setup + loop(cost)
 
-    access_list = None
-    if access_warm:
-        gas_costs = fork.gas_costs()
-        intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
-
-        iterations = (tx_gas_limit - intrinsic_cost_calc()) // (
-            gas_costs.G_ACCESS_LIST_ADDRESS + cost
-        )
-
-        access_list = [
-            AccessList(
-                address=Address(warm_start_addr - i),
-                storage_keys=[],
-            )
-            for i in range(iterations)
-        ]
-
-    benchmark_test(
-        tx=Transaction(
-            to=pre.deploy_contract(
-                code=code,
-                balance=10**18 if transfer_amount > 0 else 0,
-            ),
-            sender=pre.fund_eoa(),
-            access_list=access_list,
-        )
+    contract_addr = pre.deploy_contract(
+        code=code,
+        balance=10**18 if transfer_amount > 0 else 0,
     )
+
+    intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_cost = intrinsic_cost_calc()
+    access_list_addr_cost = fork.gas_costs().G_ACCESS_LIST_ADDRESS
+
+    txs = []
+    remaining_gas = gas_benchmark_value
+    while remaining_gas > intrinsic_cost:
+        per_tx_gas = min(tx_gas_limit, remaining_gas)
+        remaining_gas -= per_tx_gas
+
+        access_list = None
+        if access_warm:
+            iterations = (per_tx_gas - intrinsic_cost) // (
+                access_list_addr_cost + cost
+            )
+            if iterations <= 0:
+                break
+            access_list = [
+                AccessList(
+                    address=Address(warm_start_addr - i),
+                    storage_keys=[],
+                )
+                for i in range(iterations)
+            ]
+
+        txs.append(
+            Transaction(
+                to=contract_addr,
+                sender=pre.fund_eoa(),
+                gas_limit=per_tx_gas,
+                access_list=access_list,
+            )
+        )
+
+    benchmark_test(blocks=[Block(txs=txs)])
 
 
 @pytest.mark.repricing(max_code_size_ratio=0)
