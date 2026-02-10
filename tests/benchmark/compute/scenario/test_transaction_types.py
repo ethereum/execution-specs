@@ -21,8 +21,6 @@ from execution_testing import (
     compute_create_address,
 )
 
-from ..helpers import CustomSizedContractInitcode
-
 
 def test_empty_block(
     benchmark_test: BenchmarkTestFiller,
@@ -154,13 +152,12 @@ def test_ether_transfers(
     txs = []
     token_transfers: dict[Address, int] = {}
 
-    access_list = (
-        [AccessList(address=Address(0x100), storage_keys=[])]
-        if warm_access
-        else None
-    )
     iteration_cost = fork.transaction_intrinsic_cost_calculator()(
-        access_list=access_list,
+        access_list=(
+            [AccessList(address=Address(0x100), storage_keys=[])]
+            if warm_access
+            else None
+        ),
     )
     iteration_count = gas_benchmark_value // iteration_cost
 
@@ -557,16 +554,26 @@ def test_auth_transaction(
 
 
 @pytest.mark.parametrize("transfer_amount", [0, 1])
+@pytest.mark.parametrize("contract_size", [0, 1, None])
 def test_contract_creation(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     transfer_amount: int,
     gas_benchmark_value: int,
+    contract_size: int | None,
 ) -> None:
     """Benchmark max code size contract creation."""
-    initcode = CustomSizedContractInitcode(
-        pre=pre, fork=fork, contract_size=fork.max_code_size()
+    if contract_size is None:
+        contract_size = fork.max_code_size()
+
+    initcode = Op.RETURN(
+        Op.PUSH0,
+        contract_size,
+        # gas accounting
+        old_memory_size=0,
+        new_memory_size=contract_size,
+        code_deposit_size=contract_size,
     )
     intrinsic_gas_calc = fork.transaction_intrinsic_cost_calculator()
 
