@@ -45,7 +45,7 @@ APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 ALLOWANCE_SELECTOR = 0xDD62ED3E  # allowance(address,address)
 
 # Load token names from stubs.json for test parametrization
-_STUBS_FILE = Path(__file__).parent / "stubs.json"
+_STUBS_FILE = Path(__file__).parent / "stubs_bloatnet.json"
 with open(_STUBS_FILE) as f:
     _STUBS = json.load(f)
 

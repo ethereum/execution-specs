@@ -594,7 +594,7 @@ BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
 APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 
 # Load token names from stubs.json for test parametrization
-_STUBS_FILE = Path(__file__).parent / "stubs.json"
+_STUBS_FILE = Path(__file__).parent / "stubs_bloatnet.json"
 with open(_STUBS_FILE) as f:
     _STUBS = json.load(f)
 
