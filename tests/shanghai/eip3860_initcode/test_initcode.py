@@ -32,7 +32,7 @@ from .helpers import (
     INITCODE_RESULTING_DEPLOYED_CODE,
     get_create_id,
 )
-from .spec import Spec, ref_spec_3860
+from .spec import ref_spec_3860
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_3860.git_path
 REFERENCE_SPEC_VERSION = ref_spec_3860.version
@@ -48,7 +48,7 @@ def initcode(fork: Fork, initcode_name: str) -> Initcode:
             name=initcode_name,
             fork=fork,
             deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-            initcode_length=Spec.MAX_INITCODE_SIZE,
+            initcode_length=fork.max_initcode_size(),
             padding_byte=0x01,
         )
     elif initcode_name == "max_size_zeros":
@@ -56,7 +56,7 @@ def initcode(fork: Fork, initcode_name: str) -> Initcode:
             name=initcode_name,
             fork=fork,
             deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-            initcode_length=Spec.MAX_INITCODE_SIZE,
+            initcode_length=fork.max_initcode_size(),
             padding_byte=0x00,
         )
     elif initcode_name == "over_limit_ones":
@@ -64,7 +64,7 @@ def initcode(fork: Fork, initcode_name: str) -> Initcode:
             name=initcode_name,
             fork=fork,
             deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-            initcode_length=Spec.MAX_INITCODE_SIZE + 1,
+            initcode_length=fork.max_initcode_size() + 1,
             padding_byte=0x01,
         )
     elif initcode_name == "over_limit_zeros":
@@ -72,7 +72,7 @@ def initcode(fork: Fork, initcode_name: str) -> Initcode:
             name=initcode_name,
             fork=fork,
             deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-            initcode_length=Spec.MAX_INITCODE_SIZE + 1,
+            initcode_length=fork.max_initcode_size() + 1,
             padding_byte=0x00,
         )
     elif initcode_name == "32_bytes":
@@ -91,20 +91,20 @@ def initcode(fork: Fork, initcode_name: str) -> Initcode:
             initcode_length=33,
             padding_byte=0x00,
         )
-    elif initcode_name == "49120_bytes":
+    elif initcode_name == "max_size_minus_word":
         return Initcode(
             name=initcode_name,
             fork=fork,
             deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-            initcode_length=49120,
+            initcode_length=fork.max_initcode_size() - 32,
             padding_byte=0x00,
         )
-    elif initcode_name == "49121_bytes":
+    elif initcode_name == "max_size_minus_word_plus_byte":
         return Initcode(
             name=initcode_name,
             fork=fork,
             deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
-            initcode_length=49121,
+            initcode_length=fork.max_initcode_size() - 32 + 1,
             padding_byte=0x00,
         )
     elif initcode_name == "empty":
@@ -143,6 +143,7 @@ def test_contract_creating_tx(
     post: Alloc,
     sender: EOA,
     initcode: Initcode,
+    fork: Fork,
 ) -> None:
     """
     Test creating a contract with initcode that is on/over the allowed limit.
@@ -161,7 +162,7 @@ def test_contract_creating_tx(
         sender=sender,
     )
 
-    if len(initcode) > Spec.MAX_INITCODE_SIZE:
+    if len(initcode) > fork.max_initcode_size():
         # Initcode is above the max size, tx inclusion in the block makes
         # it invalid.
         post[create_contract_address] = Account.NONEXISTENT
@@ -211,8 +212,8 @@ def valid_gas_test_case(initcode_name: str, gas_case: str) -> bool:
             "single_byte",
             "32_bytes",
             "33_bytes",
-            "49120_bytes",
-            "49121_bytes",
+            "max_size_minus_word",
+            "max_size_minus_word_plus_byte",
         ]
         for g in [
             "too_little_intrinsic_gas",
@@ -410,8 +411,8 @@ class TestContractCreationGasUsage:
         "single_byte",
         "32_bytes",
         "33_bytes",
-        "49120_bytes",
-        "49121_bytes",
+        "max_size_minus_word",
+        "max_size_minus_word_plus_byte",
     ],
 )
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2], ids=get_create_id)
@@ -569,6 +570,7 @@ class TestCreateInitcode:
         contract_creation_gas_cost: int,
         initcode_word_cost: int,
         create2_word_cost: int,
+        fork: Fork,
     ) -> None:
         """
         Test contract creation with valid and invalid initcode lengths.
@@ -576,7 +578,7 @@ class TestCreateInitcode:
         Test contract creation via CREATE/CREATE2, parametrized by initcode
         that is on/over the max allowed limit.
         """
-        if len(initcode) > Spec.MAX_INITCODE_SIZE:
+        if len(initcode) > fork.max_initcode_size():
             # Call returns 0 as out of gas s[0]==1
             post[caller_contract_address] = Account(
                 nonce=1,

@@ -7,7 +7,7 @@ from pydantic import Field
 
 from execution_testing.base_types import Address, Bytes
 from execution_testing.forks import Fork, Frontier
-from execution_testing.test_types import EOA, Transaction, ceiling_division
+from execution_testing.test_types import EOA, Transaction
 from execution_testing.vm import Bytecode, ForkOpcodeInterface, Op
 
 
@@ -45,7 +45,6 @@ class Initcode(Bytecode):
         deploy_code: SupportsBytes | Bytes | None = None,
         initcode_length: int | None = None,
         initcode_prefix: Bytecode | None = None,
-        initcode_prefix_execution_gas: int = 0,
         padding_byte: int = 0x00,
         name: str = "",
         fork: Fork = Frontier,
@@ -62,24 +61,17 @@ class Initcode(Bytecode):
         if initcode_prefix is None:
             initcode_prefix = Bytecode()
 
-        gas_costs = fork.gas_costs()
-        memory_calculator = fork.memory_expansion_gas_calculator()
-
         initcode = initcode_prefix
         code_length = len(bytes(deploy_code))
-        execution_gas = initcode_prefix_execution_gas
 
         # PUSH2: length=<bytecode length>
         initcode += Op.PUSH2(code_length)
-        execution_gas = gas_costs.G_VERY_LOW
 
         # PUSH1: offset=0
         initcode += Op.PUSH1(0)
-        execution_gas += gas_costs.G_VERY_LOW
 
         # DUP2
         initcode += Op.DUP2
-        execution_gas += gas_costs.G_VERY_LOW
 
         # PUSH1: initcode_length=11 + len(initcode_prefix_bytes) (constant)
         no_prefix_length = 0x0B
@@ -87,21 +79,17 @@ class Initcode(Bytecode):
             "initcode prefix too long"
         )
         initcode += Op.PUSH1(no_prefix_length + len(initcode_prefix))
-        execution_gas += gas_costs.G_VERY_LOW
 
         # DUP3
         initcode += Op.DUP3
-        execution_gas += gas_costs.G_VERY_LOW
 
         # CODECOPY: destinationOffset=0, offset=0, length
-        initcode += Op.CODECOPY
-        word_copy_cost = gas_costs.G_COPY * ceiling_division(code_length, 32)
-        memory_cost = memory_calculator(new_bytes=code_length)
-        execution_gas += gas_costs.G_VERY_LOW + word_copy_cost + memory_cost
+        initcode += Op.CODECOPY(
+            data_size=code_length, new_memory_size=code_length
+        )
 
         # RETURN: offset=0, length
         initcode += Op.RETURN
-        execution_gas += 0
 
         initcode_plus_deploy_code = bytes(initcode) + bytes(deploy_code)
         padding_bytes = bytes()
@@ -127,10 +115,10 @@ class Initcode(Bytecode):
         )
         instance._name_ = name
         instance.deploy_code = deploy_code
-        instance.execution_gas = execution_gas
-        instance.deployment_gas = gas_costs.G_CODE_DEPOSIT_BYTE * len(
-            bytes(instance.deploy_code)
-        )
+        instance.execution_gas = initcode.gas_cost(fork)
+        instance.deployment_gas = Op.RETURN(
+            code_deposit_size=len(bytes(instance.deploy_code))
+        ).gas_cost(fork)
 
         return instance
 
