@@ -33,6 +33,7 @@ class Bytecode:
 
     _name_: str = ""
     _bytes_: bytes
+    _keccak_256_: Hash | None = None
 
     popped_stack_items: int
     pushed_stack_items: int
@@ -261,7 +262,9 @@ class Bytecode:
 
     def keccak256(self) -> Hash:
         """Return the keccak256 hash of the opcode byte representation."""
-        return Bytes(self._bytes_).keccak256()
+        if self._keccak_256_ is None:
+            self._keccak_256_ = Bytes(self._bytes_).keccak256()
+        return self._keccak_256_
 
     def gas_cost(
         self,

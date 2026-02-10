@@ -11,7 +11,7 @@ from execution_testing.base_types.conversions import (
     FixedSizeBytesConvertible,
 )
 from execution_testing.forks import Fork
-from execution_testing.vm import Op
+from execution_testing.vm import Bytecode, Op
 
 from .account_types import EOA
 from .utils import int_to_bytes
@@ -88,14 +88,18 @@ def compute_create_address(
 def compute_create2_address(
     address: FixedSizeBytesConvertible,
     salt: FixedSizeBytesConvertible,
-    initcode: BytesConvertible,
+    initcode: Bytecode | BytesConvertible,
 ) -> Address:
     """
     Compute address of the resulting contract created using the `CREATE2`
     opcode.
     """
+    if isinstance(initcode, Bytecode):
+        initcode_hash = initcode.keccak256()
+    else:
+        initcode_hash = Bytes(initcode).keccak256()
     hash_bytes = Bytes(
-        b"\xff" + Address(address) + Hash(salt) + Bytes(initcode).keccak256()
+        b"\xff" + Address(address) + Hash(salt) + initcode_hash
     ).keccak256()
     return Address(hash_bytes[-20:])
 
