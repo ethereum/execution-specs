@@ -37,6 +37,59 @@ from execution_testing import (
 )
 
 
+def test_contract_calling_many_addresses(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Benchmark a contract that calls many addresses.
+
+    Creates a contract that generates addresses dynamically using KECCAK256
+    and calls each one with 1 wei.
+    Stop when the gas is less than the loop cost.
+    """
+    gas_costs = fork.gas_costs()
+    loop_cost = (
+        gas_costs.G_JUMPDEST  # 1
+        + gas_costs.G_VERY_LOW * 4  # 4× PUSH1 for CALL zero args = 12
+        + gas_costs.G_BASE * 2  # 2× GAS = 4
+        + gas_costs.G_VERY_LOW * 5  # PUSH1 value, DUP6, SWAP1, SUB, GT = 15
+        + gas_costs.G_VERY_LOW * 2  # PUSH1 dest, PUSH2 loop_cost = 6
+        + gas_costs.G_HIGH  # JUMPI = 10
+        + gas_costs.G_COLD_ACCOUNT_ACCESS  # 2600
+        + gas_costs.G_CALL_VALUE  # 9000
+        + gas_costs.G_NEW_ACCOUNT  # 25000
+        - gas_costs.G_CALL_STIPEND  # -2300 (refunded when callee has no code)
+    )
+    # Build contract code that generates addresses and calls them
+    # Pattern:
+    # 1. Pushes the current blockhash on the stack
+    # 2. JUMPDEST (loop start)
+    # 3. Call into the address at the top of the stack with 1 wei
+    # 4. Subtract 1 from the blockhash
+    # 5. Jump to the start of the loop if the gas is greater than the loop cost
+    # 6. otherwise, return 0
+
+    setup = Op.BLOCKHASH(0)
+    code = (
+        setup
+        + Op.JUMPDEST  # [BLOCKHASH]
+        + Op.CALL(address=Op.DUP6, value=1)  # [1, BLOCKHASH]
+        + Op.SWAP1  # [BLOCKHASH, 1] // Assume every CALL is successful
+        + Op.SUB  # [BLOCKHASH-1]
+        + Op.JUMPI(Op.GT(Op.GAS, loop_cost), len(setup))
+        + Op.RETURN(0, 0)
+    )
+
+    benchmark_test(
+        tx=Transaction(
+            to=pre.deploy_contract(code=code),
+            sender=pre.fund_eoa(),
+        )
+    )
+
+
 @pytest.mark.repricing(max_code_size_ratio=0)
 @pytest.mark.parametrize(
     "opcode",
