@@ -705,7 +705,7 @@ class Alloc(SharedAlloc):
     def _fund_address(
         self,
         address: Address,
-        amount: NumberConvertible,
+        amount: int,
         *,
         minimum_balance: bool,
     ) -> None:
@@ -713,27 +713,20 @@ class Alloc(SharedAlloc):
         Execute implementation of address funding.
         """
         current_balance = self._eth_rpc.get_balance(address)
-        fund_amount = int(Number(amount))
-
         if minimum_balance:
-            if current_balance >= fund_amount:
+            if current_balance >= amount:
                 cur_eth = current_balance / 10**18
-                min_eth = fund_amount / 10**18
+                min_eth = amount / 10**18
                 logger.info(
                     f"Skipping funding for address {address} "
                     f"(label={address.label}): current balance "
                     f"{cur_eth:.18f} ETH >= minimum {min_eth:.18f} ETH"
                 )
-                if address in self:
-                    account = self[address]
-                    if account is not None:
-                        self[address] = account.copy(balance=current_balance)
-                else:
-                    self.__internal_setitem__(
-                        address, Account(balance=current_balance)
-                    )
+                self.__internal_setitem__(
+                    address, Account(balance=current_balance)
+                )
                 return
-            fund_eth = fund_amount / 10**18
+            fund_eth = amount / 10**18
             logger.debug(
                 f"Funding address to minimum balance {address} "
                 f"(label={address.label}): {fund_eth:.18f} ETH"
@@ -742,11 +735,11 @@ class Alloc(SharedAlloc):
                 action="fund_address",
                 target=address.label,
                 to=address,
-                value=fund_amount - current_balance,
+                value=amount - current_balance,
             )
-            new_balance = fund_amount
+            new_balance = amount
         else:
-            fund_eth = fund_amount / 10**18
+            fund_eth = amount / 10**18
             logger.debug(
                 f"Funding address {address} (label={address.label}): "
                 f"{fund_eth:.18f} ETH"
@@ -757,24 +750,9 @@ class Alloc(SharedAlloc):
                 to=address,
                 value=amount,
             )
-            new_balance = current_balance + fund_amount
+            new_balance = current_balance + amount
 
-        if address in self:
-            account = self[address]
-            if account is not None:
-                self[address] = account.copy(balance=new_balance)
-                cur_eth = current_balance / 10**18
-                new_eth = new_balance / 10**18
-                logger.debug(
-                    f"Updated balance for existing address {address}: "
-                    f"{cur_eth:.18f} ETH -> {new_eth:.18f} ETH"
-                )
-            else:
-                self.__internal_setitem__(
-                    address, Account(balance=new_balance)
-                )
-        else:
-            self.__internal_setitem__(address, Account(balance=new_balance))
+        self.__internal_setitem__(address, Account(balance=new_balance))
 
         logger.info(
             f"Address {address} funding tx created (label={address.label}): "

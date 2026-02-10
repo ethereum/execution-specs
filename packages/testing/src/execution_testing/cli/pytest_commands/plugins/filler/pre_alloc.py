@@ -366,7 +366,7 @@ class Alloc(SharedAlloc):
     def _fund_address(
         self,
         address: Address,
-        amount: NumberConvertible,
+        amount: int,
         *,
         minimum_balance: bool,
     ) -> None:
@@ -374,12 +374,6 @@ class Alloc(SharedAlloc):
         Filler implementation of address funding.
         """
         del minimum_balance
-        if address in self:
-            raise Exception(
-                "Cannot fund an account already in state. "
-                "Use the appropriate `amount`, `balance` arguments "
-                "when creating the account."
-            )
         self.__internal_setitem__(address, Account(balance=amount))
 
     def _empty_account(self) -> Address:

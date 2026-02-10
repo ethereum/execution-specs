@@ -290,17 +290,23 @@ class Alloc(BaseAlloc):
                 insufficient
 
         """
+        if address in self:
+            raise Exception(
+                "Cannot fund an account already in state. "
+                "Use the appropriate `amount`, `balance` arguments "
+                "when creating the account."
+            )
         self._pre_funded_addresses.add(address)
         return self._fund_address(
             address=address,
-            amount=amount,
+            amount=int(Number(amount)),
             minimum_balance=minimum_balance,
         )
 
     def _fund_address(
         self,
         address: Address,
-        amount: NumberConvertible,
+        amount: int,
         *,
         minimum_balance: bool,
     ) -> None:
