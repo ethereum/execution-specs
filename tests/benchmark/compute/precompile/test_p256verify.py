@@ -9,8 +9,9 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import concatenate_parameters
 from tests.osaka.eip7951_p256verify_precompiles import spec as p256verify_spec
+
+from ..helpers import concatenate_parameters
 
 
 @pytest.mark.parametrize(

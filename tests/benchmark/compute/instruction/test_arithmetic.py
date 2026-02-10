@@ -30,7 +30,7 @@ from execution_testing import (
     Transaction,
 )
 
-from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
+from ..helpers import DEFAULT_BINOP_ARGS, make_dup, neg
 
 
 @pytest.mark.parametrize(

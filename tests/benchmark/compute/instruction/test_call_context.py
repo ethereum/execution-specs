@@ -24,7 +24,7 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import (
+from ..helpers import (
     ReturnDataStyle,
 )
 

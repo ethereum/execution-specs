@@ -9,8 +9,9 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import concatenate_parameters
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
+
+from ..helpers import concatenate_parameters
 
 
 @pytest.mark.repricing

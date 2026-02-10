@@ -8,7 +8,7 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import calculate_optimal_input_length
+from ..helpers import calculate_optimal_input_length
 
 
 def test_sha256(

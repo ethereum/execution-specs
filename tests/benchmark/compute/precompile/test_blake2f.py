@@ -9,9 +9,10 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import concatenate_parameters
 from tests.istanbul.eip152_blake2.common import Blake2bInput
 from tests.istanbul.eip152_blake2.spec import Spec as Blake2bSpec
+
+from ..helpers import concatenate_parameters
 
 
 @pytest.mark.parametrize(

@@ -29,7 +29,7 @@ from execution_testing import (
     compute_create_address,
 )
 
-from tests.benchmark.compute.helpers import StorageAction, TransactionResult
+from ..helpers import StorageAction, TransactionResult
 
 
 @pytest.mark.repricing(fixed_key=True, fixed_value=True)

@@ -13,7 +13,7 @@ from execution_testing import (
 )
 from py_ecc.bn128 import G1, G2, multiply
 
-from tests.benchmark.compute.helpers import concatenate_parameters
+from ..helpers import concatenate_parameters
 
 
 @pytest.mark.parametrize(

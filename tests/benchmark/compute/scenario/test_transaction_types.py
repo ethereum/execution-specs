@@ -21,7 +21,7 @@ from execution_testing import (
     compute_create_address,
 )
 
-from tests.benchmark.compute.helpers import CustomSizedContractInitcode
+from ..helpers import CustomSizedContractInitcode
 
 
 def test_empty_block(

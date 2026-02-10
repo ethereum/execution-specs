@@ -10,8 +10,9 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import concatenate_parameters
 from tests.prague.eip2537_bls_12_381_precompiles import spec as bls12381_spec
+
+from ..helpers import concatenate_parameters
 
 
 @pytest.mark.parametrize(

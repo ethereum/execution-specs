@@ -9,7 +9,7 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import concatenate_parameters
+from ..helpers import concatenate_parameters
 
 
 @pytest.mark.repricing

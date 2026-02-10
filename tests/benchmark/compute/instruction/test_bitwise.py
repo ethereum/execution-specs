@@ -27,7 +27,7 @@ from execution_testing import (
     Transaction,
 )
 
-from tests.benchmark.compute.helpers import (
+from ..helpers import (
     DEFAULT_BINOP_ARGS,
     make_dup,
     sar,

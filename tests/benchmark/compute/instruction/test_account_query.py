@@ -36,7 +36,7 @@ from execution_testing import (
     While,
 )
 
-from tests.benchmark.compute.helpers import CustomSizedContractFactory
+from ..helpers import CustomSizedContractFactory
 
 
 @pytest.mark.repricing(contract_balance=1)
