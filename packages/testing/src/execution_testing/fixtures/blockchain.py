@@ -214,6 +214,10 @@ class FixtureHeader(CamelModel):
     block_access_list_hash: (
         Annotated[Hash, HeaderForkRequirement("bal_hash")] | None
     ) = Field(None, alias="blockAccessListHash")
+    slot_number: (
+        Annotated[ZeroPaddedHexNumber, HeaderForkRequirement("slot_number")]
+        | None
+    ) = Field(None)
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -422,6 +426,7 @@ class FixtureExecutionPayload(CamelModel):
     block_access_list: Bytes | None = Field(
         None, description="RLP-serialized EIP-7928 Block Access List"
     )
+    slot_number: HexNumber | None = Field(None)
 
     @classmethod
     def from_fixture_header(
