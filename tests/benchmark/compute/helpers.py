@@ -2,7 +2,7 @@
 
 import math
 from enum import Enum, auto
-from typing import Generator, Self, Sequence, cast
+from typing import Dict, Generator, Self, Sequence, cast
 
 from execution_testing import (
     EOA,
@@ -349,6 +349,8 @@ class CustomSizedContractFactory(IteratingBytecode):
 
     _cached_address: Address
     """Cached address to avoid expensive recomputation."""
+    _cached_created_contracts: Dict[int, Address]
+    """Cached created contract addresses to avoid expensive recomputation."""
     contract_size: int
     """The size of the contracts to deploy."""
 
@@ -418,6 +420,7 @@ class CustomSizedContractFactory(IteratingBytecode):
             initcode=Initcode(deploy_code=instance),
             fork=fork,
         )
+        instance._cached_created_contracts = {}
         instance.contract_size = initcode.contract_size
         deployed_address = pre.deterministic_deploy_contract(
             deploy_code=instance
@@ -494,8 +497,10 @@ class CustomSizedContractFactory(IteratingBytecode):
 
     def created_contract_address(self, *, salt: int) -> Address:
         """Get the deterministic address of the created contract."""
-        return compute_create2_address(
-            address=self.address(),
-            salt=salt,
-            initcode=self.initcode,
-        )
+        if salt not in self._cached_created_contracts:
+            self._cached_created_contracts[salt] = compute_create2_address(
+                address=self.address(),
+                salt=salt,
+                initcode=self.initcode,
+            )
+        return self._cached_created_contracts[salt]
