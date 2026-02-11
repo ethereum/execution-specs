@@ -111,7 +111,7 @@ def prefix_code_gas(fork: Fork, refund_type: RefundType) -> int:
     """Return the minimum execution gas cost due to the refund type."""
     if RefundType.STORAGE_CLEAR in refund_type:
         # Minimum code to generate a storage clear is Op.SSTORE(0, 0).
-        return Bytecode(
+        return (
             Op.SSTORE(
                 key_warm=False,
                 original_value=1,
