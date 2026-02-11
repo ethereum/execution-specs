@@ -202,6 +202,7 @@ def test_create_selfdestruct_same_tx(
     create_opcode: Op,
     call_times: int,
     selfdestruct_contract_initial_balance: int,
+    fork_extra_gas: int,
 ) -> None:
     """
     Use CREATE or CREATE2 to create a self-destructing contract, and call it in
@@ -339,7 +340,7 @@ def test_create_selfdestruct_same_tx(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=500_000 + fork_extra_gas,
     )
 
     entry_code_address = tx.created_contract
@@ -376,6 +377,7 @@ def test_self_destructing_initcode(
     call_times: int,  # Number of times to call the self-destructing contract
     # in the same tx
     selfdestruct_contract_initial_balance: int,
+    fork_extra_gas: int,
 ) -> None:
     """
     Test that a contract can self-destruct in its initcode.
@@ -474,7 +476,7 @@ def test_self_destructing_initcode(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=500_000 + fork_extra_gas,
     )
 
     entry_code_address = tx.created_contract
@@ -506,6 +508,7 @@ def test_self_destructing_initcode_create_tx(
     selfdestruct_code: Bytecode,
     sendall_recipient_addresses: List[Address],
     selfdestruct_contract_initial_balance: int,
+    fork_extra_gas: int,
 ) -> None:
     """
     Use a Create Transaction to execute a self-destructing initcode.
@@ -521,7 +524,7 @@ def test_self_destructing_initcode_create_tx(
         value=tx_value,
         data=selfdestruct_code,
         to=None,
-        gas_limit=500_000,
+        gas_limit=500_000 + fork_extra_gas,
     )
     selfdestruct_contract_address = tx.created_contract
     if selfdestruct_contract_initial_balance > 0:
@@ -579,6 +582,7 @@ def test_recreate_self_destructed_contract_different_txs(
     recreate_times: int,
     # Number of times to call the self-destructing contract in the same tx
     call_times: int,
+    fork_extra_gas: int,
 ) -> None:
     """
     Test that a contract can be recreated after it has self-destructed, over
@@ -656,7 +660,7 @@ def test_recreate_self_destructed_contract_different_txs(
                 data=Hash(i),
                 sender=sender,
                 to=entry_code_address,
-                gas_limit=500_000,
+                gas_limit=500_000 + fork_extra_gas,
             )
         )
         entry_code_storage[i] = selfdestruct_contract_address
@@ -741,6 +745,7 @@ def test_selfdestruct_pre_existing(
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
     call_times: int,
+    fork_extra_gas: int,
 ) -> None:
     """
     Test calling a previously created account that contains a selfdestruct, and
@@ -844,7 +849,7 @@ def test_selfdestruct_pre_existing(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=500_000 + fork_extra_gas,
     )
 
     entry_code_address = tx.created_contract
@@ -883,6 +888,7 @@ def test_selfdestruct_created_same_block_different_tx(
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
     call_times: int,
+    fork_extra_gas: int,
 ) -> None:
     """
     Test that if an account created in the same block that contains a
@@ -965,14 +971,14 @@ def test_selfdestruct_created_same_block_different_tx(
             data=selfdestruct_contract_initcode,
             sender=sender,
             to=None,
-            gas_limit=500_000,
+            gas_limit=500_000 + fork_extra_gas,
         ),
         Transaction(
             value=entry_code_balance,
             data=entry_code,
             sender=sender,
             to=None,
-            gas_limit=500_000,
+            gas_limit=500_000 + fork_extra_gas,
         ),
     ]
 
@@ -993,6 +999,7 @@ def test_calling_from_new_contract_to_pre_existing_contract(
     call_opcode: Op,
     call_times: int,
     selfdestruct_contract_initial_balance: int,
+    fork_extra_gas: int,
 ) -> None:
     """
     Test that if an account created in the current transaction delegate-call a
@@ -1118,7 +1125,7 @@ def test_calling_from_new_contract_to_pre_existing_contract(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=500_000 + fork_extra_gas,
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -1142,6 +1149,7 @@ def test_calling_from_pre_existing_contract_to_new_contract(
     call_times: int,
     selfdestruct_contract_initial_balance: int,
     pre_existing_contract_initial_balance: int,
+    fork_extra_gas: int,
 ) -> None:
     """
     Test that if an account created in the current transaction contains a
@@ -1252,7 +1260,7 @@ def test_calling_from_pre_existing_contract_to_new_contract(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=500_000 + fork_extra_gas,
     )
 
     entry_code_address = tx.created_contract
@@ -1302,6 +1310,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
     create_opcode: Op,
     call_times: int,
     selfdestruct_contract_initial_balance: int,
+    fork_extra_gas: int,
 ) -> None:
     """
     Verify that a contract can self-destruct if it was created in the same
@@ -1435,7 +1444,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
+        gas_limit=1_000_000 + fork_extra_gas,
     )
 
     entry_code_address = tx.created_contract

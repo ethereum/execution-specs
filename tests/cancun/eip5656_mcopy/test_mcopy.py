@@ -19,6 +19,7 @@ from execution_testing import (
     ceiling_division,
     keccak256,
 )
+from execution_testing.forks.helpers import Fork
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION, mcopy
 
@@ -115,13 +116,29 @@ def code_address(pre: Alloc, code_bytecode: Bytecode) -> Address:
 
 @pytest.fixture
 def tx(  # noqa: D103
-    pre: Alloc, code_address: Address, dest: int, src: int, length: int
+    pre: Alloc,
+    code_address: Address,
+    dest: int,
+    src: int,
+    length: int,
+    initial_memory: bytes,
+    final_memory: bytes,
+    fork: Fork,
 ) -> Transaction:
+    gas_costs = fork.gas_costs()
+    # Gas required depends on count and cost of SSTOREs used.
+    sstore_gas = (
+        max(len(initial_memory), len(final_memory))
+        // 0x20
+        * (gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD)
+    )
+    data = Hash(dest) + Hash(src) + Hash(length)
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(calldata=data)
     return Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        data=Hash(dest) + Hash(src) + Hash(length),
-        gas_limit=1_000_000,
+        data=data,
+        gas_limit=100_000 + sstore_gas + intrinsic_gas,
     )
 
 

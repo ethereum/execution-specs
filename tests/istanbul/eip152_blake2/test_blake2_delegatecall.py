@@ -41,11 +41,15 @@ def test_blake2_precompile_delegatecall(
         + Op.STOP,
         storage={0: 0xDEADBEEF},
     )
+    gas_costs = fork.gas_costs()
 
     tx = Transaction(
         to=account,
         sender=pre.fund_eoa(),
-        gas_limit=90_000,
+        gas_limit=20_000
+        + gas_costs.G_STORAGE_SET
+        + gas_costs.G_COLD_SLOAD
+        + fork.transaction_intrinsic_cost_calculator()(),
         protected=True,
     )
 

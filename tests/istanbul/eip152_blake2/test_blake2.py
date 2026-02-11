@@ -395,8 +395,9 @@ def test_blake2b(
     pre: Alloc,
     call_opcode: Op,
     blake2b_contract_bytecode: Bytecode,
-    data: Blake2bInput | str | bytes,
+    data: Blake2bInput,
     output: ExpectedOutput,
+    fork: Fork,
 ) -> None:
     """Test BLAKE2b precompile."""
     env = Environment()
@@ -406,21 +407,25 @@ def test_blake2b(
     )
     sender = pre.fund_eoa()
 
-    if isinstance(data, Blake2bInput):
-        data = data.create_blake2b_tx_data()
-    elif isinstance(data, str):
-        data = bytes.fromhex(data)
+    gas_costs = fork.gas_costs()
+    sstore_cost = gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD
+    blake_cost = data.rounds * gas_costs.G_BLAKE2_PER_ROUND
 
-    if isinstance(data, Blake2bInput):
-        data = data.create_blake2b_tx_data()
-    elif isinstance(data, str):
-        data = bytes.fromhex(data)
+    data_bytes = data.create_blake2b_tx_data()
+
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()(
+        calldata=data_bytes
+    )
+    gas_limit = 50_000 + intrinsic_cost + blake_cost + 3 * sstore_cost
+    gas_limit = min(
+        gas_limit, fork.transaction_gas_limit_cap() or Environment().gas_limit
+    )
 
     tx = Transaction(
         ty=0x0,
         to=account,
-        data=data,
-        gas_limit=1_000_000,
+        data=data_bytes,
+        gas_limit=gas_limit,
         protected=True,
         sender=sender,
         value=100000,
@@ -438,9 +443,36 @@ def test_blake2b(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+def max_tx_gas_limit(fork: Fork) -> int:
+    """Maximum gas limit for a transaction (fork agnostic)."""
+    tx_limit = fork.transaction_gas_limit_cap()
+    if tx_limit is not None:
+        return tx_limit
+    return Environment().gas_limit
+
+
+def non_max_tx_gas_limits(fork: Fork) -> List[int]:
+    """List of tx gas limits below transaction max."""
+    gas_costs = fork.gas_costs()
+    sstore_cost = gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD
+    return [
+        40_000 + 3 * sstore_cost,
+        50_000 + 3 * sstore_cost,
+        140_000 + 3 * sstore_cost,
+    ]
+
+
+def tx_gas_limits(fork: Fork) -> List[int]:
+    """List of tx gas limits."""
+    # roughly: blake twice as expensive and cold storage cost
+    return [
+        max_tx_gas_limit(fork),
+    ] + non_max_tx_gas_limits(fork)
+
+
 @pytest.mark.valid_from("Istanbul")
 @pytest.mark.parametrize("call_opcode", [Op.CALL, Op.CALLCODE])
-@pytest.mark.parametrize("gas_limit", [90_000, 110_000, 200_000])
+@pytest.mark.parametrize_by_fork("gas_limit", non_max_tx_gas_limits)
 @pytest.mark.parametrize(
     ["data", "output"],
     [
@@ -543,7 +575,7 @@ def test_blake2b_invalid_gas(
     post = {
         account: Account(
             storage={
-                0: 0xDEADBEEF,
+                0: 0,
                 1: output.data_1,
                 2: output.data_2,
             },
@@ -551,19 +583,6 @@ def test_blake2b_invalid_gas(
         )
     }
     state_test(env=env, pre=pre, post=post, tx=tx)
-
-
-def max_tx_gas_limit(fork: Fork) -> int:
-    """Maximum gas limit for a transaction (fork agnostic)."""
-    tx_limit = fork.transaction_gas_limit_cap()
-    if tx_limit is not None:
-        return tx_limit
-    return Environment().gas_limit
-
-
-def tx_gas_limits(fork: Fork) -> List[int]:
-    """List of tx gas limits."""
-    return [max_tx_gas_limit(fork), 90_000, 110_000, 200_000]
 
 
 @pytest.mark.valid_from("Istanbul")

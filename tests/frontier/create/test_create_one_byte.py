@@ -94,8 +94,16 @@ def test_create_one_byte(
             expect_post[opcode] = created_accounts[opcode]
     expect_post[256] = 1
 
+    gas_costs = fork.gas_costs()
+    sstore_cost = len(initcode) * (
+        gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD
+    )
+    create_cost = len(initcode) * (
+        gas_costs.G_CREATE + gas_costs.G_CODE_DEPOSIT_BYTE
+    )
+
     tx = Transaction(
-        gas_limit=14_000_000,
+        gas_limit=150_000 + sstore_cost + create_cost,
         to=code,
         data=b"",
         nonce=0,

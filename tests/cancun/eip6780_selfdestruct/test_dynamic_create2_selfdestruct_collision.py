@@ -50,6 +50,7 @@ def test_dynamic_create2_selfdestruct_collision(
     call_create2_contract_at_the_end: bool,
     pre: Alloc,
     state_test: StateTestFiller,
+    fork_extra_gas: int,
 ) -> None:
     """
     Dynamic Create2->Suicide->Create2 collision scenario.
@@ -104,7 +105,7 @@ def test_dynamic_create2_selfdestruct_collision(
     initcode = Initcode(
         deploy_code=deploy_code,
         initcode_prefix=Op.SSTORE(create2_constructor_worked, 1)
-        + Op.CALL(Op.GAS(), address_create2_storage, 0, 0, 0, 0, 0),
+        + Op.CALL(Op.GAS, address_create2_storage, 0, 0, 0, 0, 0),
     )
 
     # Create the contract that performs CREATE2 operations
@@ -141,7 +142,8 @@ def test_dynamic_create2_selfdestruct_collision(
         # Make a subcall that do CREATE2 and returns its the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            100000,
+            # cannot send Op.GAS here - the CREATE2 collision consumes all gas
+            100000 if create2_dest_already_in_state else Op.GAS,
             address_code,
             first_create2_value,
             0,
@@ -154,15 +156,16 @@ def test_dynamic_create2_selfdestruct_collision(
             Op.MLOAD(0),
         )
         # In case the create2 didn't work, flush account balance
-        + Op.CALL(100000, address_code, 0, 0, 0, 0, 0)
+        + Op.CALL(Op.GAS, address_code, 0, 0, 0, 0, 0)
         # Call to the created account to trigger selfdestruct
         + Op.CALL(
-            100000, call_address_in_between, first_call_value, 0, 0, 0, 0
+            Op.GAS, call_address_in_between, first_call_value, 0, 0, 0, 0
         )
         # Make a subcall that do CREATE2 collision and returns its address as
         # the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
+            # cannot send Op.GAS here - the CREATE2 collision consumes all gas
             100000,
             address_code,
             second_create2_value,
@@ -177,7 +180,7 @@ def test_dynamic_create2_selfdestruct_collision(
         )
         # Call to the created account to trigger selfdestruct
         + Op.CALL(
-            100000, call_address_in_the_end, second_call_value, 0, 0, 0, 0
+            Op.GAS, call_address_in_the_end, second_call_value, 0, 0, 0, 0
         )
         + Op.SSTORE(code_worked, 1),
         balance=100000000,
@@ -250,7 +253,7 @@ def test_dynamic_create2_selfdestruct_collision(
     tx = Transaction(
         to=address_to,
         data=initcode,
-        gas_limit=5_000_000,
+        gas_limit=500_000 + fork_extra_gas,
         sender=sender,
     )
 
@@ -275,6 +278,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     call_create2_contract_at_the_end: bool,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork_extra_gas: int,
 ) -> None:
     """
     Dynamic Create2->Suicide->Create2 collision scenario.
@@ -329,7 +333,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     initcode = Initcode(
         deploy_code=deploy_code,
         initcode_prefix=Op.SSTORE(create2_constructor_worked, 1)
-        + Op.CALL(Op.GAS(), address_create2_storage, 0, 0, 0, 0, 0),
+        + Op.CALL(Op.GAS, address_create2_storage, 0, 0, 0, 0, 0),
     )
 
     # Create the contract that performs CREATE2 operations
@@ -363,7 +367,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         # Make a subcall that do CREATE2 and returns its the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            100000,
+            Op.GAS,
             address_code,
             first_create2_value,
             0,
@@ -376,9 +380,9 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
             Op.MLOAD(0),
         )
         # In case the create2 didn't work, flush account balance
-        + Op.CALL(100000, address_code, 0, 0, 0, 0, 0)
+        + Op.CALL(Op.GAS, address_code, 0, 0, 0, 0, 0)
         # Call to the created account to trigger selfdestruct
-        + Op.CALL(100000, create2_address, first_call_value, 0, 0, 0, 0)
+        + Op.CALL(Op.GAS, create2_address, first_call_value, 0, 0, 0, 0)
         + Op.SSTORE(code_worked, 1),
         balance=100000000,
         storage={first_create2_result: 0xFF},
@@ -391,6 +395,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         # the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
+            # cannot send Op.GAS here - the CREATE2 collision consumes all gas
             100000,
             address_code,
             second_create2_value,
@@ -405,7 +410,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         )
         # Call to the created account to trigger selfdestruct
         + Op.CALL(
-            200000, call_address_in_the_end, second_call_value, 0, 0, 0, 0
+            Op.GAS, call_address_in_the_end, second_call_value, 0, 0, 0, 0
         )
         + Op.SSTORE(code_worked, 1),
         balance=100000000,
@@ -520,13 +525,13 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
                     Transaction(
                         to=address_to,
                         data=initcode,
-                        gas_limit=5_000_000,
+                        gas_limit=5_000_000 + fork_extra_gas,
                         sender=sender,
                     ),
                     Transaction(
                         to=address_to_second,
                         data=initcode,
-                        gas_limit=5_000_000,
+                        gas_limit=5_000_000 + fork_extra_gas,
                         sender=sender,
                     ),
                 ]
@@ -550,6 +555,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     recreate_on_first_tx: bool,
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
+    fork_extra_gas: int,
 ) -> None:
     """
     Dynamic Create2->Suicide->Create2 collision scenario over multiple
@@ -603,7 +609,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     initcode = Initcode(
         deploy_code=deploy_code,
         initcode_prefix=Op.SSTORE(create2_constructor_worked, 1)
-        + Op.CALL(Op.GAS(), address_create2_storage, 0, 0, 0, 0, 0),
+        + Op.CALL(Op.GAS, address_create2_storage, 0, 0, 0, 0, 0),
     )
 
     # Create the contract that performs CREATE2 operations
@@ -636,7 +642,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
         # Make a subcall that do CREATE2 and returns its the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            100000,
+            Op.GAS,
             address_code,
             first_create2_value,
             0,
@@ -653,12 +659,12 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     if selfdestruct_on_first_tx:
         first_tx_code += (
             # Call to the created account to trigger selfdestruct
-            Op.CALL(100000, create2_address, first_call_value, 0, 0, 0, 0)
+            Op.CALL(Op.GAS, create2_address, first_call_value, 0, 0, 0, 0)
         )
     else:
         second_tx_code += (
             # Call to the created account to trigger selfdestruct
-            Op.CALL(100000, create2_address, first_call_value, 0, 0, 0, 0)
+            Op.CALL(Op.GAS, create2_address, first_call_value, 0, 0, 0, 0)
         )
 
     if recreate_on_first_tx:
@@ -667,6 +673,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
             # as the result
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
             + Op.CALL(
+                # cannot send Op.GAS here - CREATE2 collision consumes all gas
                 100000,
                 address_code,
                 second_create2_value,
@@ -687,6 +694,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
             # as the result
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
             + Op.CALL(
+                # cannot send Op.GAS here - CREATE2 collision consumes all gas
                 100000,
                 address_code,
                 second_create2_value,
@@ -703,7 +711,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
 
     # Second tx code always calls the create2 contract at the end
     second_tx_code += Op.CALL(
-        100000, create2_address, second_call_value, 0, 0, 0, 0
+        Op.GAS, create2_address, second_call_value, 0, 0, 0, 0
     )
 
     first_tx_code += Op.SSTORE(part_1_worked, 1)
@@ -796,13 +804,13 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
                     Transaction(
                         to=address_to,
                         data=initcode,
-                        gas_limit=5_000_000,
+                        gas_limit=500_000 + fork_extra_gas,
                         sender=sender,
                     ),
                     Transaction(
                         to=address_to,
                         data=initcode,
-                        gas_limit=5_000_000,
+                        gas_limit=500_000 + fork_extra_gas,
                         sender=sender,
                     ),
                 ]

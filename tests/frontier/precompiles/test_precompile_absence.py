@@ -60,9 +60,19 @@ def test_precompile_absence(
         call_code, storage=storage.canary()
     )
 
+    gas_costs = fork.gas_costs()
+    sstore_cost = (
+        2
+        * (UPPER_BOUND - len(active_precompiles))
+        * (gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD)
+    )
+    access_cost = (
+        UPPER_BOUND - len(active_precompiles)
+    ) * gas_costs.G_COLD_ACCOUNT_ACCESS
+
     tx = Transaction(
         to=entry_point_address,
-        gas_limit=10_000_000,
+        gas_limit=50_000 + sstore_cost + access_cost,
         sender=pre.fund_eoa(),
         protected=True,
     )

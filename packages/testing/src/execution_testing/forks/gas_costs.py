@@ -62,6 +62,7 @@ class GasCosts:
 
     # Precompiled contract gas constants
 
+    G_BLAKE2_PER_ROUND: int = 0
     G_PRECOMPILE_ECADD: int = 0
     G_PRECOMPILE_ECMUL: int = 0
     G_PRECOMPILE_ECPAIRING_BASE: int = 0

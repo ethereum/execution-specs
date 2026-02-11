@@ -1825,6 +1825,8 @@ class Istanbul(ConstantinopleFix):
                 block_number=block_number, timestamp=timestamp
             ),
             G_TX_DATA_NON_ZERO=16,  # https://eips.ethereum.org/EIPS/eip-2028
+            # https://eips.ethereum.org/EIPS/eip-152
+            G_BLAKE2_PER_ROUND=1,
             # https://eips.ethereum.org/EIPS/eip-1108
             G_PRECOMPILE_ECADD=150,
             G_PRECOMPILE_ECMUL=6000,
