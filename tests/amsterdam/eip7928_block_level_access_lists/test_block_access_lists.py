@@ -18,6 +18,7 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
+    Bytecode,
     Environment,
     Fork,
     Hash,
@@ -1077,15 +1078,12 @@ def test_bal_noop_storage_write(
         code=Op.SSTORE(0x01, 0x42), storage={0x01: 0x42}
     )
 
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = (
-        intrinsic_gas_calculator()
-        # Sufficient gas for write
-        + fork.gas_costs().G_COLD_SLOAD
-        + fork.gas_costs().G_COLD_ACCOUNT_ACCESS
-        + fork.gas_costs().G_STORAGE_SET
-        + fork.gas_costs().G_BASE * 10  # Buffer for push
+    # Worst-case SSTORE metadata (cold, set from zero) for sufficient gas
+    sstore_worst_case = Bytecode(
+        Op.SSTORE(0x01, 0x42, key_warm=False, original_value=0, new_value=0x42)
     )
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    gas_limit = intrinsic_gas_calculator() + sstore_worst_case.gas_cost(fork)
 
     tx = Transaction(
         sender=alice, to=storage_contract, gas_limit=gas_limit, gas_price=0xA
