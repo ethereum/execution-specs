@@ -554,7 +554,9 @@ def test_auth_transaction(
 
 
 @pytest.mark.parametrize("transfer_amount", [0, 1])
-@pytest.mark.parametrize("contract_size", [0, 1, None])
+@pytest.mark.parametrize(
+    "contract_size", [0, 1, pytest.param(None, id="contract_size_max")]
+)
 def test_contract_creation(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -563,7 +565,7 @@ def test_contract_creation(
     gas_benchmark_value: int,
     contract_size: int | None,
 ) -> None:
-    """Benchmark max code size contract creation."""
+    """Benchmark contract creations via transactions."""
     if contract_size is None:
         contract_size = fork.max_code_size()
 
