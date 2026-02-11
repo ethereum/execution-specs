@@ -8,7 +8,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytecode,
     CodeGasMeasure,
     Environment,
     Fork,
