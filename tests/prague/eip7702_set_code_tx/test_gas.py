@@ -886,7 +886,7 @@ def test_gas_cost(
     gas_opcode_cost = Op.GAS.gas_cost(fork)
     sstore_opcode_count = 10
     push_opcode_count = (2 * (sstore_opcode_count)) - 1
-    execution_gas = Bytecode(
+    execution_gas = (
         Op.GAS
         + Op.PUSH1(0) * push_opcode_count
         + Op.SSTORE(key_warm=False) * sstore_opcode_count
@@ -1239,9 +1239,7 @@ def test_call_to_pre_authorized_oog(
     # Callee tries to call the auth_signer which delegates
     # to the delegation contract. The call instruction should out-of-gas
     # because of the addition cost of the delegation account access.
-    callee_code = Bytecode(
-        Op.SSTORE(0, call_opcode(gas=0, address=auth_signer)),
-    )
+    callee_code = Op.SSTORE(0, call_opcode(gas=0, address=auth_signer))
     callee_storage = Storage()
     callee_storage[0] = 0xFF  # Value other than 0 or 1. Should not be changed.
     callee_address = pre.deploy_contract(callee_code, storage=callee_storage)
@@ -1251,7 +1249,7 @@ def test_call_to_pre_authorized_oog(
     )
     tx_gas_limit = (
         intrinsic_gas_cost_calculator()
-        + Bytecode(
+        + (
             Op.PUSH1(0) * len(call_opcode.kwargs)
             + call_opcode(address_warm=False, delegated_address=True)
         ).gas_cost(fork)

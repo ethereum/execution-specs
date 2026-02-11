@@ -27,7 +27,7 @@ REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
 pytestmark = [pytest.mark.valid_from("Cancun")]
 
-TSTORE_BYTECODE_GAS = Bytecode(Op.TSTORE(1, 69)).gas_cost(Cancun)
+TSTORE_BYTECODE_GAS = Op.TSTORE(1, 69).gas_cost(Cancun)
 
 
 class DynamicCallContextTestCases(EnumMeta):

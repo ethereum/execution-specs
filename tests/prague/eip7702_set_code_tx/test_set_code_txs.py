@@ -678,8 +678,7 @@ def test_delegated_eoa_can_send_creating_tx(
 
     tx = Transaction(
         ty=tx_type,
-        gas_limit=200_000
-        + Bytecode(Op.SSTORE(key_warm=False) * 7).gas_cost(fork),
+        gas_limit=200_000 + (Op.SSTORE(key_warm=False) * 7).gas_cost(fork),
         to=None,
         value=0,
         data=initcode,

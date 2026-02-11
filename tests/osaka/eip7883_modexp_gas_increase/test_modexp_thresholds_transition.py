@@ -8,7 +8,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Bytecode,
     EIPChecklist,
     Fork,
     Op,
@@ -57,12 +56,10 @@ def test_modexp_fork_transition(
     )
 
     extra_gas = (
-        Bytecode(
-            Op.CALL(
-                address=Spec.MODEXP_ADDRESS,
-                args_size=Op.CALLDATASIZE,
-                address_warm=True,
-            )
+        Op.CALL(
+            address=Spec.MODEXP_ADDRESS,
+            args_size=Op.CALLDATASIZE,
+            address_warm=True,
         ).gas_cost(fork)
         + Op.GAS.gas_cost(fork)  # second GAS in measurement
     )

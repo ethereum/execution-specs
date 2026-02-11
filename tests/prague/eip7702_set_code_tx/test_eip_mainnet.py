@@ -7,7 +7,6 @@ from execution_testing import (
     Account,
     Alloc,
     AuthorizationTuple,
-    Bytecode,
     Fork,
     Op,
     StateTestFiller,
@@ -56,7 +55,7 @@ def test_eip_7702(
         access_list=[],
         authorization_list_or_count=authorization_list,
     )
-    execution_cost = Bytecode(
+    execution_cost = (
         Op.SSTORE(key_warm=False) * 3
         + Op.PUSH1(0) * 3
         + Op.ORIGIN

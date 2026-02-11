@@ -7,7 +7,6 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    Bytecode,
     Environment,
     Fork,
     Op,
@@ -89,17 +88,15 @@ def gas_measure_contract(
     )
 
     extra_gas = (
-        Bytecode(
-            Op.CALL(
-                precompile_gas,
-                Spec.MODEXP_ADDRESS,
-                0,
-                0,
-                Op.CALLDATASIZE(),
-                0,
-                0,
-                address_warm=True,
-            )
+        Op.CALL(
+            precompile_gas,
+            Spec.MODEXP_ADDRESS,
+            0,
+            0,
+            Op.CALLDATASIZE(),
+            0,
+            0,
+            address_warm=True,
         ).gas_cost(fork)
         + Op.GAS.gas_cost(fork)  # second GAS in measurement
     )
