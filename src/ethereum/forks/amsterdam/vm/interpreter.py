@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes0
-from ethereum_types.numeric import U64, U256, Uint, ulen
+from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.exceptions import EthereumException
 from ethereum.trace import (
@@ -31,16 +31,6 @@ from ethereum.trace import (
 
 from ..blocks import Log
 from ..fork_types import Address
-from ..state_tracker import (
-    capture_pre_balance,
-    capture_pre_code,
-    merge_on_failure,
-    merge_on_success,
-    track_address,
-    track_balance_change,
-    track_code_change,
-    track_nonce_change,
-)
 from ..state_tracking import (
     account_has_code_or_nonce,
     account_has_storage,
@@ -52,6 +42,7 @@ from ..state_tracking import (
     move_ether,
     restore_tx_state_tracker,
     set_code,
+    track_address,
 )
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
@@ -120,7 +111,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
         is_collision = account_has_code_or_nonce(
             tx_tracker, message.current_target
         ) or account_has_storage(tx_tracker, message.current_target)
-        track_address(message.tx_env.state_changes, message.current_target)
+        track_address(tx_tracker, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0),
@@ -142,7 +133,7 @@ def process_message_call(message: Message) -> MessageCallOutput:
             message.accessed_addresses.add(delegated_address)
             message.code = get_account(tx_tracker, delegated_address).code
             message.code_address = delegated_address
-            track_address(message.block_env.state_changes, delegated_address)
+            track_address(tx_tracker, delegated_address)
 
         evm = process_message(message)
 
@@ -204,14 +195,6 @@ def process_create_message(message: Message) -> Evm:
     mark_account_created(tx_tracker, message.current_target)
 
     increment_nonce(tx_tracker, message.current_target)
-    nonce_after = get_account(tx_tracker, message.current_target).nonce
-    track_nonce_change(
-        message.state_changes,
-        message.current_target,
-        U64(nonce_after),
-    )
-
-    capture_pre_code(message.tx_env.state_changes, message.current_target, b"")
 
     evm = process_message(message)
     if not evm.error:
@@ -226,23 +209,13 @@ def process_create_message(message: Message) -> Evm:
                 raise OutOfGasError
         except ExceptionalHalt as error:
             restore_tx_state_tracker(tx_tracker, snapshot)
-            merge_on_failure(message.state_changes)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
-            # Note: No need to capture pre code since it's always b"" here
             set_code(tx_tracker, message.current_target, contract_code)
-            if contract_code != b"":
-                track_code_change(
-                    message.state_changes,
-                    message.current_target,
-                    contract_code,
-                )
-            merge_on_success(message.state_changes)
     else:
         restore_tx_state_tracker(tx_tracker, snapshot)
-        merge_on_failure(message.state_changes)
     return evm
 
 
@@ -284,52 +257,21 @@ def process_message(message: Message) -> Evm:
         error=None,
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
-        state_changes=message.state_changes,
     )
 
     # take snapshot of state before processing the message
     snapshot = copy_tx_state_tracker(tx_tracker)
 
-    track_address(message.state_changes, message.current_target)
+    track_address(tx_tracker, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
-        # Track value transfer
-        sender_balance = get_account(tx_tracker, message.caller).balance
-        recipient_balance = get_account(
-            tx_tracker, message.current_target
-        ).balance
-
-        track_address(message.state_changes, message.caller)
-        capture_pre_balance(
-            message.tx_env.state_changes, message.caller, sender_balance
-        )
-        capture_pre_balance(
-            message.tx_env.state_changes,
-            message.current_target,
-            recipient_balance,
-        )
+        track_address(tx_tracker, message.caller)
 
         move_ether(
             tx_tracker,
             message.caller,
             message.current_target,
             message.value,
-        )
-
-        sender_new_balance = get_account(tx_tracker, message.caller).balance
-        recipient_new_balance = get_account(
-            tx_tracker, message.current_target
-        ).balance
-
-        track_balance_change(
-            message.state_changes,
-            message.caller,
-            U256(sender_new_balance),
-        )
-        track_balance_change(
-            message.state_changes,
-            message.current_target,
-            U256(recipient_new_balance),
         )
 
     try:
@@ -362,9 +304,4 @@ def process_message(message: Message) -> Evm:
 
     if evm.error:
         restore_tx_state_tracker(tx_tracker, snapshot)
-        if not message.is_create:
-            merge_on_failure(evm.state_changes)
-    else:
-        if not message.is_create:
-            merge_on_success(evm.state_changes)
     return evm

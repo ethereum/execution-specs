@@ -13,17 +13,13 @@ Implementations of the EVM storage related instructions.
 
 from ethereum_types.numeric import Uint
 
-from ...state_tracker import (
-    capture_pre_storage,
-    track_storage_read,
-    track_storage_write,
-)
 from ...state_tracking import (
     get_storage,
     get_storage_original,
     get_transient_storage,
     set_storage,
     set_transient_storage,
+    track_storage_read,
 )
 from .. import Evm
 from ..exceptions import WriteInStaticContext
@@ -62,14 +58,9 @@ def sload(evm: Evm) -> None:
         charge_gas(evm, GAS_COLD_SLOAD)
 
     # OPERATION
-    value = get_storage(
-        evm.message.tx_env.tx_tracker, evm.message.current_target, key
-    )
-    track_storage_read(
-        evm.state_changes,
-        evm.message.current_target,
-        key,
-    )
+    tx_tracker = evm.message.tx_env.tx_tracker
+    value = get_storage(tx_tracker, evm.message.current_target, key)
+    track_storage_read(tx_tracker, evm.message.current_target, key)
 
     push(evm.stack, value)
 
@@ -109,17 +100,7 @@ def sstore(evm: Evm) -> None:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GAS_COLD_SLOAD
 
-    capture_pre_storage(
-        evm.message.tx_env.state_changes,
-        evm.message.current_target,
-        key,
-        current_value,
-    )
-    track_storage_read(
-        evm.state_changes,
-        evm.message.current_target,
-        key,
-    )
+    track_storage_read(tx_tracker, evm.message.current_target, key)
 
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
@@ -152,12 +133,6 @@ def sstore(evm: Evm) -> None:
 
     charge_gas(evm, gas_cost)
     set_storage(tx_tracker, evm.message.current_target, key, new_value)
-    track_storage_write(
-        evm.state_changes,
-        evm.message.current_target,
-        key,
-        new_value,
-    )
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)

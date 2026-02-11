@@ -16,7 +16,6 @@ from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import Uint
 
 from ..fork_types import Address
-from ..state_tracker import create_child_frame
 from ..state_tracking import get_account
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
@@ -70,9 +69,6 @@ def prepare_message(
 
     accessed_addresses.add(current_target)
 
-    # Create call frame as child of transaction frame
-    call_frame = create_child_frame(tx_env.state_changes)
-
     return Message(
         block_env=block_env,
         tx_env=tx_env,
@@ -92,5 +88,4 @@ def prepare_message(
         disable_precompiles=False,
         parent_evm=None,
         is_create=isinstance(tx.to, Bytes0),
-        state_changes=call_frame,
     )

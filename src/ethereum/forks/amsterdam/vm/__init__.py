@@ -24,7 +24,6 @@ from ethereum.exceptions import EthereumException
 from ..block_access_lists.rlp_types import BlockAccessList
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
-from ..state_tracker import StateChanges, merge_on_failure, merge_on_success
 from ..state_tracking import BlockStateTracker, TxStateTracker
 from ..transactions import LegacyTransaction
 from ..trie import Trie
@@ -49,7 +48,6 @@ class BlockEnvironment:
     prev_randao: Bytes32
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
-    state_changes: StateChanges
 
 
 @dataclass
@@ -113,7 +111,6 @@ class TransactionEnvironment:
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]
     tx_hash: Optional[Hash32]
-    state_changes: "StateChanges" = field(default_factory=StateChanges)
 
 
 @dataclass
@@ -140,7 +137,6 @@ class Message:
     disable_precompiles: bool
     parent_evm: Optional["Evm"]
     is_create: bool
-    state_changes: "StateChanges" = field(default_factory=StateChanges)
 
 
 @dataclass
@@ -163,7 +159,6 @@ class Evm:
     error: Optional[EthereumException]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    state_changes: StateChanges
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -185,8 +180,6 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_addresses.update(child_evm.accessed_addresses)
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
 
-    merge_on_success(child_evm.state_changes)
-
 
 def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
     """
@@ -201,5 +194,3 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
 
     """
     evm.gas_left += child_evm.gas_left
-
-    merge_on_failure(child_evm.state_changes)

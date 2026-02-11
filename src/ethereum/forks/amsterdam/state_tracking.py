@@ -19,7 +19,7 @@ within a single transaction and supports copy-on-write rollback.
 """
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -27,6 +27,7 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.state import PreState
 
+from .block_access_lists.rlp_types import BlockAccessIndex
 from .fork_types import EMPTY_ACCOUNT, Account, Address
 
 
@@ -36,15 +37,33 @@ class BlockStateTracker:
     Accumulate committed transaction-level changes across a block.
 
     Read chain: block writes -> pre_state.
+
+    BAL tracking: ``tx_write_history`` saves per-tx raw writes at
+    incorporate time.  ``account_reads`` and ``storage_reads``
+    accumulate across all transactions.  At block end, the builder
+    processes the write history sequentially to produce the Block
+    Access List.
     """
 
     pre_state: PreState
+    account_reads: Set[Address] = field(default_factory=set)
     account_writes: Dict[Address, Optional[Account]] = field(
         default_factory=dict
     )
+    storage_reads: Set[Tuple[Address, Bytes32]] = field(default_factory=set)
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
+
+    # BAL tracking
+    block_access_index: BlockAccessIndex = BlockAccessIndex(0)
+    tx_write_history: List[
+        Tuple[
+            BlockAccessIndex,
+            Dict[Address, Optional[Account]],
+            Dict[Address, Dict[Bytes32, U256]],
+        ]
+    ] = field(default_factory=list)
 
 
 @dataclass
@@ -53,12 +72,18 @@ class TxStateTracker:
     Track in-flight state changes within a single transaction.
 
     Read chain: tx writes -> block writes -> pre_state.
+
+    ``storage_reads`` and ``account_reads`` are shared references
+    that survive rollback (reads from failed calls still appear in the
+    Block Access List).
     """
 
     parent: BlockStateTracker
+    account_reads: Set[Address] = field(default_factory=set)
     account_writes: Dict[Address, Optional[Account]] = field(
         default_factory=dict
     )
+    storage_reads: Set[Tuple[Address, Bytes32]] = field(default_factory=set)
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
@@ -399,6 +424,10 @@ def destroy_storage(tracker: TxStateTracker, address: Address) -> None:
     """
     Completely remove the storage at ``address``.
 
+    Convert storage writes to reads before deleting so that accesses
+    from created-then-destroyed accounts appear in the Block Access
+    List.
+
     Parameters
     ----------
     tracker :
@@ -408,6 +437,8 @@ def destroy_storage(tracker: TxStateTracker, address: Address) -> None:
 
     """
     if address in tracker.storage_writes:
+        for key in tracker.storage_writes[address]:
+            tracker.storage_reads.add((address, key))
         del tracker.storage_writes[address]
 
 
@@ -602,8 +633,9 @@ def copy_tx_state_tracker(tracker: TxStateTracker) -> TxStateTracker:
     """
     Create a snapshot of the transaction state tracker for rollback.
 
-    Deep-copy writes and transient storage.  The parent reference and
-    ``created_accounts`` are shared (not rolled back).
+    Deep-copy writes and transient storage.  The parent reference,
+    ``created_accounts``, ``storage_reads``, and ``account_reads``
+    are shared (not rolled back).
 
     Parameters
     ----------
@@ -624,6 +656,8 @@ def copy_tx_state_tracker(tracker: TxStateTracker) -> TxStateTracker:
         },
         created_accounts=tracker.created_accounts,
         transient_storage=dict(tracker.transient_storage),
+        storage_reads=tracker.storage_reads,
+        account_reads=tracker.account_reads,
     )
 
 
@@ -653,6 +687,10 @@ def incorporate_tx_into_block(tracker: TxStateTracker) -> None:
     """
     Merge transaction writes into the block tracker and clear for reuse.
 
+    Save per-tx write snapshots into ``tx_write_history`` for BAL
+    generation at block end.  Merge reads and touches into block-level
+    sets.
+
     Parameters
     ----------
     tracker :
@@ -661,6 +699,23 @@ def incorporate_tx_into_block(tracker: TxStateTracker) -> None:
     """
     block = tracker.parent
 
+    # Save per-tx write snapshot for BAL generation
+    block.tx_write_history.append(
+        (
+            block.block_access_index,
+            dict(tracker.account_writes),
+            {
+                addr: dict(slots)
+                for addr, slots in tracker.storage_writes.items()
+            },
+        )
+    )
+
+    # Merge reads and touches into block-level sets
+    block.storage_reads.update(tracker.storage_reads)
+    block.account_reads.update(tracker.account_reads)
+
+    # Merge cumulative writes
     for address, account in tracker.account_writes.items():
         block.account_writes[address] = account
 
@@ -673,6 +728,8 @@ def incorporate_tx_into_block(tracker: TxStateTracker) -> None:
     tracker.storage_writes.clear()
     tracker.created_accounts.clear()
     tracker.transient_storage.clear()
+    tracker.storage_reads = set()
+    tracker.account_reads = set()
 
 
 def extract_block_diffs(
@@ -698,3 +755,57 @@ def extract_block_diffs(
 
     """
     return block_tracker.account_writes, block_tracker.storage_writes
+
+
+# -- BAL Tracking -----------------------------------------------------------
+
+
+def track_address(tracker: TxStateTracker, address: Address) -> None:
+    """
+    Record that an address was accessed.
+
+    Parameters
+    ----------
+    tracker :
+        The transaction state tracker.
+    address :
+        The address that was accessed.
+
+    """
+    tracker.account_reads.add(address)
+
+
+def track_storage_read(
+    tracker: TxStateTracker, address: Address, key: Bytes32
+) -> None:
+    """
+    Record a storage read operation.
+
+    Parameters
+    ----------
+    tracker :
+        The transaction state tracker.
+    address :
+        The address whose storage was read.
+    key :
+        The storage key that was read.
+
+    """
+    tracker.storage_reads.add((address, key))
+
+
+def increment_block_access_index(
+    block_tracker: BlockStateTracker,
+) -> None:
+    """
+    Increment the block access index.
+
+    Parameters
+    ----------
+    block_tracker :
+        The block state tracker.
+
+    """
+    block_tracker.block_access_index = BlockAccessIndex(
+        block_tracker.block_access_index + Uint(1)
+    )

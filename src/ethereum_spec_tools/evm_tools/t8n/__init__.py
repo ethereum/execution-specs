@@ -16,7 +16,9 @@ from typing_extensions import override
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
-from ethereum.forks.amsterdam.state_tracker import StateChanges
+from ethereum.forks.amsterdam.state_tracking import (
+    increment_block_access_index,
+)
 from ethereum_spec_tools.forks import Hardfork, TemporaryHardfork
 
 from ..loaders.fixture_loader import Load
@@ -316,9 +318,6 @@ class T8N(Load):
             )
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
 
-        if self.fork.has_block_access_list_hash:
-            kw_arguments["state_changes"] = StateChanges()
-
         return block_environment(**kw_arguments)
 
     def backup_state(self) -> None:
@@ -420,11 +419,7 @@ class T8N(Load):
 
         # Post-execution operations use index N+1
         if self.fork.has_block_access_list_hash:
-            from ethereum.forks.amsterdam.state_tracker import (
-                increment_block_access_index,
-            )
-
-            increment_block_access_index(block_env.state_changes)
+            increment_block_access_index(block_env.block_tracker)
 
         if not self.fork.proof_of_stake:
             if self.options.state_reward is None:
@@ -443,9 +438,10 @@ class T8N(Load):
             self.fork.process_general_purpose_requests(block_env, block_output)
 
         if self.fork.has_block_access_list_hash:
-            # Build block access list from block_env.state_changes
-            block_output.block_access_list = self.fork.build_block_access_list(
-                block_env.state_changes
+            block_output.block_access_list = (
+                self.fork.build_block_access_list_from_tracker(
+                    block_env.block_tracker
+                )
             )
 
     def run_blockchain_test(self) -> None:
