@@ -7,17 +7,13 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
    to benchmark specific state-handling bottlenecks.
 """
 
-import json
-import math
 from functools import partial
-from pathlib import Path
 from typing import Callable, List
 
 import pytest
 from execution_testing import (
     EOA,
     AccessList,
-    Account,
     Address,
     Alloc,
     AuthorizationTuple,
@@ -35,30 +31,15 @@ from execution_testing import (
     While,
 )
 
+from tests.benchmark.stateful.helpers import (
+    APPROVE_SELECTOR,
+    BALANCEOF_SELECTOR,
+    SLOAD_TOKENS,
+    SSTORE_TOKENS,
+)
+
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
-
-# ERC20 function selectors
-BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
-APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
-ALLOWANCE_SELECTOR = 0xDD62ED3E  # allowance(address,address)
-
-# Load token names from stubs.json for test parametrization
-_STUBS_FILE = Path(__file__).parent / "stubs_bloatnet.json"
-with open(_STUBS_FILE) as f:
-    _STUBS = json.load(f)
-
-# Extract unique token names for each test type
-SLOAD_TOKENS = [
-    k.replace("test_sload_empty_erc20_balanceof_", "")
-    for k in _STUBS.keys()
-    if k.startswith("test_sload_empty_erc20_balanceof_")
-]
-SSTORE_TOKENS = [
-    k.replace("test_sstore_erc20_approve_", "")
-    for k in _STUBS.keys()
-    if k.startswith("test_sstore_erc20_approve_")
-]
 
 
 # SLOAD BENCHMARK ARCHITECTURE:
@@ -106,7 +87,6 @@ SSTORE_TOKENS = [
 #   - Simulates real-world contract state accumulation over time
 
 
-@pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize("token_name", SLOAD_TOKENS)
 def test_sload_empty_erc20_balanceof(
     benchmark_test: BenchmarkTestFiller,
@@ -116,18 +96,7 @@ def test_sload_empty_erc20_balanceof(
     tx_gas_limit: int,
     token_name: str,
 ) -> None:
-    """
-    BloatNet SLOAD benchmark using ERC20 balanceOf queries on random
-    addresses.
-
-    This test:
-    1. Uses a single ERC20 contract specified by token_name parameter
-    2. Allocates full gas budget to that contract
-    3. Queries balanceOf() incrementally starting by 0 and increasing by 1
-       (thus forcing SLOADs to non-existing addresses)
-    4. Splits into multiple transactions if gas_benchmark_value > tx_gas_limit
-       (EIP-7825 compliance)
-    """
+    """Benchmark SLOAD using ERC20 balanceOf on bloatnet."""
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
@@ -151,7 +120,7 @@ def test_sload_empty_erc20_balanceof(
             old_memory_size=32,
             new_memory_size=64,
         )
-        + Op.CALLDATALOAD(0)  # [num_contract]
+        + Op.CALLDATALOAD(0)  # [num_calls]
     )
 
     loop = While(
@@ -168,12 +137,12 @@ def test_sload_empty_erc20_balanceof(
             )
         )
         + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
-        condition=Op.PUSH1(1)  # [1, num_contract]
-        + Op.SWAP1  # [num_contract, 1]
-        + Op.SUB  # [num_contract-1]
-        + Op.DUP1  # [num_contract-1, num_contract-1]
-        + Op.ISZERO  # [num_contract-1==0, num_contract-1]
-        + Op.ISZERO,  # [num_contract-1!=0, num_contract-1]
+        condition=Op.PUSH1(1)  # [1, num_calls]
+        + Op.SWAP1  # [num_calls, 1]
+        + Op.SUB  # [num_calls-1]
+        + Op.DUP1  # [num_calls-1, num_calls-1]
+        + Op.ISZERO  # [num_calls-1==0, num_calls-1]
+        + Op.ISZERO,  # [num_calls-1!=0, num_calls-1]
     )
 
     # Contract Deployment
@@ -185,9 +154,11 @@ def test_sload_empty_erc20_balanceof(
     loop_cost = loop.gas_cost(fork)
 
     access_list = [AccessList(address=erc20_address, storage_keys=[])]
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_with_access_list = intrinsic_gas_calculator(
-        access_list=access_list
+    intrinsic_gas_with_access_list = (
+        fork.transaction_intrinsic_cost_calculator()(
+            access_list=access_list,
+            calldata=b"\xff" * 64,
+        )
     )
 
     # ERC20 balanceOf bytecode structure:
@@ -220,7 +191,7 @@ def test_sload_empty_erc20_balanceof(
     # Transaction Loops
     txs = []
     gas_remaining = gas_benchmark_value
-    address_offset = 0
+    slot_offset = 0
 
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
@@ -228,14 +199,14 @@ def test_sload_empty_erc20_balanceof(
         if gas_available < intrinsic_gas_with_access_list + setup_cost:
             break
 
-        num_contract = (gas_available - intrinsic_gas_with_access_list) // (
-            function_dispatch_cost + loop_cost
-        )
+        num_calls = (
+            gas_available - intrinsic_gas_with_access_list - setup_cost
+        ) // (function_dispatch_cost + loop_cost)
 
-        if num_contract == 0:
+        if num_calls == 0:
             break
 
-        calldata = Hash(num_contract) + Hash(address_offset)
+        calldata = Hash(num_calls) + Hash(slot_offset)
 
         txs.append(
             Transaction(
@@ -248,7 +219,7 @@ def test_sload_empty_erc20_balanceof(
         )
 
         gas_remaining -= gas_available
-        address_offset += num_contract
+        slot_offset += num_calls
 
     benchmark_test(
         pre=pre,
@@ -256,7 +227,6 @@ def test_sload_empty_erc20_balanceof(
     )
 
 
-@pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize("token_name", SSTORE_TOKENS)
 def test_sstore_erc20_approve(
     benchmark_test: BenchmarkTestFiller,
@@ -266,17 +236,7 @@ def test_sstore_erc20_approve(
     tx_gas_limit: int,
     token_name: str,
 ) -> None:
-    """
-    BloatNet SSTORE benchmark using ERC20 approve to write to storage.
-
-    This test:
-    1. Uses a single ERC20 contract specified by token_name parameter
-    2. Allocates full gas budget to that contract
-    3. Calls approve(spender, amount) incrementally (counter as spender)
-    4. Forces SSTOREs to allowance mapping storage slots
-    5. Splits into multiple transactions if gas_benchmark_value > tx_gas_limit
-       (EIP-7825 compliance)
-    """
+    """Benchmark SSTORE using ERC20 approve on bloatnet."""
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
@@ -286,9 +246,21 @@ def test_sstore_erc20_approve(
     # MEM[0] = function selector
     # MEM[32] = starting address offset
     setup = (
-        Op.MSTORE(0, APPROVE_SELECTOR)
-        + Op.MSTORE(32, Op.CALLDATALOAD(32))  # Address Offset
-        + Op.CALLDATALOAD(0)  # [num_contract]
+        Op.MSTORE(
+            0,
+            APPROVE_SELECTOR,
+            # gas accounting
+            old_memory_size=0,
+            new_memory_size=32,
+        )
+        + Op.MSTORE(
+            32,
+            Op.CALLDATALOAD(32),  # Address Offset
+            # gas accounting
+            old_memory_size=32,
+            new_memory_size=64,
+        )
+        + Op.CALLDATALOAD(0)  # [num_calls]
     )
 
     loop = While(
@@ -302,28 +274,33 @@ def test_sstore_erc20_approve(
                     args_size=68,
                     ret_offset=0,
                     ret_size=0,
+                    # gas accounting
+                    address_warm=True,
                 )
             )
             + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
         ),
-        condition=Op.PUSH1(1)  # [1, num_contract]
-        + Op.SWAP1  # [num_contract, 1]
-        + Op.SUB  # [num_contract-1]
-        + Op.DUP1  # [num_contract-1, num_contract-1]
-        + Op.ISZERO  # [num_contract-1==0, num_contract-1]
-        + Op.ISZERO,  # [num_contract-1!=0, num_contract-1]
+        condition=Op.PUSH1(1)  # [1, num_calls]
+        + Op.SWAP1  # [num_calls, 1]
+        + Op.SUB  # [num_calls-1]
+        + Op.DUP1  # [num_calls-1, num_calls-1]
+        + Op.ISZERO  # [num_calls-1==0, num_calls-1]
+        + Op.ISZERO,  # [num_calls-1!=0, num_calls-1]
     )
 
     # Contract Deployment
     code = setup + loop
     attack_contract_address = pre.deploy_contract(code=code)
 
-    # Calculate gas costs
+    # Gas Accounting
     setup_cost = setup.gas_cost(fork)
     loop_cost = loop.gas_cost(fork)
     access_list = [AccessList(address=erc20_address, storage_keys=[])]
     intrinsic_gas_with_access_list = (
-        fork.transaction_intrinsic_cost_calculator()(access_list=access_list)
+        fork.transaction_intrinsic_cost_calculator()(
+            access_list=access_list,
+            calldata=b"\xff" * 64,
+        )
     )
 
     function_dispatch = (
@@ -370,7 +347,7 @@ def test_sstore_erc20_approve(
     # Transaction Loops
     txs = []
     gas_remaining = gas_benchmark_value
-    address_offset = 0
+    slot_offset = 0
 
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
@@ -378,14 +355,14 @@ def test_sstore_erc20_approve(
         if gas_available < intrinsic_gas_with_access_list + setup_cost:
             break
 
-        num_contract = (gas_available - intrinsic_gas_with_access_list) // (
-            function_dispatch_cost + loop_cost
-        )
+        num_calls = (
+            gas_available - intrinsic_gas_with_access_list - setup_cost
+        ) // (function_dispatch_cost + loop_cost)
 
-        if num_contract == 0:
+        if num_calls == 0:
             break
 
-        calldata = Hash(num_contract) + Hash(address_offset)
+        calldata = Hash(num_calls) + Hash(slot_offset)
 
         txs.append(
             Transaction(
@@ -398,12 +375,11 @@ def test_sstore_erc20_approve(
         )
 
         gas_remaining -= gas_available
-        address_offset += num_contract
+        slot_offset += num_calls
 
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],
-        post=post,
     )
 
 
@@ -798,6 +774,7 @@ def test_sstore_variants(
     blocks.append(Block(txs=exec_txs))
 
     benchmark_test(
+        pre=pre,
         blocks=blocks,
         expected_benchmark_gas_used=expected_gas_used,
     )
@@ -933,6 +910,7 @@ def test_storage_sload_benchmark(
     blocks.append(Block(txs=exec_txs))
 
     benchmark_test(
+        pre=pre,
         blocks=blocks,
         expected_benchmark_gas_used=expected_gas_used,
     )
