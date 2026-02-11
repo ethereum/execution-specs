@@ -285,10 +285,20 @@ class T8N(Load):
             "coinbase": self.env.coinbase,
             "number": self.env.block_number,
             "time": self.env.block_timestamp,
-            "state": self.alloc.state,
             "block_gas_limit": self.env.block_gas_limit,
             "chain_id": self.chain_id,
         }
+
+        if self.fork.has_block_tracker:
+            from ethereum.forks.amsterdam.state_tracking import (
+                BlockStateTracker,
+            )
+
+            block_tracker = BlockStateTracker(pre_state=self.alloc.state)
+            kw_arguments["block_tracker"] = block_tracker
+            self._block_tracker = block_tracker
+        else:
+            kw_arguments["state"] = self.alloc.state
 
         block_environment = self.fork.BlockEnvironment
 

@@ -279,18 +279,33 @@ class ForkLoad:
         return hasattr(self._module("transactions"), "decode_transaction")
 
     @property
+    def has_block_tracker(self) -> bool:
+        """Check if the fork uses BlockStateTracker instead of State."""
+        try:
+            module = self._module("state_tracking")
+        except ModuleNotFoundError:
+            return False
+        return hasattr(module, "BlockStateTracker")
+
+    @property
     def State(self) -> Any:
-        """State class of the fork."""
+        """State class of the fork (DictPreState for block_tracker forks)."""
+        if self.has_block_tracker:
+            return self._module("state").DictPreState
         return self._module("state").State
 
     @property
     def set_account(self) -> Any:
         """set_account function of the fork."""
+        if self.has_block_tracker:
+            return self._module("state").dict_pre_state_set_account
         return self._module("state").set_account
 
     @property
     def set_storage(self) -> Any:
         """set_storage function of the fork."""
+        if self.has_block_tracker:
+            return self._module("state").dict_pre_state_set_storage
         return self._module("state").set_storage
 
     @property
