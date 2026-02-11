@@ -66,10 +66,12 @@ def callee_init_stack_gas(callee_opcode: Op, fork: Fork) -> int:
     """
     if fork < Byzantium:
         # all *CALL arguments handled with PUSHes
-        return len(callee_opcode.kwargs) * 3
+        return Bytecode(Op.PUSH1(0) * len(callee_opcode.kwargs)).gas_cost(fork)
     else:
         # gas argument handled with GAS which is cheaper
-        return (len(callee_opcode.kwargs) - 1) * 3 + 2
+        return Bytecode(
+            Op.PUSH1(0) * (len(callee_opcode.kwargs) - 1) + Op.GAS
+        ).gas_cost(fork)
 
 
 @pytest.fixture
@@ -80,30 +82,33 @@ def sufficient_gas(
     Calculate the sufficient gas for the nested call opcode with positive
     value transfer.
     """
-    gas_costs = fork.gas_costs()
-
-    cost = 0
+    is_value_call = callee_opcode in [Op.CALL, Op.CALLCODE]
 
     if fork >= Berlin:
-        cost += gas_costs.G_COLD_ACCOUNT_ACCESS
+        metadata: dict = {"address_warm": False}
+        if is_value_call:
+            metadata["value_transfer"] = True
+            metadata["account_new"] = callee_opcode == Op.CALL
+        cost = Bytecode(callee_opcode(**metadata)).gas_cost(fork)
     elif Byzantium <= fork < Berlin:
-        cost += 700  # Pre-Berlin warm call cost
+        cost = 700  # Pre-Berlin call cost
+        gas_costs = fork.gas_costs()
+        if is_value_call:
+            cost += gas_costs.G_CALL_VALUE
+        if callee_opcode == Op.CALL:
+            cost += gas_costs.G_NEW_ACCOUNT
     elif fork == Homestead:
-        cost += 40  # Homestead call cost
+        cost = 40  # Homestead call cost
         cost += 1  # mandatory callee gas allowance
+        gas_costs = fork.gas_costs()
+        if is_value_call:
+            cost += gas_costs.G_CALL_VALUE
+        if callee_opcode == Op.CALL:
+            cost += gas_costs.G_NEW_ACCOUNT
     else:
         raise Exception("Only forks Homestead and >=Byzantium supported")
 
-    is_value_call = callee_opcode in [Op.CALL, Op.CALLCODE]
-    if is_value_call:
-        cost += gas_costs.G_CALL_VALUE
-
-    if callee_opcode == Op.CALL:
-        cost += gas_costs.G_NEW_ACCOUNT
-
-    sufficient = callee_init_stack_gas + cost
-
-    return sufficient
+    return callee_init_stack_gas + cost
 
 
 @pytest.fixture

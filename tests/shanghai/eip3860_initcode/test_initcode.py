@@ -517,23 +517,16 @@ class TestCreateInitcode:
         )
 
     @pytest.fixture
-    def contract_creation_gas_cost(self, fork: Fork, opcode: Op) -> int:
+    def contract_creation_gas_cost(
+        self, fork: Fork, opcode: Op, create2_salt: int
+    ) -> int:
         """Calculate gas cost of the contract creation operation."""
-        gas_costs = fork.gas_costs()
-
-        create_contract_base_gas = gas_costs.G_CREATE
-        gas_opcode_gas = gas_costs.G_BASE
-        push_dup_opcode_gas = gas_costs.G_VERY_LOW
-        calldatasize_opcode_gas = gas_costs.G_BASE
-        contract_creation_gas_usage = (
-            create_contract_base_gas
-            + gas_opcode_gas
-            + (2 * push_dup_opcode_gas)
-            + calldatasize_opcode_gas
+        create_code = (
+            opcode(size=Op.CALLDATASIZE, salt=create2_salt)
+            if opcode == Op.CREATE2
+            else opcode(size=Op.CALLDATASIZE)
         )
-        if opcode == Op.CREATE2:  # Extra push operation
-            contract_creation_gas_usage += push_dup_opcode_gas
-        return contract_creation_gas_usage
+        return Bytecode(create_code + Op.GAS).gas_cost(fork)
 
     @pytest.fixture
     def initcode_word_cost(self, fork: Fork, initcode: Initcode) -> int:
