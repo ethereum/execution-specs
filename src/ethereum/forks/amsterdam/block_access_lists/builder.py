@@ -14,12 +14,14 @@ The builder follows a two-phase approach:
 """  # noqa: E501
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Dict, List, Set
+from typing import Dict, List, Optional, Set
 
-from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U64, U256
+from ethereum_types.bytes import Bytes, Bytes32
+from ethereum_types.numeric import U64, U256, Uint
 
-from ..fork_types import Address
+from ethereum.state import Account, Address, PreState
+
+from ..state_tracker import BlockState, TransactionState
 from .rlp_types import (
     AccountChanges,
     BalanceChange,
@@ -30,9 +32,6 @@ from .rlp_types import (
     SlotChanges,
     StorageChange,
 )
-
-if TYPE_CHECKING:
-    from ..state_tracker import StateChanges
 
 
 @dataclass
@@ -89,6 +88,15 @@ class BlockAccessListBuilder:
     [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
     """  # noqa: E501
 
+    block_access_index: BlockAccessIndex = BlockAccessIndex(0)
+    """
+    Current block access index.  Set by the caller before each
+    [`incorporate_tx_into_block`] call (0 for system txs, i+1 for the
+    i-th user tx, N+1 for post-execution operations).
+
+    [`incorporate_tx_into_block`]: ref:ethereum.forks.amsterdam.state_tracker.incorporate_tx_into_block
+    """  # noqa: E501
+
     accounts: Dict[Address, AccountData] = field(default_factory=dict)
     """
     Mapping from account address to its tracked changes during block execution.
@@ -104,7 +112,6 @@ def ensure_account(builder: BlockAccessListBuilder, address: Address) -> None:
     multiple times for the same address.
 
     [`AccountData`]: ref:ethereum.forks.amsterdam.block_access_lists.builder.AccountData
-
     """  # noqa: E501
     if address not in builder.accounts:
         builder.accounts[address] = AccountData()
@@ -156,8 +163,6 @@ def add_storage_read(
     Records that a storage slot was read during execution. Storage slots
     that are both read and written will only appear in the storage changes
     list, not in the storage reads list, as per [EIP-7928].
-
-    [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
     """
     ensure_account(builder, address)
     builder.accounts[address].storage_reads.add(slot)
@@ -358,58 +363,111 @@ def _build_from_builder(
     return block_access_list
 
 
-def build_block_access_list(
-    state_changes: "StateChanges",
-) -> BlockAccessList:
+def _get_pre_tx_account(
+    pre_tx_accounts: Dict[Address, Optional[Account]],
+    pre_state: PreState,
+    address: Address,
+) -> Optional[Account]:
     """
-    Build a [`BlockAccessList`] from a StateChanges frame.
+    Look up an account in cumulative state, falling back to `pre_state`.
 
-    Converts the accumulated state changes from the frame-based architecture
-    into the final deterministic BlockAccessList format.
+    The cumulative account state (`pre_tx_accounts`) should contain state up
+    to (but not including) the current transaction.
 
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
-    [`StateChanges`]: ref:ethereum.forks.amsterdam.state_tracker.StateChanges
-    """  # noqa: E501
-    builder = BlockAccessListBuilder()
+    Returns `None` if the `address` does not exist.
+    """
+    if address in pre_tx_accounts:
+        return pre_tx_accounts[address]
+    return pre_state.get_account_optional(address)
 
-    # Add all touched addresses
-    for address in state_changes.touched_addresses:
-        add_touched_account(builder, address)
 
-    # Add all storage reads
-    for address, slot in state_changes.storage_reads:
-        add_storage_read(builder, address, U256(int.from_bytes(slot)))
+def _get_pre_tx_storage(
+    pre_tx_storage: Dict[Address, Dict[Bytes32, U256]],
+    pre_state: PreState,
+    address: Address,
+    key: Bytes32,
+) -> U256:
+    """
+    Look up a storage value in cumulative state, falling back to `pre_state`.
 
-    # Add all storage writes
-    # Net-zero filtering happens at transaction commit time, not here.
-    # At block level, we track ALL writes at their respective indices.
-    for (
-        address,
-        slot,
-        block_access_index,
-    ), value in state_changes.storage_writes.items():
-        u256_slot = U256(int.from_bytes(slot))
-        add_storage_write(
-            builder, address, u256_slot, block_access_index, value
+    Returns `0` if not set.
+    """
+    if address in pre_tx_storage and key in pre_tx_storage[address]:
+        return pre_tx_storage[address][key]
+    return pre_state.get_storage(address, key)
+
+
+def update_builder_from_tx(
+    builder: BlockAccessListBuilder,
+    tx_state: TransactionState,
+) -> None:
+    """
+    Update the BAL builder with changes from a single transaction.
+
+    Compare the transaction's writes against the block's cumulative
+    state (falling back to `pre_state`) to extract balance, nonce, code, and
+    storage changes.  Net-zero filtering is automatic: if the pre-tx value
+    equals the post-tx value, no change is recorded.
+
+    Must be called **before** the transaction's writes are merged into
+    the block state.
+    """
+    block_state = tx_state.parent
+    pre_state = block_state.pre_state
+    idx = builder.block_access_index
+
+    # Compare account writes against block cumulative state
+    for address, post_account in tx_state.account_writes.items():
+        pre_account = _get_pre_tx_account(
+            block_state.account_writes, pre_state, address
         )
 
-    # Add all balance changes (balance_changes is keyed by (address, index))
-    for (
-        address,
-        block_access_index,
-    ), new_balance in state_changes.balance_changes.items():
-        add_balance_change(builder, address, block_access_index, new_balance)
+        pre_balance = pre_account.balance if pre_account else U256(0)
+        post_balance = post_account.balance if post_account else U256(0)
+        if pre_balance != post_balance:
+            add_balance_change(builder, address, idx, post_balance)
 
-    # Add all nonce changes
-    for address, block_access_index, new_nonce in state_changes.nonce_changes:
-        add_nonce_change(builder, address, block_access_index, new_nonce)
+        pre_nonce = pre_account.nonce if pre_account else Uint(0)
+        post_nonce = post_account.nonce if post_account else Uint(0)
+        if pre_nonce != post_nonce:
+            add_nonce_change(builder, address, idx, U64(post_nonce))
 
-    # Add all code changes
-    # Filtering happens at transaction level in eoa_delegation.py
-    for (
-        address,
-        block_access_index,
-    ), new_code in state_changes.code_changes.items():
-        add_code_change(builder, address, block_access_index, new_code)
+        pre_code = pre_account.code if pre_account else b""
+        post_code = post_account.code if post_account else b""
+        if pre_code != post_code:
+            add_code_change(builder, address, idx, post_code)
+
+    # Compare storage writes against block cumulative state
+    for address, slots in tx_state.storage_writes.items():
+        for key, post_value in slots.items():
+            pre_value = _get_pre_tx_storage(
+                block_state.storage_writes, pre_state, address, key
+            )
+            if pre_value != post_value:
+                # Convert slot from internal Bytes32 format to U256 for BAL.
+                # EIP-7928 uses U256 as it's more space-efficient in RLP.
+                u256_slot = U256.from_be_bytes(key)
+                add_storage_write(builder, address, u256_slot, idx, post_value)
+
+
+def build_block_access_list(
+    builder: BlockAccessListBuilder,
+    block_state: BlockState,
+) -> BlockAccessList:
+    """
+    Build a [`BlockAccessList`] from the builder and block state.
+
+    Feed accumulated reads from the block state into the builder, then produce
+    the final sorted and encoded block access list.
+
+    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    """  # noqa: E501
+    # Add storage reads (convert Bytes32 to U256 for BAL encoding)
+    for address, slot in block_state.storage_reads:
+        add_storage_read(builder, address, U256.from_be_bytes(slot))
+
+    # Add touched addresses
+    for address in block_state.account_reads:
+        add_touched_account(builder, address)
 
     return _build_from_builder(builder)

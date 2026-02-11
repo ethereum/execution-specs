@@ -11,6 +11,7 @@ from .builder import (
     add_storage_write,
     add_touched_account,
     build_block_access_list,
+    update_builder_from_tx,
 )
 from .rlp_utils import compute_block_access_list_hash
 
@@ -24,4 +25,5 @@ __all__ = [
     "add_touched_account",
     "build_block_access_list",
     "compute_block_access_list_hash",
+    "update_builder_from_tx",
 ]

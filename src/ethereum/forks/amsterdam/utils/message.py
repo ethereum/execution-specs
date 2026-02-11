@@ -15,9 +15,9 @@ specification.
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import Uint
 
-from ..fork_types import Address
-from ..state import get_account
-from ..state_tracker import create_child_frame
+from ethereum.state import Address
+
+from ..state_tracker import get_account
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -55,7 +55,7 @@ def prepare_message(
     if isinstance(tx.to, Bytes0):
         current_target = compute_contract_address(
             tx_env.origin,
-            get_account(block_env.state, tx_env.origin).nonce - Uint(1),
+            get_account(tx_env.state, tx_env.origin).nonce - Uint(1),
         )
         msg_data = Bytes(b"")
         code = tx.data
@@ -63,15 +63,12 @@ def prepare_message(
     elif isinstance(tx.to, Address):
         current_target = tx.to
         msg_data = tx.data
-        code = get_account(block_env.state, tx.to).code
+        code = get_account(tx_env.state, tx.to).code
         code_address = tx.to
     else:
         raise AssertionError("Target must be address or empty bytes")
 
     accessed_addresses.add(current_target)
-
-    # Create call frame as child of transaction frame
-    call_frame = create_child_frame(tx_env.state_changes)
 
     return Message(
         block_env=block_env,
@@ -92,5 +89,4 @@ def prepare_message(
         disable_precompiles=False,
         parent_evm=None,
         is_create=isinstance(tx.to, Bytes0),
-        state_changes=call_frame,
     )

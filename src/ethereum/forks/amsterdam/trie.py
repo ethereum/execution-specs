@@ -30,16 +30,25 @@ from typing import (
 
 from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes
-from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
 from typing_extensions import assert_type
 
 from ethereum.crypto.hash import keccak256
 from ethereum.forks.bpo5 import trie as previous_trie
+from ethereum.state import (
+    Account,
+    Address,
+    BranchNode,
+    BranchSubnodes,
+    ExtensionNode,
+    InternalNode,
+    LeafNode,
+    Root,
+)
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .blocks import Receipt, Withdrawal
-from .fork_types import Account, Address, Root, encode_account
+from .fork_types import encode_account
 from .transactions import LegacyTransaction
 
 # note: an empty trie (regardless of whether it is secured) has root:
@@ -83,56 +92,6 @@ V = TypeVar(
     Uint,
     U256,
 )
-
-
-@slotted_freezable
-@dataclass
-class LeafNode:
-    """Leaf node in the Merkle Trie."""
-
-    rest_of_key: Bytes
-    value: Extended
-
-
-@slotted_freezable
-@dataclass
-class ExtensionNode:
-    """Extension node in the Merkle Trie."""
-
-    key_segment: Bytes
-    subnode: Extended
-
-
-BranchSubnodes = Tuple[
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-]
-
-
-@slotted_freezable
-@dataclass
-class BranchNode:
-    """Branch node in the Merkle Trie."""
-
-    subnodes: BranchSubnodes
-    value: Extended
-
-
-InternalNode = LeafNode | ExtensionNode | BranchNode
 
 
 def encode_internal_node(node: Optional[InternalNode]) -> Extended:

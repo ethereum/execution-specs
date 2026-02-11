@@ -307,7 +307,31 @@ class Result:
         self.receipt_root = t8n.fork.root(block_output.receipts_trie)
         self.bloom = t8n.fork.logs_bloom(block_output.block_logs)
         self.logs_hash = keccak256(rlp.encode(block_output.block_logs))
-        self.state_root = t8n.fork.state_root(block_env.state)
+        if t8n.fork.has_block_state:
+            # TODO: remove this once the state tracker is ported over
+            # to the older forks
+            from ethereum.forks.amsterdam.state import apply_changes_to_state
+            from ethereum.forks.amsterdam.state_tracker import (
+                extract_block_diffs,
+            )
+
+            account_changes, storage_changes = extract_block_diffs(
+                t8n._block_state
+            )
+            state_root_value, _ = (
+                t8n.alloc.state.compute_state_root_and_trie_changes(
+                    account_changes, storage_changes
+                )
+            )
+            self.state_root = state_root_value
+            # Apply diffs to pre-state for alloc output
+            apply_changes_to_state(
+                t8n.alloc.state,
+                account_changes,
+                storage_changes,
+            )
+        else:
+            self.state_root = t8n.fork.state_root(block_env.state)
         self.receipts = self.get_receipts_from_output(t8n, block_output)
 
         if hasattr(block_env, "base_fee_per_gas"):

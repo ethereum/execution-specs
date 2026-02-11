@@ -19,13 +19,14 @@ from ethereum.exceptions import (
     InvalidSignatureError,
     NonceOverflowError,
 )
+from ethereum.state import Address
 
 from .exceptions import (
     InitCodeTooLargeError,
     TransactionGasLimitExceededError,
     TransactionTypeError,
 )
-from .fork_types import Address, Authorization, VersionedHash
+from .fork_types import Authorization, VersionedHash
 
 TX_BASE_COST = Uint(21000)
 """

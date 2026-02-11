@@ -18,8 +18,9 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.state import Address, Root
 
-from .fork_types import Address, Bloom, Root
+from .fork_types import Bloom
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,
@@ -106,13 +107,14 @@ class Header:
     Root hash ([`keccak256`]) of the state trie after executing all
     transactions in this block. It represents the state of the Ethereum Virtual
     Machine (EVM) after all transactions in this block have been processed. It
-    is computed using the [`state_root()`] function, which computes the root
-    of the Merkle-Patricia [Trie] representing the Ethereum world state.
+    is computed using [`compute_state_root_and_trie_changes()`][changes],
+    which computes the root of the Merkle-Patricia [Trie] representing the
+    Ethereum world state after applying the block's state changes.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`state_root()`]: ref:ethereum.forks.amsterdam.state.state_root
+    [changes]: ref:ethereum.forks.amsterdam.state.State.compute_state_root_and_trie_changes
     [Trie]: ref:ethereum.forks.amsterdam.trie.Trie
-    """
+    """  # noqa: E501
 
     transactions_root: Root
     """

@@ -16,7 +16,15 @@ from typing_extensions import override
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
-from ethereum.forks.amsterdam.state_tracker import StateChanges
+
+# TODO: Make this not amsterdam specific once the state tracker has
+# been added to older forks.
+from ethereum.forks.amsterdam.block_access_lists.builder import (
+    BlockAccessListBuilder,
+)
+from ethereum.forks.amsterdam.block_access_lists.rlp_types import (
+    BlockAccessIndex,
+)
 from ethereum_spec_tools.forks import Hardfork, TemporaryHardfork
 
 from ..loaders.fixture_loader import Load
@@ -285,10 +293,20 @@ class T8N(Load):
             "coinbase": self.env.coinbase,
             "number": self.env.block_number,
             "time": self.env.block_timestamp,
-            "state": self.alloc.state,
             "block_gas_limit": self.env.block_gas_limit,
             "chain_id": self.chain_id,
         }
+
+        if self.fork.has_block_state:
+            from ethereum.forks.amsterdam.state_tracker import (
+                BlockState,
+            )
+
+            block_state = BlockState(pre_state=self.alloc.state)
+            kw_arguments["state"] = block_state
+            self._block_state = block_state
+        else:
+            kw_arguments["state"] = self.alloc.state
 
         block_environment = self.fork.BlockEnvironment
 
@@ -307,7 +325,9 @@ class T8N(Load):
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
 
         if self.fork.has_block_access_list_hash:
-            kw_arguments["state_changes"] = StateChanges()
+            kw_arguments["block_access_list_builder"] = (
+                BlockAccessListBuilder()
+            )
 
         return block_environment(**kw_arguments)
 
@@ -408,13 +428,12 @@ class T8N(Load):
                     f"Transaction {original_idx} failed: {e!r}"
                 )
 
-        # Post-execution operations use index N+1
+        # EIP-7928: Post-execution operations use index N+1
+        num_txs = len(self.txs.transactions)
         if self.fork.has_block_access_list_hash:
-            from ethereum.forks.amsterdam.state_tracker import (
-                increment_block_access_index,
+            block_env.block_access_list_builder.block_access_index = (
+                BlockAccessIndex(Uint(num_txs) + Uint(1))
             )
-
-            increment_block_access_index(block_env.state_changes)
 
         if not self.fork.proof_of_stake:
             if self.options.state_reward is None:
@@ -433,9 +452,8 @@ class T8N(Load):
             self.fork.process_general_purpose_requests(block_env, block_output)
 
         if self.fork.has_block_access_list_hash:
-            # Build block access list from block_env.state_changes
             block_output.block_access_list = self.fork.build_block_access_list(
-                block_env.state_changes
+                block_env.block_access_list_builder, block_env.state
             )
 
     def run_blockchain_test(self) -> None:

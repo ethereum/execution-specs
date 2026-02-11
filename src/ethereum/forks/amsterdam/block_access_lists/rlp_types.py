@@ -14,7 +14,7 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U16, U64, U256
 
-from ..fork_types import Address
+from ethereum.state import Address
 
 # Type aliases for clarity (matching EIP-7928 specification)
 StorageKey: TypeAlias = U256
@@ -33,7 +33,7 @@ class StorageChange:
     storage slot.
 
     [slot]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.SlotChanges
-    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
     block_access_index: BlockAccessIndex
@@ -48,7 +48,7 @@ class BalanceChange:
     balance.
 
     [bal]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
-    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
     block_access_index: BlockAccessIndex
@@ -63,7 +63,7 @@ class NonceChange:
     nonce.
 
     [bal]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
-    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
     block_access_index: BlockAccessIndex
@@ -78,7 +78,7 @@ class CodeChange:
     code.
 
     [bal]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
-    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
     block_access_index: BlockAccessIndex
@@ -93,7 +93,7 @@ class SlotChanges:
     storage.
 
     [bal]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
-    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    [`Account`]: ref:ethereum.state.Account
     """  # noqa: E501
 
     slot: StorageKey
@@ -106,7 +106,7 @@ class AccountChanges:
     """
     All changes for a single [`Account`], grouped by field type.
 
-    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    [`Account`]: ref:ethereum.state.Account
     """
 
     address: Address

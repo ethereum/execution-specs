@@ -5,6 +5,7 @@ Loader for code from the relevant fork.
 from inspect import signature
 from typing import Any, Final
 
+from ethereum.state import EMPTY_ACCOUNT
 from ethereum_spec_tools.forks import Hardfork
 
 
@@ -203,6 +204,8 @@ class ForkLoad:
     @property
     def EMPTY_ACCOUNT(self) -> Any:
         """EMPTY_ACCOUNT of the fork."""
+        if self.has_block_state:
+            return EMPTY_ACCOUNT
         return self._module("fork_types").EMPTY_ACCOUNT
 
     @property
@@ -277,6 +280,15 @@ class ForkLoad:
     def has_decode_transaction(self) -> bool:
         """Check if this fork has a `decode_transaction`."""
         return hasattr(self._module("transactions"), "decode_transaction")
+
+    @property
+    def has_block_state(self) -> bool:
+        """Check if the fork uses BlockState instead of State."""
+        try:
+            module = self._module("state_tracker")
+        except ModuleNotFoundError:
+            return False
+        return hasattr(module, "BlockState")
 
     @property
     def State(self) -> Any:
