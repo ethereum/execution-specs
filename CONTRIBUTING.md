@@ -33,7 +33,7 @@ This specification aims to be:
 
 - Don't repeat what is obvious from the code.
 - <details>
-    <summary><em>(expand)</em> Consider how future changes will interleave with yours, especially when creating sementic blocks.</summary>
+    <summary><em>(expand)</em> Consider how future changes will interleave with yours, especially when creating semantic blocks.</summary>
 
     <br>Consider:
     <table valign="top">
