@@ -15,8 +15,6 @@ from execution_testing import (
     keccak256,
 )
 
-from .spec import Spec
-
 
 @pytest.fixture
 def vector_gas_value() -> int | None:
@@ -33,14 +31,14 @@ def vector_gas_value() -> int | None:
 
 
 @pytest.fixture
-def precompile_gas(vector_gas_value: int | None) -> int:
+def precompile_gas(vector_gas_value: int | None, fork: Fork) -> int:
     """Gas cost for the precompile."""
+    gas = fork.gas_costs().G_PRECOMPILE_P256VERIFY
     if vector_gas_value is not None:
-        assert vector_gas_value == Spec.P256VERIFY_GAS, (
-            f"Calculated gas {vector_gas_value} "
-            f"!= Vector gas {Spec.P256VERIFY_GAS}"
+        assert vector_gas_value == gas, (
+            f"Calculated gas {vector_gas_value} != Vector gas {gas}"
         )
-    return Spec.P256VERIFY_GAS
+    return gas
 
 
 @pytest.fixture

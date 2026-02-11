@@ -1,6 +1,7 @@
 """Shared pytest definitions local to EIP-2537 tests."""
 
 import pytest
+from execution_testing import Fork
 
 from ...common.precompile_fixtures import (
     call_contract_address,  # noqa: F401
@@ -15,7 +16,7 @@ from ...common.precompile_fixtures import (
     tx_gas_limit,  # noqa: F401
 )
 from .helpers import BLSPointGenerator
-from .spec import GAS_CALCULATION_FUNCTION_MAP
+from .spec import build_gas_calculation_function_map
 
 
 @pytest.fixture
@@ -34,12 +35,14 @@ def vector_gas_value() -> int | None:
 
 @pytest.fixture
 def precompile_gas(
-    precompile_address: int, input_data: bytes, vector_gas_value: int | None
+    precompile_address: int,
+    input_data: bytes,
+    vector_gas_value: int | None,
+    fork: Fork,
 ) -> int:
     """Gas cost for the precompile."""
-    calculated_gas = GAS_CALCULATION_FUNCTION_MAP[precompile_address](
-        len(input_data)
-    )
+    gas_map = build_gas_calculation_function_map(fork.gas_costs())
+    calculated_gas = gas_map[precompile_address](len(input_data))
     if vector_gas_value is not None:
         assert calculated_gas == vector_gas_value, (
             f"Calculated gas {calculated_gas} != Vector gas {vector_gas_value}"

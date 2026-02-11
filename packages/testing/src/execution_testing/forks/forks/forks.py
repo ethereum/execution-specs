@@ -162,8 +162,6 @@ class Frontier(BaseFork, solc_name="homestead"):
             G_MEMORY=3,
             G_TX_DATA_ZERO=4,
             G_TX_DATA_NON_ZERO=68,
-            G_TX_DATA_STANDARD_TOKEN_COST=0,
-            G_TX_DATA_FLOOR_TOKEN_COST=0,
             G_TRANSACTION=21_000,
             G_TRANSACTION_CREATE=32_000,
             G_LOG=375,
@@ -173,8 +171,35 @@ class Frontier(BaseFork, solc_name="homestead"):
             G_KECCAK_256_WORD=6,
             G_COPY=3,
             G_BLOCKHASH=20,
+            G_PRECOMPILE_ECRECOVER=3_000,
+            G_PRECOMPILE_SHA256_BASE=60,
+            G_PRECOMPILE_SHA256_WORD=12,
+            G_PRECOMPILE_RIPEMD160_BASE=600,
+            G_PRECOMPILE_RIPEMD160_WORD=120,
+            G_PRECOMPILE_IDENTITY_BASE=15,
+            G_PRECOMPILE_IDENTITY_WORD=3,
+            # Zero-initialized: introduced in later forks, set via
+            # replace() in the fork that activates them.
+            G_TX_DATA_STANDARD_TOKEN_COST=0,
+            G_TX_DATA_FLOOR_TOKEN_COST=0,
             G_AUTHORIZATION=0,
             R_AUTHORIZATION_EXISTING_AUTHORITY=0,
+            G_PRECOMPILE_ECADD=0,
+            G_PRECOMPILE_ECMUL=0,
+            G_PRECOMPILE_ECPAIRING_BASE=0,
+            G_PRECOMPILE_ECPAIRING_PER_POINT=0,
+            G_PRECOMPILE_BLAKE2F_BASE=0,
+            G_PRECOMPILE_BLAKE2F_PER_ROUND=0,
+            G_PRECOMPILE_POINT_EVALUATION=0,
+            G_PRECOMPILE_BLS_G1ADD=0,
+            G_PRECOMPILE_BLS_G1MUL=0,
+            G_PRECOMPILE_BLS_G1MAP=0,
+            G_PRECOMPILE_BLS_G2ADD=0,
+            G_PRECOMPILE_BLS_G2MUL=0,
+            G_PRECOMPILE_BLS_G2MAP=0,
+            G_PRECOMPILE_BLS_PAIRING_BASE=0,
+            G_PRECOMPILE_BLS_PAIRING_PER_PAIR=0,
+            G_PRECOMPILE_P256VERIFY=0,
         )
 
     @classmethod
@@ -1830,6 +1855,7 @@ class Istanbul(ConstantinopleFix):
             G_PRECOMPILE_ECMUL=6000,
             G_PRECOMPILE_ECPAIRING_BASE=45_000,
             G_PRECOMPILE_ECPAIRING_PER_POINT=34_000,
+            G_PRECOMPILE_BLAKE2F_PER_ROUND=1,
         )
 
 
@@ -2596,6 +2622,18 @@ class Cancun(Shanghai):
         return True
 
     @classmethod
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
+        """On Cancun, the point evaluation precompile gas cost is set."""
+        return replace(
+            super(Cancun, cls).gas_costs(
+                block_number=block_number, timestamp=timestamp
+            ),
+            G_PRECOMPILE_POINT_EVALUATION=50_000,
+        )
+
+    @classmethod
     def opcode_gas_map(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
@@ -2714,6 +2752,14 @@ class Prague(Cancun):
             G_TX_DATA_FLOOR_TOKEN_COST=10,
             G_AUTHORIZATION=25_000,
             R_AUTHORIZATION_EXISTING_AUTHORITY=12_500,
+            G_PRECOMPILE_BLS_G1ADD=375,
+            G_PRECOMPILE_BLS_G1MUL=12_000,
+            G_PRECOMPILE_BLS_G1MAP=5_500,
+            G_PRECOMPILE_BLS_G2ADD=600,
+            G_PRECOMPILE_BLS_G2MUL=22_500,
+            G_PRECOMPILE_BLS_G2MAP=23_800,
+            G_PRECOMPILE_BLS_PAIRING_BASE=37_700,
+            G_PRECOMPILE_BLS_PAIRING_PER_PAIR=32_600,
         )
 
     @classmethod
@@ -3110,6 +3156,18 @@ class Osaka(Prague, solc_name="cancun"):
             Address(0x100, label="P256VERIFY"),
         ] + super(Osaka, cls).precompiles(
             block_number=block_number, timestamp=timestamp
+        )
+
+    @classmethod
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
+        """On Osaka, the P256VERIFY precompile gas cost is set."""
+        return replace(
+            super(Osaka, cls).gas_costs(
+                block_number=block_number, timestamp=timestamp
+            ),
+            G_PRECOMPILE_P256VERIFY=6_900,
         )
 
     @classmethod
