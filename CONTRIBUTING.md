@@ -95,15 +95,15 @@ This specification aims to be:
 
 - Do not include the value of the constant in the docstring (not verbatim and not a decomposition). It's too easy to change the constant and forget to change the docstring.
 - Construct the constant's value from more basic components when doing so provides meaningful context.
-  - **Great:** `TARGET_BLOB_GAS_PER_BLOCK = GAS_PER_BLOB * BLOB_SCHEDULE_TARGET`
-  - **Good:** `TX_MAX_GAS = Uint(2 ** 24)`
-  - **Bad:** `TX_MAS_GAS = Uint(16_777_216)`
+    - **Great:** `TARGET_BLOB_GAS_PER_BLOCK = GAS_PER_BLOB * BLOB_SCHEDULE_TARGET`
+    - **Good:** `TX_MAX_GAS = Uint(2 ** 24)`
+    - **Bad:** `TX_MAS_GAS = Uint(16_777_216)`
 
 ##### Functions
 
 - The first paragraph should be a brief summary of what the function does, written in the imperative mood.
-  - **Good:** Build the house using the provided lumber.
-  - **Bad:** Builds the house using the provided lumber.
+    - **Good:** Build the house using the provided lumber.
+    - **Bad:** Builds the house using the provided lumber.
 
 ### Changes across various Forks
 
