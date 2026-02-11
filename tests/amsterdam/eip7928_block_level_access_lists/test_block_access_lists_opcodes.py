@@ -115,8 +115,8 @@ def test_bal_sstore_and_oog(
     alice = pre.fund_eoa()
 
     # Create contract that attempts SSTORE to cold storage slot 0x01
-    storage_contract_code = Bytecode(
-        Op.SSTORE(0x01, 0x42, key_warm=False, original_value=0, new_value=0x42)
+    storage_contract_code = Op.SSTORE(
+        0x01, 0x42, key_warm=False, original_value=0, new_value=0x42
     )
 
     storage_contract = pre.deploy_contract(code=storage_contract_code)
@@ -127,7 +127,7 @@ def test_bal_sstore_and_oog(
     full_cost = storage_contract_code.gas_cost(fork)
 
     # Push cost for stipend boundary calculations
-    push_code = Bytecode(Op.PUSH1(0x42) + Op.PUSH1(0x01))
+    push_code = Op.PUSH1(0x42) + Op.PUSH1(0x01)
     push_cost = push_code.gas_cost(fork)
 
     # G_CALL_STIPEND is a threshold check, not a gas cost — keep from gas_costs
@@ -212,7 +212,7 @@ def test_bal_sload_and_oog(
     alice = pre.fund_eoa()
 
     # Create contract that attempts SLOAD from cold storage slot 0x01
-    storage_contract_code = Bytecode(
+    storage_contract_code = (
         Op.PUSH1(0x01)  # Storage slot (cold)
         + Op.SLOAD(key_warm=False)  # Load value from slot - this will OOG
         + Op.STOP
@@ -271,7 +271,7 @@ def test_bal_balance_and_oog(
     bob = pre.fund_eoa()
 
     # Create contract that attempts to check Bob's balance
-    balance_checker_code = Bytecode(
+    balance_checker_code = (
         Op.PUSH20(bob)  # Bob's address
         + Op.BALANCE(address_warm=False)  # Check balance (cold access)
         + Op.STOP
@@ -336,10 +336,10 @@ def test_bal_extcodesize_and_oog(
     alice = pre.fund_eoa()
 
     # Create target contract with some code
-    target_contract = pre.deploy_contract(code=Bytecode(Op.STOP))
+    target_contract = pre.deploy_contract(code=Op.STOP)
 
     # Create contract that checks target's code size
-    codesize_checker_code = Bytecode(
+    codesize_checker_code = (
         Op.PUSH20(target_contract)  # Target contract address
         + Op.EXTCODESIZE(address_warm=False)  # Check code size (cold access)
         + Op.STOP
@@ -428,8 +428,17 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
 
     ret_size = 32 if memory_expansion else 0
 
+    # Full gas metadata: includes create_cost when applicable
     call_code = Op.CALL(
-        gas=0, address=target, value=value, ret_size=ret_size, ret_offset=0
+        gas=0,
+        address=target,
+        value=value,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=value > 0 and target_is_empty,
+        new_memory_size=ret_size,
     )
     caller = pre.deploy_contract(code=call_code, balance=value)
 
@@ -443,9 +452,9 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    # Static gas (before state access): no create_cost
-    call_static = Bytecode(
-        Op.CALL(
+    if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
+        # Static gas (before state access): no create_cost
+        call_static = Op.CALL(
             gas=0,
             address=target,
             value=value,
@@ -456,27 +465,9 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
             account_new=False,
             new_memory_size=ret_size,
         )
-    )
-
-    # Full gas (success): includes create_cost
-    call_full = Bytecode(
-        Op.CALL(
-            gas=0,
-            address=target,
-            value=value,
-            ret_size=ret_size,
-            ret_offset=0,
-            address_warm=target_is_warm,
-            value_transfer=value > 0,
-            account_new=value > 0 and target_is_empty,
-            new_memory_size=ret_size,
-        )
-    )
-
-    if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
         gas_limit = intrinsic_cost + call_static.gas_cost(fork) - 1
     else:  # SUCCESS
-        gas_limit = intrinsic_cost + call_full.gas_cost(fork)
+        gas_limit = intrinsic_cost + call_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -582,9 +573,18 @@ def test_bal_call_no_delegation_oog_after_target_access(
     # memory expansion / no expansion
     ret_size = 32 if memory_expansion else 0
 
-    # caller contract - no warmup code, we use tx access list instead
+    # Static gas (before state access): no create_cost
+    # Pass static check, fail at second check due to create cost
     call_code = Op.CALL(
-        gas=0, address=target, value=value, ret_size=ret_size, ret_offset=0
+        gas=0,
+        address=target,
+        value=value,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=True,
+        account_new=False,
+        new_memory_size=ret_size,
     )
     caller = pre.deploy_contract(code=call_code, balance=value)
 
@@ -599,23 +599,7 @@ def test_bal_call_no_delegation_oog_after_target_access(
         access_list=access_list
     )
 
-    # Static gas (before state access): no create_cost
-    # Pass static check, fail at second check due to create cost
-    call_static = Bytecode(
-        Op.CALL(
-            gas=0,
-            address=target,
-            value=value,
-            ret_size=ret_size,
-            ret_offset=0,
-            address_warm=target_is_warm,
-            value_transfer=True,
-            account_new=False,
-            new_memory_size=ret_size,
-        )
-    )
-
-    gas_limit = intrinsic_cost + call_static.gas_cost(fork)
+    gas_limit = intrinsic_cost + call_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -692,12 +676,19 @@ def test_bal_call_7702_delegation_and_oog(
     # memory expansion / no expansion
     ret_size = 32 if memory_expansion else 0
 
+    # Full gas metadata: includes delegation cost
     call_code = Op.CALL(
         gas=0,
         address=target,
         value=value,
         ret_size=ret_size,
         ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=ret_size,
+        delegated_address=True,
+        delegated_address_warm=delegation_is_warm,
     )
     caller = pre.deploy_contract(code=call_code, balance=value)
 
@@ -715,35 +706,16 @@ def test_bal_call_7702_delegation_and_oog(
     )
 
     # Static gas (before state access): no delegation
-    call_static = Bytecode(
-        Op.CALL(
-            gas=0,
-            address=target,
-            value=value,
-            ret_size=ret_size,
-            ret_offset=0,
-            address_warm=target_is_warm,
-            value_transfer=value > 0,
-            account_new=False,
-            new_memory_size=ret_size,
-        )
-    )
-
-    # Full gas (success): includes delegation cost
-    call_full = Bytecode(
-        Op.CALL(
-            gas=0,
-            address=target,
-            value=value,
-            ret_size=ret_size,
-            ret_offset=0,
-            address_warm=target_is_warm,
-            value_transfer=value > 0,
-            account_new=False,
-            new_memory_size=ret_size,
-            delegated_address=True,
-            delegated_address_warm=delegation_is_warm,
-        )
+    call_static = Op.CALL(
+        gas=0,
+        address=target,
+        value=value,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=ret_size,
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
@@ -753,9 +725,9 @@ def test_bal_call_7702_delegation_and_oog(
         gas_limit = intrinsic_cost + call_static.gas_cost(fork)
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
         # One less than full cost - not enough for full call
-        gas_limit = intrinsic_cost + call_full.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + call_code.gas_cost(fork) - 1
     else:
-        gas_limit = intrinsic_cost + call_full.gas_cost(fork)
+        gas_limit = intrinsic_cost + call_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -866,6 +838,8 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
         gas=0,
         ret_size=ret_size,
         ret_offset=ret_offset,
+        address_warm=target_is_warm,
+        new_memory_size=ret_size,
     )
 
     caller = pre.deploy_contract(code=delegatecall_code)
@@ -880,22 +854,10 @@ def test_bal_delegatecall_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    # Full gas cost: access + memory (no delegation)
-    delegatecall_full = Bytecode(
-        Op.DELEGATECALL(
-            address=target,
-            gas=0,
-            ret_size=ret_size,
-            ret_offset=ret_offset,
-            address_warm=target_is_warm,
-            new_memory_size=ret_size,
-        )
-    )
-
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + delegatecall_full.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork) - 1
     else:  # SUCCESS
-        gas_limit = intrinsic_cost + delegatecall_full.gas_cost(fork)
+        gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -976,11 +938,16 @@ def test_bal_delegatecall_7702_delegation_and_oog(
     ret_size = 32 if memory_expansion else 0
     ret_offset = 0
 
+    # Full gas metadata: includes delegation cost
     delegatecall_code = Op.DELEGATECALL(
         gas=0,
         address=target,
         ret_size=ret_size,
         ret_offset=ret_offset,
+        address_warm=target_is_warm,
+        new_memory_size=ret_size,
+        delegated_address=True,
+        delegated_address_warm=delegation_is_warm,
     )
 
     caller = pre.deploy_contract(code=delegatecall_code)
@@ -998,30 +965,14 @@ def test_bal_delegatecall_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    # Static gas (before state access): access + memory, no delegation
-    delegatecall_static = Bytecode(
-        Op.DELEGATECALL(
-            gas=0,
-            address=target,
-            ret_size=ret_size,
-            ret_offset=ret_offset,
-            address_warm=target_is_warm,
-            new_memory_size=ret_size,
-        )
-    )
-
-    # Full gas (success): includes delegation cost
-    delegatecall_full = Bytecode(
-        Op.DELEGATECALL(
-            gas=0,
-            address=target,
-            ret_size=ret_size,
-            ret_offset=ret_offset,
-            address_warm=target_is_warm,
-            new_memory_size=ret_size,
-            delegated_address=True,
-            delegated_address_warm=delegation_is_warm,
-        )
+    # Static gas (before state access): no delegation
+    delegatecall_static = Op.DELEGATECALL(
+        gas=0,
+        address=target,
+        ret_size=ret_size,
+        ret_offset=ret_offset,
+        address_warm=target_is_warm,
+        new_memory_size=ret_size,
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
@@ -1031,9 +982,9 @@ def test_bal_delegatecall_7702_delegation_and_oog(
         gas_limit = intrinsic_cost + delegatecall_static.gas_cost(fork)
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
         # One less than full cost - not enough for full call
-        gas_limit = intrinsic_cost + delegatecall_full.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork) - 1
     else:
-        gas_limit = intrinsic_cost + delegatecall_full.gas_cost(fork)
+        gas_limit = intrinsic_cost + delegatecall_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1119,7 +1070,15 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
     ret_size = 32 if memory_expansion else 0
 
     callcode_code = Op.CALLCODE(
-        gas=0, address=target, value=value, ret_size=ret_size, ret_offset=0
+        gas=0,
+        address=target,
+        value=value,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=ret_size,
     )
     caller = pre.deploy_contract(code=callcode_code, balance=value)
 
@@ -1133,25 +1092,10 @@ def test_bal_callcode_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    # Full gas cost: access + transfer + memory
-    callcode_full = Bytecode(
-        Op.CALLCODE(
-            gas=0,
-            address=target,
-            value=value,
-            ret_size=ret_size,
-            ret_offset=0,
-            address_warm=target_is_warm,
-            value_transfer=value > 0,
-            account_new=False,
-            new_memory_size=ret_size,
-        )
-    )
-
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + callcode_full.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + callcode_code.gas_cost(fork) - 1
     else:  # SUCCESS
-        gas_limit = intrinsic_cost + callcode_full.gas_cost(fork)
+        gas_limit = intrinsic_cost + callcode_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1240,12 +1184,19 @@ def test_bal_callcode_7702_delegation_and_oog(
     # memory expansion / no expansion
     ret_size = 32 if memory_expansion else 0
 
+    # Full gas metadata: includes delegation cost
     callcode_code = Op.CALLCODE(
         gas=0,
         address=target,
         value=value,
         ret_size=ret_size,
         ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=ret_size,
+        delegated_address=True,
+        delegated_address_warm=delegation_is_warm,
     )
     caller = pre.deploy_contract(code=callcode_code, balance=value)
 
@@ -1263,35 +1214,16 @@ def test_bal_callcode_7702_delegation_and_oog(
     )
 
     # Static gas (before state access): no delegation
-    callcode_static = Bytecode(
-        Op.CALLCODE(
-            gas=0,
-            address=target,
-            value=value,
-            ret_size=ret_size,
-            ret_offset=0,
-            address_warm=target_is_warm,
-            value_transfer=value > 0,
-            account_new=False,
-            new_memory_size=ret_size,
-        )
-    )
-
-    # Full gas (success): includes delegation cost
-    callcode_full = Bytecode(
-        Op.CALLCODE(
-            gas=0,
-            address=target,
-            value=value,
-            ret_size=ret_size,
-            ret_offset=0,
-            address_warm=target_is_warm,
-            value_transfer=value > 0,
-            account_new=False,
-            new_memory_size=ret_size,
-            delegated_address=True,
-            delegated_address_warm=delegation_is_warm,
-        )
+    callcode_static = Op.CALLCODE(
+        gas=0,
+        address=target,
+        value=value,
+        ret_size=ret_size,
+        ret_offset=0,
+        address_warm=target_is_warm,
+        value_transfer=value > 0,
+        account_new=False,
+        new_memory_size=ret_size,
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
@@ -1301,9 +1233,9 @@ def test_bal_callcode_7702_delegation_and_oog(
         gas_limit = intrinsic_cost + callcode_static.gas_cost(fork)
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
         # One less than full cost - not enough for full call
-        gas_limit = intrinsic_cost + callcode_full.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + callcode_code.gas_cost(fork) - 1
     else:
-        gas_limit = intrinsic_cost + callcode_full.gas_cost(fork)
+        gas_limit = intrinsic_cost + callcode_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1391,6 +1323,8 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
         gas=0,
         ret_size=ret_size,
         ret_offset=ret_offset,
+        address_warm=target_is_warm,
+        new_memory_size=ret_size,
     )
 
     caller = pre.deploy_contract(code=staticcall_code)
@@ -1405,22 +1339,10 @@ def test_bal_staticcall_no_delegation_and_oog_before_target_access(
         access_list=access_list
     )
 
-    # Full gas cost: access + memory (no delegation)
-    staticcall_full = Bytecode(
-        Op.STATICCALL(
-            address=target,
-            gas=0,
-            ret_size=ret_size,
-            ret_offset=ret_offset,
-            address_warm=target_is_warm,
-            new_memory_size=ret_size,
-        )
-    )
-
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
-        gas_limit = intrinsic_cost + staticcall_full.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork) - 1
     else:  # SUCCESS
-        gas_limit = intrinsic_cost + staticcall_full.gas_cost(fork)
+        gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1501,11 +1423,16 @@ def test_bal_staticcall_7702_delegation_and_oog(
     ret_size = 32 if memory_expansion else 0
     ret_offset = 0
 
+    # Full gas metadata: includes delegation cost
     staticcall_code = Op.STATICCALL(
         gas=0,
         address=target,
         ret_size=ret_size,
         ret_offset=ret_offset,
+        address_warm=target_is_warm,
+        new_memory_size=ret_size,
+        delegated_address=True,
+        delegated_address_warm=delegation_is_warm,
     )
 
     caller = pre.deploy_contract(code=staticcall_code)
@@ -1523,30 +1450,14 @@ def test_bal_staticcall_7702_delegation_and_oog(
         access_list=access_list
     )
 
-    # Static gas (before state access): access + memory, no delegation
-    staticcall_static = Bytecode(
-        Op.STATICCALL(
-            gas=0,
-            address=target,
-            ret_size=ret_size,
-            ret_offset=ret_offset,
-            address_warm=target_is_warm,
-            new_memory_size=ret_size,
-        )
-    )
-
-    # Full gas (success): includes delegation cost
-    staticcall_full = Bytecode(
-        Op.STATICCALL(
-            gas=0,
-            address=target,
-            ret_size=ret_size,
-            ret_offset=ret_offset,
-            address_warm=target_is_warm,
-            new_memory_size=ret_size,
-            delegated_address=True,
-            delegated_address_warm=delegation_is_warm,
-        )
+    # Static gas (before state access): no delegation
+    staticcall_static = Op.STATICCALL(
+        gas=0,
+        address=target,
+        ret_size=ret_size,
+        ret_offset=ret_offset,
+        address_warm=target_is_warm,
+        new_memory_size=ret_size,
     )
 
     if oog_boundary == OutOfGasBoundary.OOG_BEFORE_TARGET_ACCESS:
@@ -1556,9 +1467,9 @@ def test_bal_staticcall_7702_delegation_and_oog(
         gas_limit = intrinsic_cost + staticcall_static.gas_cost(fork)
     elif oog_boundary == OutOfGasBoundary.OOG_SUCCESS_MINUS_1:
         # One less than full cost - not enough for full call
-        gas_limit = intrinsic_cost + staticcall_full.gas_cost(fork) - 1
+        gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork) - 1
     else:
-        gas_limit = intrinsic_cost + staticcall_full.gas_cost(fork)
+        gas_limit = intrinsic_cost + staticcall_code.gas_cost(fork)
 
     tx = Transaction(
         sender=alice,
@@ -1653,63 +1564,30 @@ def test_bal_extcodecopy_and_oog(
     alice = pre.fund_eoa()
 
     # Create target contract with some code
-    target_contract = pre.deploy_contract(
-        code=Bytecode(Op.PUSH1(0x42) + Op.STOP)
+    target_contract = pre.deploy_contract(code=Op.PUSH1(0x42) + Op.STOP)
+
+    # Full EXTCODECOPY: access + copy + memory expansion
+    extcodecopy_code = Op.EXTCODECOPY(
+        address=target_contract,
+        dest_offset=memory_offset,
+        offset=0,
+        size=copy_size,
+        address_warm=False,
+        data_size=copy_size,
+        new_memory_size=memory_offset + copy_size,
     )
 
-    # Build EXTCODECOPY contract with appropriate PUSH sizes
-    if memory_offset <= 0xFF:
-        dest_push = Op.PUSH1(memory_offset)
-    elif memory_offset <= 0xFFFF:
-        dest_push = Op.PUSH2(memory_offset)
-    else:
-        dest_push = Op.PUSH3(memory_offset)
-
-    extcodecopy_contract_code = Bytecode(
-        Op.PUSH1(copy_size)
-        + Op.PUSH1(0)  # codeOffset
-        + dest_push  # destOffset
-        + Op.PUSH20(target_contract)
-        + Op.EXTCODECOPY
-        + Op.STOP
-    )
-
-    extcodecopy_contract = pre.deploy_contract(code=extcodecopy_contract_code)
+    extcodecopy_contract = pre.deploy_contract(code=extcodecopy_code + Op.STOP)
 
     intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    # Gas calculation using EXTCODECOPY with metadata for different boundaries.
-    # Each Bytecode(Op.EXTCODECOPY(...)) includes 4 PUSHes + the opcode cost.
-
-    # Full EXTCODECOPY cost: access + copy + memory expansion
-    extcodecopy_full = Bytecode(
-        Op.EXTCODECOPY(
-            address=target_contract,
-            dest_offset=memory_offset,
-            offset=0,
-            size=copy_size,
-            address_warm=False,
-            data_size=copy_size,
-            new_memory_size=memory_offset + copy_size,
-        )
-    )
-
-    # EXTCODECOPY without memory expansion (access + copy only)
-    extcodecopy_no_mem = Bytecode(
-        Op.EXTCODECOPY(
-            address=target_contract,
-            dest_offset=memory_offset,
-            offset=0,
-            size=copy_size,
-            address_warm=False,
-            data_size=copy_size,
-            new_memory_size=0,
-        )
-    )
-
-    # EXTCODECOPY with no copy/memory (access only)
-    extcodecopy_access_only = Bytecode(
-        Op.EXTCODECOPY(
+    if oog_scenario == "success":
+        # Provide enough gas for everything including memory expansion
+        tx_gas_limit = intrinsic_gas_cost + extcodecopy_code.gas_cost(fork)
+        target_in_bal = True
+    elif oog_scenario == "oog_at_cold_access":
+        # Provide gas for pushes but 1 less than cold access
+        extcodecopy_access_only = Op.EXTCODECOPY(
             address=target_contract,
             dest_offset=memory_offset,
             offset=0,
@@ -1718,24 +1596,26 @@ def test_bal_extcodecopy_and_oog(
             data_size=0,
             new_memory_size=0,
         )
-    )
-
-    if oog_scenario == "success":
-        # Provide enough gas for everything including memory expansion
-        tx_gas_limit = intrinsic_gas_cost + extcodecopy_full.gas_cost(fork)
-        target_in_bal = True
-    elif oog_scenario == "oog_at_cold_access":
-        # Provide gas for pushes but 1 less than cold access
-        access_only_cost = extcodecopy_access_only.gas_cost(fork)
-        tx_gas_limit = intrinsic_gas_cost + access_only_cost - 1
+        tx_gas_limit = (
+            intrinsic_gas_cost + extcodecopy_access_only.gas_cost(fork) - 1
+        )
         target_in_bal = False
     elif oog_scenario == "oog_at_memory_large_offset":
         # Provide gas for push + cold access + copy, but NOT memory expansion
+        extcodecopy_no_mem = Op.EXTCODECOPY(
+            address=target_contract,
+            dest_offset=memory_offset,
+            offset=0,
+            size=copy_size,
+            address_warm=False,
+            data_size=copy_size,
+            new_memory_size=0,
+        )
         tx_gas_limit = intrinsic_gas_cost + extcodecopy_no_mem.gas_cost(fork)
         target_in_bal = False
     elif oog_scenario == "oog_at_memory_boundary":
         # Calculate full cost and provide exactly 1 less than needed
-        tx_gas_limit = intrinsic_gas_cost + extcodecopy_full.gas_cost(fork) - 1
+        tx_gas_limit = intrinsic_gas_cost + extcodecopy_code.gas_cost(fork) - 1
         target_in_bal = False
     else:
         raise ValueError(f"Invariant: unknown oog_scenario {oog_scenario}")
