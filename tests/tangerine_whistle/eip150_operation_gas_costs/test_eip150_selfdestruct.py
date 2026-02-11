@@ -21,7 +21,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     BlockchainTestFiller,
-    Bytecode,
     Initcode,
     Op,
     Transaction,
