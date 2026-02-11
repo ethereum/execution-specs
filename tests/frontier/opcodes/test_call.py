@@ -4,7 +4,6 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
-    Bytecode,
     CodeGasMeasure,
     Environment,
     Fork,
