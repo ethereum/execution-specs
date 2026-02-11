@@ -53,7 +53,6 @@ from .requests import (
     parse_deposit_requests,
 )
 from .state import (
-    DictPreState,
     State,
     apply_diffs_to_state,
 )
@@ -241,11 +240,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if block.ommers != ():
         raise InvalidBlock
 
-    pre_state = DictPreState(
-        _main_trie=chain.state._main_trie,
-        _storage_tries=chain.state._storage_tries,
-    )
-    block_tracker = BlockStateTracker(pre_state=pre_state)
+    block_tracker = BlockStateTracker(pre_state=chain.state)
 
     block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
@@ -268,7 +263,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         withdrawals=block.withdrawals,
     )
     account_changes, storage_changes = extract_block_diffs(block_tracker)
-    block_state_root, _ = pre_state.compute_state_root_and_trie_changes(
+    block_state_root, _ = chain.state.compute_state_root_and_trie_changes(
         account_changes, storage_changes
     )
     apply_diffs_to_state(chain.state, account_changes, storage_changes)

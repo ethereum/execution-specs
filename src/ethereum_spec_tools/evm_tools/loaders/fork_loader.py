@@ -289,23 +289,17 @@ class ForkLoad:
 
     @property
     def State(self) -> Any:
-        """State class of the fork (DictPreState for block_tracker forks)."""
-        if self.has_block_tracker:
-            return self._module("state").DictPreState
+        """State class of the fork."""
         return self._module("state").State
 
     @property
     def set_account(self) -> Any:
         """set_account function of the fork."""
-        if self.has_block_tracker:
-            return self._module("state").dict_pre_state_set_account
         return self._module("state").set_account
 
     @property
     def set_storage(self) -> Any:
         """set_storage function of the fork."""
-        if self.has_block_tracker:
-            return self._module("state").dict_pre_state_set_storage
         return self._module("state").set_storage
 
     @property

@@ -41,63 +41,6 @@ class State:
         default_factory=dict
     )
 
-
-def close_state(state: State) -> None:
-    """
-    Free resources held by the state. Used by optimized implementations to
-    release file descriptors.
-    """
-    del state._main_trie
-    del state._storage_tries
-
-
-def apply_diffs_to_state(
-    state: State,
-    account_changes: Dict[Address, Optional[Account]],
-    storage_changes: Dict[Address, Dict[Bytes32, U256]],
-) -> None:
-    """
-    Apply block-level diffs to the ``State`` for the next block.
-
-    Parameters
-    ----------
-    state :
-        The state to update.
-    account_changes :
-        Account changes to apply.
-    storage_changes :
-        Storage changes to apply.
-
-    """
-    for address, account in account_changes.items():
-        trie_set(state._main_trie, address, account)
-
-    for address, slots in storage_changes.items():
-        trie = state._storage_tries.get(address)
-        if trie is None:
-            trie = Trie(secured=True, default=U256(0))
-            state._storage_tries[address] = trie
-        for key, value in slots.items():
-            trie_set(trie, key, value)
-        if trie._data == {}:
-            del state._storage_tries[address]
-
-
-@dataclass
-class DictPreState:
-    """
-    Pre-state backed by in-memory Python dicts (via ``Trie``).
-
-    Implement the ``PreState`` protocol for use by ``t8n`` and EEST.
-    """
-
-    _main_trie: Trie[Address, Optional[Account]] = field(
-        default_factory=lambda: Trie(secured=True, default=None)
-    )
-    _storage_tries: Dict[Address, Trie[Bytes32, U256]] = field(
-        default_factory=dict
-    )
-
     def get_account_optional(self, address: Address) -> Optional[Account]:
         """
         Get the account at an address.
@@ -169,36 +112,77 @@ class DictPreState:
         return state_root_value, []
 
 
-def dict_pre_state_set_account(
-    pre_state: DictPreState,
+def close_state(state: State) -> None:
+    """
+    Free resources held by the state. Used by optimized implementations to
+    release file descriptors.
+    """
+    del state._main_trie
+    del state._storage_tries
+
+
+def apply_diffs_to_state(
+    state: State,
+    account_changes: Dict[Address, Optional[Account]],
+    storage_changes: Dict[Address, Dict[Bytes32, U256]],
+) -> None:
+    """
+    Apply block-level diffs to the ``State`` for the next block.
+
+    Parameters
+    ----------
+    state :
+        The state to update.
+    account_changes :
+        Account changes to apply.
+    storage_changes :
+        Storage changes to apply.
+
+    """
+    for address, account in account_changes.items():
+        trie_set(state._main_trie, address, account)
+
+    for address, slots in storage_changes.items():
+        trie = state._storage_tries.get(address)
+        if trie is None:
+            trie = Trie(secured=True, default=U256(0))
+            state._storage_tries[address] = trie
+        for key, value in slots.items():
+            trie_set(trie, key, value)
+        if trie._data == {}:
+            del state._storage_tries[address]
+
+
+def set_account(
+    state: State,
     address: Address,
     account: Optional[Account],
 ) -> None:
     """
-    Set an account in a ``DictPreState``.
+    Set an account in a ``State``.
 
     Setting to ``None`` deletes the account.
     """
-    trie_set(pre_state._main_trie, address, account)
+    trie_set(state._main_trie, address, account)
 
 
-def dict_pre_state_set_storage(
-    pre_state: DictPreState,
+def set_storage(
+    state: State,
     address: Address,
     key: Bytes32,
     value: U256,
 ) -> None:
     """
-    Set a storage value in a ``DictPreState``.
+    Set a storage value in a ``State``.
 
     Setting to ``U256(0)`` deletes the key.
     """
-    assert trie_get(pre_state._main_trie, address) is not None
+    assert trie_get(state._main_trie, address) is not None
 
-    trie = pre_state._storage_tries.get(address)
+    trie = state._storage_tries.get(address)
     if trie is None:
         trie = Trie(secured=True, default=U256(0))
-        pre_state._storage_tries[address] = trie
+        state._storage_tries[address] = trie
     trie_set(trie, key, value)
     if trie._data == {}:
-        del pre_state._storage_tries[address]
+        del state._storage_tries[address]
