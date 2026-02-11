@@ -76,10 +76,10 @@ def test_warm_coinbase_call_out_of_gas(
 
     # Compute exact gas: warm call cost + overhead
     # (COINBASE, PUSHes, DUPs, POP)
-    warm_call_cost = Bytecode(call_opcode(address_warm=True)).gas_cost(fork)
+    warm_call_cost = call_opcode(address_warm=True).gas_cost(fork)
     # Overhead = total cost (with cold default) minus the cold call cost
-    cold_call_cost = Bytecode(call_opcode(address_warm=False)).gas_cost(fork)
-    total_with_cold = Bytecode(contract_under_test_code).gas_cost(fork)
+    cold_call_cost = call_opcode(address_warm=False).gas_cost(fork)
+    total_with_cold = contract_under_test_code.gas_cost(fork)
     call_gas_exact = warm_call_cost + (total_with_cold - cold_call_cost)
 
     if not use_sufficient_gas:
@@ -168,9 +168,9 @@ def test_warm_coinbase_gas_usage(
     # Compute overhead cost: total bytecode cost minus the
     # opcode-under-test cost
     # The opcode-under-test cost (warm or cold) is what we're measuring
-    total_code_cost = Bytecode(measured_code).gas_cost(fork)
+    total_code_cost = measured_code.gas_cost(fork)
     # The opcode cost with default (cold) metadata
-    opcode_cold_cost = Bytecode(Op.BALANCE(address_warm=False)).gas_cost(fork)
+    opcode_cold_cost = Op.BALANCE(address_warm=False).gas_cost(fork)
     overhead_cost = total_code_cost - opcode_cold_cost
 
     code_gas_measure = CodeGasMeasure(
@@ -184,9 +184,7 @@ def test_warm_coinbase_gas_usage(
     )
 
     # Coinbase is warm after EIP-3651 (Shanghai+), cold before
-    expected_gas = Bytecode(
-        Op.BALANCE(address_warm=(fork >= Shanghai))
-    ).gas_cost(fork)
+    expected_gas = Op.BALANCE(address_warm=(fork >= Shanghai)).gas_cost(fork)
 
     tx = Transaction(
         to=measure_address,

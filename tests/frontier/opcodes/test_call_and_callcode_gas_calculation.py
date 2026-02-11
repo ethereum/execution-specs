@@ -66,10 +66,10 @@ def callee_init_stack_gas(callee_opcode: Op, fork: Fork) -> int:
     """
     if fork < Byzantium:
         # all *CALL arguments handled with PUSHes
-        return Bytecode(Op.PUSH1(0) * len(callee_opcode.kwargs)).gas_cost(fork)
+        return (Op.PUSH1(0) * len(callee_opcode.kwargs)).gas_cost(fork)
     else:
         # gas argument handled with GAS which is cheaper
-        return Bytecode(
+        return (
             Op.PUSH1(0) * (len(callee_opcode.kwargs) - 1) + Op.GAS
         ).gas_cost(fork)
 
@@ -89,7 +89,7 @@ def sufficient_gas(
         if is_value_call:
             metadata["value_transfer"] = True
             metadata["account_new"] = callee_opcode == Op.CALL
-        cost = Bytecode(callee_opcode(**metadata)).gas_cost(fork)
+        cost = callee_opcode(**metadata).gas_cost(fork)
     elif Byzantium <= fork < Berlin:
         cost = 700  # Pre-Berlin call cost
         gas_costs = fork.gas_costs()

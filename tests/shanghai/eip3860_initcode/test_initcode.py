@@ -526,7 +526,7 @@ class TestCreateInitcode:
             if opcode == Op.CREATE2
             else opcode(size=Op.CALLDATASIZE)
         )
-        return Bytecode(create_code + Op.GAS).gas_cost(fork)
+        return (create_code + Op.GAS).gas_cost(fork)
 
     @pytest.fixture
     def initcode_word_cost(self, fork: Fork, initcode: Initcode) -> int:

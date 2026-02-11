@@ -35,10 +35,8 @@ def test_call_large_offset_mstore(
     mem_offset = 128  # arbitrary number
 
     # Cost of pushing args onto the stack (each PUSH costs G_VERY_LOW)
-    call_push_cost = Bytecode(Op.PUSH1(0) * len(Op.CALL.kwargs)).gas_cost(fork)
-    mstore_push_cost = Bytecode(Op.PUSH1(0) * len(Op.MSTORE.kwargs)).gas_cost(
-        fork
-    )
+    call_push_cost = (Op.PUSH1(0) * len(Op.CALL.kwargs)).gas_cost(fork)
+    mstore_push_cost = (Op.PUSH1(0) * len(Op.MSTORE.kwargs)).gas_cost(fork)
 
     call_measure = CodeGasMeasure(
         code=Op.CALL(gas=0, ret_offset=mem_offset, ret_size=0),
@@ -64,12 +62,10 @@ def test_call_large_offset_mstore(
     )
 
     # this call cost is just the address_access_cost
-    call_cost = Bytecode(Op.CALL(address_warm=False)).gas_cost(fork)
+    call_cost = Op.CALL(address_warm=False).gas_cost(fork)
 
     # mstore cost: base cost + expansion cost
-    mstore_cost = Bytecode(
-        Op.MSTORE(new_memory_size=mem_offset + 32)
-    ).gas_cost(fork)
+    mstore_cost = Op.MSTORE(new_memory_size=mem_offset + 32).gas_cost(fork)
     state_test(
         env=Environment(),
         pre=pre,
@@ -107,10 +103,8 @@ def test_call_memory_expands_on_early_revert(
     ret_size = 128
 
     # Cost of pushing args onto the stack (each PUSH costs G_VERY_LOW)
-    call_push_cost = Bytecode(Op.PUSH1(0) * len(Op.CALL.kwargs)).gas_cost(fork)
-    mstore_push_cost = Bytecode(Op.PUSH1(0) * len(Op.MSTORE.kwargs)).gas_cost(
-        fork
-    )
+    call_push_cost = (Op.PUSH1(0) * len(Op.CALL.kwargs)).gas_cost(fork)
+    mstore_push_cost = (Op.PUSH1(0) * len(Op.MSTORE.kwargs)).gas_cost(fork)
 
     call_measure = CodeGasMeasure(
         # CALL with value
@@ -147,20 +141,18 @@ def test_call_memory_expands_on_early_revert(
     # G_CALL_STIPEND is a threshold check, not a gas cost — keep from gas_costs
     gsc = fork.gas_costs()
     call_cost = (
-        Bytecode(
-            Op.CALL(
-                address_warm=False,
-                value_transfer=True,
-                account_new=True,
-                new_memory_size=ret_size,
-            )
+        Op.CALL(
+            address_warm=False,
+            value_transfer=True,
+            account_new=True,
+            new_memory_size=ret_size,
         ).gas_cost(fork)
         - gsc.G_CALL_STIPEND
     )
 
     # mstore cost: base cost. No memory expansion cost needed, it was expanded
     # on CALL.
-    mstore_cost = Bytecode(Op.MSTORE(new_memory_size=0)).gas_cost(fork)
+    mstore_cost = Op.MSTORE(new_memory_size=0).gas_cost(fork)
     state_test(
         env=Environment(),
         pre=pre,
@@ -196,7 +188,7 @@ def test_call_large_args_offset_size_zero(
     very_large_offset = 2**100
 
     # Cost of pushing args onto the stack (each PUSH costs G_VERY_LOW)
-    push_cost = Bytecode(Op.PUSH1(0) * len(call_opcode.kwargs)).gas_cost(fork)
+    push_cost = (Op.PUSH1(0) * len(call_opcode.kwargs)).gas_cost(fork)
 
     call_measure = CodeGasMeasure(
         code=call_opcode(gas=0, args_offset=very_large_offset, args_size=0),
@@ -215,7 +207,7 @@ def test_call_large_args_offset_size_zero(
     )
 
     # this call cost is just the address_access_cost
-    call_cost = Bytecode(call_opcode(address_warm=False)).gas_cost(fork)
+    call_cost = call_opcode(address_warm=False).gas_cost(fork)
 
     state_test(
         env=Environment(),

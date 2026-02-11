@@ -66,12 +66,10 @@ def calculate_selfdestruct_gas(
             needs_new_account = True
 
     # PUSH + SELFDESTRUCT (with metadata for warm/cold and new account)
-    return Bytecode(
-        Op.SELFDESTRUCT(
-            0,  # beneficiary address (generates a PUSH)
-            address_warm=beneficiary_warm or fork < Berlin,
-            account_new=needs_new_account,
-        )
+    return Op.SELFDESTRUCT(
+        0,  # beneficiary address (generates a PUSH)
+        address_warm=beneficiary_warm or fork < Berlin,
+        account_new=needs_new_account,
     ).gas_cost(fork)
 
 
@@ -489,12 +487,10 @@ def test_selfdestruct_state_access_boundary(
 
     # Calculate gas for state access boundary only (base + cold access)
     # Does NOT include G_NEW_ACCOUNT
-    inner_call_gas = Bytecode(
-        Op.SELFDESTRUCT(
-            0,  # beneficiary address (generates a PUSH)
-            address_warm=warm or fork < Berlin,
-            account_new=False,
-        )
+    inner_call_gas = Op.SELFDESTRUCT(
+        0,  # beneficiary address (generates a PUSH)
+        address_warm=warm or fork < Berlin,
+        account_new=False,
     ).gas_cost(fork)
 
     if not is_success:
@@ -718,8 +714,8 @@ def test_selfdestruct_to_precompile_state_access_boundary(
 
     # State access boundary: base cost only (no G_NEW_ACCOUNT)
     # Precompiles are always warm
-    inner_call_gas = Bytecode(
-        Op.SELFDESTRUCT(0, address_warm=True, account_new=False)
+    inner_call_gas = Op.SELFDESTRUCT(
+        0, address_warm=True, account_new=False
     ).gas_cost(fork)
 
     if not is_success:
@@ -973,8 +969,8 @@ def test_selfdestruct_to_self(
     victim_code = Op.SELFDESTRUCT(Op.ADDRESS)
 
     # Gas: ADDRESS + SELFDESTRUCT (no cold access, no G_NEW_ACCOUNT)
-    base_gas = Bytecode(
-        Op.SELFDESTRUCT(Op.ADDRESS, address_warm=True, account_new=False)
+    base_gas = Op.SELFDESTRUCT(
+        Op.ADDRESS, address_warm=True, account_new=False
     ).gas_cost(fork)
     inner_call_gas = base_gas if is_success else base_gas - 1
 

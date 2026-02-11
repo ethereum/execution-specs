@@ -47,7 +47,7 @@ def test_account_storage_warm_cold_state(
     storage_reader_contract = pre.deploy_contract(Op.SLOAD(1) + Op.STOP)
     # Overhead: PUSH args for CALL (popped_stack_items - 1)
     # + GAS opcode + PUSH for SLOAD
-    overhead_cost = Bytecode(
+    overhead_cost = (
         Op.PUSH1(0) * (Op.CALL.popped_stack_items - 1)
         + Op.GAS
         + Op.PUSH1(0)  # SLOAD push
@@ -63,9 +63,9 @@ def test_account_storage_warm_cold_state(
     access_list_address = Address(0)
     access_list_storage_key = Hash(0)
     # Expected gas: CALL access cost + SLOAD cost
-    expected_gas_cost = Bytecode(Op.CALL(address_warm=account_warm)).gas_cost(
+    expected_gas_cost = Op.CALL(address_warm=account_warm).gas_cost(
         fork
-    ) + Bytecode(Op.SLOAD(key_warm=storage_key_warm)).gas_cost(fork)
+    ) + Op.SLOAD(key_warm=storage_key_warm).gas_cost(fork)
     if account_warm:
         access_list_address = storage_reader_contract
     if storage_key_warm:
@@ -288,9 +288,7 @@ def test_repeated_address_acl(
     sender = pre.fund_eoa()
 
     # Cost of pushing SLOAD args
-    sload_push_cost = Bytecode(Op.PUSH1(0) * len(Op.SLOAD.kwargs)).gas_cost(
-        fork
-    )
+    sload_push_cost = (Op.PUSH1(0) * len(Op.SLOAD.kwargs)).gas_cost(fork)
 
     sload0_measure = CodeGasMeasure(
         code=Op.SLOAD(0),
@@ -326,7 +324,7 @@ def test_repeated_address_acl(
         ],
     )
 
-    sload_cost = Bytecode(Op.SLOAD(key_warm=True)).gas_cost(fork)
+    sload_cost = Op.SLOAD(key_warm=True).gas_cost(fork)
 
     state_test(
         env=Environment(),
