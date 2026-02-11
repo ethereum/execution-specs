@@ -24,8 +24,8 @@ from ethereum.exceptions import EthereumException
 from ..block_access_lists.rlp_types import BlockAccessList
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
-from ..state import State, TransientStorage
 from ..state_tracker import StateChanges, merge_on_failure, merge_on_success
+from ..state_tracking import BlockStateTracker, TxStateTracker
 from ..transactions import LegacyTransaction
 from ..trie import Trie
 
@@ -39,7 +39,7 @@ class BlockEnvironment:
     """
 
     chain_id: U64
-    state: State
+    block_tracker: BlockStateTracker
     block_gas_limit: Uint
     block_hashes: List[Hash32]
     coinbase: Address
@@ -108,7 +108,7 @@ class TransactionEnvironment:
     gas: Uint
     access_list_addresses: Set[Address]
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
-    transient_storage: TransientStorage
+    tx_tracker: TxStateTracker
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     authorizations: Tuple[Authorization, ...]
     index_in_block: Optional[Uint]

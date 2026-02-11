@@ -12,17 +12,17 @@ from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSignatureError
 
 from ..fork_types import Address, Authorization
-from ..state import (
-    account_exists,
-    get_account,
-    increment_nonce,
-    set_authority_code,
-)
 from ..state_tracker import (
     capture_pre_code,
     track_address,
     track_code_change,
     track_nonce_change,
+)
+from ..state_tracking import (
+    account_exists,
+    get_account,
+    increment_nonce,
+    set_authority_code,
 )
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
@@ -143,9 +143,9 @@ def calculate_delegation_cost(
         The delegation address and access gas cost.
 
     """
-    state = evm.message.block_env.state
+    tx_tracker = evm.message.tx_env.tx_tracker
 
-    code = get_account(state, address).code
+    code = get_account(tx_tracker, address).code
     track_address(evm.state_changes, address)
 
     if not is_valid_delegation(code):
@@ -176,7 +176,7 @@ def set_delegation(message: Message) -> U256:
         Refund from authority which already exists in state.
 
     """
-    state = message.block_env.state
+    tx_tracker = message.tx_env.tx_tracker
     refund_counter = U256(0)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
@@ -192,7 +192,7 @@ def set_delegation(message: Message) -> U256:
 
         message.accessed_addresses.add(authority)
 
-        authority_account = get_account(state, authority)
+        authority_account = get_account(tx_tracker, authority)
         authority_code = authority_account.code
         track_address(message.tx_env.state_changes, authority)
 
@@ -203,7 +203,7 @@ def set_delegation(message: Message) -> U256:
         if authority_nonce != auth.nonce:
             continue
 
-        if account_exists(state, authority):
+        if account_exists(tx_tracker, authority):
             refund_counter += U256(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST)
 
         if auth.address == NULL_ADDRESS:
@@ -215,19 +215,19 @@ def set_delegation(message: Message) -> U256:
         # EIP-7928: Capture pre-code before any changes
         capture_pre_code(tx_frame, authority, authority_code)
 
-        set_authority_code(state, authority, code_to_set)
+        set_authority_code(tx_tracker, authority, code_to_set)
 
         if authority_code != code_to_set:
             # Track code change if different from current
             track_code_change(tx_frame, authority, code_to_set)
 
-        increment_nonce(state, authority)
-        nonce_after = get_account(state, authority).nonce
+        increment_nonce(tx_tracker, authority)
+        nonce_after = get_account(tx_tracker, authority).nonce
         track_nonce_change(tx_frame, authority, U64(nonce_after))
 
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")
 
-    message.code = get_account(state, message.code_address).code
+    message.code = get_account(tx_tracker, message.code_address).code
 
     return refund_counter

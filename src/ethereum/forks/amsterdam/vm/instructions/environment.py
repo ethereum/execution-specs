@@ -17,10 +17,9 @@ from ethereum_types.numeric import U256, Uint, ulen
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
-# track_address_access removed - now using state_changes.track_address()
 from ...fork_types import EMPTY_ACCOUNT
-from ...state import get_account
 from ...state_tracker import track_address
+from ...state_tracking import get_account
 from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
@@ -87,8 +86,8 @@ def balance(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
-    state = evm.message.block_env.state
-    balance = get_account(state, address).balance
+    tx_tracker = evm.message.tx_env.tx_tracker
+    balance = get_account(tx_tracker, address).balance
     track_address(evm.state_changes, address)
 
     push(evm.stack, balance)
@@ -356,8 +355,8 @@ def extcodesize(evm: Evm) -> None:
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    state = evm.message.block_env.state
-    code = get_account(state, address).code
+    tx_tracker = evm.message.tx_env.tx_tracker
+    code = get_account(tx_tracker, address).code
     track_address(evm.state_changes, address)
 
     codesize = U256(len(code))
@@ -403,8 +402,8 @@ def extcodecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    state = evm.message.block_env.state
-    code = get_account(state, address).code
+    tx_tracker = evm.message.tx_env.tx_tracker
+    code = get_account(tx_tracker, address).code
     track_address(evm.state_changes, address)
 
     value = buffer_read(code, code_start_index, size)
@@ -496,8 +495,8 @@ def extcodehash(evm: Evm) -> None:
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    state = evm.message.block_env.state
-    account = get_account(state, address)
+    tx_tracker = evm.message.tx_env.tx_tracker
+    account = get_account(tx_tracker, address)
     track_address(evm.state_changes, address)
 
     if account == EMPTY_ACCOUNT:
@@ -531,7 +530,7 @@ def self_balance(evm: Evm) -> None:
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     balance = get_account(
-        evm.message.block_env.state, evm.message.current_target
+        evm.message.tx_env.tx_tracker, evm.message.current_target
     ).balance
 
     push(evm.stack, balance)
