@@ -116,6 +116,9 @@ class EthrexExceptionMapper(ExceptionMapper):
         TransactionException.GAS_ALLOWANCE_EXCEEDED: (
             r"Gas allowance exceeded.*"
         ),
+        BlockException.GAS_USED_OVERFLOW: (
+            r"Block gas used overflow.*"
+        ),
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
             r"Blob count exceeded.*"
         ),
