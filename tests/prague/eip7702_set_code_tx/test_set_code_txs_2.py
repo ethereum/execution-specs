@@ -18,7 +18,6 @@ from execution_testing import (
     Conditional,
     Environment,
     Fork,
-    GasCosts,
     Hash,
     Macros,
     Op,
@@ -697,85 +696,60 @@ def test_gas_diff_pointer_vs_direct_call(
     sender = pre.fund_eoa()
     pointer_a = pre.fund_eoa()
     call_worked = 1
-    gas_costs: GasCosts = fork.gas_costs()
-
+    # The contract code is:
+    # Op.SSTORE(call_worked, Op.ADD(Op.SLOAD(call_worked), 1))
+    # The opcodes_price captures the remaining push/add overhead.
     opcodes_price = 37
+
+    direct_account_warm = access_list_rule in [
+        AccessListCall.IN_NORMAL_TX_ONLY,
+        AccessListCall.IN_BOTH_TX,
+    ]
+    direct_storage_warm = direct_account_warm
     direct_call_gas: int = (
-        # 20_000 + 2_600 + 2_100 + 37 = 24737
-        gas_costs.G_STORAGE_SET
-        + (
-            # access account price
-            # If storage and account is declared in access list then discount
-            gas_costs.G_WARM_ACCOUNT_ACCESS + gas_costs.G_WARM_SLOAD
-            if access_list_rule
-            in [AccessListCall.IN_NORMAL_TX_ONLY, AccessListCall.IN_BOTH_TX]
-            else gas_costs.G_COLD_ACCOUNT_ACCESS + gas_costs.G_COLD_SLOAD
-        )
+        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        + Op.CALL(address_warm=direct_account_warm).gas_cost(fork)
+        + Op.SLOAD(key_warm=direct_storage_warm).gas_cost(fork)
         + opcodes_price
     )
 
+    pointer_account_warm = (
+        pointer_definition
+        in [
+            PointerDefinition.IN_BOTH_TX,
+            PointerDefinition.IN_POINTER_TX_ONLY,
+        ]
+        or access_list_rule
+        in [
+            AccessListCall.IN_BOTH_TX,
+            AccessListCall.IN_POINTER_TX_ONLY,
+        ]
+        and access_list_to == AccessListTo.POINTER_ADDRESS
+    )
+    pointer_storage_warm = (
+        access_list_rule
+        in [
+            AccessListCall.IN_BOTH_TX,
+            AccessListCall.IN_POINTER_TX_ONLY,
+        ]
+        and access_list_to == AccessListTo.POINTER_ADDRESS
+    )
+    pointer_contract_warm = (
+        access_list_rule
+        in [
+            AccessListCall.IN_BOTH_TX,
+            AccessListCall.IN_POINTER_TX_ONLY,
+        ]
+        and access_list_to == AccessListTo.CONTRACT_ADDRESS
+    )
     pointer_call_gas: int = (
-        # sstore + addr + addr + sload + op
-        # no access list, no pointer, all accesses are hot
-        # 20_000 + 2_600 * 2 + 2_100 + 37 = 27_337
-        #
-        # access list for pointer, pointer is set
-        # additional 2_600 charged for access of contract
-        # 20_000 + 100 + 2_600 + 100 + 37 = 22_837
-        #
-        # no access list, pointer is set
-        # pointer access is hot, sload and contract are hot
-        # 20_000 + 100 + 2_600 + 2_100 + 37 = 24_837
-        #
-        # access list for contract, pointer is set
-        # contract call is hot, pointer call is call because pointer is set
-        # only sload is hot because access list is for contract
-        # 20_000 + 100 + 100 + 2100  + 37 = 22_337
-        gas_costs.G_STORAGE_SET
+        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
         # pointer address access
-        + (
-            gas_costs.G_WARM_ACCOUNT_ACCESS
-            if (
-                pointer_definition
-                in [
-                    PointerDefinition.IN_BOTH_TX,
-                    PointerDefinition.IN_POINTER_TX_ONLY,
-                ]
-                or access_list_rule
-                in [
-                    AccessListCall.IN_BOTH_TX,
-                    AccessListCall.IN_POINTER_TX_ONLY,
-                ]
-                and access_list_to == AccessListTo.POINTER_ADDRESS
-            )
-            else gas_costs.G_COLD_ACCOUNT_ACCESS
-        )
+        + Op.CALL(address_warm=pointer_account_warm).gas_cost(fork)
         # storage access
-        + (
-            gas_costs.G_WARM_SLOAD
-            if (
-                access_list_rule
-                in [
-                    AccessListCall.IN_BOTH_TX,
-                    AccessListCall.IN_POINTER_TX_ONLY,
-                ]
-                and access_list_to == AccessListTo.POINTER_ADDRESS
-            )
-            else gas_costs.G_COLD_SLOAD
-        )
+        + Op.SLOAD(key_warm=pointer_storage_warm).gas_cost(fork)
         # contract address access
-        + (
-            gas_costs.G_WARM_ACCOUNT_ACCESS
-            if (
-                access_list_rule
-                in [
-                    AccessListCall.IN_BOTH_TX,
-                    AccessListCall.IN_POINTER_TX_ONLY,
-                ]
-                and access_list_to == AccessListTo.CONTRACT_ADDRESS
-            )
-            else gas_costs.G_COLD_ACCOUNT_ACCESS
-        )
+        + Op.CALL(address_warm=pointer_contract_warm).gas_cost(fork)
         + opcodes_price
     )
 
@@ -918,22 +892,19 @@ def test_pointer_call_followed_by_direct_call(
 
     sender = pre.fund_eoa()
     pointer_a = pre.fund_eoa()
-    gas_costs: GasCosts = fork.gas_costs()
     call_worked = 1
     opcodes_price: int = 37
     pointer_call_gas = (
-        gas_costs.G_STORAGE_SET
-        + gas_costs.G_WARM_ACCOUNT_ACCESS  # pointer is warm
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # contract is cold
-        + gas_costs.G_COLD_SLOAD  # storage access under pointer call is cold
+        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        + Op.CALL(address_warm=True).gas_cost(fork)  # pointer is warm
+        + Op.CALL(address_warm=False).gas_cost(fork)  # contract is cold
+        + Op.SLOAD(key_warm=False).gas_cost(fork)  # storage is cold
         + opcodes_price
     )
     direct_call_gas = (
-        gas_costs.G_STORAGE_SET
-        + gas_costs.G_WARM_ACCOUNT_ACCESS  # since previous pointer call,
-        # contract is now warm
-        + gas_costs.G_COLD_SLOAD  # but storage is cold, because it's
-        # contract's direct
+        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        + Op.CALL(address_warm=True).gas_cost(fork)  # contract is now warm
+        + Op.SLOAD(key_warm=False).gas_cost(fork)  # storage is cold
         + opcodes_price
     )
 
@@ -2142,11 +2113,9 @@ def test_delegation_replacement_call_previous_contract(
     auth_signer = pre.fund_eoa(delegation=pre_set_delegation_address)
     sender = pre.fund_eoa()
 
-    gsc = fork.gas_costs()
-    overhead_cost = gsc.G_VERY_LOW * len(Op.CALL.kwargs)
+    call_code = Op.CALL(gas=0, address=pre_set_delegation_address)
     set_code = CodeGasMeasure(
-        code=Op.CALL(gas=0, address=pre_set_delegation_address),
-        overhead_cost=overhead_cost,
+        code=call_code,
         extra_stack_items=1,
     )
 
@@ -2174,7 +2143,7 @@ def test_delegation_replacement_call_previous_contract(
         tx=tx,
         post={
             auth_signer: Account(
-                storage={0: gsc.G_COLD_ACCOUNT_ACCESS},
+                storage={0: call_code.gas_cost(fork)},
             )
         },
     )

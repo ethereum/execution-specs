@@ -883,20 +883,14 @@ def test_gas_cost(
     # SSTORE opcodes in order to make sure that the refund is less than one
     # fifth (EIP-3529) of the total gas used, so we can see the full discount
     # being reflected in most of the tests.
-    gas_costs = fork.gas_costs()
-    gas_opcode_cost = gas_costs.G_BASE
+    gas_opcode_cost = Op.GAS.gas_cost(fork)
     sstore_opcode_count = 10
     push_opcode_count = (2 * (sstore_opcode_count)) - 1
-    push_opcode_cost = gas_costs.G_VERY_LOW * push_opcode_count
-    sstore_opcode_cost = gas_costs.G_STORAGE_SET * sstore_opcode_count
-    cold_storage_cost = gas_costs.G_COLD_SLOAD * sstore_opcode_count
-
-    execution_gas = (
-        gas_opcode_cost
-        + push_opcode_cost
-        + sstore_opcode_cost
-        + cold_storage_cost
-    )
+    execution_gas = Bytecode(
+        Op.GAS
+        + Op.PUSH1(0) * push_opcode_count
+        + Op.SSTORE(key_warm=False) * sstore_opcode_count
+    ).gas_cost(fork)
 
     # The first opcode that executes in the code is the GAS opcode, which costs
     # 2 gas, so we subtract that from the expected gas measure.
@@ -1252,14 +1246,15 @@ def test_call_to_pre_authorized_oog(
     callee_storage[0] = 0xFF  # Value other than 0 or 1. Should not be changed.
     callee_address = pre.deploy_contract(callee_code, storage=callee_storage)
 
-    gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calculator = (
         fork.transaction_intrinsic_cost_calculator()
     )
     tx_gas_limit = (
         intrinsic_gas_cost_calculator()
-        + len(call_opcode.kwargs) * gas_costs.G_VERY_LOW
-        + (gas_costs.G_COLD_ACCOUNT_ACCESS * 2)
+        + Bytecode(
+            Op.PUSH1(0) * len(call_opcode.kwargs)
+            + call_opcode(address_warm=False, delegated_address=True)
+        ).gas_cost(fork)
         - 1
     )
     tx = Transaction(

@@ -17,16 +17,17 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Cancun
 
 from . import PytestParameterEnum
-from .spec import Spec, ref_spec_1153
+from .spec import ref_spec_1153
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
 pytestmark = [pytest.mark.valid_from("Cancun")]
 
-PUSH_OPCODE_COST = 3
+TSTORE_BYTECODE_GAS = Bytecode(Op.TSTORE(1, 69)).gas_cost(Cancun)
 
 
 class DynamicCallContextTestCases(EnumMeta):
@@ -186,7 +187,7 @@ class DynamicCallContextTestCases(EnumMeta):
                 "expected_callee_storage": {},
             }
 
-            gas_limit = Spec.TSTORE_GAS_COST + (PUSH_OPCODE_COST * 2) - 1
+            gas_limit = TSTORE_BYTECODE_GAS - 1
             contract_call = call_opcode(
                 gas=gas_limit, address=Op.CALLDATALOAD(0)
             )

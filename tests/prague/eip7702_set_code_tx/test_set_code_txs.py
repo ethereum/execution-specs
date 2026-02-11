@@ -676,12 +676,10 @@ def test_delegated_eoa_can_send_creating_tx(
     )
     assert initcode_len == len(initcode)
 
-    gas_costs = fork.gas_costs()
-
     tx = Transaction(
         ty=tx_type,
         gas_limit=200_000
-        + (gas_costs.G_STORAGE_SET + gas_costs.G_COLD_SLOAD) * 7,
+        + Bytecode(Op.SSTORE(key_warm=False) * 7).gas_cost(fork),
         to=None,
         value=0,
         data=initcode,

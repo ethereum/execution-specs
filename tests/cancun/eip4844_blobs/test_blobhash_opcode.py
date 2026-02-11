@@ -188,9 +188,9 @@ def test_blobhash_gas_cost(
     ensuring it matches `HASH_OPCODE_GAS = 3`. Includes both valid and invalid
     random index sizes from the range `[0, 2**256-1]`, for tx types 2 and 3.
     """
+    blobhash_code = Op.BLOBHASH(blobhash_index)
     gas_measure_code = CodeGasMeasure(
-        code=Op.BLOBHASH(blobhash_index),
-        overhead_cost=3,
+        code=blobhash_code,
         extra_stack_items=1,
     )
 
@@ -223,7 +223,7 @@ def test_blobhash_gas_cost(
         ]
 
     tx = Transaction(**tx_kwargs)
-    post = {address: Account(storage={0: Spec.HASH_GAS_COST})}
+    post = {address: Account(storage={0: blobhash_code.gas_cost(fork)})}
 
     state_test(
         env=Environment(),

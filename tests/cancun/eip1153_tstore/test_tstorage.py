@@ -21,7 +21,7 @@ from execution_testing import (
 )
 
 from . import PytestParameterEnum
-from .spec import Spec, ref_spec_1153
+from .spec import ref_spec_1153
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1153.version
@@ -217,33 +217,25 @@ class GasMeasureTestCases(PytestParameterEnum):
         "description": "Test that tload() of an empty slot consumes "
         "the expected gas.",
         "bytecode": Op.TLOAD(10),
-        "overhead_cost": 3,  # 1 x PUSH1
         "extra_stack_items": 1,
-        "expected_gas": Spec.TLOAD_GAS_COST,
     }
     TSTORE_TLOAD = {
         "description": "Test that tload() of a used slot consumes "
         "the expected gas.",
         "bytecode": Op.TSTORE(10, 10) + Op.TLOAD(10),
-        "overhead_cost": 3 * 3,  # 3 x PUSH1
         "extra_stack_items": 1,
-        "expected_gas": Spec.TSTORE_GAS_COST + Spec.TLOAD_GAS_COST,
     }
     TSTORE_COLD = {
         "description": "Test that tstore() of a previously unused "
         "slot consumes the expected gas.",
         "bytecode": Op.TSTORE(10, 10),
-        "overhead_cost": 2 * 3,  # 2 x PUSH1
         "extra_stack_items": 0,
-        "expected_gas": Spec.TSTORE_GAS_COST,
     }
     TSTORE_WARM = {
         "description": "Test that tstore() of a previously used slot "
         "consumes the expected gas.",
         "bytecode": Op.TSTORE(10, 10) + Op.TSTORE(10, 11),
-        "overhead_cost": 4 * 3,  # 4 x PUSH1
         "extra_stack_items": 0,
-        "expected_gas": 2 * Spec.TSTORE_GAS_COST,
     }
 
 
@@ -251,15 +243,14 @@ class GasMeasureTestCases(PytestParameterEnum):
 def test_gas_usage(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     bytecode: Bytecode,
-    expected_gas: int,
-    overhead_cost: int,
     extra_stack_items: int,
 ) -> None:
     """Test that tstore and tload consume the expected gas."""
+    expected_gas = bytecode.gas_cost(fork)
     gas_measure_bytecode = CodeGasMeasure(
         code=bytecode,
-        overhead_cost=overhead_cost,
         extra_stack_items=extra_stack_items,
     )
 

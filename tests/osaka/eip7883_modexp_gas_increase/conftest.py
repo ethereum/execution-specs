@@ -7,6 +7,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytecode,
     Bytes,
     Environment,
     Fork,
@@ -61,9 +62,7 @@ def total_tx_gas_needed(
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     # `gas_measure_contract` does at most 4 SSTOREs to cold slots.
-    sstore_gas = (
-        fork.gas_costs().G_STORAGE_SET + fork.gas_costs().G_COLD_SLOAD
-    ) * 4
+    sstore_gas = Op.SSTORE(key_warm=False).gas_cost(fork) * 4
     # Ensures that the precompile call is not starved by the 63/64 rule.
     precompile_gas_with_margin = precompile_gas * 64 // 63
     extra_gas = 100_000
@@ -157,12 +156,20 @@ def gas_measure_contract(
         0,
     )
 
-    gas_costs = fork.gas_costs()
     extra_gas = (
-        gas_costs.G_WARM_ACCOUNT_ACCESS
-        + (gas_costs.G_VERY_LOW * (len(call_opcode.kwargs) - 1))
-        + gas_costs.G_BASE  # CALLDATASIZE
-        + gas_costs.G_BASE  # GAS
+        Bytecode(
+            call_opcode(
+                gas_used,
+                Spec.MODEXP_ADDRESS,
+                *value,
+                0,
+                Op.CALLDATASIZE(),
+                0,
+                0,
+                address_warm=True,
+            )
+        ).gas_cost(fork)
+        + Op.GAS.gas_cost(fork)  # second GAS in measurement
     )
 
     # Build the gas measurement contract code
