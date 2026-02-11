@@ -253,7 +253,7 @@ def test_maximum_gas_refund(
     storage = Storage()
 
     # Base Operation: SSTORE(slot, 0)
-    iteration_cost = Bytecode(
+    iteration_cost = (
         Op.SSTORE(key_warm=True, original_value=1, new_value=0)
         + Op.PUSH0
         + Op.PUSH1(0)
