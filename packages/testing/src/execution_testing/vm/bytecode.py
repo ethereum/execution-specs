@@ -1,6 +1,5 @@
 """Ethereum Virtual Machine bytecode primitives and utilities."""
 
-from functools import cache
 from typing import Any, List, Self, SupportsBytes, Type
 
 from pydantic import GetCoreSchemaHandler
@@ -35,6 +34,14 @@ class Bytecode:
     _name_: str = ""
     _bytes_: bytes
     _keccak_256_: Hash | None = None
+    _gas_cost_: int | None = None
+    _gas_cost_fork_: Type[ForkOpcodeInterface] | None = None
+    _gas_cost_block_number_: int | None = None
+    _gas_cost_timestamp_: int | None = None
+    _refund_: int | None = None
+    _refund_fork_: Type[ForkOpcodeInterface] | None = None
+    _refund_block_number_: int | None = None
+    _refund_timestamp_: int | None = None
 
     popped_stack_items: int
     pushed_stack_items: int
@@ -275,7 +282,22 @@ class Bytecode:
         timestamp: int = 0,
     ) -> int:
         """Use a fork object to calculate the gas used by this bytecode."""
-        return _bytecode_gas_cost(self, fork, block_number, timestamp)
+        if (
+            self._gas_cost_ is None
+            or self._gas_cost_fork_ != fork
+            or self._gas_cost_block_number_ != block_number
+            or self._gas_cost_timestamp_ != timestamp
+        ):
+            self._gas_cost_fork_ = fork
+            self._gas_cost_block_number_ = block_number
+            self._gas_cost_timestamp_ = timestamp
+            opcode_gas_calculator = fork.opcode_gas_calculator(
+                block_number=block_number, timestamp=timestamp
+            )
+            self._gas_cost_ = 0
+            for opcode in self.opcode_list:
+                self._gas_cost_ += opcode_gas_calculator(opcode)
+        return self._gas_cost_
 
     def refund(
         self,
@@ -285,7 +307,22 @@ class Bytecode:
         timestamp: int = 0,
     ) -> int:
         """Use a fork object to calculate the gas refund from this bytecode."""
-        return _bytecode_refund(self, fork, block_number, timestamp)
+        if (
+            self._refund_ is None
+            or self._refund_fork_ != fork
+            or self._refund_block_number_ != block_number
+            or self._refund_timestamp_ != timestamp
+        ):
+            self._refund_fork_ = fork
+            self._refund_block_number_ = block_number
+            self._refund_timestamp_ = timestamp
+            opcode_refund_calculator = fork.opcode_refund_calculator(
+                block_number=block_number, timestamp=timestamp
+            )
+            self._refund_ = 0
+            for opcode in self.opcode_list:
+                self._refund_ += opcode_refund_calculator(opcode)
+        return self._refund_
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -302,37 +339,3 @@ class Bytecode:
                 info_arg=False,
             ),
         )
-
-
-@cache
-def _bytecode_gas_cost(
-    bytecode: Bytecode,
-    fork: Type[ForkOpcodeInterface],
-    block_number: int,
-    timestamp: int,
-) -> int:
-    """Return cached gas cost for the given bytecode and fork parameters."""
-    opcode_gas_calculator = fork.opcode_gas_calculator(
-        block_number=block_number, timestamp=timestamp
-    )
-    total_gas = 0
-    for opcode in bytecode.opcode_list:
-        total_gas += opcode_gas_calculator(opcode)
-    return total_gas
-
-
-@cache
-def _bytecode_refund(
-    bytecode: Bytecode,
-    fork: Type[ForkOpcodeInterface],
-    block_number: int,
-    timestamp: int,
-) -> int:
-    """Return cached gas refund for the given bytecode and fork parameters."""
-    opcode_refund_calculator = fork.opcode_refund_calculator(
-        block_number=block_number, timestamp=timestamp
-    )
-    total_refund = 0
-    for opcode in bytecode.opcode_list:
-        total_refund += opcode_refund_calculator(opcode)
-    return total_refund
