@@ -17,6 +17,8 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
+    Conditional,
+    Create2PreimageLayout,
     Fork,
     Op,
     Transaction,
@@ -51,7 +53,30 @@ REFERENCE_SPEC_VERSION = "1.0"
 #   3. All contracts share same initcode hash for deterministic addresses
 #   4. Attack rapidly accesses all contracts, stressing client's state handling
 
+# Load stubs from stubs.json for test parametrization
+_STUBS_FILE = Path(__file__).parent / "stubs.json"
+with open(_STUBS_FILE) as f:
+    _STUBS = json.load(f)
 
+# Factory getConfig() memory layout offsets
+_NUM_DEPLOYED_OFFSET = 96
+_INIT_CODE_HASH_OFFSET = _NUM_DEPLOYED_OFFSET + 32
+_FACTORY_RETURN_SIZE = 64
+
+# Extract factory stub names for factory-based tests
+FACTORY_STUBS = sorted(
+    [k for k in _STUBS if k.startswith("bloatnet_factory_")],
+    key=lambda name: float(
+        name.replace("bloatnet_factory_", "").replace("kb", "").replace("_", ".")
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    "factory_stub",
+    FACTORY_STUBS,
+    ids=lambda s: s.replace("bloatnet_factory_", "").upper(),
+)
 @pytest.mark.parametrize(
     "balance_first",
     [True, False],
@@ -65,6 +90,7 @@ def test_bloatnet_balance_extcodesize(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     balance_first: bool,
+    factory_stub: str,
 ) -> None:
     """
     BloatNet test using BALANCE + EXTCODESIZE with "on-the-fly" CREATE2
@@ -98,14 +124,10 @@ def test_bloatnet_balance_extcodesize(
         + 10  # While loop overhead
     )
 
-    # Deploy factory using stub contract - NO HARDCODED VALUES
-    # The stub "bloatnet_factory" must be provided via --address-stubs flag
-    # The factory at that address MUST have:
-    # - Slot 0: Number of deployed contracts
-    # - Slot 1: Init code hash for CREATE2 address calculation
+    # Deploy factory using stub contract
     factory_address = pre.deploy_contract(
-        code=Bytecode(),  # Required parameter, but will be ignored for stubs
-        stub="bloatnet_factory",
+        code=Bytecode(),
+        stub=factory_stub,
     )
 
     # Calculate number of transactions needed (EIP-7825 compliance)
@@ -150,47 +172,34 @@ def test_bloatnet_balance_extcodesize(
 
         # Build attack contract that reads config from factory
         attack_code = (
-            # Call getConfig() on factory to get config
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=factory_address,
-                args_offset=0,
-                args_size=0,
-                ret_offset=96,
-                ret_size=64,
+            Conditional(
+                condition=Op.STATICCALL(
+                    gas=Op.GAS,
+                    address=factory_address,
+                    args_offset=0,
+                    args_size=0,
+                    ret_offset=_NUM_DEPLOYED_OFFSET,
+                    ret_size=_FACTORY_RETURN_SIZE,
+                ),
+                if_false=Op.REVERT(0, 0),
             )
-            # Check if call succeeded
-            + Op.ISZERO
-            + Op.PUSH2(0x1000)  # Jump to error handler if failed (far jump)
-            + Op.JUMPI
-            # Load results from memory
-            # Memory[96:128] = num_deployed_contracts
-            # Memory[128:160] = init_code_hash
-            + Op.MLOAD(128)  # Load init_code_hash
-            # Setup memory for CREATE2 address generation
-            # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
-            + Op.MSTORE(
-                0, factory_address
-            )  # Store factory address at memory position 0
-            + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at byte 11
-            + Op.MSTORE(32, salt_offset)  # Store starting salt at position 32
-            # Stack now has: [init_code_hash]
-            + Op.PUSH1(64)  # Push memory position
-            + Op.MSTORE  # Store init_code_hash at memory[64]
+            + (
+                create2_preimage := Create2PreimageLayout(
+                    factory_address=factory_address,
+                    salt=salt_offset,
+                    init_code_hash=Op.MLOAD(_INIT_CODE_HASH_OFFSET),
+                    old_memory_size=_NUM_DEPLOYED_OFFSET + _FACTORY_RETURN_SIZE,
+                )
+            )
             # Push our iteration count onto stack
             + Op.PUSH4(tx_contracts)
             # Main attack loop - iterate through contracts for this tx
             + While(
                 body=(
-                    # Generate CREATE2 addr: keccak256(0xFF+factory+salt+hash)
-                    Op.SHA3(11, 85)  # CREATE2 addr from memory[11:96]
-                    # The address is now on the stack
+                    create2_preimage.address_op()
                     + Op.DUP1  # Duplicate for second operation
                     + benchmark_ops  # Execute operations in specified order
-                    # Increment salt for next iteration
-                    + Op.MSTORE(
-                        32, Op.ADD(Op.MLOAD(32), 1)
-                    )  # Increment and store salt
+                    + create2_preimage.increment_salt_op()
                 ),
                 # Continue while we haven't reached the limit
                 condition=Op.DUP1
@@ -234,6 +243,11 @@ def test_bloatnet_balance_extcodesize(
 
 
 @pytest.mark.parametrize(
+    "factory_stub",
+    FACTORY_STUBS,
+    ids=lambda s: s.replace("bloatnet_factory_", "").upper(),
+)
+@pytest.mark.parametrize(
     "balance_first",
     [True, False],
     ids=["balance_extcodecopy", "extcodecopy_balance"],
@@ -246,6 +260,7 @@ def test_bloatnet_balance_extcodecopy(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     balance_first: bool,
+    factory_stub: str,
 ) -> None:
     """
     BloatNet test using BALANCE + EXTCODECOPY with on-the-fly CREATE2
@@ -281,14 +296,10 @@ def test_bloatnet_balance_extcodecopy(
         + 10  # While loop overhead
     )
 
-    # Deploy factory using stub contract - NO HARDCODED VALUES
-    # The stub "bloatnet_factory" must be provided via --address-stubs flag
-    # The factory at that address MUST have:
-    # - Slot 0: Number of deployed contracts
-    # - Slot 1: Init code hash for CREATE2 address calculation
+    # Deploy factory using stub contract
     factory_address = pre.deploy_contract(
-        code=Bytecode(),  # Required parameter, but will be ignored for stubs
-        stub="bloatnet_factory",
+        code=Bytecode(),
+        stub=factory_stub,
     )
 
     # Calculate number of transactions needed (EIP-7825 compliance)
@@ -340,46 +351,34 @@ def test_bloatnet_balance_extcodecopy(
 
         # Build attack contract that reads config from factory
         attack_code = (
-            # Call getConfig() on factory to get config
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=factory_address,
-                args_offset=0,
-                args_size=0,
-                ret_offset=96,
-                ret_size=64,
+            Conditional(
+                condition=Op.STATICCALL(
+                    gas=Op.GAS,
+                    address=factory_address,
+                    args_offset=0,
+                    args_size=0,
+                    ret_offset=_NUM_DEPLOYED_OFFSET,
+                    ret_size=_FACTORY_RETURN_SIZE,
+                ),
+                if_false=Op.REVERT(0, 0),
             )
-            # Check if call succeeded
-            + Op.ISZERO
-            + Op.PUSH2(0x1000)  # Jump to error handler if failed (far jump)
-            + Op.JUMPI
-            # Load results from memory
-            # Memory[128:160] = init_code_hash
-            + Op.MLOAD(128)  # Load init_code_hash
-            # Setup memory for CREATE2 address generation
-            # Memory layout at 0: 0xFF + factory_addr(20) + salt(32) + hash(32)
-            + Op.MSTORE(
-                0, factory_address
-            )  # Store factory address at memory position 0
-            + Op.MSTORE8(11, 0xFF)  # Store 0xFF prefix at byte 11
-            + Op.MSTORE(32, salt_offset)  # Store starting salt at position 32
-            # Stack now has: [init_code_hash]
-            + Op.PUSH1(64)  # Push memory position
-            + Op.MSTORE  # Store init_code_hash at memory[64]
+            + (
+                create2_preimage := Create2PreimageLayout(
+                    factory_address=factory_address,
+                    salt=salt_offset,
+                    init_code_hash=Op.MLOAD(_INIT_CODE_HASH_OFFSET),
+                    old_memory_size=_NUM_DEPLOYED_OFFSET + _FACTORY_RETURN_SIZE,
+                )
+            )
             # Push our iteration count onto stack
             + Op.PUSH4(tx_contracts)
             # Main attack loop - iterate through contracts for this tx
             + While(
                 body=(
-                    # Generate CREATE2 address
-                    Op.SHA3(11, 85)  # CREATE2 addr from memory[11:96]
-                    # The address is now on the stack
+                    create2_preimage.address_op()
                     + Op.DUP1  # Duplicate for later operations
                     + benchmark_ops  # Execute operations in specified order
-                    # Increment salt for next iteration
-                    + Op.MSTORE(
-                        32, Op.ADD(Op.MLOAD(32), 1)
-                    )  # Increment and store salt
+                    + create2_preimage.increment_salt_op()
                 ),
                 # Continue while counter > 0
                 condition=Op.DUP1
@@ -423,6 +422,11 @@ def test_bloatnet_balance_extcodecopy(
 
 
 @pytest.mark.parametrize(
+    "factory_stub",
+    FACTORY_STUBS,
+    ids=lambda s: s.replace("bloatnet_factory_", "").upper(),
+)
+@pytest.mark.parametrize(
     "balance_first",
     [True, False],
     ids=["balance_extcodehash", "extcodehash_balance"],
@@ -435,6 +439,7 @@ def test_bloatnet_balance_extcodehash(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     balance_first: bool,
+    factory_stub: str,
 ) -> None:
     """
     BloatNet test using BALANCE + EXTCODEHASH with on-the-fly CREATE2
@@ -471,7 +476,7 @@ def test_bloatnet_balance_extcodehash(
     # Deploy factory using stub contract
     factory_address = pre.deploy_contract(
         code=Bytecode(),
-        stub="bloatnet_factory",
+        stub=factory_stub,
     )
 
     # Calculate number of transactions needed (EIP-7825 compliance)
@@ -516,38 +521,34 @@ def test_bloatnet_balance_extcodehash(
 
         # Build attack contract that reads config from factory
         attack_code = (
-            # Call getConfig() on factory to get config
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=factory_address,
-                args_offset=0,
-                args_size=0,
-                ret_offset=96,
-                ret_size=64,
+            Conditional(
+                condition=Op.STATICCALL(
+                    gas=Op.GAS,
+                    address=factory_address,
+                    args_offset=0,
+                    args_size=0,
+                    ret_offset=_NUM_DEPLOYED_OFFSET,
+                    ret_size=_FACTORY_RETURN_SIZE,
+                ),
+                if_false=Op.REVERT(0, 0),
             )
-            # Check if call succeeded
-            + Op.ISZERO
-            + Op.PUSH2(0x1000)  # Jump to error handler if failed
-            + Op.JUMPI
-            # Load results from memory
-            + Op.MLOAD(128)  # Load init_code_hash
-            # Setup memory for CREATE2 address generation
-            + Op.MSTORE(0, factory_address)
-            + Op.MSTORE8(11, 0xFF)
-            + Op.MSTORE(32, salt_offset)  # Starting salt for this tx
-            + Op.PUSH1(64)
-            + Op.MSTORE  # Store init_code_hash
+            + (
+                create2_preimage := Create2PreimageLayout(
+                    factory_address=factory_address,
+                    salt=salt_offset,
+                    init_code_hash=Op.MLOAD(_INIT_CODE_HASH_OFFSET),
+                    old_memory_size=_NUM_DEPLOYED_OFFSET + _FACTORY_RETURN_SIZE,
+                )
+            )
             # Push our iteration count onto stack
             + Op.PUSH4(tx_contracts)
             # Main attack loop
             + While(
                 body=(
-                    # Generate CREATE2 address
-                    Op.SHA3(11, 85)
+                    create2_preimage.address_op()
                     + Op.DUP1  # Duplicate for second operation
                     + benchmark_ops  # Execute operations in specified order
-                    # Increment salt
-                    + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
+                    + create2_preimage.increment_salt_op()
                 ),
                 condition=Op.DUP1
                 + Op.PUSH1(1)
@@ -592,11 +593,6 @@ def test_bloatnet_balance_extcodehash(
 # ERC20 function selectors
 BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
 APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
-
-# Load token names from stubs.json for test parametrization
-_STUBS_FILE = Path(__file__).parent / "stubs.json"
-with open(_STUBS_FILE) as f:
-    _STUBS = json.load(f)
 
 # Extract unique token names for mixed sload/sstore tests
 MIXED_TOKENS = [
