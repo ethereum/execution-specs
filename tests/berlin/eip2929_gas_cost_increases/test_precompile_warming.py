@@ -15,7 +15,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Bytecode,
     EIPChecklist,
     Op,
     Transaction,
