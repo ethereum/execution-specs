@@ -2,6 +2,7 @@
 
 import math
 import random
+from dataclasses import dataclass
 from typing import Generator, Tuple
 
 import pytest
@@ -13,7 +14,6 @@ from execution_testing import (
     AuthorizationTuple,
     BenchmarkTestFiller,
     Block,
-    BlockchainTestFiller,
     Fork,
     Hash,
     Op,
@@ -46,11 +46,13 @@ def get_distinct_sender_list(pre: Alloc) -> Generator[Address, None, None]:
 
 
 def get_distinct_receiver_list(
-    pre: Alloc, balance: int
+    pre: Alloc,
+    balance: int,
+    delegation: Address | None = None,
 ) -> Generator[Address, None, None]:
     """Get a list of distinct receiver accounts."""
     while True:
-        yield pre.fund_eoa(balance)
+        yield pre.fund_eoa(balance, delegation=delegation)
 
 
 def get_single_sender_list(pre: Alloc) -> Generator[Address, None, None]:
@@ -61,20 +63,38 @@ def get_single_sender_list(pre: Alloc) -> Generator[Address, None, None]:
 
 
 def get_single_receiver_list(
-    pre: Alloc, balance: int
+    pre: Alloc,
+    balance: int,
+    delegation: Address | None = None,
 ) -> Generator[Address, None, None]:
     """Get a list of single receiver accounts."""
-    receiver = pre.fund_eoa(balance)
+    receiver = pre.fund_eoa(balance, delegation=delegation)
     while True:
         yield receiver
 
 
+@dataclass(frozen=True)
+class ReceiverAccountType:
+    """Receiver account type for ether transfer benchmarks."""
+
+    balance: int
+    delegated: bool
+
+
 @pytest.fixture
 def ether_transfer_case(
-    case_id: str, pre: Alloc, empty_account: bool
+    case_id: str,
+    pre: Alloc,
+    receiver_account_type: ReceiverAccountType,
 ) -> Tuple[Generator[Address, None, None], Generator[Address, None, None]]:
     """Generate sender and receiver generators based on the test case."""
-    balance = 0 if empty_account else 1
+    balance = receiver_account_type.balance
+    delegation = (
+        pre.deploy_contract(code=Op.STOP)
+        if receiver_account_type.delegated
+        else None
+    )
+
     if case_id == "a_to_a":
         """Sending to self."""
         senders = get_single_sender_list(pre)
@@ -83,22 +103,22 @@ def ether_transfer_case(
     elif case_id == "a_to_b":
         """One sender → one receiver."""
         senders = get_single_sender_list(pre)
-        receivers = get_single_receiver_list(pre, balance)
+        receivers = get_single_receiver_list(pre, balance, delegation)
 
     elif case_id == "diff_acc_to_b":
         """Multiple senders → one receiver."""
         senders = get_distinct_sender_list(pre)
-        receivers = get_single_receiver_list(pre, balance)
+        receivers = get_single_receiver_list(pre, balance, delegation)
 
     elif case_id == "a_to_diff_acc":
         """One sender → multiple receivers."""
         senders = get_single_sender_list(pre)
-        receivers = get_distinct_receiver_list(pre, balance)
+        receivers = get_distinct_receiver_list(pre, balance, delegation)
 
     elif case_id == "diff_acc_to_diff_acc":
         """Multiple senders → multiple receivers."""
         senders = get_distinct_sender_list(pre)
-        receivers = get_distinct_receiver_list(pre, balance)
+        receivers = get_distinct_receiver_list(pre, balance, delegation)
 
     else:
         raise ValueError(f"Unknown case: {case_id}")
@@ -117,13 +137,29 @@ def ether_transfer_case(
     ],
 )
 @pytest.mark.parametrize("transfer_amount", [0, 1])
-@pytest.mark.parametrize("empty_account", [True, False])
+@pytest.mark.parametrize(
+    "receiver_account_type",
+    [
+        pytest.param(
+            ReceiverAccountType(balance=0, delegated=False),
+            id="empty_account",
+        ),
+        pytest.param(
+            ReceiverAccountType(balance=1, delegated=False),
+            id="non_empty_account",
+        ),
+        pytest.param(
+            ReceiverAccountType(balance=0, delegated=True),
+            id="delegated_account",
+        ),
+    ],
+)
 @pytest.mark.parametrize("warm_access", [False, True])
 def test_ether_transfers(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     case_id: str,
-    empty_account: bool,
+    receiver_account_type: ReceiverAccountType,
     transfer_amount: int,
     fork: Fork,
     gas_benchmark_value: int,
@@ -147,7 +183,7 @@ def test_ether_transfers(
     """
     senders, receivers = ether_transfer_case
 
-    balance = 0 if empty_account else 1
+    balance = receiver_account_type.balance
 
     txs = []
     token_transfers: dict[Address, int] = {}
@@ -471,13 +507,17 @@ def test_block_full_access_list_and_data(
 
 @pytest.mark.parametrize("empty_authority", [True, False])
 @pytest.mark.parametrize("zero_delegation", [True, False])
+@pytest.mark.parametrize("empty_account", [True, False])
+@pytest.mark.parametrize("transfer_amount", [True, False])
 def test_auth_transaction(
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     intrinsic_cost: int,
     gas_benchmark_value: int,
     fork: Fork,
     empty_authority: bool,
+    empty_account: bool,
+    transfer_amount: int,
     zero_delegation: bool,
     tx_gas_limit: int,
 ) -> None:
@@ -536,16 +576,19 @@ def test_auth_transaction(
                 * auths_in_this_tx,
             )
 
+        receiver = pre.fund_eoa(0 if empty_account else 1)
+
         txs.append(
             Transaction(
-                to=pre.empty_account(),
+                to=receiver,
+                value=transfer_amount,
                 gas_limit=tx_gas_used,
                 sender=pre.fund_eoa(),
                 authorization_list=auth_tuples,
             )
         )
 
-    blockchain_test(
+    benchmark_test(
         pre=pre,
         post={},
         blocks=[Block(txs=txs)],
