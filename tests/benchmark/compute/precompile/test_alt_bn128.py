@@ -432,10 +432,10 @@ def test_bn128_pairings_amortized(
     warm_account_access_cost = Op.STATICCALL(
         gas=Op.GAS,
         address=Op.PUSH20(0),
-        argsOffset=Op.PUSH0,
-        argsSize=Op.PUSH0,
-        retOffset=Op.PUSH0,
-        retSize=Op.PUSH0,
+        args_offset=Op.PUSH0,
+        args_size=Op.PUSH0,
+        ret_offset=Op.PUSH0,
+        ret_size=Op.PUSH0,
         # gas accounting
         address_warm=True,
     ).gas_cost(fork)

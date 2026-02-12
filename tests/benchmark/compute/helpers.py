@@ -187,8 +187,8 @@ def calculate_optimal_input_length(
             address=0x01,  # Placeholder Address
             args_offset=Op.PUSH0,
             args_size=Op.PUSH0,
-            output_offset=Op.PUSH0,
-            output_size=Op.PUSH0,
+            ret_offset=Op.PUSH0,
+            ret_size=Op.PUSH0,
             # gas cost
             address_warm=True,
         )
