@@ -1207,8 +1207,7 @@ def test_bal_7702_delegated_create(
             authorization_list_or_count=tx.authorization_list,
         )
         + deployer_code.gas_cost(fork)
-        + init_code.execution_gas
-        + gsc.G_CODE_DEPOSIT_BYTE * len(deploy_code)
+        + init_code.gas_cost(fork)
     )
 
     refund_counter = gsc.R_AUTHORIZATION_EXISTING_AUTHORITY

@@ -36,9 +36,7 @@ def test_tstore_clear_after_deployment_tx(
     init_code = Op.TSTORE(1, 1)
     deploy_code = Op.SSTORE(1, Op.TLOAD(1))
 
-    code = Initcode(
-        deploy_code=deploy_code, initcode_prefix=init_code, fork=fork
-    )
+    code = Initcode(deploy_code=deploy_code, initcode_prefix=init_code)
 
     sender = pre.fund_eoa()
 

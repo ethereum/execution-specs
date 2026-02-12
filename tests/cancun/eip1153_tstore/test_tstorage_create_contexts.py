@@ -17,7 +17,6 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks.helpers import Fork
 
 from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153
@@ -165,12 +164,9 @@ class TestTransientStorageInContractCreation:
         self,
         deploy_code: Bytecode,
         constructor_code: Bytecode,
-        fork: Fork,
     ) -> Initcode:
         return Initcode(
-            deploy_code=deploy_code,
-            initcode_prefix=constructor_code,
-            fork=fork,
+            deploy_code=deploy_code, initcode_prefix=constructor_code
         )
 
     @pytest.fixture()
