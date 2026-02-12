@@ -24,7 +24,7 @@ Contract sources:
 
 import time
 from pathlib import Path
-from typing import Any, List, Self
+from typing import Annotated, Any, List, Self
 
 import pytest
 from execution_testing import (
@@ -44,7 +44,7 @@ from execution_testing import (
     TransactionWithCost,
     While,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 # Folder path to the submodule and mined assets
 WORST_CASE_MINER_SUBMODULE_PATH = Path(__file__).parent / ".worst_case_miner"
@@ -94,7 +94,7 @@ class SaltedContractInstance(BaseModel):
 
 class MinedContractFile(BaseModel):
     """
-    Model to load information about a contract mined using using
+    Model to load information about a contract mined using
     https://github.com/CPerezz/worst_case_miner.
     """
 
@@ -102,7 +102,9 @@ class MinedContractFile(BaseModel):
     initcode_hash: Hash = Field(..., alias="init_code_hash")
     initcode: Bytes = Field(..., alias="init_code")
     deploy_code: Bytes
-    storage_keys: List[Address]
+    storage_keys: List[
+        Annotated[Hash, BeforeValidator(lambda v: Hash(v, left_padding=True))]
+    ]
     target_depth: int
     num_contracts: int
     total_time: float
@@ -114,8 +116,9 @@ class MinedContractFile(BaseModel):
         """
         if len(self.contracts) != self.num_contracts:
             raise ValueError(
-                f"Number of storage keys ({len(self.storage_keys)}) does "
-                f"not match number of contracts ({self.num_contracts})"
+                f"Number of contracts specified in the `num_contracts` field, "
+                f"({self.num_contracts})does not match number of "
+                f"contracts ({len(self.contracts)})."
             )
         if self.initcode_hash != self.initcode.keccak256():
             raise ValueError(
@@ -164,7 +167,20 @@ def attack_value(request: pytest.FixtureRequest) -> int:
 @pytest.mark.parametrize(
     "storage_depth,account_depth",
     [
-        (10, 6),  # From .worst_case_miner/mined_assets
+        # From .worst_case_miner/mined_assets
+        (10, 3),
+        (10, 4),
+        (10, 5),
+        (10, 6),
+        (10, 7),
+        (11, 3),
+        (11, 4),
+        (11, 5),
+        (11, 6),
+        (11, 7),
+        (12, 3),
+        (12, 4),
+        (12, 5),
     ],
 )
 def test_worst_depth_stateroot_recomp(
@@ -187,9 +203,8 @@ def test_worst_depth_stateroot_recomp(
 
     Args:
         blockchain_test: The blockchain test filler
-        pre: Pre-state allocation
         fork: The fork to test on
-        env: Environment object that will be used to fill/execute
+        pre: Pre-state allocation
         gas_benchmark_value: Gas budget for benchmark
         storage_depth: Depth of storage slots in the contract (e.g., 9)
         account_depth: Depth of account address prefix sharing (e.g., 5)
