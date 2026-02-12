@@ -427,9 +427,18 @@ def test_bn128_pairings_amortized(
     pairing_cost = 34_000
     size_per_pairing = 192
 
-    gsc = fork.gas_costs()
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
+    warm_account_access_cost = Op.STATICCALL(
+        gas=Op.GAS,
+        address=Op.PUSH20(0),
+        argsOffset=Op.PUSH0,
+        argsSize=Op.PUSH0,
+        retOffset=Op.PUSH0,
+        retSize=Op.PUSH0,
+        # gas accounting
+        address_warm=True,
+    ).gas_cost(fork)
 
     # This is a theoretical maximum number of pairings that can be done in a
     # block. It is only used for an upper bound for calculating the optimal
@@ -458,10 +467,8 @@ def test_bn128_pairings_amortized(
             - mem_exp_gas_calculator(new_bytes=i * size_per_pairing),
         )
 
-        # This is ignoring "glue" opcodes, but helps to have a rough idea of
-        # the right cutting point.
         approx_gas_cost_per_call = (
-            gsc.G_WARM_ACCOUNT_ACCESS + base_cost + i * pairing_cost
+            warm_account_access_cost + base_cost + i * pairing_cost
         )
 
         num_precompile_calls = (

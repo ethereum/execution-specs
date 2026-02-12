@@ -179,27 +179,31 @@ def calculate_optimal_input_length(
         The optimal input length in bytes that maximizes total work.
 
     """
-    gsc = fork.gas_costs()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
+
+    precompile_call = Op.POP(
+        Op.STATICCALL(
+            gas=Op.GAS,
+            address=0x01,  # Placeholder Address
+            args_offset=Op.PUSH0,
+            args_size=Op.PUSH0,
+            output_offset=Op.PUSH0,
+            output_size=Op.PUSH0,
+            # gas cost
+            address_warm=True,
+        )
+    )
+    basic_gas = precompile_call.gas_cost(fork)
 
     max_work = 0
     optimal_input_length = 0
 
     for input_length in range(1, 1_000_000, 32):
-        parameters_gas = (
-            gsc.G_BASE  # PUSH0 = arg offset
-            + gsc.G_BASE  # PUSH0 = arg size
-            + gsc.G_BASE  # PUSH0 = arg size
-            + gsc.G_VERY_LOW  # PUSH0 = arg offset
-            + gsc.G_VERY_LOW  # PUSHN = address
-            + gsc.G_BASE  # GAS
-        )
         iteration_gas_cost = (
-            parameters_gas
+            basic_gas
             + static_cost  # Precompile static cost
             + math.ceil(input_length / 32) * per_word_dynamic_cost
             # Precompile dynamic cost
-            + gsc.G_BASE  # POP
         )
 
         # From the available gas, subtract the memory expansion costs

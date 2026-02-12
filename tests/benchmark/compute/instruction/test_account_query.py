@@ -274,15 +274,19 @@ def test_ext_account_query_cold(
 
     attack_gas_limit = gas_benchmark_value
 
-    gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+    cold_account_access_gas = opcode(
+        0,
+        # gas accounting
+        address_warm=False,
+    ).gas_cost(fork)
     # For calculation robustness, the calculation below ignores "glue" opcodes
     # like  PUSH and POP. It should be considered a worst-case number of
     # accounts, and a few of them might not be targeted before the attacking
     # transaction runs out of gas.
     num_target_accounts = (
         attack_gas_limit - intrinsic_gas_cost_calc()
-    ) // gas_costs.G_COLD_ACCOUNT_ACCESS
+    ) // cold_account_access_gas
 
     blocks = []
     post = {}
@@ -294,11 +298,9 @@ def test_ext_account_query_cold(
     addr_offset = int.from_bytes(pre.fund_eoa(amount=0))
 
     if not absent_accounts:
-        account_creation_gas = (
-            gas_costs.G_COLD_ACCOUNT_ACCESS
-            + gas_costs.G_CALL_VALUE
-            + gas_costs.G_NEW_ACCOUNT
-        )
+        account_creation_gas = Op.CALL(
+            value=1, address_warm=False, account_new=True
+        ).gas_cost(fork)
         # To avoid brittle/tight gas calculations of glue opcodes, we take
         # 90% of the maximum tx capacity. Even if this calculation fails
         # in the future, it will be caught by the post-state check.
@@ -372,7 +374,7 @@ def test_ext_account_query_cold(
     with TestPhaseManager.execution():
         max_target_per_tx = (
             tx_gas_limit - intrinsic_gas_cost_calc()
-        ) // gas_costs.G_COLD_ACCOUNT_ACCESS
+        ) // cold_account_access_gas
 
         num_execution_txs = math.ceil(num_target_accounts / max_target_per_tx)
         gas_used = 0
