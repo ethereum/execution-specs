@@ -25,7 +25,7 @@ class Initcode(Bytecode):
     EIP-3860 are *not* taken into account by any of these calculated costs.
     """
 
-    deploy_code: SupportsBytes | Bytes
+    deploy_code: Bytes | Bytecode
     """
     Bytecode to be deployed by the initcode.
     """
@@ -48,11 +48,13 @@ class Initcode(Bytecode):
         """
         if deploy_code is None:
             deploy_code = Bytecode()
+        elif not isinstance(deploy_code, Bytecode):
+            deploy_code = Bytes(deploy_code)
         if initcode_prefix is None:
             initcode_prefix = Bytecode()
 
         initcode = initcode_prefix
-        code_length = len(bytes(deploy_code))
+        code_length = len(deploy_code)
 
         # PUSH2: length=<bytecode length>
         initcode += Op.PUSH2(code_length)
@@ -79,7 +81,7 @@ class Initcode(Bytecode):
         )
 
         # RETURN: offset=0, length
-        initcode += Op.RETURN(code_deposit_size=len(bytes(deploy_code)))
+        initcode += Op.RETURN(code_deposit_size=len(deploy_code))
 
         initcode_plus_deploy_code = bytes(initcode) + bytes(deploy_code)
         padding_bytes = bytes()
@@ -117,8 +119,8 @@ class Initcode(Bytecode):
         timestamp: int = 0,
     ) -> int:
         """
-        Gas cost of executing the initcode, without considering deployment gas
-        costs.
+        Gas cost of executing the initcode, charged before the code
+        deposit fee.
         """
         return self.gas_cost(
             fork,
@@ -138,7 +140,7 @@ class Initcode(Bytecode):
         timestamp: int = 0,
     ) -> int:
         """
-        Gas cost of deploying the cost, subtracted after initcode execution.
+        Gas cost of deploying the contract.
         """
         return Op.RETURN(
             code_deposit_size=len(bytes(self.deploy_code))

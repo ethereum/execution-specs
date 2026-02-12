@@ -202,15 +202,19 @@ def test_initcode(initcode: Initcode, bytecode: bytes) -> None:  # noqa: D103
         ),
     ],
 )
-def test_initcode_gas_cost(initcode: Initcode, reference: Bytecode) -> None:
+def test_initcode_gas_cost(initcode: Initcode, reference: Initcode) -> None:
     """
     Test that the gas cost of the initcode is calculated correctly.
     """
     assert initcode.gas_cost(Cancun) == reference.gas_cost(Cancun)
     if initcode.deploy_code != reference.deploy_code:
-        assert initcode.deploy_code.gas_cost(
+        initcode_deploy_code = initcode.deploy_code
+        assert isinstance(initcode_deploy_code, Bytecode)
+        reference_deploy_code = reference.deploy_code
+        assert isinstance(reference_deploy_code, Bytecode)
+        assert initcode_deploy_code.gas_cost(
             Cancun
-        ) != reference.deploy_code.gas_cost(Cancun)
+        ) != reference_deploy_code.gas_cost(Cancun)
 
 
 @pytest.mark.parametrize(
