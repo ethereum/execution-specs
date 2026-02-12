@@ -27,7 +27,7 @@ from execution_testing.forks import (
 )
 from execution_testing.specs import StateTest
 from execution_testing.test_types import Alloc, Environment, Transaction
-from execution_testing.vm import Op
+from execution_testing.vm import Bytecode, Op
 
 from ..tools_code import CalldataCase, Case, Conditional, Initcode, Switch
 
@@ -182,6 +182,35 @@ def expected_bytes(
 )
 def test_initcode(initcode: Initcode, bytecode: bytes) -> None:  # noqa: D103
     assert bytes(initcode) == bytecode
+
+
+@pytest.mark.parametrize(
+    "initcode,reference",
+    [
+        pytest.param(
+            Initcode(),
+            Initcode(),
+            id="empty-deployed-code",
+        ),
+        pytest.param(
+            # Both initcodes deploy code of the same size, but the execution
+            # cost of the deployed codes differ, make sure that `gas_cost`
+            # is not influenced by the deployed code's execution cost.
+            Initcode(deploy_code=Op.MSTORE(0, 0, new_memory_size=0)),
+            Initcode(deploy_code=Op.MSTORE(0xFF, 0, new_memory_size=0xFF)),
+            id="non-empty-deployed-code",
+        ),
+    ],
+)
+def test_initcode_gas_cost(initcode: Initcode, reference: Bytecode) -> None:
+    """
+    Test that the gas cost of the initcode is calculated correctly.
+    """
+    assert initcode.gas_cost(Cancun) == reference.gas_cost(Cancun)
+    if initcode.deploy_code != reference.deploy_code:
+        assert initcode.deploy_code.gas_cost(
+            Cancun
+        ) != reference.deploy_code.gas_cost(Cancun)
 
 
 @pytest.mark.parametrize(
