@@ -33,18 +33,15 @@ class Initcode(Bytecode):
     def __new__(
         cls,
         *,
-        deploy_code: SupportsBytes | Bytes | None = None,
+        deploy_code: Bytecode | SupportsBytes | None = None,
         initcode_length: int | None = None,
         initcode_prefix: Bytecode | None = None,
         padding_byte: int = 0x00,
         name: str = "",
     ) -> Self:
         """
-        Generate legacy initcode that inits a contract with the specified code.
+        Generate an initcode that returns a contract with the specified code.
         The initcode can be padded to a specified length for testing purposes.
-
-        Gas costs are calculated using the fork's gas costs and memory
-        expansion formula. Defaults to Frontier if no fork is provided.
         """
         if deploy_code is None:
             deploy_code = Bytecode()
@@ -142,9 +139,9 @@ class Initcode(Bytecode):
         """
         Gas cost of deploying the contract.
         """
-        return Op.RETURN(
-            code_deposit_size=len(bytes(self.deploy_code))
-        ).gas_cost(fork, block_number=block_number, timestamp=timestamp)
+        return Op.RETURN(code_deposit_size=len(self.deploy_code)).gas_cost(
+            fork, block_number=block_number, timestamp=timestamp
+        )
 
 
 class CodeGasMeasure(Bytecode):
