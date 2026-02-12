@@ -648,7 +648,7 @@ def test_stack_underflow_no_log(
     state_test(env=env, pre=pre, post={}, tx=tx)
 
 
-@pytest.mark.pre_alloc_modify
+@pytest.mark.pre_alloc_mutable
 @pytest.mark.with_all_create_opcodes
 def test_create_collision_no_log(
     state_test: StateTestFiller,
