@@ -299,7 +299,7 @@ def test_ext_account_query_cold(
 
     if not absent_accounts:
         account_creation_gas = Op.CALL(
-            value=1, address_warm=False, account_new=True
+            value=1, address_warm=False, account_new=True, value_transfer=True
         ).gas_cost(fork)
         # To avoid brittle/tight gas calculations of glue opcodes, we take
         # 90% of the maximum tx capacity. Even if this calculation fails
