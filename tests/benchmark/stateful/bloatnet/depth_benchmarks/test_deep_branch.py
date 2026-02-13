@@ -32,8 +32,8 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BenchmarkTestFiller,
     Block,
-    BlockchainTestFiller,
     Bytecode,
     Bytes,
     Create2PreimageLayout,
@@ -184,7 +184,7 @@ def attack_value(request: pytest.FixtureRequest) -> int:
     ],
 )
 def test_worst_depth_stateroot_recomp(
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     fork: Fork,
     pre: Alloc,
     gas_benchmark_value: int,
@@ -202,7 +202,7 @@ def test_worst_depth_stateroot_recomp(
     4. Adds a verification transaction at the end to confirm success
 
     Args:
-        blockchain_test: The blockchain test filler
+        benchmark_test: The benchmark test filler
         fork: The fork to test on
         pre: Pre-state allocation
         gas_benchmark_value: Gas budget for benchmark
@@ -267,6 +267,11 @@ def test_worst_depth_stateroot_recomp(
 
     # The code was compiled by solidity, so these opcode counts were obtained
     # from the traces.
+    # The purpose of this bytecode definition is to calculate the gas cost of
+    # the inner call, not to deploy it, hence the unsorted opcodes.
+    # This collection of opcodes represents Solidity's function dispatching
+    # logic, and the `attack(uint256 value)` function that can be seen in
+    # `depth_N.sol` files.
     inner_call_bytecode = (
         # Attack sstore
         Op.SSTORE(key_warm=False, original_value=1, new_value=2)
@@ -377,7 +382,7 @@ def test_worst_depth_stateroot_recomp(
 
     total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
 
-    blockchain_test(
+    benchmark_test(
         pre=pre,
         blocks=[Block(txs=attack_txs)],
         post=post,
