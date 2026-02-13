@@ -410,7 +410,7 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
                 call_success=False,
                 returned_data="0000000000000000000000000000000000000000000000000000000000000000",
             ),
-            id="truncated_input1",
+            id="truncated_lengths_1",
         ),
         pytest.param(
             Bytes(
@@ -422,7 +422,7 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
                 call_success=False,
                 returned_data="0000000000000000000000000000000000000000000000000000000000000000",
             ),
-            id="truncated_input2",
+            id="truncated_lengths_2",
         ),
         pytest.param(
             Bytes(
@@ -432,7 +432,7 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
                 call_success=False,
                 returned_data="0000000000000000000000000000000000000000000000000000000000000000",
             ),
-            id="truncated_input3",
+            id="truncated_lengths_3",
         ),
         pytest.param(
             Bytes(
@@ -447,7 +447,7 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
             ModExpOutput(
                 returned_data="0x0000000000",
             ),
-            id="truncated_input4",
+            id="truncated_input_4",
         ),
     ],
     ids=lambda param: param.__repr__(),  # only required to remove parameter
