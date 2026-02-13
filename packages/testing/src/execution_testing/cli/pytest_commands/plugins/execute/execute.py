@@ -625,6 +625,8 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         max_fee_per_blob_gas: int,
         max_gas_limit_per_test: int | None,
         gas_limit_accumulator: GasInfoAccumulator,
+        is_tx_gas_heavy_test: bool,
+        is_exception_test: bool,
     ) -> Type[BaseTest]:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -655,10 +657,12 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     raise ValueError(
                         "The pre-alloc object was modified by the test."
                     )
-                # Set default for expected_benchmark_gas_used
                 if "expected_benchmark_gas_used" not in kwargs:
                     kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
                 kwargs["fork"] = fork
+                kwargs["operation_mode"] = request.config.op_mode
+                kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
+                kwargs["is_exception_test"] = is_exception_test
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters
@@ -668,7 +672,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 request.node.config.sender_address = str(pre._sender)
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
-                self._request = request
                 execute = self.execute(execute_format=execute_format)
 
                 # get balances of required sender accounts
@@ -730,12 +733,17 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     [str(eoa) for eoa in pre._funded_eoa]
                 )
 
-                execute.execute(
+                execute_result = execute.execute(
                     fork=fork,
                     eth_rpc=eth_rpc,
                     engine_rpc=engine_rpc,
                     request=request,
                 )
+                self.validate_benchmark_gas(
+                    benchmark_gas_used=execute_result.benchmark_gas_used,
+                    gas_benchmark_value=gas_benchmark_value,
+                )
+
                 collector.collect(request.node.nodeid, execute)
 
         return BaseTestWrapper
@@ -744,7 +752,12 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
 
 
 # Dynamically generate a pytest fixture for each test spec type.
-for cls in BaseTest.spec_types.values():
+for name, cls in BaseTest.spec_types.items():
+    if getattr(cls, "__is_base_test_wrapper__", False):
+        raise RuntimeError(
+            f"Test spec type {name}: {cls.__name__} is already wrapped. "
+            f"{BaseTest.spec_types.items()}."
+        )
     # Fixture needs to be defined in the global scope so pytest can detect it.
     globals()[cls.pytest_parameter_name()] = base_test_parametrizer(cls)
 

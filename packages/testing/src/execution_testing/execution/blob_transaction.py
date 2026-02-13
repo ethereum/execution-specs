@@ -26,7 +26,7 @@ from execution_testing.test_types.transaction_types import (
     TransactionTestMetadata,
 )
 
-from .base import BaseExecute
+from .base import BaseExecute, ExecuteResult
 
 logger = get_logger(__name__)
 
@@ -104,7 +104,7 @@ class BlobTransaction(BaseExecute):
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
         request: FixtureRequest,
-    ) -> None:
+    ) -> ExecuteResult:
         """Execute the format."""
         versioned_hashes: Dict[Hash, BlobAndProofV1 | BlobAndProofV2] = {}
         sent_txs: List[Transaction] = []
@@ -140,7 +140,9 @@ class BlobTransaction(BaseExecute):
             logger.info(
                 "Engine RPC is not available, skipping getBlobsV* validation."
             )
-            return
+            return ExecuteResult(
+                benchmark_gas_used=None,
+            )
 
         version = fork.engine_get_blobs_version()
         assert version is not None, (
@@ -172,7 +174,9 @@ class BlobTransaction(BaseExecute):
                     "the client correctly returned 'null')"
                 )
                 eth_rpc.wait_for_transactions(sent_txs)
-                return
+                return ExecuteResult(
+                    benchmark_gas_used=None,
+                )
 
         assert blob_response is not None
         local_blobs_and_proofs = list(versioned_hashes.values())
@@ -250,3 +254,6 @@ class BlobTransaction(BaseExecute):
                 )
 
         eth_rpc.wait_for_transactions(sent_txs)
+        return ExecuteResult(
+            benchmark_gas_used=None,
+        )

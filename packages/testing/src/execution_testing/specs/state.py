@@ -33,7 +33,6 @@ from execution_testing.execution import (
     TransactionPost,
 )
 from execution_testing.fixtures import (
-    BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
     StateFixture,
@@ -57,7 +56,7 @@ from execution_testing.test_types import (
     Transaction,
 )
 
-from .base import BaseTest, OpMode
+from .base import BaseTest, FillResult, OpMode
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
 from .helpers import verify_transactions
@@ -153,7 +152,7 @@ class StateTest(BaseTest):
                 blob_schedule=fork.blob_schedule(),
                 state_test=True,
             ),
-            slow_request=self.is_tx_gas_heavy_test(),
+            slow_request=self.is_tx_gas_heavy_test,
         )
         modified_traces = modified_tool_output.result.traces
         assert modified_traces is not None, (
@@ -337,7 +336,7 @@ class StateTest(BaseTest):
     def make_state_test_fixture(
         self,
         t8n: TransitionTool,
-    ) -> StateFixture:
+    ) -> FillResult:
         """Create a fixture from the state test definition."""
         # We can't generate a state test fixture that names a transition fork,
         # so we get the fork at the block number and timestamp of the state
@@ -366,7 +365,7 @@ class StateTest(BaseTest):
                 blob_schedule=fork.blob_schedule(),
                 state_test=True,
             ),
-            slow_request=self.is_tx_gas_heavy_test(),
+            slow_request=self.is_tx_gas_heavy_test,
         )
         output_alloc = transition_tool_output.alloc.get()
 
@@ -388,12 +387,14 @@ class StateTest(BaseTest):
             pprint(output_alloc)
             raise e
 
+        gas_optimization: int | None = None
+
         if (
-            self._operation_mode == OpMode.OPTIMIZE_GAS
-            or self._operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
+            self.operation_mode == OpMode.OPTIMIZE_GAS
+            or self.operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
         ):
             enable_post_processing = (
-                self._operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
+                self.operation_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
             )
             base_tool_output = transition_tool_output
             base_tool_alloc = base_tool_output.alloc.get()
@@ -434,13 +435,13 @@ class StateTest(BaseTest):
                     else:
                         minimum_gas_limit = current_gas_limit + 1
                         if (
-                            self._gas_optimization_max_gas_limit is not None
+                            self.gas_optimization_max_gas_limit is not None
                             and minimum_gas_limit
-                            > self._gas_optimization_max_gas_limit
+                            > self.gas_optimization_max_gas_limit
                         ):
                             raise Exception(
                                 "Requires more than the minimum "
-                                f"{self._gas_optimization_max_gas_limit} "
+                                f"{self.gas_optimization_max_gas_limit} "
                                 "wanted."
                             )
 
@@ -454,23 +455,10 @@ class StateTest(BaseTest):
                     env=env,
                     enable_post_processing=enable_post_processing,
                 )
-                self._gas_optimization = current_gas_limit
+                gas_optimization = current_gas_limit
             else:
                 raise Exception("Impossible to compare.")
 
-        if self._operation_mode == OpMode.BENCHMARKING:
-            expected_benchmark_gas_used = self.expected_benchmark_gas_used
-            assert expected_benchmark_gas_used is not None, (
-                "expected_benchmark_gas_used is not set"
-            )
-            gas_used = int(transition_tool_output.result.gas_used)
-            if not self.skip_gas_used_validation:
-                diff = gas_used - expected_benchmark_gas_used
-                assert gas_used == expected_benchmark_gas_used, (
-                    f"gas_used ({gas_used}) does not match "
-                    f"expected_benchmark_gas_used "
-                    f"({expected_benchmark_gas_used}), difference: {diff}"
-                )
         if len(transition_tool_output.result.receipts) == 1:
             receipt = FixtureTransactionReceipt.from_transaction_receipt(
                 transition_tool_output.result.receipts[0], tx
@@ -487,7 +475,7 @@ class StateTest(BaseTest):
         else:
             receipt = None
 
-        return StateFixture(
+        fixture = StateFixture(
             env=FixtureEnvironment(**env.model_dump(exclude_none=True)),
             pre=pre_alloc,
             post={
@@ -510,6 +498,12 @@ class StateTest(BaseTest):
                 chain_id=self.chain_id,
             ),
         )
+        return FillResult(
+            fixture=fixture,
+            gas_optimization=gas_optimization,
+            benchmark_gas_used=transition_tool_output.result.gas_used,
+            benchmark_opcode_count=transition_tool_output.result.opcode_count,
+        )
 
     def get_genesis_environment(self) -> Environment:
         """Get the genesis environment for pre-allocation groups."""
@@ -519,7 +513,7 @@ class StateTest(BaseTest):
         self,
         t8n: TransitionTool,
         fixture_format: FixtureFormat,
-    ) -> BaseFixture:
+    ) -> FillResult:
         """Generate the BlockchainTest fixture."""
         self.check_exception_test(exception=self.tx.error is not None)
         if fixture_format in BlockchainTest.supported_fixture_formats:
@@ -540,13 +534,13 @@ class StateTest(BaseTest):
         if execute_format == TransactionPost:
             # Pass gas validation params for benchmark tests
             # If not benchmark mode, skip gas used validation
-            if self._operation_mode != OpMode.BENCHMARKING:
+            if self.operation_mode != OpMode.BENCHMARKING:
                 self.skip_gas_used_validation = True
+            benchmark_mode = self.operation_mode == OpMode.BENCHMARKING
             return TransactionPost(
                 blocks=[[self.tx]],
                 post=self.post,
-                expected_benchmark_gas_used=self.expected_benchmark_gas_used,
-                skip_gas_used_validation=self.skip_gas_used_validation,
+                benchmark_mode=benchmark_mode,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 

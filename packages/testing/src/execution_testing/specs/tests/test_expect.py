@@ -74,11 +74,17 @@ def fork() -> Fork:  # noqa: D103
 
 
 @pytest.fixture
+def is_exception_test() -> bool:  # noqa: D103
+    return False
+
+
+@pytest.fixture
 def state_test(  # noqa: D103
     pre: Mapping[Any, Any],
     post: Mapping[Any, Any],
     tx: Transaction,
     fork: Fork,
+    is_exception_test: bool,
 ) -> StateTest:
     return StateTest(
         env=Environment(),
@@ -86,6 +92,7 @@ def state_test(  # noqa: D103
         post=post,
         tx=tx,
         fork=fork,
+        is_exception_test=is_exception_test,
     )
 
 
@@ -368,7 +375,7 @@ def test_post_account_mismatch(
 
 # Transaction result mismatch tests
 @pytest.mark.parametrize(
-    "tx,exception_type",
+    "tx,exception_type,is_exception_test",
     [
         pytest.param(
             Transaction(
@@ -377,6 +384,7 @@ def test_post_account_mismatch(
                 error=TransactionException.SENDER_NOT_EOA,
             ),
             ExecutionExceptionMismatchError,
+            True,
             id="TransactionExecutionExceptionMismatchError",
         ),
         pytest.param(
@@ -388,6 +396,7 @@ def test_post_account_mismatch(
                 ),
             ),
             UnexpectedExecutionSuccessError,
+            True,
             id="TransactionUnexpectedExecutionSuccessError",
         ),
         pytest.param(
@@ -399,6 +408,7 @@ def test_post_account_mismatch(
                 ),
             ),
             UnexpectedExecutionFailError,
+            False,
             id="TransactionUnexpectedExecutionFailError",
         ),
         pytest.param(
@@ -409,6 +419,7 @@ def test_post_account_mismatch(
                 ),
             ),
             TransactionReceiptMismatchError,
+            False,
             id="TransactionReceiptMismatchError",
         ),
         pytest.param(
@@ -420,6 +431,7 @@ def test_post_account_mismatch(
                 ),
             ),
             UnexpectedExecutionFailError,
+            False,
             id="TransactionUnexpectedExecutionFailError+TransactionReceiptMismatchError",
         ),
         pytest.param(
@@ -431,6 +443,7 @@ def test_post_account_mismatch(
                 ),
             ),
             UnexpectedExecutionSuccessError,
+            True,
             id="TransactionUnexpectedExecutionSuccessError+TransactionReceiptMismatchError",
         ),
     ],

@@ -31,7 +31,6 @@ from execution_testing.execution import (
     TransactionPost,
 )
 from execution_testing.fixtures import (
-    BaseFixture,
     BlockchainEngineFixture,
     BlockchainEngineXFixture,
     BlockchainFixture,
@@ -42,7 +41,7 @@ from execution_testing.forks import Fork
 from execution_testing.test_types import Alloc, Environment, Transaction
 from execution_testing.vm import Bytecode, Op
 
-from .base import BaseTest
+from .base import BaseTest, FillResult
 from .blockchain import Block, BlockchainTest
 
 
@@ -528,14 +527,13 @@ class BenchmarkTest(BaseTest):
         self,
         t8n: TransitionTool,
         fixture_format: FixtureFormat,
-    ) -> BaseFixture:
+    ) -> FillResult:
         """Generate the blockchain test fixture."""
         self.check_exception_test(
             exception=self.tx.error is not None if self.tx else False
         )
         if fixture_format in BlockchainTest.supported_fixture_formats:
-            blockchain_test = self.generate_blockchain_test()
-            fixture = blockchain_test.generate(
+            fill_result = self.generate_blockchain_test().generate(
                 t8n=t8n, fixture_format=fixture_format
             )
 
@@ -545,9 +543,9 @@ class BenchmarkTest(BaseTest):
                 and self.fixed_opcode_count is not None
             ):
                 self._verify_target_opcode_count(
-                    blockchain_test._benchmark_opcode_count
+                    fill_result.benchmark_opcode_count
                 )
-            return fixture
+            return fill_result
         else:
             raise Exception(f"Unsupported fixture format: {fixture_format}")
 
@@ -562,6 +560,7 @@ class BenchmarkTest(BaseTest):
             return TransactionPost(
                 blocks=[block.txs for block in self.blocks],
                 post=self.post,
+                benchmark_mode=True,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 

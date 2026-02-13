@@ -29,6 +29,7 @@ from pydantic import (
 from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
 from execution_testing.base_types import CamelModel, ReferenceSpec
+from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.forks import Fork
 
 
@@ -152,11 +153,20 @@ class BaseFixture(CamelModel):
             dict_with_info["_info"].update(self.info)
         return dict_with_info
 
+    def model_post_init(self, __context: Any, /) -> None:
+        """
+        Model post-init to assert that the custom pre-allocation was
+        provided and the default was not used.
+        """
+        super().model_post_init(__context)
+        self.info["fixture-format"] = self.format_name
+
     def fill_info(
         self,
         t8n_version: str,
         test_case_description: str,
         fixture_source_url: str,
+        opcode_count: OpcodeCount | None,
         ref_spec: ReferenceSpec | None,
         _info_metadata: Dict[str, Any],
     ) -> None:
@@ -166,7 +176,8 @@ class BaseFixture(CamelModel):
         self.info["filling-transition-tool"] = t8n_version
         self.info["description"] = test_case_description
         self.info["url"] = fixture_source_url
-        self.info["fixture-format"] = self.format_name
+        if opcode_count is not None:
+            self.info["opcode_count"] = opcode_count.model_dump()
         if ref_spec is not None:
             ref_spec.write_info(self.info)
         if _info_metadata:

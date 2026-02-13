@@ -1183,7 +1183,7 @@ def verify_fixtures_bin(request: pytest.FixtureRequest) -> Path | None:
 def session_t8n(
     request: pytest.FixtureRequest,
 ) -> Generator[TransitionTool, None, None]:
-    """Return configured transition tool."""
+    """Return configured transition tool for the session."""
     t8n: TransitionTool = request.config.t8n  # type: ignore
     if not t8n.exception_mapper.reliable:
         t8n_name = t8n.__class__.__name__
@@ -1600,6 +1600,8 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         fixture_source_url: str,
         gas_benchmark_value: int,
         fixed_opcode_count: int | None,
+        is_tx_gas_heavy_test: bool,
+        is_exception_test: bool,
     ) -> Any:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -1623,12 +1625,27 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             fork = request.node.fork
 
         class BaseTestWrapper(cls):  # type: ignore
+            __is_base_test_wrapper__ = True
+
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 if "pre" not in kwargs:
                     kwargs["pre"] = pre
                 if "expected_benchmark_gas_used" not in kwargs:
                     kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
                 kwargs["fork"] = fork
+                op_mode: OpMode = request.config.op_mode  # type: ignore
+                kwargs["operation_mode"] = op_mode
+                kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
+                kwargs["is_exception_test"] = is_exception_test
+                if (
+                    op_mode == OpMode.OPTIMIZE_GAS
+                    or op_mode == OpMode.OPTIMIZE_GAS_POST_PROCESSING
+                ):
+                    kwargs["gas_optimization_max_gas_limit"] = (
+                        request.config.getoption(
+                            "optimize_gas_max_gas_limit", None
+                        )
+                    )
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters
@@ -1636,20 +1653,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 }
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
-                self._request = request
-                self._operation_mode = (
-                    request.config.op_mode  # type: ignore[attr-defined]
-                )
-                if (
-                    self._operation_mode == OpMode.OPTIMIZE_GAS
-                    or self._operation_mode
-                    == OpMode.OPTIMIZE_GAS_POST_PROCESSING
-                ):
-                    self._gas_optimization_max_gas_limit = (
-                        request.config.getoption(
-                            "optimize_gas_max_gas_limit", None
-                        )
-                    )
 
                 # Get the filling session from config
                 session: FillingSession = request.config.filling_session  # type: ignore
@@ -1704,15 +1707,15 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre
                 try:
-                    fixture = self.generate(
+                    fill_result = self.generate(
                         t8n=t8n,
                         fixture_format=fixture_format,
                     )
+                    fixture = fill_result.fixture
                 finally:
                     if (
-                        request.config.op_mode  # type: ignore[attr-defined]
-                        == OpMode.OPTIMIZE_GAS
-                        or request.config.op_mode  # type: ignore[attr-defined]
+                        self.operation_mode == OpMode.OPTIMIZE_GAS
+                        or self.operation_mode
                         == OpMode.OPTIMIZE_GAS_POST_PROCESSING
                     ):
                         gas_optimized_tests = (
@@ -1725,6 +1728,12 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         gas_optimized_tests[request.node.nodeid] = (
                             self._gas_optimization
                         )
+
+                # If operation mode is benchmarking, check the gas used.
+                self.validate_benchmark_gas(
+                    benchmark_gas_used=fill_result.benchmark_gas_used,
+                    gas_benchmark_value=gas_benchmark_value,
+                )
 
                 # Post-process for Engine X format (add pre_hash and state
                 # diff)
@@ -1749,6 +1758,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     t8n.version(),
                     test_case_description,
                     fixture_source_url=fixture_source_url,
+                    opcode_count=t8n.opcode_count,
                     ref_spec=reference_spec,
                     _info_metadata=t8n._info_metadata,
                 )
@@ -1773,7 +1783,12 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
 
 
 # Dynamically generate a pytest fixture for each test spec type.
-for cls in BaseTest.spec_types.values():
+for name, cls in BaseTest.spec_types.items():
+    if getattr(cls, "__is_base_test_wrapper__", False):
+        raise RuntimeError(
+            f"Test spec type {name}: {cls.__name__} is already wrapped. "
+            f"{BaseTest.spec_types.items()}."
+        )
     # Fixture needs to be defined in the global scope so pytest can detect it.
     globals()[cls.pytest_parameter_name()] = base_test_parametrizer(cls)
 

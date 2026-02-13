@@ -17,11 +17,12 @@ from typing import (
 )
 
 import pytest
-from pydantic import BaseModel, ConfigDict, PrivateAttr
+from pydantic import BaseModel, ConfigDict
 from typing_extensions import Self
 
 from execution_testing.base_types import to_hex
 from execution_testing.client_clis import Result, TransitionTool
+from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.execution import (
     BaseExecute,
     ExecuteFormat,
@@ -81,6 +82,17 @@ class OpMode(StrEnum):
     OPTIMIZE_GAS_POST_PROCESSING = "optimize-gas-post-processing"
 
 
+class FillResult(BaseModel):
+    """
+    Result of the filling operation, returned by the `generate` method.
+    """
+
+    fixture: BaseFixture
+    gas_optimization: int | None
+    benchmark_gas_used: int | None = None
+    benchmark_opcode_count: OpcodeCount | None = None
+
+
 class BaseTest(BaseModel):
     """
     Represents a base Ethereum test which must return a single test fixture.
@@ -88,23 +100,20 @@ class BaseTest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    tag: str = ""
     fork: Fork = (
         BaseFork  # type: ignore[type-abstract]
         # default to BaseFork to allow the filler to set it,
         # instead of each test having to set it
     )
-
-    _request: pytest.FixtureRequest | None = PrivateAttr(None)
-    _operation_mode: OpMode | None = PrivateAttr(None)
-    _gas_optimization: int | None = PrivateAttr(None)
-    _gas_optimization_max_gas_limit: int | None = PrivateAttr(None)
-
+    operation_mode: OpMode | None = None
+    gas_optimization_max_gas_limit: int | None = None
     expected_benchmark_gas_used: int | None = None
     skip_gas_used_validation: bool = False
+    is_tx_gas_heavy_test: bool = False
+    is_exception_test: bool = False
 
+    # Class variables, to be set by subclasses
     spec_types: ClassVar[Dict[str, Type["BaseTest"]]] = {}
-
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
     ] = []
@@ -142,6 +151,12 @@ class BaseTest(BaseModel):
         Register all subclasses of BaseFixture with a fixture format name set
         as possible fixture formats.
         """
+        super().__pydantic_init_subclass__(**kwargs)
+
+        # Don't register dynamically generated wrapper classes
+        if getattr(cls, "__is_base_test_wrapper__", False):
+            return
+
         if cls.pytest_parameter_name():
             # Register the new fixture format
             BaseTest.spec_types[cls.pytest_parameter_name()] = cls
@@ -154,16 +169,10 @@ class BaseTest(BaseModel):
         **kwargs: Any,
     ) -> Self:
         """Create a test in a different format from a base test."""
-        new_instance = cls(
-            tag=base_test.tag,
-            fork=base_test.fork,
-            expected_benchmark_gas_used=base_test.expected_benchmark_gas_used,
-            skip_gas_used_validation=base_test.skip_gas_used_validation,
-            **kwargs,
-        )
-        new_instance._request = base_test._request
-        new_instance._operation_mode = base_test._operation_mode
-        return new_instance
+        for k in BaseTest.model_fields.keys():
+            if k not in kwargs:
+                kwargs[k] = getattr(base_test, k)
+        return cls(**kwargs)
 
     @classmethod
     def discard_execute_format_by_marks(
@@ -185,8 +194,8 @@ class BaseTest(BaseModel):
         *,
         t8n: TransitionTool,
         fixture_format: FixtureFormat,
-    ) -> BaseFixture:
-        """Generate the list of test fixtures."""
+    ) -> FillResult:
+        """Generate the test fixture using the given fixture format."""
         pass
 
     def execute(
@@ -211,48 +220,13 @@ class BaseTest(BaseModel):
             lambda x, y: x + ("_" if y.isupper() else "") + y, cls.__name__
         ).lower()
 
-    def is_tx_gas_heavy_test(self) -> bool:
-        """Check if the test is gas-heavy for transaction execution."""
-        if self._request is not None and hasattr(self._request, "node"):
-            node = self._request.node
-            has_slow_marker = node.get_closest_marker("slow") is not None
-            has_benchmark_marker = (
-                node.get_closest_marker("benchmark") is not None
-            )
-            return has_slow_marker or has_benchmark_marker
-        return False
-
-    def is_exception_test(self) -> bool | None:
-        """
-        Check if the test is an exception test (invalid block, invalid
-        transaction).
-
-        `None` is returned if it's not possible to determine if the test is
-        negative or not. This is the case when the test is not run in pytest.
-        """
-        if self._request is not None and hasattr(self._request, "node"):
-            return (
-                self._request.node.get_closest_marker("exception_test")
-                is not None
-            )
-        return None
-
-    def node(self) -> pytest.Item | pytest.Function | None:
-        """Return the pytest node of the test."""
-        if self._request is not None and hasattr(self._request, "node"):
-            return self._request.node
-        return None
-
     def check_exception_test(
         self,
         *,
         exception: bool,
     ) -> None:
         """Compare the test marker against the outcome of the test."""
-        negative_test_marker = self.is_exception_test()
-        if negative_test_marker is None:
-            return
-        if negative_test_marker != exception:
+        if self.is_exception_test != exception:
             if exception:
                 raise Exception(
                     "Test produced an invalid block or transaction but was "
@@ -276,6 +250,42 @@ class BaseTest(BaseModel):
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement genesis environment "
             "access for use with pre-allocation groups."
+        )
+
+    def validate_benchmark_gas(
+        self, *, benchmark_gas_used: int | None, gas_benchmark_value: int
+    ) -> None:
+        """
+        Validates the total consumed gas of the last block in the test matches
+        the expectation of the benchmark test.
+
+        Requires the following fields to be set:
+        - _benchmark_gas_used
+        - operation_mode
+        """
+        if self.operation_mode != OpMode.BENCHMARKING:
+            return
+        assert benchmark_gas_used is not None, "_benchmark_gas_used is not set"
+        # Perform gas validation if required for benchmarking.
+        # Ensures benchmark tests consume exactly the expected gas.
+        if not self.skip_gas_used_validation:
+            # Verify that the total gas consumed in the last block
+            # matches expectations
+            expected_benchmark_gas_used = self.expected_benchmark_gas_used
+            if expected_benchmark_gas_used is None:
+                expected_benchmark_gas_used = gas_benchmark_value
+            diff = benchmark_gas_used - expected_benchmark_gas_used
+            assert benchmark_gas_used == expected_benchmark_gas_used, (
+                f"Total gas used ({benchmark_gas_used}) does not "
+                "match expected benchmark gas "
+                f"({expected_benchmark_gas_used}), "
+                f"difference: {diff}"
+            )
+        # Gas used should never exceed the maximum benchmark gas allowed.
+        assert benchmark_gas_used <= gas_benchmark_value, (
+            f"benchmark_gas_used ({benchmark_gas_used}) exceeds maximum "
+            "benchmark gas allowed for this configuration: "
+            f"{gas_benchmark_value}"
         )
 
 
