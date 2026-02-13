@@ -601,7 +601,7 @@ def test_selfdestruct_finalization_after_priority_fee(
         contract_creation=True,
     )
     factory_gas = factory_code.gas_cost(fork)
-    initcode_exec_gas = initcode.execution_gas
+    initcode_exec_gas = initcode.execution_gas(fork)
     code_deposit_gas = len(runtime_code) * gas_costs.GAS_CODE_DEPOSIT_PER_BYTE
     inner_runtime_gas = Op.SELFDESTRUCT(
         Op.ADDRESS, address_warm=True, account_new=False
