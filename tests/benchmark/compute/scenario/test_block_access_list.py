@@ -33,16 +33,30 @@ from execution_testing import (
 from ethereum.crypto.hash import keccak256
 
 
-def _build_keccak_chain_code(reserve_gas: int) -> Bytecode:
+def _derive_loop_gas(body: Bytecode, fork: Fork) -> tuple[int, int]:
     """
-    Build runtime code for a keccak256 hash chain contract.
+    Derive per-iteration gas and exit overhead for a While loop.
 
-    Memory layout: [0:32] = hash value.
+    Return ``(per_iter_gas, exit_overhead)``.
 
-    Algorithm:
-    1. SLOAD(0) -> memory[0:32]
-    2. Loop while gas > reserve: memory[0:32] = keccak256(memory[0:32])
-    3. SSTORE(0, memory[0:32])
+    Uses a placeholder condition (``GT(GAS, 0)``) to measure the loop
+    overhead.  ``PUSH`` costs 3 gas regardless of the pushed value, so
+    the real condition (which pushes ``reserve_gas``) has the same cost.
+    """
+    body_gas = body.gas_cost(fork)
+    placeholder = Op.GT(Op.GAS, 0)
+    per_iter_gas = While(body=body, condition=placeholder).gas_cost(fork)
+    exit_overhead = per_iter_gas - body_gas - Op.JUMPDEST.gas_cost(fork)
+    return per_iter_gas, exit_overhead
+
+
+def _keccak_chain_gas_schedule(
+    fork: Fork,
+) -> tuple[int, int, int]:
+    """
+    Compute gas schedule for a keccak chain contract.
+
+    Return ``(setup_gas, per_iter_gas, reserve_gas)``.
     """
     setup = Op.MSTORE(
         0,
@@ -58,15 +72,13 @@ def _build_keccak_chain_code(reserve_gas: int) -> Bytecode:
         new_memory_size=32,
     )
 
-    condition = Op.GT(Op.GAS, reserve_gas)
-
-    loop = While(body=keccak_body, condition=condition)
-
     cleanup = (
         Op.SSTORE(
             0,
             Op.MLOAD(0),
             key_warm=True,
+            # Placeholder: actual value differs per tx but gas cost is
+            # identical for any nonzero -> nonzero write.
             original_value=1,
             current_value=1,
             new_value=2,
@@ -74,19 +86,23 @@ def _build_keccak_chain_code(reserve_gas: int) -> Bytecode:
         + Op.STOP
     )
 
-    return setup + loop + cleanup
+    setup_gas = setup.gas_cost(fork)
+    cleanup_gas = cleanup.gas_cost(fork)
+    per_iter_gas, exit_overhead = _derive_loop_gas(keccak_body, fork)
+    reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
+    return setup_gas, per_iter_gas, reserve_gas
 
 
-def _build_keccak_chain_with_coinbase_code(reserve_gas: int) -> Bytecode:
+def _build_keccak_chain_code(
+    reserve_gas: int, *, coinbase_transfer: bool = False
+) -> Bytecode:
     """
-    Build keccak chain code with an explicit value transfer to coinbase.
+    Build runtime code for a keccak256 hash chain contract.
 
-    Same as ``_build_keccak_chain_code`` but inserts a
-    ``CALL(gas=0, to=COINBASE, value=1)`` before the keccak loop.
-    This makes the coinbase dependency visible in execution traces
-    and triggers client-specific coinbase detection logic (e.g. Besu's
-    ``TransactionCollisionDetector``).
+    SLOAD(0) → keccak loop → SSTORE(0, result).
 
+    When ``coinbase_transfer`` is True, inserts a
+    ``CALL(gas=0, to=COINBASE, value=1)`` before the loop.
     Coinbase is warm per EIP-3651 (Shanghai+).
     """
     setup = Op.MSTORE(
@@ -96,16 +112,6 @@ def _build_keccak_chain_with_coinbase_code(reserve_gas: int) -> Bytecode:
         new_memory_size=32,
     )
 
-    coinbase_call = Op.POP(
-        Op.CALL(
-            gas=0,
-            address=Op.COINBASE,
-            value=1,
-            address_warm=True,
-            value_transfer=True,
-        )
-    )
-
     keccak_body = Op.MSTORE(
         0,
         Op.SHA3(0, 32, data_size=32),
@@ -114,7 +120,6 @@ def _build_keccak_chain_with_coinbase_code(reserve_gas: int) -> Bytecode:
     )
 
     condition = Op.GT(Op.GAS, reserve_gas)
-
     loop = While(body=keccak_body, condition=condition)
 
     cleanup = (
@@ -129,7 +134,19 @@ def _build_keccak_chain_with_coinbase_code(reserve_gas: int) -> Bytecode:
         + Op.STOP
     )
 
-    return setup + coinbase_call + loop + cleanup
+    prefix = setup
+    if coinbase_transfer:
+        prefix = prefix + Op.POP(
+            Op.CALL(
+                gas=0,
+                address=Op.COINBASE,
+                value=1,
+                address_warm=True,
+                value_transfer=True,
+            )
+        )
+
+    return prefix + loop + cleanup
 
 
 def _build_sequential_sstore_code(reserve_gas: int) -> Bytecode:
@@ -285,17 +302,17 @@ def _derive_tx_schedule(
     return num_txs, per_tx_gas
 
 
+TX_COUNT_FRACTION_PARAMS = [
+    pytest.param(0.0, id="1_tx"),
+    pytest.param(0.01, id="1pct_max_txs"),
+    pytest.param(0.1, id="10pct_max_txs"),
+    pytest.param(0.5, id="50pct_max_txs"),
+    pytest.param(1.0, id="max_txs"),
+]
+
+
 @pytest.mark.valid_from("Amsterdam")
-@pytest.mark.parametrize(
-    "tx_count_fraction",
-    [
-        pytest.param(0.0, id="1_tx"),
-        pytest.param(0.01, id="1pct_max_txs"),
-        pytest.param(0.1, id="10pct_max_txs"),
-        pytest.param(0.5, id="50pct_max_txs"),
-        pytest.param(1.0, id="max_txs"),
-    ],
-)
+@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
 def test_parallel_execution(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -322,65 +339,14 @@ def test_parallel_execution(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator()
 
-    # --- Gas cost calculation ---
-    #
-    # All costs derived from .gas_cost(fork); no hardcoded constants.
-
-    setup = Op.MSTORE(
-        0,
-        Op.SLOAD(0),
-        old_memory_size=0,
-        new_memory_size=32,
-    )
-
-    keccak_body = Op.MSTORE(
-        0,
-        Op.SHA3(0, 32, data_size=32),
-        old_memory_size=32,
-        new_memory_size=32,
-    )
-
-    cleanup = (
-        Op.SSTORE(
-            0,
-            Op.MLOAD(0),
-            key_warm=True,
-            # Placeholder values: actual current_value/new_value differ
-            # per tx, but gas cost is identical (nonzero -> nonzero).
-            original_value=1,
-            current_value=1,
-            new_value=2,
-        )
-        + Op.STOP
-    )
-
-    setup_gas = setup.gas_cost(fork)
-    body_gas = keccak_body.gas_cost(fork)
-    cleanup_gas = cleanup.gas_cost(fork)
-
-    # Derive per-iteration gas from the While loop structure.
-    # The real condition uses reserve_gas (unknown yet), but PUSH costs
-    # 3 gas regardless of the value, so any placeholder gives the same cost.
-    placeholder_condition = Op.GT(Op.GAS, 0)
-    placeholder_loop = While(body=keccak_body, condition=placeholder_condition)
-    per_iter_gas = placeholder_loop.gas_cost(fork)
-
-    # Exit overhead: condition + jump logic consumed when the loop
-    # condition fails (everything except JUMPDEST and body).
-    exit_overhead = per_iter_gas - body_gas - Op.JUMPDEST.gas_cost(fork)
-
-    reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
-
+    setup_gas, per_iter_gas, reserve_gas = _keccak_chain_gas_schedule(fork)
     runtime_code = _build_keccak_chain_code(reserve_gas)
-
-    # Minimum per-tx gas: intrinsic + setup + one full loop iteration.
     min_per_tx_gas = intrinsic_gas + setup_gas + per_iter_gas
 
     num_exec_txs, per_tx_gas = _derive_tx_schedule(
         gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
     )
 
-    # --- Deploy contract ---
     creation_code = Initcode(
         deploy_code=runtime_code,
         initcode_prefix=Op.SSTORE(0, 1),
@@ -423,16 +389,7 @@ def test_parallel_execution(
         pytest.param(True, id="contract_per_tx"),
     ],
 )
-@pytest.mark.parametrize(
-    "tx_count_fraction",
-    [
-        pytest.param(0.0, id="1_tx"),
-        pytest.param(0.01, id="1pct_max_txs"),
-        pytest.param(0.1, id="10pct_max_txs"),
-        pytest.param(0.5, id="50pct_max_txs"),
-        pytest.param(1.0, id="max_txs"),
-    ],
-)
+@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
 def test_state_root_computation(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -458,12 +415,8 @@ def test_state_root_computation(
     storage trie depth).
     """
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    # Worst-case calldata cost: 32 nonzero bytes.
+    # Worst-case calldata: 32 nonzero bytes for start_slot.
     intrinsic_gas = intrinsic_gas_calculator(calldata=b"\xff" * 32)
-
-    # --- Gas cost calculation ---
-    #
-    # All costs derived from .gas_cost(fork); no hardcoded constants.
 
     setup = Op.MSTORE(
         0,
@@ -487,38 +440,20 @@ def test_state_root_computation(
     )
 
     setup_gas = setup.gas_cost(fork)
-    body_gas = sstore_body.gas_cost(fork)
-
-    # Derive per-iteration gas from the While loop structure.
-    # The real condition uses reserve_gas (unknown yet), but PUSH costs
-    # 3 gas regardless of the value, so any placeholder gives the same cost.
-    placeholder_condition = Op.GT(Op.GAS, 0)
-    placeholder_loop = While(body=sstore_body, condition=placeholder_condition)
-    per_iter_gas = placeholder_loop.gas_cost(fork)
-
-    # Exit overhead: condition + jump logic consumed when the loop
-    # condition fails (everything except JUMPDEST and body).
-    exit_overhead = per_iter_gas - body_gas - Op.JUMPDEST.gas_cost(fork)
-
+    per_iter_gas, exit_overhead = _derive_loop_gas(sstore_body, fork)
     cleanup_gas = Op.STOP.gas_cost(fork)
-    # reserve_gas must cover a full iteration so the loop only
-    # re-enters when enough gas remains for another body + exit.
     reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
 
     runtime_code = _build_sequential_sstore_code(reserve_gas)
-
-    # Minimum per-tx gas: intrinsic + setup + one full loop iteration.
     min_per_tx_gas = intrinsic_gas + setup_gas + per_iter_gas
 
     num_exec_txs, per_tx_gas = _derive_tx_schedule(
         gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
     )
 
-    # --- Estimate slots written per tx (for storage pre-population) ---
     available_gas = per_tx_gas - intrinsic_gas - setup_gas
     estimated_slots_per_tx = max(1, available_gas // per_iter_gas)
 
-    # --- Deploy contracts ---
     num_contracts = num_exec_txs if contract_per_tx else 1
     txs_per_contract = math.ceil(num_exec_txs / num_contracts)
     slots_per_contract = (estimated_slots_per_tx + 1) * txs_per_contract
@@ -531,7 +466,6 @@ def test_state_root_computation(
         )
         contracts.append(addr)
 
-    # --- Execution block: distribute txs across contracts ---
     blocks: list[Block] = []
     contract_tx_counts = [0] * num_contracts
 
@@ -562,16 +496,7 @@ def test_state_root_computation(
         pytest.param("scattered", id="scattered"),
     ],
 )
-@pytest.mark.parametrize(
-    "tx_count_fraction",
-    [
-        pytest.param(0.0, id="1_tx"),
-        pytest.param(0.01, id="1pct_max_txs"),
-        pytest.param(0.1, id="10pct_max_txs"),
-        pytest.param(0.5, id="50pct_max_txs"),
-        pytest.param(1.0, id="max_txs"),
-    ],
-)
+@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
 def test_prefetch_cold_storage(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -597,10 +522,6 @@ def test_prefetch_cold_storage(
     """
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator(calldata=b"\xff" * 32)
-
-    # --- Gas cost calculation ---
-    #
-    # All costs derived from .gas_cost(fork); no hardcoded constants.
 
     setup = Op.MSTORE(
         0,
@@ -635,19 +556,7 @@ def test_prefetch_cold_storage(
         )
 
     setup_gas = setup.gas_cost(fork)
-    body_gas = body.gas_cost(fork)
-
-    # Derive per-iteration gas from the While loop structure.
-    # The real condition uses reserve_gas (unknown yet), but PUSH costs
-    # 3 gas regardless of the value, so any placeholder gives the same cost.
-    placeholder_condition = Op.GT(Op.GAS, 0)
-    placeholder_loop = While(body=body, condition=placeholder_condition)
-    per_iter_gas = placeholder_loop.gas_cost(fork)
-
-    # Exit overhead: condition + jump logic consumed when the loop
-    # condition fails (everything except JUMPDEST and body).
-    exit_overhead = per_iter_gas - body_gas - Op.JUMPDEST.gas_cost(fork)
-
+    per_iter_gas, exit_overhead = _derive_loop_gas(body, fork)
     cleanup_gas = Op.STOP.gas_cost(fork)
     reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
 
@@ -656,21 +565,16 @@ def test_prefetch_cold_storage(
     else:
         runtime_code = _build_hash_chain_sload_code(reserve_gas)
 
-    # Minimum per-tx gas: intrinsic + setup + one full loop iteration.
     min_per_tx_gas = intrinsic_gas + setup_gas + per_iter_gas
 
     num_exec_txs, per_tx_gas = _derive_tx_schedule(
         gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
     )
 
-    # --- Estimate slots read per tx (for storage pre-population) ---
     available_gas = per_tx_gas - intrinsic_gas - setup_gas
     estimated_slots_per_tx = max(1, available_gas // per_iter_gas)
 
-    # --- Deploy contract with pre-populated storage ---
-    #
-    # All txs share a single contract. Each tx reads a disjoint range
-    # of slots (sequential) or a disjoint hash chain (scattered).
+    # All txs share a single contract with disjoint slot ranges.
     total_slots = (estimated_slots_per_tx + 1) * num_exec_txs
 
     chain_seeds: list[int] = []
@@ -692,7 +596,6 @@ def test_prefetch_cold_storage(
         storage=storage,
     )
 
-    # --- Execution block ---
     blocks: list[Block] = []
 
     with TestPhaseManager.execution():
@@ -724,16 +627,7 @@ def test_prefetch_cold_storage(
         pytest.param(True, id="explicit_coinbase_call"),
     ],
 )
-@pytest.mark.parametrize(
-    "tx_count_fraction",
-    [
-        pytest.param(0.0, id="1_tx"),
-        pytest.param(0.01, id="1pct_max_txs"),
-        pytest.param(0.1, id="10pct_max_txs"),
-        pytest.param(0.5, id="50pct_max_txs"),
-        pytest.param(1.0, id="max_txs"),
-    ],
-)
+@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
 def test_coinbase_serialization(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -759,60 +653,16 @@ def test_coinbase_serialization(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator()
 
-    # --- Gas cost calculation ---
-    #
-    # Keccak chain costs are the same as test_parallel_execution.
-    # The coinbase CALL (when enabled) is an additional fixed cost
-    # consumed before the loop.
-
-    setup = Op.MSTORE(
-        0,
-        Op.SLOAD(0),
-        old_memory_size=0,
-        new_memory_size=32,
+    setup_gas, per_iter_gas, reserve_gas = _keccak_chain_gas_schedule(fork)
+    runtime_code = _build_keccak_chain_code(
+        reserve_gas, coinbase_transfer=value_transfer
     )
 
-    keccak_body = Op.MSTORE(
-        0,
-        Op.SHA3(0, 32, data_size=32),
-        old_memory_size=32,
-        new_memory_size=32,
-    )
-
-    cleanup = (
-        Op.SSTORE(
-            0,
-            Op.MLOAD(0),
-            key_warm=True,
-            original_value=1,
-            current_value=1,
-            new_value=2,
-        )
-        + Op.STOP
-    )
-
-    setup_gas = setup.gas_cost(fork)
-    body_gas = keccak_body.gas_cost(fork)
-    cleanup_gas = cleanup.gas_cost(fork)
-
-    # Derive per-iteration gas from the While loop structure.
-    # The real condition uses reserve_gas (unknown yet), but PUSH costs
-    # 3 gas regardless of the value, so any placeholder gives the same cost.
-    placeholder_condition = Op.GT(Op.GAS, 0)
-    placeholder_loop = While(body=keccak_body, condition=placeholder_condition)
-    per_iter_gas = placeholder_loop.gas_cost(fork)
-
-    # Exit overhead: condition + jump logic consumed when the loop
-    # condition fails (everything except JUMPDEST and body).
-    exit_overhead = per_iter_gas - body_gas - Op.JUMPDEST.gas_cost(fork)
-
-    reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
-
-    # Coinbase CALL gas (only for value_transfer variant).
+    # Coinbase CALL gas when value_transfer is enabled.
     # Coinbase is warm per EIP-3651 (Shanghai+).
     coinbase_call_gas = 0
     if value_transfer:
-        coinbase_call = Op.POP(
+        coinbase_call_gas = Op.POP(
             Op.CALL(
                 gas=0,
                 address=Op.COINBASE,
@@ -820,15 +670,8 @@ def test_coinbase_serialization(
                 address_warm=True,
                 value_transfer=True,
             )
-        )
-        coinbase_call_gas = coinbase_call.gas_cost(fork)
+        ).gas_cost(fork)
 
-    if value_transfer:
-        runtime_code = _build_keccak_chain_with_coinbase_code(reserve_gas)
-    else:
-        runtime_code = _build_keccak_chain_code(reserve_gas)
-
-    # Minimum per-tx gas: intrinsic + setup + coinbase call + one iteration.
     min_per_tx_gas = (
         intrinsic_gas + setup_gas + coinbase_call_gas + per_iter_gas
     )
@@ -837,11 +680,6 @@ def test_coinbase_serialization(
         gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
     )
 
-    # --- Deploy one contract per tx ---
-    #
-    # Each contract has an independent keccak chain on slot 0.
-    # When value_transfer is True, the contract needs 1 wei balance
-    # to send to coinbase.
     contracts = []
     for _ in range(num_exec_txs):
         addr = pre.deploy_contract(
@@ -851,7 +689,6 @@ def test_coinbase_serialization(
         )
         contracts.append(addr)
 
-    # --- Execution block ---
     blocks: list[Block] = []
 
     with TestPhaseManager.execution():
@@ -877,16 +714,7 @@ def test_coinbase_serialization(
         pytest.param(False, id="single_contract"),
     ],
 )
-@pytest.mark.parametrize(
-    "tx_count_fraction",
-    [
-        pytest.param(0.0, id="1_tx"),
-        pytest.param(0.01, id="1pct_max_txs"),
-        pytest.param(0.1, id="10pct_max_txs"),
-        pytest.param(0.5, id="50pct_max_txs"),
-        pytest.param(1.0, id="max_txs"),
-    ],
-)
+@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
 def test_deploy_then_interact(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -914,53 +742,9 @@ def test_deploy_then_interact(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator()
 
-    # --- Gas cost calculation (keccak chain, same as parallel_execution) ---
-
-    setup = Op.MSTORE(
-        0,
-        Op.SLOAD(0),
-        old_memory_size=0,
-        new_memory_size=32,
-    )
-
-    keccak_body = Op.MSTORE(
-        0,
-        Op.SHA3(0, 32, data_size=32),
-        old_memory_size=32,
-        new_memory_size=32,
-    )
-
-    cleanup = (
-        Op.SSTORE(
-            0,
-            Op.MLOAD(0),
-            key_warm=True,
-            original_value=1,
-            current_value=1,
-            new_value=2,
-        )
-        + Op.STOP
-    )
-
-    setup_gas = setup.gas_cost(fork)
-    body_gas = keccak_body.gas_cost(fork)
-    cleanup_gas = cleanup.gas_cost(fork)
-
-    placeholder_condition = Op.GT(Op.GAS, 0)
-    placeholder_loop = While(body=keccak_body, condition=placeholder_condition)
-    per_iter_gas = placeholder_loop.gas_cost(fork)
-
-    exit_overhead = per_iter_gas - body_gas - Op.JUMPDEST.gas_cost(fork)
-
-    reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
-
+    setup_gas, per_iter_gas, reserve_gas = _keccak_chain_gas_schedule(fork)
     runtime_code = _build_keccak_chain_code(reserve_gas)
 
-    # --- Deploy gas estimation ---
-    #
-    # Each deploy tx creates a keccak chain contract with SSTORE(0, 1)
-    # as initcode prefix.  Cost = intrinsic (create tx) + initcode
-    # execution + code deposit.
     creation_code = Initcode(
         deploy_code=runtime_code,
         initcode_prefix=Op.SSTORE(0, 1),
@@ -982,12 +766,10 @@ def test_deploy_then_interact(
     initcode_exec_gas = initcode_sstore.gas_cost(fork)
     code_deposit_gas = 200 * len(runtime_code)
 
-    # Buffer covers Initcode wrapper (CODECOPY + RETURN + memory).
+    # Buffer for Initcode wrapper overhead (CODECOPY + RETURN + memory).
     deploy_gas_limit = (
         intrinsic_gas_create + initcode_exec_gas + code_deposit_gas + 10000
     )
-
-    # --- Tx count and gas allocation ---
 
     min_call_gas = intrinsic_gas + setup_gas + per_iter_gas
 
@@ -1013,15 +795,12 @@ def test_deploy_then_interact(
         call_gas_limit = min(tx_gas_limit, call_budget // num_call_txs)
         num_pairs = 1
 
-    # --- Build block ---
-
     blocks: list[Block] = []
 
     with TestPhaseManager.execution():
         exec_txs: list[Transaction] = []
 
         if pair_independence:
-            # Interleaved deploy/call pairs.
             for _ in range(num_pairs):
                 deployer = pre.fund_eoa()
                 exec_txs.append(
@@ -1075,16 +854,7 @@ def test_deploy_then_interact(
         pytest.param(5, id="group_size_5"),
     ],
 )
-@pytest.mark.parametrize(
-    "tx_count_fraction",
-    [
-        pytest.param(0.0, id="1_tx"),
-        pytest.param(0.01, id="1pct_max_txs"),
-        pytest.param(0.1, id="10pct_max_txs"),
-        pytest.param(0.5, id="50pct_max_txs"),
-        pytest.param(1.0, id="max_txs"),
-    ],
-)
+@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
 def test_mixed_dependency_graph(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -1111,48 +881,8 @@ def test_mixed_dependency_graph(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator()
 
-    # --- Gas cost calculation (same keccak chain as parallel_execution) ---
-
-    setup = Op.MSTORE(
-        0,
-        Op.SLOAD(0),
-        old_memory_size=0,
-        new_memory_size=32,
-    )
-
-    keccak_body = Op.MSTORE(
-        0,
-        Op.SHA3(0, 32, data_size=32),
-        old_memory_size=32,
-        new_memory_size=32,
-    )
-
-    cleanup = (
-        Op.SSTORE(
-            0,
-            Op.MLOAD(0),
-            key_warm=True,
-            original_value=1,
-            current_value=1,
-            new_value=2,
-        )
-        + Op.STOP
-    )
-
-    setup_gas = setup.gas_cost(fork)
-    body_gas = keccak_body.gas_cost(fork)
-    cleanup_gas = cleanup.gas_cost(fork)
-
-    placeholder_condition = Op.GT(Op.GAS, 0)
-    placeholder_loop = While(body=keccak_body, condition=placeholder_condition)
-    per_iter_gas = placeholder_loop.gas_cost(fork)
-
-    exit_overhead = per_iter_gas - body_gas - Op.JUMPDEST.gas_cost(fork)
-
-    reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
-
+    setup_gas, per_iter_gas, reserve_gas = _keccak_chain_gas_schedule(fork)
     runtime_code = _build_keccak_chain_code(reserve_gas)
-
     min_per_tx_gas = intrinsic_gas + setup_gas + per_iter_gas
 
     num_exec_txs, per_tx_gas = _derive_tx_schedule(
@@ -1163,7 +893,6 @@ def test_mixed_dependency_graph(
     num_groups = max(1, num_exec_txs // group_size)
     num_exec_txs = num_groups * group_size
 
-    # --- Deploy one contract per group (setup block) ---
     creation_code = Initcode(
         deploy_code=runtime_code,
         initcode_prefix=Op.SSTORE(0, 1),
@@ -1191,7 +920,7 @@ def test_mixed_dependency_graph(
         compute_create_address(address=d, nonce=0) for d in deployers
     ]
 
-    # --- Execution block: interleaved round-robin ---
+    # Interleaved round-robin: txs from different groups alternate.
     with TestPhaseManager.execution():
         exec_txs = []
         for _round_idx in range(group_size):
