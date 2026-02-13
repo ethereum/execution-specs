@@ -15,9 +15,11 @@ The test measures the performance impact of state root recomputation and IO when
 
 ## Contract Sources
 
-- **Pre-mined assets** (depth_*.sol, s*_acc*.json): https://github.com/CPerezz/worst_case_miner/tree/master/mined_assets
+- **Pre-mined assets** (depth\__.sol, s_\_acc\*.json): https://github.com/CPerezz/worst_case_miner/tree/master/mined_assets
 
 For complete deployment setup and instructions, see the gist: https://gist.github.com/CPerezz/44d521c0f9e6adf7d84187a4f2c11978
+
+To update the submodule in this repository to the latest master in `CPerezz/worst_case_miner` run the following command: `git submodule update --remote --merge tests/benchmark/stateful/bloatnet/depth_benchmarks/.worst_case_miner`.
 
 ## Prerequisites
 
@@ -60,11 +62,11 @@ uv run execute remote \
 
 Currently available pre-mined assets from [worst_case_miner](https://github.com/CPerezz/worst_case_miner/tree/master/mined_assets):
 
-| Storage Depth | Account Depth | File |
-|--------------|---------------|------|
-| 10 | 6 | s10_acc6.json |
-| 10 | 7 | s10_acc7.json |
-| 11 | 6 | s11_acc6.json |
-| 11 | 7 | s11_acc7.json |
+| Storage Depth | Account Depth | File          |
+| ------------- | ------------- | ------------- |
+| 10            | 6             | s10_acc6.json |
+| 10            | 7             | s10_acc7.json |
+| 11            | 6             | s11_acc6.json |
+| 11            | 7             | s11_acc7.json |
 
 To generate new configurations, use [worst_case_miner](https://github.com/CPerezz/worst_case_miner).
