@@ -20,11 +20,12 @@ def test_identity(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     gas_available = tx_gas_limit - intrinsic_gas_calculator()
 
+    gas_costs = fork.gas_costs()
     optimal_input_length = calculate_optimal_input_length(
         available_gas=gas_available,
         fork=fork,
-        static_cost=15,
-        per_word_dynamic_cost=3,
+        static_cost=gas_costs.G_PRECOMPILE_IDENTITY_BASE,
+        per_word_dynamic_cost=gas_costs.G_PRECOMPILE_IDENTITY_WORD,
         bytes_per_unit_of_work=1,
     )
 
