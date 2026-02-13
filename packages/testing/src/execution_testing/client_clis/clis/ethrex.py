@@ -11,6 +11,9 @@ class EthrexExceptionMapper(ExceptionMapper):
     """Ethrex exception mapper."""
 
     mapping_substring = {
+        BlockException.INVALID_GASLIMIT: (
+            "Gas limit changed more than allowed from the parent"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "Exceeded MAX_BLOB_GAS_PER_BLOCK"
         ),
