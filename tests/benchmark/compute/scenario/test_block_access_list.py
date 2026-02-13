@@ -175,18 +175,7 @@ def test_parallel_execution(
 
     # --- Gas cost calculation ---
     #
-    # The While loop generates:
-    #   JUMPDEST | body | condition | PC PUSH4 SUB JUMPI
-    #
-    # Per iteration gas (between consecutive GAS checks):
-    #   body_gas + GT(3) + PC(2) + PUSH4(3) + SUB(3) + JUMPI(10)
-    #   + JUMPDEST(1) + PUSH(3) + GAS(2) = body_gas + 27
-    #
-    # Exit path (condition fails to cleanup):
-    #   GT(3) + PC(2) + PUSH4(3) + SUB(3) + JUMPI(10) = 21
-    #
-    # reserve_gas >= cleanup_gas + 21 ensures enough gas
-    # remains after loop exit to complete the SSTORE.
+    # All costs derived from .gas_cost(fork); no hardcoded constants.
 
     setup = Op.MSTORE(
         0,
@@ -220,16 +209,23 @@ def test_parallel_execution(
     body_gas = keccak_body.gas_cost(fork)
     cleanup_gas = cleanup.gas_cost(fork)
 
-    reserve_gas = cleanup_gas + 50
+    # Derive per-iteration gas from the While loop structure.
+    # The real condition uses reserve_gas (unknown yet), but PUSH costs
+    # 3 gas regardless of the value, so any placeholder gives the same cost.
+    placeholder_condition = Op.GT(Op.GAS, 0)
+    placeholder_loop = While(body=keccak_body, condition=placeholder_condition)
+    per_iter_gas = placeholder_loop.gas_cost(fork)
+
+    # Exit overhead: condition + jump logic consumed when the loop
+    # condition fails (everything except JUMPDEST and body).
+    exit_overhead = per_iter_gas - body_gas - Op.JUMPDEST.gas_cost(fork)
+
+    reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
 
     runtime_code = _build_keccak_chain_code(reserve_gas)
 
-    per_iter_effective = body_gas + 27
-
-    # Minimum per-tx gas: enough for setup + 1 keccak + cleanup.
-    min_per_tx_gas = (
-        intrinsic_gas + setup_gas + per_iter_effective + reserve_gas - 21
-    )
+    # Minimum per-tx gas: intrinsic + setup + one full loop iteration.
+    min_per_tx_gas = intrinsic_gas + setup_gas + per_iter_gas
 
     num_exec_txs, per_tx_gas = _derive_tx_schedule(
         gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
@@ -345,6 +341,8 @@ def test_state_root_computation(
     body_gas = sstore_body.gas_cost(fork)
 
     # Derive per-iteration gas from the While loop structure.
+    # The real condition uses reserve_gas (unknown yet), but PUSH costs
+    # 3 gas regardless of the value, so any placeholder gives the same cost.
     placeholder_condition = Op.GT(Op.GAS, 0)
     placeholder_loop = While(body=sstore_body, condition=placeholder_condition)
     per_iter_gas = placeholder_loop.gas_cost(fork)
