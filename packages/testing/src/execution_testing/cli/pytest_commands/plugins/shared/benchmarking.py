@@ -8,6 +8,7 @@ from typing import ClassVar, Dict, List, Self
 import pytest
 from pydantic import BaseModel, Field, RootModel
 
+from execution_testing.forks import Fork
 from execution_testing.test_types import Environment, EnvironmentDefaults
 from execution_testing.tools import ParameterSet
 
@@ -49,6 +50,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Example: '0.5,1,2' runs 500, 1K, 2K opcodes. "
             "Without value, uses .fixed_opcode_counts.json config. "
             f"Cannot be used with {GasBenchmarkValues.flag}."
+        ),
+    )
+    benchmark_group.addoption(
+        "--with-dependency",
+        action="store",
+        dest="with_dependency",
+        type=str,
+        default=None,
+        help=(
+            "Add storage dependency to prevent parallel tx execution. "
+            "Accepts 'True'/'False'. "
+            "Default: True for Amsterdam+, False otherwise."
         ),
     )
 
@@ -482,6 +495,17 @@ def fixed_opcode_count(request: pytest.FixtureRequest) -> int | None:
         return request.param
 
     return None
+
+
+@pytest.fixture(scope="function")
+def with_dependency(request: pytest.FixtureRequest, fork: Fork) -> bool:
+    """Return whether to add storage dependency to benchmark txs."""
+    from execution_testing.forks import Amsterdam
+
+    cli_value = request.config.getoption("with_dependency", default=None)
+    if cli_value is not None:
+        return cli_value.lower() == "true"
+    return fork >= Amsterdam
 
 
 BENCHMARKING_MAX_GAS = 1_000_000_000_000

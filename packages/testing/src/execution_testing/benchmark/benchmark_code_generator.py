@@ -7,7 +7,11 @@ from dataclasses import dataclass, field
 
 from execution_testing.base_types import Address, Storage
 from execution_testing.forks import Fork
-from execution_testing.specs.benchmark import BenchmarkCodeGenerator
+from execution_testing.specs.benchmark import (
+    DEPENDENCY_STORAGE_INIT_VALUE,
+    DEPENDENCY_STORAGE_SLOT,
+    BenchmarkCodeGenerator,
+)
 from execution_testing.test_types import Alloc
 from execution_testing.vm import Op
 
@@ -22,19 +26,24 @@ class JumpLoopGenerator(BenchmarkCodeGenerator):
     def deploy_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
         """Deploy the looping contract."""
         # Benchmark Test Structure:
-        # setup + JUMPDEST +
+        # [dependency storage update] + setup + JUMPDEST +
         # attack + attack + ... + attack +
         # cleanup + JUMP(setup_length)
         code = self.generate_repeated_code(
             repeated_code=self.attack_block,
-            setup=self.setup,
+            setup=self._dependency_bytecode() + self.setup,
             cleanup=self.cleanup,
             fork=fork,
         )
+        storage = self.contract_storage
+        if self.with_dependency:
+            merged = dict(self.contract_storage.root)
+            merged[DEPENDENCY_STORAGE_SLOT] = DEPENDENCY_STORAGE_INIT_VALUE  # type: ignore[index,assignment]
+            storage = Storage(merged)
         self._contract_address = pre.deploy_contract(
             code=code,
             balance=self.contract_balance,
-            storage=self.contract_storage,
+            storage=storage,
         )
         return self._contract_address
 
@@ -116,12 +125,22 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
             )
         )
 
+        caller_setup = self._dependency_bytecode() + Op.CALLDATACOPY(
+            Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE
+        )
         caller_code = self.generate_repeated_code(
-            setup=Op.CALLDATACOPY(Op.PUSH0, Op.PUSH0, Op.CALLDATASIZE),
+            setup=caller_setup,
             repeated_code=code_sequence,
             cleanup=self.cleanup,
             fork=fork,
         )
-
-        self._contract_address = pre.deploy_contract(code=caller_code)
+        caller_storage: Storage | None = None
+        if self.with_dependency:
+            caller_storage = Storage(
+                {DEPENDENCY_STORAGE_SLOT: DEPENDENCY_STORAGE_INIT_VALUE}  # type: ignore[dict-item]
+            )
+        self._contract_address = pre.deploy_contract(
+            code=caller_code,
+            storage=caller_storage,
+        )
         return self._contract_address

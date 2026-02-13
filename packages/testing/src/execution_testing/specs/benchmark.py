@@ -45,6 +45,9 @@ from execution_testing.vm import Bytecode, Op
 from .base import BaseTest
 from .blockchain import Block, BlockchainTest
 
+DEPENDENCY_STORAGE_SLOT = 0xDEADBEEF
+DEPENDENCY_STORAGE_INIT_VALUE = 0xDEADBEEF
+
 
 @dataclass(kw_only=True)
 class BenchmarkCodeGenerator(ABC):
@@ -56,6 +59,7 @@ class BenchmarkCodeGenerator(ABC):
     tx_kwargs: Dict[str, Any] = field(default_factory=dict)
     fixed_opcode_count: float | None = None
     code_padding_opcode: Op | None = None
+    with_dependency: bool = False
     _contract_address: Address | None = None
     _inner_iterations: int = 1000
 
@@ -265,6 +269,15 @@ class BenchmarkCodeGenerator(ABC):
                 f"allowed size {fork.max_code_size()}"
             )
 
+    def _dependency_bytecode(self) -> Bytecode:
+        """Generate SSTORE bytecode for inter-tx storage dependency."""
+        if not self.with_dependency:
+            return Bytecode()
+        return Op.SSTORE(
+            DEPENDENCY_STORAGE_SLOT,
+            Op.ADD(Op.SLOAD(DEPENDENCY_STORAGE_SLOT), Op.GAS),
+        )
+
 
 class BenchmarkTest(BaseTest):
     """Test type designed specifically for benchmark test cases."""
@@ -290,6 +303,7 @@ class BenchmarkTest(BaseTest):
     fixed_opcode_count: float | None = None
     target_opcode: Op | None = None
     code_generator: BenchmarkCodeGenerator | None = None
+    with_dependency: bool = False
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -351,6 +365,7 @@ class BenchmarkTest(BaseTest):
         if self.code_generator is not None:
             # Inject fixed_opcode_count into the code generator if provided
             self.code_generator.fixed_opcode_count = self.fixed_opcode_count
+            self.code_generator.with_dependency = self.with_dependency
 
             # In fixed opcode count mode, skip gas validation since we're
             # measuring performance by operation count, not gas usage
@@ -436,9 +451,10 @@ class BenchmarkTest(BaseTest):
         split_transactions = []
         for i in range(num_splits):
             split_tx = tx.model_copy()
-            split_tx.gas_limit = HexNumber(
-                remaining_gas if i == num_splits - 1 else gas_limit_cap
+            gas_limit = HexNumber(
+                (remaining_gas if i == num_splits - 1 else gas_limit_cap) - i
             )
+            split_tx.gas_limit = gas_limit
             remaining_gas -= gas_limit_cap
             split_tx.nonce = HexNumber(tx.nonce + i)
             split_transactions.append(split_tx)

@@ -23,6 +23,7 @@ ALL_FIXTURE_PARAMETERS = {
     "fixed_opcode_count",
     "genesis_environment",
     "env",
+    "with_dependency",
 }
 """
 List of test parameters that have a default fixture value which can be
