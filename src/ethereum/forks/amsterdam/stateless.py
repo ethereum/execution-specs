@@ -160,7 +160,7 @@ def verify_stateless_new_payload(
     # TODO: We can fill this in properly once the pre-state PR
     # TODO: and state change PRs are completed.
     # TODO: We would effectively call `verify_and_notify_new_payload`
-    
+
     return StatelessValidationResult(
         new_payload_request_root=compute_new_payload_request_root(
             stateless_input
