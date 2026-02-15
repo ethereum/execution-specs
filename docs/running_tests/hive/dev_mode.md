@@ -7,7 +7,7 @@ This avoids running the simulator in a dockerized environment and has several ad
 1. A local directory containing fixtures can be specified (`--input=./fixtures/`).
 2. Allows dropping into a Python debugger (via `--pdb`) upon test failure to inspect the response or ssh to the client container.
 3. Provides access to a larger set of the simulator's command-line options,
-4. Runs are faster; there are no docker image rebuilds in between runs. In particular, modifications to the simulator do not require a an image rebuild.
+4. Runs are faster; there are no docker image rebuilds in between runs. In particular, modifications to the simulator do not require an image rebuild.
 
 ## Platform Support
 

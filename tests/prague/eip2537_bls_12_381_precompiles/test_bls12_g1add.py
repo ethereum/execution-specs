@@ -136,7 +136,7 @@ pytestmark = [
             None,
             id="non_sub_plus_non_sub",
         ),
-        pytest.param(  # `P1_NOT_IN_SUBGROUP` has an small order subgroup of 3:
+        pytest.param(  # `P1_NOT_IN_SUBGROUP` has a small order subgroup of 3:
             # 3P = INF.
             Spec.P1_NOT_IN_SUBGROUP + Spec.P1_NOT_IN_SUBGROUP_TIMES_2,
             Spec.INF_G1,
