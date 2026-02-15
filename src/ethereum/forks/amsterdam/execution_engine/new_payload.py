@@ -77,9 +77,10 @@ def notify_new_payload(
     On success, keep the applied state and appended block.
     On failure, restore state and block history snapshots and return ``False``.
     """
-    # TODO: Create snapshots, so we can rollback
-    # TODO: Inefficient, check if we can remove this, depending
-    # TODO: on whether we want to follow semantics exactly
+    # TODO: Create snapshots, so we can rollback.
+    # This is inefficient. Check if we can remove this
+    # or how the rest of the code handles partial mutation
+    # when the block is invalid.
     state_main_trie_snapshot = copy_trie(chain.state._main_trie)
     state_storage_tries_snapshot = {
         address: copy_trie(storage_trie)
