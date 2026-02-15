@@ -21,6 +21,7 @@ from ..transactions import LegacyTransaction
 ExecutionEngine = BlockChain
 PayloadId = Bytes8
 _ZERO_HASH32 = Hash32(b"\x00" * 32)
+ExecutionRequests = Tuple[Bytes, ...]
 
 
 @slotted_freezable
@@ -77,7 +78,7 @@ class NewPayloadRequest:
     execution_payload: ExecutionPayload
     versioned_hashes: Tuple[VersionedHash, ...]
     parent_beacon_block_root: Root
-    execution_requests: Tuple[Bytes, ...]
+    execution_requests: ExecutionRequests
 
 
 @slotted_freezable
@@ -117,4 +118,4 @@ class GetPayloadResponse:
     execution_payload: ExecutionPayload
     block_value: U256
     blobs_bundle: BlobsBundle
-    execution_requests: Tuple[Bytes, ...]
+    execution_requests: ExecutionRequests

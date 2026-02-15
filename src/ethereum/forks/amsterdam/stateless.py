@@ -12,11 +12,8 @@ from ethereum_types.numeric import U64
 from ethereum.crypto.hash import Hash32
 
 from .blocks import Block
-from .execution_engine import NewPayloadRequest
+from .execution_engine import ExecutionRequests, NewPayloadRequest
 from .fork_types import Root, VersionedHash
-
-# Amsterdam currently carries execution requests as raw bytes in order.
-ExecutionRequests = Tuple[Bytes, ...]
 
 
 @slotted_freezable
