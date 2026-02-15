@@ -6,24 +6,17 @@ on:
       - master
       - mainnet
       - "forks/**"
-    paths-ignore:
+    paths-ignore: &paths_ignore
       - "**.md"
       - "LICENSE*"
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
-      - "docs/**"                                                                                                                     
+      - "docs/**"
       - "mkdocs.yml"
   workflow_dispatch:
   pull_request:
-    paths-ignore:
-      - "**.md"
-      - "LICENSE*"
-      - ".gitignore"
-      - ".vscode/**"
-      - "whitelist.txt"
-      - "docs/**"                                                                                                                     
-      - "mkdocs.yml"
+    paths-ignore: *paths_ignore
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -33,24 +26,18 @@ jobs:
   static:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           submodules: recursive
       - name: Ensure SHA pinned actions
         uses: zgosalvez/github-actions-ensure-sha-pinned-actions@6124774845927d14c601359ab8138699fa5b70c3 # v4.0.1
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
         with:
-          python-version: "3.11"
-      - name: Install Tox and any other packages
-        shell: bash
-        run: |
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
-          pip install 'tox>=4.11,<5' requests
-      - name: Run static checks
-        run: tox -e static
-      - name: Setup uv
-        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+      - run: uvx tox -e static
       - name: Validate workflow config variables
         run: |
           cat >> .github/actionlint.yaml << 'EOF'
@@ -66,16 +53,19 @@ jobs:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           submodules: recursive
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
         with:
-          python-version: "3.11"
-      - uses: ./.github/actions/setup-env
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+      - name: Install system dependencies
+        run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes build-essential pkg-config
       - name: Run py3 tests
-        run: tox -e py3
+        run: uvx tox -e py3
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
         with:
@@ -87,16 +77,22 @@ jobs:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           submodules: recursive
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
+      - uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+      - name: Install system dependencies
+        run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes build-essential pkg-config
       - name: Run pypy3 tests
-        run: tox -e pypy3
+        run: uvx tox -e pypy3
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
@@ -105,69 +101,86 @@ jobs:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           submodules: recursive
           fetch-depth: 0  # Fetch full history for commit comparison
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
         with:
-          python-version: "3.11"
-      - uses: ./.github/actions/setup-env
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+      - name: Install system dependencies
+        run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes build-essential pkg-config
       - uses: ./.github/actions/get-changed-files
         id: get-changed-files
       - name: Run json infra tests
-        run: tox -e json_infra -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
+        run: uvx tox -e json_infra -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
 
   optimized:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           submodules: recursive
           fetch-depth: 0  # Fetch full history for commit comparison
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
         with:
-          python-version: "3.11"
-      - uses: ./.github/actions/setup-env
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+      - name: Install system dependencies and Rust
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes build-essential pkg-config rustup
+          rustup update --no-self-update 1.89.0 && rustup default 1.89.0
       - uses: ./.github/actions/get-changed-files
         id: get-changed-files
       - name: Run optimized tests
-        run: tox -e optimized -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
+        run: uvx tox -e optimized -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
 
   tests_pytest_py3:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           submodules: recursive
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
         with:
-          python-version: "3.11"
-      - uses: ./.github/actions/setup-env
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+      - name: Install system dependencies
+        run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes build-essential pkg-config
       - uses: ./.github/actions/build-evmone
       - name: Run py3 tests
-        run: tox -e tests_pytest_py3
+        run: uvx tox -e tests_pytest_py3
 
   tests_pytest_pypy3:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           submodules: recursive
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
+      - uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+      - name: Install system dependencies
+        run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes build-essential pkg-config
       - uses: ./.github/actions/build-evmone
       - name: Run pypy3 tests
-        run: tox -e tests_pytest_pypy3
+        run: uvx tox -e tests_pytest_pypy3
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
