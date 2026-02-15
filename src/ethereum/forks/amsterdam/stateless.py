@@ -134,8 +134,7 @@ def compute_new_payload_request_root(
     """
     Compute the request root for a stateless input.
 
-    TODO: Replace this temporary value with
-    ``new_payload_request.tree_hash_root`` semantics.
+    TODO: Replace this with ``new_payload_request.tree_hash_root``.
 
     # For readability, we can convert to NewPayloadRequestHeader and
     # then the payload request root.
