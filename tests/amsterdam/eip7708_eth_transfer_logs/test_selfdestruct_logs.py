@@ -1,7 +1,7 @@
 """
-Tests for EIP-7708 Selfdestruct logs.
+Tests for EIP-7708 Burn logs.
 
-Tests for the Selfdestruct(address,uint256) log emitted when:
+Tests for the Burn(address,uint256) log emitted when:
 - SELFDESTRUCT to self with nonzero balance
 - Account created and destroyed in the same transaction
 """
