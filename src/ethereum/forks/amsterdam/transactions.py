@@ -580,20 +580,6 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     return intrinsic_gas, data_floor_gas_cost
 
 
-def count_tokens_in_data(data: bytes) -> Uint:
-    """
-    Count the data tokens in arbitrary input bytes.
-    """
-    tokens = Uint(0)
-    for byte in data:
-        if byte == 0:
-            tokens += CALLDATA_TOKENS_PER_ZERO_BYTE
-        else:
-            tokens += CALLDATA_TOKENS_PER_NONZERO_BYTE
-
-    return tokens
-
-
 def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     Calculates the gas that is charged before execution is started.
@@ -684,6 +670,20 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         ),
         data_floor_gas_cost,
     )
+
+
+def count_tokens_in_data(data: bytes) -> Uint:
+    """
+    Count the data tokens in arbitrary input bytes.
+    """
+    tokens = Uint(0)
+    for byte in data:
+        if byte == 0:
+            tokens += CALLDATA_TOKENS_PER_ZERO_BYTE
+        else:
+            tokens += CALLDATA_TOKENS_PER_NONZERO_BYTE
+
+    return tokens
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
