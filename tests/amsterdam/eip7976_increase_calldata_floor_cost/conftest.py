@@ -141,11 +141,11 @@ def tx_data(
 
     - FLOOR_GAS_COST_LESS_THAN_OR_EQUAL_TO_INTRINSIC_GAS: The floor gas cost is
         less than or equal to the intrinsic gas cost, which means that the size
-        of the tokens in the data are not enough to trigger the floor gas cost.
+        of the data is not enough to trigger the floor gas cost.
 
     - FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS: The floor gas cost is greater
-        than the intrinsic gas cost, which means that the size of the tokens in
-        the data are enough to trigger the floor gas cost.
+        than the intrinsic gas cost, which means that the size of the data is
+        enough to trigger the floor gas cost.
 
     E.g. Given a transaction with a single access list and a single storage
     key, its intrinsic gas cost (as of Amsterdam fork) can be calculated as:
@@ -158,8 +158,7 @@ def tx_data(
 
     Its floor data gas cost can be calculated as:
     - 21,000 gas for the transaction
-    - 60 gas for each non-zero byte in the data
-    - 15 gas for each zero byte in the data
+    - 64 gas for each byte in the data
 
     Notice that the data included in the transaction affects both the intrinsic
     gas cost and the floor data cost, but at different rates.
@@ -167,24 +166,24 @@ def tx_data(
     The purpose of this function is to find the exact amount of data where the
     floor data gas cost starts exceeding the intrinsic gas cost.
 
-    After a binary search we find that adding X tokens of data triggers the
+    After a binary search we find that adding X bytes of data triggers the
     floor gas cost.
 
     Therefore, this function will return a Bytes object with the appropriate
     amount of data for each test type.
     """
 
-    def tokens_to_data(tokens: int) -> Bytes:
-        return Bytes(b"\x01" * (tokens // 4) + b"\x00" * (tokens % 4))
+    def bytes_to_data(byte_count: int) -> Bytes:
+        return Bytes(b"\x01" * byte_count)
 
     fork_intrinsic_cost_calculator = (
         fork.transaction_intrinsic_cost_calculator()
     )
 
-    def transaction_intrinsic_cost_calculator(tokens: int) -> int:
+    def transaction_intrinsic_cost_calculator(byte_count: int) -> int:
         return (
             fork_intrinsic_cost_calculator(
-                calldata=tokens_to_data(tokens),
+                calldata=bytes_to_data(byte_count),
                 contract_creation=contract_creating_tx,
                 access_list=access_list,
                 authorization_list_or_count=authorization_list,
@@ -197,8 +196,8 @@ def tx_data(
         fork.transaction_data_floor_cost_calculator()
     )
 
-    def transaction_data_floor_cost_calculator(tokens: int) -> int:
-        return fork_data_floor_cost_calculator(data=tokens_to_data(tokens))
+    def transaction_data_floor_cost_calculator(byte_count: int) -> int:
+        return fork_data_floor_cost_calculator(data=bytes_to_data(byte_count))
 
     # Start with zero data and check the difference in the gas calculator
     # between the intrinsic gas cost and the floor gas cost.
@@ -215,7 +214,7 @@ def tx_data(
         else:
             return Bytes(b"\0")
 
-    tokens = find_floor_cost_threshold(
+    threshold_bytes = find_floor_cost_threshold(
         floor_data_gas_cost_calculator=transaction_data_floor_cost_calculator,
         intrinsic_gas_cost_calculator=transaction_intrinsic_cost_calculator,
     )
@@ -224,8 +223,8 @@ def tx_data(
         data_test_type
         == DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS
     ):
-        return tokens_to_data(tokens + 1)
-    return tokens_to_data(tokens)
+        return bytes_to_data(threshold_bytes + 1)
+    return bytes_to_data(threshold_bytes)
 
 
 @pytest.fixture

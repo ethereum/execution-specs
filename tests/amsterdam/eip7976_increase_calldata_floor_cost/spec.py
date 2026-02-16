@@ -12,7 +12,7 @@ class ReferenceSpec:
 
 
 ref_spec_7976 = ReferenceSpec(
-    "EIPS/eip-7976.md", "7310f62b56234d3d2e7715cdd9d10ea173116d65"
+    "EIPS/eip-7976.md", "57af840f568c5743b5bdb4bff72ff29145efe8a5"
 )
 
 
@@ -25,4 +25,4 @@ class Spec:
     """
 
     STANDARD_TOKEN_COST = 4
-    TOTAL_COST_FLOOR_PER_TOKEN = 15
+    TOTAL_COST_FLOOR_PER_TOKEN = 16

@@ -50,7 +50,7 @@ class TestTokenCalculation:
         return pre.deploy_contract(Op.STOP)
 
     @pytest.mark.parametrize(
-        "calldata,expected_tokens,description",
+        "calldata,expected_standard_tokens,description",
         [
             pytest.param(
                 Bytes(b"\x00" * 100),
@@ -97,14 +97,18 @@ class TestTokenCalculation:
         sender: Address,
         to: Address,
         calldata: Bytes,
-        expected_tokens: int,
+        expected_standard_tokens: int,
         description: str,
         fork: Fork,
     ) -> None:
         """
         Verify token calculation is correct for different byte compositions.
 
-        Token formula: tokens = zero_bytes + (nonzero_bytes * 4)
+        Standard calldata token formula:
+        tokens = zero_bytes + (nonzero_bytes * 4)
+
+        Floor token formula introduced in EIP-7976:
+        floor_tokens = 4 * calldata_bytes
         """
         # Calculate expected costs
         intrinsic_cost_calculator = (
@@ -121,17 +125,30 @@ class TestTokenCalculation:
         floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
         floor_cost = floor_cost_calculator(data=calldata)
 
-        # Verify expected tokens calculation
-        # The floor cost should be 21000 + (tokens * floor_token_cost)
-        # where tokens are calculated as: zero_bytes + (nonzero_bytes * 4)
+        # Verify floor token calculation:
+        # floor_cost = 21000 + (floor_tokens * floor_token_cost)
+        # where floor_tokens = 4 * calldata_bytes
         gas_costs = fork.gas_costs()
         floor_token_cost = gas_costs.G_TX_DATA_FLOOR_TOKEN_COST
-        expected_floor_cost = 21000 + (expected_tokens * floor_token_cost)
+        expected_floor_tokens = len(calldata) * 4
+        expected_floor_cost = 21000 + (
+            expected_floor_tokens * floor_token_cost
+        )
         assert floor_cost == expected_floor_cost, (
             f"Floor cost mismatch for {description}: "
             f"{floor_cost} != {expected_floor_cost} "
-            f"(tokens={expected_tokens}, "
+            f"(floor_tokens={expected_floor_tokens}, "
             f"floor_cost_per_token={floor_token_cost})"
+        )
+
+        expected_intrinsic_cost = 21000 + (
+            expected_standard_tokens
+            * gas_costs.G_TX_DATA_STANDARD_TOKEN_COST
+        )
+        assert intrinsic_cost_before_execution == expected_intrinsic_cost, (
+            f"Intrinsic cost mismatch for {description}: "
+            f"{intrinsic_cost_before_execution} != {expected_intrinsic_cost} "
+            f"(standard_tokens={expected_standard_tokens})"
         )
 
         # Create transaction with exact gas needed
@@ -555,24 +572,24 @@ class TestExactThresholdBoundary:
         ty: int,
     ) -> None:
         """
-        Find exact token count N where floor_cost == intrinsic_cost.
+        Find exact calldata byte count N where floor_cost == intrinsic_cost.
 
-        Test with N-1, N, and N+2 tokens to verify max() function
+        Test with N, N+1, and N+2 bytes to verify max() function
         switches correctly.
         """
         from .helpers import find_floor_cost_threshold
 
-        def tokens_to_data(tokens: int) -> Bytes:
-            """Convert token count to calldata bytes."""
-            return Bytes(b"\x01" * (tokens // 4) + b"\x00" * (tokens % 4))
+        def bytes_to_data(byte_count: int) -> Bytes:
+            """Convert byte count to calldata bytes."""
+            return Bytes(b"\x01" * byte_count)
 
         intrinsic_cost_calculator = (
             fork.transaction_intrinsic_cost_calculator()
         )
 
-        def intrinsic_cost(tokens: int) -> int:
+        def intrinsic_cost(byte_count: int) -> int:
             return intrinsic_cost_calculator(
-                calldata=tokens_to_data(tokens),
+                calldata=bytes_to_data(byte_count),
                 contract_creation=False,
                 access_list=access_list,
                 authorization_list_or_count=authorization_list,
@@ -581,21 +598,21 @@ class TestExactThresholdBoundary:
 
         floor_cost_calculator = fork.transaction_data_floor_cost_calculator()
 
-        def floor_cost(tokens: int) -> int:
-            return floor_cost_calculator(data=tokens_to_data(tokens))
+        def floor_cost(byte_count: int) -> int:
+            return floor_cost_calculator(data=bytes_to_data(byte_count))
 
         # Find the threshold
-        threshold_tokens = find_floor_cost_threshold(
+        threshold_bytes = find_floor_cost_threshold(
             floor_data_gas_cost_calculator=floor_cost,
             intrinsic_gas_cost_calculator=intrinsic_cost,
         )
 
-        # Test N tokens (at threshold)
-        tokens_below = threshold_tokens
-        calldata_below = tokens_to_data(tokens_below)
+        # Test N bytes (at threshold)
+        bytes_below = threshold_bytes
+        calldata_below = bytes_to_data(bytes_below)
         # Use helper to get cost before floor is applied
-        intrinsic_below_raw = intrinsic_cost(tokens_below)
-        floor_below_raw = floor_cost(tokens_below)
+        intrinsic_below_raw = intrinsic_cost(bytes_below)
+        floor_below_raw = floor_cost(bytes_below)
 
         # At threshold, intrinsic should be >= floor
         assert intrinsic_below_raw >= floor_below_raw, (
@@ -624,11 +641,11 @@ class TestExactThresholdBoundary:
             cumulative_gas_used=intrinsic_below_total
         )
 
-        # Test N+1 tokens (above threshold)
-        tokens_above = threshold_tokens + 1
-        calldata_above = tokens_to_data(tokens_above)
-        intrinsic_above_raw = intrinsic_cost(tokens_above)
-        floor_above_raw = floor_cost(tokens_above)
+        # Test N+1 bytes (above threshold)
+        bytes_above = threshold_bytes + 1
+        calldata_above = bytes_to_data(bytes_above)
+        intrinsic_above_raw = intrinsic_cost(bytes_above)
+        floor_above_raw = floor_cost(bytes_above)
 
         # Above threshold, floor should dominate
         assert floor_above_raw > intrinsic_above_raw, (
@@ -658,11 +675,11 @@ class TestExactThresholdBoundary:
             cumulative_gas_used=intrinsic_above_total
         )
 
-        # Test N+2 tokens (well above threshold)
-        tokens_above_2 = threshold_tokens + 2
-        calldata_above_2 = tokens_to_data(tokens_above_2)
-        intrinsic_above_2_raw = intrinsic_cost(tokens_above_2)
-        floor_above_2_raw = floor_cost(tokens_above_2)
+        # Test N+2 bytes (well above threshold)
+        bytes_above_2 = threshold_bytes + 2
+        calldata_above_2 = bytes_to_data(bytes_above_2)
+        intrinsic_above_2_raw = intrinsic_cost(bytes_above_2)
+        floor_above_2_raw = floor_cost(bytes_above_2)
 
         assert floor_above_2_raw > intrinsic_above_2_raw, (
             "N+2: floor should dominate"

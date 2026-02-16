@@ -34,7 +34,7 @@ Base cost of a transaction in gas units. This is the minimum amount of gas
 required to execute a transaction.
 """
 
-FLOOR_CALLDATA_COST = Uint(15)
+FLOOR_CALLDATA_COST = Uint(16)
 """
 Minimum gas cost per token of calldata as per [EIP-7976]. Used to calculate
 the minimum gas cost for transactions that include calldata.
@@ -604,9 +604,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             zero_bytes += 1
 
     tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
-    # EIP-7623 floor price (note: no EVM costs)
+    # EIP-7976 floor price uses floor tokens, not EIP-7623 calldata tokens.
+    floor_tokens_in_calldata = ulen(tx.data) * Uint(4)
     calldata_floor_gas_cost = (
-        tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
+        floor_tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
     )
 
     data_cost = tokens_in_calldata * STANDARD_CALLDATA_TOKEN_COST

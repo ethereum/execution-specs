@@ -3429,14 +3429,35 @@ class Amsterdam(BPO2):
     ) -> GasCosts:
         """
         At Amsterdam, the transaction data floor token cost is increased
-        from 10 to 15 due to EIP-7976.
+        from 10 to 16 due to EIP-7976.
         """
         return replace(
             super(Amsterdam, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
-            G_TX_DATA_FLOOR_TOKEN_COST=15,  # https://eips.ethereum.org/EIPS/eip-7976
+            G_TX_DATA_FLOOR_TOKEN_COST=16,  # https://eips.ethereum.org/EIPS/eip-7976
         )
+
+    @classmethod
+    def transaction_data_floor_cost_calculator(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionDataFloorCostCalculator:
+        """
+        At Amsterdam, the data floor uses floor tokens based on calldata bytes:
+        ``4 * bytes`` (64/64 per byte), not EIP-7623 calldata tokens.
+        """
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
+
+        def fn(*, data: BytesConvertible) -> int:
+            floor_tokens = len(Bytes(data)) * 4
+            return (
+                floor_tokens * gas_costs.G_TX_DATA_FLOOR_TOKEN_COST
+                + gas_costs.G_TRANSACTION
+            )
+
+        return fn
 
     @classmethod
     def engine_new_payload_version(
