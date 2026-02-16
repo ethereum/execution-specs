@@ -3,7 +3,7 @@
 import math
 import random
 from dataclasses import dataclass
-from typing import Generator, Tuple
+from typing import Generator, List, Tuple
 
 import pytest
 from execution_testing import (
@@ -512,7 +512,6 @@ def test_block_full_access_list_and_data(
 def test_auth_transaction(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
-    intrinsic_cost: int,
     gas_benchmark_value: int,
     fork: Fork,
     empty_authority: bool,
@@ -523,32 +522,56 @@ def test_auth_transaction(
 ) -> None:
     """Test an auth block."""
     gas_costs = fork.gas_costs()
-
-    max_auths_per_tx = (
-        tx_gas_limit - intrinsic_cost
-    ) // gas_costs.G_AUTHORIZATION
-
-    total_auth_count = (
-        gas_benchmark_value - intrinsic_cost
-    ) // gas_costs.G_AUTHORIZATION
-
-    num_txs = math.ceil(total_auth_count / max_auths_per_tx)
+    intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
 
     code = Op.INVALID * fork.max_code_size()
     auth_target = (
         Address(0) if zero_delegation else pre.deploy_contract(code=code)
     )
 
-    txs = []
+    remaining_gas = gas_benchmark_value
+    authorizations_per_tx: List[int] = []
+
+    min_authorization_intrinsic_gas = intrinsic_cost_calc(
+        authorization_list_or_count=1
+    )
+
+    while remaining_gas >= min_authorization_intrinsic_gas:
+        tx_max_gas = min(remaining_gas, tx_gas_limit)
+
+        low = 1
+        high = 2
+
+        # Exponential search to find upper bound
+        while (
+            intrinsic_cost_calc(authorization_list_or_count=high) < tx_max_gas
+        ):
+            low = high
+            high *= 2
+
+        # Binary search for exact fit
+        while low < high:
+            mid = (low + high) // 2
+
+            if (
+                intrinsic_cost_calc(authorization_list_or_count=mid)
+                > tx_max_gas
+            ):
+                high = mid
+            else:
+                low = mid + 1
+
+        best_iterations = low - 1
+        authorizations_per_tx.append(best_iterations)
+        remaining_gas -= intrinsic_cost_calc(
+            authorization_list_or_count=best_iterations
+        )
+
     total_gas_used = 0
     total_refund = 0
-    remaining_auths = total_auth_count
+    txs = []
 
-    for _ in range(num_txs):
-        # Calculate authorization tuples for this transaction
-        auths_in_this_tx = min(max_auths_per_tx, remaining_auths)
-        remaining_auths -= auths_in_this_tx
-
+    for auths_in_this_tx in authorizations_per_tx:
         auth_tuples = []
         for _ in range(auths_in_this_tx):
             signer = (
@@ -561,7 +584,7 @@ def test_auth_transaction(
             )
             auth_tuples.append(auth_tuple)
 
-        tx_gas_used = fork.transaction_intrinsic_cost_calculator()(
+        tx_gas_used = intrinsic_cost_calc(
             authorization_list_or_count=auth_tuples
         )
         total_gas_used += tx_gas_used
