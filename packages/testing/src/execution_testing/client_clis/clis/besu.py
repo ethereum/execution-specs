@@ -3,11 +3,14 @@
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import tempfile
 import textwrap
+from functools import cache
 from pathlib import Path
-from typing import ClassVar, Dict, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 import requests
 
@@ -17,14 +20,99 @@ from execution_testing.exceptions import (
     ExceptionMapper,
     TransactionException,
 )
+from execution_testing.fixtures import (
+    BlockchainFixture,
+    FixtureFormat,
+    StateFixture,
+)
 from execution_testing.forks import Fork
 
 from ..cli_types import TransitionToolOutput
+from ..ethereum_cli import EthereumCLI
+from ..fixture_consumer_tool import FixtureConsumerTool
 from ..transition_tool import (
     TransitionTool,
     dump_files_to_directory,
     model_dump_config,
 )
+
+
+class BesuEvmTool(EthereumCLI):
+    """Besu `evmtool` base class."""
+
+    default_binary = Path("evmtool")
+    detect_binary_pattern = re.compile(r"^Besu evm .*$")
+    cached_version: Optional[str] = None
+    trace: bool
+
+    def __init__(
+        self,
+        binary: Optional[Path] = None,
+        trace: bool = False,
+    ):
+        """Initialize the BesuEvmTool class."""
+        self.binary = binary if binary else self.default_binary
+        self.trace = trace
+
+    def _run_command(
+        self, command: List[str]
+    ) -> subprocess.CompletedProcess:
+        """Run a command and return the result."""
+        try:
+            return subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise Exception(
+                "Command failed with non-zero status."
+            ) from e
+        except Exception as e:
+            raise Exception(
+                "Unexpected exception calling evmtool."
+            ) from e
+
+    def _consume_debug_dump(
+        self,
+        command: List[str],
+        result: subprocess.CompletedProcess,
+        fixture_path: Path,
+        debug_output_path: Path,
+    ) -> None:
+        """Dump debug output for a consume command."""
+        assert all(isinstance(x, str) for x in command), (
+            f"Not all elements of 'command' list are strings: {command}"
+        )
+        assert len(command) > 0
+
+        debug_fixture_path = str(
+            debug_output_path / "fixtures.json"
+        )
+        command[-1] = debug_fixture_path
+
+        consume_direct_call = " ".join(
+            shlex.quote(arg) for arg in command
+        )
+
+        consume_direct_script = textwrap.dedent(
+            f"""\
+            #!/bin/bash
+            {consume_direct_call}
+            """
+        )
+        dump_files_to_directory(
+            str(debug_output_path),
+            {
+                "consume_direct_args.py": command,
+                "consume_direct_returncode.txt": result.returncode,
+                "consume_direct_stdout.txt": result.stdout,
+                "consume_direct_stderr.txt": result.stderr,
+                "consume_direct.sh+x": consume_direct_script,
+            },
+        )
+        shutil.copyfile(fixture_path, debug_fixture_path)
 
 
 class BesuTransitionTool(TransitionTool):
@@ -395,3 +483,188 @@ class BesuExceptionMapper(ExceptionMapper):
             r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
         ),
     }
+
+
+class BesuFixtureConsumer(
+    BesuEvmTool,
+    FixtureConsumerTool,
+    fixture_formats=[StateFixture, BlockchainFixture],
+):
+    """Besu's implementation of the fixture consumer."""
+
+    def consume_blockchain_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """
+        Consume a single blockchain test.
+
+        Besu's ``evmtool block-test`` accepts ``--test-name`` to
+        select a specific fixture from the file.
+        """
+        subcommand = "block-test"
+        subcommand_options: List[str] = []
+        if debug_output_path:
+            subcommand_options += ["--json"]
+
+        if fixture_name:
+            subcommand_options += [
+                "--test-name",
+                fixture_name,
+            ]
+
+        command = (
+            [str(self.binary)]
+            + [subcommand]
+            + subcommand_options
+            + [str(fixture_path)]
+        )
+
+        result = self._run_command(command)
+
+        if debug_output_path:
+            self._consume_debug_dump(
+                command, result, fixture_path, debug_output_path
+            )
+
+        if result.returncode != 0:
+            raise Exception(
+                f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                f"Error:\n{result.stderr}"
+            )
+
+        # Parse text output for failures
+        stdout = result.stdout
+        if "Failed:" in stdout:
+            failed_match = re.search(r"Failed:\s+(\d+)", stdout)
+            if failed_match and int(failed_match.group(1)) > 0:
+                raise Exception(
+                    f"Blockchain test failed:\n{stdout}"
+                )
+
+    @cache  # noqa
+    def consume_state_test_file(
+        self,
+        fixture_path: Path,
+        debug_output_path: Optional[Path] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Consume an entire state test file.
+
+        Besu's ``evmtool state-test`` outputs one JSON object per
+        line (NDJSON) with a ``test`` field instead of ``name``.
+        This method normalizes the output to match the expected
+        format.
+        """
+        subcommand = "state-test"
+        subcommand_options: List[str] = []
+        if debug_output_path:
+            subcommand_options += ["--json"]
+
+        command = (
+            [str(self.binary)]
+            + [subcommand]
+            + subcommand_options
+            + [str(fixture_path)]
+        )
+        result = self._run_command(command)
+
+        if debug_output_path:
+            self._consume_debug_dump(
+                command, result, fixture_path, debug_output_path
+            )
+
+        if result.returncode != 0:
+            raise Exception(
+                f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                f"Error:\n{result.stderr}"
+            )
+
+        # Parse NDJSON output, normalize "test" -> "name"
+        results: List[Dict[str, Any]] = []
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+                if "test" in entry and "name" not in entry:
+                    entry["name"] = entry["test"]
+                results.append(entry)
+            except json.JSONDecodeError:
+                continue
+        return results
+
+    def consume_state_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """
+        Consume a single state test.
+
+        Uses the cached result from ``consume_state_test_file``
+        and selects the requested fixture by name.
+        """
+        file_results = self.consume_state_test_file(
+            fixture_path=fixture_path,
+            debug_output_path=debug_output_path,
+        )
+        if fixture_name:
+            test_result = [
+                r for r in file_results if r["name"] == fixture_name
+            ]
+            assert len(test_result) < 2, (
+                f"Multiple test results for {fixture_name}"
+            )
+            assert len(test_result) == 1, (
+                f"Test result for {fixture_name} missing"
+            )
+            assert test_result[0]["pass"], (
+                f"State test failed: "
+                f"{test_result[0].get('error', 'unknown error')}"
+            )
+        else:
+            if any(not r["pass"] for r in file_results):
+                exception_text = (
+                    "State test failed: \n"
+                    + "\n".join(
+                        f"{r['name']}: "
+                        + r.get("error", "unknown error")
+                        for r in file_results
+                        if not r["pass"]
+                    )
+                )
+                raise Exception(exception_text)
+
+    def consume_fixture(
+        self,
+        fixture_format: FixtureFormat,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """
+        Execute the appropriate Besu fixture consumer for the
+        fixture at ``fixture_path``.
+        """
+        if fixture_format == BlockchainFixture:
+            self.consume_blockchain_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        elif fixture_format == StateFixture:
+            self.consume_state_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        else:
+            raise Exception(
+                f"Fixture format {fixture_format.format_name} "
+                f"not supported by {self.binary}"
+            )
