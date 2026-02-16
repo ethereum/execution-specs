@@ -764,9 +764,20 @@ def test_fixed_opcode_count_config_file_parametrized(
         )
     )
 
+    # Use subprocess mode to isolate each parametrized inner session.
+    # pytester defaults to in-process mode, which shares the Python
+    # interpreter across all inner sessions in the same test run.
+    # Pydantic's ModelMetaclass caches __init__ wrappers for dynamically
+    # created classes (like BaseTestWrapper); when a second in-process
+    # session creates a new BaseTestWrapper, the cached wrapper re-invokes
+    # __init__ re-entrantly, causing generate() to run twice per test and
+    # doubling the opcode count. This is strictly a pytester/in-process
+    # artifact — normal `fill` runs are unaffected because each fill
+    # invocation is a fresh Python process.
+    #
     # Place --fixed-opcode-count after test path to avoid argparse consuming
     # the path as the option value (nargs='?' behavior)
-    result = pytester.runpytest(
+    result = pytester.runpytest_subprocess(
         "-c",
         "pytest-fill.ini",
         "--fork",
@@ -896,7 +907,10 @@ def test_fixed_opcode_count_per_parameter_patterns(
     config_file = pytester.path / ".fixed_opcode_counts.json"
     config_file.write_text(json.dumps({"scenario_configs": config}))
 
-    result = pytester.runpytest(
+    # Subprocess mode: avoids Pydantic metaclass cache pollution across
+    # in-process pytester sessions (see comment in
+    # test_fixed_opcode_count_config_file_parametrized).
+    result = pytester.runpytest_subprocess(
         "-c",
         "pytest-fill.ini",
         "--fork",
@@ -932,7 +946,10 @@ def test_cli_mode_ignores_per_parameter_patterns(
         pytester, test_module_parametrized, "test_cli_mode.py"
     )
 
-    result = pytester.runpytest(
+    # Subprocess mode: avoids Pydantic metaclass cache pollution across
+    # in-process pytester sessions (see comment in
+    # test_fixed_opcode_count_config_file_parametrized).
+    result = pytester.runpytest_subprocess(
         "-c",
         "pytest-fill.ini",
         "--fork",
