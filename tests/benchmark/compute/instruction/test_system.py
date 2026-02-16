@@ -30,6 +30,7 @@ from execution_testing import (
     JumpLoopGenerator,
     Op,
     TestPhaseManager,
+    Transaction,
     While,
     compute_create2_address,
     compute_create_address,
