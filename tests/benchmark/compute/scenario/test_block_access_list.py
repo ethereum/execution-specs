@@ -12,6 +12,7 @@ Tests target different BAL optimization paths:
 """
 
 import math
+from enum import Enum, auto
 
 import pytest
 from execution_testing import (
@@ -32,6 +33,26 @@ from execution_testing import (
 
 from ethereum.crypto.hash import keccak256
 
+pytestmark = pytest.mark.valid_from("Amsterdam")
+
+# Sentinel slot for inter-tx serialization in prefetch tests.
+# Chosen as max uint256 to avoid collision with data slots.
+_POINTER_SLOT = 2**256 - 1
+
+
+class TxDensity(Enum):
+    """
+    Control how many transactions a gas budget is divided into.
+
+    GREEDY: pack ``tx_gas_limit``-sized transactions (fewest txs).
+    HALF: 50 % of the maximum possible transaction count.
+    MAX: maximum transaction count (each tx at minimum viable gas).
+    """
+
+    GREEDY = auto()
+    HALF = auto()
+    MAX = auto()
+
 
 def _derive_loop_gas(body: Bytecode, fork: Fork) -> tuple[int, int]:
     """
@@ -50,17 +71,27 @@ def _derive_loop_gas(body: Bytecode, fork: Fork) -> tuple[int, int]:
     return per_iter_gas, exit_overhead
 
 
-def _keccak_chain_gas_schedule(
+def _build_keccak_chain(
     fork: Fork,
-) -> tuple[int, int, int]:
+) -> tuple[Bytecode, int, int, int]:
     """
-    Compute gas schedule for a keccak chain contract.
+    Build keccak chain code and compute gas schedule.
 
-    Return ``(setup_gas, per_iter_gas, reserve_gas)``.
+    Return ``(code, setup_gas, per_iter_gas, reserve_gas)``.
+
+    Contract flow:
+
+    1. Store literal ``1`` as seed in memory (no state access).
+    2. Keccak loop: ``MSTORE(0, SHA3(0, 32))`` until gas reserve.
+    3. Cleanup: ``SSTORE(0, ADD(SLOAD(0), MLOAD(0)))`` then STOP.
+
+    SLOAD(0) is deliberately placed in cleanup so speculative
+    parallel execution wastes maximum resources before discovering
+    the shared-state conflict on slot 0.
     """
-    setup = Op.MSTORE(
+    prefix = Op.MSTORE(
         0,
-        Op.SLOAD(0),
+        1,
         old_memory_size=0,
         new_memory_size=32,
     )
@@ -72,13 +103,20 @@ def _keccak_chain_gas_schedule(
         new_memory_size=32,
     )
 
+    # Cleanup: combine loop result with shared state, then store.
+    # SLOAD(0) is the first state access — deliberately late to
+    # force speculative parallel execution to waste maximum
+    # resources before discovering the shared-state conflict.
     cleanup = (
         Op.SSTORE(
             0,
-            Op.MLOAD(0),
+            Op.ADD(
+                Op.SLOAD(0, key_warm=False),
+                Op.MLOAD(0),
+            ),
             key_warm=True,
-            # Placeholder: actual value differs per tx but gas cost is
-            # identical for any nonzero -> nonzero write.
+            # Placeholder: actual value differs per tx but gas cost
+            # is identical for any nonzero -> nonzero write.
             original_value=1,
             current_value=1,
             new_value=2,
@@ -86,67 +124,15 @@ def _keccak_chain_gas_schedule(
         + Op.STOP
     )
 
-    setup_gas = setup.gas_cost(fork)
+    setup_gas = prefix.gas_cost(fork)
     cleanup_gas = cleanup.gas_cost(fork)
     per_iter_gas, exit_overhead = _derive_loop_gas(keccak_body, fork)
     reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
-    return setup_gas, per_iter_gas, reserve_gas
-
-
-def _build_keccak_chain_code(
-    reserve_gas: int, *, coinbase_transfer: bool = False
-) -> Bytecode:
-    """
-    Build runtime code for a keccak256 hash chain contract.
-
-    SLOAD(0) → keccak loop → SSTORE(0, result).
-
-    When ``coinbase_transfer`` is True, inserts a
-    ``CALL(gas=0, to=COINBASE, value=1)`` before the loop.
-    Coinbase is warm per EIP-3651 (Shanghai+).
-    """
-    setup = Op.MSTORE(
-        0,
-        Op.SLOAD(0),
-        old_memory_size=0,
-        new_memory_size=32,
-    )
-
-    keccak_body = Op.MSTORE(
-        0,
-        Op.SHA3(0, 32, data_size=32),
-        old_memory_size=32,
-        new_memory_size=32,
-    )
 
     condition = Op.GT(Op.GAS, reserve_gas)
     loop = While(body=keccak_body, condition=condition)
 
-    cleanup = (
-        Op.SSTORE(
-            0,
-            Op.MLOAD(0),
-            key_warm=True,
-            original_value=1,
-            current_value=1,
-            new_value=2,
-        )
-        + Op.STOP
-    )
-
-    prefix = setup
-    if coinbase_transfer:
-        prefix = prefix + Op.POP(
-            Op.CALL(
-                gas=0,
-                address=Op.COINBASE,
-                value=1,
-                address_warm=True,
-                value_transfer=True,
-            )
-        )
-
-    return prefix + loop + cleanup
+    return prefix + loop + cleanup, setup_gas, per_iter_gas, reserve_gas
 
 
 def _build_sequential_sstore_code(reserve_gas: int) -> Bytecode:
@@ -154,8 +140,10 @@ def _build_sequential_sstore_code(reserve_gas: int) -> Bytecode:
     Build runtime code that SSTOREs to sequential cold storage slots.
 
     Read ``start_slot`` from ``calldata[0:32]``, then loop writing a
-    constant nonzero value to ``slot``, ``slot + 1``, ... until
-    remaining gas drops below ``reserve_gas``.
+    max-weight value (``2**256 - 1``) to ``slot``, ``slot - 1``, ...
+    until remaining gas drops below ``reserve_gas``.  Counting down
+    from high keys with 32-byte values maximizes RLP encoding weight
+    per trie leaf for state root computation benchmarks.
 
     Memory layout: ``[0:32]`` = current slot counter.
     """
@@ -168,14 +156,14 @@ def _build_sequential_sstore_code(reserve_gas: int) -> Bytecode:
 
     sstore_body = Op.SSTORE(
         Op.MLOAD(0),
-        42,
+        2**256 - 1,
         key_warm=False,
         original_value=1,
         current_value=1,
-        new_value=42,
+        new_value=2**256 - 1,
     ) + Op.MSTORE(
         0,
-        Op.ADD(Op.MLOAD(0), 1),
+        Op.SUB(Op.MLOAD(0), 1),
         old_memory_size=32,
         new_memory_size=32,
     )
@@ -187,80 +175,56 @@ def _build_sequential_sstore_code(reserve_gas: int) -> Bytecode:
     return setup + loop + Op.STOP
 
 
-def _build_sequential_sload_code(reserve_gas: int) -> Bytecode:
+def _build_sload_chain_code(reserve_gas: int) -> Bytecode:
     """
-    Build runtime code that SLOADs sequential cold storage slots.
+    Build runtime code that SLOADs a linked-list chain.
 
-    Read ``start_slot`` from ``calldata[0:32]``, then loop reading
-    ``slot``, ``slot + 1``, ... until remaining gas drops below
-    ``reserve_gas``. Values are discarded (POP).
+    Read seed from ``_POINTER_SLOT``, then loop:
+    ``next_key = SLOAD(key)`` — the stored value IS the next key.
+    Repeat until remaining gas drops below ``reserve_gas``.  Write
+    final key back to ``_POINTER_SLOT`` to serialize transactions.
 
-    Memory layout: ``[0:32]`` = current slot counter.
-    """
-    setup = Op.MSTORE(
-        0,
-        Op.CALLDATALOAD(0),
-        old_memory_size=0,
-        new_memory_size=32,
-    )
+    Keys are unpredictable without reading storage, so clients can
+    only prefetch via the BAL.
 
-    sload_body = Op.POP(
-        Op.SLOAD(
-            Op.MLOAD(0),
-            key_warm=False,
-        ),
-    ) + Op.MSTORE(
-        0,
-        Op.ADD(Op.MLOAD(0), 1),
-        old_memory_size=32,
-        new_memory_size=32,
-    )
-
-    condition = Op.GT(Op.GAS, reserve_gas)
-
-    loop = While(body=sload_body, condition=condition)
-
-    return setup + loop + Op.STOP
-
-
-def _build_hash_chain_sload_code(reserve_gas: int) -> Bytecode:
-    """
-    Build runtime code that SLOADs scattered cold storage slots.
-
-    Read ``seed`` from ``calldata[0:32]``, then loop: compute
-    ``slot = keccak256(slot)``, ``SLOAD(slot)``, discard value,
-    repeat until remaining gas drops below ``reserve_gas``.
-
-    Each slot depends on the previous keccak result, so the access
-    pattern is unpredictable without a BAL but trivially prefetchable
-    with one.
+    Caller must initialize ``_POINTER_SLOT`` to a nonzero value so
+    the final SSTORE is a nonzero-to-nonzero write for gas costing.
 
     Memory layout: ``[0:32]`` = current slot key.
     """
     setup = Op.MSTORE(
         0,
-        Op.CALLDATALOAD(0),
+        Op.SLOAD(_POINTER_SLOT, key_warm=False),
         old_memory_size=0,
         new_memory_size=32,
     )
 
-    hash_sload_body = Op.MSTORE(
+    sload_body = Op.MSTORE(
         0,
-        Op.SHA3(0, 32, data_size=32),
-        old_memory_size=32,
-        new_memory_size=32,
-    ) + Op.POP(
         Op.SLOAD(
             Op.MLOAD(0),
             key_warm=False,
         ),
+        old_memory_size=32,
+        new_memory_size=32,
     )
 
     condition = Op.GT(Op.GAS, reserve_gas)
+    loop = While(body=sload_body, condition=condition)
 
-    loop = While(body=hash_sload_body, condition=condition)
+    cleanup = (
+        Op.SSTORE(
+            _POINTER_SLOT,
+            Op.MLOAD(0),
+            key_warm=True,
+            original_value=1,
+            current_value=1,
+            new_value=2,
+        )
+        + Op.STOP
+    )
 
-    return setup + loop + Op.STOP
+    return setup + loop + cleanup
 
 
 def _compute_hash_chain(seed: int, length: int) -> list[int]:
@@ -285,66 +249,78 @@ def _derive_tx_schedule(
     gas_benchmark_value: int,
     min_per_tx_gas: int,
     tx_gas_limit: int,
-    tx_count_fraction: float,
-) -> tuple[int, int]:
+    tx_density: TxDensity,
+) -> list[int]:
     """
-    Derive tx count and per-tx gas from a fraction of maximum txs.
+    Derive a list of per-tx gas limits that fill the gas budget.
 
-    Return ``(num_txs, per_tx_gas)`` where ``num_txs`` is the number
-    of transactions and ``per_tx_gas`` is the gas limit per tx.
+    ``GREEDY``: pack as many ``tx_gas_limit``-sized transactions as
+    fit and append a smaller remainder if the leftover gas meets
+    ``min_per_tx_gas``.
+
+    ``HALF``: use 50 % of the maximum possible transaction count and
+    distribute gas equally.
+
+    ``MAX``: maximize the transaction count (each tx near
+    ``min_per_tx_gas``).
     """
+    if tx_density is TxDensity.GREEDY:
+        num_full = gas_benchmark_value // tx_gas_limit
+        remainder = gas_benchmark_value - num_full * tx_gas_limit
+        schedule = [tx_gas_limit] * num_full
+        if remainder >= min_per_tx_gas:
+            schedule.append(remainder)
+        return schedule
+
     max_num_txs = gas_benchmark_value // min_per_tx_gas
-    if tx_count_fraction == 0.0:
-        num_txs = 1
-    else:
-        num_txs = max(1, int(max_num_txs * tx_count_fraction))
-    per_tx_gas = min(tx_gas_limit, gas_benchmark_value // num_txs)
-    return num_txs, per_tx_gas
+    fraction = 0.5 if tx_density is TxDensity.HALF else 1.0
+    num_txs = max(1, int(max_num_txs * fraction))
+    per_tx_gas = max(
+        min_per_tx_gas,
+        min(tx_gas_limit, gas_benchmark_value // num_txs),
+    )
+    return [per_tx_gas] * num_txs
 
 
-TX_COUNT_FRACTION_PARAMS = [
-    pytest.param(0.0, id="1_tx"),
-    pytest.param(0.01, id="1pct_max_txs"),
-    pytest.param(0.1, id="10pct_max_txs"),
-    pytest.param(0.5, id="50pct_max_txs"),
-    pytest.param(1.0, id="max_txs"),
+TX_DENSITY_PARAMS = [
+    pytest.param(TxDensity.GREEDY, id="greedy_fill"),
+    pytest.param(TxDensity.HALF, id="half_max_txs"),
+    pytest.param(TxDensity.MAX, id="max_txs"),
 ]
 
 
-@pytest.mark.valid_from("Amsterdam")
-@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
-def test_parallel_execution(
+def test_parallel_execution_serial_chain(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    tx_count_fraction: float,
 ) -> None:
     """
-    Benchmark parallel execution with serial storage dependencies.
+    Benchmark a fully serial chain as a baseline for parallel execution.
+
+    All transactions conflict on slot 0 — with a BAL, clients know
+    upfront the block is serial and avoid speculation overhead.
 
     Deploy a contract that initializes storage slot 0 to 1. Each
-    execution transaction SLOADs slot 0, performs a keccak256 hash
-    chain (iteration count determined by available gas), and SSTOREs
-    the result back. A gas-check loop exits gracefully before OOG to
-    preserve the SSTORE commit.
+    execution transaction performs a keccak256 hash chain from a
+    literal ``1`` seed (iteration count determined by available gas),
+    then combines the result with slot 0 via
+    ``SSTORE(0, ADD(SLOAD(0), result))``.
 
-    The ``tx_count_fraction`` parameter controls the number of
-    transactions as a fraction of the maximum that fit in the gas
-    budget. At 0.0, a single transaction consumes as much gas as
-    ``tx_gas_limit`` allows. At 1.0, the block is packed with the
-    maximum number of minimum-gas transactions.
+    The shared-state access (SLOAD/SSTORE on slot 0) is
+    deliberately placed at the end so speculative parallel
+    execution wastes maximum resources before discovering the
+    conflict.
     """
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator()
 
-    setup_gas, per_iter_gas, reserve_gas = _keccak_chain_gas_schedule(fork)
-    runtime_code = _build_keccak_chain_code(reserve_gas)
-    min_per_tx_gas = intrinsic_gas + setup_gas + per_iter_gas
+    runtime_code, setup_gas, _, reserve_gas = _build_keccak_chain(fork)
+    min_per_tx_gas = intrinsic_gas + setup_gas + reserve_gas
 
-    num_exec_txs, per_tx_gas = _derive_tx_schedule(
-        gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
+    tx_gas_schedule = _derive_tx_schedule(
+        gas_benchmark_value, min_per_tx_gas, tx_gas_limit, TxDensity.GREEDY
     )
 
     creation_code = Initcode(
@@ -368,11 +344,11 @@ def test_parallel_execution(
 
     with TestPhaseManager.execution():
         exec_txs = []
-        for _ in range(num_exec_txs):
+        for gas_limit in tx_gas_schedule:
             exec_txs.append(
                 Transaction(
                     to=contract_address,
-                    gas_limit=per_tx_gas,
+                    gas_limit=gas_limit,
                     sender=pre.fund_eoa(),
                 )
             )
@@ -381,7 +357,6 @@ def test_parallel_execution(
     benchmark_test(blocks=blocks, skip_gas_used_validation=True)
 
 
-@pytest.mark.valid_from("Amsterdam")
 @pytest.mark.parametrize(
     "contract_per_tx",
     [
@@ -389,14 +364,14 @@ def test_parallel_execution(
         pytest.param(True, id="contract_per_tx"),
     ],
 )
-@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
+@pytest.mark.parametrize("tx_density", TX_DENSITY_PARAMS)
 def test_state_root_computation(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    tx_count_fraction: float,
+    tx_density: TxDensity,
     contract_per_tx: bool,
 ) -> None:
     """
@@ -407,9 +382,7 @@ def test_state_root_computation(
     storage slots via a gas-check loop, so all transactions are
     genuinely independent.
 
-    The ``tx_count_fraction`` parameter controls the number of
-    transactions as a fraction of the maximum that fit in the gas
-    budget. The ``contract_per_tx`` parameter controls whether each
+    The ``contract_per_tx`` parameter controls whether each
     transaction targets a unique contract (maximizing account trie
     width) or all transactions share a single contract (maximizing
     storage trie depth).
@@ -418,6 +391,8 @@ def test_state_root_computation(
     # Worst-case calldata: 32 nonzero bytes for start_slot.
     intrinsic_gas = intrinsic_gas_calculator(calldata=b"\xff" * 32)
 
+    # Reconstruct body bytecode to extract gas components;
+    # _build_sequential_sstore_code only returns assembled code.
     setup = Op.MSTORE(
         0,
         Op.CALLDATALOAD(0),
@@ -427,14 +402,14 @@ def test_state_root_computation(
 
     sstore_body = Op.SSTORE(
         Op.MLOAD(0),
-        42,
+        2**256 - 1,
         key_warm=False,
         original_value=1,
         current_value=1,
-        new_value=42,
+        new_value=2**256 - 1,
     ) + Op.MSTORE(
         0,
-        Op.ADD(Op.MLOAD(0), 1),
+        Op.SUB(Op.MLOAD(0), 1),
         old_memory_size=32,
         new_memory_size=32,
     )
@@ -445,24 +420,30 @@ def test_state_root_computation(
     reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
 
     runtime_code = _build_sequential_sstore_code(reserve_gas)
-    min_per_tx_gas = intrinsic_gas + setup_gas + per_iter_gas
+    min_per_tx_gas = intrinsic_gas + setup_gas + reserve_gas
 
-    num_exec_txs, per_tx_gas = _derive_tx_schedule(
-        gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
+    tx_gas_schedule = _derive_tx_schedule(
+        gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_density
     )
+    num_exec_txs = len(tx_gas_schedule)
 
-    available_gas = per_tx_gas - intrinsic_gas - setup_gas
+    available_gas = tx_gas_schedule[0] - intrinsic_gas - setup_gas
     estimated_slots_per_tx = max(1, available_gas // per_iter_gas)
 
     num_contracts = num_exec_txs if contract_per_tx else 1
     txs_per_contract = math.ceil(num_exec_txs / num_contracts)
     slots_per_contract = (estimated_slots_per_tx + 1) * txs_per_contract
 
+    # Pre-populate storage counting down from near-max uint256.
+    # High slot keys + 32-byte stored values maximize RLP weight
+    # per trie leaf for state root computation.
+    high_start = 2**256 - 1
     contracts = []
     for _ in range(num_contracts):
+        storage = {high_start - i: 1 for i in range(slots_per_contract)}
         addr = pre.deploy_contract(
             code=runtime_code,
-            storage=dict.fromkeys(range(slots_per_contract), 1),
+            storage=storage,
         )
         contracts.append(addr)
 
@@ -473,12 +454,14 @@ def test_state_root_computation(
         exec_txs = []
         for tx_idx in range(num_exec_txs):
             c_idx = tx_idx % num_contracts
-            start_slot = contract_tx_counts[c_idx] * estimated_slots_per_tx
+            start_slot = (
+                high_start - contract_tx_counts[c_idx] * estimated_slots_per_tx
+            )
             contract_tx_counts[c_idx] += 1
             exec_txs.append(
                 Transaction(
                     to=contracts[c_idx],
-                    gas_limit=per_tx_gas,
+                    gas_limit=tx_gas_schedule[tx_idx],
                     data=Hash(start_slot),
                     sender=pre.fund_eoa(),
                 )
@@ -488,108 +471,99 @@ def test_state_root_computation(
     benchmark_test(blocks=blocks, skip_gas_used_validation=True)
 
 
-@pytest.mark.valid_from("Amsterdam")
-@pytest.mark.parametrize(
-    "access_pattern",
-    [
-        pytest.param("sequential", id="sequential"),
-        pytest.param("scattered", id="scattered"),
-    ],
-)
-@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
 def test_prefetch_cold_storage(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    tx_count_fraction: float,
-    access_pattern: str,
 ) -> None:
     """
-    Benchmark cold storage prefetching with different access patterns.
+    Benchmark cold storage prefetching via an SLOAD linked-list chain.
 
-    Deploy a contract with pre-populated storage. Each execution
-    transaction performs many cold SLOADs via a gas-check loop. The
-    ``access_pattern`` parameter controls how slot keys are generated:
+    Deploy a contract with pre-populated linked-list storage where
+    each slot's value is the next key.  Each execution transaction
+    performs back-to-back cold SLOADs with minimal compute between reads
+    — a worst-case prefetch scenario.
 
-    - ``"sequential"``: slots 0, 1, 2, ... (cache-friendly, somewhat
-      predictable without a BAL).
-    - ``"scattered"``: ``slot = keccak256(prev_slot)`` hash chain
-      (each slot depends on computing the previous keccak, so the
-      access pattern is unpredictable without a BAL but trivially
-      prefetchable with one).
+    Keys are unpredictable without reading storage, so clients can
+    only prefetch via the BAL.
+
+    A shared pointer slot (``_POINTER_SLOT``) serializes
+    transactions: each tx reads its seed from the pointer and writes
+    back the final key, preventing parallel execution without a BAL.
+
+    The BAL makes all accessed slots prefetchable: the data slots
+    appear in ``storage_reads`` (SLOADs not also written per
+    EIP-7928), while ``_POINTER_SLOT`` appears in
+    ``storage_changes`` (both read and written).
     """
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas = intrinsic_gas_calculator(calldata=b"\xff" * 32)
+    intrinsic_gas = intrinsic_gas_calculator()
 
+    # Reconstruct body bytecode to extract gas components;
+    # _build_sload_chain_code only returns assembled code.
     setup = Op.MSTORE(
         0,
-        Op.CALLDATALOAD(0),
+        Op.SLOAD(_POINTER_SLOT, key_warm=False),
         old_memory_size=0,
         new_memory_size=32,
     )
 
-    if access_pattern == "sequential":
-        body = Op.POP(
-            Op.SLOAD(
-                Op.MLOAD(0),
-                key_warm=False,
-            ),
-        ) + Op.MSTORE(
-            0,
-            Op.ADD(Op.MLOAD(0), 1),
-            old_memory_size=32,
-            new_memory_size=32,
-        )
-    else:
-        body = Op.MSTORE(
-            0,
-            Op.SHA3(0, 32, data_size=32),
-            old_memory_size=32,
-            new_memory_size=32,
-        ) + Op.POP(
-            Op.SLOAD(
-                Op.MLOAD(0),
-                key_warm=False,
-            ),
-        )
-
-    setup_gas = setup.gas_cost(fork)
-    per_iter_gas, exit_overhead = _derive_loop_gas(body, fork)
-    cleanup_gas = Op.STOP.gas_cost(fork)
-    reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
-
-    if access_pattern == "sequential":
-        runtime_code = _build_sequential_sload_code(reserve_gas)
-    else:
-        runtime_code = _build_hash_chain_sload_code(reserve_gas)
-
-    min_per_tx_gas = intrinsic_gas + setup_gas + per_iter_gas
-
-    num_exec_txs, per_tx_gas = _derive_tx_schedule(
-        gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
+    body = Op.MSTORE(
+        0,
+        Op.SLOAD(
+            Op.MLOAD(0),
+            key_warm=False,
+        ),
+        old_memory_size=32,
+        new_memory_size=32,
     )
 
-    available_gas = per_tx_gas - intrinsic_gas - setup_gas
+    cleanup = (
+        Op.SSTORE(
+            _POINTER_SLOT,
+            Op.MLOAD(0),
+            key_warm=True,
+            original_value=1,
+            current_value=1,
+            new_value=2,
+        )
+        + Op.STOP
+    )
+
+    setup_gas = setup.gas_cost(fork)
+    cleanup_gas = cleanup.gas_cost(fork)
+    per_iter_gas, exit_overhead = _derive_loop_gas(body, fork)
+    reserve_gas = per_iter_gas + exit_overhead + cleanup_gas
+
+    runtime_code = _build_sload_chain_code(reserve_gas)
+
+    min_per_tx_gas = intrinsic_gas + setup_gas + reserve_gas
+
+    tx_gas_schedule = _derive_tx_schedule(
+        gas_benchmark_value, min_per_tx_gas, tx_gas_limit, TxDensity.GREEDY
+    )
+    num_exec_txs = len(tx_gas_schedule)
+
+    available_gas = tx_gas_schedule[0] - intrinsic_gas - setup_gas
     estimated_slots_per_tx = max(1, available_gas // per_iter_gas)
 
     # All txs share a single contract with disjoint slot ranges.
     total_slots = (estimated_slots_per_tx + 1) * num_exec_txs
 
-    chain_seeds: list[int] = []
+    # Build linked-list storage: each tx continues where the
+    # previous left off via the shared pointer slot.
+    chain = _compute_hash_chain(1, total_slots)
     storage = Storage()
-    if access_pattern == "sequential":
-        for i in range(total_slots):
-            storage[i] = 1
-    else:
-        # Pre-compute all hash chains (one per tx) and merge slot keys.
-        for tx_idx in range(num_exec_txs):
-            seed = tx_idx
-            chain = _compute_hash_chain(seed, estimated_slots_per_tx + 1)
-            chain_seeds.append(seed)
-            for slot_key in chain:
-                storage[slot_key] = 1
+    storage[1] = chain[0]
+    for i in range(len(chain) - 1):
+        storage[chain[i]] = chain[i + 1]
+    storage[chain[-1]] = chain[-1]
+
+    # Nonzero initial value keeps the cleanup SSTORE a
+    # nonzero -> nonzero write (cheaper than 0 -> nonzero).
+    storage[_POINTER_SLOT] = 1
 
     contract = pre.deploy_contract(
         code=runtime_code,
@@ -600,17 +574,11 @@ def test_prefetch_cold_storage(
 
     with TestPhaseManager.execution():
         exec_txs = []
-        for tx_idx in range(num_exec_txs):
-            if access_pattern == "sequential":
-                start_slot = tx_idx * estimated_slots_per_tx
-                calldata = Hash(start_slot)
-            else:
-                calldata = Hash(chain_seeds[tx_idx])
+        for gas_limit in tx_gas_schedule:
             exec_txs.append(
                 Transaction(
                     to=contract,
-                    gas_limit=per_tx_gas,
-                    data=calldata,
+                    gas_limit=gas_limit,
                     sender=pre.fund_eoa(),
                 )
             )
@@ -619,94 +587,6 @@ def test_prefetch_cold_storage(
     benchmark_test(blocks=blocks, skip_gas_used_validation=True)
 
 
-@pytest.mark.valid_from("Amsterdam")
-@pytest.mark.parametrize(
-    "value_transfer",
-    [
-        pytest.param(False, id="implicit_fees"),
-        pytest.param(True, id="explicit_coinbase_call"),
-    ],
-)
-@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
-def test_coinbase_serialization(
-    benchmark_test: BenchmarkTestFiller,
-    pre: Alloc,
-    fork: Fork,
-    gas_benchmark_value: int,
-    tx_gas_limit: int,
-    tx_count_fraction: float,
-    value_transfer: bool,
-) -> None:
-    """
-    Benchmark coinbase as an implicit serialization point.
-
-    Each tx calls its own contract doing a keccak256 hash chain on a
-    private slot.  Storage is completely disjoint across contracts — the
-    **only** shared state is the coinbase balance (fee accumulation).
-
-    With ``value_transfer=False`` the dependency is purely implicit
-    (protocol-level fee crediting).  With ``value_transfer=True`` each
-    contract sends 1 wei to coinbase via ``CALL``, making the
-    dependency visible in execution traces and exercising client-specific
-    coinbase detection (e.g. Besu's ``TransactionCollisionDetector``).
-    """
-    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas = intrinsic_gas_calculator()
-
-    setup_gas, per_iter_gas, reserve_gas = _keccak_chain_gas_schedule(fork)
-    runtime_code = _build_keccak_chain_code(
-        reserve_gas, coinbase_transfer=value_transfer
-    )
-
-    # Coinbase CALL gas when value_transfer is enabled.
-    # Coinbase is warm per EIP-3651 (Shanghai+).
-    coinbase_call_gas = 0
-    if value_transfer:
-        coinbase_call_gas = Op.POP(
-            Op.CALL(
-                gas=0,
-                address=Op.COINBASE,
-                value=1,
-                address_warm=True,
-                value_transfer=True,
-            )
-        ).gas_cost(fork)
-
-    min_per_tx_gas = (
-        intrinsic_gas + setup_gas + coinbase_call_gas + per_iter_gas
-    )
-
-    num_exec_txs, per_tx_gas = _derive_tx_schedule(
-        gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
-    )
-
-    contracts = []
-    for _ in range(num_exec_txs):
-        addr = pre.deploy_contract(
-            code=runtime_code,
-            storage={0: 1},
-            balance=1 if value_transfer else 0,
-        )
-        contracts.append(addr)
-
-    blocks: list[Block] = []
-
-    with TestPhaseManager.execution():
-        exec_txs = []
-        for tx_idx in range(num_exec_txs):
-            exec_txs.append(
-                Transaction(
-                    to=contracts[tx_idx],
-                    gas_limit=per_tx_gas,
-                    sender=pre.fund_eoa(),
-                )
-            )
-        blocks.append(Block(txs=exec_txs))
-
-    benchmark_test(blocks=blocks, skip_gas_used_validation=True)
-
-
-@pytest.mark.valid_from("Amsterdam")
 @pytest.mark.parametrize(
     "pair_independence",
     [
@@ -714,24 +594,23 @@ def test_coinbase_serialization(
         pytest.param(False, id="single_contract"),
     ],
 )
-@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
+@pytest.mark.parametrize("tx_density", TX_DENSITY_PARAMS)
 def test_deploy_then_interact(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    tx_count_fraction: float,
+    tx_density: TxDensity,
     pair_independence: bool,
 ) -> None:
     """
     Benchmark structural cross-tx code dependencies.
 
-    Transactions are organized as deploy/call pairs within a single
-    block: tx 2k deploys a contract, tx 2k+1 calls it.  Without a BAL,
-    clients must discover that the call depends on the deploy through
-    speculative execution or re-execution.  With a BAL the dependency
-    is explicit.
+    Transactions include deploy and call operations within a single
+    block.  Without a BAL, clients must discover that calls depend on
+    deploys through speculative execution or re-execution.  With a BAL
+    the dependency is explicit.
 
     With ``pair_independence=True`` each pair deploys and calls its own
     contract — pairs are independent and parallelizable.  With
@@ -742,8 +621,7 @@ def test_deploy_then_interact(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator()
 
-    setup_gas, per_iter_gas, reserve_gas = _keccak_chain_gas_schedule(fork)
-    runtime_code = _build_keccak_chain_code(reserve_gas)
+    runtime_code, setup_gas, _, reserve_gas = _build_keccak_chain(fork)
 
     creation_code = Initcode(
         deploy_code=runtime_code,
@@ -771,27 +649,40 @@ def test_deploy_then_interact(
         intrinsic_gas_create + initcode_exec_gas + code_deposit_gas + 10000
     )
 
-    min_call_gas = intrinsic_gas + setup_gas + per_iter_gas
+    min_call_gas = intrinsic_gas + setup_gas + reserve_gas
+
+    fraction = {
+        TxDensity.GREEDY: None,
+        TxDensity.HALF: 0.5,
+        TxDensity.MAX: 1.0,
+    }[tx_density]
 
     if pair_independence:
         # N pairs: [deploy_0, call_0, deploy_1, call_1, ...]
-        min_per_pair = deploy_gas_limit + min_call_gas
-        max_pairs = gas_benchmark_value // min_per_pair
-        if tx_count_fraction == 0.0:
-            num_pairs = 1
+        if fraction is None:
+            per_pair_gas = deploy_gas_limit + tx_gas_limit
+            num_pairs = max(1, gas_benchmark_value // per_pair_gas)
+            remainder = gas_benchmark_value - num_pairs * per_pair_gas
+            if remainder >= deploy_gas_limit + min_call_gas:
+                num_pairs += 1
         else:
-            num_pairs = max(1, int(max_pairs * tx_count_fraction))
+            min_per_pair = deploy_gas_limit + min_call_gas
+            max_pairs = gas_benchmark_value // min_per_pair
+            num_pairs = max(1, int(max_pairs * fraction))
         per_pair_gas = gas_benchmark_value // num_pairs
         call_gas_limit = min(tx_gas_limit, per_pair_gas - deploy_gas_limit)
         num_call_txs = num_pairs
     else:
         # 1 deploy + N calls: [deploy_0, call_0, call_1, ...]
         call_budget = gas_benchmark_value - deploy_gas_limit
-        max_calls = call_budget // min_call_gas
-        if tx_count_fraction == 0.0:
-            num_call_txs = 1
+        if fraction is None:
+            num_call_txs = call_budget // tx_gas_limit
+            remainder = call_budget - num_call_txs * tx_gas_limit
+            if remainder >= min_call_gas:
+                num_call_txs += 1
         else:
-            num_call_txs = max(1, int(max_calls * tx_count_fraction))
+            max_calls = call_budget // min_call_gas
+            num_call_txs = max(1, int(max_calls * fraction))
         call_gas_limit = min(tx_gas_limit, call_budget // num_call_txs)
         num_pairs = 1
 
@@ -845,7 +736,6 @@ def test_deploy_then_interact(
     benchmark_test(blocks=blocks, skip_gas_used_validation=True)
 
 
-@pytest.mark.valid_from("Amsterdam")
 @pytest.mark.parametrize(
     "group_size",
     [
@@ -854,14 +744,14 @@ def test_deploy_then_interact(
         pytest.param(5, id="group_size_5"),
     ],
 )
-@pytest.mark.parametrize("tx_count_fraction", TX_COUNT_FRACTION_PARAMS)
+@pytest.mark.parametrize("tx_density", TX_DENSITY_PARAMS)
 def test_mixed_dependency_graph(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    tx_count_fraction: float,
+    tx_density: TxDensity,
     group_size: int,
 ) -> None:
     """
@@ -881,17 +771,17 @@ def test_mixed_dependency_graph(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator()
 
-    setup_gas, per_iter_gas, reserve_gas = _keccak_chain_gas_schedule(fork)
-    runtime_code = _build_keccak_chain_code(reserve_gas)
-    min_per_tx_gas = intrinsic_gas + setup_gas + per_iter_gas
+    runtime_code, setup_gas, _, reserve_gas = _build_keccak_chain(fork)
+    min_per_tx_gas = intrinsic_gas + setup_gas + reserve_gas
 
-    num_exec_txs, per_tx_gas = _derive_tx_schedule(
-        gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_count_fraction
+    tx_gas_schedule = _derive_tx_schedule(
+        gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_density
     )
 
     # Round down to complete groups.
-    num_groups = max(1, num_exec_txs // group_size)
+    num_groups = max(1, len(tx_gas_schedule) // group_size)
     num_exec_txs = num_groups * group_size
+    tx_gas_schedule = tx_gas_schedule[:num_exec_txs]
 
     creation_code = Initcode(
         deploy_code=runtime_code,
@@ -923,15 +813,17 @@ def test_mixed_dependency_graph(
     # Interleaved round-robin: txs from different groups alternate.
     with TestPhaseManager.execution():
         exec_txs = []
+        tx_idx = 0
         for _round_idx in range(group_size):
             for group_idx in range(num_groups):
                 exec_txs.append(
                     Transaction(
                         to=group_contracts[group_idx],
-                        gas_limit=per_tx_gas,
+                        gas_limit=tx_gas_schedule[tx_idx],
                         sender=pre.fund_eoa(),
                     )
                 )
+                tx_idx += 1
         blocks.append(Block(txs=exec_txs))
 
     benchmark_test(blocks=blocks, skip_gas_used_validation=True)
