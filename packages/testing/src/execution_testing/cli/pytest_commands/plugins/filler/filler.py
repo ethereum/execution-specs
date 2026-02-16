@@ -1055,13 +1055,8 @@ def pytest_terminal_summary(
             )
 
 
-def pytest_testnodedown(node: Any, error: Any) -> None:
-    """
-    Aggregate t8n cache stats from xdist workers.
-
-    Called on the controller when a worker node finishes.
-    """
-    del error
+def _aggregate_cache_stats(node: Any) -> None:
+    """Aggregate t8n cache stats from an xdist worker."""
     worker_stats = getattr(node, "workeroutput", {}).get("t8n_cache_stats")
     if worker_stats and hasattr(node.config, "t8n_cache_stats_aggregated"):
         node.config.t8n_cache_stats_aggregated.add(
@@ -2157,9 +2152,10 @@ def pytest_testnodedown(node: Any, error: Any) -> None:
     """
     Called on master when a worker node finishes.
 
-    Prints any timing logs collected by the worker during sessionfinish.
+    Aggregate cache stats and print timing logs from the worker.
     """
     del error
+    _aggregate_cache_stats(node)
     logger = logging.getLogger("fill.sessionfinish")
     worker_id = getattr(node, "workerinput", {}).get("workerid", "unknown")
     timing_logs = getattr(node, "workeroutput", {}).get("timing_logs", [])
