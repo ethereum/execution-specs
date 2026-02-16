@@ -779,6 +779,69 @@ def create_sstore_executor(
     return IteratingBytecode(setup=setup, iterating=loop, cleanup=cleanup)
 
 
+def create_sstore_dirty_executor(
+    write_values: List[int],
+    key_warm: bool,
+    initial_value: int,
+) -> IteratingBytecode:
+    """
+    Create executor that writes multiple values to each slot.
+
+    Exercise dirty state transitions by performing a sequence of SSTOREs
+    to the same slot within a single loop iteration. After the first
+    SSTORE, the slot is warm and subsequent writes hit the dirty
+    (100 gas) path when original != current.
+
+    - CALLDATA[0..32] start slot (index)
+    - CALLDATA[32..64] ending slot (end_slot)
+
+    Return an IteratingBytecode for the dirty-write benchmark executor.
+    """
+    setup = (
+        Op.CALLDATALOAD(32)  # end_slot
+        + Op.CALLDATALOAD(0)  # start_slot = counter
+    )
+    # Stack: [counter, end_slot]
+
+    loop = Bytecode()
+    loop += Op.JUMPDEST
+
+    for i, val in enumerate(write_values):
+        is_first = (i == 0)
+        current_val = (
+            initial_value if is_first else write_values[i - 1]
+        )
+        # DUP2 reaches counter through the pushed value
+        loop += Op.SSTORE(
+            Op.DUP2,
+            val,
+            key_warm=key_warm if is_first else True,
+            original_value=initial_value,
+            current_value=current_val,
+            new_value=val,
+        )
+    # Stack after all writes: [counter, end_slot]
+
+    # Increment counter
+    loop += Op.PUSH1(1)
+    loop += Op.ADD
+    # [counter + 1, end_slot]
+
+    # Loop while counter + 1 < end_slot
+    loop += Op.DUP2
+    loop += Op.DUP2
+    loop += Op.LT
+    loop += Op.PUSH1(len(setup))
+    loop += Op.JUMPI
+
+    cleanup = Bytecode()
+    cleanup += Op.STOP
+
+    return IteratingBytecode(
+        setup=setup, iterating=loop, cleanup=cleanup
+    )
+
+
 def access_list_generator(
     iteration_count: int,
     start_iteration: int,
@@ -1059,6 +1122,153 @@ def test_sstore_variants(
         pre=pre,
         blocks=blocks,
         expected_benchmark_gas_used=expected_gas_used,
+    )
+
+
+# SSTORE DIRTY TRANSITIONS BENCHMARK ARCHITECTURE:
+#
+#   [Authority EOA]
+#       │
+#       │ Phase 1: Delegate to StorageInitializer
+#       │   ──► SSTORE(slot, initial_value) for N slots
+#       │
+#       │ Phase 2: Delegate to DirtyExecutor
+#       │   ──► For each slot:
+#       │         SSTORE(slot, v1) → SSTORE(slot, v2) → ...
+#       │
+# WHY IT STRESSES CLIENTS:
+#   - Multiple writes per slot exercise EIP-2200/EIP-3529 refund
+#     branching: clean (original==current) vs dirty (original!=current)
+#   - Oscillation causes refund counter to swing up/down each write
+#   - Refund cap (gas_used/5) saturates with enough iterations
+#   - Tests correct tracking of original vs current vs new values
+
+
+@pytest.mark.parametrize("access_warm", [True, False])
+@pytest.mark.parametrize(
+    "initial_value,write_values",
+    [
+        pytest.param(
+            0xDEADBEEF,
+            [0, 0xDEADBEEF, 0, 0xDEADBEEF],
+            id="oscillation_4x",
+        ),
+        pytest.param(
+            0xDEADBEEF,
+            [0, 0xDEADBEEF, 0, 0xDEADBEEF, 0, 0xDEADBEEF],
+            id="oscillation_6x",
+        ),
+        pytest.param(
+            0xDEADBEEF,
+            [0xBEEFBEEF, 0xCAFECAFE, 0xDEADBEEF],
+            id="triple_write_restore",
+        ),
+        pytest.param(
+            0xDEADBEEF,
+            [0],
+            id="mass_clear",
+        ),
+    ],
+)
+def test_sstore_dirty_transitions(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    pre: Alloc,
+    tx_gas_limit: int,
+    gas_benchmark_value: int,
+    access_warm: bool,
+    initial_value: int,
+    write_values: List[int],
+) -> None:
+    """
+    Benchmark SSTORE dirty state transitions.
+
+    Exercise EIP-2200/EIP-3529 refund logic by writing the same slot
+    multiple times per iteration. Uses EIP-7702 delegation: authority
+    EOA delegates to initializer then to dirty-write executor.
+
+    Variants:
+    - oscillation: X→0→X→0, alternates clean (2900) and dirty (100)
+    - triple_write_restore: X→B→C→X, all SSTORE branches
+    - mass_clear: X→0, maximum per-slot refund generation
+    """
+    # Initial Storage Construction
+    initializer_code = create_sstore_initializer(initial_value)
+    initializer_addr = pre.deploy_contract(
+        code=initializer_code
+    )
+
+    # Benchmark Executor — multi-write per slot
+    executor_code = create_sstore_dirty_executor(
+        write_values=write_values,
+        key_warm=access_warm,
+        initial_value=initial_value,
+    )
+    executor_addr = pre.deploy_contract(code=executor_code)
+
+    authority = pre.fund_eoa(amount=0)
+    authority_nonce = 0
+
+    delegation_sender = pre.fund_eoa()
+
+    calldata_gen = partial(executor_calldata_generator)
+    access_list_gen = partial(
+        access_list_generator,
+        access_warm=access_warm,
+        authority=authority,
+    )
+
+    # Number of slots processable in execution phase
+    num_target_slots = sum(
+        executor_code.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_benchmark_value,
+            calldata=calldata_gen,
+            access_list=access_list_gen,
+            start_iteration=1,
+        )
+    )
+
+    # Setup phase: initialize all slots to initial_value
+    with TestPhaseManager.setup():
+        blocks = build_delegated_storage_setup(
+            pre=pre,
+            fork=fork,
+            tx_gas_limit=tx_gas_limit,
+            needs_init=initial_value != 0,
+            num_target_slots=num_target_slots,
+            initializer_code=initializer_code,
+            initializer_addr=initializer_addr,
+            executor_addr=executor_addr,
+            authority=authority,
+            authority_nonce=authority_nonce,
+            delegation_sender=delegation_sender,
+            initializer_calldata_generator=(
+                initializer_calldata_generator
+            ),
+        )
+
+    # Execution phase — no expected_benchmark_gas_used because
+    # refund cap (gas_used/5) makes actual consumption non-trivial
+    with TestPhaseManager.execution():
+        exec_txs = list(
+            executor_code.transactions_by_gas_limit(
+                fork=fork,
+                gas_limit=gas_benchmark_value,
+                sender=pre.fund_eoa(),
+                to=authority,
+                calldata=calldata_gen,
+                start_iteration=1,
+                access_list=access_list_gen,
+            )
+        )
+
+    blocks.append(Block(txs=exec_txs))
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
     )
 
 

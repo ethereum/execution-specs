@@ -37,6 +37,14 @@ MIXED_TOKENS = [
     if k.startswith("test_mixed_sload_sstore_")
 ]
 
+# Extract factory stub names for factory-based benchmarks, sorted by bytecode size
+FACTORY_STUBS = sorted(
+    [k for k in _STUBS if k.startswith("bloatnet_factory_")],
+    key=lambda name: float(
+        name.replace("bloatnet_factory_", "").replace("kb", "").replace("_", ".")
+    ),
+)
+
 
 class CacheStrategy(str, Enum):
     """Defines cache assumptions for benchmarked state access."""
