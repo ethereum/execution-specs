@@ -54,9 +54,7 @@ class BesuEvmTool(EthereumCLI):
         self.binary = binary if binary else self.default_binary
         self.trace = trace
 
-    def _run_command(
-        self, command: List[str]
-    ) -> subprocess.CompletedProcess:
+    def _run_command(self, command: List[str]) -> subprocess.CompletedProcess:
         """Run a command and return the result."""
         try:
             return subprocess.run(
@@ -66,13 +64,9 @@ class BesuEvmTool(EthereumCLI):
                 text=True,
             )
         except subprocess.CalledProcessError as e:
-            raise Exception(
-                "Command failed with non-zero status."
-            ) from e
+            raise Exception("Command failed with non-zero status.") from e
         except Exception as e:
-            raise Exception(
-                "Unexpected exception calling evmtool."
-            ) from e
+            raise Exception("Unexpected exception calling evmtool.") from e
 
     def _consume_debug_dump(
         self,
@@ -87,14 +81,10 @@ class BesuEvmTool(EthereumCLI):
         )
         assert len(command) > 0
 
-        debug_fixture_path = str(
-            debug_output_path / "fixtures.json"
-        )
+        debug_fixture_path = str(debug_output_path / "fixtures.json")
         command[-1] = debug_fixture_path
 
-        consume_direct_call = " ".join(
-            shlex.quote(arg) for arg in command
-        )
+        consume_direct_call = " ".join(shlex.quote(arg) for arg in command)
 
         consume_direct_script = textwrap.dedent(
             f"""\
@@ -540,9 +530,7 @@ class BesuFixtureConsumer(
         if "Failed:" in stdout:
             failed_match = re.search(r"Failed:\s+(\d+)", stdout)
             if failed_match and int(failed_match.group(1)) > 0:
-                raise Exception(
-                    f"Blockchain test failed:\n{stdout}"
-                )
+                raise Exception(f"Blockchain test failed:\n{stdout}")
 
     @cache  # noqa
     def consume_state_test_file(
@@ -629,14 +617,10 @@ class BesuFixtureConsumer(
             )
         else:
             if any(not r["pass"] for r in file_results):
-                exception_text = (
-                    "State test failed: \n"
-                    + "\n".join(
-                        f"{r['name']}: "
-                        + r.get("error", "unknown error")
-                        for r in file_results
-                        if not r["pass"]
-                    )
+                exception_text = "State test failed: \n" + "\n".join(
+                    f"{r['name']}: " + r.get("error", "unknown error")
+                    for r in file_results
+                    if not r["pass"]
                 )
                 raise Exception(exception_text)
 
