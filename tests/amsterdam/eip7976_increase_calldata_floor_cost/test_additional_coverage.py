@@ -142,8 +142,7 @@ class TestTokenCalculation:
         )
 
         expected_intrinsic_cost = 21000 + (
-            expected_standard_tokens
-            * gas_costs.G_TX_DATA_STANDARD_TOKEN_COST
+            expected_standard_tokens * gas_costs.G_TX_DATA_STANDARD_TOKEN_COST
         )
         assert intrinsic_cost_before_execution == expected_intrinsic_cost, (
             f"Intrinsic cost mismatch for {description}: "
