@@ -50,6 +50,16 @@ gas cost for transactions that include calldata.
 [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
 """
 
+CALLDATA_TOKENS_PER_ZERO_BYTE = Uint(1)
+"""
+Token count contribution of each zero byte in transaction data.
+"""
+
+CALLDATA_TOKENS_PER_NONZERO_BYTE = Uint(4)
+"""
+Token count contribution of each non-zero byte in transaction data.
+"""
+
 TX_CREATE_COST = Uint(32000)
 """
 Additional gas cost for creating a new contract.
@@ -557,8 +567,8 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
-    intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
-    if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
+    intrinsic_gas, data_floor_gas_cost = calculate_intrinsic_cost(tx)
+    if max(intrinsic_gas, data_floor_gas_cost) > tx.gas:
         raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
@@ -567,19 +577,21 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     if tx.gas > TX_MAX_GAS_LIMIT:
         raise TransactionGasLimitExceededError("Gas limit too high")
 
-    return intrinsic_gas, calldata_floor_gas_cost
+    return intrinsic_gas, data_floor_gas_cost
 
 
 def count_tokens_in_data(data: bytes) -> Uint:
     """
-    Count the tokens in an arbitrary input data.
+    Count the data tokens in arbitrary input bytes.
     """
-    zero_bytes = 0
+    tokens = Uint(0)
     for byte in data:
         if byte == 0:
-            zero_bytes += 1
+            tokens += CALLDATA_TOKENS_PER_ZERO_BYTE
+        else:
+            tokens += CALLDATA_TOKENS_PER_NONZERO_BYTE
 
-    return Uint(zero_bytes + (len(data) - zero_bytes) * 4)
+    return tokens
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
@@ -600,13 +612,12 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
     4. Cost for access list entries (if applicable)
-    5. Cost for access list data (EIP-7981)
+    5. Cost for access list data (if applicable)
     6. Cost for authorizations (if applicable)
 
-    Per EIP-7981, access lists now incur data costs in addition to storage
-    access costs. The data cost is calculated based on the number of bytes
-    in the access list (addresses and storage keys), with zero bytes costing
-    1 token and non-zero bytes costing 4 tokens.
+    Access lists incur data costs in addition to storage access costs. Token
+    counting uses `CALLDATA_TOKENS_PER_ZERO_BYTE` and
+    `CALLDATA_TOKENS_PER_NONZERO_BYTE`.
 
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction and the minimum gas cost used by the
@@ -624,7 +635,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     else:
         create_cost = Uint(0)
 
-    # EIP-7981: Calculate access list tokens and costs
+    # Calculate access-list tokens and costs.
     access_list_cost = Uint(0)
     tokens_in_access_list = Uint(0)
     if isinstance(
@@ -637,29 +648,29 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         ),
     ):
         for access in tx.access_list:
-            # Storage access costs (EIP-2930)
+            # Storage access costs.
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += (
                 ulen(access.slots) * TX_ACCESS_LIST_STORAGE_KEY_COST
             )
 
-        # EIP-7981: Count data tokens in access list
+        # Count data tokens in the access list.
         access_list_data = b""
         for access in tx.access_list:
             access_list_data += bytes(access.account)
             for slot in access.slots:
                 access_list_data += bytes(slot)
         tokens_in_access_list = count_tokens_in_data(access_list_data)
-        # EIP-7981: Always charge data cost for access list
+        # Always charge data cost for the access list.
         access_list_cost += tokens_in_access_list * FLOOR_CALLDATA_COST
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
         auth_cost += Uint(PER_EMPTY_ACCOUNT_COST * len(tx.authorizations))
 
-    # EIP-7623/7981: Floor includes all data tokens
+    # Floor includes all data tokens.
     total_data_tokens = tokens_in_calldata + tokens_in_access_list
-    calldata_floor_gas_cost = (
+    data_floor_gas_cost = (
         total_data_tokens * FLOOR_CALLDATA_COST + TX_BASE_COST
     )
 
@@ -671,7 +682,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             + access_list_cost
             + auth_cost
         ),
-        calldata_floor_gas_cost,
+        data_floor_gas_cost,
     )
 
 

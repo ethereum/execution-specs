@@ -45,6 +45,16 @@ gas cost for transactions that include calldata.
 [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
 """
 
+CALLDATA_TOKENS_PER_ZERO_BYTE = Uint(1)
+"""
+Token count contribution of each zero byte in transaction data.
+"""
+
+CALLDATA_TOKENS_PER_NONZERO_BYTE = Uint(4)
+"""
+Token count contribution of each non-zero byte in transaction data.
+"""
+
 TX_CREATE_COST = Uint(32000)
 """
 Additional gas cost for creating a new contract.
@@ -550,15 +560,29 @@ def validate_transaction(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     from .vm.interpreter import MAX_INIT_CODE_SIZE
 
-    intrinsic_gas, calldata_floor_gas_cost = calculate_intrinsic_cost(tx)
-    if max(intrinsic_gas, calldata_floor_gas_cost) > tx.gas:
+    intrinsic_gas, data_floor_gas_cost = calculate_intrinsic_cost(tx)
+    if max(intrinsic_gas, data_floor_gas_cost) > tx.gas:
         raise InsufficientTransactionGasError("Insufficient gas")
     if U256(tx.nonce) >= U256(U64.MAX_VALUE):
         raise NonceOverflowError("Nonce too high")
     if tx.to == Bytes0(b"") and len(tx.data) > MAX_INIT_CODE_SIZE:
         raise InitCodeTooLargeError("Code size too large")
 
-    return intrinsic_gas, calldata_floor_gas_cost
+    return intrinsic_gas, data_floor_gas_cost
+
+
+def count_tokens_in_data(data: bytes) -> Uint:
+    """
+    Count the data tokens in arbitrary input bytes.
+    """
+    tokens = Uint(0)
+    for byte in data:
+        if byte == 0:
+            tokens += CALLDATA_TOKENS_PER_ZERO_BYTE
+        else:
+            tokens += CALLDATA_TOKENS_PER_NONZERO_BYTE
+
+    return tokens
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
@@ -589,14 +613,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST
     from .vm.gas import init_code_cost
 
-    zero_bytes = 0
-    for byte in tx.data:
-        if byte == 0:
-            zero_bytes += 1
-
-    tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
-    # EIP-7623 floor price (note: no EVM costs)
-    calldata_floor_gas_cost = (
+    tokens_in_calldata = count_tokens_in_data(tx.data)
+    # Floor price excludes EVM execution costs.
+    data_floor_gas_cost = (
         tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
     )
 
@@ -635,7 +654,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             + access_list_cost
             + auth_cost
         ),
-        calldata_floor_gas_cost,
+        data_floor_gas_cost,
     )
 
 
