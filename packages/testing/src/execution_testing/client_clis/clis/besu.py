@@ -36,12 +36,14 @@ from ..transition_tool import (
     model_dump_config,
 )
 
+BESU_BIN_DETECT_PATTERN = re.compile(r"^Besu evm .*$")
+
 
 class BesuEvmTool(EthereumCLI):
     """Besu `evmtool` base class."""
 
     default_binary = Path("evmtool")
-    detect_binary_pattern = re.compile(r"^Besu evm .*$")
+    detect_binary_pattern = BESU_BIN_DETECT_PATTERN
     cached_version: Optional[str] = None
     trace: bool
 
@@ -109,7 +111,7 @@ class BesuTransitionTool(TransitionTool):
     """Besu EvmTool Transition tool frontend wrapper class."""
 
     default_binary = Path("evm")
-    detect_binary_pattern = re.compile(r"^Besu evm .*$")
+    detect_binary_pattern = BESU_BIN_DETECT_PATTERN
     binary: Path
     cached_version: Optional[str] = None
     trace: bool
@@ -581,8 +583,12 @@ class BesuFixtureConsumer(
                 if "test" in entry and "name" not in entry:
                     entry["name"] = entry["test"]
                 results.append(entry)
-            except json.JSONDecodeError:
-                continue
+            except json.JSONDecodeError as e:
+                raise Exception(
+                    f"Failed to parse Besu state-test output as JSON.\n"
+                    f"Offending line:\n{line}\n\n"
+                    f"Error: {e}"
+                ) from e
         return results
 
     def consume_state_test(
