@@ -378,7 +378,9 @@ class BuiltBlock(CamelModel):
     fork: Fork
     block_access_list: BlockAccessList | None
 
-    def get_fixture_block(self) -> FixtureBlock | InvalidFixtureBlock:
+    def get_fixture_block(
+        self, *, include_receipts: bool = True
+    ) -> FixtureBlock | InvalidFixtureBlock:
         """Get a FixtureBlockBase from the built block."""
         fixture_block = FixtureBlockBase(
             header=self.header,
@@ -398,7 +400,7 @@ class BuiltBlock(CamelModel):
                     )
                     for i, r in enumerate(self.result.receipts)
                 ]
-                if self.result.receipts
+                if self.result.receipts and include_receipts
                 else None
             ),
             block_access_list=self.block_access_list
@@ -499,10 +501,14 @@ class BlockchainTest(BaseTest):
     blocks: List[Block]
     genesis_environment: Environment = Field(default_factory=Environment)
     chain_id: int = 1
-    exclude_full_post_state_in_output: bool = False
+    include_full_post_state_in_output: bool = True
     """
-    Exclude the post state from the fixture output. In this case, the state
+    Include the post state in the fixture output. Otherwise, the state
     verification is only performed based on the state root.
+    """
+    include_intermediate_block_tx_receipts: bool = True
+    """
+    Include transaction receipts in blocks prior to the last block.
     """
 
     _benchmark_opcode_count: OpcodeCount | None = PrivateAttr(None)
@@ -875,14 +881,22 @@ class BlockchainTest(BaseTest):
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
             # Set the environment according to the block to execute.
+            is_last_block = i == len(self.blocks) - 1
             built_block = self.generate_block_data(
                 t8n=t8n,
                 block=block,
                 previous_env=env,
                 previous_alloc=alloc,
-                last_block=i == len(self.blocks) - 1,
+                last_block=is_last_block,
             )
-            fixture_blocks.append(built_block.get_fixture_block())
+            include_receipts = (
+                is_last_block or self.include_intermediate_block_tx_receipts
+            )
+            fixture_blocks.append(
+                built_block.get_fixture_block(
+                    include_receipts=include_receipts
+                )
+            )
 
             # BAL verification already done in to_fixture_bal() if
             # expected_block_access_list set
@@ -918,10 +932,10 @@ class BlockchainTest(BaseTest):
             last_block_hash=head,
             pre=pre,
             post_state=alloc
-            if not self.exclude_full_post_state_in_output
+            if self.include_full_post_state_in_output
             else None,
             post_state_hash=state_root
-            if self.exclude_full_post_state_in_output
+            if not self.include_full_post_state_in_output
             else None,
             config=FixtureConfig(
                 fork=self.fork,
@@ -1004,7 +1018,7 @@ class BlockchainTest(BaseTest):
             "payloads": fixture_payloads,
             "last_block_hash": head_hash,
             "post_state_hash": state_root
-            if self.exclude_full_post_state_in_output
+            if not self.include_full_post_state_in_output
             else None,
             "config": FixtureConfig(
                 fork=self.fork,
@@ -1023,7 +1037,7 @@ class BlockchainTest(BaseTest):
             fixture_data.update(
                 {
                     "post_state": alloc
-                    if not self.exclude_full_post_state_in_output
+                    if self.include_full_post_state_in_output
                     else None,
                     "pre_hash": "",  # Will be set by BaseTestWrapper
                 }
@@ -1052,7 +1066,7 @@ class BlockchainTest(BaseTest):
                     ),
                     "pre": pre,
                     "post_state": alloc
-                    if not self.exclude_full_post_state_in_output
+                    if self.include_full_post_state_in_output
                     else None,
                 }
             )
@@ -1063,7 +1077,7 @@ class BlockchainTest(BaseTest):
                 {
                     "pre": pre,
                     "post_state": alloc
-                    if not self.exclude_full_post_state_in_output
+                    if self.include_full_post_state_in_output
                     else None,
                 }
             )
