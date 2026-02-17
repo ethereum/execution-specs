@@ -146,6 +146,7 @@ def test_tstore_unique_keys(
         gas_remaining -= gas_available
         counter_offset += num_iters
 
+    assert txs, "Gas loop produced zero transactions"
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],

@@ -35,27 +35,26 @@ REFERENCE_SPEC_VERSION = "1.0"
 
 # BLOATNET ARCHITECTURE:
 #
-#   [Initcode Contract]        [Factory Contract]              [24KB Contracts]
-#         (9.5KB)                    (116B)                     (N x 24KB each)
-#           │                          │                              │
-#           │  EXTCODECOPY             │   CREATE2(salt++)            │
-#           └──────────────►           ├──────────────────►     Contract_0
-#                                      ├──────────────────►     Contract_1
-#                                      ├──────────────────►     Contract_2
-#                                      └──────────────────►     Contract_N
+#   [Initcode Contract]        [Factory Contract]        [Deployed Contracts]
+#     (varies by stub)           (varies by stub)          (N x each)
+#           │                          │                        │
+#           │  EXTCODECOPY             │   CREATE2(salt++)      │
+#           └──────────────►           ├────────────────►  Contract_0
+#                                      ├────────────────►  Contract_1
+#                                      └────────────────►  Contract_N
 #
 #   [Attack Contract] ──STATICCALL──► [Factory.getConfig()]
 #           │                              returns: (N, hash)
 #           └─► Loop(i=0 to N):
-#                 1. Generate CREATE2 addr: keccak256(0xFF|factory|i|hash)[12:]
-#                 2. BALANCE(addr)    → 2600 gas (cold access)
-#                 3. EXTCODESIZE(addr) → 100 gas (warm access)
+#                 1. Compute CREATE2 addr from factory|salt|hash
+#                 2. BALANCE(addr)        → 2600 gas (cold)
+#                 3. <second_opcode>(addr) → varies (warm)
 #
 # HOW IT WORKS:
-#   1. Factory uses EXTCODECOPY to load initcode, avoiding PC-relative jumps
-#   2. Each CREATE2 deployment produces unique 24KB bytecode (via ADDRESS)
-#   3. All contracts share same initcode hash for deterministic addresses
-#   4. Attack rapidly accesses all contracts, stressing client's state handling
+#   1. Factory uses EXTCODECOPY to load initcode
+#   2. Each CREATE2 produces unique bytecode (via ADDRESS)
+#   3. Shared initcode hash enables deterministic addresses
+#   4. Attack rapidly accesses all contracts per factory stub
 
 
 @pytest.mark.parametrize(
@@ -82,7 +81,10 @@ def test_bloatnet_balance_opcode(
     second_opcode: str,
     factory_stub: str,
 ) -> None:
-    """Benchmark BALANCE paired with a second opcode on bloatnet factory contracts."""
+    """
+    Benchmark BALANCE paired with a second opcode on bloatnet
+    factory contracts.
+    """
     factory_address = pre.deploy_contract(
         code=Bytecode(),
         stub=factory_stub,
@@ -130,16 +132,17 @@ def test_bloatnet_balance_opcode(
                 dest_offset=Op.ADD(Op.MLOAD(32), 96),
                 offset=max_contract_size - 1,
                 size=1,
+                data_size=1,
             )
         )
     elif second_opcode == "EXTCODEHASH":
         other_op = Op.POP(Op.EXTCODEHASH)
     elif second_opcode == "STATICCALL":
-        # gas=1: forces account/code loading setup, then immediately fails
+        # gas=1: forces account/code loading, then fails
         other_op = Op.POP(
             Op.STATICCALL(
                 gas=1,
-                address=Op.DUP2,
+                address=create2_preimage.address_op(),
                 args_offset=0,
                 args_size=0,
                 ret_offset=0,
@@ -147,11 +150,11 @@ def test_bloatnet_balance_opcode(
             )
         )
     elif second_opcode == "CALL":
-        # gas=1: forces account/code loading setup, then immediately fails
+        # gas=1: forces account/code loading, then fails
         other_op = Op.POP(
             Op.CALL(
                 gas=1,
-                address=Op.DUP2,
+                address=create2_preimage.address_op(),
                 value=0,
                 args_offset=0,
                 args_size=0,
@@ -233,6 +236,7 @@ def test_bloatnet_balance_opcode(
         gas_remaining -= gas_available
         salt_offset += num_contract
 
+    assert txs, "Gas loop produced zero transactions"
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],
@@ -395,6 +399,7 @@ def test_bloatnet_call_value_existing(
         gas_remaining -= gas_available
         salt_offset += num_contract
 
+    assert txs, "Gas loop produced zero transactions"
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],
@@ -523,6 +528,7 @@ def test_bloatnet_call_value_new_account(
         gas_remaining -= gas_available
         salt_offset += num_calls
 
+    assert txs, "Gas loop produced zero transactions"
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],
@@ -774,6 +780,7 @@ def test_mixed_sload_sstore(
         gas_remaining -= gas_available
         slot_offset += num_sload + num_sstore
 
+    assert txs, "Gas loop produced zero transactions"
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],

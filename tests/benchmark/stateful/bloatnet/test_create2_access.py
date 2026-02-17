@@ -228,6 +228,7 @@ def test_create2_immediate_access(
         gas_remaining -= gas_available
         counter_start += num_iters
 
+    assert txs, "Gas loop produced zero transactions"
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],

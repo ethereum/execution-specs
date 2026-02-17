@@ -37,12 +37,18 @@ MIXED_TOKENS = [
     if k.startswith("test_mixed_sload_sstore_")
 ]
 
-# Extract factory stub names for factory-based benchmarks, sorted by bytecode size
+# Extract factory stub names for factory-based benchmarks,
+# sorted by bytecode size
 FACTORY_STUBS = sorted(
     [k for k in _STUBS if k.startswith("bloatnet_factory_")],
     key=lambda name: float(
-        name.replace("bloatnet_factory_", "").replace("kb", "").replace("_", ".")
+        name.replace("bloatnet_factory_", "")
+        .replace("kb", "")
+        .replace("_", ".")
     ),
+)
+assert FACTORY_STUBS, (
+    "No factory stubs found matching 'bloatnet_factory_*'"
 )
 
 

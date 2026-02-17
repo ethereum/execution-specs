@@ -374,14 +374,11 @@ def test_sstore_erc20_approve(
             data_size=64,
         )
         + Op.DUP1
-        + Op.SLOAD.with_metadata(access_warm=False)
+        + Op.SLOAD.with_metadata(key_warm=False)
         + Op.POP
         + Op.SSTORE
         # Return true
-        + Op.PUSH1(1)
-        + Op.MSTORE(0)
-        + Op.PUSH1(32)
-        + Op.PUSH1(0)
+        + Op.MSTORE(0, 1)
         + Op.RETURN(0, 32)
     )
 
@@ -1167,6 +1164,16 @@ def test_sstore_variants(
             0xDEADBEEF,
             [0],
             id="mass_clear",
+        ),
+        pytest.param(
+            0,
+            [1, 0, 1, 0],
+            id="oscillation_4x_from_zero",
+        ),
+        pytest.param(
+            0,
+            [1],
+            id="mass_set_from_zero",
         ),
     ],
 )
