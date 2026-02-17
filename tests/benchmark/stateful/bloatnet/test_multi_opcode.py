@@ -233,7 +233,8 @@ def test_bloatnet_call_value_existing(
     tx_gas_limit: int,
     factory_stub: str,
 ) -> None:
-    """Benchmark CALL with value transfer to cold existing factory contracts.
+    """
+    Benchmark CALL with value transfer to cold existing factory contracts.
 
     Unlike the existing CALL test which uses gas=1 and value=0, this test
     passes value=1 wei per call, adding GAS_CALL_VALUE (9000 gas) to each
@@ -331,7 +332,8 @@ def test_bloatnet_call_value_new_account(
     gas_benchmark_value: int,
     tx_gas_limit: int,
 ) -> None:
-    """Benchmark CALL with value transfer to non-existent accounts.
+    """
+    Benchmark CALL with value transfer to non-existent accounts.
 
     Generate unique addresses via keccak256(counter) and CALL each with
     value=1 wei. Since these addresses have no code, the subcall succeeds

@@ -103,7 +103,8 @@ def build_benchmark_txs(
     | None = None,
     access_list: "list[AccessList] | None" = None,
 ) -> tuple[list[Transaction], int]:
-    """Build benchmark transactions filling gas_benchmark_value.
+    """
+    Build benchmark transactions filling gas_benchmark_value.
 
     Partition the total gas budget into transactions, each
     containing as many loop iterations as the per-tx gas limit
