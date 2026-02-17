@@ -8,7 +8,7 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8
 from ethereum_types.numeric import Uint
 
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 
 from ..blocks import Block, Header
 from ..fork import EMPTY_OMMER_HASH
@@ -73,7 +73,9 @@ def _payload_header(
         excess_blob_gas=execution_payload.excess_blob_gas,
         parent_beacon_block_root=parent_beacon_block_root,
         requests_hash=requests_hash,
-        block_access_list_hash=execution_payload.block_access_list_hash,
+        block_access_list_hash=Hash32(
+            keccak256(execution_payload.block_access_list)
+        ),
     )
 
 
