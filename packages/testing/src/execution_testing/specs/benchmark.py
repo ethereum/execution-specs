@@ -536,7 +536,9 @@ class BenchmarkTest(BaseTest):
                 self.target_opcode is not None
                 and self.fixed_opcode_count is not None
             ):
-                self._verify_target_opcode_count(blockchain_test._opcode_count)
+                self._verify_target_opcode_count(
+                    blockchain_test._benchmark_opcode_count
+                )
             return fixture
         else:
             raise Exception(f"Unsupported fixture format: {fixture_format}")

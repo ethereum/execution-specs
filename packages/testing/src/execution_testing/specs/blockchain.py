@@ -14,7 +14,13 @@ from typing import (
 )
 
 import pytest
-from pydantic import ConfigDict, Field, field_validator, model_serializer
+from pydantic import (
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    field_validator,
+    model_serializer,
+)
 
 from execution_testing.base_types import (
     Address,
@@ -32,6 +38,7 @@ from execution_testing.client_clis import (
     Result,
     TransitionTool,
 )
+from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.exceptions import (
     BlockException,
     EngineAPIError,
@@ -498,6 +505,8 @@ class BlockchainTest(BaseTest):
     verification is only performed based on the state root.
     """
 
+    _benchmark_opcode_count: OpcodeCount | None = PrivateAttr(None)
+
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
     ] = [
@@ -690,6 +699,10 @@ class BlockchainTest(BaseTest):
                     f"expected_benchmark_gas_used "
                     f"({expected_benchmark_gas_used}), difference: {diff}"
                 )
+
+            self._benchmark_opcode_count = (
+                transition_tool_output.result.opcode_count
+            )
 
         requests_list: List[Bytes] | None = None
         if self.fork.header_requests_required(
