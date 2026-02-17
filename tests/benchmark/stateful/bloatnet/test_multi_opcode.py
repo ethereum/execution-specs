@@ -295,10 +295,7 @@ def test_bloatnet_call_value_existing(
     )
 
     loop = While(
-        body=(
-            call_value_op
-            + create2_preimage.increment_salt_op()
-        ),
+        body=(call_value_op + create2_preimage.increment_salt_op()),
         condition=DECREMENT_COUNTER_CONDITION,
     )
 
@@ -379,10 +376,7 @@ def test_bloatnet_call_value_new_account(
     increment_counter = Op.MSTORE(0, Op.ADD(Op.MLOAD(0), 1))
 
     loop = While(
-        body=(
-            call_value_op
-            + increment_counter
-        ),
+        body=(call_value_op + increment_counter),
         condition=DECREMENT_COUNTER_CONDITION,
     )
 
@@ -617,16 +611,16 @@ def test_mixed_sload_sstore(
         if num_sload == 0 or num_sstore == 0:
             break
 
-        calldata = (
-            Hash(num_sload) + Hash(num_sstore) + Hash(slot_offset)
-        )
+        calldata = Hash(num_sload) + Hash(num_sstore) + Hash(slot_offset)
         actual_intrinsic = intrinsic_cost_calc(
             access_list=access_list,
             calldata=bytes(calldata),
             return_cost_deducted_prior_execution=True,
         )
         tx_gas = (
-            actual_intrinsic + setup_cost + transition_cost
+            actual_intrinsic
+            + setup_cost
+            + transition_cost
             + num_sload * sload_iter_cost
             + num_sstore * sstore_iter_cost
         )

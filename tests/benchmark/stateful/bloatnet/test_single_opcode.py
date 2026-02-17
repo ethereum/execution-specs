@@ -797,10 +797,8 @@ def create_sstore_dirty_executor(
     loop += Op.JUMPDEST
 
     for i, val in enumerate(write_values):
-        is_first = (i == 0)
-        current_val = (
-            initial_value if is_first else write_values[i - 1]
-        )
+        is_first = i == 0
+        current_val = initial_value if is_first else write_values[i - 1]
         # DUP2 reaches counter through the pushed value
         loop += Op.SSTORE(
             Op.DUP2,
@@ -827,9 +825,7 @@ def create_sstore_dirty_executor(
     cleanup = Bytecode()
     cleanup += Op.STOP
 
-    return IteratingBytecode(
-        setup=setup, iterating=loop, cleanup=cleanup
-    )
+    return IteratingBytecode(setup=setup, iterating=loop, cleanup=cleanup)
 
 
 def access_list_generator(
@@ -1194,9 +1190,7 @@ def test_sstore_dirty_transitions(
     """
     # Initial Storage Construction
     initializer_code = create_sstore_initializer(initial_value)
-    initializer_addr = pre.deploy_contract(
-        code=initializer_code
-    )
+    initializer_addr = pre.deploy_contract(code=initializer_code)
 
     # Benchmark Executor — multi-write per slot
     executor_code = create_sstore_dirty_executor(
@@ -1243,9 +1237,7 @@ def test_sstore_dirty_transitions(
             authority=authority,
             authority_nonce=authority_nonce,
             delegation_sender=delegation_sender,
-            initializer_calldata_generator=(
-                initializer_calldata_generator
-            ),
+            initializer_calldata_generator=(initializer_calldata_generator),
         )
 
     # Execution phase — no expected_benchmark_gas_used because

@@ -132,13 +132,9 @@ def test_create2_immediate_access(
 
     # Access the just-deployed contract
     if access_opcode == "EXTCODEHASH":
-        access_op = Op.POP(
-            Op.EXTCODEHASH(create2_op, address_warm=True)
-        )
+        access_op = Op.POP(Op.EXTCODEHASH(create2_op, address_warm=True))
     elif access_opcode == "BALANCE":
-        access_op = Op.POP(
-            Op.BALANCE(create2_op, address_warm=True)
-        )
+        access_op = Op.POP(Op.BALANCE(create2_op, address_warm=True))
     elif access_opcode == "EXTCODECOPY":
         # Copy 1 byte from end of deployed code
         access_op = Op.EXTCODECOPY(

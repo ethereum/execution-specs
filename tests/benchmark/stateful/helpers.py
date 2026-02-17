@@ -60,21 +60,14 @@ FACTORY_STUBS = sorted(
         .replace("_", ".")
     ),
 )
-assert FACTORY_STUBS, (
-    "No factory stubs found matching 'bloatnet_factory_*'"
-)
+assert FACTORY_STUBS, "No factory stubs found matching 'bloatnet_factory_*'"
 
 # Standard While-loop decrement-and-test condition.
 #
 # Expects the iteration counter on top of the stack:
 #   [counter] → SUB(counter, 1) → continue if nonzero
 DECREMENT_COUNTER_CONDITION = (
-    Op.PUSH1(1)
-    + Op.SWAP1
-    + Op.SUB
-    + Op.DUP1
-    + Op.ISZERO
-    + Op.ISZERO
+    Op.PUSH1(1) + Op.SWAP1 + Op.SUB + Op.DUP1 + Op.ISZERO + Op.ISZERO
 )
 
 
@@ -99,8 +92,7 @@ def build_benchmark_txs(
     attack_contract_address: Address,
     setup_cost: int,
     iteration_cost: int,
-    calldata_builder: Callable[[int, int], bytes]
-    | None = None,
+    calldata_builder: Callable[[int, int], bytes] | None = None,
     access_list: "list[AccessList] | None" = None,
 ) -> tuple[list[Transaction], int]:
     """
@@ -113,9 +105,7 @@ def build_benchmark_txs(
     The default calldata layout is ``Hash(num_iters) +
     Hash(counter_offset)``.  Pass *calldata_builder* to override.
     """
-    intrinsic_cost_calc = (
-        fork.transaction_intrinsic_cost_calculator()
-    )
+    intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
     max_intrinsic = intrinsic_cost_calc(
         access_list=access_list or [],
         calldata=b"\xff" * 64,
@@ -126,9 +116,7 @@ def build_benchmark_txs(
     counter_offset = 0
     total_gas_consumed = 0
 
-    while gas_remaining > (
-        max_intrinsic + setup_cost + iteration_cost
-    ):
+    while gas_remaining > (max_intrinsic + setup_cost + iteration_cost):
         gas_available = min(gas_remaining, tx_gas_limit)
 
         if gas_available < max_intrinsic + setup_cost:
@@ -142,23 +130,15 @@ def build_benchmark_txs(
             break
 
         if calldata_builder is not None:
-            calldata = calldata_builder(
-                num_iters, counter_offset
-            )
+            calldata = calldata_builder(num_iters, counter_offset)
         else:
-            calldata = bytes(
-                Hash(num_iters) + Hash(counter_offset)
-            )
+            calldata = bytes(Hash(num_iters) + Hash(counter_offset))
         actual_intrinsic = intrinsic_cost_calc(
             access_list=access_list or [],
             calldata=calldata,
             return_cost_deducted_prior_execution=True,
         )
-        tx_gas = (
-            actual_intrinsic
-            + setup_cost
-            + num_iters * iteration_cost
-        )
+        tx_gas = actual_intrinsic + setup_cost + num_iters * iteration_cost
 
         txs.append(
             Transaction(
