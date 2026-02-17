@@ -63,12 +63,6 @@ class ExecutionWitness:
     Contract-code preimages (created or accessed) needed during execution.
     """
 
-    keys: Tuple[Bytes, ...]
-    """
-    Hashed account/storage-key preimages (unhashed addresses and storage
-    slots) needed during execution.
-    """
-
     headers: Tuple[Bytes, ...]
     """
     RLP-encoded block headers used for pre-state and ``BLOCKHASH`` correctness
