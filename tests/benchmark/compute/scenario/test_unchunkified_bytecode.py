@@ -180,5 +180,7 @@ def test_unchunkified_bytecode(
             Block(txs=contracts_deployment_txs),
             Block(txs=attack_txs),
         ],
+        target_opcode=opcode,
+        fixed_opcode_count_without_code_generator=True,
         expected_benchmark_gas_used=total_gas_cost,
     )
