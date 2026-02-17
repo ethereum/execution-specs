@@ -181,9 +181,7 @@ class CodeGasMeasure(Bytecode):
         stop: bool = True,
     ) -> Self:
         """Assemble the bytecode that measures gas usage."""
-        res = Bytecode()
-        # Get the gas of the code
-        res += Op.GAS + code + Op.GAS
+        res = Op.GAS + code + Op.GAS
         # We need to swap and pop for each extra stack item that remained from
         # the execution of the code
         res += (Op.SWAP1 + Op.POP) * extra_stack_items
