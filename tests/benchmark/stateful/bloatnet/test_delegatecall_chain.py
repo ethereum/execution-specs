@@ -61,19 +61,18 @@ REFERENCE_SPEC_VERSION = "1.0"
 # | Variant                    | Depth | Gas/chain | Stress target     |
 # |----------------------------|-------|-----------|-------------------|
 # | Pure cold chain            | 3,5,8 | ~8K–21K  | Cold code loading |
-# | Chain + SSTORE at leaf     | 5     | ~31K     | Cold + storage    |
-# | Chain + SLOAD at each hop  | 5     | ~18K+    | Storage reads     |
+# | Chain + SSTORE at leaf     | 5     | ~35K     | Cold + storage    |
+# | Chain + SLOAD at each hop  | 5     | ~24K     | Storage reads     |
 # |                            |       |           | through delegation|
 #
 # Gas breakdown per hop (cold DELEGATECALL):
-#   - GAS_COLD_ACCOUNT_ACCESS: 2,600
-#   - DELEGATECALL base:       100 (warm, after first access)
+#   - GAS_COLD_ACCOUNT_ACCESS: 2,600 (includes DELEGATECALL base)
 #   - Code loading overhead:   varies by library size
 #
 # At depth 5 (all cold):
-#   - 5 * 2,600 = 13,000 gas just for cold access
-#   - Plus ~100 gas per hop for the DELEGATECALL itself
-#   - Plus SSTORE at leaf: 20,000 (cold SET) or 2,900 (cold RESET)
+#   - 5 * 2,600 = 13,000 gas for cold access
+#   - Plus SSTORE at leaf: 22,100 (cold SET = 2,100 + 20,000)
+#     or 5,000 (cold RESET = 2,100 + 2,900)
 #
 # ─── WHY THIS NEEDS SPAMOOR ─────────────────────────────────────────
 #
@@ -99,6 +98,6 @@ REFERENCE_SPEC_VERSION = "1.0"
 #   - Each library forwards to the next, final one does SSTORE
 #
 # Key metric: ratio of cold code loading gas to useful work (SSTORE).
-# At depth 5 with SSTORE: ~13,000 gas for cold access vs ~20,000 for
-# SSTORE = 39% overhead just from the delegation chain.
+# At depth 5 with cold SET: ~13,000 gas for cold access vs ~22,100
+# for SSTORE = 37% overhead just from the delegation chain.
 # ═══════════════════════════════════════════════════════════════════════
