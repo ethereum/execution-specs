@@ -279,6 +279,11 @@ class Block(Header):
     If set, the block is expected to produce an error response from the Engine
     API.
     """
+    include_receipts_in_output: bool | None = None
+    """
+    If set to `True`, the block’s output fixture representation will include
+    full transaction receipts. If unset, the test-level value is used.
+    """
     txs: List[Transaction] = Field(default_factory=list)
     """List of transactions included in the block."""
     ommers: List[Header] | None = None
@@ -506,9 +511,9 @@ class BlockchainTest(BaseTest):
     Include the post state in the fixture output. Otherwise, the state
     verification is only performed based on the state root.
     """
-    include_intermediate_block_tx_receipts: bool = True
+    include_tx_receipts_in_output: bool = True
     """
-    Include transaction receipts in blocks prior to the last block.
+    Include transaction receipts in the fixture output.
     """
 
     _benchmark_opcode_count: OpcodeCount | None = PrivateAttr(None)
@@ -878,10 +883,10 @@ class BlockchainTest(BaseTest):
         head = genesis.header.block_hash
         invalid_blocks = 0
         for i, block in enumerate(self.blocks):
+            is_last_block = i == len(self.blocks) - 1
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
             # Set the environment according to the block to execute.
-            is_last_block = i == len(self.blocks) - 1
             built_block = self.generate_block_data(
                 t8n=t8n,
                 block=block,
@@ -890,7 +895,9 @@ class BlockchainTest(BaseTest):
                 last_block=is_last_block,
             )
             include_receipts = (
-                is_last_block or self.include_intermediate_block_tx_receipts
+                block.include_receipts_in_output
+                if block.include_receipts_in_output is not None
+                else self.include_tx_receipts_in_output
             )
             fixture_blocks.append(
                 built_block.get_fixture_block(

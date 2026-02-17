@@ -292,7 +292,7 @@ class BenchmarkTest(BaseTest):
     code_generator: BenchmarkCodeGenerator | None = None
     # By default, benchmark tests require neither of these
     include_full_post_state_in_output: bool = False
-    include_intermediate_block_tx_receipts: bool = False
+    include_tx_receipts_in_output: bool = False
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -495,7 +495,7 @@ class BenchmarkTest(BaseTest):
             post=self.post,
             blocks=self.blocks,
             include_full_post_state_in_output=self.include_full_post_state_in_output,
-            include_intermediate_block_tx_receipts=self.include_intermediate_block_tx_receipts,
+            include_tx_receipts_in_output=self.include_tx_receipts_in_output,
         )
 
     def _verify_target_opcode_count(
