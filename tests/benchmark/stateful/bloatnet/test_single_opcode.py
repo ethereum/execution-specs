@@ -182,21 +182,21 @@ def test_sload_erc20_balanceof(
         + Op.JUMPI
         # Function body
         + Op.JUMPDEST
-        + Op.CALLDATALOAD(4)
-        + Op.MSTORE(0, 0)
-        + Op.MSTORE(32, Op.CALLDATALOAD(4))
-        + Op.SHA3(
+        + Op.MSTORE(0, Op.CALLDATALOAD(4))
+        + Op.MSTORE(32, 0)
+        + Op.MSTORE(
             0,
-            64,
-            # gas accounting
-            data_size=64,
-            old_memory_size=0,
-            new_memory_size=64,
+            Op.SLOAD(
+                Op.SHA3(
+                    0,
+                    64,
+                    # gas accounting
+                    data_size=64,
+                    old_memory_size=0,
+                    new_memory_size=64,
+                )
+            ),
         )
-        + Op.SLOAD
-        # Return value
-        + Op.PUSH0
-        + Op.MSTORE
         + Op.RETURN(0, 32)
     )
 
@@ -348,15 +348,17 @@ def test_sstore_erc20_approve(
         + Op.CALLDATALOAD(36)
         + Op.MSTORE(0, Op.CALLER)
         + Op.MSTORE(32, 1)
-        + Op.SHA3(
-            0,
-            64,
-            # gas accounting
-            data_size=64,
-            old_memory_size=0,
-            new_memory_size=64,
+        + Op.MSTORE(
+            32,
+            Op.SHA3(
+                0,
+                64,
+                # gas accounting
+                data_size=64,
+                old_memory_size=0,
+                new_memory_size=64,
+            ),
         )
-        + Op.MSTORE(32)
         + Op.MSTORE(0, Op.CALLDATALOAD(4))
         + Op.SHA3(
             0,
