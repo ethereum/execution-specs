@@ -1,32 +1,17 @@
 """
-Benchmark block level access lists with sequential keccak hash chains.
+Benchmark blocks with block access list (BAL) storage dependencies.
 
-Each transaction reads storage slot 0, computes a keccak256 hash chain,
-and writes the result back. This creates a data dependency between
-transactions that prevents parallel execution.
+All tests use different-sender transactions calling a shared contract
+that reads and writes storage slot 0, creating a serial dependency
+chain. Without BALs, a client sees independent senders and may assume
+the transactions are parallelizable. With BALs, the client detects
+the shared storage conflict and can schedule accordingly.
 
-The contract initializes storage slot 0 to 1 during deployment (to avoid
-zero-to-nonzero SSTORE costs during the benchmark). Each execution
-transaction loads this value into memory, repeatedly hashes it via
-keccak256, and stores the final hash back. The next transaction depends
-on the result, forming a serial chain.
-
-The iteration count is controlled by the transaction gas limit: a
-gas-check loop exits when remaining gas is insufficient for another
-iteration, then commits the result via SSTORE.
+The ``tx_gas_fraction`` parameter controls the tradeoff between
+scheduling overhead and computation throughput: low fractions produce
+many small transactions (stress-testing scheduling), while high
+fractions produce few large transactions (stress-testing computation).
 """
-
-# TODO:
-# Make test depend on the gas benchmark
-# Find the correct folder layout
-# Check with EEST team if we want to label BAL
-# performance benchmarks for what they are supposed to test:
-# VALID blocks:
-# - Parallel execution
-# - Storage prefetchers (this likely has to be done on top of big state)
-# - Parallel state root calculation
-# INVALID blocks
-# - verifying if the block gets rejected quickly
 
 import pytest
 from execution_testing import (
@@ -90,75 +75,55 @@ def _build_keccak_chain_code(reserve_gas: int) -> Bytecode:
 
 @pytest.mark.valid_from("Amsterdam")
 @pytest.mark.parametrize(
-    "num_keccak_calls",
+    "tx_gas_fraction",
     [
-        pytest.param(1, id="1_keccak"),
-        pytest.param(10, id="10_keccaks"),
-        pytest.param(100, id="100_keccaks"),
-        pytest.param(1000, id="1k_keccaks"),
-        pytest.param(0, id="max_keccaks"),
-        # TODO: do not hardcode these constants
-        # But make them a fraction of the gas benchmarks
-        # This test should also target the 1 keccak,
-        # This maxizes the amount of txs
-        # It will be interesting to see
-        # what test will perform the fastest
-        # (if we normalize the amount of KECCAK calls)
+        pytest.param(0.0, id="min_per_tx_gas"),
+        pytest.param(0.005, id="0.5pct_tx_gas_limit"),
+        pytest.param(0.01, id="1pct_tx_gas_limit"),
+        pytest.param(0.1, id="10pct_tx_gas_limit"),
+        pytest.param(1.0, id="full_tx_gas_limit"),
     ],
 )
-def test_bal_keccak_chain(
+def test_parallel_execution(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    num_keccak_calls: int,
+    tx_gas_fraction: float,
 ) -> None:
     """
-    Benchmark sequential keccak hash chains preventing parallelization.
+    Benchmark parallel execution with serial storage dependencies.
 
-    Deploy a contract that initializes storage slot 0 to 1. Each execution
-    transaction loads storage[0], hashes it N times via keccak256, and
-    stores the result back. The next transaction reads the updated value,
-    forming a sequential dependency chain.
+    Deploy a contract that initializes storage slot 0 to 1. Each
+    execution transaction SLOADs slot 0, performs a keccak256 hash
+    chain (iteration count determined by available gas), and SSTOREs
+    the result back. A gas-check loop exits gracefully before OOG to
+    preserve the SSTORE commit.
 
-    The gas-check loop ensures the transaction never runs out of gas
-    before committing the SSTORE. The number of keccak calls is
-    controlled by the transaction gas limit.
+    The ``tx_gas_fraction`` parameter controls per-tx gas as a
+    fraction of ``tx_gas_limit``. At 0.0, transactions use the
+    minimum gas needed (maximizing tx count and scheduling overhead).
+    At 1.0, a single transaction consumes the full gas limit
+    (maximizing computation per tx).
     """
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas = intrinsic_gas_calculator()
 
     # --- Gas cost calculation ---
     #
-    # Setup: MSTORE(0, SLOAD(0))
-    # Body:  MSTORE(0, SHA3(0, 32))
-    # Cleanup: SSTORE(0, MLOAD(0)) + STOP
-    #
     # The While loop generates:
     #   JUMPDEST | body | condition | PC PUSH4 SUB JUMPI
     #
-    # Condition = GT(GAS, reserve) generates: PUSH(reserve) GAS GT
+    # Per iteration gas (between consecutive GAS checks):
+    #   body_gas + GT(3) + PC(2) + PUSH4(3) + SUB(3) + JUMPI(10)
+    #   + JUMPDEST(1) + PUSH(3) + GAS(2) = body_gas + 27
     #
-    # Per iteration gas between consecutive GAS checks:
-    #   GT(3) + PC(2) + PUSH4(3) + SUB(3) + JUMPI(10)
-    #   + JUMPDEST(1) + body_gas + PUSH(3) + GAS(2) = 27 + body_gas
-    #
-    # Initial path (setup to first GAS check):
-    #   setup_gas + JUMPDEST(1) + body_gas + PUSH(3) + GAS(2) = setup_gas
-    #   + body_gas + 6
-    #
-    # Exit path (GAS check fails to cleanup):
+    # Exit path (condition fails to cleanup):
     #   GT(3) + PC(2) + PUSH4(3) + SUB(3) + JUMPI(10) = 21
     #
-    # For N iterations, the GAS value at check N:
-    #   V_N = V_1 - (N-1) * (body_gas + 27)
-    #   V_1 = G - setup_gas - body_gas - 6
-    #   where G = per_tx_gas - intrinsic_gas
-    #
-    # Loop exits when V_N <= reserve_gas. After exit, remaining gas
-    # for cleanup: V_N - 21 >= cleanup_gas.
-    # So reserve_gas >= cleanup_gas + 21.
+    # reserve_gas >= cleanup_gas + 21 ensures enough gas
+    # remains after loop exit to complete the SSTORE.
 
     setup = Op.MSTORE(
         0,
@@ -179,9 +144,8 @@ def test_bal_keccak_chain(
             0,
             Op.MLOAD(0),
             key_warm=True,
-            # Note: these values are incorrect, but
-            # the gas calculation situation is the same
-            # (changes nonzero value to a different nonzero value)
+            # Placeholder values: actual current_value/new_value differ
+            # per tx, but gas cost is identical (nonzero -> nonzero).
             original_value=1,
             current_value=1,
             new_value=2,
@@ -193,40 +157,24 @@ def test_bal_keccak_chain(
     body_gas = keccak_body.gas_cost(fork)
     cleanup_gas = cleanup.gas_cost(fork)
 
-    # Reserve: enough for exit path + cleanup + safety margin.
     reserve_gas = cleanup_gas + 50
 
-    # Build the actual runtime code with computed reserve.
     runtime_code = _build_keccak_chain_code(reserve_gas)
 
-    # Per-iteration effective gas (between consecutive GAS checks).
     per_iter_effective = body_gas + 27
 
-    # --- Compute per-tx gas for N keccak calls ---
-    #
-    # Setting V_N = reserve_gas (loop exits after exactly N iterations):
-    #   G = setup_gas + body_gas + 6 + reserve_gas + (N-1)*(body_gas + 27)
-    #     = setup_gas + N*(body_gas + 27) + reserve_gas - 21
-    #
-    # per_tx_gas = intrinsic + G
+    # Minimum per-tx gas: enough for setup + 1 keccak + cleanup.
+    min_per_tx_gas = (
+        intrinsic_gas + setup_gas + per_iter_effective + reserve_gas - 21
+    )
 
-    if num_keccak_calls == 0:
-        # Max: use full tx gas limit, compute N from available gas.
-        per_tx_gas = tx_gas_limit
-        execution_gas = per_tx_gas - intrinsic_gas
-        num_keccak_calls = max(
-            1,
-            (execution_gas - setup_gas - reserve_gas + 21)
-            // per_iter_effective,
-        )
+    if tx_gas_fraction == 0.0:
+        per_tx_gas = min_per_tx_gas
     else:
-        execution_gas = (
-            setup_gas
-            + num_keccak_calls * per_iter_effective
-            + reserve_gas
-            - 21
+        per_tx_gas = max(
+            min_per_tx_gas,
+            int(tx_gas_limit * tx_gas_fraction),
         )
-        per_tx_gas = intrinsic_gas + execution_gas
         per_tx_gas = min(per_tx_gas, tx_gas_limit)
 
     # --- Deploy contract ---
@@ -247,9 +195,7 @@ def test_bal_keccak_chain(
         )
         blocks.append(Block(txs=[deploy_tx]))
 
-    contract_address = compute_create_address(
-        address=deployer, nonce=0
-    )
+    contract_address = compute_create_address(address=deployer, nonce=0)
 
     # --- Execution block: fill with sequential transactions ---
     num_exec_txs = max(1, gas_benchmark_value // per_tx_gas)
