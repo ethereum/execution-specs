@@ -6,7 +6,6 @@ from abc import abstractmethod
 from enum import StrEnum, unique
 from functools import reduce
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
@@ -16,12 +15,6 @@ from typing import (
     Sequence,
     Type,
 )
-
-if TYPE_CHECKING:
-    # Guarded import to avoid circular dependency: filler.py imports BaseTest.
-    from execution_testing.cli.pytest_commands.plugins.filler.filler import (
-        FillingSession,
-    )
 
 import pytest
 from pydantic import BaseModel, ConfigDict, PrivateAttr
@@ -38,7 +31,6 @@ from execution_testing.fixtures import (
     BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
-    strip_fixture_format_from_node,
 )
 from execution_testing.forks import Fork
 from execution_testing.forks.base_fork import BaseFork
@@ -285,25 +277,6 @@ class BaseTest(BaseModel):
             f"{self.__class__.__name__} must implement genesis environment "
             "access for use with pre-allocation groups."
         )
-
-    def _get_base_nodeid(self) -> str:
-        """Get base nodeid without fixture_format for cache key."""
-        node = self.node()
-        if node is None:
-            return ""
-        return strip_fixture_format_from_node(node)
-
-    def _get_t8n_cache_key(
-        self, fork_name: str, block_index: int = 0
-    ) -> tuple[str, str, int]:
-        """Get cache key for t8n output."""
-        return (self._get_base_nodeid(), fork_name, block_index)
-
-    def _get_filling_session(self) -> "FillingSession | None":
-        """Get filling session if available."""
-        if self._request is not None and hasattr(self._request, "config"):
-            return getattr(self._request.config, "filling_session", None)
-        return None
 
 
 TestSpec = Callable[[Fork], Generator[BaseTest, None, None]]

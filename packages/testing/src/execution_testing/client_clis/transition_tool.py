@@ -293,12 +293,6 @@ class TransitionTool(EthereumCLI):
         """
         self.opcode_count = OpcodeCount({})
 
-    def remove_opcode_count(self) -> None:
-        """
-        Remove the opcode counter.
-        """
-        self.opcode_count = None
-
     @dataclass
     class TransitionToolData:
         """Transition tool files and data to pass between methods."""
