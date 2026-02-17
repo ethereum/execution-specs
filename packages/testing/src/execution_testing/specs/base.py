@@ -238,7 +238,7 @@ class BaseTest(BaseModel):
         return None
 
     def node(self) -> pytest.Item | pytest.Function | None:
-        """Return the node ID of the test."""
+        """Return the pytest node of the test."""
         if self._request is not None and hasattr(self._request, "node"):
             return self._request.node
         return None

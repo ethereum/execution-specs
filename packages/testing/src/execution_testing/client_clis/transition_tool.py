@@ -163,6 +163,11 @@ class OutputCache:
         """Set a value in the cache for the current key."""
         self._cache[subkey] = value
 
+    def clear(self) -> None:
+        """Clear the cache and reset the key."""
+        self._cache.clear()
+        self.key = None
+
 
 class TransitionTool(EthereumCLI):
     """
@@ -274,7 +279,8 @@ class TransitionTool(EthereumCLI):
         """
         Set the current cache key.
 
-        Creates the cache on first call, then reuses it for LRU behavior.
+        Creates the cache on first call, then reuses it for single-key
+        eviction.
         Returns True if the key was already in the cache (hit).
         """
         if self.output_cache is None:
@@ -284,8 +290,7 @@ class TransitionTool(EthereumCLI):
     def remove_cache(self) -> None:
         """Clear the cache (test doesn't use caching)."""
         if self.output_cache is not None:
-            self.output_cache.key = None
-            self.output_cache._cache.clear()
+            self.output_cache.clear()
 
     def reset_opcode_count(self) -> None:
         """
@@ -911,7 +916,7 @@ class TransitionTool(EthereumCLI):
         current_call_id = self.increment_call_counter()
         if self.output_cache is not None:
             cached_result = self.output_cache.get(current_call_id)
-            if cached_result:
+            if cached_result is not None:
                 return self.process_result(cached_result)
         debug_output_path = self.get_next_transition_tool_output_path(
             current_call_id
