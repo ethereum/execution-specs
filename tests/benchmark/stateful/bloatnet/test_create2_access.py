@@ -14,11 +14,14 @@ from execution_testing import (
     Block,
     Bytecode,
     Fork,
-    Hash,
     Initcode,
     Op,
-    Transaction,
     While,
+)
+
+from tests.benchmark.stateful.helpers import (
+    DECREMENT_COUNTER_CONDITION,
+    build_benchmark_txs,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -159,14 +162,7 @@ def test_create2_immediate_access(
 
     loop = While(
         body=access_op + increment,
-        condition=(
-            Op.PUSH1(1)
-            + Op.SWAP1
-            + Op.SUB
-            + Op.DUP1
-            + Op.ISZERO
-            + Op.ISZERO
-        ),
+        condition=DECREMENT_COUNTER_CONDITION,
     )
 
     code = setup + loop
@@ -174,61 +170,22 @@ def test_create2_immediate_access(
 
     # Gas Accounting — CREATE2 subcall costs (init execution + code
     # deposit) are not captured by loop.gas_cost(), so add them.
-    setup_cost = setup.gas_cost(fork)
-    loop_cost = loop.gas_cost(fork)
-
-    init_exec_gas = initcode.execution_gas(fork)
-    code_deposit_gas = initcode.deployment_gas(fork)
     full_iteration_cost = (
-        loop_cost + init_exec_gas + code_deposit_gas
+        loop.gas_cost(fork)
+        + initcode.execution_gas(fork)
+        + initcode.deployment_gas(fork)
     )
 
-    intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
-    max_intrinsic = intrinsic_cost_calc(calldata=b"\xff" * 64)
+    txs, total_gas_consumed = build_benchmark_txs(
+        pre=pre,
+        fork=fork,
+        gas_benchmark_value=gas_benchmark_value,
+        tx_gas_limit=tx_gas_limit,
+        attack_contract_address=attack_contract_address,
+        setup_cost=setup.gas_cost(fork),
+        iteration_cost=full_iteration_cost,
+    )
 
-    # Attack Loop
-    gas_remaining = gas_benchmark_value
-    txs = []
-    counter_start = 0
-    total_gas_consumed = 0
-
-    while gas_remaining > max_intrinsic + setup_cost + full_iteration_cost:
-        gas_available = min(gas_remaining, tx_gas_limit)
-
-        if gas_available < max_intrinsic + setup_cost:
-            break
-
-        num_iters = (
-            gas_available - max_intrinsic - setup_cost
-        ) // full_iteration_cost
-
-        if num_iters == 0:
-            break
-
-        calldata = Hash(num_iters) + Hash(counter_start)
-        actual_intrinsic = intrinsic_cost_calc(
-            calldata=bytes(calldata),
-            return_cost_deducted_prior_execution=True,
-        )
-        tx_gas = (
-            actual_intrinsic + setup_cost
-            + num_iters * full_iteration_cost
-        )
-
-        txs.append(
-            Transaction(
-                gas_limit=tx_gas,
-                data=calldata,
-                to=attack_contract_address,
-                sender=pre.fund_eoa(),
-            )
-        )
-
-        total_gas_consumed += tx_gas
-        gas_remaining -= gas_available
-        counter_start += num_iters
-
-    assert txs, "Gas loop produced zero transactions"
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],

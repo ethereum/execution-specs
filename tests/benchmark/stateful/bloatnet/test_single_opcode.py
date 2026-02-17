@@ -34,6 +34,7 @@ from execution_testing import (
 from tests.benchmark.stateful.helpers import (
     APPROVE_SELECTOR,
     BALANCEOF_SELECTOR,
+    DECREMENT_COUNTER_CONDITION,
     MINT_SELECTOR,
     SLOAD_TOKENS,
     SSTORE_MINT_TOKENS,
@@ -154,12 +155,7 @@ def test_sload_erc20_balanceof(
         # Do the same call again for the cached variant
         + cache_loop
         + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
-        condition=Op.PUSH1(1)  # [1, num_calls]
-        + Op.SWAP1  # [num_calls, 1]
-        + Op.SUB  # [num_calls-1]
-        + Op.DUP1  # [num_calls-1, num_calls-1]
-        + Op.ISZERO  # [num_calls-1==0, num_calls-1]
-        + Op.ISZERO,  # [num_calls-1!=0, num_calls-1]
+        condition=DECREMENT_COUNTER_CONDITION,
     )
 
     # Contract Deployment
@@ -323,12 +319,7 @@ def test_sstore_erc20_approve(
             )
             + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
         ),
-        condition=Op.PUSH1(1)  # [1, num_calls]
-        + Op.SWAP1  # [num_calls, 1]
-        + Op.SUB  # [num_calls-1]
-        + Op.DUP1  # [num_calls-1, num_calls-1]
-        + Op.ISZERO  # [num_calls-1==0, num_calls-1]
-        + Op.ISZERO,  # [num_calls-1!=0, num_calls-1]
+        condition=DECREMENT_COUNTER_CONDITION,
     )
 
     # Contract Deployment
