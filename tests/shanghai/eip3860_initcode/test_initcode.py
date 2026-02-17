@@ -416,13 +416,15 @@ class TestCreateInitcode:
         """
         Salt value used for CREATE2 contract creation.
         """
-        kwargs = {
-            "size": Op.CALLDATASIZE,
-            "init_code_size": len(initcode),
-        }
-        if opcode == Op.CREATE2:
-            kwargs["salt"] = create2_salt
-        return opcode(**kwargs)
+        return (
+            opcode(
+                size=Op.CALLDATASIZE,
+                salt=create2_salt,
+                init_code_size=len(initcode),
+            )
+            if opcode == Op.CREATE2
+            else opcode(size=Op.CALLDATASIZE, init_code_size=len(initcode))
+        )
 
     @pytest.fixture
     def creator_code(self, fork: Fork, create_code: Bytecode) -> Bytecode:
