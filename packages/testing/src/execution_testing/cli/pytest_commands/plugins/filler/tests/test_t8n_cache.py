@@ -2,9 +2,11 @@
 
 import hashlib
 from typing import Any
+from unittest.mock import sentinel
 
 import pytest
 
+from execution_testing.client_clis.transition_tool import OutputCache
 from execution_testing.fixtures import (
     BlockchainEngineFixture,
     BlockchainFixture,
@@ -479,3 +481,130 @@ class TestCollectionSortingBehavior:
         # Check adjacency (difference between indices should be 1).
         assert max(test_a_indices) - min(test_a_indices) == 1
         assert max(test_b_indices) - min(test_b_indices) == 1
+
+
+class TestOutputCache:
+    """Unit tests for the OutputCache single-key cache."""
+
+    def test_initial_state(self) -> None:
+        """Test cache starts empty with no key."""
+        cache = OutputCache()
+        assert cache.key is None
+        assert cache.hits == 0
+        assert cache.misses == 0
+
+    def test_set_key_returns_false_on_first_call(self) -> None:
+        """Test set_key returns False (miss) for a new key."""
+        cache = OutputCache()
+        assert cache.set_key("test-key") is False
+
+    def test_set_key_returns_true_on_repeat(self) -> None:
+        """Test set_key returns True (hit) when key is unchanged."""
+        cache = OutputCache()
+        cache.set_key("test-key")
+        assert cache.set_key("test-key") is True
+
+    def test_set_key_clears_on_change(self) -> None:
+        """Test set_key clears cached data when key changes."""
+        cache = OutputCache()
+        cache.set_key("key-a")
+        cache.set(0, sentinel.output_a)
+        assert cache.get(0) is sentinel.output_a
+
+        # Changing key should evict all cached data.
+        assert cache.set_key("key-b") is False
+        assert cache.get(0) is None
+
+    def test_get_set_round_trip(self) -> None:
+        """Test get returns what was stored by set."""
+        cache = OutputCache()
+        cache.set_key("key")
+        cache.set(0, sentinel.output_0)
+        cache.set(1, sentinel.output_1)
+        assert cache.get(0) is sentinel.output_0
+        assert cache.get(1) is sentinel.output_1
+
+    def test_get_missing_subkey_returns_none(self) -> None:
+        """Test get returns None for a subkey that was never set."""
+        cache = OutputCache()
+        cache.set_key("key")
+        assert cache.get(42) is None
+
+    def test_hit_counter(self) -> None:
+        """Test hits increment on cache hits."""
+        cache = OutputCache()
+        cache.set_key("key")
+        cache.set(0, sentinel.output)
+        cache.get(0)
+        cache.get(0)
+        assert cache.hits == 2
+        assert cache.misses == 0
+
+    def test_miss_counter(self) -> None:
+        """Test misses increment on cache misses."""
+        cache = OutputCache()
+        cache.set_key("key")
+
+        cache.get(0)
+        cache.get(1)
+        assert cache.misses == 2
+        assert cache.hits == 0
+
+    def test_mixed_hit_miss_counters(self) -> None:
+        """Test hits and misses accumulate independently."""
+        cache = OutputCache()
+        cache.set_key("key")
+        cache.set(0, sentinel.output)
+        cache.get(0)  # hit
+        cache.get(1)  # miss
+        cache.get(0)  # hit
+        cache.get(2)  # miss
+        assert cache.hits == 2
+        assert cache.misses == 2
+
+    def test_clear_resets_key_and_data(self) -> None:
+        """Test clear removes cached data and resets the key."""
+        cache = OutputCache()
+        cache.set_key("key")
+        cache.set(0, sentinel.output)
+        cache.clear()
+        assert cache.key is None
+        assert cache.get(0) is None
+
+    def test_clear_preserves_counters(self) -> None:
+        """Test clear does not reset hit/miss counters."""
+        cache = OutputCache()
+        cache.set_key("key")
+        cache.set(0, sentinel.output)
+        cache.get(0)  # hit
+        cache.get(1)  # miss
+
+        cache.clear()
+        assert cache.hits == 1
+        assert cache.misses == 1
+
+    def test_set_key_after_clear(self) -> None:
+        """Test cache is usable again after clear."""
+        cache = OutputCache()
+        cache.set_key("key-a")
+        cache.set(0, sentinel.output_a)
+        cache.clear()
+
+        cache.set_key("key-b")
+        cache.set(0, sentinel.output_b)
+        assert cache.get(0) is sentinel.output_b
+
+    def test_counters_survive_key_change(self) -> None:
+        """Test hit/miss counters accumulate across key changes."""
+        cache = OutputCache()
+        cache.set_key("key-a")
+        cache.set(0, sentinel.output)
+        cache.get(0)  # hit
+        cache.get(1)  # miss
+
+        cache.set_key("key-b")
+        cache.set(0, sentinel.output)
+        cache.get(0)  # hit
+
+        assert cache.hits == 2
+        assert cache.misses == 1
