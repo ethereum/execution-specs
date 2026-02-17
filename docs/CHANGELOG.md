@@ -17,7 +17,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 #### `consume`
 
-- ✨ Add Besu `evmtool` support for `consume direct` via `state-test` and `block-test` subcommands.
+- ✨ Add Besu `evmtool` support for `consume direct` via `state-test` and `block-test` subcommands ([#2219](https://github.com/ethereum/execution-specs/pull/2219)).
 
 #### `execute`
 
