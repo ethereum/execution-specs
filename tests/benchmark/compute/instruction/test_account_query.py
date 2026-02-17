@@ -404,6 +404,7 @@ def test_ext_account_query_cold(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
