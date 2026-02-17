@@ -414,7 +414,7 @@ class TestCreateInitcode:
         self, opcode: Op, create2_salt: int, initcode: Initcode
     ) -> Bytecode:
         """
-        Salt value used for CREATE2 contract creation.
+        Generate the CREATE/CREATE2 bytecode.
         """
         return (
             opcode(
