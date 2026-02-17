@@ -13,7 +13,7 @@ Supported Opcodes:
 """
 
 import math
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pytest
 from execution_testing import (
@@ -31,6 +31,7 @@ from execution_testing import (
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
+    ParameterSet,
     TestPhaseManager,
     Transaction,
     While,
@@ -404,28 +405,73 @@ def test_ext_account_query_cold(
     )
 
 
+def generate_account_query_params() -> List[ParameterSet]:
+    """
+    Generate valid parameter combinations for test_account_query.
+
+    Returns tuples of: (opcode, access_warm, mem_size, code_size, value_sent)
+    """
+    all_mem_sizes = [0, 32, 256, 1024]
+    all_code_sizes = [0, 32, 256, 1024]
+    all_access_warm = [True, False]
+    all_value_sent = [0, 1]
+
+    params = []
+
+    # BALANCE, EXTCODESIZE, EXTCODEHASH:
+    # only mem_size=0, code_size=0, value_sent=0
+    for opcode in [Op.BALANCE, Op.EXTCODESIZE, Op.EXTCODEHASH]:
+        for access_warm in all_access_warm:
+            params.append(pytest.param(opcode, access_warm, 0, 0, 0))
+
+    # EXTCODECOPY: all mem_size, all code_size, value_sent=0
+    for access_warm in all_access_warm:
+        for mem_size in all_mem_sizes:
+            for code_size in all_code_sizes:
+                params.append(
+                    pytest.param(
+                        Op.EXTCODECOPY, access_warm, mem_size, code_size, 0
+                    )
+                )
+            # Add None (max_code_size) separately with custom ID
+            params.append(
+                pytest.param(
+                    Op.EXTCODECOPY,
+                    access_warm,
+                    mem_size,
+                    None,
+                    0,
+                    id=f"EXTCODECOPY-{access_warm}-{mem_size}-max_code_size-0",
+                )
+            )
+
+    # CALL, CALLCODE: all mem_size, code_size=0, all value_sent
+    for opcode in [Op.CALL, Op.CALLCODE]:
+        for access_warm in all_access_warm:
+            for mem_size in all_mem_sizes:
+                for value_sent in all_value_sent:
+                    params.append(
+                        pytest.param(
+                            opcode, access_warm, mem_size, 0, value_sent
+                        )
+                    )
+
+    # STATICCALL, DELEGATECALL: all mem_size, code_size=0, value_sent=0
+    for opcode in [Op.STATICCALL, Op.DELEGATECALL]:
+        for access_warm in all_access_warm:
+            for mem_size in all_mem_sizes:
+                params.append(
+                    pytest.param(opcode, access_warm, mem_size, 0, 0)
+                )
+
+    return params
+
+
 @pytest.mark.repricing
 @pytest.mark.parametrize(
-    "opcode",
-    [
-        Op.BALANCE,
-        # CALL*
-        Op.CALL,
-        Op.CALLCODE,
-        Op.DELEGATECALL,
-        Op.STATICCALL,
-        # EXTCODE*
-        Op.EXTCODESIZE,
-        Op.EXTCODEHASH,
-        Op.EXTCODECOPY,
-    ],
+    "opcode,access_warm,mem_size,code_size,value_sent",
+    generate_account_query_params(),
 )
-@pytest.mark.parametrize("access_warm", [True, False])
-@pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
-@pytest.mark.parametrize(
-    "code_size", [0, 32, 256, 1024, pytest.param(None, id="max_code_size")]
-)
-@pytest.mark.parametrize("value_sent", [0, 1])
 def test_account_query(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -439,20 +485,6 @@ def test_account_query(
     fixed_opcode_count: int | None,
 ) -> None:
     """Benchmark scenario of accessing max-code size bytecode."""
-    if opcode in (Op.EXTCODESIZE, Op.EXTCODEHASH, Op.BALANCE) and (
-        mem_size != 0 or code_size != 0
-    ):
-        pytest.skip(f"No memory size configuration for {opcode}")
-
-    if opcode not in (Op.CALL, Op.CALLCODE) and value_sent > 0:
-        pytest.skip(f"No value configuration for {opcode}")
-
-    if (
-        opcode in (Op.CALL, Op.CALLCODE, Op.STATICCALL, Op.DELEGATECALL)
-        and code_size != 0
-    ):
-        pytest.skip(f"No code size configuration for {opcode}")
-
     attack_gas_limit = gas_benchmark_value
 
     # Create the max-sized fork-dependent contract factory.
