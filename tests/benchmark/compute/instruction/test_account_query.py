@@ -436,6 +436,7 @@ def test_account_query(
     code_size: int,
     value_sent: int,
     gas_benchmark_value: int,
+    fixed_opcode_count: int | None,
 ) -> None:
     """Benchmark scenario of accessing max-code size bytecode."""
     if opcode in (Op.EXTCODESIZE, Op.EXTCODEHASH, Op.BALANCE) and (
@@ -568,14 +569,19 @@ def test_account_query(
     attack_address = pre.deploy_contract(code=attack_code, balance=10**21)
 
     # Calculate the number of contracts to be targeted.
-    num_contracts = sum(
-        attack_code.tx_iterations_by_gas_limit(
-            fork=fork,
-            gas_limit=attack_gas_limit,
-            calldata=calldata,
-            access_list=access_list_generator,
+    if fixed_opcode_count is not None:
+        # Fixed opcode count mode
+        num_contracts = int(fixed_opcode_count * 1000)
+    else:
+        # Gas limit mode
+        num_contracts = sum(
+            attack_code.tx_iterations_by_gas_limit(
+                fork=fork,
+                gas_limit=attack_gas_limit,
+                calldata=calldata,
+                access_list=access_list_generator,
+            )
         )
-    )
 
     # Deploy num_contracts via multiple txs (each capped by tx gas limit).
     with TestPhaseManager.setup():
@@ -590,16 +596,28 @@ def test_account_query(
 
     with TestPhaseManager.execution():
         attack_sender = pre.fund_eoa()
-        attack_txs = list(
-            attack_code.transactions_by_gas_limit(
-                fork=fork,
-                gas_limit=attack_gas_limit,
-                sender=attack_sender,
-                to=attack_address,
-                calldata=calldata,
-                access_list=access_list_generator,
+        if fixed_opcode_count is not None:
+            attack_txs = list(
+                attack_code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=int(fixed_opcode_count * 1000),
+                    sender=attack_sender,
+                    to=attack_address,
+                    calldata=calldata,
+                    access_list=access_list_generator,
+                )
             )
-        )
+        else:
+            attack_txs = list(
+                attack_code.transactions_by_gas_limit(
+                    fork=fork,
+                    gas_limit=attack_gas_limit,
+                    sender=attack_sender,
+                    to=attack_address,
+                    calldata=calldata,
+                    access_list=access_list_generator,
+                )
+            )
         total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
 
     post = {}
