@@ -1665,7 +1665,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         group_salt = str(pre_alloc_group_marker.args[0])
                     else:
                         # We got the marker but unspecified, pass test name
-                        group_salt = request.node.nodeid
+                        group_salt = _strip_xdist_group_suffix(
+                            request.node.nodeid
+                        )
 
                 pre_alloc_hash: str | None = None
                 # Phase 1: Generate pre-allocation groups
@@ -1673,7 +1675,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     # Use the original update_pre_alloc_groups method which
                     # returns the groups
                     assert session.pre_alloc_group_builders is not None
-                    test_id = str(request.node.nodeid)
+                    test_id = _strip_xdist_group_suffix(request.node.nodeid)
                     genesis_environment = self.get_genesis_environment()
                     pre_alloc_hash = pre.compute_pre_alloc_group_hash(
                         fork=fork,
