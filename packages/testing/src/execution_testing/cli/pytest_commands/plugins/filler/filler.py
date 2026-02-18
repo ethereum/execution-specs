@@ -74,7 +74,14 @@ from execution_testing.tools.utility.versioning import (
     get_current_commit_hash_or_tag,
 )
 
+from ..shared.benchmarking import GasBenchmarkValues
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
+from ..shared.fixture_output import (
+    FORK_SUBDIR_PREFIX,
+    FixtureOutput,
+    format_fork_subdir,
+    format_gas_limit_subdir,
+)
 from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
@@ -83,7 +90,6 @@ from ..shared.helpers import (
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
-from ..shared.fixture_output import FixtureOutput
 from .pre_alloc import Alloc
 
 # Fixture output dir for keyboard interrupt cleanup (set in pytest_configure).
@@ -809,16 +815,6 @@ def pytest_configure(config: pytest.Config) -> None:
 
     if is_help_or_collectonly_mode(config):
         return
-
-    from ..shared.benchmarking import GasBenchmarkValues
-
-    gas_benchmark_values = GasBenchmarkValues.from_config(config)
-    if gas_benchmark_values is not None and config.fixture_output.is_stdout:  # type: ignore[attr-defined]
-        pytest.exit(
-            "--gas-benchmark-values cannot be used with --output=stdout. "
-            "Use a directory output.",
-            returncode=pytest.ExitCode.USAGE_ERROR,
-        )
 
     try:
         # Check whether the directory exists and is not empty; if --clean is
@@ -1794,15 +1790,15 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     for name in ("benchmark", "stateful", "repricing")
                 )
                 if gas_benchmark_values is not None and is_benchmark_test:
-                    gas_limit_subdir = format_gas_limit_subdir(
-                        gas_benchmark_value,
-                        gas_benchmark_values.root,
-                    )
-                    output_subdir = Path(
-                        format_fork_subdir(fork.name(), gas_limit_subdir)
-                    )
+                    gas_values_list = gas_benchmark_values.root
                 else:
-                    output_subdir = Path(format_fork_subdir(fork.name()))
+                    gas_values_list = [gas_benchmark_value // 1_000_000]
+                gas_limit_subdir = format_gas_limit_subdir(
+                    gas_benchmark_value, gas_values_list
+                )
+                output_subdir = Path(
+                    format_fork_subdir(fork.name(), gas_limit_subdir)
+                )
 
                 fixture_path = fixture_collector.add_fixture(
                     node_to_test_info(request.node),
@@ -2006,8 +2002,6 @@ def _verify_fixtures_post_merge(
     Called from pytest_sessionfinish after partial files are merged into
     final JSON fixtures. Runs evm statetest/blocktest on each fixture.
     """
-    from ..shared.fixture_output import FORK_SUBDIR_PREFIX
-
     if not config.getoption("verify_fixtures"):
         return
 

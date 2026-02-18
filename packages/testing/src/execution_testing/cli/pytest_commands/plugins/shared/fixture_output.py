@@ -319,6 +319,16 @@ class FixtureOutput(BaseModel):
 FORK_SUBDIR_PREFIX = "for_"
 
 
+def format_gas_limit_subdir(
+    gas_benchmark_value: int, gas_values_millions: list[int]
+) -> str:
+    """Return a stable, sortable gas-limit subdirectory name."""
+    gas_value_millions = gas_benchmark_value // 1_000_000
+    max_value = max(gas_values_millions) if gas_values_millions else 0
+    width = max(4, len(str(max_value)))
+    return f"{gas_value_millions:0{width}d}M"
+
+
 def format_fork_subdir(
     fork_name: str,
     gas_limit_subdir: str | None = None,
@@ -327,9 +337,9 @@ def format_fork_subdir(
     Return the fork-based output subdirectory name.
 
     Without *gas_limit_subdir*: ``for_prague``
-    With *gas_limit_subdir*:    ``for_prague_0002M``
+    With *gas_limit_subdir*:    ``for_prague_at_0002M``
     """
     base = f"{FORK_SUBDIR_PREFIX}{fork_name.lower()}"
     if gas_limit_subdir is not None:
-        return f"{base}_{gas_limit_subdir}"
+        return f"{base}_at_{gas_limit_subdir}"
     return base

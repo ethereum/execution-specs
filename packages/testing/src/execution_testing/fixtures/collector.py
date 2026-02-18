@@ -257,8 +257,8 @@ class FixtureCollector:
     ) -> Path:
         """Add fixture and immediately stream to partial JSONL file."""
         fixture_basename = self.get_fixture_basename(info)
-        if output_subdir is not None and output_subdir.name.startswith(
-            "benchmark_gas_limit_"
+        if output_subdir is not None and re.search(
+            r"_\d{4,}M$", output_subdir.name
         ):
             parts = fixture_basename.parts
             if parts and parts[0] == "benchmark":
