@@ -29,10 +29,7 @@ def to(
     pre: Alloc,
 ) -> Address | None:
     """Create the sender account."""
-    if hasattr(request, "param"):
-        param = request.param
-    else:
-        param = Op.STOP
+    param = getattr(request, "param", Op.STOP)
 
     if param is None:
         return None
@@ -81,30 +78,27 @@ def authorization_list(
     authorizations with valid signers using `pre` in this function, and the
     parametrized value should be a list of addresses.
     """
-    if not hasattr(request, "param"):
-        return None
-    if request.param is None:
+    param = getattr(request, "param", None)
+    if param is None:
         return None
     return [
         AuthorizationTuple(
             signer=pre.fund_eoa(1 if authorization_refund else 0),
             address=address,
         )
-        for address in request.param
+        for address in param
     ]
 
 
 @pytest.fixture
 def blob_versioned_hashes(ty: int) -> Sequence[Hash] | None:
     """Versioned hashes for the transaction."""
-    return (
-        add_kzg_version(
+    if ty == 3:
+        return add_kzg_version(
             [Hash(1)],
             EIP_7594_Spec.BLOB_COMMITMENT_VERSION_KZG,
         )
-        if ty == 3
-        else None
-    )
+    return None
 
 
 @pytest.fixture

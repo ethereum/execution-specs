@@ -603,9 +603,12 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         if byte == 0:
             zero_bytes += 1
 
-    tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
+    tokens_in_calldata = (
+        Uint(zero_bytes)
+        + Uint(len(tx.data) - zero_bytes) * STANDARD_CALLDATA_TOKEN_COST
+    )
     # EIP-7976 floor price uses floor tokens, not EIP-7623 calldata tokens.
-    floor_tokens_in_calldata = ulen(tx.data) * Uint(4)
+    floor_tokens_in_calldata = ulen(tx.data) * STANDARD_CALLDATA_TOKEN_COST
     calldata_floor_gas_cost = (
         floor_tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST
     )
