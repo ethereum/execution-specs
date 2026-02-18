@@ -662,7 +662,7 @@ def build_delegated_storage_setup(
 
     return blocks
 
-
+@pytest.mark.valid_from("Prague") # EIP-7702 is used in this benchmark
 @pytest.mark.parametrize("access_warm", [True, False])
 @pytest.mark.parametrize("sloads_before_sstore", [True, False])
 @pytest.mark.parametrize(
@@ -820,7 +820,7 @@ def create_sload_executor(key_warm: bool) -> IteratingBytecode:
 
     return IteratingBytecode(setup=setup, iterating=loop, cleanup=cleanup)
 
-
+@pytest.mark.valid_from("Prague") # EIP-7702 is used in this benchmark
 @pytest.mark.parametrize("access_warm", [True, False])
 @pytest.mark.parametrize("storage_keys_pre_set", [True, False])
 def test_storage_sload_benchmark(

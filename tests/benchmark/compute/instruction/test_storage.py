@@ -208,7 +208,7 @@ def create_benchmark_executor(
 
     return IteratingBytecode(setup=prefix, iterating=loop, cleanup=suffix)
 
-
+@pytest.mark.valid_from("Prague") # EIP-7702 is used in this benchmark
 @pytest.mark.parametrize(
     "storage_action,tx_result",
     [
