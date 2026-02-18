@@ -85,7 +85,7 @@ This mode is designed for gas limit testing, and gas repricing, where it enables
     for_osaka_at_0002M/...
 ```
 
-The subdirectory name follows the pattern `for_{fork}_at_{gas}M` (see [Fixture Output Directory Structure](../running_tests/releases.md#fixture-output-directory-structure) for details). Non‑benchmark (consensus) fixtures use the same layout with the default block gas limit.
+The subdirectory name follows the pattern `for_{fork}_at_{gas}M` (see [Fixture Output Directory Structure](../running_tests/releases.md#fixture-output-directory-structure) for details). Non-benchmark (consensus) fixtures use `for_{fork}` without the gas limit suffix.
 
 ## Developing Benchmarks
 

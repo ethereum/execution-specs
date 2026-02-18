@@ -1790,15 +1790,14 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     for name in ("benchmark", "stateful", "repricing")
                 )
                 if gas_benchmark_values is not None and is_benchmark_test:
-                    gas_values_list = gas_benchmark_values.root
+                    gas_limit_subdir = format_gas_limit_subdir(
+                        gas_benchmark_value, gas_benchmark_values.root
+                    )
+                    output_subdir = Path(
+                        format_fork_subdir(fork.name(), gas_limit_subdir)
+                    )
                 else:
-                    gas_values_list = [gas_benchmark_value // 1_000_000]
-                gas_limit_subdir = format_gas_limit_subdir(
-                    gas_benchmark_value, gas_values_list
-                )
-                output_subdir = Path(
-                    format_fork_subdir(fork.name(), gas_limit_subdir)
-                )
+                    output_subdir = Path(format_fork_subdir(fork.name()))
 
                 fixture_path = fixture_collector.add_fixture(
                     node_to_test_info(request.node),

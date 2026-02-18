@@ -15,9 +15,7 @@ from execution_testing.cli.pytest_commands.plugins.shared.benchmarking import (
 from execution_testing.cli.pytest_commands.plugins.shared.fixture_output import (  # noqa: E501
     FORK_SUBDIR_PREFIX,
     format_fork_subdir,
-    format_gas_limit_subdir,
 )
-from execution_testing.test_types import EnvironmentDefaults
 
 # EVM binary for fill tests; defaults to geth evm
 BENCHMARK_EVM_T8N = os.environ.get("EVM_BIN", "evm")
@@ -1124,12 +1122,10 @@ def test_consensus_fixtures_split_by_fork(
 
     assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
 
-    gas_limit = EnvironmentDefaults.gas_limit  # 120_000_000
-    gas_subdir = format_gas_limit_subdir(gas_limit, [gas_limit // 1_000_000])
-    prague_subdir = format_fork_subdir("Prague", gas_subdir)
-    osaka_subdir = format_fork_subdir("Osaka", gas_subdir)
+    prague_subdir = format_fork_subdir("Prague")
+    osaka_subdir = format_fork_subdir("Osaka")
 
-    # Verify fork+gas subdirs exist under state_tests
+    # Verify fork subdirs exist under state_tests
     state_tests_dir = output_dir / "state_tests"
     prague_dir = state_tests_dir / prague_subdir
     osaka_dir = state_tests_dir / osaka_subdir
