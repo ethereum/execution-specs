@@ -12,6 +12,72 @@
 | [Transaction Tests](./test_formats/transaction_test.md)             | - using a new simulator coming soon                                                                                                                                                                                                                                                       | None; executed directly from Python source,</br>using a release tag |
 | Blob Transaction Tests                                               | - using the [eels/execute-blobs Simulator](./execute/hive.md#the-eelsexecute-blobs-simulator) and                                                                                                                                                                                                                         | None; executed directly from Python source,</br>using a release tag |
 
+## Fixture Output Directory Structure
+
+Inside each format directory, fixtures are grouped by **target fork** and
+**block gas limit**.
+
+The top-level subdirectory identifies the fork **under test** and the block
+gas limit used during filling. Below it, fixtures mirror the `./tests/`
+source layout: each directory corresponds to the fork where the
+functionality was originally introduced. Because tests declare
+`valid_from`, a single target fork directory contains fixtures from every
+prior fork whose tests are still valid at that fork.
+
+### Consensus fixture layout
+
+```text
+fixtures/
+└── blockchain_tests/
+    ├── for_prague_at_0120M/          # filled targeting Prague
+    │   ├── istanbul/                 # tests introduced in Istanbul
+    │   │   └── eip1344_chainid/...
+    │   ├── cancun/                   # tests introduced in Cancun
+    │   │   └── eip4844_blobs/...
+    │   └── prague/                   # tests introduced in Prague
+    │       └── eip7702_set_code_tx/...
+    └── for_osaka_at_0120M/           # filled targeting Osaka
+        ├── istanbul/
+        │   └── eip1344_chainid/...
+        ├── cancun/
+        │   └── eip4844_blobs/...
+        ├── prague/
+        │   └── eip7702_set_code_tx/...
+        └── osaka/                    # tests introduced in Osaka
+            └── eip7692_eof_v1/...
+```
+
+Other format directories (`state_tests/`, `blockchain_tests_engine/`)
+follow the same layout.
+
+### Benchmark fixture layout
+
+When filling with `--gas-benchmark-values`, benchmark tests are organized
+under the same `for_{fork}_at_{gas}M` scheme, with one subdirectory per
+gas value:
+
+```text
+fixtures/
+└── blockchain_tests/
+    ├── for_osaka_at_0001M/           # 1M gas benchmark
+    │   └── benchmark/compute/...
+    └── for_osaka_at_0002M/           # 2M gas benchmark
+        └── benchmark/compute/...
+```
+
+### Subdirectory naming
+
+The subdirectory name follows the pattern
+`for_{fork}_at_{gas}M`, where:
+
+- **`{fork}`** is the lower-cased target fork name (e.g. `prague`, `osaka`).
+- **`{gas}`** is the block gas limit in millions, zero-padded to four digits
+  (e.g. `0060M` for 60 M gas).
+
+The gas limit defaults to `DEFAULT_BLOCK_GAS_LIMIT` and can be overridden
+with `--block-gas-limit`. Benchmark tests use the values supplied via
+`--gas-benchmark-values` instead.
+
 ## Release URLs and Tarballs
 
 ### Versioning Scheme

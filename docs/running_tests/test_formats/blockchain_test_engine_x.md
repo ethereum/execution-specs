@@ -22,13 +22,6 @@ The JSON file path plus the test name are used as the unique test identifier.
 
 The `blockchain_tests_engine_x` directory contains a special directory `pre_alloc` that stores pre-allocation group files used by all tests in this format, one per pre-allocation group with the name of the pre-alloc hash. This folder is essential for test execution and must be present alongside the test fixtures.
 
-**Note:** When fixtures are generated with `--gas-benchmark-values`, benchmark
-fixtures are written under
-`blockchain_tests_engine_x/benchmark_gas_limit_XXXXM/` subdirectories. The
-`pre_alloc` folder remains at `blockchain_tests_engine_x/pre_alloc` (shared
-across gas limits). Consumers should point to the
-`blockchain_tests_engine_x` directory so `pre_alloc` can be found.
-
 ### Pre-Allocation Group File Structure
 
 Each file in the `pre_alloc` folder corresponds to a pre-allocation group identified by a hash:
