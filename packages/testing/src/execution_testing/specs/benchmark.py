@@ -498,7 +498,6 @@ class BenchmarkTest(BaseTest):
     ) -> None:
         """Verify target opcode was executed the expected number of times."""
         # Skip validation if opcode count is not available
-        # (e.g. currently only supported for evmone filling)
         if opcode_count is None:
             return
 
