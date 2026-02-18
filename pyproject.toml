@@ -142,6 +142,12 @@ packages = [
     "ethereum.forks.osaka.vm.instructions",
     "ethereum.forks.osaka.vm.precompiled_contracts",
     "ethereum.forks.osaka.vm.precompiled_contracts.bls12_381",
+    "ethereum.forks.bpo1",
+    "ethereum.forks.bpo1.utils",
+    "ethereum.forks.bpo1.vm",
+    "ethereum.forks.bpo1.vm.instructions",
+    "ethereum.forks.bpo1.vm.precompiled_contracts",
+    "ethereum.forks.bpo1.vm.precompiled_contracts.bls12_381",
 ]
 
 [tool.setuptools.package-data]
