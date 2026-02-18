@@ -12,6 +12,7 @@ from execution_testing.test_types import Environment, EnvironmentDefaults
 from execution_testing.tools import ParameterSet
 
 from .execute_fill import OpMode
+from .fixture_output import FORK_SUBDIR_PREFIX
 
 
 def format_gas_limit_subdir(
@@ -21,7 +22,7 @@ def format_gas_limit_subdir(
     gas_value_millions = gas_benchmark_value // 1_000_000
     max_value = max(gas_values_millions) if gas_values_millions else 0
     width = max(4, len(str(max_value)))
-    return f"gas_limit_{gas_value_millions:0{width}d}M"
+    return f"{gas_value_millions:0{width}d}M"
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -39,7 +40,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Gas limits (in millions) for benchmark tests. "
             "Example: '100,500' runs tests with 100M and 500M gas. "
             "Benchmark outputs are grouped under "
-            "benchmark_gas_limit_XXXXM/ subdirectories. "
+            f"{FORK_SUBDIR_PREFIX}{{fork}}_XXXXM/ subdirectories. "
             f"Cannot be used with {OpcodeCountsConfig.flag}."
         ),
     )

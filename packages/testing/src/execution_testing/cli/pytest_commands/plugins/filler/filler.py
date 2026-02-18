@@ -83,7 +83,7 @@ from ..shared.helpers import (
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
-from .fixture_output import FixtureOutput
+from ..shared.fixture_output import FixtureOutput
 from .pre_alloc import Alloc
 
 # Fixture output dir for keyboard interrupt cleanup (set in pytest_configure).
@@ -1784,8 +1784,8 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     GasBenchmarkValues,
                     format_gas_limit_subdir,
                 )
+                from ..shared.fixture_output import format_fork_subdir
 
-                output_subdir = None
                 gas_benchmark_values = GasBenchmarkValues.from_config(
                     request.config
                 )
@@ -1798,7 +1798,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         gas_benchmark_value,
                         gas_benchmark_values.root,
                     )
-                    output_subdir = Path(f"benchmark_{gas_limit_subdir}")
+                    output_subdir = Path(
+                        format_fork_subdir(fork.name(), gas_limit_subdir)
+                    )
+                else:
+                    output_subdir = Path(format_fork_subdir(fork.name()))
 
                 fixture_path = fixture_collector.add_fixture(
                     node_to_test_info(request.node),
@@ -2002,6 +2006,8 @@ def _verify_fixtures_post_merge(
     Called from pytest_sessionfinish after partial files are merged into
     final JSON fixtures. Runs evm statetest/blocktest on each fixture.
     """
+    from ..shared.fixture_output import FORK_SUBDIR_PREFIX
+
     if not config.getoption("verify_fixtures"):
         return
 
@@ -2039,7 +2045,8 @@ def _verify_fixtures_post_merge(
             continue
 
         top_dir = relative_path.parts[0]
-        if top_dir.startswith("gas_limit_") and len(relative_path.parts) > 1:
+        is_fork_subdir = top_dir.startswith(FORK_SUBDIR_PREFIX)
+        if is_fork_subdir and len(relative_path.parts) > 1:
             top_dir = relative_path.parts[1]
         fixture_format = dir_to_format.get(top_dir)
         if fixture_format is None:

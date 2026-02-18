@@ -314,3 +314,22 @@ class FixtureOutput(BaseModel):
             use_pre_alloc_groups=config.getoption("use_pre_alloc_groups"),
             should_generate_all_formats=should_generate_all_formats,
         )
+
+
+FORK_SUBDIR_PREFIX = "for_"
+
+
+def format_fork_subdir(
+    fork_name: str,
+    gas_limit_subdir: str | None = None,
+) -> str:
+    """
+    Return the fork-based output subdirectory name.
+
+    Without *gas_limit_subdir*: ``for_prague``
+    With *gas_limit_subdir*:    ``for_prague_0002M``
+    """
+    base = f"{FORK_SUBDIR_PREFIX}{fork_name.lower()}"
+    if gas_limit_subdir is not None:
+        return f"{base}_{gas_limit_subdir}"
+    return base
