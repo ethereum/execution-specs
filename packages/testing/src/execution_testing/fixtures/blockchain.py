@@ -1,6 +1,5 @@
 """BlockchainTest types."""
 
-import json
 from functools import cached_property
 from typing import (
     Annotated,
@@ -597,24 +596,6 @@ class FixtureWithdrawal(WithdrawalGeneric[ZeroPaddedHexNumber]):
         return cls(**w.model_dump())
 
 
-class WitnessChunk(CamelModel):
-    """Represents execution witness data for a block."""
-
-    state: List[str]
-    codes: List[str]
-    keys: List[str]
-    headers: List[str]
-
-    @classmethod
-    def parse_witness_chunks(cls, s: str) -> List[Self]:
-        """
-        Parse multiple witness chunks from JSON string.
-
-        Returns a list of WitnessChunk instances parsed from the JSON array.
-        """
-        return [cls(**obj) for obj in json.loads(s)]
-
-
 class FixtureBlockBase(CamelModel):
     """
     Representation of an Ethereum block within a test Fixture without RLP
@@ -643,7 +624,6 @@ class FixtureBlockBase(CamelModel):
     )
     withdrawals: List[FixtureWithdrawal] | None = None
     receipts: List[FixtureTransactionReceipt] | None = None
-    execution_witness: WitnessChunk | None = None
     block_access_list: BlockAccessList | None = Field(
         None, description="EIP-7928 Block Access List"
     )
