@@ -143,9 +143,7 @@ class StateTest(FixtureTestItem):
         t8n_options = parser.parse_args(t8n_args)
 
         try:
-            t8n = T8N(
-                t8n_options, sys.stdout, in_stream, self.fork_cache
-            )
+            t8n = T8N(t8n_options, sys.stdout, in_stream, self.fork_cache)
         except StateWithEmptyAccount as e:
             pytest.xfail(str(e))
 
