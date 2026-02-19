@@ -2,7 +2,7 @@
 
 import math
 from enum import Enum, auto
-from typing import Dict, Generator, Self, Sequence, cast
+from typing import Dict, Generator, List, Self, Sequence, cast
 
 from execution_testing import (
     EOA,
@@ -21,6 +21,7 @@ from execution_testing import (
     compute_create2_address,
     compute_deterministic_create2_address,
 )
+from pydantic import Field
 
 from tests.osaka.eip7951_p256verify_precompiles.spec import (
     FieldElement,
@@ -334,6 +335,12 @@ class CustomSizedContractInitcode(FixedIterationsBytecode):
         return self._cached_address
 
 
+class ContractDeploymentTransaction(TransactionWithCost):
+    """Transaction object that can include the expected gas to be consumed."""
+
+    deployed_contracts: List[Address] = Field(..., exclude=True)
+
+
 class CustomSizedContractFactory(IteratingBytecode):
     """
     Factory contract that creates contracts with a custom size.
@@ -439,7 +446,7 @@ class CustomSizedContractFactory(IteratingBytecode):
         sender: EOA,
         contract_count: int,
         contract_start_index: int = 0,
-    ) -> Generator[TransactionWithCost, None, None]:
+    ) -> Generator[ContractDeploymentTransaction, None, None]:
         """
         Create a list of transactions calling the factory to create the
         given number of contracts, each capped tx properly capped by the
@@ -485,12 +492,21 @@ class CustomSizedContractFactory(IteratingBytecode):
                     start_iteration=start_iteration,
                     calldata=calldata_max,
                 )
-            yield TransactionWithCost(
+            deployed_contracts = [
+                self.created_contract_address(
+                    salt=i,
+                )
+                for i in range(
+                    start_iteration, start_iteration + iteration_count
+                )
+            ]
+            yield ContractDeploymentTransaction(
                 to=to,
                 gas_limit=tx_gas_limit,
                 sender=sender,
                 gas_cost=tx_gas_cost,
                 data=calldata(iteration_count, start_iteration),
+                deployed_contracts=deployed_contracts,
             )
             start_iteration += iteration_count
             last_iteration_count = iteration_count

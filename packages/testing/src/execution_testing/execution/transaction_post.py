@@ -113,11 +113,17 @@ class TransactionPost(BaseExecute):
                 signed_txs.append(tx)
             current_block_tx_hashes: List[Hash] = []
             if any(tx.error is not None for tx in signed_txs):
+                tx_queue: List[Transaction] = []
                 for transaction in signed_txs:
                     if transaction.error is None:
-                        eth_rpc.send_wait_transaction(transaction)
-                        current_block_tx_hashes.append(transaction.hash)
+                        tx_queue.append(transaction)
                     else:
+                        if tx_queue:
+                            eth_rpc.send_wait_transactions(tx_queue)
+                            current_block_tx_hashes.extend(
+                                tx.hash for tx in tx_queue
+                            )
+                            tx_queue = []
                         logger.info(
                             f"Sending transaction expecting rejection "
                             f"(expected error: {transaction.error})..."
@@ -130,6 +136,9 @@ class TransactionPost(BaseExecute):
                             "Transaction rejected as expected: "
                             f"{exc_info.value}"
                         )
+                if tx_queue:
+                    eth_rpc.send_wait_transactions(tx_queue)
+                    current_block_tx_hashes.extend(tx.hash for tx in tx_queue)
             else:
                 # Send transactions (batching is handled by eth_rpc internally)
                 eth_rpc.send_wait_transactions(signed_txs)
@@ -149,45 +158,24 @@ class TransactionPost(BaseExecute):
                 gas_used = int(receipt["gasUsed"], 16)
                 benchmark_gas_used += gas_used
 
-        for address, account in self.post.root.items():
-            balance = eth_rpc.get_balance(address)
-            code = eth_rpc.get_code(address)
-            nonce = eth_rpc.get_transaction_count(address)
-            if account is None:
-                assert balance == 0, (
-                    f"Balance of {address} is {balance}, expected 0."
+        actual_alloc = eth_rpc.get_alloc(self.post)
+        for address, expected_account in self.post.root.items():
+            actual_account = actual_alloc.root[address]
+            assert actual_account is not None
+            if expected_account is None:
+                assert actual_account.balance == 0, (
+                    f"Balance of {address} is "
+                    f"{actual_account.balance}, expected 0."
                 )
-                assert code == b"", (
-                    f"Code of {address} is {code}, expected 0x."
+                assert actual_account.code == b"", (
+                    f"Code of {address} is {actual_account.code}, expected 0x."
                 )
-                assert nonce == 0, (
-                    f"Nonce of {address} is {nonce}, expected 0."
+                assert actual_account.nonce == 0, (
+                    f"Nonce of {address} is "
+                    f"{actual_account.nonce}, expected 0."
                 )
             else:
-                if "balance" in account.model_fields_set:
-                    assert balance == account.balance, (
-                        f"Balance of {address} is {balance}, "
-                        f"expected {account.balance}."
-                    )
-                if "code" in account.model_fields_set:
-                    assert code == account.code, (
-                        f"Code of {address} is {code}, "
-                        f"expected {account.code}."
-                    )
-                if "nonce" in account.model_fields_set:
-                    assert nonce == account.nonce, (
-                        f"Nonce of {address} is {nonce}, "
-                        f"expected {account.nonce}."
-                    )
-                if "storage" in account.model_fields_set:
-                    for key, value in account.storage.items():
-                        storage_value = eth_rpc.get_storage_at(
-                            address, Hash(key)
-                        )
-                        assert storage_value == value, (
-                            f"Storage value at {key} of {address} is "
-                            f"{storage_value}, expected {value}."
-                        )
+                expected_account.check_alloc(address, actual_account)
 
         return ExecuteResult(
             benchmark_gas_used=benchmark_gas_used,

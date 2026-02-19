@@ -394,17 +394,8 @@ class Alloc(SharedAlloc):
 
             self._deployed_contracts.append((contract_address, deploy_code))
 
-        balance = self._eth_rpc.get_balance(contract_address)
-        nonce = self._eth_rpc.get_transaction_count(contract_address)
-        self.__internal_setitem__(
-            contract_address,
-            Account(
-                nonce=nonce,
-                balance=balance,
-                code=deploy_code,
-                storage={},
-            ),
-        )
+        account = self._eth_rpc.get_account(contract_address)
+        self.__internal_setitem__(contract_address, account)
 
         contract_address.label = label
         return contract_address
@@ -446,27 +437,20 @@ class Alloc(SharedAlloc):
                 f"Using address stub '{stub}' at {contract_address} "
                 f"(label={label})"
             )
-            code = self._eth_rpc.get_code(contract_address)
+            account = self._eth_rpc.get_account(contract_address)
+            code = account.code
             if code == b"":
                 raise ValueError(
                     f"Stub {stub} at {contract_address} has no code"
                 )
-            balance = self._eth_rpc.get_balance(contract_address)
-            nonce = self._eth_rpc.get_transaction_count(contract_address)
+            balance = account.balance
+            nonce = account.nonce
             bal_eth = balance / 10**18
             logger.debug(
                 f"Stub contract {contract_address}: balance={bal_eth:.18f} "
                 f"ETH, nonce={nonce}, code_size={len(code)} bytes"
             )
-            self.__internal_setitem__(
-                contract_address,
-                Account(
-                    nonce=nonce,
-                    balance=balance,
-                    code=code,
-                    storage={},
-                ),
-            )
+            self.__internal_setitem__(contract_address, account)
             return contract_address
 
         initcode_prefix = Bytecode()
@@ -827,36 +811,14 @@ class Alloc(SharedAlloc):
             f"(deployed_contracts={len(self._deployed_contracts)}, "
             f"funded_eoas={len(self._funded_eoa)})"
         )
-        transaction_batches: List[List[PendingTransaction]] = []
-        last_tx_batch: List[PendingTransaction] = []
-        max_txs_per_batch = 100
         for tx in self._pending_txs:
             assert tx.value is not None, (
                 "Transaction value must be set before sending them to the RPC."
             )
-            if len(last_tx_batch) >= max_txs_per_batch:
-                transaction_batches.append(last_tx_batch)
-                last_tx_batch = []
-            last_tx_batch.append(tx)
-        if last_tx_batch:
-            transaction_batches.append(last_tx_batch)
 
-        responses: List[TransactionByHashResponse] = []
-        for tx_batch in transaction_batches:
-            txs = [tx.with_signature_and_sender() for tx in tx_batch]
-            tx_hashes = self._eth_rpc.send_transactions(txs)
-            hash_strs = [str(h) for h in tx_hashes[:5]]
-            n_hashes = len(tx_hashes)
-            extra = f" and {n_hashes - 5} more" if n_hashes > 5 else ""
-            logger.info(f"Sent {n_hashes} transactions: {hash_strs}{extra}")
-            logger.info(
-                f"Waiting for {len(tx_batch)} transactions to be included "
-                "in blocks"
-            )
-            responses += self._eth_rpc.wait_for_transactions(tx_batch)
-            logger.info(
-                f"All {len(responses)} transactions confirmed in blocks"
-            )
+        txs = [tx.with_signature_and_sender() for tx in self._pending_txs]
+        responses = self._eth_rpc.send_wait_transactions(txs)
+
         for response in responses:
             logger.debug(f"Transaction response: {response.model_dump_json()}")
         return responses
@@ -928,22 +890,30 @@ def pre(
         return
 
     # Refund all EOAs (regardless of whether the test passed or failed)
+    funded_eoas = pre._funded_eoa
     logger.info(
-        f"Starting cleanup phase: refunding {len(pre._funded_eoa)} funded EOAs"
+        f"Starting cleanup phase: refunding {len(funded_eoas)} funded EOAs"
     )
-    refund_txs = []
+
+    if not funded_eoas:
+        logger.info("No funded EOAs to refund")
+        return
+
+    # Build refund transactions
+    refund_txs: List[Transaction] = []
     skipped_refunds = 0
-    error_refunds = 0
-    for idx, eoa in enumerate(pre._funded_eoa):
-        remaining_balance = eth_rpc.get_balance(eoa)
-        eoa.nonce = Number(eth_rpc.get_transaction_count(eoa))
-        refund_gas_limit = 21_000
-        tx_cost = refund_gas_limit * max_fee_per_gas
+    refund_gas_limit = 21_000
+    tx_cost = refund_gas_limit * max_fee_per_gas
+    for idx, eoa in enumerate(funded_eoas):
+        account = eth_rpc.get_account(eoa, skip_code=True)
+        remaining_balance = account.balance
+        eoa.nonce = Number(account.nonce)
         if remaining_balance < tx_cost:
             rem_eth = remaining_balance / 10**18
             cost_eth = tx_cost / 10**18
             logger.debug(
-                f"Skipping refund for EOA {eoa} (label={eoa.label}): "
+                f"Skipping refund for EOA {eoa} "
+                f"(label={eoa.label}): "
                 f"insufficient balance {rem_eth:.18f} ETH < "
                 f"transaction cost {cost_eth:.18f} ETH"
             )
@@ -954,14 +924,15 @@ def pre(
         rem_eth = remaining_balance / 10**18
         cost_eth = tx_cost / 10**18
         logger.debug(
-            f"Preparing refund transaction for EOA {eoa} (label={eoa.label}): "
+            f"Preparing refund transaction for EOA {eoa} "
+            f"(label={eoa.label}): "
             f"{ref_eth:.18f} ETH (remaining: {rem_eth:.18f} ETH, "
             f"cost: {cost_eth:.18f} ETH)"
         )
         refund_tx = Transaction(
             sender=eoa,
             to=worker_key,
-            gas_limit=21_000,
+            gas_limit=refund_gas_limit,
             max_fee_per_gas=max_fee_per_gas,
             max_priority_fee_per_gas=max_priority_fee_per_gas,
             value=refund_value,
@@ -973,35 +944,18 @@ def pre(
             target=eoa.label,
             tx_index=idx,
         )
-        try:
-            logger.info(
-                f"Sending refund transaction for EOA {eoa}: {refund_tx.hash}"
-            )
-            refund_tx_hash = eth_rpc.send_transaction(refund_tx)
-            logger.info(f"Refund transaction sent: {refund_tx_hash}")
-            refund_txs.append(refund_tx)
-        except Exception as e:
-            eoa_key = eoa.key
-            logger.error(
-                f"Error sending refund transaction for EOA {eoa}: {e}."
-            )
-            if eoa_key is not None:
-                logger.info(
-                    f"Retrieve funds manually from EOA {eoa} "
-                    f"using private key {eoa_key.hex()}."
-                )
-            error_refunds += 1
-            continue
+        refund_txs.append(refund_tx)
+
     if refund_txs:
         logger.info(
-            f"Waiting for {len(refund_txs)} refund transactions "
-            f"({skipped_refunds} skipped due to insufficient balance, "
-            f"{error_refunds} errored)"
+            f"Sending {len(refund_txs)} refund transactions "
+            f"({skipped_refunds} skipped due to insufficient balance)"
         )
-        eth_rpc.wait_for_transactions(refund_txs)
+        eth_rpc.send_wait_transactions(refund_txs)
         logger.info(f"All {len(refund_txs)} refund transactions confirmed")
     else:
         logger.info(
-            f"No refund transactions to send ({skipped_refunds} EOAs skipped "
-            f"due to insufficient balance, {error_refunds} errored)"
+            f"No refund transactions to send "
+            f"({skipped_refunds} EOAs skipped "
+            f"due to insufficient balance)"
         )

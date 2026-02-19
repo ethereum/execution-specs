@@ -20,6 +20,9 @@ from .rpc_types import (
     EthConfigResponse,
     ForkConfig,
     ForkConfigBlobSchedule,
+    JSONRPCRequest,
+    JSONRPCResponse,
+    RPCCall,
     TransactionProtocol,
 )
 
@@ -36,7 +39,10 @@ __all__ = [
     "ForkConfig",
     "ForkConfigBlobSchedule",
     "ForkchoiceUpdateTimeoutError",
+    "JSONRPCRequest",
+    "JSONRPCResponse",
     "NetRPC",
+    "RPCCall",
     "PeerConnectionTimeoutError",
     "SendTransactionExceptionError",
     "TransactionProtocol",

@@ -10,6 +10,8 @@ from typing import Any, Dict, Generator, List, Type
 import pytest
 from pytest_metadata.plugin import metadata_key
 
+from execution_testing.base_types import Account
+from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.execution import BaseExecute
 from execution_testing.forks import Fork
 from execution_testing.logging import get_logger
@@ -716,21 +718,32 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 # send the funds to the required sender accounts
                 pre.send_pending_transactions()
 
-                for (
-                    deployed_contract,
-                    expected_code,
-                ) in pre._deployed_contracts:
-                    actual_code = eth_rpc.get_code(deployed_contract)
-                    if actual_code != expected_code:
-                        msg = (
-                            f"Deployed test contract didn't match expected "
-                            f"code at address {deployed_contract} "
-                            f"(not enough gas_limit?).\n"
-                            f"Expected: {expected_code}\n"
-                            f"Actual: {actual_code}"
-                        )
-                        logger.error(msg)
-                        raise Exception(msg)
+                if pre._deployed_contracts:
+                    contract_alloc = BaseAlloc(
+                        root={
+                            addr: Account()
+                            for addr, _ in pre._deployed_contracts
+                        }
+                    )
+                    actual_alloc = eth_rpc.get_alloc(contract_alloc)
+                    for (
+                        deployed_contract,
+                        expected_code,
+                    ) in pre._deployed_contracts:
+                        actual_account = actual_alloc.root[deployed_contract]
+                        assert actual_account is not None
+                        actual_code = actual_account.code
+                        if actual_code != expected_code:
+                            msg = (
+                                f"Deployed test contract didn't match "
+                                f"expected code at address "
+                                f"{deployed_contract} "
+                                f"(not enough gas_limit?).\n"
+                                f"Expected: {expected_code}\n"
+                                f"Actual: {actual_code}"
+                            )
+                            logger.error(msg)
+                            raise Exception(msg)
                 request.node.config.funded_accounts = ", ".join(
                     [str(eoa) for eoa in pre._funded_eoa]
                 )
