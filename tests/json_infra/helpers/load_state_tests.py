@@ -142,19 +142,20 @@ class StateTest(FixtureTestItem):
         ]
         t8n_options = parser.parse_args(t8n_args)
 
-        with ForkCache() as fork_cache:
-            try:
-                t8n = T8N(t8n_options, sys.stdout, in_stream, fork_cache)
-            except StateWithEmptyAccount as e:
-                pytest.xfail(str(e))
+        try:
+            t8n = T8N(
+                t8n_options, sys.stdout, in_stream, self.fork_cache
+            )
+        except StateWithEmptyAccount as e:
+            pytest.xfail(str(e))
 
-            t8n.run_state_test()
+        t8n.run_state_test()
 
-            if "expectException" in post:
-                assert 0 in t8n.txs.rejected_txs
-                return
+        if "expectException" in post:
+            assert 0 in t8n.txs.rejected_txs
+            return
 
-            assert hex_to_bytes(post_hash) == t8n.result.state_root
+        assert hex_to_bytes(post_hash) == t8n.result.state_root
 
 
 class StateTestFixture(Fixture, Collector):

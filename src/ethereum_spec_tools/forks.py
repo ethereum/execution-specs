@@ -20,6 +20,7 @@ from types import ModuleType
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Dict,
     Iterator,
     List,
@@ -72,14 +73,28 @@ class Hardfork:
     """
 
     mod: ModuleType
+    _discover_cache: ClassVar[Dict[type, List["Hardfork"]]] = {}
 
     @classmethod
     def discover(
-        cls: Type[H], submodule_search_locations: None | list[str] = None
+        cls: Type[H],
+        submodule_search_locations: None | list[str] = None,
+        *,
+        force: bool = False,
     ) -> List[H]:
         """
         Find packages which contain Ethereum hardfork specifications.
+
+        Results are cached when ``submodule_search_locations`` is ``None``.
+        Pass ``force=True`` to bypass the cache.
         """
+        if (
+            not force
+            and submodule_search_locations is None
+            and cls in cls._discover_cache
+        ):
+            return list(cls._discover_cache[cls])  # type: ignore
+
         if submodule_search_locations is None:
             ethereum_forks = importlib.import_module("ethereum.forks")
         else:
@@ -138,6 +153,9 @@ class Hardfork:
 
         # Timestamps are bigger than block numbers, so this always works.
         forks.sort(key=lambda fork: fork.criteria)
+
+        if submodule_search_locations is None:
+            cls._discover_cache[cls] = list(forks)
 
         return forks
 
