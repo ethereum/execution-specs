@@ -683,8 +683,9 @@ def _delete_from_extension(
     if prefix_len < len(segment):
         return node
 
+    old_child = node.child
     new_child = _mpt_delete_node(
-        mpt, node.child, key, level + Uint(len(segment))
+        mpt, old_child, key, level + Uint(len(segment))
     )
 
     if new_child is None:
@@ -703,6 +704,12 @@ def _delete_from_extension(
             _dirty=True,
         )
 
+    child_changed = new_child is not old_child or (
+        new_child is not None and new_child._dirty
+    )
+    if not child_changed:
+        return node
+
     node.child = new_child
     node._dirty = True
     return node
@@ -718,15 +725,24 @@ def _delete_from_branch(
     remaining_key = key[level:]
 
     if len(remaining_key) == 0:
+        if node.value == b"":
+            return node
         node.value = b""
     else:
         child_idx = remaining_key[0]
-        node.children[child_idx] = _mpt_delete_node(
+        old_child = node.children[child_idx]
+        new_child = _mpt_delete_node(
             mpt,
-            node.children[child_idx],
+            old_child,
             key,
             level + Uint(1),
         )
+        child_changed = new_child is not old_child or (
+            new_child is not None and new_child._dirty
+        )
+        if not child_changed:
+            return node
+        node.children[child_idx] = new_child
 
     node._dirty = True
     return _collapse_branch(mpt, node)
