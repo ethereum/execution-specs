@@ -64,7 +64,14 @@ class Alloc:
             if account.nonce:
                 account_data["nonce"] = hex(account.nonce)
 
-            if account.code:
+            # TODO: backport to forks before amsterdam
+            if hasattr(account, "code_hash"):
+                from ethereum.state import EMPTY_CODE_HASH
+
+                if account.code_hash != EMPTY_CODE_HASH:
+                    code = self.state.get_code(account.code_hash)
+                    account_data["code"] = "0x" + code.hex()
+            elif account.code:
                 account_data["code"] = "0x" + account.code.hex()
 
             if address in self.state._storage_tries:
@@ -315,8 +322,8 @@ class Result:
                 extract_block_diffs,
             )
 
-            account_changes, storage_changes = extract_block_diffs(
-                t8n._block_state
+            account_changes, storage_changes, code_changes = (
+                extract_block_diffs(t8n._block_state)
             )
             state_root_value, _ = (
                 t8n.alloc.state.compute_state_root_and_trie_changes(
@@ -329,6 +336,7 @@ class Result:
                 t8n.alloc.state,
                 account_changes,
                 storage_changes,
+                code_changes,
             )
         else:
             self.state_root = t8n.fork.state_root(block_env.state)

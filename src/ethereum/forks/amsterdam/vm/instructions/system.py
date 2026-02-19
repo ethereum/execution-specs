@@ -21,6 +21,7 @@ from ...state_tracker import (
     account_has_code_or_nonce,
     account_has_storage,
     get_account,
+    get_code,
     increment_nonce,
     is_account_alive,
     move_ether,
@@ -426,7 +427,8 @@ def call(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
-    code = get_account(tx_state, code_address).code
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
 
     message_call_gas = calculate_message_call_gas(
         value,
@@ -529,7 +531,8 @@ def callcode(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
-    code = get_account(tx_state, code_address).code
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
 
     message_call_gas = calculate_message_call_gas(
         value,
@@ -690,7 +693,8 @@ def delegatecall(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
-    code = get_account(tx_state, code_address).code
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
 
     message_call_gas = calculate_message_call_gas(
         U256(0),
@@ -780,7 +784,8 @@ def staticcall(evm: Evm) -> None:
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
-    code = get_account(tx_state, code_address).code
+    code_hash = get_account(tx_state, code_address).code_hash
+    code = get_code(tx_state, code_hash)
 
     message_call_gas = calculate_message_call_gas(
         U256(0),

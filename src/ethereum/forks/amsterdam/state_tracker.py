@@ -25,7 +25,14 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
-from ethereum.state import EMPTY_ACCOUNT, Account, Address, PreState
+from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.state import (
+    EMPTY_ACCOUNT,
+    EMPTY_CODE_HASH,
+    Account,
+    Address,
+    PreState,
+)
 
 if TYPE_CHECKING:
     from .block_access_lists.builder import BlockAccessListBuilder
@@ -51,6 +58,9 @@ class BlockState:
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
+    # TODO: Include code_reads for ExecutionWitness. If we get an
+    # accounts balance, we dont want to include its bytecode too.
+    code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
 
 
 @dataclass
@@ -74,6 +84,7 @@ class TransactionState:
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
+    code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     created_accounts: Set[Address] = field(default_factory=set)
     transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
         default_factory=dict
@@ -133,6 +144,34 @@ def get_account(tx_state: TransactionState, address: Address) -> Account:
         return account
     else:
         return EMPTY_ACCOUNT
+
+
+def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
+    """
+    Get the bytecode for a given code hash.
+
+    Read chain: tx code_writes -> block code_writes -> pre_state.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    code_hash :
+        Hash of the code to look up.
+
+    Returns
+    -------
+    code : ``Bytes``
+        The bytecode.
+
+    """
+    if code_hash == EMPTY_CODE_HASH:
+        return b""
+    if code_hash in tx_state.code_writes:
+        return tx_state.code_writes[code_hash]
+    if code_hash in tx_state.parent.code_writes:
+        return tx_state.parent.code_writes[code_hash]
+    return tx_state.parent.pre_state.get_code(code_hash)
 
 
 def get_storage(
@@ -259,7 +298,7 @@ def account_has_code_or_nonce(
 
     """
     account = get_account(tx_state, address)
-    return account.nonce != Uint(0) or account.code != b""
+    return account.nonce != Uint(0) or account.code_hash != EMPTY_CODE_HASH
 
 
 def account_has_storage(tx_state: TransactionState, address: Address) -> bool:
@@ -311,7 +350,7 @@ def account_exists_and_is_empty(
     return (
         account is not None
         and account.nonce == Uint(0)
-        and account.code == b""
+        and account.code_hash == EMPTY_CODE_HASH
         and account.balance == 0
     )
 
@@ -586,11 +625,14 @@ def set_code(
         The bytecode that needs to be set.
 
     """
+    code_hash = keccak256(code)
+    if code_hash != EMPTY_CODE_HASH:
+        tx_state.code_writes[code_hash] = code
 
-    def write_code(sender: Account) -> None:
-        sender.code = code
+    def write_code_hash(sender: Account) -> None:
+        sender.code_hash = code_hash
 
-    modify_state(tx_state, address, write_code)
+    modify_state(tx_state, address, write_code_hash)
 
 
 # -- Snapshot / Rollback ---------------------------------------------------
@@ -622,6 +664,7 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
             addr: dict(slots)
             for addr, slots in tx_state.storage_writes.items()
         },
+        code_writes=dict(tx_state.code_writes),
         created_accounts=tx_state.created_accounts,
         transient_storage=dict(tx_state.transient_storage),
         storage_reads=tx_state.storage_reads,
@@ -645,6 +688,7 @@ def restore_tx_state(
     """
     tx_state.account_writes = snapshot.account_writes
     tx_state.storage_writes = snapshot.storage_writes
+    tx_state.code_writes = snapshot.code_writes
     tx_state.transient_storage = snapshot.transient_storage
 
 
@@ -690,8 +734,11 @@ def incorporate_tx_into_block(
             block.storage_writes[address] = {}
         block.storage_writes[address].update(slots)
 
+    block.code_writes.update(tx_state.code_writes)
+
     tx_state.account_writes.clear()
     tx_state.storage_writes.clear()
+    tx_state.code_writes.clear()
     tx_state.created_accounts.clear()
     tx_state.transient_storage.clear()
     tx_state.storage_reads = set()
@@ -703,9 +750,10 @@ def extract_block_diffs(
 ) -> Tuple[
     Dict[Address, Optional[Account]],
     Dict[Address, Dict[Bytes32, U256]],
+    Dict[Hash32, Bytes],
 ]:
     """
-    Extract account and storage diffs from the block state.
+    Extract account, storage, and code diffs from the block state.
 
     Parameters
     ----------
@@ -718,9 +766,15 @@ def extract_block_diffs(
         Account changes to apply.
     storage_diffs :
         Storage changes to apply.
+    code_diffs :
+        Code changes to apply.
 
     """
-    return block_state.account_writes, block_state.storage_writes
+    return (
+        block_state.account_writes,
+        block_state.storage_writes,
+        block_state.code_writes,
+    )
 
 
 # -- BAL Tracking -----------------------------------------------------------

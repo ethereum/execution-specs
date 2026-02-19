@@ -19,9 +19,9 @@ from typing import Dict, List, Optional, Set
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.state import Account, Address, PreState
+from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
 
-from ..state_tracker import BlockState, TransactionState
+from ..state_tracker import BlockState, TransactionState, get_code
 from .rlp_types import (
     AccountChanges,
     BalanceChange,
@@ -432,9 +432,14 @@ def update_builder_from_tx(
         if pre_nonce != post_nonce:
             add_nonce_change(builder, address, idx, U64(post_nonce))
 
-        pre_code = pre_account.code if pre_account else b""
-        post_code = post_account.code if post_account else b""
-        if pre_code != post_code:
+        pre_code_hash = (
+            pre_account.code_hash if pre_account else EMPTY_CODE_HASH
+        )
+        post_code_hash = (
+            post_account.code_hash if post_account else EMPTY_CODE_HASH
+        )
+        if pre_code_hash != post_code_hash:
+            post_code = get_code(tx_state, post_code_hash)
             add_code_change(builder, address, idx, post_code)
 
     # Compare storage writes against block cumulative state

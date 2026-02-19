@@ -334,18 +334,29 @@ class T8N(Load):
     def backup_state(self) -> None:
         """Back up the state in order to restore in case of an error."""
         state = self.alloc.state
-        self.alloc.state_backup = (
-            self.fork.copy_trie(state._main_trie),
-            {
-                k: self.fork.copy_trie(t)
-                for (k, t) in state._storage_tries.items()
-            },
-        )
+        main_trie = self.fork.copy_trie(state._main_trie)
+        storage_tries = {
+            k: self.fork.copy_trie(t)
+            for (k, t) in state._storage_tries.items()
+        }
+        # TODO: backport pass amsterdam
+        if self.fork.has_block_state:
+            self.alloc.state_backup = (
+                main_trie,
+                storage_tries,
+                dict(state._code_store),
+            )
+        else:
+            self.alloc.state_backup = (main_trie, storage_tries)
 
     def restore_state(self) -> None:
         """Restore the state from the backup."""
         state = self.alloc.state
-        state._main_trie, state._storage_tries = self.alloc.state_backup
+        state._main_trie = self.alloc.state_backup[0]
+        state._storage_tries = self.alloc.state_backup[1]
+        # TODO: backport pass amsterdam
+        if self.fork.has_block_state:
+            state._code_store = self.alloc.state_backup[2]
 
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""

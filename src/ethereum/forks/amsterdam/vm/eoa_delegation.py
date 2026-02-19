@@ -16,6 +16,7 @@ from ..fork_types import Authorization
 from ..state_tracker import (
     account_exists,
     get_account,
+    get_code,
     increment_nonce,
     set_code,
     track_address,
@@ -141,7 +142,7 @@ def calculate_delegation_cost(
     """
     tx_state = evm.message.tx_env.state
 
-    code = get_account(tx_state, address).code
+    code = get_code(tx_state, get_account(tx_state, address).code_hash)
     track_address(tx_state, address)
 
     if not is_valid_delegation(code):
@@ -189,7 +190,7 @@ def set_delegation(message: Message) -> U256:
         message.accessed_addresses.add(authority)
 
         authority_account = get_account(tx_state, authority)
-        authority_code = authority_account.code
+        authority_code = get_code(tx_state, authority_account.code_hash)
         track_address(tx_state, authority)
 
         if authority_code and not is_valid_delegation(authority_code):
@@ -213,6 +214,9 @@ def set_delegation(message: Message) -> U256:
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")
 
-    message.code = get_account(tx_state, message.code_address).code
+    message.code = get_code(
+        tx_state,
+        get_account(tx_state, message.code_address).code_hash,
+    )
 
     return refund_counter

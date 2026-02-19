@@ -37,6 +37,7 @@ from ..state_tracker import (
     copy_tx_state,
     destroy_storage,
     get_account,
+    get_code,
     increment_nonce,
     mark_account_created,
     move_ether,
@@ -131,7 +132,10 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if delegated_address is not None:
             message.disable_precompiles = True
             message.accessed_addresses.add(delegated_address)
-            message.code = get_account(tx_state, delegated_address).code
+            message.code = get_code(
+                tx_state,
+                get_account(tx_state, delegated_address).code_hash,
+            )
             message.code_address = delegated_address
             track_address(tx_state, delegated_address)
 
