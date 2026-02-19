@@ -210,6 +210,14 @@ def set_storage(
         del state._storage_tries[address]
 
 
+def state_root(state: State) -> Root:
+    """
+    Compute the state root of the current state.
+    """
+    root_value, _ = state.compute_state_root_and_trie_changes({}, {})
+    return root_value
+
+
 def set_code(state: State, code: Bytes) -> Hash32:
     """
     Store bytecode in a ``State``.
@@ -218,11 +226,3 @@ def set_code(state: State, code: Bytes) -> Hash32:
     if code_hash != EMPTY_CODE_HASH:
         state._code_store[code_hash] = code
     return code_hash
-
-
-def state_root(state: State) -> Root:
-    """
-    Compute the state root of the current state.
-    """
-    root_value, _ = state.compute_state_root_and_trie_changes({}, {})
-    return root_value

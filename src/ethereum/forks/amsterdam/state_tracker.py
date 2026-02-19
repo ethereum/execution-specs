@@ -59,7 +59,7 @@ class BlockState:
         default_factory=dict
     )
     # TODO: Include code_reads for ExecutionWitness. If we get an
-    # accounts balance, we dont want to include its bytecode too.
+    # accounts balance, we don't want to include its bytecode too.
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
 
 
