@@ -33,14 +33,15 @@ def check_live_port(test_suite_name: str) -> Literal[8545, 8551]:
     elif test_suite_name in {"eels/consume-engine", "eels/consume-sync"}:
         return 8551
     raise ValueError(
-        f"Unexpected test suite name '{test_suite_name}' while setting HIVE_CHECK_LIVE_PORT."
+        f"Unexpected test suite name '{test_suite_name}' while setting "
+        "HIVE_CHECK_LIVE_PORT."
     )
 
 
 class FixturesDict(Dict[Path, Fixtures]):
     """
-    A dictionary caches loaded fixture files to avoid reloading the same file
-    multiple times.
+    A dictionary that caches loaded fixture files to avoid reloading the same
+    file multiple times.
     """
 
     def __init__(self) -> None:

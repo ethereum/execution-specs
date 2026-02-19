@@ -49,17 +49,12 @@ class BaseLoad(ABC):
 class Load(BaseLoad):
     """Class for loading json fixtures."""
 
-    _network: str
-    _fork_module: str
     fork: ForkLoad
 
-    def __init__(self, network: str, fork_module: str | Hardfork):
-        self._network = network
+    def __init__(self, fork_module: str | Hardfork):
         if isinstance(fork_module, Hardfork):
             self.fork = ForkLoad(fork_module)
-            self._fork_module = fork_module.short_name
         else:
-            self._fork_module = fork_module
             for fork in Hardfork.discover():
                 if fork.short_name == fork_module:
                     self.fork = ForkLoad(fork)
@@ -195,5 +190,9 @@ class Load(BaseLoad):
         if "requestsHash" in raw:
             requests_hash = hex_to_bytes32(raw.get("requestsHash"))
             parameters.append(requests_hash)
+
+        if "blockAccessListHash" in raw:
+            bal_hash = hex_to_bytes32(raw.get("blockAccessListHash"))
+            parameters.append(bal_hash)
 
         return self.fork.Header(*parameters)

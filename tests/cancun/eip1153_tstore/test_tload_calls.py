@@ -78,7 +78,7 @@ def test_tload_calls(
     post = {
         address_to: Account(
             storage={
-                # other calls don't change context, there for tload updated in
+                # other calls don't change context, therefore tload updated in
                 # this account
                 slot_a_tload_after_subcall_result: 10
                 if call_type == Op.CALL

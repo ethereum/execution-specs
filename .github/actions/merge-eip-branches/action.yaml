@@ -1,0 +1,130 @@
+name: Merge EIP Branches
+description: Merges multiple EIP branches into a devnet branch, by pushing using --force-with-lease
+
+inputs:
+  fork:
+    description: 'Fork name (e.g., amsterdam)'
+    required: true
+  devnet_name:
+    description: 'Devnet name (e.g., amsterdam/1, bal/2, eip-1234/3). Created branch will be `devnets/$devnet_name`'
+    required: true
+  eip_numbers:
+    description: 'Comma-separated list of EIP numbers (e.g., 1234,2345,3456)'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Merge EIP branches
+      shell: bash
+      env:
+        FORK: ${{ inputs.fork }}
+        DEVNET_NAME: ${{ inputs.devnet_name }}
+        EIP_NUMBERS: ${{ inputs.eip_numbers }}
+        REMOTE: origin
+      run: |
+        set -euo pipefail
+
+        echo "FORK=$FORK"
+        echo "DEVNET_NAME=$DEVNET_NAME"
+        echo "EIP_NUMBERS=$EIP_NUMBERS"
+
+        FORK_BRANCH="forks/${FORK}"
+        DEVNET_BRANCH="devnets/${DEVNET_NAME}"
+
+        # Basic ref-format validation for user-provided pieces
+        # (git check-ref-format expects full refnames for some checks; --branch is easiest)
+        git check-ref-format --branch "${DEVNET_BRANCH}" >/dev/null
+
+        # Convert comma-separated list to array
+        IFS=',' read -ra RAW_EIPS <<< "$EIP_NUMBERS"
+
+        # Normalize: trim whitespace, drop empties
+        EIPS=()
+        for raw in "${RAW_EIPS[@]}"; do
+          eip="$(echo "$raw" | xargs)"   # trims leading/trailing whitespace
+          if [[ -n "$eip" ]]; then
+            # Optional: ensure it looks numeric
+            if [[ ! "$eip" =~ ^[0-9]+$ ]]; then
+              echo "Error: Invalid EIP number ${eip}"
+              exit 1
+            fi
+            EIPS+=("$eip")
+          fi
+        done
+
+        if [[ ${#EIPS[@]} -eq 0 ]]; then
+          echo "Error: No EIP numbers provided after parsing '${EIP_NUMBERS}'"
+          exit 1
+        fi
+
+        git fetch "${REMOTE}" --prune
+
+        # Build the list of expected remote branches and verify all exist,
+        # then checkout each branch and rebase it onto the fork branch automatically.
+        for eip in "${EIPS[@]}"; do
+          EIP_BRANCH="eips/${FORK}/eip-${eip}"
+          # Validate ref format for each constructed branch name
+          git check-ref-format --branch "${EIP_BRANCH}" >/dev/null || {
+            echo "Error: Computed branch name '${EIP_BRANCH}' is not a valid ref"
+            exit 1
+          }
+
+          if ! git show-ref --verify --quiet "refs/remotes/${REMOTE}/${EIP_BRANCH}"; then
+            echo "Error: Missing remote branch ${REMOTE}/${EIP_BRANCH}"
+            exit 1
+          fi
+
+          git checkout -B "${EIP_BRANCH}" "${REMOTE}/${EIP_BRANCH}"
+
+          if git merge-base --is-ancestor "${REMOTE}/${FORK_BRANCH}" "${EIP_BRANCH}"; then
+            echo "${EIP_BRANCH} is already based on ${FORK_BRANCH}, skipping rebase"
+          else
+            if ! git rebase "${REMOTE}/${FORK_BRANCH}"; then
+              echo "Error: Automatic rebase of ${EIP_BRANCH} onto ${FORK_BRANCH} failed"
+              git rebase --abort || true
+              exit 1
+            else
+              echo "Rebase of ${EIP_BRANCH} onto ${FORK_BRANCH} successful"
+            fi
+          fi
+        done
+
+        # Create (or reset) devnet branch from first EIP
+        FIRST_EIP="eips/${FORK}/eip-${EIPS[0]}"
+        echo "Creating branch ${DEVNET_BRANCH} from ${FIRST_EIP}"
+        git checkout -B "${DEVNET_BRANCH}" "${FIRST_EIP}"
+
+        # Merge remaining EIPs
+        for ((i=1; i<${#EIPS[@]}; i++)); do
+          EIP_BRANCH="eips/${FORK}/eip-${EIPS[$i]}"
+          echo "Merging ${EIP_BRANCH}..."
+
+          if ! git merge "${EIP_BRANCH}" -m "Merge ${EIP_BRANCH} into ${DEVNET_BRANCH}"; then
+            echo "Error: Merge conflict occurred while merging ${EIP_BRANCH}"
+            git merge --abort || true
+            exit 1
+          fi
+        done
+
+        echo "Running static checks on merged branch"
+        uvx --with=tox-uv tox -e static
+
+        echo "All EIP branches merged successfully"
+
+    - name: Push devnet branch
+      shell: bash
+      env:
+        DEVNET_NAME: ${{ inputs.devnet_name }}
+        REMOTE: origin
+      run: |
+        DEVNET_BRANCH="devnets/${DEVNET_NAME}"
+
+        echo "Force pushing ${DEVNET_BRANCH} to ${REMOTE}"
+        git push --force-with-lease "${REMOTE}" "${DEVNET_BRANCH}"

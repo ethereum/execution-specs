@@ -62,10 +62,13 @@ class RejectedTransaction(CamelModel):
         TransactionExceptionWithMessage | UndefinedException,
         ExceptionMapperValidator,
     ]
+    hash: Hash | None = None
 
 
 class TraceLine(CamelModel):
     """Single trace line contained in the traces output."""
+
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     pc: int
     op: int
@@ -77,6 +80,7 @@ class TraceLine(CamelModel):
     refund: int
     op_name: str
     error: str | None = None
+    return_data: str | None = None
 
     def are_equivalent(self, other: Self) -> bool:
         """Return True if the only difference is the gas counter."""
@@ -94,6 +98,8 @@ class TraceLine(CamelModel):
 
 class TransactionTraces(CamelModel):
     """Traces of a single transaction."""
+
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     traces: List[TraceLine]
     output: str | None = None
@@ -133,17 +139,20 @@ class TransactionTraces(CamelModel):
         """Return True if the only difference is the gas counter."""
         if len(self.traces) != len(other.traces):
             logger.debug(
-                f"Traces have different lengths: {len(self.traces)} != {len(other.traces)}."
+                f"Traces have different lengths: "
+                f"{len(self.traces)} != {len(other.traces)}."
             )
             return False
         if self.output != other.output:
             logger.debug(
-                f"Traces have different outputs: {self.output} != {other.output}."
+                f"Traces have different outputs: "
+                f"{self.output} != {other.output}."
             )
             return False
         if self.gas_used != other.gas_used and not enable_post_processing:
             logger.debug(
-                f"Traces have different gas used: {self.gas_used} != {other.gas_used}."
+                f"Traces have different gas used: "
+                f"{self.gas_used} != {other.gas_used}."
             )
             return False
         own_traces = self.traces.copy()

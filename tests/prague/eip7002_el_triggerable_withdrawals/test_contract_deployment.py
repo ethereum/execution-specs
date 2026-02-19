@@ -6,13 +6,11 @@ from os.path import realpath
 from pathlib import Path
 from typing import Any, Generator
 
-import pytest
 from execution_testing import (
     Address,
     Alloc,
     Block,
     Fork,
-    Header,
     Requests,
     Transaction,
     generate_system_contract_deploy_test,
@@ -26,10 +24,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7002.version
 
 
-@pytest.mark.pre_alloc_group(
-    "separate",
-    reason="Deploys withdrawal system contract at hardcoded predeploy address",
-)
 @generate_system_contract_deploy_test(
     fork=Prague,
     tx_json_path=Path(realpath(__file__)).parent / "contract_deploy_tx.json",
@@ -50,7 +44,6 @@ def test_system_contract_deployment(
         fee=Spec.get_fee(0),
         source_address=sender,
     )
-    pre.fund_address(sender, withdrawal_request.value)
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     test_transaction_gas = intrinsic_gas_calculator(
         calldata=withdrawal_request.calldata
@@ -66,7 +59,5 @@ def test_system_contract_deployment(
 
     yield Block(
         txs=[test_transaction],
-        header=Header(
-            requests_hash=Requests(withdrawal_request),
-        ),
+        requests_hash=Requests(withdrawal_request),
     )

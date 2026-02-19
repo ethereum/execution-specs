@@ -1,5 +1,5 @@
 """
-The state trie is the structure responsible for storing.
+The state trie is the structure responsible for storing Ethereum state.
 """
 
 import copy

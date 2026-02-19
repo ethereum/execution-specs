@@ -1,6 +1,6 @@
 # Hive
 
-@ethereum/hive is a containerized testing framework that helps orchestrate test execution against Ethereum clients. Hive is incredibly extensible; new test suites can be implemented in a module manner as "simulators" that interact with clients to test certain aspects of their behavior. EEST implements several simulators, see [Running Tests](../running.md) for an overview.
+@ethereum/hive is a containerized testing framework that helps orchestrate test execution against Ethereum clients. Hive is incredibly extensible; new test suites can be implemented in a module manner as "simulators" that interact with clients to test certain aspects of their behavior. The execution-specs `testing` package implements several simulators, see [Running Tests](../running.md) for an overview.
 
 ## Quick Start
 

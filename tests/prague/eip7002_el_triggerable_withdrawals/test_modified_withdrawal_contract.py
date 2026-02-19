@@ -29,7 +29,10 @@ from .spec import ref_spec_7002
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_7002.git_path
 REFERENCE_SPEC_VERSION: str = ref_spec_7002.version
 
-pytestmark: pytest.MarkDecorator = pytest.mark.valid_from("Prague")
+pytestmark: List[pytest.MarkDecorator] = [
+    pytest.mark.valid_from("Prague"),
+    pytest.mark.pre_alloc_mutable(),
+]
 
 
 def withdrawal_list_with_custom_fee(n: int) -> List[WithdrawalRequest]:  # noqa: D103
@@ -81,9 +84,6 @@ def withdrawal_list_with_custom_fee(n: int) -> List[WithdrawalRequest]:  # noqa:
             id="18_withdrawal_requests",
         ),
     ],
-)
-@pytest.mark.pre_alloc_group(
-    "separate", reason="Deploys custom withdrawal contract bytecode"
 )
 def test_extra_withdrawals(
     blockchain_test: BlockchainTestFiller,
@@ -143,9 +143,6 @@ def test_extra_withdrawals(
 @pytest.mark.parametrize(
     "system_contract",
     [Address(Spec_EIP7002.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS)],
-)
-@pytest.mark.pre_alloc_group(
-    "separate", reason="Deploys custom withdrawal contract bytecode"
 )
 @generate_system_contract_error_test(  # type: ignore[arg-type]
     max_gas_limit=Spec_EIP7002.SYSTEM_CALL_GAS_LIMIT,

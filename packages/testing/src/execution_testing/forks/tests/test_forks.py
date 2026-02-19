@@ -12,6 +12,7 @@ from ..forks.forks import (
     BPO2,
     BPO3,
     BPO4,
+    Amsterdam,
     Berlin,
     Cancun,
     Frontier,
@@ -49,9 +50,9 @@ from ..helpers import (
 from ..transition_base_fork import transition_fork
 
 FIRST_DEPLOYED = Frontier
-LAST_DEPLOYED = Prague
-LAST_DEVELOPMENT = Osaka
-DEVELOPMENT_FORKS = [Osaka]
+LAST_DEPLOYED = Osaka
+LAST_DEVELOPMENT = Amsterdam
+DEVELOPMENT_FORKS = [Amsterdam]
 
 
 def test_transition_forks() -> None:
@@ -235,12 +236,12 @@ def test_fork_in_pydantic_model() -> None:
         "fork_2": "ParisToShanghaiAtTime15k",
         "fork_3": None,
     }
-    assert (
-        model.model_dump_json()
-        == '{"fork_1":"Paris","fork_2":"ParisToShanghaiAtTime15k","fork_3":null}'
+    assert model.model_dump_json() == (
+        '{"fork_1":"Paris","fork_2":"ParisToShanghaiAtTime15k","fork_3":null}'
     )
     model = ForkInPydanticModel.model_validate_json(
-        '{"fork_1": "Paris", "fork_2": "ParisToShanghaiAtTime15k", "fork_3": null}'
+        '{"fork_1": "Paris", "fork_2": "ParisToShanghaiAtTime15k", '
+        '"fork_3": null}'
     )
     assert model.fork_1 == Paris
     assert model.fork_2 == ParisToShanghaiAtTime15k
@@ -414,9 +415,9 @@ def test_tx_types() -> None:  # noqa: D103
     "create_tx",
     [False, True],
 )
-def test_tx_intrinsic_gas_functions(
+def test_tx_intrinsic_gas_functions(  # noqa: D103
     fork: Fork, calldata: bytes, create_tx: bool
-) -> None:  # noqa: D103
+) -> None:
     intrinsic_gas = 21_000
     if calldata == b"\0":
         intrinsic_gas += 4

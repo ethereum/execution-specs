@@ -1,6 +1,6 @@
 # Hive Development Mode
 
-This section explains how to run EEST simulators using their EEST commands, e.g., `uv run consume engine`, against a Hive "development" server as apposed to using the standalone `./hive` command.
+This section explains how to run EELS simulators using their Python-based commands, e.g., `uv run consume engine`, against a Hive "development" server as apposed to using the standalone `./hive` command.
 
 This avoids running the simulator in a dockerized environment and has several advantages:
 
@@ -18,7 +18,7 @@ This avoids running the simulator in a dockerized environment and has several ad
 
 ### Prerequisites
 
-- EEST is installed, see [Installation](../../getting_started/installation.md)
+- The execution-specs repo is setup in development mode, see [Installation](../../getting_started/installation.md)
 - Hive is built, see [Hive](../hive/index.md#quick-start).
 
 ## Hive Dev Setup on Linux
@@ -29,7 +29,7 @@ This avoids running the simulator in a dockerized environment and has several ad
     ./hive --dev --client go-ethereum --client-file clients.yaml --docker.output
     ```
 
-2. In a separate shell, configure environment for EEST:
+2. In a separate shell, configure environment for execution-specs:
 
     === "bash/zsh"
 
@@ -43,7 +43,7 @@ This avoids running the simulator in a dockerized environment and has several ad
         set -x HIVE_SIMULATOR http://127.0.0.1:3000
         ```
 
-3. Run EEST consume commands
+3. Run execution-specs `consume` commands
 
     ```bash
     uv run consume engine --input ./fixtures -k "test_chainid"
@@ -56,37 +56,36 @@ Due to Docker running within a VM on macOS, the host machine and Docker containe
 
 1. Linux VM: Run a Linux virtual machine on your macOS and execute the standard development workflow above from within the VM.
 2. Remote Linux: SSH into a remote Linux environment (server or cloud instance) and run development mode there.
-3. **Docker Development Image**: Create a containerized EEST environment that runs within Docker's network namespace (recommended).
+3. **Docker Development Image**: Create a containerized execution-specs environment that runs within Docker's network namespace (recommended).
 
 The following section details the setup and usage of option 3.
 
-### EEST Docker Development Image
+### EELS Docker Development Image
 
-Within the [`eest/`](https://github.com/ethereum/hive/tree/master/simulators/ethereum/eest) directory of hive, a new dockerfile must be created: `Dockerfile.dev`, with the following contents:
+Within the [`eels/`](https://github.com/ethereum/hive/tree/master/simulators/ethereum/eels) directory of hive, a new dockerfile must be created: `Dockerfile.dev`, with the following contents:
 
 ```docker
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
-ARG branch=main
-ENV GIT_REF=${branch} 
+ARG branch=""
 
 RUN apt-get update && apt-get install -y git
-RUN git init execution-spec-tests && \
-    cd execution-spec-tests && \
-    git remote add origin https://github.com/ethereum/execution-spec-tests.git && \
-    git fetch --depth 1 origin $GIT_REF && \
-    git checkout FETCH_HEAD;
-
-WORKDIR /execution-spec-tests
+RUN git clone --depth 1 https://github.com/ethereum/execution-specs.git && \
+    cd execution-specs && \
+    if [ -n "$branch" ]; then \
+        git fetch --depth 1 origin "$branch" && \
+        git checkout FETCH_HEAD; \
+    fi
+WORKDIR /execution-specs/packages/testing
 RUN uv sync
 ENTRYPOINT ["/bin/bash"]
 ```
 
-This dockerfile will be our entry point for running EEST commands.
+This dockerfile will be our entry point for running simulator commands.
 
-### `eest/` Hive Directory Structure
+### `eels/` Hive Directory Structure
 
 ```tree
-├── eest
+├── eels
 │   ├── Dockerfile.dev
 │   ├── consume-block-rlp
 │   │   └── Dockerfile
@@ -108,10 +107,10 @@ This dockerfile will be our entry point for running EEST commands.
     ./hive --dev --dev.addr <LOCAL_IP>:3000 --client go-ethereum --client-file clients.yaml 
     ```
 
-3. In a separate terminal session, build the EEST development image:
+3. In a separate terminal session, build the EELS development image:
 
     ```bash
-    cd simulators/ethereum/eest/
+    cd simulators/ethereum/eels/
     docker build -t macos-consume-dev -f Dockerfile.dev .
     ```
 
@@ -136,7 +135,7 @@ When Hive runs in dev mode:
 3. Keeps the Hive Proxy container running between test executions.
 4. Waits for external simulator connections via the API.
 
-This allows EEST's consume commands to connect to the running Hive instance and execute tests interactively.
+This allows the EELS's consume commands to connect to the running Hive instance and execute tests interactively.
 
 ## More Options Available
 

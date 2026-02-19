@@ -23,7 +23,7 @@ GQUADDIVISOR = Uint(3)
 
 def modexp(evm: Evm) -> None:
     """
-    Calculates `(base**exp) % modulus` for arbitrary sized `base`, `exp` and.
+    Calculates `(base**exp) % modulus` for arbitrary sized `base`, `exp` and
     `modulus`. The return value is the same length as the modulus.
     """
     data = evm.message.data

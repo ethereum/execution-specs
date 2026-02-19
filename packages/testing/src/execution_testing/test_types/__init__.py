@@ -20,15 +20,19 @@ from .block_types import (
 )
 from .chain_config_types import ChainConfig, ChainConfigDefaults
 from .helpers import (
+    DETERMINISTIC_FACTORY_ADDRESS,
+    DETERMINISTIC_FACTORY_BYTECODE,
     TestParameterGroup,
     add_kzg_version,
     ceiling_division,
     compute_create2_address,
     compute_create_address,
-    compute_eofcreate_address,
+    compute_deterministic_create2_address,
+    contract_address_from_hash,
+    eoa_from_hash,
 )
 from .phase_manager import TestPhase, TestPhaseManager
-from .receipt_types import TransactionReceipt
+from .receipt_types import TransactionLog, TransactionReceipt
 from .request_types import (
     ConsolidationRequest,
     DepositRequest,
@@ -46,6 +50,8 @@ from .transaction_types import (
 from .utils import Removable, keccak256
 
 __all__ = (
+    "DETERMINISTIC_FACTORY_BYTECODE",
+    "DETERMINISTIC_FACTORY_ADDRESS",
     "Alloc",
     "AuthorizationTuple",
     "BalAccountChange",
@@ -73,6 +79,7 @@ __all__ = (
     "TestPhaseManager",
     "Transaction",
     "TransactionDefaults",
+    "TransactionLog",
     "TransactionReceipt",
     "TransactionTestMetadata",
     "TransactionType",
@@ -82,6 +89,8 @@ __all__ = (
     "ceiling_division",
     "compute_create_address",
     "compute_create2_address",
-    "compute_eofcreate_address",
+    "compute_deterministic_create2_address",
+    "contract_address_from_hash",
+    "eoa_from_hash",
     "keccak256",
 )

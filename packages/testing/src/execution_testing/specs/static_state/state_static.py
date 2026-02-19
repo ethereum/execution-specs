@@ -206,14 +206,8 @@ class StateStaticTest(BaseStaticTest):
 
         if self.info and self.info.pytest_marks:
             for mark in self.info.pytest_marks:
-                if mark == "pre_alloc_group":
-                    test_state_vectors = pytest.mark.pre_alloc_group(
-                        "separate",
-                        reason="Requires separate pre-alloc grouping",
-                    )(test_state_vectors)
-                else:
-                    apply_mark = getattr(pytest.mark, mark)
-                    test_state_vectors = apply_mark(test_state_vectors)
+                apply_mark = getattr(pytest.mark, mark)
+                test_state_vectors = apply_mark(test_state_vectors)
 
         if has_tags:
             test_state_vectors = pytest.mark.tagged(test_state_vectors)
@@ -223,13 +217,9 @@ class StateStaticTest(BaseStaticTest):
                 )
         else:
             test_state_vectors = pytest.mark.untagged(test_state_vectors)
-            test_state_vectors = pytest.mark.pre_alloc_group(
-                "separate", reason="Uses hard-coded addresses"
-            )(test_state_vectors)
-        if not fully_tagged:
-            test_state_vectors = pytest.mark.pre_alloc_modify(
-                test_state_vectors
-            )
+
+        # All static tests are mutable since we do `pre[0x123...] = Account()`
+        test_state_vectors = pytest.mark.pre_alloc_mutable(test_state_vectors)
 
         return test_state_vectors
 

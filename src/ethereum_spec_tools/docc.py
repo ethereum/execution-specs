@@ -371,7 +371,7 @@ class FixIndexTransform(Transform):
     identifiers specific to the diff.
 
     Without fixing these identifiers, every Python class would be defined
-    multiples times (the actual definition and then again in each diff),
+    multiple times (the actual definition and then again in each diff),
     cluttering up tables of contents.
     """
 

@@ -11,7 +11,6 @@ from functools import cache
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
-from execution_testing.exceptions.exceptions.block import BlockException
 import pytest
 
 from execution_testing.client_clis.file_utils import (
@@ -21,11 +20,11 @@ from execution_testing.client_clis.fixture_consumer_tool import (
     FixtureConsumerTool,
 )
 from execution_testing.exceptions import (
-    EOFException,
     ExceptionBase,
     ExceptionMapper,
     TransactionException,
 )
+from execution_testing.exceptions.exceptions.block import BlockException
 from execution_testing.fixtures.base import FixtureFormat
 from execution_testing.fixtures.blockchain import BlockchainFixture
 from execution_testing.fixtures.state import StateFixture
@@ -46,6 +45,12 @@ class EvmOneTransitionTool(TransitionTool):
     trace: bool
     supports_opcode_count: ClassVar[bool] = True
     supports_blob_params: ClassVar[bool] = True
+
+    # evmone uses space-separated fork names for some forks
+    fork_name_map: ClassVar[Dict[str, str]] = {
+        "TangerineWhistle": "Tangerine Whistle",
+        "SpuriousDragon": "Spurious Dragon",
+    }
 
     def __init__(
         self,
@@ -139,7 +144,8 @@ class EvmoneFixtureConsumerCommon:
         shutil.copyfile(fixture_path, debug_fixture_path)
 
     def _skip_message(self, fixture_format: FixtureFormat) -> str:
-        return f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
+        fmt_name = fixture_format.format_name
+        return f"Fixture format {fmt_name} not supported by {self.binary}"
 
     @cache  # noqa
     def consume_test_file(
@@ -170,15 +176,18 @@ class EvmoneFixtureConsumerCommon:
             result = self._run_command(command)
 
             if result.returncode not in [0, 1]:
+                cmd_str = " ".join(command)
                 raise Exception(
-                    f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
+                    f"Unexpected exit code:\n{cmd_str}\n\n Error:\n"
+                    f"{result.stderr}"
                 )
 
             try:
                 output_data = json.load(tempfile_json)
             except json.JSONDecodeError as e:
                 raise Exception(
-                    f"Failed to parse JSON output from evmone-state/blockchaintest: {e}"
+                    "Failed to parse JSON output from "
+                    f"evmone-state/blockchaintest: {e}"
                 ) from e
 
             if debug_output_path:
@@ -204,7 +213,7 @@ class EvmoneFixtureConsumerCommon:
         Consume a single state or blockchain test.
 
         Uses the cached result from `consume_test_file` in order to not
-        call the command every time an select a single result from there.
+        call the command every time and select a single result from there.
         """
         file_results = self.consume_test_file(
             fixture_path=fixture_path,
@@ -329,16 +338,28 @@ class EvmoneExceptionMapper(ExceptionMapper):
             "max priority fee per gas higher than max fee per gas"
         ),
         TransactionException.NONCE_IS_MAX: "nonce has max value:",
-        TransactionException.TYPE_4_TX_CONTRACT_CREATION: "set code transaction must ",
-        TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE: "invalid authorization signature",
+        TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
+            "set code transaction must "
+        ),
+        TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE: (
+            "invalid authorization signature"
+        ),
         TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE_S_TOO_HIGH: (
             "authorization signature s value too high"
         ),
-        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: "empty authorization list",
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            "empty authorization list"
+        ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
-        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "intrinsic gas too low",
-        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: "blob gas limit exceeded",
-        TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            "intrinsic gas too low"
+        ),
+        TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
+            "blob gas limit exceeded"
+        ),
+        TransactionException.INITCODE_SIZE_EXCEEDED: (
+            "max initcode size exceeded"
+        ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
             "insufficient funds for gas * price + value"
         ),
@@ -348,68 +369,43 @@ class EvmoneExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "max blob fee per gas less than block base fee"
         ),
-        TransactionException.TYPE_4_TX_PRE_FORK: "transaction type not supported",
-        TransactionException.TYPE_3_TX_PRE_FORK: "transaction type not supported",
-        TransactionException.TYPE_2_TX_PRE_FORK: "transaction type not supported",
-        TransactionException.TYPE_1_TX_PRE_FORK: "transaction type not supported",
-        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "invalid blob hash version",
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "blob gas limit exceeded",
+        TransactionException.TYPE_4_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
+        TransactionException.TYPE_3_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
+        TransactionException.TYPE_2_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
+        TransactionException.TYPE_1_TX_PRE_FORK: (
+            "transaction type not supported"
+        ),
+        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
+            "invalid blob hash version"
+        ),
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            "blob gas limit exceeded"
+        ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "empty blob hashes list",
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
             "blob transaction must not be a create transaction"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: "nonce too low",
         TransactionException.NONCE_MISMATCH_TOO_HIGH: "nonce too high",
-        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: "max gas limit exceeded",
-        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "invalid deposit event layout",
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            "max gas limit exceeded"
+        ),
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+            "invalid deposit event layout"
+        ),
         # TODO EVMONE needs to differentiate when the system contract is
         # missing or failing
-        BlockException.SYSTEM_CONTRACT_EMPTY: "system contract empty or failed",
-        BlockException.SYSTEM_CONTRACT_CALL_FAILED: "system contract empty or failed",
-        # TODO EVMONE needs to differentiate when the section is missing in the
-        # header or body
-        EOFException.MISSING_STOP_OPCODE: "err: no_terminating_instruction",
-        EOFException.MISSING_CODE_HEADER: "err: code_section_missing",
-        EOFException.MISSING_TYPE_HEADER: "err: type_section_missing",
-        # TODO EVMONE these exceptions are too similar, this leeds to ambiguity
-        EOFException.MISSING_TERMINATOR: "err: header_terminator_missing",
-        EOFException.MISSING_HEADERS_TERMINATOR: "err: section_headers_not_terminated",
-        EOFException.INVALID_VERSION: "err: eof_version_unknown",
-        EOFException.INVALID_NON_RETURNING_FLAG: "err: invalid_non_returning_flag",
-        EOFException.INVALID_MAGIC: "err: invalid_prefix",
-        EOFException.INVALID_FIRST_SECTION_TYPE: "err: invalid_first_section_type",
-        EOFException.INVALID_SECTION_BODIES_SIZE: "err: invalid_section_bodies_size",
-        EOFException.INVALID_TYPE_SECTION_SIZE: "err: invalid_type_section_size",
-        EOFException.INCOMPLETE_SECTION_SIZE: "err: incomplete_section_size",
-        EOFException.INCOMPLETE_SECTION_NUMBER: "err: incomplete_section_number",
-        EOFException.TOO_MANY_CODE_SECTIONS: "err: too_many_code_sections",
-        EOFException.ZERO_SECTION_SIZE: "err: zero_section_size",
-        EOFException.MISSING_DATA_SECTION: "err: data_section_missing",
-        EOFException.UNDEFINED_INSTRUCTION: "err: undefined_instruction",
-        EOFException.INPUTS_OUTPUTS_NUM_ABOVE_LIMIT: "err: inputs_outputs_num_above_limit",
-        EOFException.UNREACHABLE_INSTRUCTIONS: "err: unreachable_instructions",
-        EOFException.INVALID_RJUMP_DESTINATION: "err: invalid_rjump_destination",
-        EOFException.UNREACHABLE_CODE_SECTIONS: "err: unreachable_code_sections",
-        EOFException.STACK_UNDERFLOW: "err: stack_underflow",
-        EOFException.STACK_OVERFLOW: "err: stack_overflow",
-        EOFException.MAX_STACK_INCREASE_ABOVE_LIMIT: "err: max_stack_increase_above_limit",
-        EOFException.STACK_HIGHER_THAN_OUTPUTS: "err: stack_higher_than_outputs_required",
-        EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS: (
-            "err: jumpf_destination_incompatible_outputs"
+        BlockException.SYSTEM_CONTRACT_EMPTY: (
+            "system contract empty or failed"
         ),
-        EOFException.INVALID_MAX_STACK_INCREASE: "err: invalid_max_stack_increase",
-        EOFException.INVALID_DATALOADN_INDEX: "err: invalid_dataloadn_index",
-        EOFException.TRUNCATED_INSTRUCTION: "err: truncated_instruction",
-        EOFException.TOPLEVEL_CONTAINER_TRUNCATED: "err: toplevel_container_truncated",
-        EOFException.ORPHAN_SUBCONTAINER: "err: unreferenced_subcontainer",
-        EOFException.CONTAINER_SIZE_ABOVE_LIMIT: "err: container_size_above_limit",
-        EOFException.INVALID_CONTAINER_SECTION_INDEX: "err: invalid_container_section_index",
-        EOFException.INCOMPATIBLE_CONTAINER_KIND: "err: incompatible_container_kind",
-        EOFException.AMBIGUOUS_CONTAINER_KIND: "err: ambiguous_container_kind",
-        EOFException.STACK_HEIGHT_MISMATCH: "err: stack_height_mismatch",
-        EOFException.TOO_MANY_CONTAINERS: "err: too_many_container_sections",
-        EOFException.INVALID_CODE_SECTION_INDEX: "err: invalid_code_section_index",
-        EOFException.CALLF_TO_NON_RETURNING: "err: callf_to_non_returning_function",
-        EOFException.EOFCREATE_WITH_TRUNCATED_CONTAINER: "err: eofcreate_with_truncated_container",
+        BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
+            "system contract empty or failed"
+        ),
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {}

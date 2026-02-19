@@ -1,5 +1,7 @@
 """Base composite types for Ethereum test cases."""
 
+import hashlib
+import json
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -152,9 +154,10 @@ class Storage(
             label_str = ""
             if self.address.label is not None:
                 label_str = f" ({self.address.label})"
+            hint_str = f" ({self.hint})" if self.hint else ""
             return (
                 f"incorrect value in address {self.address}{label_str} for "
-                + f"key {Hash(self.key)}{f' ({self.hint})' if self.hint else ''}:"
+                + f"key {Hash(self.key)}{hint_str}:"
                 + f" want {HexNumber(self.want)} (dec:{int(self.want)}),"
                 + f" got {HexNumber(self.got)} (dec:{int(self.got)})"
             )
@@ -211,6 +214,12 @@ class Storage(
         """Return a new storage that is the sum of two storages."""
         return Storage({**self.root, **other.root})
 
+    def __len__(self) -> int:
+        """
+        Return the number of keys that have been explicitly set in the storage.
+        """
+        return len(self.root)
+
     def keys(self) -> set[StorageKeyValueType]:
         """Return the keys of the storage."""
         return set(self.root.keys())
@@ -238,7 +247,7 @@ class Storage(
         hint: str = "",
     ) -> StorageKeyValueType:
         """
-        Store a value in the storage and returns the key where the value is
+        Store a value in the storage and return the key where the value is
         stored.
 
         Increments the key counter so the next time this function is called,
@@ -359,6 +368,11 @@ class Account(CamelModel):
     Sentinel object used to specify when an account should not exist in the
     state.
     """
+
+    model_config = {
+        **CamelModel.model_config,
+        "frozen": True,
+    }
 
     @dataclass(kw_only=True)
     class NonceMismatchError(Exception):
@@ -506,6 +520,16 @@ class Account(CamelModel):
     def __bool__(self: "Account") -> bool:
         """Return True on a non-empty account."""
         return any((self.nonce, self.balance, self.code, self.storage))
+
+    def hash(self) -> Hash:
+        """Return the hash of the account given its properties."""
+        data = self.model_dump(mode="json")
+        blob = json.dumps(
+            data,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return Hash(hashlib.sha256(blob).digest())
 
     @classmethod
     def with_code(cls: Type, code: BytesConvertible) -> "Account":

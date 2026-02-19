@@ -1,4 +1,4 @@
-"""Helpers for the EIP-7002 deposit tests."""
+"""Helpers for the EIP-7002 withdrawal tests."""
 
 from dataclasses import dataclass, field
 from functools import cached_property

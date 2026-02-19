@@ -19,9 +19,11 @@ from execution_testing.base_types.reference_spec import (
 )
 
 GITHUB_TOKEN_HELP = textwrap.dedent(
-    "Either set the GITHUB_TOKEN environment variable or specify one via --github-token. "
-    "The Github CLI can be used: `--github-token $(gh auth token)` (https://cli.github.com/) "
-    "or a PAT can be generated at https://github.com/settings/personal-access-tokens/new."
+    "Either set the GITHUB_TOKEN environment variable or specify one via "
+    "--github-token. The Github CLI can be used: "
+    "`--github-token $(gh auth token)` (https://cli.github.com/) "  # noqa: E501
+    "or a PAT can be generated at "
+    "https://github.com/settings/personal-access-tokens/new."  # noqa: E501
 )
 
 
@@ -37,8 +39,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="github_token",
         default=None,
         help=(
-            "Specify a Github API personal access token (PAT) to avoid rate limiting. "
-            f"{GITHUB_TOKEN_HELP}"
+            "Specify a Github API personal access token (PAT) to avoid rate "
+            f"limiting. {GITHUB_TOKEN_HELP}"
         ),
     )
 
@@ -53,7 +55,8 @@ def pytest_configure(config: pytest.Config) -> None:
     """
     config.addinivalue_line(
         "markers",
-        "eip_version_check: a test that tests the reference spec defined in an EIP test module.",
+        "eip_version_check: a test that tests the reference spec defined in "
+        "an EIP test module.",
     )
 
     github_token = config.getoption("github_token") or os.environ.get(
@@ -62,8 +65,8 @@ def pytest_configure(config: pytest.Config) -> None:
 
     if not github_token:
         pytest.exit(
-            "A Github personal access token (PAT) is required but has not been provided. "
-            f"{GITHUB_TOKEN_HELP}"
+            "A Github personal access token (PAT) is required but has not "
+            f"been provided. {GITHUB_TOKEN_HELP}"
         )
 
     config.github_token = github_token  # type: ignore[attr-defined]
@@ -109,7 +112,8 @@ def get_ref_spec_from_module(
             ) from e
     else:
         raise Exception(
-            "Test doesn't define REFERENCE_SPEC_GIT_PATH and REFERENCE_SPEC_VERSION"
+            "Test doesn't define REFERENCE_SPEC_GIT_PATH and "
+            "REFERENCE_SPEC_VERSION"
         )
     return spec_obj
 

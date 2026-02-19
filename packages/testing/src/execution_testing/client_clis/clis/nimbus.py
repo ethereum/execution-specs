@@ -44,7 +44,8 @@ class NimbusTransitionTool(TransitionTool):
             result = subprocess.run(args, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
             raise Exception(
-                f"evm process unexpectedly returned a non-zero status code: {e}."
+                f"evm process unexpectedly returned "
+                f"a non-zero status code: {e}."
             ) from e
         except Exception as e:
             raise Exception(
@@ -80,7 +81,9 @@ class NimbusExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
             "set code transaction must not be a create transaction"
         ),
-        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: "invalid tx: not enough cash to send",
+        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
+            "invalid tx: not enough cash to send"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "would exceed maximum allowance"
         ),
@@ -97,22 +100,40 @@ class NimbusExceptionMapper(ExceptionMapper):
             "invalid tx: one of blobVersionedHash has invalid version"
         ),
         # TODO: temp solution until mapper for nimbus is fixed
-        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: "zero gasUsed but transactions present",
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            "zero gasUsed but transactions present"
+        ),
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "exceeds maximum allowance",
-        TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
-        TransactionException.INTRINSIC_GAS_TOO_LOW: "zero gasUsed but transactions present",
-        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "intrinsic gas too low",
-        TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            "exceeds maximum allowance"
+        ),
+        TransactionException.TYPE_3_TX_ZERO_BLOBS: (
+            "blob transaction missing blob hashes"
+        ),
+        TransactionException.INTRINSIC_GAS_TOO_LOW: (
+            "zero gasUsed but transactions present"
+        ),
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            "intrinsic gas too low"
+        ),
+        TransactionException.INITCODE_SIZE_EXCEEDED: (
+            "max initcode size exceeded"
+        ),
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             # TODO:
             "ExceededBlockSizeLimit: Exceeded block size limit"
         ),
         BlockException.INVALID_BASEFEE_PER_GAS: "invalid baseFee",
-        BlockException.INVALID_BLOCK_NUMBER: "Blocks must be numbered consecutively",
-        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "Invalid timestamp",
+        BlockException.INVALID_BLOCK_NUMBER: (
+            "Blocks must be numbered consecutively"
+        ),
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
+            "Invalid timestamp"
+        ),
         BlockException.INVALID_GASLIMIT: "invalid gas limit",
-        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: "gasUsed should be non negative and smaller or equal gasLimit",
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
+            "gasUsed should be non negative and smaller or equal gasLimit"
+        ),
         BlockException.INVALID_BLOCK_HASH: "blockhash mismatch",
         BlockException.INVALID_STATE_ROOT: "stateRoot mismatch",
         BlockException.INVALID_RECEIPTS_ROOT: "receiptRoot mismatch",

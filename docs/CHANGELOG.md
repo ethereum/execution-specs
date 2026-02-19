@@ -10,12 +10,18 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 ### 🛠️ Framework
 
+- 🐞 Remove `Op.CLZ` from `UndefinedOpcodes` list ([#1970](https://github.com/ethereum/execution-specs/pull/1970)).
+- 🐞 Make `TransactionTraces` `CamelModel` less lestrictive ([#2081](https://github.com/ethereum/execution-specs/pull/2081)).
+
 #### `fill`
 
 #### `consume`
 
+- ✨ Add Besu `evmtool` support for `consume direct` via `state-test` and `block-test` subcommands ([#2219](https://github.com/ethereum/execution-specs/pull/2219)).
+
 #### `execute`
 
+- ✨ Add transaction batching to avoid RPC overload when executing tests with many transactions. Transactions are now sent in configurable batches (default: 750) with progress logging. Use `--max-tx-per-batch` to configure the batch size ([#1907](https://github.com/ethereum/execution-specs/pull/1907)).
 - ✨ `execute hive` and `execute remote` now defer funding of accounts until the minimum amount required to send the test transactions is calculated, in order to optimize the amount of Eth used to execute the tests ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
 - ✨ Dynamically fetch gas prices from the network and update all transactions to use 1.5x the current values ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
 - ✨ New `--dry-run` flag to calculate the amount of Eth that will be spent executing a test given the current network gas prices ([#1822](https://github.com/ethereum/execution-specs/pull/1822)).
@@ -26,7 +32,19 @@ Test fixtures for use by clients are available for each release on the [Github r
 
 ### 📋 Misc
 
+- ✨ Implement EIP-7928 Block-Level Access Lists ([#1719](https://github.com/ethereum/execution-specs/pull/1719)).
+
 ### 🧪 Test Cases
+
+- ✨ Add missing fuzzy-compute benchmark configurations for `KECCAK256`, `CODECOPY`, `CALLDATACOPY`, `RETURNDATACOPY`, `MLOAD`, `MSTORE`, `MSTORE8`, `MCOPY`, `LOG*`, `CALLDATASIZE`, `CALLDATALOAD`, and `RETURNDATASIZE` opcodes ([#1956](https://github.com/ethereum/execution-specs/pull/1956)).
+- ✨ Add precompile benchmark configurations for `ecPairing`, `blake2f`, `BLS12_G1_MSM`, `BLS12_G2_MSM` and `BLS12_PAIRING` to unblock repricing analysis ([#2003](https://github.com/ethereum/execution-specs/pull/2003)).
+- 🔀 Relabel `@pytest.mark.repricing` markers in benchmark tests to reflect configurations requested for gas repricing analysis ([#1971](https://github.com/ethereum/execution-specs/pull/1971)).
+- ✨ New EIP-7702 test cases added ([#1974](https://github.com/ethereum/execution-specs/pull/1974)).
+- ✨ Add missing benchmark configurations / opcode to benchmark tests for repricing analysis([#2006](https://github.com/ethereum/execution-specs/pull/2006)).
+- ✨ Port STATICCALL to CALL tests with zero and non-zero value transfer from `tests/static`, extending coverage with `pytest.mark.with_all_precompiles` ([#1960](https://github.com/ethereum/execution-specs/pull/1960)).
+- ✨ Add BAL tests that dequeue EIP-7251 consolidation requests. ([#2076](https://github.com/ethereum/execution-specs/pull/2076)).
+- ✨ Add BAL tests for handling 7702 delegation reset and delegated create. ([#2097](https://github.com/ethereum/execution-specs/pull/2097)).
+- ✨ Add benchmark scenarios for ether transfers to precompiles, warm access list transfers, and max-size contract creation transactions ([#2171](https://github.com/ethereum/execution-specs/pull/2171)).
 
 ## [v5.4.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.4.0) - 2025-12-07
 
@@ -48,6 +66,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 ### 📋 Misc
 
 - 🐞 WELDed the EEST tox environments relevant to producing documentation into EELS, and added a tool to cleanly add codespell whitelist entries. ([#1695](https://github.com/ethereum/execution-specs/pull/1659)).
+- 🐞 Fix duplicate storage write issues for block access lists EIP-7928 implementation ([#1743](https://github.com/ethereum/execution-specs/pull/1743)).
 
 ### 🧪 Test Cases
 
@@ -67,6 +86,7 @@ Test fixtures for use by clients are available for each release on the [Github r
 - ✨ Add tests that EIP-1559 and EIP-2930 typed txs are invalid and void before their fork ([#1754](https://github.com/ethereum/execution-specs/pull/1754)).
 - ✨ Add tests for an old validation rule for gas limit above 5000 ([#1731](https://github.com/ethereum/execution-specs/pull/1731)).
 - ✨ Add tests for OOG in EXP, LOG and others ([#1686](https://github.com/ethereum/execution-specs/pull/1686)).
+- ✨ Make EIP-7934 tests more dynamic and able to handle new header fields added in future forks ([#2022](https://github.com/ethereum/execution-specs/pull/2022)).
 
 ## [v5.3.0](https://github.com/ethereum/execution-spec-tests/releases/tag/v5.3.0) - 2025-10-09
 

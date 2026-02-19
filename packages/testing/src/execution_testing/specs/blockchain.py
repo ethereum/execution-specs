@@ -14,7 +14,13 @@ from typing import (
 )
 
 import pytest
-from pydantic import ConfigDict, Field, field_validator, model_serializer
+from pydantic import (
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    field_validator,
+    model_serializer,
+)
 
 from execution_testing.base_types import (
     Address,
@@ -32,6 +38,7 @@ from execution_testing.client_clis import (
     Result,
     TransitionTool,
 )
+from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.exceptions import (
     BlockException,
     EngineAPIError,
@@ -64,7 +71,10 @@ from execution_testing.fixtures.blockchain import (
     FixtureWithdrawal,
     InvalidFixtureBlock,
 )
-from execution_testing.fixtures.common import FixtureBlobSchedule
+from execution_testing.fixtures.common import (
+    FixtureBlobSchedule,
+    FixtureTransactionReceipt,
+)
 from execution_testing.forks import Fork
 from execution_testing.test_types import (
     Alloc,
@@ -165,14 +175,26 @@ class Header(CamelModel):
     verification.
 
     This can be used in a test to explicitly skip a field in a block's RLP
-    encoding. included in the (json) output when the model is serialized. For
-    example: ``` header_modifier = Header( excess_blob_gas=Header.REMOVE_FIELD,
-    ) block = Block( timestamp=TIMESTAMP, rlp_modifier=header_modifier,
-    exception=BlockException.INCORRECT_BLOCK_FORMAT,
-    engine_api_error_code=EngineAPIError.InvalidParams, ) ```
+    encoding that would otherwise be included in the (json) output when the
+    model is serialized. For example:
+
+    ```
+    header_modifier = Header(
+        excess_blob_gas=Header.REMOVE_FIELD,
+    )
+    block = Block(
+        timestamp=TIMESTAMP,
+        rlp_modifier=header_modifier,
+        exception=BlockException.INCORRECT_BLOCK_FORMAT,
+        engine_api_error_code=EngineAPIError.InvalidParams,
+    )
+    ```
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        **CamelModel.model_config,
+        arbitrary_types_allowed=True,
+    )
 
     @model_serializer(mode="wrap", when_used="json")
     def _serialize_model(self, serializer: Any, info: Any) -> Dict[str, Any]:
@@ -211,7 +233,8 @@ class Header(CamelModel):
                 value = getattr(target, field_name)
                 if baseline_value is Header.EMPTY_FIELD:
                     assert value is None, (
-                        f"invalid header field {field_name}, got {value}, want None"
+                        f"invalid header field {field_name}, "
+                        f"got {value}, want None"
                     )
                     continue
                 assert value == baseline_value, (
@@ -255,6 +278,11 @@ class Block(Header):
     """
     If set, the block is expected to produce an error response from the Engine
     API.
+    """
+    include_receipts_in_output: bool | None = None
+    """
+    If set to `True`, the block’s output fixture representation will include
+    full transaction receipts. If unset, the test-level value is used.
     """
     txs: List[Transaction] = Field(default_factory=list)
     """List of transactions included in the block."""
@@ -355,7 +383,9 @@ class BuiltBlock(CamelModel):
     fork: Fork
     block_access_list: BlockAccessList | None
 
-    def get_fixture_block(self) -> FixtureBlock | InvalidFixtureBlock:
+    def get_fixture_block(
+        self, *, include_receipts: bool = True
+    ) -> FixtureBlock | InvalidFixtureBlock:
         """Get a FixtureBlockBase from the built block."""
         fixture_block = FixtureBlockBase(
             header=self.header,
@@ -366,6 +396,16 @@ class BuiltBlock(CamelModel):
                     for w in self.withdrawals
                 ]
                 if self.withdrawals is not None
+                else None
+            ),
+            receipts=(
+                [
+                    FixtureTransactionReceipt.from_transaction_receipt(
+                        r, self.txs[i]
+                    )
+                    for i, r in enumerate(self.result.receipts)
+                ]
+                if self.result.receipts and include_receipts
                 else None
             ),
             block_access_list=self.block_access_list
@@ -466,11 +506,17 @@ class BlockchainTest(BaseTest):
     blocks: List[Block]
     genesis_environment: Environment = Field(default_factory=Environment)
     chain_id: int = 1
-    exclude_full_post_state_in_output: bool = False
+    include_full_post_state_in_output: bool = True
     """
-    Exclude the post state from the fixture output. In this case, the state
+    Include the post state in the fixture output. Otherwise, the state
     verification is only performed based on the state root.
     """
+    include_tx_receipts_in_output: bool = True
+    """
+    Include transaction receipts in the fixture output.
+    """
+
+    _benchmark_opcode_count: OpcodeCount | None = PrivateAttr(None)
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -489,7 +535,9 @@ class BlockchainTest(BaseTest):
     ]
 
     supported_markers: ClassVar[Dict[str, str]] = {
-        "blockchain_test_engine_only": "Only generate a blockchain test engine fixture",
+        "blockchain_test_engine_only": (
+            "Only generate a blockchain test engine fixture"
+        ),
         "blockchain_test_only": "Only generate a blockchain test fixture",
     }
 
@@ -577,12 +625,13 @@ class BlockchainTest(BaseTest):
         if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
             if failing_tx_count > 1:
                 raise Exception(
-                    "test correctness: only one transaction can produce an exception in a block"
+                    "test correctness: only one transaction can produce "
+                    "an exception in a block"
                 )
             if not txs[-1].error:
                 raise Exception(
-                    "test correctness: the transaction that produces an exception "
-                    + "must be the last transaction in the block"
+                    "test correctness: the transaction that produces an "
+                    "exception must be the last transaction in the block"
                 )
 
         transition_tool_output = t8n.evaluate(
@@ -655,11 +704,16 @@ class BlockchainTest(BaseTest):
             gas_used = int(transition_tool_output.result.gas_used)
 
             if not self.skip_gas_used_validation:
+                diff = gas_used - expected_benchmark_gas_used
                 assert gas_used == expected_benchmark_gas_used, (
-                    f"gas_used ({gas_used}) does not match expected_benchmark_gas_used "
-                    f"({expected_benchmark_gas_used})"
-                    f", difference: {gas_used - expected_benchmark_gas_used}"
+                    f"gas_used ({gas_used}) does not match "
+                    f"expected_benchmark_gas_used "
+                    f"({expected_benchmark_gas_used}), difference: {diff}"
                 )
+
+            self._benchmark_opcode_count = (
+                transition_tool_output.result.opcode_count
+            )
 
         requests_list: List[Bytes] | None = None
         if self.fork.header_requests_required(
@@ -674,8 +728,8 @@ class BlockchainTest(BaseTest):
 
             if Hash(requests) != header.requests_hash:
                 raise Exception(
-                    "Requests root in header does not match the requests root in the transition "
-                    "tool output: "
+                    "Requests root in header does not match the requests "
+                    "root in the transition tool output: "
                     f"{header.requests_hash} != {Hash(requests)}"
                 )
 
@@ -687,6 +741,24 @@ class BlockchainTest(BaseTest):
             )
             requests_list = block.requests
 
+        if self.fork.header_bal_hash_required(
+            block_number=header.number, timestamp=header.timestamp
+        ):
+            assert (
+                transition_tool_output.result.block_access_list is not None
+            ), (
+                "Block access list is required for this block but was not "
+                "provided by the transition tool"
+            )
+
+            rlp = transition_tool_output.result.block_access_list.rlp
+            computed_bal_hash = Hash(rlp.keccak256())
+            assert computed_bal_hash == header.block_access_list_hash, (
+                "Block access list hash in header does not match the "
+                f"computed hash from BAL: {header.block_access_list_hash} "
+                f"!= {computed_bal_hash}"
+            )
+
         if block.rlp_modifier is not None:
             # Modify any parameter specified in the `rlp_modifier` after
             # transition tool processing.
@@ -694,6 +766,30 @@ class BlockchainTest(BaseTest):
             header.fork = (
                 self.fork
             )  # Deleted during `apply` because `exclude=True`
+
+        # Process block access list - apply transformer if present for invalid
+        # tests
+        t8n_bal = transition_tool_output.result.block_access_list
+        bal = t8n_bal
+
+        # Always validate BAL structural integrity (ordering, duplicates)
+        # if present
+        if t8n_bal is not None:
+            t8n_bal.validate_structure()
+
+        # If expected BAL is defined, verify against it
+        if (
+            block.expected_block_access_list is not None
+            and t8n_bal is not None
+        ):
+            block.expected_block_access_list.verify_against(t8n_bal)
+
+            bal = block.expected_block_access_list.modify_if_invalid_test(
+                t8n_bal
+            )
+            if bal != t8n_bal:
+                # If the BAL was modified, update the header hash
+                header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
         built_block = BuiltBlock(
             header=header,
@@ -708,7 +804,7 @@ class BlockchainTest(BaseTest):
             expected_exception=block.exception,
             engine_api_error_code=block.engine_api_error_code,
             fork=self.fork,
-            block_access_list=None,
+            block_access_list=bal,
         )
 
         try:
@@ -787,6 +883,7 @@ class BlockchainTest(BaseTest):
         head = genesis.header.block_hash
         invalid_blocks = 0
         for i, block in enumerate(self.blocks):
+            is_last_block = i == len(self.blocks) - 1
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
             # Set the environment according to the block to execute.
@@ -795,9 +892,18 @@ class BlockchainTest(BaseTest):
                 block=block,
                 previous_env=env,
                 previous_alloc=alloc,
-                last_block=i == len(self.blocks) - 1,
+                last_block=is_last_block,
             )
-            fixture_blocks.append(built_block.get_fixture_block())
+            include_receipts = (
+                block.include_receipts_in_output
+                if block.include_receipts_in_output is not None
+                else self.include_tx_receipts_in_output
+            )
+            fixture_blocks.append(
+                built_block.get_fixture_block(
+                    include_receipts=include_receipts
+                )
+            )
 
             # BAL verification already done in to_fixture_bal() if
             # expected_block_access_list set
@@ -833,10 +939,10 @@ class BlockchainTest(BaseTest):
             last_block_hash=head,
             pre=pre,
             post_state=alloc
-            if not self.exclude_full_post_state_in_output
+            if self.include_full_post_state_in_output
             else None,
             post_state_hash=state_root
-            if self.exclude_full_post_state_in_output
+            if not self.include_full_post_state_in_output
             else None,
             config=FixtureConfig(
                 fork=self.fork,
@@ -919,7 +1025,7 @@ class BlockchainTest(BaseTest):
             "payloads": fixture_payloads,
             "last_block_hash": head_hash,
             "post_state_hash": state_root
-            if self.exclude_full_post_state_in_output
+            if not self.include_full_post_state_in_output
             else None,
             "config": FixtureConfig(
                 fork=self.fork,
@@ -938,7 +1044,7 @@ class BlockchainTest(BaseTest):
             fixture_data.update(
                 {
                     "post_state": alloc
-                    if not self.exclude_full_post_state_in_output
+                    if self.include_full_post_state_in_output
                     else None,
                     "pre_hash": "",  # Will be set by BaseTestWrapper
                 }
@@ -947,7 +1053,8 @@ class BlockchainTest(BaseTest):
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
             assert genesis.header.block_hash != head_hash, (
-                "Invalid payload tests negative test via sync is not supported yet."
+                "Invalid payload tests negative test via sync is not "
+                "supported yet."
             )
             # Most clients require the header to start the sync process, so we
             # create an empty block on top of the last block of the test to
@@ -961,10 +1068,12 @@ class BlockchainTest(BaseTest):
             )
             fixture_data.update(
                 {
-                    "sync_payload": sync_built_block.get_fixture_engine_new_payload(),
+                    "sync_payload": (
+                        sync_built_block.get_fixture_engine_new_payload()
+                    ),
                     "pre": pre,
                     "post_state": alloc
-                    if not self.exclude_full_post_state_in_output
+                    if self.include_full_post_state_in_output
                     else None,
                 }
             )
@@ -975,7 +1084,7 @@ class BlockchainTest(BaseTest):
                 {
                     "pre": pre,
                     "post_state": alloc
-                    if not self.exclude_full_post_state_in_output
+                    if self.include_full_post_state_in_output
                     else None,
                 }
             )

@@ -49,12 +49,6 @@ def count_factory(start: int, step: int = 1) -> Callable[[], Iterator[int]]:
     return lambda: count(start, step)
 
 
-pytestmark = pytest.mark.pre_alloc_group(
-    "beacon_root_tests",
-    reason="Tests beacon root contract functionality using system contract",
-)
-
-
 @pytest.mark.parametrize(
     "call_gas, valid_call",
     [
@@ -130,30 +124,9 @@ def test_beacon_root_contract_calls(
 @pytest.mark.parametrize(
     "system_address_balance",
     [
-        pytest.param(
-            0,
-            id="empty_system_address",
-            marks=pytest.mark.pre_alloc_group(
-                "beacon_root_empty_system",
-                reason="Tests with empty system address balance",
-            ),
-        ),
-        pytest.param(
-            1,
-            id="one_wei_system_address",
-            marks=pytest.mark.pre_alloc_group(
-                "beacon_root_one_wei_system",
-                reason="Tests with 1 wei system address balance",
-            ),
-        ),
-        pytest.param(
-            int(1e18),
-            id="one_eth_system_address",
-            marks=pytest.mark.pre_alloc_group(
-                "beacon_root_one_eth_system",
-                reason="Tests with 1 ETH system address balance",
-            ),
-        ),
+        pytest.param(0, id="empty_system_address"),
+        pytest.param(1, id="one_wei_system_address"),
+        pytest.param(int(1e18), id="one_eth_system_address"),
     ],
 )
 @pytest.mark.valid_from("Cancun")
@@ -697,10 +670,7 @@ def test_beacon_root_transition(
 
 @pytest.mark.parametrize("timestamp", [15_000])
 @pytest.mark.valid_at_transition_to("Cancun")
-@pytest.mark.pre_alloc_group(
-    "beacon_root_no_contract",
-    reason="This test removes the beacon root system contract",
-)
+@pytest.mark.pre_alloc_mutable()
 def test_no_beacon_root_contract_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -779,14 +749,7 @@ def test_no_beacon_root_contract_at_transition(
     ],
 )
 @pytest.mark.valid_at_transition_to("Cancun")
-@pytest.mark.pre_alloc_group(
-    "beacon_root_deploy_contract",
-    reason=(
-        "This test is parametrized with a hard-coded address (the beacon root "
-        "contract deployer address); they can't be in the same pre alloc "
-        "group."
-    ),
-)
+@pytest.mark.pre_alloc_mutable()
 def test_beacon_root_contract_deploy(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

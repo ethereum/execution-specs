@@ -9,8 +9,9 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import concatenate_parameters
 from tests.osaka.eip7951_p256verify_precompiles import spec as p256verify_spec
+
+from ..helpers import concatenate_parameters
 
 
 @pytest.mark.parametrize(
@@ -31,7 +32,8 @@ from tests.osaka.eip7951_p256verify_precompiles import spec as p256verify_spec
             marks=[
                 pytest.mark.eip_checklist(
                     "precompile/test/excessive_gas_usage", eip=[7951]
-                )
+                ),
+                pytest.mark.repricing,
             ],
         ),
         pytest.param(
@@ -79,6 +81,7 @@ def test_p256verify(
     )
 
     benchmark_test(
+        target_opcode=Op.STATICCALL,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,

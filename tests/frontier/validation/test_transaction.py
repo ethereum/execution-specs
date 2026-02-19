@@ -21,7 +21,7 @@ def test_tx_gas_limit(
     env: Environment,
 ) -> None:
     """
-    Tests that if a tx gas limit is higher than the block with a gas limit,
+    Tests that if a tx gas limit is higher than the block gas limit,
     an exception is raised.
     """
     sender = pre.fund_eoa()
@@ -30,7 +30,7 @@ def test_tx_gas_limit(
     tx = Transaction(
         gas_limit=21001,
         to=to,
-        gas_price=0x01,
+        gas_price=0x10,  # Must be >= base fee to isolate gas limit validation
         sender=sender,
         protected=False,
         error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
@@ -64,6 +64,7 @@ def test_tx_gas_limit(
         ),
     ],
 )
+@pytest.mark.pre_alloc_mutable
 def test_tx_nonce(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -72,7 +73,7 @@ def test_tx_nonce(
     expected_exception: TransactionException | None,
 ) -> None:
     """
-    Tests that if a tx nonce matches the account nonce.
+    Tests that the tx nonce matches the account nonce.
     """
     sender = pre.fund_eoa(nonce=5)
     to = pre.fund_eoa()
@@ -114,7 +115,7 @@ def test_sender_balance(
     expected_exception: TransactionException | None,
 ) -> None:
     """
-    Tests that if a sender has sufficient balance.
+    Tests that the sender has sufficient balance.
     """
     sender = pre.fund_eoa()
     to = pre.fund_eoa()

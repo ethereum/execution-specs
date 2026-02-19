@@ -3,9 +3,9 @@ Benchmark code generator classes for creating
 optimized bytecode patterns.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from execution_testing.base_types import Address
+from execution_testing.base_types import Address, Storage
 from execution_testing.forks import Fork
 from execution_testing.specs.benchmark import BenchmarkCodeGenerator
 from execution_testing.test_types import Alloc
@@ -17,6 +17,7 @@ class JumpLoopGenerator(BenchmarkCodeGenerator):
     """Generates bytecode that loops execution using JUMP operations."""
 
     contract_balance: int = 0
+    contract_storage: Storage = field(default_factory=Storage)
 
     def deploy_contracts(self, *, pre: Alloc, fork: Fork) -> Address:
         """Deploy the looping contract."""
@@ -31,7 +32,9 @@ class JumpLoopGenerator(BenchmarkCodeGenerator):
             fork=fork,
         )
         self._contract_address = pre.deploy_contract(
-            code=code, balance=self.contract_balance
+            code=code,
+            balance=self.contract_balance,
+            storage=self.contract_storage,
         )
         return self._contract_address
 
@@ -83,9 +86,9 @@ class ExtCallGenerator(BenchmarkCodeGenerator):
         code = self.setup + self.attack_block * max_iterations
         # Pad the code to the maximum code size.
         if self.code_padding_opcode is not None:
-            padding_size = fork.max_code_size() - len(code)
+            padding_size = fork.max_code_size() - len(code) - 1
             if padding_size > 0:
-                code += self.code_padding_opcode * padding_size
+                code += Op.STOP + self.code_padding_opcode * padding_size
 
         self._validate_code_size(code, fork)
 

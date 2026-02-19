@@ -55,8 +55,8 @@ The test framework can also generate blockchain tests containing blocks that spa
 
 Each Python test case is also typically parametrized by test type, respectively fixture format. For example, if the test is implemented as a `state_test`, the test framework will additionally generate the following blockchain test fixtures (consisting of a single block with a single transaction):
 
-- a `blockchain_test` which can be tested via the Hive `eest/consume-rlp` simulator (or directly via a dedicated client interface).
-- a `blockchain_engine_test` (for post-merge forks) which can be tested via the Hive `eest/consume-engine` simulator.
+- a `blockchain_test` which can be tested via the Hive `eels/consume-rlp` simulator (or directly via a dedicated client interface).
+- a `blockchain_engine_test` (for post-merge forks) which can be tested via the Hive `eels/consume-engine` simulator.
 
 ### Example: The Test IDs generated for `test_chainid`
 

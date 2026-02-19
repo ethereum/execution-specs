@@ -48,6 +48,7 @@ from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 
 from execution_testing.logging import get_logger
+
 from .hive_info import ClientFile, HiveInfo
 
 logger = get_logger(__name__)
@@ -60,7 +61,8 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
             "The HIVE_SIMULATOR environment variable is not set.\n\n"
             "If running locally, start hive in --dev mode, for example:\n"
             "./hive --dev --client go-ethereum\n\n"
-            "and set the HIVE_SIMULATOR to the reported URL. For example, in bash:\n"
+            "and set the HIVE_SIMULATOR to the reported URL. For example, "
+            "in bash:\n"
             "export HIVE_SIMULATOR=http://127.0.0.1:3000\n"
             "or in fish:\n"
             "set -x HIVE_SIMULATOR http://127.0.0.1:3000"
@@ -96,8 +98,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         dest="hive_simulator",
         default=os.environ.get("HIVE_SIMULATOR"),
         help=(
-            "The Hive simulator endpoint, e.g. http://127.0.0.1:3000. By default, the value is "
-            "taken from the HIVE_SIMULATOR environment variable."
+            "The Hive simulator endpoint, e.g. http://127.0.0.1:3000. By "
+            "default, the value is taken from the HIVE_SIMULATOR environment "
+            "variable."
         ),
     )
 
@@ -134,9 +137,8 @@ def pytest_report_header(
             f"hive date: {hive_info.date}",
         ]
         for client in hive_info.client_file.root:
-            header_lines += [
-                f"hive client ({client.client}): {client.model_dump_json(exclude_none=True)}",
-            ]
+            dump = client.model_dump_json(exclude_none=True)
+            header_lines += [f"hive client ({client.client}): {dump}"]
     return header_lines
 
 
@@ -264,8 +266,8 @@ def hive_test(
         )
     except pytest.FixtureLookupError:
         pytest.exit(
-            "Error: The 'test_case_description' fixture has not been defined by the simulator "
-            "or pytest plugin using this plugin!"
+            "Error: The 'test_case_description' fixture has not been defined "
+            "by the simulator or pytest plugin using this plugin!"
         )
 
     test_parameter_string = request.node.name
@@ -343,8 +345,8 @@ def hive_test(
         else:
             test_passed = False
             test_result_details = (
-                "Test failed for unknown reason (setup or call status unknown).\n\n"
-                + captured_output
+                "Test failed for unknown reason (setup or call status "
+                "unknown).\n\n" + captured_output
             )
 
         test.end(

@@ -11,12 +11,13 @@ from execution_testing import (
     Address,
     Alloc,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
 )
 
-from .spec import Spec, ref_spec_1153
+from .spec import ref_spec_1153
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1153.version
@@ -195,6 +196,7 @@ def test_basic_tload_other_after_tstore(
 def test_basic_tload_gasprice(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Ported .json vectors.
@@ -261,8 +263,8 @@ def test_basic_tload_gasprice(
     post = {
         address_to: Account(
             storage={
-                slot_tload_nonzero_gas_price_result: Spec.TLOAD_GAS_COST,
-                slot_tload_zero_gas_price_result: Spec.TLOAD_GAS_COST,
+                slot_tload_nonzero_gas_price_result: Op.TLOAD.gas_cost(fork),
+                slot_tload_zero_gas_price_result: Op.TLOAD.gas_cost(fork),
                 slot_code_worked: 0x01,
             }
         )

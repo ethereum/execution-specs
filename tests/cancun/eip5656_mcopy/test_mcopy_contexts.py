@@ -53,7 +53,7 @@ def callee_bytecode(
     bytecode += Op.MCOPY(0x00, initial_memory_length * 2, 1)
     bytecode += Op.MCOPY(initial_memory_length * 2, 0x00, 1)
 
-    if call_opcode != Op.STATICCALL and call_opcode != Op.EXTSTATICCALL:
+    if call_opcode != Op.STATICCALL:
         # Simple sstore to make sure we actually ran the code
         bytecode += Op.SSTORE(200_000, 1)
 
@@ -154,9 +154,9 @@ def post(  # noqa: D103
     call_opcode: Op,
 ) -> Mapping:
     callee_storage: Storage.StorageDictType = {}
-    if call_opcode in [Op.DELEGATECALL, Op.CALLCODE, Op.EXTDELEGATECALL]:
+    if call_opcode in [Op.DELEGATECALL, Op.CALLCODE]:
         caller_storage[200_000] = 1
-    elif call_opcode in [Op.CALL, Op.EXTCALL]:
+    elif call_opcode == Op.CALL:
         callee_storage[200_000] = 1
     return {
         caller_address: Account(storage=caller_storage),
@@ -203,8 +203,6 @@ def test_no_memory_corruption_on_upper_create_stack_levels(
     during its execution, and verify that the caller's memory is unaffected:
       - `CREATE`
       - `CREATE2`.
-
-    TODO: [EOF] Add EOFCREATE opcode
     """
     state_test(
         env=Environment(),

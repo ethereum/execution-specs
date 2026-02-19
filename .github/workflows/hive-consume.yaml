@@ -1,12 +1,24 @@
-name: Hive Consume Tests
+name: Hive Consume
 
 on:
   push:
     branches:
       - "forks/**"
+    paths-ignore:
+      - "**.md"
+      - "LICENSE*"
+      - ".gitignore"
+      - ".vscode/**"
+      - "whitelist.txt"
+      - "docs/**"                                                                                                                     
+      - "mkdocs.yml"
   pull_request:
     paths:
       - ".github/workflows/hive-consume.yaml"
+      - ".github/actions/start-hive-dev/**"
+      - ".github/actions/cache-docker-images/**"
+      - ".github/actions/load-docker-images/**"
+      - ".github/configs/hive/**"
       - "packages/testing/src/execution_testing/cli/pytest_commands/consume.py"
       - "packages/testing/src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
       - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/consume/**"
@@ -14,6 +26,18 @@ on:
       - "packages/testing/src/execution_testing/fixtures/consume.py"
       - "packages/testing/src/execution_testing/rpc/**"
   workflow_dispatch:
+    inputs:
+      docker_images:
+        description: "Space-separated list of Docker images to cache"
+        required: false
+        default: "docker.io/ethereum/client-go:latest docker.io/alpine:latest docker.io/library/golang:1-alpine"
+  workflow_call:
+    inputs:
+      docker_images:
+        description: "Space-separated list of Docker images to cache"
+        required: false
+        type: string
+        default: "docker.io/ethereum/client-go:latest docker.io/alpine:latest docker.io/library/golang:1-alpine"
 
 concurrency:
   group: hive-consume-${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -24,23 +48,36 @@ env:
   FIXTURES_URL: https://github.com/ethereum/execution-spec-tests/releases/download/v5.3.0/fixtures_develop.tar.gz
 
 jobs:
+  cache-docker-images:
+    name: Cache Docker Images
+    runs-on: [self-hosted-ghr, size-l-x64]
+    steps:
+      - name: Checkout execution-specs
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Cache Docker images
+        uses: ./.github/actions/cache-docker-images
+        with:
+          images: ${{ inputs.docker_images || 'docker.io/ethereum/client-go:latest docker.io/alpine:latest docker.io/library/golang:1-alpine' }}
+
   test-hive:
     name: ${{ matrix.name }}
+    needs: cache-docker-images
     runs-on: [self-hosted-ghr, size-l-x64]
     strategy:
       fail-fast: true
       matrix:
         include:
-          - name: consume-engine
+          - name: Engine
             mode: simulator
             simulator: ethereum/eels/consume-engine
-          - name: consume-rlp
+          - name: RLP
             mode: simulator
             simulator: ethereum/eels/consume-rlp
-          - name: consume-sync
+          - name: Sync
             mode: simulator
             simulator: ethereum/eels/consume-sync
-          - name: dev-mode
+          - name: Dev Mode
             mode: dev
             consume_command: engine
     steps:
@@ -70,6 +107,9 @@ jobs:
           cache-dependency-glob: "execution-specs/uv.lock"
           version: ${{ vars.UV_VERSION }}
           python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
+
+      - name: Load cached Docker images
+        uses: ./execution-specs/.github/actions/load-docker-images
 
       - name: Build hive
         run: |
@@ -106,3 +146,4 @@ jobs:
         run: |
           uv sync --all-extras
           uv run consume ${{ matrix.consume_command }} --input ${{ env.FIXTURES_URL }} -k "Osaka and test_block_at_rlp_limit_with_logs"
+

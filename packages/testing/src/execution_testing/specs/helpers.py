@@ -12,7 +12,11 @@ from execution_testing.exceptions import (
     TransactionException,
     UndefinedException,
 )
-from execution_testing.test_types import Transaction, TransactionReceipt
+from execution_testing.test_types import (
+    Transaction,
+    TransactionLog,
+    TransactionReceipt,
+)
 
 
 class ExecutionContext(StrEnum):
@@ -131,6 +135,29 @@ class TransactionReceiptMismatchError(Exception):
         super().__init__(message)
 
 
+class LogMismatchError(Exception):
+    """
+    Exception used when an actual log field differs from the expected one.
+    """
+
+    def __init__(
+        self,
+        index: int,
+        log_index: int,
+        field_name: str,
+        expected_value: Any,
+        actual_value: Any,
+    ):
+        """Initialize the exception."""
+        message = (
+            f"\nLogMismatch (pos={index}, log={log_index}):"
+            f"\n   What: {field_name} mismatch!"
+            f"\n   Want: {expected_value}"
+            f"\n    Got: {actual_value}"
+        )
+        super().__init__(message)
+
+
 @dataclass
 class ExceptionInfo:
     """Info to print transaction exception error messages."""
@@ -236,6 +263,39 @@ class BlockExceptionInfo(ExceptionInfo):
         )
 
 
+def verify_log(
+    tx_index: int,
+    log_index: int,
+    expected: TransactionLog,
+    actual: TransactionLog,
+) -> None:
+    """Verify a single log matches expected values (only specified fields)."""
+    if expected.address is not None and expected.address != actual.address:
+        raise LogMismatchError(
+            index=tx_index,
+            log_index=log_index,
+            field_name="address",
+            expected_value=expected.address,
+            actual_value=actual.address,
+        )
+    if expected.topics is not None and expected.topics != actual.topics:
+        raise LogMismatchError(
+            index=tx_index,
+            log_index=log_index,
+            field_name="topics",
+            expected_value=expected.topics,
+            actual_value=actual.topics,
+        )
+    if expected.data is not None and expected.data != actual.data:
+        raise LogMismatchError(
+            index=tx_index,
+            log_index=log_index,
+            field_name="data",
+            expected_value=expected.data,
+            actual_value=actual.data,
+        )
+
+
 def verify_transaction_receipt(
     transaction_index: int,
     expected_receipt: TransactionReceipt | None,
@@ -252,15 +312,31 @@ def verify_transaction_receipt(
         return
     assert actual_receipt is not None
     if (
-        expected_receipt.gas_used is not None
-        and actual_receipt.gas_used != expected_receipt.gas_used
+        expected_receipt.cumulative_gas_used is not None
+        and actual_receipt.cumulative_gas_used
+        != expected_receipt.cumulative_gas_used
     ):
         raise TransactionReceiptMismatchError(
             index=transaction_index,
             field_name="gas_used",
-            expected_value=expected_receipt.gas_used,
-            actual_value=actual_receipt.gas_used,
+            expected_value=expected_receipt.cumulative_gas_used,
+            actual_value=actual_receipt.cumulative_gas_used,
         )
+    if expected_receipt.logs is not None and actual_receipt.logs is not None:
+        actual_logs = actual_receipt.logs
+        expected_logs = expected_receipt.logs
+        if len(expected_logs) != len(actual_logs):
+            raise LogMismatchError(
+                index=transaction_index,
+                log_index=0,
+                field_name="log_count",
+                expected_value=len(expected_logs),
+                actual_value=len(actual_logs),
+            )
+        for log_idx, (expected, actual) in enumerate(
+            zip(expected_logs, actual_logs, strict=True)
+        ):
+            verify_log(transaction_index, log_idx, expected, actual)
     # TODO: Add more fields as needed
 
 

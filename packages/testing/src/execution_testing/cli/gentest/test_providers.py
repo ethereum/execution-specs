@@ -1,5 +1,5 @@
 """
-Contains various providers which generates context required to create test
+Contains various providers which generate context required to create test
 scripts.
 
 Classes:

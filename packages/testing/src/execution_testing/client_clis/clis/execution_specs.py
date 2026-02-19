@@ -7,12 +7,12 @@ import tempfile
 from io import StringIO
 from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional
-from typing_extensions import override
 
 import ethereum
 from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.t8n import T8N, ForkCache
 from ethereum_spec_tools.evm_tools.utils import get_supported_forks
+from typing_extensions import override
 
 from execution_testing.client_clis.cli_types import TransitionToolOutput
 from execution_testing.client_clis.file_utils import (
@@ -97,7 +97,11 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             t8n_args.append("--state-test")
 
         if transition_tool_data.blob_params:
-            t8n_args.append("--input.blobParams=stdin")
+            fork = transition_tool_data.fork
+            if fork.bpo_fork() and fork != fork.non_bpo_ancestor():
+                # Only send this information for BPO forks.
+                # TODO: This should be optimized by the t8n tool instead.
+                t8n_args.append("--input.blobParams=stdin")
 
         if self.trace:
             t8n_args.extend(
@@ -155,6 +159,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
     @classmethod
     def is_installed(cls, binary_path: Optional[Path] = None) -> bool:
         """ExecutionSpecs is always installed."""
+        del binary_path
         return True
 
 
@@ -165,13 +170,18 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
     """
 
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
-        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: "EmptyAuthorizationListError",
+        TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
+            "EmptyAuthorizationListError"
+        ),
         TransactionException.SENDER_NOT_EOA: "InvalidSenderError",
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
             "TransactionTypeContractCreationError("
-            "'transaction type `SetCodeTransaction` not allowed to create contracts')"
+            "'transaction type `SetCodeTransaction` not allowed to "
+            "create contracts')"
         ),
-        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: "InsufficientBalanceError",
+        TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
+            "InsufficientBalanceError"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
             "BlobGasLimitExceededError"
         ),
@@ -182,30 +192,47 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
             "InvalidBlobVersionedHashError"
         ),
         # This message is the same as TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
-        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: "BlobCountExceededError",
+        TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
+            "BlobCountExceededError"
+        ),
         TransactionException.TYPE_3_TX_ZERO_BLOBS: "NoBlobDataError",
-        TransactionException.INTRINSIC_GAS_TOO_LOW: "InsufficientTransactionGasError",
-        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "InsufficientTransactionGasError",
+        TransactionException.INTRINSIC_GAS_TOO_LOW: (
+            "InsufficientTransactionGasError"
+        ),
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            "InsufficientTransactionGasError"
+        ),
         TransactionException.INITCODE_SIZE_EXCEEDED: "InitCodeTooLargeError",
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "PriorityFeeGreaterThanMaxFeeError"
         ),
-        TransactionException.NONCE_MISMATCH_TOO_HIGH: "NonceMismatchError('nonce too high')",
-        TransactionException.NONCE_MISMATCH_TOO_LOW: "NonceMismatchError('nonce too low')",
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (
+            "NonceMismatchError('nonce too high')"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_LOW: (
+            "NonceMismatchError('nonce too low')"
+        ),
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
             "TransactionTypeContractCreationError("
-            "'transaction type `BlobTransaction` not allowed to create contracts')"
+            "'transaction type `BlobTransaction` not allowed to "
+            "create contracts')"
         ),
         TransactionException.NONCE_IS_MAX: "NonceOverflowError",
-        TransactionException.GAS_ALLOWANCE_EXCEEDED: "GasUsedExceedsLimitError",
-        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: "TransactionGasLimitExceededError",
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (
+            "GasUsedExceedsLimitError"
+        ),
+        TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
+            "TransactionGasLimitExceededError"
+        ),
         BlockException.SYSTEM_CONTRACT_EMPTY: "System contract address",
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: "call failed:",
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: "deposit",
+        TransactionException.LOG_MISMATCH: "LogMismatchError",
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
+        # Temporary solution for issue #1981.
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
-            r"InsufficientMaxFeePerGasError|InvalidBlock"  # Temporary solution for issue #1981.
+            r"InsufficientMaxFeePerGasError|InvalidBlock"
         ),
         TransactionException.TYPE_1_TX_PRE_FORK: (
             r"module '.*transactions' has no attribute 'AccessListTransaction'"

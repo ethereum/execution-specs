@@ -21,7 +21,7 @@ from .instructions import Ops
 
 def get_valid_jump_destinations(code: Bytes) -> Set[Uint]:
     """
-    Analyze the evm code to obtain the set of valid jump destinations.
+    Analyze the EVM code to obtain the set of valid jump destinations.
 
     Valid jump destinations are defined as follows:
         * The jump destination is less than the length of the code.

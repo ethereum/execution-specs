@@ -9,10 +9,12 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import concatenate_parameters
 from tests.cancun.eip4844_blobs.spec import Spec as BlobsSpec
 
+from ..helpers import concatenate_parameters
 
+
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "precompile_address,calldata",
     [
@@ -48,6 +50,7 @@ def test_point_evaluation(
     )
 
     benchmark_test(
+        target_opcode=Op.STATICCALL,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,

@@ -11,7 +11,7 @@ from .cli_types import (
     TransactionExceptionWithMessage,
     TransitionToolOutput,
 )
-from .clis.besu import BesuTransitionTool
+from .clis.besu import BesuFixtureConsumer, BesuTransitionTool
 from .clis.ethereumjs import EthereumJSTransitionTool
 from .clis.evmone import (
     EvmOneBlockchainFixtureConsumer,
@@ -31,6 +31,7 @@ TransitionTool.set_default_tool(ExecutionSpecsTransitionTool)
 FixtureConsumerTool.set_default_tool(GethFixtureConsumer)
 
 __all__ = (
+    "BesuFixtureConsumer",
     "BesuTransitionTool",
     "BlockExceptionWithMessage",
     "CLINotFoundInPathError",

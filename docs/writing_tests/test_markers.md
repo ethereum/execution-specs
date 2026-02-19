@@ -101,7 +101,7 @@ def type_4_default_transaction(sender: Account, pre: Alloc):
 @pytest.mark.with_all_typed_transactions
 @pytest.mark.valid_from("Prague")
 def test_something_with_all_tx_types(
-    state_test: StateTestFiller, 
+    state_test: StateTestFiller,
     pre: Alloc,
     typed_transaction: Transaction
 ):
@@ -129,59 +129,6 @@ def test_something_with_all_precompiles(
 
 In this example, the test will be parameterized for parameter `precompile` with values `[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]` for fork Shanghai, but with values `[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]` for fork Cancun which introduced the [point evaluation precompile](https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile) defined in EIP-4844.
 
-### `@pytest.mark.with_all_evm_code_types`
-
-This marker is used to automatically parameterize a test with all EVM code types that are valid for the fork being tested.
-
-```python
-import pytest
-
-from execution_testing.tools import Alloc, StateTestFiller
-
-@pytest.mark.with_all_evm_code_types
-@pytest.mark.valid_from("Frontier")
-def test_something_with_all_evm_code_types(
-    state_test: StateTestFiller,
-    pre: Alloc,
-):
-    pass
-```
-
-In this example, the test will be parameterized for parameter `evm_code_type` only with value `[EVMCodeType.LEGACY]` starting on fork Frontier, and eventually it will be parametrized with with values `[EVMCodeType.LEGACY, EVMCodeType.EOF_V1]` on the EOF activation fork.
-
-In all calls to `pre.deploy_contract`, if the code parameter is `Bytecode` type, and `evm_code_type==EVMCodeType.EOF_V1`, the bytecode will be automatically wrapped in an EOF V1 container.
-
-Code wrapping might fail in the following circumstances:
-
-- The code contains invalid EOF V1 opcodes.
-- The code does not end with a valid EOF V1 terminating opcode (such as `Op.STOP` or `Op.REVERT` or `Op.RETURN`).
-
-In the case where the code wrapping fails, `evm_code_type` can be added as a parameter to the test and the bytecode can be dynamically modified to be compatible with the EOF V1 container.
-
-One thing to note is that `evm_code_type` is not necessary to be added as a parameter to the test because the `pre: Alloc` fixture automatically consumes this fixture, and therefore it only needs to be added to the test signature if the test's logic needs it.
-
-```python
-import pytest
-
-from execution_testing.tools import Alloc, StateTestFiller
-from execution_testing.vm import EVMCodeType
-from execution_testing.vm import Opcodes as Op
-
-@pytest.mark.with_all_evm_code_types
-@pytest.mark.valid_from("Frontier")
-def test_something_with_all_evm_code_types(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    evm_code_type: EVMCodeType
-):
-    code = Op.SSTORE(1, 1)
-    if evm_code_type == EVMCodeType.EOF_V1:
-        # Modify the bytecode to be compatible with EOF V1 container
-        code += Op.STOP
-    pre.deploy_contract(code)
-    ...
-```
-
 ### `@pytest.mark.with_all_call_opcodes`
 
 This marker is used to automatically parameterize a test with all EVM call opcodes that are valid for the fork being tested.
@@ -202,9 +149,7 @@ def test_something_with_all_call_opcodes(
     pass
 ```
 
-In this example, the test will be parametrized for parameter `call_opcode` with values `[Op.CALL, Op.CALLCODE]` starting on fork Frontier, `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL]` on fork Homestead, `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]` on fork Byzantium, and eventually it will be parametrized with with values `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL, Op.EXTCALL, Op.EXTSTATICCALL, Op.EXTDELEGATECALL]` on the EOF activation fork.
-
-Parameter `evm_code_type` will also be parametrized with the correct EVM code type for the opcode under test.
+In this example, the test will be parametrized for parameter `call_opcode` with values `[Op.CALL, Op.CALLCODE]` starting on fork Frontier, `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL]` on fork Homestead, and `[Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]` on fork Byzantium and later.
 
 ### `@pytest.mark.with_all_create_opcodes`
 
@@ -226,9 +171,7 @@ def test_something_with_all_create_opcodes(
     pass
 ```
 
-In this example, the test will be parametrized for parameter `create_opcode` with values `[Op.CREATE]` starting on fork Frontier, `[Op.CREATE, Op.CREATE2]` starting on fork Constantinople, and eventually it will be parametrized with with values `[Op.CREATE, Op.CREATE2, Op.EOFCREATE]` on the EOF activation fork.
-
-Parameter `evm_code_type` will also be parametrized with the correct EVM code type for the opcode under test.
+In this example, the test will be parametrized for parameter `create_opcode` with values `[Op.CREATE]` starting on fork Frontier, and `[Op.CREATE, Op.CREATE2]` starting on fork Constantinople and later.
 
 ### `@pytest.mark.with_all_system_contracts`
 
@@ -384,7 +327,7 @@ In this example, the test will be marked as expected to fail when it is being ex
 
 This marker is used to mark tests that are slow to run. These tests are not run during [`tox` checks](./verifying_changes.md), and are only run when a release is being prepared.
 
-### `@pytest.mark.pre_alloc_modify`
+### `@pytest.mark.pre_alloc_mutable`
 
 This marker is used to mark tests that modify the pre-alloc in a way that would be impractical to reproduce in a real-world scenario.
 
@@ -392,6 +335,10 @@ Examples of this include:
 
 - Modifying the pre-alloc to have a balance of 2^256 - 1.
 - Address collisions that would require hash collisions.
+- EOA accounts containing code
+- EOA accounts with a hard-coded nonce
+- Contracts having zero-nonce
+- Deploying a contract to a hard-coded address
 
 ### `@pytest.mark.skip()`
 

@@ -94,6 +94,9 @@ class PytestRunner:
                     f"{execution.description}[/bold blue]"
                 )
                 self.console.rule(phase_text, style="bold blue")
+                # Flush for CI visibility (GitHub Actions buffers output)
+                sys.stdout.flush()
+                sys.stderr.flush()
 
             result = self.run_single(execution)
             if result != 0:

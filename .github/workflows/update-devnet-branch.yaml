@@ -1,0 +1,47 @@
+name: Update Devnet Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      fork:
+        description: 'Fork name (e.g., amsterdam)'
+        required: true
+        type: string
+        default: 'amsterdam'
+      devnet_name:
+        description: 'Devnet name (e.g., amsterdam/1, bal/2, eip-1234/3)'
+        required: true
+        type: string
+        default: 'bal/2'
+      eip_numbers:
+        description: 'Comma-separated list of EIP numbers (e.g., 1234,2345,3456)'
+        required: true
+        type: string
+        default: '8024,7843,7708,7778'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.fork || 'amsterdam' }}-${{ github.event.inputs.devnet_name || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update-devnet-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
+
+      - name: Merge EIP branches into devnet
+        uses: ./.github/actions/merge-eip-branches
+        with:
+          fork: ${{ github.event.inputs.fork }}
+          devnet_name: ${{ github.event.inputs.devnet_name }}
+          eip_numbers: ${{ github.event.inputs.eip_numbers }}

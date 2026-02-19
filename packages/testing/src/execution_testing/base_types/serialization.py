@@ -1,9 +1,10 @@
 """Ethereum test types for serialization and encoding."""
 
-from typing import Any, ClassVar, List
+from typing import Any, ClassVar, List, Self, Sequence
 
 import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
+from trie import HexaryTrie
 
 from execution_testing.base_types import Bytes
 
@@ -33,6 +34,7 @@ class RLPSerializable:
     signable: ClassVar[bool] = False
     rlp_fields: ClassVar[List[str]]
     rlp_signing_fields: ClassVar[List[str]]
+    rlp_exclude_none: ClassVar[bool] = False
 
     def get_rlp_fields(self) -> List[str]:
         """
@@ -102,9 +104,10 @@ class RLPSerializable:
                 f'in object type "{self.__class__.__name__}"'
             )
             try:
-                values_list.append(
-                    to_serializable_element(getattr(self, field))
-                )
+                value = getattr(self, field)
+                if self.rlp_exclude_none and value is None:
+                    continue
+                values_list.append(to_serializable_element(value))
             except Exception as e:
                 raise Exception(
                     f'Unable to rlp serialize field "{field}" '
@@ -122,7 +125,8 @@ class RLPSerializable:
         if signing:
             if not self.signable:
                 raise Exception(
-                    f'Object "{self.__class__.__name__}" does not support signing'
+                    f'Object "{self.__class__.__name__}" '
+                    "does not support signing"
                 )
             field_list = self.get_rlp_signing_fields()
         else:
@@ -149,6 +153,17 @@ class RLPSerializable:
         return Bytes(
             self.get_rlp_prefix() + eth_rlp.encode(self.to_list(signing=False))
         )
+
+    @classmethod
+    def list_root(cls, element_list: Sequence[Self]) -> bytes:
+        """Return the root of a list of the given type."""
+        t = HexaryTrie(db={})
+        for i, e in enumerate(element_list):
+            t.set(
+                eth_rlp.encode(Uint(i)),
+                e.rlp(),
+            )
+        return t.root_hash
 
 
 class SignableRLPSerializable(RLPSerializable):

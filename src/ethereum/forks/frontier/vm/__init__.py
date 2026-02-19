@@ -60,7 +60,7 @@ class BlockOutput:
     receipts_trie : `ethereum.fork_types.Root`
         Trie root of all the receipts in the block.
     receipt_keys :
-        Key of all the receipts in the block.
+        Keys of all the receipts in the block.
     block_logs : `Bloom`
         Logs bloom of all the logs included in all the transactions of the
         block.

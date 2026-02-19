@@ -30,7 +30,7 @@ from execution_testing import (
     Transaction,
 )
 
-from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
+from ..helpers import DEFAULT_BINOP_ARGS, make_dup, neg
 
 
 @pytest.mark.parametrize(
@@ -128,27 +128,54 @@ from tests.benchmark.compute.helpers import DEFAULT_BINOP_ARGS, make_dup, neg
             ),
             marks=pytest.mark.repricing,
         ),
+        pytest.param(
+            Op.ADDMOD,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
+                0x100000000000000000000000000000033,
+            ),
+            marks=pytest.mark.repricing,
+        ),
+        pytest.param(
+            Op.MULMOD,
+            (
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F,
+                0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001,
+                0x100000000000000000000000000000033,
+            ),
+            marks=pytest.mark.repricing,
+        ),
     ],
     ids=lambda param: "" if isinstance(param, tuple) else param,
 )
 def test_arithmetic(
     benchmark_test: BenchmarkTestFiller,
     opcode: Op,
-    opcode_args: tuple[int, int],
+    opcode_args: tuple[int, ...],
 ) -> None:
     """
-    Benchmark binary instructions (takes two args, pushes one value).
-    The execution starts with two initial values on the stack
-    The stack is balanced by the DUP2 instruction.
+    Benchmark arithmetic instructions.
+
+    Supports both binary ops and ternary operations.
+    The execution starts with initial values on the stack.
     """
     tx_data = b"".join(
         arg.to_bytes(32, byteorder="big") for arg in opcode_args
     )
 
-    setup = Op.CALLDATALOAD(0) + Op.CALLDATALOAD(32) + Op.DUP2 + Op.DUP2
-    attack_block = Op.DUP2 + opcode
-    cleanup = Op.POP + Op.POP + Op.DUP2 + Op.DUP2
+    depth = len(opcode_args)
+    dup_op = make_dup(depth - 1)
+
+    setup = sum((Op.CALLDATALOAD(32 * i) for i in range(depth)), Bytecode())
+    setup += dup_op * depth
+
+    attack_block = dup_op * (depth - 1) + opcode
+
+    cleanup = Op.POP * depth + dup_op * depth
+
     benchmark_test(
+        target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
@@ -158,7 +185,6 @@ def test_arithmetic(
     )
 
 
-@pytest.mark.repricing(mod_bits=255)
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
 @pytest.mark.parametrize("opcode", [Op.MOD, Op.SMOD])
 def test_mod(
@@ -277,7 +303,7 @@ def test_mod(
     )
 
 
-@pytest.mark.repricing(mod_bits=255)
+@pytest.mark.repricing(mod_bits=191)
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
 @pytest.mark.parametrize("opcode", [Op.ADDMOD, Op.MULMOD])
 def test_mod_arithmetic(
@@ -388,4 +414,6 @@ def test_mod_arithmetic(
         sender=pre.fund_eoa(),
     )
 
-    benchmark_test(tx=tx)
+    benchmark_test(
+        tx=tx,
+    )

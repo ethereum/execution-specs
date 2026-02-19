@@ -3,11 +3,14 @@
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import tempfile
 import textwrap
+from functools import cache
 from pathlib import Path
-from typing import ClassVar, Dict, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 import requests
 
@@ -17,21 +20,98 @@ from execution_testing.exceptions import (
     ExceptionMapper,
     TransactionException,
 )
+from execution_testing.fixtures import (
+    BlockchainFixture,
+    FixtureFormat,
+    StateFixture,
+)
 from execution_testing.forks import Fork
 
 from ..cli_types import TransitionToolOutput
+from ..ethereum_cli import EthereumCLI
+from ..fixture_consumer_tool import FixtureConsumerTool
 from ..transition_tool import (
     TransitionTool,
     dump_files_to_directory,
     model_dump_config,
 )
 
+BESU_BIN_DETECT_PATTERN = re.compile(r"^Besu evm .*$")
+
+
+class BesuEvmTool(EthereumCLI):
+    """Besu `evmtool` base class."""
+
+    default_binary = Path("evmtool")
+    detect_binary_pattern = BESU_BIN_DETECT_PATTERN
+    cached_version: Optional[str] = None
+    trace: bool
+
+    def __init__(
+        self,
+        binary: Optional[Path] = None,
+        trace: bool = False,
+    ):
+        """Initialize the BesuEvmTool class."""
+        self.binary = binary if binary else self.default_binary
+        self.trace = trace
+
+    def _run_command(self, command: List[str]) -> subprocess.CompletedProcess:
+        """Run a command and return the result."""
+        try:
+            return subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise Exception("Command failed with non-zero status.") from e
+        except Exception as e:
+            raise Exception("Unexpected exception calling evmtool.") from e
+
+    def _consume_debug_dump(
+        self,
+        command: List[str],
+        result: subprocess.CompletedProcess,
+        fixture_path: Path,
+        debug_output_path: Path,
+    ) -> None:
+        """Dump debug output for a consume command."""
+        assert all(isinstance(x, str) for x in command), (
+            f"Not all elements of 'command' list are strings: {command}"
+        )
+        assert len(command) > 0
+
+        debug_fixture_path = str(debug_output_path / "fixtures.json")
+        command[-1] = debug_fixture_path
+
+        consume_direct_call = " ".join(shlex.quote(arg) for arg in command)
+
+        consume_direct_script = textwrap.dedent(
+            f"""\
+            #!/bin/bash
+            {consume_direct_call}
+            """
+        )
+        dump_files_to_directory(
+            str(debug_output_path),
+            {
+                "consume_direct_args.py": command,
+                "consume_direct_returncode.txt": result.returncode,
+                "consume_direct_stdout.txt": result.stdout,
+                "consume_direct_stderr.txt": result.stderr,
+                "consume_direct.sh+x": consume_direct_script,
+            },
+        )
+        shutil.copyfile(fixture_path, debug_fixture_path)
+
 
 class BesuTransitionTool(TransitionTool):
     """Besu EvmTool Transition tool frontend wrapper class."""
 
     default_binary = Path("evm")
-    detect_binary_pattern = re.compile(r"^Besu evm .*$")
+    detect_binary_pattern = BESU_BIN_DETECT_PATTERN
     binary: Path
     cached_version: Optional[str] = None
     trace: bool
@@ -56,7 +136,8 @@ class BesuTransitionTool(TransitionTool):
             result = subprocess.run(args, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
             raise Exception(
-                f"evm process unexpectedly returned a non-zero status code: {e}."
+                "evm process unexpectedly returned a non-zero status "
+                f"code: {e}."
             ) from e
         except Exception as e:
             raise Exception(
@@ -149,7 +230,8 @@ class BesuTransitionTool(TransitionTool):
                 #!/bin/bash
                 # Use $1 as t8n-server port if provided, else default to 3000
                 PORT=${{1:-3000}}
-                curl http://localhost:${{PORT}}/ -X POST -H "Content-Type: application/json" \\
+                curl http://localhost:${{PORT}}/ -X POST \\
+                -H "Content-Type: application/json" \\
                 --data '{indented_post_data_string}'
                 """
             )
@@ -165,7 +247,8 @@ class BesuTransitionTool(TransitionTool):
             )
 
         response = requests.post(self.server_url, json=post_data, timeout=5)
-        response.raise_for_status()  # exception visible in pytest failure output
+        # exception visible in pytest failure output
+        response.raise_for_status()
         output: TransitionToolOutput = TransitionToolOutput.model_validate(
             response.json(),
             context={"exception_mapper": self.exception_mapper},
@@ -177,7 +260,9 @@ class BesuTransitionTool(TransitionTool):
                 {
                     "response.txt": response.text,
                     "status_code.txt": response.status_code,
-                    "time_elapsed_seconds.txt": response.elapsed.total_seconds(),
+                    "time_elapsed_seconds.txt": (
+                        response.elapsed.total_seconds()
+                    ),
                 },
             )
 
@@ -222,7 +307,8 @@ class BesuExceptionMapper(ExceptionMapper):
     mapping_substring: ClassVar[Dict[ExceptionBase, str]] = {
         TransactionException.NONCE_IS_MAX: "invalid Nonce must be less than",
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
-            "transaction invalid tx max fee per blob gas less than block blob gas fee"
+            "transaction invalid tx max fee per blob gas less than "
+            "block blob gas fee"
         ),
         TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW: (
             "invalid Upfront gas cost cannot exceed 2^256 Wei"
@@ -230,13 +316,20 @@ class BesuExceptionMapper(ExceptionMapper):
         TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
             "transaction invalid gasPrice is less than the current BaseFee"
         ),
-        TransactionException.GAS_ALLOWANCE_EXCEEDED: "provided gas insufficient",
-        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
-            "transaction invalid max priority fee per gas cannot be greater than max fee per gas"
+        BlockException.GAS_USED_OVERFLOW: "provided gas insufficient",
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (
+            "provided gas insufficient"
         ),
-        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: "Invalid versionedHash",
+        TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
+            "transaction invalid max priority fee per gas cannot be greater "
+            "than max fee per gas"
+        ),
+        TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
+            "Invalid versionedHash"
+        ),
         TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
-            "transaction invalid transaction blob transactions must have a to address"
+            "transaction invalid transaction blob transactions must have "
+            "a to address"
         ),
         TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
             "Failed to decode transactions from block parameter"
@@ -248,11 +341,12 @@ class BesuExceptionMapper(ExceptionMapper):
             "Transaction type BLOB is invalid, accepted transaction types are"
         ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
-            "transaction invalid transaction code delegation transactions must have a "
-            "non-empty code delegation list"
+            "transaction invalid transaction code delegation transactions "
+            "must have a non-empty code delegation list"
         ),
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
-            "transaction invalid transaction code delegation transactions must have a to address"
+            "transaction invalid transaction code delegation transactions "
+            "must have a to address"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
             "transaction invalid Transaction type DELEGATE_CODE is invalid"
@@ -269,67 +363,95 @@ class BesuExceptionMapper(ExceptionMapper):
         BlockException.INCORRECT_BLOB_GAS_USED: (
             "Payload BlobGasUsed does not match calculated BlobGasUsed"
         ),
-        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: "Header validation failed (FULL)",
+        BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
+            "Header validation failed (FULL)"
+        ),
         BlockException.INVALID_GASLIMIT: "Header validation failed (FULL)",
         BlockException.EXTRA_DATA_TOO_BIG: "Header validation failed (FULL)",
-        BlockException.INVALID_BLOCK_NUMBER: "Header validation failed (FULL)",
-        BlockException.INVALID_BASEFEE_PER_GAS: "Header validation failed (FULL)",
-        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "block timestamp not greater than parent",
-        BlockException.INVALID_LOG_BLOOM: "failed to validate output of imported block",
-        BlockException.INVALID_RECEIPTS_ROOT: "failed to validate output of imported block",
-        BlockException.INVALID_STATE_ROOT: "World State Root does not match expected value",
+        BlockException.INVALID_BLOCK_NUMBER: (
+            "Header validation failed (FULL)"
+        ),
+        BlockException.INVALID_BASEFEE_PER_GAS: (
+            "Header validation failed (FULL)"
+        ),
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
+            "block timestamp not greater than parent"
+        ),
+        BlockException.INVALID_LOG_BLOOM: (
+            "failed to validate output of imported block"
+        ),
+        BlockException.INVALID_RECEIPTS_ROOT: (
+            "failed to validate output of imported block"
+        ),
+        BlockException.INVALID_STATE_ROOT: (
+            "World State Root does not match expected value"
+        ),
     }
     mapping_regex = {
         BlockException.INVALID_REQUESTS: (
-            r"Invalid execution requests|Requests hash mismatch, calculated: 0x[0-9a-f]+ header: "
-            r"0x[0-9a-f]+"
+            r"Invalid execution requests|Requests hash mismatch, "
+            r"calculated: 0x[0-9a-f]+ header: 0x[0-9a-f]+"
         ),
         BlockException.INVALID_BLOCK_HASH: (
-            r"Computed block hash 0x[0-9a-f]+ does not match block hash parameter 0x[0-9a-f]+"
+            r"Computed block hash 0x[0-9a-f]+ does not match block "
+            r"hash parameter 0x[0-9a-f]+"
         ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (
-            r"System call halted|System call did not execute to completion"
+            r"System call halted|"
+            r"System call did not execute to completion"
         ),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
             r"(Invalid system call, no code at address)|"
             r"(Invalid system call address:)"
         ),
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
-            r"Invalid (amount|index|pubKey|signature|withdrawalCred) (offset|size): "
-            r"expected (\d+), but got (-?\d+)|"
-            r"Invalid deposit log length\. Must be \d+ bytes, but is \d+ bytes"
+            r"Invalid (amount|index|pubKey|signature|withdrawalCred) "
+            r"(offset|size): expected (\d+), but got (-?\d+)|"
+            r"Invalid deposit log length\. Must be \d+ bytes, "
+            r"but is \d+ bytes"
         ),
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             r"Block size of \d+ bytes exceeds limit of \d+ bytes"
         ),
         TransactionException.INITCODE_SIZE_EXCEEDED: (
-            r"transaction invalid Initcode size of \d+ exceeds maximum size of \d+"
+            r"transaction invalid Initcode size of \d+ exceeds "
+            r"maximum size of \d+"
         ),
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            r"transaction invalid transaction up-front cost 0x[0-9a-f]+ exceeds transaction "
-            r"sender account balance 0x[0-9a-f]+"
+            r"transaction invalid transaction up-front cost 0x[0-9a-f]+ "
+            r"exceeds transaction sender account balance 0x[0-9a-f]+"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"transaction invalid intrinsic gas cost \d+ exceeds gas limit \d+"
+            r"transaction invalid intrinsic gas cost \d+ "
+            r"exceeds gas limit \d+"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
-            r"transaction invalid intrinsic gas cost \d+ exceeds gas limit \d+"
+            r"transaction invalid intrinsic gas cost \d+ "
+            r"exceeds gas limit \d+"
         ),
         TransactionException.SENDER_NOT_EOA: (
-            r"transaction invalid Sender 0x[0-9a-f]+ has deployed code and so is not authorized "
-            r"to send transactions"
+            r"transaction invalid Sender 0x[0-9a-f]+ has deployed code "
+            r"and so is not authorized to send transactions"
         ),
         TransactionException.NONCE_MISMATCH_TOO_LOW: (
-            r"transaction invalid transaction nonce \d+ below sender account nonce \d+"
+            r"transaction invalid transaction nonce \d+ "
+            r"below sender account nonce \d+"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (
+            r"transaction invalid transaction nonce \d+ "
+            r"does not match sender account nonce \d+"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
-            r"transaction invalid Transaction gas limit must be at most \d+"
+            r"transaction invalid Transaction gas limit "
+            r"must be at most \d+"
         ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
-            r"Blob transaction 0x[0-9a-f]+ exceeds block blob gas limit: \d+ > \d+"
+            r"Blob transaction 0x[0-9a-f]+ exceeds "
+            r"block blob gas limit: \d+ > \d+"
         ),
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
-            r"Blob transaction has too many blobs: \d+|Invalid Blob Count: \d+"
+            r"Blob transaction has too many blobs: \d+|"
+            r"Invalid Blob Count: \d+"
         ),
         # BAL Exceptions: TODO - review once all clients completed.
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
@@ -353,3 +475,186 @@ class BesuExceptionMapper(ExceptionMapper):
             r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
         ),
     }
+
+
+class BesuFixtureConsumer(
+    BesuEvmTool,
+    FixtureConsumerTool,
+    fixture_formats=[StateFixture, BlockchainFixture],
+):
+    """Besu's implementation of the fixture consumer."""
+
+    def consume_blockchain_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """
+        Consume a single blockchain test.
+
+        Besu's ``evmtool block-test`` accepts ``--test-name`` to
+        select a specific fixture from the file.
+        """
+        subcommand = "block-test"
+        subcommand_options: List[str] = []
+        if debug_output_path:
+            subcommand_options += ["--json"]
+
+        if fixture_name:
+            subcommand_options += [
+                "--test-name",
+                fixture_name,
+            ]
+
+        command = (
+            [str(self.binary)]
+            + [subcommand]
+            + subcommand_options
+            + [str(fixture_path)]
+        )
+
+        result = self._run_command(command)
+
+        if debug_output_path:
+            self._consume_debug_dump(
+                command, result, fixture_path, debug_output_path
+            )
+
+        if result.returncode != 0:
+            raise Exception(
+                f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                f"Error:\n{result.stderr}"
+            )
+
+        # Parse text output for failures
+        stdout = result.stdout
+        if "Failed:" in stdout:
+            failed_match = re.search(r"Failed:\s+(\d+)", stdout)
+            if failed_match and int(failed_match.group(1)) > 0:
+                raise Exception(f"Blockchain test failed:\n{stdout}")
+
+    @cache  # noqa
+    def consume_state_test_file(
+        self,
+        fixture_path: Path,
+        debug_output_path: Optional[Path] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Consume an entire state test file.
+
+        Besu's ``evmtool state-test`` outputs one JSON object per
+        line (NDJSON) with a ``test`` field instead of ``name``.
+        This method normalizes the output to match the expected
+        format.
+        """
+        subcommand = "state-test"
+        subcommand_options: List[str] = []
+        if debug_output_path:
+            subcommand_options += ["--json"]
+
+        command = (
+            [str(self.binary)]
+            + [subcommand]
+            + subcommand_options
+            + [str(fixture_path)]
+        )
+        result = self._run_command(command)
+
+        if debug_output_path:
+            self._consume_debug_dump(
+                command, result, fixture_path, debug_output_path
+            )
+
+        if result.returncode != 0:
+            raise Exception(
+                f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                f"Error:\n{result.stderr}"
+            )
+
+        # Parse NDJSON output, normalize "test" -> "name"
+        results: List[Dict[str, Any]] = []
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+                if "test" in entry and "name" not in entry:
+                    entry["name"] = entry["test"]
+                results.append(entry)
+            except json.JSONDecodeError as e:
+                raise Exception(
+                    f"Failed to parse Besu state-test output as JSON.\n"
+                    f"Offending line:\n{line}\n\n"
+                    f"Error: {e}"
+                ) from e
+        return results
+
+    def consume_state_test(
+        self,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """
+        Consume a single state test.
+
+        Uses the cached result from ``consume_state_test_file``
+        and selects the requested fixture by name.
+        """
+        file_results = self.consume_state_test_file(
+            fixture_path=fixture_path,
+            debug_output_path=debug_output_path,
+        )
+        if fixture_name:
+            test_result = [
+                r for r in file_results if r["name"] == fixture_name
+            ]
+            assert len(test_result) < 2, (
+                f"Multiple test results for {fixture_name}"
+            )
+            assert len(test_result) == 1, (
+                f"Test result for {fixture_name} missing"
+            )
+            assert test_result[0]["pass"], (
+                f"State test failed: "
+                f"{test_result[0].get('error', 'unknown error')}"
+            )
+        else:
+            if any(not r["pass"] for r in file_results):
+                exception_text = "State test failed: \n" + "\n".join(
+                    f"{r['name']}: " + r.get("error", "unknown error")
+                    for r in file_results
+                    if not r["pass"]
+                )
+                raise Exception(exception_text)
+
+    def consume_fixture(
+        self,
+        fixture_format: FixtureFormat,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ) -> None:
+        """
+        Execute the appropriate Besu fixture consumer for the
+        fixture at ``fixture_path``.
+        """
+        if fixture_format == BlockchainFixture:
+            self.consume_blockchain_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        elif fixture_format == StateFixture:
+            self.consume_state_test(
+                fixture_path=fixture_path,
+                fixture_name=fixture_name,
+                debug_output_path=debug_output_path,
+            )
+        else:
+            raise Exception(
+                f"Fixture format {fixture_format.format_name} "
+                f"not supported by {self.binary}"
+            )

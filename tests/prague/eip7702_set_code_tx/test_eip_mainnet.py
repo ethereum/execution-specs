@@ -50,17 +50,18 @@ def test_eip_7702(
             signer=auth_signer,
         ),
     ]
-    gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
     intrinsic_gas_cost = intrinsic_gas_cost_calc(
         access_list=[],
         authorization_list_or_count=authorization_list,
     )
     execution_cost = (
-        (gas_costs.G_COLD_SLOAD + gas_costs.G_STORAGE_SET) * 3
-        + (gas_costs.G_VERY_LOW * 3)
-        + (gas_costs.G_BASE * 3)
-    )
+        Op.SSTORE(key_warm=False) * 3
+        + Op.PUSH1(0) * 3
+        + Op.ORIGIN
+        + Op.CALLER
+        + Op.CALLVALUE
+    ).gas_cost(fork)
 
     tx = Transaction(
         gas_limit=intrinsic_gas_cost + execution_cost,

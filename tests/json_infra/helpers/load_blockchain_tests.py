@@ -113,7 +113,7 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
         # block hash provided in the test is not correct. Or all the
         # blocks process correctly but the post state provided is not
         # right. Since these tests do not directly have anything to do
-        # with the state teansition itself, we skip these
+        # with the state transition itself, we skip these
         # See src/BlockchainTestsFiller/InvalidBlocks/bcExpectSection
         # in ethereum/tests
         if "exceptions" in json_data:
@@ -121,10 +121,7 @@ class BlockchainTestFixture(Fixture, FixtureTestItem):
                 f"{self.test_file}[{self.test_key}] has unrelated exceptions"
             )
 
-        load = Load(
-            self.fork_name,
-            self.eels_fork,
-        )
+        load = Load(self.eels_fork)
 
         genesis_header = load.json_to_header(json_data["genesisBlockHeader"])
         parameters = [

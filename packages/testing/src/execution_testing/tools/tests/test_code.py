@@ -27,7 +27,7 @@ from execution_testing.forks import (
 )
 from execution_testing.specs import StateTest
 from execution_testing.test_types import Alloc, Environment, Transaction
-from execution_testing.vm import Op, UndefinedOpcodes
+from execution_testing.vm import Bytecode, Op
 
 from ..tools_code import CalldataCase, Case, Conditional, Initcode, Switch
 
@@ -182,6 +182,39 @@ def expected_bytes(
 )
 def test_initcode(initcode: Initcode, bytecode: bytes) -> None:  # noqa: D103
     assert bytes(initcode) == bytecode
+
+
+@pytest.mark.parametrize(
+    "initcode,reference",
+    [
+        pytest.param(
+            Initcode(),
+            Initcode(),
+            id="empty-deployed-code",
+        ),
+        pytest.param(
+            # Both initcodes deploy code of the same size, but the execution
+            # cost of the deployed codes differ, make sure that `gas_cost`
+            # is not influenced by the deployed code's execution cost.
+            Initcode(deploy_code=Op.MSTORE(0, 0, new_memory_size=0)),
+            Initcode(deploy_code=Op.MSTORE(0xFF, 0, new_memory_size=0xFF)),
+            id="non-empty-deployed-code",
+        ),
+    ],
+)
+def test_initcode_gas_cost(initcode: Initcode, reference: Initcode) -> None:
+    """
+    Test that the gas cost of the initcode is calculated correctly.
+    """
+    assert initcode.gas_cost(Cancun) == reference.gas_cost(Cancun)
+    if initcode.deploy_code != reference.deploy_code:
+        initcode_deploy_code = initcode.deploy_code
+        assert isinstance(initcode_deploy_code, Bytecode)
+        reference_deploy_code = reference.deploy_code
+        assert isinstance(reference_deploy_code, Bytecode)
+        assert initcode_deploy_code.gas_cost(
+            Cancun
+        ) != reference_deploy_code.gas_cost(Cancun)
 
 
 @pytest.mark.parametrize(
@@ -496,7 +529,8 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes) -> None:
                 default_action=Op.SSTORE(0, 6),
             ),
             {0: 3},
-            id="five-cases-multiple-conditions-met",  # first in list should be evaluated
+            # first in list should be evaluated
+            id="five-cases-multiple-conditions-met",
         ),
         pytest.param(
             Hash(9),
@@ -699,16 +733,3 @@ def test_switch(
         t8n=default_t8n,
         fixture_format=BlockchainFixture,
     )
-
-
-def test_full_opcode_range() -> None:
-    """
-    Test that the full opcode range is covered by the opcode set defined by
-    Opcodes and UndefineOpcodes.
-    """
-    assert len(set(Op) & set(UndefinedOpcodes)) == 0
-    full_possible_opcode_set = set(Op) | set(UndefinedOpcodes)
-    assert len(full_possible_opcode_set) == 257
-    assert {op.hex() for op in full_possible_opcode_set} == {
-        f"{i:02x}" for i in range(256)
-    }

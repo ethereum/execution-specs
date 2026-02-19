@@ -81,8 +81,8 @@ def test_checklist_template_consistency() -> None:
 
     if missing_in_checklist:
         errors.append(
-            f"IDs found in markdown template but missing in EIPChecklist class "
-            f"({len(missing_in_checklist)} items):\n"
+            f"IDs found in markdown template but missing in EIPChecklist "
+            f"class ({len(missing_in_checklist)} items):\n"
             + "\n".join(f"  - `{id_}`" for id_ in sorted(missing_in_checklist))
         )
 

@@ -7,7 +7,7 @@ Supported Opcodes:
 - BLOBHASH
 """
 
-from typing import Any, Dict
+import math
 
 import pytest
 from execution_testing import (
@@ -36,39 +36,55 @@ def test_call_frame_context_ops(
 ) -> None:
     """Benchmark call zero-parameter instructions."""
     benchmark_test(
+        target_opcode=opcode,
         code_generator=ExtCallGenerator(attack_block=opcode),
     )
 
 
-@pytest.mark.repricing(blob_index=0, blobs_present=0)
+@pytest.mark.repricing
+@pytest.mark.execute(
+    pytest.mark.skip(reason="type 3 tx not supported in execute")
+)
 @pytest.mark.parametrize(
-    "blob_index, blobs_present",
+    "blob_present",
     [
-        pytest.param(0, 0, id="no blobs"),
-        pytest.param(0, 1, id="one blob and accessed"),
-        pytest.param(1, 1, id="one blob but access non-existent index"),
-        pytest.param(5, 6, id="six blobs, access latest"),
+        pytest.param(0, id="no_blobs"),
+        pytest.param(1, id="one_blob"),
     ],
 )
 def test_blobhash(
     fork: Fork,
     benchmark_test: BenchmarkTestFiller,
-    blob_index: int,
-    blobs_present: bool,
+    blob_present: int,
+    fixed_opcode_count: int | None,
+    gas_benchmark_value: int,
 ) -> None:
     """Benchmark BLOBHASH instruction."""
-    tx_kwargs: Dict[str, Any] = {}
-    if blobs_present > 0:
-        tx_kwargs["ty"] = TransactionType.BLOB_TRANSACTION
-        tx_kwargs["max_fee_per_blob_gas"] = fork.min_base_fee_per_blob_gas()
-        tx_kwargs["blob_versioned_hashes"] = add_kzg_version(
-            [i.to_bytes() * 32 for i in range(blobs_present)],
-            BlobsSpec.BLOB_COMMITMENT_VERSION_KZG,
-        )
+    tx_kwargs: dict = {}
+    if blob_present:
+        cap = fork.transaction_gas_limit_cap()
+        if fixed_opcode_count is None and cap is not None:
+            # Check if blob tx splits would exceed block blob limit
+            required_splits = math.ceil(gas_benchmark_value / cap)
+            max_blobs = fork.max_blobs_per_block()
+            if required_splits > max_blobs:
+                pytest.skip(
+                    f"Blob tx needs {required_splits} splits but fork allows "
+                    f"{max_blobs} blobs/block"
+                )
+        tx_kwargs = {
+            "ty": TransactionType.BLOB_TRANSACTION,
+            "max_fee_per_blob_gas": fork.min_base_fee_per_blob_gas(),
+            "blob_versioned_hashes": add_kzg_version(
+                [i.to_bytes(32, "big") for i in range(blob_present)],
+                BlobsSpec.BLOB_COMMITMENT_VERSION_KZG,
+            ),
+        }
 
     benchmark_test(
+        target_opcode=Op.BLOBHASH,
         code_generator=ExtCallGenerator(
-            attack_block=Op.BLOBHASH(blob_index),
+            attack_block=Op.BLOBHASH(Op.PUSH0),
             tx_kwargs=tx_kwargs,
         ),
     )

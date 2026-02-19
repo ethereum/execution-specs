@@ -11,7 +11,8 @@ import pytest
 # Example 1: Test that deploys beacon root contract with hardcoded deployer
 @pytest.mark.pre_alloc_group(
     "separate",
-    reason="Deploys beacon root contract using actual hardcoded deployer address",
+    reason="Deploys beacon root contract using actual hardcoded "
+    "deployer address",
 )
 def test_beacon_root_contract_deployment() -> None:
     """

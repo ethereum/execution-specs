@@ -1,6 +1,6 @@
 """
 Define a program for scenario test that executes all frontier opcodes and
-entangles it's result.
+verifies its result.
 """
 
 from functools import cached_property
@@ -17,7 +17,7 @@ from ..common import ProgramResult, ScenarioTestProgram
 
 def make_all_opcode_program() -> Bytecode:
     """
-    Make a program that call each Frontier opcode and verifies it's result.
+    Make a program that calls each Frontier opcode and verifies its result.
     """
     code: Bytecode = (
         # Test opcode 01 - ADD

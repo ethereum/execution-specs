@@ -1,9 +1,61 @@
-# Hive client configuration file with master/nightly images for CI
-# Uses ethpandaops mirror for faster pulls in CI environments
+# This is a Hive client configuration file that uses master/main client builds
+# from the ethquokkaops / ethpandaops container registry.
+#
+# The latest available configurations are here:
+# https://github.com/ethpandaops/eth-client-docker-image-builder/blob/master/branches.yaml
+
+# Besu
+# https://github.com/hyperledger/besu
+- client: besu
+  nametag: default
+  build_args:
+    baseimage: docker.ethquokkaops.io/dh/ethpandaops/besu
+    tag: main
+
+# Erigon
+# https://github.com/erigontech/erigon
+- client: erigon
+  nametag: default
+  build_args:
+    baseimage: docker.ethquokkaops.io/dh/ethpandaops/erigon
+    tag: main
+
+# Ethrex
+# https://github.com/lambdaclass/ethrex
+- client: ethrex
+  nametag: default
+  build_args:
+    baseimage: docker.ethquokkaops.io/dh/ethpandaops/ethrex
+    tag: main
 
 # Geth (Go-Ethereum)
+# https://github.com/ethereum/go-ethereum
 - client: go-ethereum
   nametag: default
   build_args:
     baseimage: docker.ethquokkaops.io/dh/ethpandaops/geth
     tag: master
+
+# Nethermind
+# https://github.com/NethermindEth/nethermind
+- client: nethermind
+  nametag: default
+  build_args:
+    baseimage: docker.ethquokkaops.io/dh/ethpandaops/nethermind
+    tag: master
+
+# Nimbus EL
+# https://github.com/status-im/nimbus-eth1
+- client: nimbus-el
+  nametag: default
+  build_args:
+    baseimage: docker.ethquokkaops.io/dh/ethpandaops/nimbus-eth1
+    tag: master
+
+# Reth
+# https://github.com/paradigmxyz/reth
+- client: reth
+  nametag: default
+  build_args:
+    baseimage: docker.ethquokkaops.io/dh/ethpandaops/reth
+    tag: main

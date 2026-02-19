@@ -27,7 +27,7 @@ from execution_testing import (
     Transaction,
 )
 
-from tests.benchmark.compute.helpers import (
+from ..helpers import (
     DEFAULT_BINOP_ARGS,
     make_dup,
     sar,
@@ -101,6 +101,7 @@ def test_bitwise(
     attack_block = Op.DUP2 + opcode
     cleanup = Op.POP + Op.POP + Op.DUP2 + Op.DUP2
     benchmark_test(
+        target_opcode=opcode,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
@@ -118,16 +119,17 @@ def test_not_op(
     Benchmark NOT instruction (takes one arg, pushes one value).
     """
     benchmark_test(
+        target_opcode=Op.NOT,
         code_generator=JumpLoopGenerator(setup=Op.PUSH0, attack_block=Op.NOT),
     )
 
 
-@pytest.mark.parametrize("shift_right", [Op.SHR, Op.SAR])
+@pytest.mark.parametrize("opcode", [Op.SHR, Op.SAR])
 def test_shifts(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
-    shift_right: Op,
+    opcode: Op,
     gas_benchmark_value: int,
 ) -> None:
     """
@@ -138,13 +140,13 @@ def test_shifts(
     """
     max_code_size = fork.max_code_size()
 
-    match shift_right:
+    match opcode:
         case Op.SHR:
             shift_right_fn = shr
         case Op.SAR:
             shift_right_fn = sar
         case _:
-            raise ValueError(f"Unexpected shift op: {shift_right}")
+            raise ValueError(f"Unexpected shift op: {opcode}")
 
     rng = random.Random(1)  # Use random with a fixed seed.
     initial_value = 2**256 - 1  # The initial value to be shifted; should be
@@ -180,7 +182,7 @@ def test_shifts(
         v, i = select_shift_amount(shl, v)
         code_body += make_dup(len(shift_amounts) - i) + Op.SHL
         v, i = select_shift_amount(shift_right_fn, v)
-        code_body += make_dup(len(shift_amounts) - i) + shift_right
+        code_body += make_dup(len(shift_amounts) - i) + opcode
 
     code = code_prefix + code_body + code_suffix
     assert len(code) == max_code_size - 2
@@ -192,7 +194,10 @@ def test_shifts(
         sender=pre.fund_eoa(),
     )
 
-    benchmark_test(tx=tx)
+    benchmark_test(
+        target_opcode=opcode,
+        tx=tx,
+    )
 
 
 @pytest.mark.repricing
@@ -201,6 +206,7 @@ def test_clz_same(benchmark_test: BenchmarkTestFiller) -> None:
     """Benchmark CLZ instruction with same input."""
     magic_value = 248  # CLZ(248) = 248
     benchmark_test(
+        target_opcode=Op.CLZ,
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH1(magic_value), attack_block=Op.CLZ
         ),
@@ -238,4 +244,7 @@ def test_clz_diff(
         sender=pre.fund_eoa(),
     )
 
-    benchmark_test(tx=tx)
+    benchmark_test(
+        target_opcode=Op.CLZ,
+        tx=tx,
+    )

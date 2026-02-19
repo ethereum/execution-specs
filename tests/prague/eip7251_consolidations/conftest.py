@@ -18,7 +18,7 @@ def update_pre(
     ],
 ) -> None:
     """
-    Init state of the accounts. Every deposit transaction defines their own
+    Init state of the accounts. Every consolidation request defines its own
     pre-state requirements, and this fixture aggregates them all.
     """
     for requests in blocks_consolidation_requests:

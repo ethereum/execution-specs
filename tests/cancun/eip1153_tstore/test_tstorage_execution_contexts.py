@@ -3,7 +3,7 @@ Test EIP-1153 Transient Storage in execution contexts.
 """
 
 from enum import EnumMeta, unique
-from typing import Any, Dict, Mapping
+from typing import Any, Callable, Dict, Mapping
 
 import pytest
 from execution_testing import (
@@ -12,6 +12,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Environment,
+    Fork,
     Hash,
     Op,
     StateTestFiller,
@@ -19,14 +20,12 @@ from execution_testing import (
 )
 
 from . import PytestParameterEnum
-from .spec import Spec, ref_spec_1153
+from .spec import ref_spec_1153
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
 pytestmark = [pytest.mark.valid_from("Cancun")]
-
-PUSH_OPCODE_COST = 3
 
 
 class DynamicCallContextTestCases(EnumMeta):
@@ -186,25 +185,30 @@ class DynamicCallContextTestCases(EnumMeta):
                 "expected_callee_storage": {},
             }
 
-            gas_limit = Spec.TSTORE_GAS_COST + (PUSH_OPCODE_COST * 2) - 1
-            contract_call = call_opcode(
-                gas=gas_limit, address=Op.CALLDATALOAD(0)
-            )
+            callee_bytecode = Op.TSTORE(1, 69) + Op.STOP
             classdict[f"{call_opcode._name_}_WITH_OUT_OF_GAS"] = {
                 "description": (
                     "Transient storage usage is discarded from sub-call with "
                     f"{call_opcode._name_} upon out of gas during TSTORE. "
                     "Note: Gas passed to sub-call is capped."
                 ),
-                "caller_bytecode": (
+                "caller_bytecode": lambda fork,
+                call_opcode=call_opcode,
+                callee_bytecode=callee_bytecode: (
                     Op.TSTORE(0, 420)
                     + Op.TSTORE(1, 420)
-                    + Op.SSTORE(0, contract_call)
+                    + Op.SSTORE(
+                        0,
+                        call_opcode(
+                            gas=callee_bytecode.gas_cost(fork) - 1,
+                            address=Op.CALLDATALOAD(0),
+                        ),
+                    )
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                     + Op.STOP
                 ),
-                "callee_bytecode": Op.TSTORE(1, 69) + Op.STOP,
+                "callee_bytecode": callee_bytecode,
                 "expected_caller_storage": {0: 0, 1: 420, 2: 420},
                 "expected_callee_storage": {},
             }
@@ -320,8 +324,15 @@ class CallContextTestCases(
 
 
 @pytest.fixture()
-def caller_address(pre: Alloc, caller_bytecode: Bytecode) -> Address:
+def caller_address(
+    pre: Alloc,
+    fork: Fork,
+    caller_bytecode: Bytecode | Callable[[Fork], Bytecode],
+) -> Address:
     """Address used to call the test bytecode on every test case."""
+    if not isinstance(caller_bytecode, Bytecode):
+        assert callable(caller_bytecode)
+        caller_bytecode = caller_bytecode(fork)
     return pre.deploy_contract(caller_bytecode)
 
 

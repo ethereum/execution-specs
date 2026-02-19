@@ -43,7 +43,7 @@ from ..state import FixtureForkPost
                 "hash": Hash(0).hex(),
                 "logs": Hash(1).hex(),
                 "txbytes": Bytes(b"\x02").hex(),
-                "expectException": "TransactionException.INITCODE_SIZE_EXCEEDED",
+                "expectException": "TransactionException.INITCODE_SIZE_EXCEEDED",  # noqa: E501
                 "indexes": {"data": 0, "gas": 0, "value": 0},
                 "state": {},
             },
@@ -64,7 +64,7 @@ from ..state import FixtureForkPost
                 "hash": Hash(0).hex(),
                 "logs": Hash(1).hex(),
                 "txbytes": Bytes(b"\x02").hex(),
-                "expectException": "TransactionException.INITCODE_SIZE_EXCEEDED",
+                "expectException": "TransactionException.INITCODE_SIZE_EXCEEDED",  # noqa: E501
                 "indexes": {"data": 0, "gas": 0, "value": 0},
                 "state": {},
             },
@@ -86,7 +86,7 @@ from ..state import FixtureForkPost
                 "hash": Hash(0).hex(),
                 "logs": Hash(1).hex(),
                 "txbytes": Bytes(b"\x02").hex(),
-                "expectException": "TransactionException.INITCODE_SIZE_EXCEEDED|"
+                "expectException": "TransactionException.INITCODE_SIZE_EXCEEDED|"  # noqa: E501
                 "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS",
                 "indexes": {"data": 0, "gas": 0, "value": 0},
                 "state": {},
@@ -116,8 +116,6 @@ class TestPydanticModelConversion:
     ) -> None:
         """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
-            pytest.skip(
-                reason="The model instance in this case can not be deserialized"
-            )
+            pytest.skip(reason="Model instance cannot be deserialized")
         model_type = type(model_instance)
         assert model_type(**json) == model_instance

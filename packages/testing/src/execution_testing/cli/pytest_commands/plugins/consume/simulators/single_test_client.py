@@ -48,7 +48,8 @@ def environment(
     chain_id = str(Number(fixture.config.chain_id))
     return {
         "HIVE_CHAIN_ID": chain_id,
-        "HIVE_NETWORK_ID": chain_id,  # Use same value for P2P network compatibility
+        # Use same value for P2P network compatibility
+        "HIVE_NETWORK_ID": chain_id,
         "HIVE_FORK_DAO_VOTE": "1",
         "HIVE_NODETYPE": "full",
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
@@ -76,7 +77,8 @@ def genesis_header(fixture: BlockchainFixtureCommon) -> FixtureHeader:
 @pytest.fixture(scope="function")
 def client(
     hive_test: HiveTest,
-    client_files: dict,  # configured within: rlp/conftest.py & engine/conftest.py
+    # configured within: rlp/conftest.py & engine/conftest.py
+    client_files: dict,
     environment: dict,
     client_type: ClientType,
     total_timing_data: TimingData,
@@ -85,9 +87,8 @@ def client(
     Initialize the client with the appropriate files and environment variables.
     """
     logger.info(f"Starting client ({client_type.name})...")
-    logger.debug(
-        f"Main client Network ID: {environment.get('HIVE_NETWORK_ID', 'NOT SET!')}"
-    )
+    network_id = environment.get("HIVE_NETWORK_ID", "NOT SET!")
+    logger.debug(f"Main client Network ID: {network_id}")
     logger.debug(
         f"Main client Chain ID: {environment.get('HIVE_CHAIN_ID', 'NOT SET!')}"
     )
@@ -98,8 +99,9 @@ def client(
             files=client_files,
         )
     error_message = (
-        f"Unable to connect to the client container ({client_type.name}) via Hive during test "
-        "setup. Check the client or Hive server logs for more information."
+        f"Unable to connect to the client container ({client_type.name}) "
+        "via Hive during test setup. Check the client or Hive server logs "
+        "for more information."
     )
     assert client is not None, error_message
     logger.info(f"Client ({client_type.name}) ready!")

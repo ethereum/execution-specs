@@ -68,8 +68,8 @@ def wait_until_counter_reached(target: int, poll_interval: float = 0.1) -> int:
                         pytest.fail(
                             f"The blob_unit_test lock counter is too high! "
                             f"Expected {target}, but got {current_value}. "
-                            f"It probably reused an existing file that was not cleared. "
-                            f"Delete {file_path} manually to fix this."
+                            f"It probably reused an existing file that was "
+                            f"not cleared. Delete {file_path} to fix this."
                         )
                 except Exception:
                     current_value = 0
@@ -132,8 +132,8 @@ def test_blob_proof_corruption(
 
     b.corrupt_proof(corruption_mode)
     assert b.proof != old_valid_proof, (
-        f"Proof corruption mode {corruption_mode} for fork {fork.name()} failed, "
-        "proof is unchanged!"
+        f"Proof corruption mode {corruption_mode} for fork {fork.name()} "
+        "failed, proof is unchanged!"
     )
 
     increment_counter()
@@ -169,8 +169,8 @@ def test_transition_fork_blobs(
 
     if not pre_transition_fork.supports_blobs() and timestamp < 15000:
         print(
-            f"Skipping blob creation because pre-transition fork is {pre_transition_fork} "
-            f"and timestamp is {timestamp}"
+            f"Skipping blob creation because pre-transition fork is "
+            f"{pre_transition_fork} and timestamp is {timestamp}"
         )
         return
 
@@ -180,14 +180,17 @@ def test_transition_fork_blobs(
 
     if timestamp == 14999:  # case: no transition yet
         assert b.fork.name() == pre_transition_fork.name(), (
-            f"Transition fork failure! Fork {fork.name()} at timestamp: {timestamp} should have "
-            f"stayed at fork {pre_transition_fork.name()} but has unexpectedly transitioned "
+            f"Transition fork failure! Fork {fork.name()} at timestamp: "
+            f"{timestamp} should have stayed at fork "
+            f"{pre_transition_fork.name()} but has unexpectedly transitioned "
             f"to {b.fork.name()}"
         )
     elif timestamp == 15000:  # case: transition to next fork has happened
         assert b.fork.name() == post_transition_fork_at_15k.name(), (
-            f"Transition fork failure! Fork {fork.name()} at timestamp: {timestamp} should have "
-            f"transitioned to {post_transition_fork_at_15k.name()} but is still at {b.fork.name()}"
+            f"Transition fork failure! Fork {fork.name()} at timestamp: "
+            f"{timestamp} should have transitioned to "
+            f"{post_transition_fork_at_15k.name()} but is still at "
+            f"{b.fork.name()}"
         )
 
     # delete counter at last iteration (otherwise re-running all unit tests

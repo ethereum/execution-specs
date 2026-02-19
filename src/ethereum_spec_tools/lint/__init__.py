@@ -18,7 +18,7 @@ from ..forks import Hardfork
 
 def compare_ast(old: ast.AST, new: ast.AST) -> bool:
     """
-    Check if two nodes are the equal.
+    Checks if two nodes are equal.
     """
     if type(old) is not type(new):
         return False

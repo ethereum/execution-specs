@@ -1,4 +1,5 @@
 name: Build and Package Fixture Release
+description: Build test fixtures and package them for release
 inputs:
   release_name:
     description: "Name of the fixture release"
@@ -31,13 +32,16 @@ runs:
       id: evm-builder
       with:
         type: ${{ steps.properties.outputs.evm-type }}
+    - name: Install pigz for parallel tarball compression
+      shell: bash
+      run: sudo apt-get install -y pigz
     - name: Generate fixtures using fill
       shell: bash
       run: |
         if [ "${{ steps.evm-builder.outputs.impl }}" = "eels" ]; then
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG
         else
-          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }}
+          uv run fill -n ${{ steps.evm-builder.outputs.x-dist }} --evm-bin=${{ steps.evm-builder.outputs.evm-bin }} ${{ steps.properties.outputs.fill-params }} --output=fixtures_${{ inputs.release_name }}.tar.gz --build-name ${{ inputs.release_name }} --no-html --durations=100 --log-level=DEBUG
         fi
     - name: Generate Benchmark Genesis Files
       if: contains(inputs.release_name, 'benchmark')

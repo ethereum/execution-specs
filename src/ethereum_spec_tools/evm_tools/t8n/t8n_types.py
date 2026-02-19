@@ -37,7 +37,7 @@ class Alloc:
             with open(t8n.options.input_alloc, "r") as f:
                 data = json.load(f)
 
-        # The json_to_state functions expects the values to hex
+        # The json_to_state function expects the values to be hex
         # strings, so we convert them here.
         for address, account in data.items():
             for key, value in account.items():
@@ -268,6 +268,8 @@ class Result:
     requests_hash: Optional[Hash32] = None
     requests: Optional[List[Bytes]] = None
     block_exception: Optional[str] = None
+    block_access_list: Optional[Any] = None
+    block_access_list_hash: Optional[Hash32] = None
 
     def get_receipts_from_output(
         self,
@@ -323,6 +325,80 @@ class Result:
             self.requests = block_output.requests
             self.requests_hash = t8n.fork.compute_requests_hash(self.requests)
 
+        if hasattr(block_output, "block_access_list"):
+            self.block_access_list = block_output.block_access_list
+            self.block_access_list_hash = (
+                t8n.fork.compute_block_access_list_hash(
+                    block_output.block_access_list
+                )
+            )
+
+    @staticmethod
+    def _block_access_list_to_json(account_changes: Any) -> Any:
+        """
+        Convert BlockAccessList to JSON format matching the Pydantic models.
+        """
+        json_account_changes = []
+        for account in account_changes:
+            account_data: Dict[str, Any] = {
+                "address": "0x" + account.address.hex()
+            }
+
+            if account.storage_changes:
+                storage_changes = []
+                for slot_change in account.storage_changes:
+                    slot_data: Dict[str, Any] = {
+                        "slot": int(slot_change.slot),
+                        "slotChanges": [],
+                    }
+                    for change in slot_change.changes:
+                        slot_data["slotChanges"].append(
+                            {
+                                "blockAccessIndex": int(
+                                    change.block_access_index
+                                ),
+                                "postValue": int(change.new_value),
+                            }
+                        )
+                    storage_changes.append(slot_data)
+                account_data["storageChanges"] = storage_changes
+
+            if account.storage_reads:
+                account_data["storageReads"] = [
+                    int(slot) for slot in account.storage_reads
+                ]
+
+            if account.balance_changes:
+                account_data["balanceChanges"] = [
+                    {
+                        "blockAccessIndex": int(change.block_access_index),
+                        "postBalance": int(change.post_balance),
+                    }
+                    for change in account.balance_changes
+                ]
+
+            if account.nonce_changes:
+                account_data["nonceChanges"] = [
+                    {
+                        "blockAccessIndex": int(change.block_access_index),
+                        "postNonce": int(change.new_nonce),
+                    }
+                    for change in account.nonce_changes
+                ]
+
+            if account.code_changes:
+                account_data["codeChanges"] = [
+                    {
+                        "blockAccessIndex": int(change.block_access_index),
+                        "newCode": "0x" + change.new_code.hex(),
+                    }
+                    for change in account.code_changes
+                ]
+
+            json_account_changes.append(account_data)
+
+        return json_account_changes
+
     def json_encode_receipts(self) -> Any:
         """
         Encode receipts to JSON.
@@ -337,8 +413,21 @@ class Result:
                 assert hasattr(receipt, "post_state")
                 receipt_dict["post_state"] = "0x" + receipt.post_state.hex()
 
-            receipt_dict["gasUsed"] = hex(receipt.cumulative_gas_used)
+            receipt_dict["cumulativeGasUsed"] = hex(
+                receipt.cumulative_gas_used
+            )
             receipt_dict["bloom"] = "0x" + receipt.bloom.hex()
+
+            # Add logs to receipts
+            logs_json = []
+            for log in receipt.logs:
+                log_dict = {
+                    "address": "0x" + log.address.hex(),
+                    "topics": ["0x" + topic.hex() for topic in log.topics],
+                    "data": "0x" + log.data.hex(),
+                }
+                logs_json.append(log_dict)
+            receipt_dict["logs"] = logs_json
 
             receipts_json.append(receipt_dict)
 
@@ -389,5 +478,16 @@ class Result:
 
         if self.block_exception is not None:
             data["blockException"] = self.block_exception
+
+        if self.block_access_list is not None:
+            # Convert BAL to JSON format
+            data["blockAccessList"] = self._block_access_list_to_json(
+                self.block_access_list
+            )
+
+        if self.block_access_list_hash is not None:
+            data["blockAccessListHash"] = encode_to_hex(
+                self.block_access_list_hash
+            )
 
         return data

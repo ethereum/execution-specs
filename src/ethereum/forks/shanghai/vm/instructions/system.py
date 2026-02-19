@@ -190,8 +190,8 @@ def create2(evm: Evm) -> None:
     """
     Creates a new account with associated code.
 
-    It's similar to CREATE opcode except that the address of new account
-    depends on the init_code instead of the nonce of sender.
+    It's similar to the CREATE opcode except that the address of the new
+    account depends on the init_code instead of the nonce of sender.
 
     Parameters
     ----------

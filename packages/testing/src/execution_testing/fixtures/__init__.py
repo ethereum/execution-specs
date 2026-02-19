@@ -14,9 +14,12 @@ from .blockchain import (
     BlockchainFixture,
     BlockchainFixtureCommon,
 )
-from .collector import FixtureCollector, TestInfo
+from .collector import (
+    FixtureCollector,
+    TestInfo,
+    merge_partial_fixture_files,
+)
 from .consume import FixtureConsumer
-from .eof import EOFFixture
 from .pre_alloc_groups import (
     PreAllocGroup,
     PreAllocGroupBuilder,
@@ -34,7 +37,6 @@ __all__ = [
     "BlockchainEngineXFixture",
     "BlockchainFixture",
     "BlockchainFixtureCommon",
-    "EOFFixture",
     "FixtureCollector",
     "FixtureConsumer",
     "FixtureFillingPhase",
@@ -47,4 +49,5 @@ __all__ = [
     "StateFixture",
     "TestInfo",
     "TransactionFixture",
+    "merge_partial_fixture_files",
 ]

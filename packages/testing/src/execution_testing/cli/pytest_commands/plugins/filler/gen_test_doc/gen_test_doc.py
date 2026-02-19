@@ -88,7 +88,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         action="store_true",
         dest="gen_docs",
         default=False,
-        help="Generate documentation for all collected tests for use in for mkdocs",
+        help=(
+            "Generate documentation for all collected tests for use in mkdocs"
+        ),
     )
     gen_docs.addoption(
         "--gen-docs-target-fork",
@@ -96,8 +98,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         dest="gen_docs_target_fork",
         default=None,
         help=(
-            "The default fork to use generated in generated doc pages. Should be the name of the "
-            "next upcoming fork."
+            "The default fork to use generated in generated doc pages. "
+            "Should be the name of the next upcoming fork."
         ),
     )
 
@@ -193,9 +195,10 @@ def get_docstring_one_liner(item: pytest.Item) -> str:
         docstring in docstring_test_function_history
         and docstring_test_function_history[docstring] != test_function_id
     ):
+        history_id = docstring_test_function_history[docstring]
         logger.info(
             f"Duplicate docstring for {test_function_id}: "
-            f"{docstring_test_function_history[docstring]} and {test_function_id}"
+            f"{history_id} and {test_function_id}"
         )
     else:
         docstring_test_function_history[docstring] = test_function_id
@@ -233,7 +236,9 @@ def get_test_function_test_type(item: pytest.Item) -> str:
     logger.warning(
         f"Could not determine the test function type for {item.nodeid}"
     )
-    return f"unknown ([📖🐛]({create_github_issue_url('docs(bug): unknown test function type')}))"
+    issue_title = "docs(bug): unknown test function type"
+    issue_url = create_github_issue_url(issue_title)
+    return f"unknown ([📖🐛]({issue_url}))"
 
 
 class TestDocsGenerator:
@@ -354,15 +359,16 @@ class TestDocsGenerator:
             return f"/execution-spec-tests/{github_ref_name}/"
         if ci and not github_ref_name:
             raise Exception(
-                "Failed to determine target doc version (no GITHUB_REF_NAME env?)."
+                "Failed to determine target doc version "
+                "(no GITHUB_REF_NAME env?)."
             )
         if (
             "--strict" in sys.argv or "deploy" in sys.argv
         ) and not doc_version:
             # assume we're trying to deploy manually via mike (locally)
             raise Exception(
-                "Failed to determine target doc version during strict build (set "
-                "GEN_TEST_DOC_VERSION env var)."
+                "Failed to determine target doc version during strict build "
+                "(set GEN_TEST_DOC_VERSION env var)."
             )
         # local test build, e.g. via `uv run mkdocs serve`
         return "/execution-spec-tests/"
@@ -452,7 +458,6 @@ class TestDocsGenerator:
             if not valid_from_marker:
                 valid_from_fork = "Frontier"
             else:
-                # NOTE: The EOF tests cases contain two fork names in their
                 # valid_from marker, separated by a comma. Take the last.
                 valid_from_fork = valid_from_marker.args[0].split(",")[-1]
 
@@ -583,8 +588,7 @@ class TestDocsGenerator:
                     str(directory), branch_or_commit_or_tag=self.ref
                 ),
                 # TODO: This won't work in all cases; should be from the
-                # development fork Currently breaks for
-                # `tests/unscheduled/eip7692_eof_v1/index.md`
+                # development fork
                 target_or_valid_fork=fork.capitalize() if fork else "Unknown",
                 # init.py will be used for docstrings
                 package_name=get_import_path(directory),
@@ -670,8 +674,6 @@ class TestDocsGenerator:
 
             - ("Test Case Reference",) -> tests/index.md
             - ("Test Case Reference", "Berlin") -> tests/berlin/index.md
-            - ("Test Case Reference", "EIP-7692 EOF V1", tracker.md")
-            tests/unscheduled/eip7692_eof_v1/tracker.md
             - ("Test Case Reference", "Shanghai", "EIP-3855 PUSH0", "Spec") ->
             tests/shanghai/eip3855_push0/spec.py
 

@@ -1,0 +1,6 @@
+self-hosted-runner:
+  labels:
+    - self-hosted-ghr
+    - size-l-x64
+    - size-xl-x64
+    - size-gigachungus-x64

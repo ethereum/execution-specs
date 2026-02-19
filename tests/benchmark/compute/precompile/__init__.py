@@ -1,0 +1,1 @@
+"""Benchmark precompile tests package."""

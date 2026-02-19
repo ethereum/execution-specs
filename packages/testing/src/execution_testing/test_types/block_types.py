@@ -7,7 +7,7 @@ from typing import Any, Dict, Generic, List, Sequence
 
 import ethereum_rlp as eth_rlp
 from ethereum_types.numeric import Uint
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, model_validator
 from trie import HexaryTrie
 
 from execution_testing.base_types import (
@@ -116,6 +116,15 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     Structure used to keep track of the context in which a block must be
     executed.
     """
+
+    @model_validator(mode="before")
+    @classmethod
+    def strip_computed_fields(cls, data: Any) -> Any:
+        """Strip computed fields that are not valid input fields."""
+        if isinstance(data, dict):
+            data.pop("parent_hash", None)
+            data.pop("parentHash", None)
+        return data
 
     blob_gas_used: ZeroPaddedHexNumber | None = Field(
         None, alias="currentBlobGasUsed"

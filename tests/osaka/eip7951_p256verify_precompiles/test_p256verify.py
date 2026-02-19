@@ -8,6 +8,7 @@ from execution_testing import (
     Alloc,
     EIPChecklist,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
@@ -1089,6 +1090,7 @@ def test_precompile_will_return_success_with_tx_value(
     input_data: bytes,
     expected_output: bytes,
     precompile_address: Address,
+    fork: Fork,
 ) -> None:
     """Test P256Verify precompile will not fail if value is sent."""
     sender = pre.fund_eoa()
@@ -1097,7 +1099,7 @@ def test_precompile_will_return_success_with_tx_value(
     call_256verify_bytecode = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            gas=Spec.P256VERIFY_GAS,
+            gas=fork.gas_costs().G_PRECOMPILE_P256VERIFY,
             address=Spec.P256VERIFY,
             value=Op.CALLVALUE(),
             args_offset=0,
@@ -1230,6 +1232,7 @@ def test_contract_creation_transaction(
     tx: Transaction,
     input_data: bytes,
     expected_output: bytes,
+    fork: Fork,
 ) -> None:
     """Test the contract creation for the P256VERIFY precompile."""
     sender = pre.fund_eoa()
@@ -1239,7 +1242,7 @@ def test_contract_creation_transaction(
     contract_bytecode = (
         Op.CODECOPY(0, Op.SUB(Op.CODESIZE, len(input_data)), len(input_data))
         + Op.CALL(
-            gas=Spec.P256VERIFY_GAS,
+            gas=fork.gas_costs().G_PRECOMPILE_P256VERIFY,
             address=Spec.P256VERIFY,
             value=0,
             args_offset=0,
@@ -1296,6 +1299,7 @@ def test_contract_initcode(
     input_data: bytes,
     expected_output: bytes,
     opcode: Op,
+    fork: Fork,
 ) -> None:
     """Test P256VERIFY behavior from contract creation."""
     sender = pre.fund_eoa()
@@ -1305,7 +1309,7 @@ def test_contract_initcode(
     call_256verify_bytecode = (
         Op.CODECOPY(0, Op.SUB(Op.CODESIZE, len(input_data)), len(input_data))
         + Op.CALL(
-            gas=Spec.P256VERIFY_GAS,
+            gas=fork.gas_costs().G_PRECOMPILE_P256VERIFY,
             address=Spec.P256VERIFY,
             value=0,
             args_offset=0,

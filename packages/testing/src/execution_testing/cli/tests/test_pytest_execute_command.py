@@ -85,18 +85,19 @@ def test_execute_eth_config_help(runner: CliRunner) -> None:
 
 
 def test_all_execute_subcommands_help_no_conflicts(runner: CliRunner) -> None:
-    """Test that all execute subcommands --help work without argument conflicts.
+    """
+    Test that all execute subcommands --help work without argument conflicts.
 
-    This is a regression test for issue where --chain-id was defined in multiple
-    plugins, causing argparse.ArgumentError conflicts.
+    This is a regression test for issue where --chain-id was defined in
+    multiple plugins, causing argparse.ArgumentError conflicts.
     """
     subcommands = ["remote", "recover", "hive", "eth-config"]
 
     for subcommand in subcommands:
         result = runner.invoke(execute, [subcommand, "--help"])
         assert result.exit_code == 0, (
-            f"execute {subcommand} --help failed with exit code {result.exit_code}\n"
-            f"Output: {result.output}"
+            f"execute {subcommand} --help failed with exit code "
+            f"{result.exit_code}\nOutput: {result.output}"
         )
         # Ensure no argparse conflicts
         assert "ArgumentError" not in result.output, (

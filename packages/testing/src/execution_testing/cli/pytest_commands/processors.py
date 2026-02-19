@@ -60,7 +60,8 @@ class StdoutFlagsProcessor(ArgumentProcessor):
         # Check for incompatible xdist plugin
         if any(arg == "-n" or arg.startswith("-n=") for arg in args):
             sys.exit(
-                "error: xdist-plugin not supported with --output=stdout (remove -n args)."
+                "error: xdist-plugin not supported with --output=stdout "
+                "(remove -n args)."
             )
 
         # Add flags to suppress pytest output when writing to stdout

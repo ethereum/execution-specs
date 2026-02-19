@@ -8,7 +8,7 @@ Ethereum Virtual Machine (EVM) POINT EVALUATION PRECOMPILED CONTRACT.
 Introduction
 ------------
 
-Implementation of the POINT EVALUATION precompiled contract.
+Implementation of the `POINT EVALUATION` precompiled contract.
 """
 
 from ethereum_types.bytes import Bytes, Bytes32, Bytes48

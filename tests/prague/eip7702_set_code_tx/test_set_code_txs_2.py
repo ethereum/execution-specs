@@ -18,7 +18,6 @@ from execution_testing import (
     Conditional,
     Environment,
     Fork,
-    GasCosts,
     Hash,
     Macros,
     Op,
@@ -29,7 +28,6 @@ from execution_testing import (
     TransactionException,
     compute_create_address,
 )
-from execution_testing.test_types.eof.v1 import Container, Section
 
 from .spec import Spec, ref_spec_7702
 
@@ -38,8 +36,13 @@ REFERENCE_SPEC_VERSION = ref_spec_7702.version
 
 
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_contract_pointer_loop(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """
     Tx -> call -> pointer A -> contract A -> pointer B -> contract loop C.
@@ -50,8 +53,17 @@ def test_pointer_contract_pointer_loop(
     """
     env = Environment()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
+
     pointer_b = pre.fund_eoa()
 
     storage: Storage = Storage()
@@ -68,6 +80,14 @@ def test_pointer_contract_pointer_loop(
         + Op.CALL(gas=1_000_000, address=pointer_a)
         + Op.STOP,
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
+
     tx = Transaction(
         to=pointer_a,
         gas_limit=1_000_000,
@@ -77,7 +97,7 @@ def test_pointer_contract_pointer_loop(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             ),
             AuthorizationTuple(
@@ -96,7 +116,14 @@ def test_pointer_contract_pointer_loop(
 
 
 @pytest.mark.valid_from("Prague")
-def test_pointer_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
+def test_pointer_to_pointer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+) -> None:
     """
     Tx -> call -> pointer A -> pointer B.
 
@@ -106,14 +133,30 @@ def test_pointer_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
 
     storage: Storage = Storage()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
+
     pointer_b = pre.fund_eoa()
 
     contract_a = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(0, "contract_a_worked"), 0x1)
         + Op.CALL(gas=1_000_000, address=pointer_b)
         + Op.STOP,
+    )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
     )
 
     tx = Transaction(
@@ -125,7 +168,7 @@ def test_pointer_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
         authorization_list=[
             AuthorizationTuple(
                 address=pointer_b,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             ),
             AuthorizationTuple(
@@ -135,13 +178,24 @@ def test_pointer_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
             ),
         ],
     )
-    post = {pointer_a: Account(storage=storage)}
+
+    # The delegation is set despite OOG in call.
+    post = {
+        pointer_a: Account(
+            storage=storage, code=Spec.delegation_designation(pointer_b)
+        )
+    }
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_normal(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """
     Tx -> call -> pointer A -> contract.
@@ -153,14 +207,23 @@ def test_pointer_normal(
 
     storage: Storage = Storage()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     slot_worked = storage.store_next(3, "contract_a_worked")
     contract_a = pre.deploy_contract(
         code=Op.SSTORE(slot_worked, Op.ADD(1, Op.SLOAD(slot_worked)))
         + Op.STOP,
     )
+    nonce = 1 if sender_delegated else 0
 
     tx = Transaction(
         to=pointer_a,
@@ -171,7 +234,7 @@ def test_pointer_normal(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
-                nonce=0,
+                nonce=(nonce := nonce + 1) if sender_is_auth_signer else 0,
                 signer=pointer_a,
             )
         ],
@@ -184,6 +247,7 @@ def test_pointer_normal(
         data=b"",
         value=0,
         sender=sender,
+        nonce=(nonce := nonce + 1),
     )
 
     # Event from another block
@@ -193,6 +257,7 @@ def test_pointer_normal(
         data=b"",
         value=0,
         sender=sender,
+        nonce=(nonce := nonce + 1),
     )
 
     post = {pointer_a: Account(storage=storage)}
@@ -364,8 +429,14 @@ def test_pointer_measurements(
 
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_call_to_precompile_in_pointer_context(
-    state_test: StateTestFiller, pre: Alloc, precompile: int
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+    precompile: int,
 ) -> None:
     """
     Tx -> call -> pointer A -> precompile contract.
@@ -377,8 +448,16 @@ def test_call_to_precompile_in_pointer_context(
 
     storage: Storage = Storage()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_test = pre.deploy_contract(
         code=Op.MSTORE(1000, Op.GAS())
@@ -412,6 +491,14 @@ def test_call_to_precompile_in_pointer_context(
         + Op.SSTORE(storage.store_next(1, "tx_worked"), 1)
     )
 
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
+
     tx = Transaction(
         to=contract_a,
         gas_limit=3_000_000,
@@ -421,7 +508,7 @@ def test_call_to_precompile_in_pointer_context(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_test,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -438,8 +525,14 @@ def test_call_to_precompile_in_pointer_context(
 
 @pytest.mark.with_all_precompiles
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_to_precompile(
-    state_test: StateTestFiller, pre: Alloc, precompile: int
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+    precompile: int,
 ) -> None:
     """
     Tx -> call -> pointer A -> precompile contract.
@@ -456,8 +549,16 @@ def test_pointer_to_precompile(
 
     storage: Storage = Storage()
 
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_test_normal = pre.deploy_contract(
         code=Op.MSTORE(
@@ -498,6 +599,13 @@ def test_pointer_to_precompile(
             storage.store_next(1, "pointer_call_result"), Op.MLOAD(1000)
         )
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
 
     tx = Transaction(
         to=contract_a,
@@ -508,7 +616,7 @@ def test_pointer_to_precompile(
         authorization_list=[
             AuthorizationTuple(
                 address=precompile,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -588,85 +696,60 @@ def test_gas_diff_pointer_vs_direct_call(
     sender = pre.fund_eoa()
     pointer_a = pre.fund_eoa()
     call_worked = 1
-    gas_costs: GasCosts = fork.gas_costs()
-
+    # The contract code is:
+    # Op.SSTORE(call_worked, Op.ADD(Op.SLOAD(call_worked), 1))
+    # The opcodes_price captures the remaining push/add overhead.
     opcodes_price = 37
+
+    direct_account_warm = access_list_rule in [
+        AccessListCall.IN_NORMAL_TX_ONLY,
+        AccessListCall.IN_BOTH_TX,
+    ]
+    direct_storage_warm = direct_account_warm
     direct_call_gas: int = (
-        # 20_000 + 2_600 + 2_100 + 37 = 24737
-        gas_costs.G_STORAGE_SET
-        + (
-            # access account price
-            # If storage and account is declared in access list then discount
-            gas_costs.G_WARM_ACCOUNT_ACCESS + gas_costs.G_WARM_SLOAD
-            if access_list_rule
-            in [AccessListCall.IN_NORMAL_TX_ONLY, AccessListCall.IN_BOTH_TX]
-            else gas_costs.G_COLD_ACCOUNT_ACCESS + gas_costs.G_COLD_SLOAD
-        )
+        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        + Op.CALL(address_warm=direct_account_warm).gas_cost(fork)
+        + Op.SLOAD(key_warm=direct_storage_warm).gas_cost(fork)
         + opcodes_price
     )
 
+    pointer_account_warm = (
+        pointer_definition
+        in [
+            PointerDefinition.IN_BOTH_TX,
+            PointerDefinition.IN_POINTER_TX_ONLY,
+        ]
+        or access_list_rule
+        in [
+            AccessListCall.IN_BOTH_TX,
+            AccessListCall.IN_POINTER_TX_ONLY,
+        ]
+        and access_list_to == AccessListTo.POINTER_ADDRESS
+    )
+    pointer_storage_warm = (
+        access_list_rule
+        in [
+            AccessListCall.IN_BOTH_TX,
+            AccessListCall.IN_POINTER_TX_ONLY,
+        ]
+        and access_list_to == AccessListTo.POINTER_ADDRESS
+    )
+    pointer_contract_warm = (
+        access_list_rule
+        in [
+            AccessListCall.IN_BOTH_TX,
+            AccessListCall.IN_POINTER_TX_ONLY,
+        ]
+        and access_list_to == AccessListTo.CONTRACT_ADDRESS
+    )
     pointer_call_gas: int = (
-        # sstore + addr + addr + sload + op
-        # no access list, no pointer, all accesses are hot
-        # 20_000 + 2_600 * 2 + 2_100 + 37 = 27_337
-        #
-        # access list for pointer, pointer is set
-        # additional 2_600 charged for access of contract
-        # 20_000 + 100 + 2_600 + 100 + 37 = 22_837
-        #
-        # no access list, pointer is set
-        # pointer access is hot, sload and contract are hot
-        # 20_000 + 100 + 2_600 + 2_100 + 37 = 24_837
-        #
-        # access list for contract, pointer is set
-        # contract call is hot, pointer call is call because pointer is set
-        # only sload is hot because access list is for contract
-        # 20_000 + 100 + 100 + 2100  + 37 = 22_337
-        gas_costs.G_STORAGE_SET
+        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
         # pointer address access
-        + (
-            gas_costs.G_WARM_ACCOUNT_ACCESS
-            if (
-                pointer_definition
-                in [
-                    PointerDefinition.IN_BOTH_TX,
-                    PointerDefinition.IN_POINTER_TX_ONLY,
-                ]
-                or access_list_rule
-                in [
-                    AccessListCall.IN_BOTH_TX,
-                    AccessListCall.IN_POINTER_TX_ONLY,
-                ]
-                and access_list_to == AccessListTo.POINTER_ADDRESS
-            )
-            else gas_costs.G_COLD_ACCOUNT_ACCESS
-        )
+        + Op.CALL(address_warm=pointer_account_warm).gas_cost(fork)
         # storage access
-        + (
-            gas_costs.G_WARM_SLOAD
-            if (
-                access_list_rule
-                in [
-                    AccessListCall.IN_BOTH_TX,
-                    AccessListCall.IN_POINTER_TX_ONLY,
-                ]
-                and access_list_to == AccessListTo.POINTER_ADDRESS
-            )
-            else gas_costs.G_COLD_SLOAD
-        )
+        + Op.SLOAD(key_warm=pointer_storage_warm).gas_cost(fork)
         # contract address access
-        + (
-            gas_costs.G_WARM_ACCOUNT_ACCESS
-            if (
-                access_list_rule
-                in [
-                    AccessListCall.IN_BOTH_TX,
-                    AccessListCall.IN_POINTER_TX_ONLY,
-                ]
-                and access_list_to == AccessListTo.CONTRACT_ADDRESS
-            )
-            else gas_costs.G_COLD_ACCOUNT_ACCESS
-        )
+        + Op.CALL(address_warm=pointer_contract_warm).gas_cost(fork)
         + opcodes_price
     )
 
@@ -809,22 +892,19 @@ def test_pointer_call_followed_by_direct_call(
 
     sender = pre.fund_eoa()
     pointer_a = pre.fund_eoa()
-    gas_costs: GasCosts = fork.gas_costs()
     call_worked = 1
     opcodes_price: int = 37
     pointer_call_gas = (
-        gas_costs.G_STORAGE_SET
-        + gas_costs.G_WARM_ACCOUNT_ACCESS  # pointer is warm
-        + gas_costs.G_COLD_ACCOUNT_ACCESS  # contract is cold
-        + gas_costs.G_COLD_SLOAD  # storage access under pointer call is cold
+        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        + Op.CALL(address_warm=True).gas_cost(fork)  # pointer is warm
+        + Op.CALL(address_warm=False).gas_cost(fork)  # contract is cold
+        + Op.SLOAD(key_warm=False).gas_cost(fork)  # storage is cold
         + opcodes_price
     )
     direct_call_gas = (
-        gas_costs.G_STORAGE_SET
-        + gas_costs.G_WARM_ACCOUNT_ACCESS  # since previous pointer call,
-        # contract is now warm
-        + gas_costs.G_COLD_SLOAD  # but storage is cold, because it's
-        # contract's direct
+        Op.SSTORE(key_warm=True).gas_cost(fork)  # key warmed by prior SLOAD
+        + Op.CALL(address_warm=True).gas_cost(fork)  # contract is now warm
+        + Op.SLOAD(key_warm=False).gas_cost(fork)  # storage is cold
         + opcodes_price
     )
 
@@ -881,7 +961,14 @@ def test_pointer_call_followed_by_direct_call(
 
 
 @pytest.mark.valid_from("Prague")
-def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
+def test_pointer_to_static(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+) -> None:
     """
     Tx -> call -> pointer A -> static -> static violation.
 
@@ -889,8 +976,17 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
     """
     env = Environment()
     storage: Storage = Storage()
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_b = pre.deploy_contract(code=Op.SSTORE(0, 5))
     contract_a = pre.deploy_contract(
@@ -906,6 +1002,13 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
         )
         + Op.SSTORE(storage.store_next(1, "call_worked"), 1)
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
 
     tx = Transaction(
         to=pointer_a,
@@ -916,7 +1019,7 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -935,7 +1038,14 @@ def test_pointer_to_static(state_test: StateTestFiller, pre: Alloc) -> None:
 
 
 @pytest.mark.valid_from("Prague")
-def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
+def test_static_to_pointer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
+) -> None:
     """
     Tx -> staticcall -> pointer A -> static violation.
 
@@ -943,8 +1053,17 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
     """
     env = Environment()
     storage: Storage = Storage()
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_b = pre.deploy_contract(code=Op.SSTORE(0, 5))
     contract_a = pre.deploy_contract(
@@ -960,6 +1079,13 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
         )
         + Op.SSTORE(storage.store_next(1, "call_worked"), 1)
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
 
     tx = Transaction(
         to=contract_a,
@@ -970,7 +1096,7 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
         authorization_list=[
             AuthorizationTuple(
                 address=contract_b,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -988,56 +1114,14 @@ def test_static_to_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
     )
 
 
-@pytest.mark.valid_from("EOFv1")
-def test_pointer_to_eof(state_test: StateTestFiller, pre: Alloc) -> None:
-    """
-    Tx -> call -> pointer A -> EOF.
-
-    Pointer to eof contract works.
-    """
-    env = Environment()
-    storage: Storage = Storage()
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
-
-    contract_a = pre.deploy_contract(
-        code=Container(
-            sections=[
-                Section.Code(
-                    code=Op.SSTORE(storage.store_next(5, "eof_call_result"), 5)
-                    + Op.STOP,
-                )
-            ]
-        )
-    )
-
-    tx = Transaction(
-        to=pointer_a,
-        gas_limit=3_000_000,
-        data=b"",
-        value=0,
-        sender=sender,
-        authorization_list=[
-            AuthorizationTuple(
-                address=contract_a,
-                nonce=0,
-                signer=pointer_a,
-            )
-        ],
-    )
-
-    post = {pointer_a: Account(storage=storage)}
-    state_test(
-        env=env,
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
-
-
 @pytest.mark.valid_from("Prague")
+@pytest.mark.parametrize("sender_delegated", [True, False])
+@pytest.mark.parametrize("sender_is_auth_signer", [True, False])
 def test_pointer_to_static_reentry(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """
     Tx call -> pointer A -> static -> code -> pointer A -> static violation
@@ -1045,8 +1129,17 @@ def test_pointer_to_static_reentry(
     """
     env = Environment()
     storage: Storage = Storage()
-    sender = pre.fund_eoa()
-    pointer_a = pre.fund_eoa()
+
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer_a = sender
+    else:
+        pointer_a = pre.fund_eoa()
 
     contract_b = pre.deploy_contract(
         code=Op.MSTORE(0, Op.ADD(1, Op.CALLDATALOAD(0)))
@@ -1086,6 +1179,13 @@ def test_pointer_to_static_reentry(
             ),
         )
     )
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
 
     tx = Transaction(
         to=pointer_a,
@@ -1096,7 +1196,7 @@ def test_pointer_to_static_reentry(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_a,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer_a,
             )
         ],
@@ -1398,8 +1498,14 @@ def test_eoa_init_as_pointer(state_test: StateTestFiller, pre: Alloc) -> None:
 
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize("call_return", [Op.RETURN, Op.REVERT, Macros.OOG])
+@pytest.mark.parametrize("sender_delegated", [False, True])
+@pytest.mark.parametrize("sender_is_auth_signer", [False, True])
 def test_call_pointer_to_created_from_create_after_oog_call_again(
-    state_test: StateTestFiller, pre: Alloc, call_return: Op
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_return: Op,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """
     Set pointer to account that we are about to create.
@@ -1419,8 +1525,17 @@ def test_call_pointer_to_created_from_create_after_oog_call_again(
     env = Environment()
 
     storage_pointer = Storage()
-    pointer = pre.fund_eoa()
-    sender = pre.fund_eoa()
+
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer = sender
+    else:
+        pointer = pre.fund_eoa()
 
     storage_contract = Storage()
     slot_create_res = storage_contract.store_next(1, "create_result")
@@ -1450,6 +1565,15 @@ def test_call_pointer_to_created_from_create_after_oog_call_again(
         Op.ADD(1, Op.SLOAD(slot_pointer_calls)),
     )
     storage_create = Storage()
+
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
+
     tx = Transaction(
         to=contract_main,
         gas_limit=800_000,
@@ -1465,7 +1589,7 @@ def test_call_pointer_to_created_from_create_after_oog_call_again(
         authorization_list=[
             AuthorizationTuple(
                 address=contract_create,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer,
             )
         ],
@@ -1519,6 +1643,8 @@ valid_combinations = [
 @pytest.mark.parametrize(
     "call_order", [CallOrder.CONTRACT_POINTER, CallOrder.POINTER_CONTRACT]
 )
+@pytest.mark.parametrize("sender_delegated", [False, True])
+@pytest.mark.parametrize("sender_is_auth_signer", [False, True])
 def test_pointer_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -1526,10 +1652,20 @@ def test_pointer_reverts(
     second_revert: bool,
     final_revert: bool,
     call_order: CallOrder,
+    sender_delegated: bool,
+    sender_is_auth_signer: bool,
 ) -> None:
     """Pointer do operations then revert."""
-    sender = pre.fund_eoa()
-    pointer = pre.fund_eoa()
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender = pre.fund_eoa()
+
+    if sender_is_auth_signer:
+        pointer = sender
+    else:
+        pointer = pre.fund_eoa()
 
     contract_storage = Storage()
     contract_calls = (
@@ -1584,6 +1720,14 @@ def test_pointer_reverts(
             if_false=Op.RETURN(0, 32),
         )
     )
+
+    nonce = (
+        2
+        if sender_delegated and sender_is_auth_signer
+        else 1
+        if sender_is_auth_signer
+        else 0
+    )
     tx = Transaction(
         to=contract_main,
         gas_limit=800_000,
@@ -1593,7 +1737,7 @@ def test_pointer_reverts(
         authorization_list=[
             AuthorizationTuple(
                 address=contract,
-                nonce=0,
+                nonce=nonce,
                 signer=pointer,
             )
         ],
@@ -1969,11 +2113,9 @@ def test_delegation_replacement_call_previous_contract(
     auth_signer = pre.fund_eoa(delegation=pre_set_delegation_address)
     sender = pre.fund_eoa()
 
-    gsc = fork.gas_costs()
-    overhead_cost = gsc.G_VERY_LOW * len(Op.CALL.kwargs)
+    call_code = Op.CALL(gas=0, address=pre_set_delegation_address)
     set_code = CodeGasMeasure(
-        code=Op.CALL(gas=0, address=pre_set_delegation_address),
-        overhead_cost=overhead_cost,
+        code=call_code,
         extra_stack_items=1,
     )
 
@@ -2001,7 +2143,7 @@ def test_delegation_replacement_call_previous_contract(
         tx=tx,
         post={
             auth_signer: Account(
-                storage={0: gsc.G_COLD_ACCOUNT_ACCESS},
+                storage={0: call_code.gas_cost(fork)},
             )
         },
     )

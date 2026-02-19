@@ -54,8 +54,6 @@ def test_tx_selfdestruct_balance_bug(
         - The balances of `0xaa` after each tx are correct.
         - During tx 2, code in `0xaa` does not execute,
             hence self-destruct mechanism does not trigger.
-
-    TODO: EOF - This test could be parametrized for EOFCREATE
     """
     deploy_code = Switch(
         default_action=Op.REVERT(0, 0),

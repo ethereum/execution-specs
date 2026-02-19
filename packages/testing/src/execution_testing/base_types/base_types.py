@@ -119,7 +119,7 @@ class Wei(Number):
 
 
 class HexNumber(Number):
-    """Class that helps represent an hexadecimal numbers in tests."""
+    """Class that helps represent hexadecimal numbers in tests."""
 
     def __str__(self) -> str:
         """Return the string representation of the number."""

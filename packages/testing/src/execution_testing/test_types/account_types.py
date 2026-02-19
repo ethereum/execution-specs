@@ -18,7 +18,6 @@ from typing import (
 from coincurve.keys import PrivateKey
 from ethereum_types.bytes import Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
-from pydantic import PrivateAttr
 
 from execution_testing.base_types import (
     Account,
@@ -34,7 +33,6 @@ from execution_testing.base_types.conversions import (
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
-from execution_testing.vm import EVMCodeType
 
 from .trie import (
     EMPTY_TRIE_ROOT,
@@ -165,8 +163,6 @@ class EOA(Address):
 class Alloc(BaseAlloc):
     """Allocation of accounts in the state, pre and post test execution."""
 
-    _eoa_fund_amount_default: int = PrivateAttr(10**21)
-
     @dataclass(kw_only=True)
     class UnexpectedAccountError(Exception):
         """Unexpected account found in the allocation."""
@@ -176,7 +172,10 @@ class Alloc(BaseAlloc):
 
         def __str__(self) -> str:
             """Print exception string."""
-            return f"unexpected account in allocation {self.address}: {self.account}"
+            return (
+                f"unexpected account in allocation {self.address}: "
+                f"{self.account}"
+            )
 
     @dataclass(kw_only=True)
     class MissingAccountError(Exception):
@@ -247,7 +246,8 @@ class Alloc(BaseAlloc):
         if overlapping_keys:
             if key_collision_mode == cls.KeyCollisionMode.ERROR:
                 raise Exception(
-                    f"Overlapping keys detected: {[key.hex() for key in overlapping_keys]}"
+                    f"Overlapping keys detected: "
+                    f"{[key.hex() for key in overlapping_keys]}"
                 )
             elif (
                 key_collision_mode
@@ -388,6 +388,39 @@ class Alloc(BaseAlloc):
                 else:
                     raise Alloc.MissingAccountError(address=address)
 
+    def deterministic_deploy_contract(
+        self,
+        *,
+        deploy_code: BytesConvertible,
+        salt: Hash | int = 0,
+        initcode: BytesConvertible | None = None,
+        storage: Storage | StorageRootType | None = None,
+        label: str | None = None,
+    ) -> Address:
+        """
+        Deploy a contract to the allocation at a deterministic location
+        using a deterministic deployment proxy.
+
+        The initcode is not executed during test filling; it is executed only
+        when the tests run on live networks. Therefore, if the initcode
+        performs modifications to the storage, these must be specified using
+        the `storage` parameter.
+
+        Args:
+            deploy_code: Contract code to deploy.
+            salt: Salt to use for deterministic deployment.
+            initcode: Initcode to use for deterministic deployment.
+                      If `None`, the initcode is derived from `deploy_code`.
+            storage: The expected storage state of the deployed contract after
+                     initcode execution.
+            label: Label to use for the contract.
+
+        """
+        raise NotImplementedError(
+            "deterministic_deploy_contract is not implemented in the base "
+            "class"
+        )
+
     def deploy_contract(
         self,
         code: BytesConvertible,
@@ -396,7 +429,6 @@ class Alloc(BaseAlloc):
         balance: NumberConvertible = 0,
         nonce: NumberConvertible = 1,
         address: Address | None = None,
-        evm_code_type: EVMCodeType | None = None,
         label: str | None = None,
         stub: str | None = None,
     ) -> Address:
@@ -410,6 +442,7 @@ class Alloc(BaseAlloc):
         amount: NumberConvertible | None = None,
         label: str | None = None,
         storage: Storage | None = None,
+        code: BytesConvertible | None = None,
         delegation: Address | Literal["Self"] | None = None,
         nonce: NumberConvertible | None = None,
     ) -> EOA:
@@ -422,13 +455,27 @@ class Alloc(BaseAlloc):
         )
 
     def fund_address(
-        self, address: Address, amount: NumberConvertible
+        self,
+        address: Address,
+        amount: NumberConvertible,
+        *,
+        minimum_balance: bool = False,
     ) -> None:
         """
         Fund an address with a given amount.
 
-        If the address is already present in the pre-alloc the amount will be
-        added to its existing balance.
+        Add a funded account to the pre-allocation.
+        The address must not already exist in the pre-allocation. To set the
+        balance of an account, use the `amount` parameter in `fund_eoa()` or
+        the `balance` parameter in `deploy_contract()` at creation time.
+
+        Args:
+            address: Address to fund
+            amount: Amount to fund in Wei
+            minimum_balance: If set to True, account will be checked to have a
+                minimum balance of `amount` and only fund if the balance is
+                insufficient
+
         """
         raise NotImplementedError(
             "fund_address is not implemented in the base class"

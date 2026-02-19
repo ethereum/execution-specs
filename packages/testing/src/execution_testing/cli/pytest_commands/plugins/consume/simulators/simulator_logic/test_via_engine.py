@@ -7,34 +7,27 @@ Each `engine_newPayloadVX` is verified against the appropriate VALID/INVALID
 responses.
 """
 
-import time
-
 from execution_testing.exceptions import UndefinedException
 from execution_testing.fixtures import BlockchainEngineFixture
-from execution_testing.rpc import EngineRPC, EthRPC
+from execution_testing.logging import get_logger
+from execution_testing.rpc import (
+    EngineRPC,
+    EthRPC,
+    ForkchoiceUpdateTimeoutError,
+)
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
     JSONRPCError,
     PayloadStatusEnum,
 )
 
-from execution_testing.logging import get_logger
-from ..helpers.exceptions import GenesisBlockMismatchExceptionError
+from ..helpers.exceptions import (
+    GenesisBlockMismatchExceptionError,
+    LoggedError,
+)
 from ..helpers.timing import TimingData
 
 logger = get_logger(__name__)
-
-MAX_RETRIES = 30
-DELAY_BETWEEN_RETRIES_IN_SEC = 1
-
-
-class LoggedError(Exception):
-    """Exception that uses the logger to log the failure."""
-
-    def __init__(self, *args: object) -> None:
-        """Initialize the exception and log the failure."""
-        super().__init__(*args)
-        logger.fail(str(self))
 
 
 def test_blockchain_via_engine(
@@ -52,38 +45,29 @@ def test_blockchain_via_engine(
     3. For valid payloads a forkchoice update is performed to finalize the
        chain.
     """
-    # Send a initial forkchoice update
+    # Send initial forkchoice update
     with timing_data.time("Initial forkchoice update"):
         logger.info("Sending initial forkchoice update to genesis block...")
-        for attempt in range(1, MAX_RETRIES + 1):
-            forkchoice_response = engine_rpc.forkchoice_updated(
+        try:
+            response = engine_rpc.forkchoice_updated_with_retry(
                 forkchoice_state=ForkchoiceState(
                     head_block_hash=fixture.genesis.block_hash,
                 ),
-                payload_attributes=None,
-                version=fixture.payloads[0].forkchoice_updated_version,
+                forkchoice_version=fixture.payloads[
+                    0
+                ].forkchoice_updated_version,
+                max_attempts=30,
+                wait_fixed=1.0,
             )
-            status = forkchoice_response.payload_status.status
-            logger.info(
-                f"Initial forkchoice update response attempt {attempt}: {status}"
-            )
-            if status != PayloadStatusEnum.SYNCING:
-                break
-
-            if attempt < MAX_RETRIES:
-                time.sleep(DELAY_BETWEEN_RETRIES_IN_SEC)
-
-        if (
-            forkchoice_response.payload_status.status
-            != PayloadStatusEnum.VALID
-        ):
-            logger.error(
-                f"Client failed to initialize properly after {MAX_RETRIES} attempts, "
-                f"final status: {forkchoice_response.payload_status.status}"
-            )
+            if response.payload_status.status != PayloadStatusEnum.VALID:
+                raise LoggedError(
+                    f"Unexpected status on forkchoice updated to genesis: "
+                    f"{response.payload_status.status}"
+                )
+        except ForkchoiceUpdateTimeoutError as e:
             raise LoggedError(
-                f"unexpected status on forkchoice updated to genesis: {forkchoice_response}"
-            )
+                f"Timed out waiting for forkchoice update to genesis: {e}"
+            ) from None
 
     with timing_data.time("Get genesis block"):
         logger.info("Calling getBlockByNumber to get genesis block...")
@@ -93,7 +77,8 @@ def test_blockchain_via_engine(
             expected = fixture.genesis.block_hash
             got = genesis_block["hash"]
             logger.fail(
-                f"Genesis block hash mismatch. Expected: {expected}, Got: {got}"
+                f"Genesis block hash mismatch. "
+                f"Expected: {expected}, Got: {got}"
             )
             raise GenesisBlockMismatchExceptionError(
                 expected_header=fixture.genesis,
@@ -114,17 +99,15 @@ def test_blockchain_via_engine(
                 with payload_timing.time(
                     f"engine_newPayloadV{payload.new_payload_version}"
                 ):
-                    logger.info(
-                        f"Sending engine_newPayloadV{payload.new_payload_version}..."
-                    )
+                    version = payload.new_payload_version
+                    logger.info(f"Sending engine_newPayloadV{version}...")
                     try:
                         payload_response = engine_rpc.new_payload(
                             *payload.params,
                             version=payload.new_payload_version,
                         )
-                        logger.info(
-                            f"Payload response status: {payload_response.status}"
-                        )
+                        status = payload_response.status
+                        logger.info(f"Payload response status: {status}")
                         expected_validity = (
                             PayloadStatusEnum.VALID
                             if payload.valid()
@@ -137,8 +120,8 @@ def test_blockchain_via_engine(
                             )
                         if payload.error_code is not None:
                             raise LoggedError(
-                                f"Client failed to raise expected Engine API error code: "
-                                f"{payload.error_code}"
+                                "Client failed to raise expected Engine API "
+                                f"error code: {payload.error_code}"
                             )
                         elif (
                             payload_response.status
@@ -146,7 +129,8 @@ def test_blockchain_via_engine(
                         ):
                             if payload_response.validation_error is None:
                                 raise LoggedError(
-                                    "Client returned INVALID but no validation error was provided."
+                                    "Client returned INVALID but no "
+                                    "validation error was provided."
                                 )
                             if isinstance(
                                 payload_response.validation_error,
@@ -154,9 +138,12 @@ def test_blockchain_via_engine(
                             ):
                                 message = (
                                     "Undefined exception message: "
-                                    f'expected exception: "{payload.validation_error}", '
-                                    f'returned exception: "{payload_response.validation_error}" '
-                                    f'(mapper: "{payload_response.validation_error.mapper_name}")'
+                                    f"expected exception: "
+                                    f'"{payload.validation_error}", '
+                                    f"returned exception: "
+                                    f'"{payload_response.validation_error}" '
+                                    f"(mapper: "
+                                    f'"{payload_response.validation_error.mapper_name}")'  # noqa: E501
                                 )
                                 if strict_exception_matching:
                                     raise LoggedError(message)
@@ -168,9 +155,12 @@ def test_blockchain_via_engine(
                                     not in payload_response.validation_error
                                 ):
                                     message = (
-                                        "Client returned unexpected validation error: "
-                                        f'got: "{payload_response.validation_error}" '
-                                        f'expected: "{payload.validation_error}"'
+                                        "Client returned unexpected "
+                                        "validation error: "
+                                        f"got: "
+                                        f'"{payload_response.validation_error}" '  # noqa: E501
+                                        f"expected: "
+                                        f'"{payload.validation_error}"'
                                     )
                                     if strict_exception_matching:
                                         raise LoggedError(message)
@@ -179,7 +169,8 @@ def test_blockchain_via_engine(
 
                     except JSONRPCError as e:
                         logger.info(
-                            f"JSONRPC error encountered: {e.code} - {e.message}"
+                            f"JSONRPC error encountered: "
+                            f"{e.code} - {e.message}"
                         )
                         if payload.error_code is None:
                             raise LoggedError(
@@ -187,7 +178,8 @@ def test_blockchain_via_engine(
                             ) from e
                         if e.code != payload.error_code:
                             raise LoggedError(
-                                f"Unexpected error code: {e.code}, expected: {payload.error_code}"
+                                f"Unexpected error code: {e.code}, "
+                                f"expected: {payload.error_code}"
                             ) from e
 
                 if payload.valid():
@@ -212,8 +204,9 @@ def test_blockchain_via_engine(
                             forkchoice_response.payload_status.status
                             != PayloadStatusEnum.VALID
                         ):
+                            status = forkchoice_response.payload_status.status
                             raise LoggedError(
-                                f"unexpected status: want {PayloadStatusEnum.VALID},"
-                                f" got {forkchoice_response.payload_status.status}"
+                                f"unexpected status: want "
+                                f"{PayloadStatusEnum.VALID}, got {status}"
                             )
         logger.info("All payloads processed successfully.")

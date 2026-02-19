@@ -26,7 +26,6 @@ from execution_testing import (
     Conditional,
     EIPChecklist,
     Environment,
-    EVMCodeType,
     Fork,
     Hash,
     Initcode,
@@ -43,7 +42,6 @@ from execution_testing import (
 )
 from execution_testing import Macros as Om
 from execution_testing.base_types import HexNumber
-from execution_testing.test_types.eof.v1 import Container, Section
 
 from ...cancun.eip4844_blobs.spec import Spec as Spec4844
 from ..eip6110_deposits.helpers import DepositRequest
@@ -55,13 +53,7 @@ from .spec import Spec, ref_spec_7702
 REFERENCE_SPEC_GIT_PATH = ref_spec_7702.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7702.version
 
-pytestmark = [
-    pytest.mark.valid_from("Prague"),
-    pytest.mark.pre_alloc_group(
-        "set_code_tests",
-        reason="Tests EIP-7702 set code transactions with system contracts",
-    ),
-]
+pytestmark = pytest.mark.valid_from("Prague")
 
 auth_account_start_balance = 0
 
@@ -372,7 +364,6 @@ def test_set_code_to_tstore_reentry(
     pre: Alloc,
     call_opcode: Op,
     return_opcode: Op,
-    evm_code_type: EVMCodeType,
 ) -> None:
     """
     Test the executing a simple TSTORE in a set-code transaction, which also
@@ -388,7 +379,6 @@ def test_set_code_to_tstore_reentry(
         + Op.RETURNDATACOPY(0, 0, 32)
         + Op.SSTORE(2, Op.MLOAD(0)),
         if_false=Op.MSTORE(0, Op.TLOAD(1)) + return_opcode(size=32),
-        evm_code_type=evm_code_type,
     )
     set_code_to_address = pre.deploy_contract(set_code)
 
@@ -421,14 +411,14 @@ def test_set_code_to_tstore_reentry(
 
 
 @pytest.mark.with_all_call_opcodes(
-    selector=lambda call_opcode: call_opcode
-    not in [
-        Op.DELEGATECALL,
-        Op.CALLCODE,
-        Op.STATICCALL,
-        Op.EXTDELEGATECALL,
-        Op.EXTSTATICCALL,
-    ]
+    selector=lambda call_opcode: (
+        call_opcode
+        not in [
+            Op.DELEGATECALL,
+            Op.CALLCODE,
+            Op.STATICCALL,
+        ]
+    )
 )
 @pytest.mark.parametrize("call_eoa_first", [True, False])
 def test_set_code_to_tstore_available_at_correct_address(
@@ -554,12 +544,169 @@ def test_set_code_to_self_destruct(
 
 
 @pytest.mark.with_all_create_opcodes
+def test_creating_tx_to_contract_creator(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    create_opcode: Op,
+) -> None:
+    """
+    Test executing a contract-creating opcode in a 7702-context called from a
+    creating transaction.
+    """
+    creator_storage = Storage()
+    initcode_storage = Storage()
+
+    inner_create_result_slot = creator_storage.peek_slot()
+    creator_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(
+        creator_storage.store_next(0, hint="inner create result"),
+        create_opcode(value=0, offset=0, size=Op.CALLDATASIZE),
+    )
+
+    creator_code_address = pre.deploy_contract(creator_code)
+
+    auth_signer = pre.fund_eoa(delegation=creator_code_address)
+
+    deployed_code = Op.STOP
+    # pad right to ensure code size is multiple of 32 bytes to MSTORE
+    inner_initcode = Initcode(deploy_code=deployed_code)
+    inner_initcode_bytes = inner_initcode + b"\x00" * (
+        32 - (len(inner_initcode) % 32)
+    )
+
+    test_bytes = b"\xde" * 32
+
+    initcode = (
+        Op.SSTORE(initcode_storage.store_next(1, hint="outer code worked"), 1)
+        + Op.MSTORE(0, Op.PUSH32(bytes(inner_initcode_bytes)))
+        + Op.SSTORE(
+            initcode_storage.store_next(1, hint="outer call result"),
+            Op.CALL(address=auth_signer, args_size=len(inner_initcode_bytes)),
+        )
+        + Op.MSTORE(32, Op.PUSH32(test_bytes))
+        + Op.RETURN(32, len(test_bytes))
+    )
+
+    tx = Transaction(
+        gas_limit=10_000_000,
+        to=None,
+        value=0,
+        data=initcode,
+        sender=auth_signer,
+    )
+
+    deployed_contract_address = tx.created_contract
+
+    inner_create_code_address = compute_create_address(
+        address=auth_signer,
+        nonce=2,
+        initcode=inner_initcode_bytes,
+        opcode=create_opcode,
+    )
+    creator_storage[inner_create_result_slot] = inner_create_code_address
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            creator_code_address: Account(storage={}),
+            auth_signer: Account(
+                nonce=3,
+                code=Spec.delegation_designation(creator_code_address),
+                storage=creator_storage,
+            ),
+            deployed_contract_address: Account(
+                code=test_bytes, storage=initcode_storage
+            ),
+            inner_create_code_address: Account(code=deployed_code),
+        },
+    )
+
+
+@pytest.mark.with_all_contract_creating_tx_types()
+def test_delegated_eoa_can_send_creating_tx(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_type: int,
+    fork: Fork,
+) -> None:
+    """
+    Test the executing a delegated EOA can send creating tx, with correct
+    context.
+    """
+    storage = Storage()
+
+    delegation_code = Op.STOP
+    delegation_address = pre.deploy_contract(delegation_code)
+    designation = Spec.delegation_designation(delegation_address)
+
+    auth_signer = pre.fund_eoa(delegation=delegation_address)
+
+    test_bytes = b"\xde" * 32
+
+    deployed_address = compute_create_address(
+        address=auth_signer,
+        nonce=1,
+    )
+
+    initcode_len = 72
+    initcode = (
+        Op.SSTORE(storage.store_next(1, hint="outer code worked"), 1)
+        # verify that the sender being delegated doesn't affect context values
+        + Op.SSTORE(storage.store_next(auth_signer, hint="sender"), Op.CALLER)
+        + Op.SSTORE(storage.store_next(auth_signer, hint="origin"), Op.ORIGIN)
+        + Op.SSTORE(
+            storage.store_next(deployed_address, hint="address"), Op.ADDRESS
+        )
+        + Op.SSTORE(
+            storage.store_next(initcode_len, hint="codesize"), Op.CODESIZE
+        )
+        + Op.SSTORE(
+            storage.store_next(Bytes().keccak256(), hint="codehash_address"),
+            Op.EXTCODEHASH(Op.ADDRESS),
+        )
+        + Op.SSTORE(
+            storage.store_next(
+                designation.keccak256(), hint="codehash_origin"
+            ),
+            Op.EXTCODEHASH(Op.ORIGIN),
+        )
+        # deploy
+        + Op.MSTORE(0, Op.PUSH32(test_bytes))
+        + Op.RETURN(0, len(test_bytes))
+    )
+    assert initcode_len == len(initcode)
+
+    tx = Transaction(
+        ty=tx_type,
+        gas_limit=200_000 + (Op.SSTORE(key_warm=False) * 7).gas_cost(fork),
+        to=None,
+        value=0,
+        data=initcode,
+        sender=auth_signer,
+    )
+
+    assert deployed_address == tx.created_contract
+
+    state_test(
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                nonce=2,
+                code=Spec.delegation_designation(delegation_address),
+                storage={},
+            ),
+            deployed_address: Account(code=test_bytes, storage=storage),
+        },
+    )
+
+
+@pytest.mark.with_all_create_opcodes
 @pytest.mark.slow()
 def test_set_code_to_contract_creator(
     state_test: StateTestFiller,
     pre: Alloc,
     create_opcode: Op,
-    evm_code_type: EVMCodeType,
 ) -> None:
     """
     Test the executing a contract-creating opcode in a set-code transaction.
@@ -567,16 +714,8 @@ def test_set_code_to_contract_creator(
     storage = Storage()
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
-    deployed_code: Bytecode | Container = Op.STOP
-    initcode: Bytecode | Container
-
-    if evm_code_type == EVMCodeType.LEGACY:
-        initcode = Initcode(deploy_code=deployed_code)
-    elif evm_code_type == EVMCodeType.EOF_V1:
-        deployed_code = Container.Code(deployed_code)
-        initcode = Container.Init(deploy_container=deployed_code)
-    else:
-        raise ValueError(f"Unsupported EVM code type: {evm_code_type}")
+    deployed_code: Bytecode = Op.STOP
+    initcode: Bytecode = Initcode(deploy_code=deployed_code)
 
     deployed_contract_address = compute_create_address(
         address=auth_signer,
@@ -585,25 +724,12 @@ def test_set_code_to_contract_creator(
         opcode=create_opcode,
     )
 
-    creator_code: Bytecode | Container
-    if evm_code_type == EVMCodeType.LEGACY:
-        creator_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(
-            storage.store_next(deployed_contract_address),
-            create_opcode(value=0, offset=0, size=Op.CALLDATASIZE),
-        )
-    elif evm_code_type == EVMCodeType.EOF_V1:
-        creator_code = Container(
-            sections=[
-                Section.Code(
-                    code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP(),
-                ),
-                Section.Container(
-                    container=initcode,
-                ),
-            ]
-        )
-    else:
-        raise ValueError(f"Unsupported EVM code type: {evm_code_type}")
+    creator_code: Bytecode = Op.CALLDATACOPY(
+        0, 0, Op.CALLDATASIZE
+    ) + Op.SSTORE(
+        storage.store_next(deployed_contract_address),
+        create_opcode(value=0, offset=0, size=Op.CALLDATASIZE),
+    )
 
     creator_code_address = pre.deploy_contract(creator_code)
 
@@ -611,7 +737,7 @@ def test_set_code_to_contract_creator(
         gas_limit=10_000_000,
         to=auth_signer,
         value=0,
-        data=initcode if evm_code_type == EVMCodeType.LEGACY else b"",
+        data=initcode,
         authorization_list=[
             AuthorizationTuple(
                 address=creator_code_address,
@@ -651,7 +777,6 @@ def test_set_code_to_self_caller(
     pre: Alloc,
     call_opcode: Op,
     value: int,
-    evm_code_type: EVMCodeType,
 ) -> None:
     """Test the executing a self-call in a set-code transaction."""
     if "value" not in call_opcode.kwargs and value != 0:
@@ -660,7 +785,7 @@ def test_set_code_to_self_caller(
     storage = Storage()
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
-    static_call = call_opcode in [Op.STATICCALL, Op.EXTSTATICCALL]
+    static_call = call_opcode == Op.STATICCALL
 
     first_entry_slot = storage.store_next(True)
     re_entry_success_slot = storage.store_next(not static_call)
@@ -677,7 +802,6 @@ def test_set_code_to_self_caller(
         + Op.SSTORE(re_entry_call_return_code_slot, call_bytecode)
         + Op.STOP,
         if_false=Op.SSTORE(re_entry_success_slot, 1) + Op.STOP,
-        evm_code_type=evm_code_type,
     )
     set_code_to_address = pre.deploy_contract(set_code)
 
@@ -793,7 +917,7 @@ def test_set_code_call_set_code(
     auth_signer_1 = pre.fund_eoa(auth_account_start_balance)
     storage_1 = Storage()
 
-    static_call = call_opcode in [Op.STATICCALL, Op.EXTSTATICCALL]
+    static_call = call_opcode == Op.STATICCALL
 
     set_code_1_call_result_slot = storage_1.store_next(
         call_return_code(opcode=call_opcode, success=not static_call)
@@ -854,20 +978,17 @@ def test_set_code_call_set_code(
                 code=Spec.delegation_designation(set_code_to_address_1),
                 storage=(
                     storage_1
-                    if call_opcode
-                    in [Op.CALL, Op.STATICCALL, Op.EXTCALL, Op.EXTSTATICCALL]
+                    if call_opcode in [Op.CALL, Op.STATICCALL]
                     else storage_1 + storage_2
                 ),
-                balance=(0 if call_opcode in [Op.CALL, Op.EXTCALL] else value)
+                balance=(0 if call_opcode == Op.CALL else value)
                 + auth_account_start_balance,
             ),
             auth_signer_2: Account(
                 nonce=1,
                 code=Spec.delegation_designation(set_code_to_address_2),
-                storage=storage_2
-                if call_opcode in [Op.CALL, Op.EXTCALL]
-                else {},
-                balance=(value if call_opcode in [Op.CALL, Op.EXTCALL] else 0)
+                storage=storage_2 if call_opcode == Op.CALL else {},
+                balance=(value if call_opcode == Op.CALL else 0)
                 + auth_account_start_balance,
             ),
         },
@@ -1012,7 +1133,6 @@ def test_call_into_self_delegating_set_code(
                 call_return_code(
                     opcode=call_opcode,
                     success=False,
-                    revert=(call_opcode == Op.EXTDELEGATECALL),
                 )
             ),
             call_opcode(address=auth_signer),
@@ -1068,7 +1188,6 @@ def test_call_into_chain_delegating_set_code(
                 call_return_code(
                     opcode=call_opcode,
                     success=False,
-                    revert=(call_opcode == Op.EXTDELEGATECALL),
                 )
             ),
             call_opcode(address=auth_signer_1),
@@ -1273,7 +1392,6 @@ def test_ext_code_on_self_set_code(
     )
 
 
-@pytest.mark.with_all_evm_code_types()
 @pytest.mark.parametrize(
     "set_code_address_first",
     [
@@ -1327,9 +1445,7 @@ def test_set_code_address_and_authority_warm_state(
         callee_code += code_gas_measure_authority + code_gas_measure_set_code
     callee_code += Op.SSTORE(slot_call_success, 1) + Op.STOP
 
-    callee_address = pre.deploy_contract(
-        callee_code, evm_code_type=EVMCodeType.LEGACY
-    )
+    callee_address = pre.deploy_contract(callee_code)
     callee_storage = Storage()
     callee_storage[slot_call_success] = 1
     callee_storage[slot_set_code_to_warm_state] = (
@@ -1384,7 +1500,7 @@ def test_set_code_address_and_authority_warm_state_call_types(
     """
     Test set to code address and authority warm status after a call to
     authority address, or vice-versa, using all available call opcodes without
-    using `GAS` opcode (unavailable in EOF).
+    using `GAS` opcode.
     """
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
@@ -1684,7 +1800,6 @@ def test_set_code_to_account_deployed_in_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
     create_opcode: Op,
-    evm_code_type: EVMCodeType,
 ) -> None:
     """
     Test setting the code of an account to an address that is deployed in the
@@ -1695,30 +1810,17 @@ def test_set_code_to_account_deployed_in_same_tx(
 
     success_slot = 1
 
-    deployed_code: Bytecode | Container = Op.SSTORE(success_slot, 1) + Op.STOP
-    initcode: Bytecode | Container
-
-    if evm_code_type == EVMCodeType.LEGACY:
-        initcode = Initcode(deploy_code=deployed_code)
-    elif evm_code_type == EVMCodeType.EOF_V1:
-        deployed_code = Container.Code(deployed_code)
-        initcode = Container.Init(deploy_container=deployed_code)
-    else:
-        raise ValueError(f"Unsupported EVM code type: {evm_code_type}")
+    deployed_code: Bytecode = Op.SSTORE(success_slot, 1) + Op.STOP
+    initcode: Bytecode = Initcode(deploy_code=deployed_code)
 
     deployed_contract_address_slot = 1
     signer_call_return_code_slot = 2
     deployed_contract_call_return_code_slot = 3
 
-    call_opcode = (
-        Op.CALL if evm_code_type == EVMCodeType.LEGACY else Op.EXTCALL
-    )
+    call_opcode = Op.CALL
 
-    if create_opcode == Op.EOFCREATE:
-        create_opcode = Op.EOFCREATE[0]  # type: ignore
-
-    contract_creator_code: Bytecode | Container = (
-        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)  # NOOP on EOF
+    contract_creator_code: Bytecode = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.SSTORE(
             deployed_contract_address_slot,
             create_opcode(offset=0, size=Op.CALLDATASIZE),
@@ -1732,14 +1834,6 @@ def test_set_code_to_account_deployed_in_same_tx(
         )
         + Op.STOP()
     )
-
-    if evm_code_type == EVMCodeType.EOF_V1:
-        contract_creator_code = Container(
-            sections=[
-                Section.Code(contract_creator_code),
-                Section.Container(container=initcode),
-            ],
-        )
 
     contract_creator_address = pre.deploy_contract(contract_creator_code)
 
@@ -1755,7 +1849,7 @@ def test_set_code_to_account_deployed_in_same_tx(
         gas_limit=10_000_000,
         to=contract_creator_address,
         value=0,
-        data=initcode if evm_code_type == EVMCodeType.LEGACY else b"",
+        data=initcode,
         authorization_list=[
             AuthorizationTuple(
                 address=deployed_contract_address,
@@ -1799,9 +1893,7 @@ def test_set_code_to_account_deployed_in_same_tx(
     [0, 1],
 )
 @pytest.mark.parametrize("call_set_code_first", [False, True])
-@pytest.mark.parametrize(
-    "create_opcode", [Op.CREATE, Op.CREATE2]
-)  # EOF code does not support SELFDESTRUCT
+@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
 def test_set_code_to_self_destructing_account_deployed_in_same_tx(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2509,17 +2601,11 @@ def test_valid_tx_invalid_chain_id(
             Spec.MAX_NONCE,
             Spec.MAX_NONCE,
             id="nonce=2**64-1",
-            marks=pytest.mark.execute(
-                pytest.mark.skip(reason="Impossible account nonce")
-            ),
         ),
         pytest.param(
             Spec.MAX_NONCE - 1,
             Spec.MAX_NONCE - 1,
             id="nonce=2**64-2",
-            marks=pytest.mark.execute(
-                pytest.mark.skip(reason="Impossible account nonce")
-            ),
         ),
         pytest.param(
             0,
@@ -2533,7 +2619,7 @@ def test_valid_tx_invalid_chain_id(
         ),
     ],
 )
-@pytest.mark.execute(pytest.mark.skip(reason="Non-zero nonce not supported"))
+@pytest.mark.pre_alloc_mutable()
 def test_nonce_validity(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2605,7 +2691,7 @@ def test_nonce_validity(
     )
 
 
-@pytest.mark.execute(pytest.mark.skip(reason="Impossible account nonce"))
+@pytest.mark.pre_alloc_mutable()
 def test_nonce_overflow_after_first_authorization(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2682,7 +2768,6 @@ def test_nonce_overflow_after_first_authorization(
         Op.LOG4,
     ],
 )
-@pytest.mark.with_all_evm_code_types
 def test_set_code_to_log(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2832,7 +2917,9 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
         value=1,
         authorization_list=[auth],
         # explicitly check expected gas, no precompile code executed
-        expected_receipt=TransactionReceipt(gas_used=intrinsic_gas - discount),
+        expected_receipt=TransactionReceipt(
+            cumulative_gas_used=intrinsic_gas - discount
+        ),
     )
 
     state_test(
@@ -2864,14 +2951,14 @@ def deposit_contract_initial_storage() -> Storage:
 
 @pytest.mark.with_all_call_opcodes(
     selector=(
-        lambda opcode: opcode
-        not in [
-            Op.STATICCALL,
-            Op.CALLCODE,
-            Op.DELEGATECALL,
-            Op.EXTDELEGATECALL,
-            Op.EXTSTATICCALL,
-        ]
+        lambda opcode: (
+            opcode
+            not in [
+                Op.STATICCALL,
+                Op.CALLCODE,
+                Op.DELEGATECALL,
+            ]
+        )
     )
 )
 @pytest.mark.with_all_system_contracts
@@ -2992,8 +3079,6 @@ def test_set_code_to_system_contract(
     )
     caller_code_address = pre.deploy_contract(caller_code)
     sender = pre.fund_eoa()
-    if call_value > 0:
-        pre.fund_address(sender, call_value)
 
     txs = [
         Transaction(
@@ -3033,14 +3118,13 @@ def test_set_code_to_system_contract(
     )
 
 
-@pytest.mark.with_all_evm_code_types
 @pytest.mark.with_all_tx_types(
     selector=lambda tx_type: tx_type != 4,
-    marks=lambda tx_type: pytest.mark.execute(
-        pytest.mark.skip("incompatible tx")
-    )
-    if tx_type in [0, 3]
-    else None,
+    marks=lambda tx_type: (
+        pytest.mark.execute(pytest.mark.skip("incompatible tx"))
+        if tx_type in [0, 3]
+        else None
+    ),
 )
 @pytest.mark.parametrize(
     "same_block",
@@ -3062,7 +3146,6 @@ def test_eoa_tx_after_set_code(
     pre: Alloc,
     tx_type: int,
     fork: Fork,
-    evm_code_type: EVMCodeType,
     same_block: bool,
 ) -> None:
     """
@@ -3095,7 +3178,7 @@ def test_eoa_tx_after_set_code(
             follow_up_eoa_txs.extend(
                 [
                     Transaction(
-                        type=tx_type,
+                        ty=tx_type,
                         sender=auth_signer,
                         gas_limit=500_000,
                         to=auth_signer,
@@ -3103,7 +3186,7 @@ def test_eoa_tx_after_set_code(
                         protected=True,
                     ),
                     Transaction(
-                        type=tx_type,
+                        ty=tx_type,
                         sender=auth_signer,
                         gas_limit=500_000,
                         to=auth_signer,
@@ -3115,7 +3198,7 @@ def test_eoa_tx_after_set_code(
         case 1:
             follow_up_eoa_txs.append(
                 Transaction(
-                    type=tx_type,
+                    ty=tx_type,
                     sender=auth_signer,
                     gas_limit=500_000,
                     to=auth_signer,
@@ -3131,7 +3214,7 @@ def test_eoa_tx_after_set_code(
         case 2:
             follow_up_eoa_txs.append(
                 Transaction(
-                    type=tx_type,
+                    ty=tx_type,
                     sender=auth_signer,
                     gas_limit=500_000,
                     to=auth_signer,
@@ -3143,7 +3226,7 @@ def test_eoa_tx_after_set_code(
         case 3:
             follow_up_eoa_txs.append(
                 Transaction(
-                    type=tx_type,
+                    ty=tx_type,
                     sender=auth_signer,
                     gas_limit=500_000,
                     to=auth_signer,
@@ -3896,9 +3979,7 @@ def test_authorization_reusing_nonce(
     [True, False],
 )
 @pytest.mark.exception_test
-@pytest.mark.execute(
-    pytest.mark.skip(reason="Requires contract-eoa address collision")
-)
+@pytest.mark.pre_alloc_mutable
 def test_set_code_from_account_with_non_delegating_code(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -3913,7 +3994,9 @@ def test_set_code_from_account_with_non_delegating_code(
     delegating) But at the same time it has auth tuple that will point this
     sender account To be eoa, delegation, contract .. etc
     """
-    sender = pre.fund_eoa(nonce=1)
+    # Set the sender account to have some code, that is specifically not a
+    # delegation.
+    sender = pre.fund_eoa(nonce=1, code=Op.STOP)
     random_address = pre.fund_eoa(0)
 
     set_code_to_address: Address
@@ -3930,12 +4013,6 @@ def test_set_code_from_account_with_non_delegating_code(
         case _:
             raise ValueError(f"Unsupported set code type: {set_code_type}")
     callee_address = pre.deploy_contract(Op.SSTORE(0, 1) + Op.STOP)
-
-    # Set the sender account to have some code, that is specifically not a
-    # delegation.
-    sender_account = pre[sender]
-    assert sender_account is not None
-    sender_account.code = Bytes(Op.STOP)
 
     tx = Transaction(
         gas_limit=100_000,

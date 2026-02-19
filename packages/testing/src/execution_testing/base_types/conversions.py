@@ -62,7 +62,8 @@ def to_fixed_size_bytes(
         if right_padding:
             return input_bytes.ljust(size, b"\x00")
         raise Exception(
-            f"input is too small for fixed size bytes: {len(input_bytes)} < {size}\n"
+            f"input is too small for fixed size bytes: "
+            f"{len(input_bytes)} < {size}\n"
             "Use `left_padding=True` or `right_padding=True` to allow padding."
         )
     return input_bytes

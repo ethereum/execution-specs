@@ -1,7 +1,7 @@
 """
 Tests point evaluation precompile for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
 
-Note: Adding a new test Add a function that is named `test_<test_name>` and
+Note: To add a new test, add a function that is named `test_<test_name>` and
 takes at least the following arguments.
 
 Required arguments:
@@ -105,14 +105,14 @@ def call_opcode() -> Op:
 
 
 @pytest.fixture
-def call_gas() -> int:
+def call_gas(fork: Fork) -> int:
     """
     Amount of gas to pass to the precompile.
 
-    Defaults to Spec.POINT_EVALUATION_PRECOMPILE_GAS, but can be parametrized
-    to test different amounts.
+    Defaults to the point evaluation precompile gas cost, but can be
+    parametrized to test different amounts.
     """
-    return Spec.POINT_EVALUATION_PRECOMPILE_GAS
+    return fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
 
 
 precompile_caller_storage_keys = count()
@@ -194,13 +194,14 @@ def tx(
     precompile_caller_address: Address,
     precompile_input: bytes,
     sender: EOA,
+    fork: Fork,
 ) -> Transaction:
     """Prepare transaction used to call the precompile caller account."""
     return Transaction(
         sender=sender,
         data=precompile_input,
         to=precompile_caller_address,
-        gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 100,
+        gas_limit=fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION * 100,
     )
 
 
@@ -210,14 +211,6 @@ def success(
     call_opcode: Op,
 ) -> bool:
     """Prepare expected success or failure for each test."""
-    if call_opcode == Op.EXTDELEGATECALL:
-        return False
-    if result == Result.OUT_OF_GAS and call_opcode in [
-        Op.EXTCALL,
-        Op.EXTSTATICCALL,
-    ]:
-        return True
-
     return result == Result.SUCCESS
 
 
@@ -235,7 +228,7 @@ def post(
     expected_storage: Storage.StorageDictType = {}
     # CALL operation return code
     expected_storage[key_call_return_code] = call_return_code(
-        call_opcode, success, revert=call_opcode == Op.EXTDELEGATECALL
+        call_opcode, success
     )
     if success:
         # Success return values
@@ -256,10 +249,6 @@ def post(
         expected_storage[key_return_2] = precompile_input[32:64]
         expected_storage[key_return_copy_1] = expected_storage[1]
         expected_storage[key_return_copy_2] = expected_storage[2]
-    if call_opcode in [Op.EXTCALL, Op.EXTSTATICCALL, Op.EXTDELEGATECALL]:
-        # Input parameters were not overwritten
-        expected_storage[key_return_1] = precompile_input[0:32]
-        expected_storage[key_return_2] = precompile_input[32:64]
     return {
         precompile_caller_address: Account(
             storage=expected_storage,
@@ -595,9 +584,10 @@ def test_tx_entry_point(
     # Consumed gas will only be the precompile gas if the proof is correct and
     # the call gas is sufficient.
     # Otherwise, the call gas will be consumed in full.
+    precompile_gas = fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
     consumed_gas = (
-        Spec.POINT_EVALUATION_PRECOMPILE_GAS
-        if call_gas >= Spec.POINT_EVALUATION_PRECOMPILE_GAS and proof_correct
+        precompile_gas
+        if call_gas >= precompile_gas and proof_correct
         else call_gas
     ) + tx_intrinsic_gas_cost_calculator(
         calldata=precompile_input,
@@ -611,7 +601,7 @@ def test_tx_entry_point(
         access_list=access_list,
         to=Address(Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS),
         gas_limit=call_gas + intrinsic_gas_cost,
-        expected_receipt=TransactionReceipt(gas_used=consumed_gas),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=consumed_gas),
     )
 
     post = {
@@ -713,10 +703,12 @@ def test_precompile_during_fork(
     precompile_caller_address: Address,
     precompile_input: bytes,
     sender: EOA,
+    fork: Fork,
 ) -> None:
     """
     Test calling the Point Evaluation Precompile during the appropriate fork.
     """
+    precompile_gas = fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
     # Blocks before fork
     blocks = [
         Block(
@@ -726,7 +718,7 @@ def test_precompile_during_fork(
                     sender=sender,
                     data=precompile_input,
                     to=precompile_caller_address,
-                    gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 100,
+                    gas_limit=precompile_gas * 100,
                 )
             ],
         )
@@ -741,7 +733,7 @@ def test_precompile_during_fork(
                     sender=sender,
                     data=precompile_input,
                     to=precompile_caller_address,
-                    gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 100,
+                    gas_limit=precompile_gas * 100,
                 )
             ],
         )

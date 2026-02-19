@@ -23,11 +23,23 @@ from execution_testing.client_clis.clis.nimbus import (
 from execution_testing.client_clis.clis.reth import RethExceptionMapper
 from execution_testing.exceptions import ExceptionMapper
 from execution_testing.fixtures.blockchain import FixtureHeader
+from execution_testing.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+class LoggedError(Exception):
+    """Exception that uses the logger to log the failure."""
+
+    def __init__(self, *args: object) -> None:
+        """Initialize the exception and log the failure."""
+        super().__init__(*args)
+        logger.fail(str(self))
 
 
 class GenesisBlockMismatchExceptionError(Exception):
     """
-    Definers a mismatch exception between the client and fixture genesis
+    Defines a mismatch exception between the client and fixture genesis
     blockhash.
     """
 
@@ -56,12 +68,15 @@ class GenesisBlockMismatchExceptionError(Exception):
             )
         elif unexpected_fields:
             message += (
-                "\n\nUn-expected genesis block header fields from client:\n"
+                "\n\nUnexpected genesis block header fields from client:\n"
                 f"{pprint.pformat(unexpected_fields, indent=4)}"
                 "\nIs the fork configuration correct?"
             )
         else:
-            message += "There were no differences in the expected and received genesis block headers."
+            message += (
+                "There were no differences in the expected and received "
+                "genesis block headers."
+            )
         super().__init__(message)
 
     @staticmethod

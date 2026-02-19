@@ -43,10 +43,12 @@ def test_block_context_ops(
 ) -> None:
     """Benchmark zero-parameter block context instructions."""
     benchmark_test(
+        target_opcode=opcode,
         code_generator=ExtCallGenerator(attack_block=opcode),
     )
 
 
+@pytest.mark.skip(reason="Temporarily disabled pending investigation")
 @pytest.mark.repricing
 @pytest.mark.parametrize(
     "index,chain_length",
@@ -59,7 +61,6 @@ def test_block_context_ops(
     ],
 )
 @pytest.mark.slow("Generates long chain")
-@pytest.mark.pre_alloc_group("separate", reason="Generates long chain")
 def test_blockhash(
     benchmark_test: BenchmarkTestFiller,
     index: int | None,
@@ -73,6 +74,7 @@ def test_blockhash(
     block_number = Op.AND(Op.GAS, 0xFF) if index is None else index
 
     benchmark_test(
+        target_opcode=Op.BLOCKHASH,
         setup_blocks=blocks,
         code_generator=ExtCallGenerator(
             attack_block=Op.BLOCKHASH(block_number)

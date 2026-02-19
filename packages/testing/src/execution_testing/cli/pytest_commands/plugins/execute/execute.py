@@ -1,5 +1,5 @@
 """
-Test execution plugin for pytest, to run Ethereum tests using in live networks.
+Test execution plugin for pytest, to run Ethereum tests on live networks.
 """
 
 import os
@@ -51,8 +51,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=int,
         default=None,
         help=(
-            "Default gas price used for transactions, unless overridden by the test. "
-            "Default=None (1.5x current network gas price)"
+            "Default gas price used for transactions, unless overridden by "
+            "the test. Default=None (1.5x current network gas price)"
         ),
     )
     execute_group.addoption(
@@ -62,8 +62,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=int,
         default=None,
         help=(
-            "Default max fee per gas used for transactions, unless overridden by the test. "
-            "Default=None (1.5x current network max fee per gas)"
+            "Default max fee per gas used for transactions, unless overridden "
+            "by the test. Default=None (1.5x current network max fee per gas)"
         ),
     )
     execute_group.addoption(
@@ -74,7 +74,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help=(
             "Default max priority fee per gas used for transactions, "
-            "unless overridden by the test."
+            "unless overridden by the test. "
             "Default=None (1.5x current network max priority fee per gas)"
         ),
     )
@@ -85,8 +85,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=int,
         default=None,
         help=(
-            "Default max fee per blob gas used for transactions, unless overridden by the test."
-            "Default=None (1.5x current network max fee per blob gas)"
+            "Default max fee per blob gas used for transactions, unless "
+            "overridden by the test. Default=None (1.5x current network max "
+            "fee per blob gas)"
         ),
     )
     execute_group.addoption(
@@ -96,9 +97,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=EnvironmentDefaults.gas_limit // 4,
         type=int,
         help=(
-            "Maximum gas used to execute a single transaction. "
-            "Will be used as ceiling for tests that attempt to consume the entire block gas limit."
-            f"(Default: {EnvironmentDefaults.gas_limit // 4})"
+            "Maximum gas used to execute a single transaction. Will be used "
+            "as ceiling for tests that attempt to consume the entire block "
+            f"gas limit. (Default: {EnvironmentDefaults.gas_limit // 4})"
         ),
     )
     execute_group.addoption(
@@ -118,7 +119,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=float,
         default=0.3,
         help=(
-            "Time to wait after sending a forkchoice_updated before getting the payload."
+            "Time to wait after sending a forkchoice_updated before getting "
+            "the payload."
         ),
     )
     execute_group.addoption(
@@ -128,7 +130,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         type=int,
         help=(
-            "Maximum gas limit for all transactions in a test. Default=None (No limit)"
+            "Maximum gas limit for all transactions in a test. Default=None "
+            "(No limit)"
         ),
     )
     execute_group.addoption(
@@ -136,7 +139,21 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         dest="dry_run",
         default=False,
-        help="Don't send transactions, just print the minimum balance required per test.",
+        help=(
+            "Don't send transactions, just print the minimum balance required "
+            "per test."
+        ),
+    )
+    execute_group.addoption(
+        "--max-tx-per-batch",
+        action="store",
+        dest="max_tx_per_batch",
+        type=int,
+        default=None,
+        help=(
+            "Maximum number of transactions to send in a single batch to the "
+            "RPC. Default=750. Higher values may cause RPC instability."
+        ),
     )
 
     report_group = parser.getgroup(
@@ -210,11 +227,13 @@ def pytest_html_results_table_header(cells: list[str]) -> None:
     )
     cells.insert(
         4,
-        '<th class="sortable" data-column-type="fundedAccounts">Funded Accounts</th>',
+        '<th class="sortable" data-column-type="fundedAccounts">'
+        "Funded Accounts</th>",
     )
     cells.insert(
         5,
-        '<th class="sortable" data-column-type="fundedAccounts">Deployed Contracts</th>',
+        '<th class="sortable" data-column-type="fundedAccounts">'
+        "Deployed Contracts</th>",
     )
     del cells[-1]  # Remove the "Links" column
 
@@ -312,18 +331,26 @@ def dry_run(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.fixture(scope="session")
+def max_transactions_per_batch(request: pytest.FixtureRequest) -> int | None:
+    """Return max number of transactions per batch, or None for default."""
+    return request.config.getoption("max_tx_per_batch")
+
+
+@pytest.fixture(scope="session")
 def default_max_fee_per_gas(
     request: pytest.FixtureRequest,
 ) -> int | None:
     """Return default max fee per gas used for transactions."""
     max_fee_per_gas = request.config.getoption("default_max_fee_per_gas")
     if max_fee_per_gas is not None:
+        fee_gwei = max_fee_per_gas / 10**9
         logger.debug(
-            f"Using configured default max fee per gas: {max_fee_per_gas / 10**9:.2f} Gwei"
+            f"Using configured default max fee per gas: {fee_gwei:.2f} Gwei"
         )
     else:
         logger.debug(
-            "No default max fee per gas configured, will use network gas price * 1.5"
+            "No default max fee per gas configured, "
+            "will use network gas price * 1.5"
         )
     return max_fee_per_gas
 
@@ -337,12 +364,15 @@ def default_max_priority_fee_per_gas(
         "default_max_priority_fee_per_gas"
     )
     if max_priority_fee_per_gas is not None:
+        prio_fee_gwei = max_priority_fee_per_gas / 10**9
         logger.debug(
-            f"Using configured default max priority fee per gas: {max_priority_fee_per_gas / 10**9:.2f} Gwei"
+            f"Using configured default max priority fee per gas: "
+            f"{prio_fee_gwei:.2f} Gwei"
         )
     else:
         logger.debug(
-            "No default max priority fee per gas configured, will use network max priority fee * 1.5"
+            "No default max priority fee per gas configured, "
+            "will use network max priority fee * 1.5"
         )
     return max_priority_fee_per_gas
 
@@ -356,12 +386,15 @@ def default_max_fee_per_blob_gas(
         "default_max_fee_per_blob_gas"
     )
     if max_fee_per_blob_gas is not None:
+        blob_fee_gwei = max_fee_per_blob_gas / 10**9
         logger.debug(
-            f"Using configured default max fee per blob gas: {max_fee_per_blob_gas / 10**9:.2f} Gwei"
+            f"Using configured default max fee per blob gas: "
+            f"{blob_fee_gwei:.2f} Gwei"
         )
     else:
         logger.debug(
-            "No default max fee per blob gas configured, will use network blob base fee * 1.5"
+            "No default max fee per blob gas configured, "
+            "will use network blob base fee * 1.5"
         )
     return max_fee_per_blob_gas
 
@@ -371,17 +404,21 @@ def max_priority_fee_per_gas(
     eth_rpc: EthRPC,
     default_max_priority_fee_per_gas: int | None,
 ) -> int:
-    """Return max priority fee per gas used for transactions in a given test."""
+    """Return max priority fee per gas for transactions in a given test."""
     max_priority_fee_per_gas = default_max_priority_fee_per_gas
     if max_priority_fee_per_gas is None:
         network_max_priority_fee = eth_rpc.max_priority_fee_per_gas()
         max_priority_fee_per_gas = int(network_max_priority_fee * 1.5)
+        net_gwei = network_max_priority_fee / 10**9
+        calc_gwei = max_priority_fee_per_gas / 10**9
         logger.info(
-            f"Calculated max priority fee per gas from network: {network_max_priority_fee / 10**9:.2f} Gwei * 1.5 = {max_priority_fee_per_gas / 10**9:.2f} Gwei"
+            f"Calculated max priority fee per gas from network: "
+            f"{net_gwei:.2f} Gwei * 1.5 = {calc_gwei:.2f} Gwei"
         )
     else:
+        prio_gwei = max_priority_fee_per_gas / 10**9
         logger.info(
-            f"Using default max priority fee per gas: {max_priority_fee_per_gas / 10**9:.2f} Gwei"
+            f"Using default max priority fee per gas: {prio_gwei:.2f} Gwei"
         )
     return max_priority_fee_per_gas
 
@@ -397,24 +434,33 @@ def max_fee_per_gas(
     if max_fee_per_gas is None:
         network_gas_price = eth_rpc.gas_price()
         max_fee_per_gas = int(network_gas_price * 1.5)
+        net_gwei = network_gas_price / 10**9
+        calc_gwei = max_fee_per_gas / 10**9
         logger.info(
-            f"Calculated max fee per gas from network: {network_gas_price / 10**9:.2f} Gwei * 1.5 = {max_fee_per_gas / 10**9:.2f} Gwei"
+            f"Calculated max fee per gas from network: "
+            f"{net_gwei:.2f} Gwei * 1.5 = {calc_gwei:.2f} Gwei"
         )
     else:
-        logger.info(
-            f"Using default max fee per gas: {max_fee_per_gas / 10**9:.2f} Gwei"
-        )
+        fee_gwei = max_fee_per_gas / 10**9
+        logger.info(f"Using default max fee per gas: {fee_gwei:.2f} Gwei")
     if max_priority_fee_per_gas > max_fee_per_gas:
         # Depending on the timing of the request, the priority fee may be
         # greater than the max fee. This is a workaround to ensure that the
         # transaction is valid.
+        prio_gwei = max_priority_fee_per_gas / 10**9
+        fee_gwei = max_fee_per_gas / 10**9
+        adj_gwei = (max_priority_fee_per_gas + 1) / 10**9
         logger.warning(
-            f"Max priority fee per gas ({max_priority_fee_per_gas / 10**9:.2f} Gwei) is greater than max fee per gas ({max_fee_per_gas / 10**9:.2f} Gwei), "
-            f"adjusting max fee per gas to {(max_priority_fee_per_gas + 1) / 10**9:.2f} Gwei"
+            f"Max priority fee per gas ({prio_gwei:.2f} Gwei) is greater "
+            f"than max fee per gas ({fee_gwei:.2f} Gwei), "
+            f"adjusting max fee per gas to {adj_gwei:.2f} Gwei"
         )
         max_fee_per_gas = max_priority_fee_per_gas + 1
+    final_gwei = max_fee_per_gas / 10**9
+    prio_gwei = max_priority_fee_per_gas / 10**9
     logger.debug(
-        f"Final max fee per gas: {max_fee_per_gas / 10**9:.2f} Gwei, max priority fee per gas: {max_priority_fee_per_gas / 10**9:.2f} Gwei"
+        f"Final max fee per gas: {final_gwei:.2f} Gwei, "
+        f"max priority fee per gas: {prio_gwei:.2f} Gwei"
     )
     return max_fee_per_gas
 
@@ -429,12 +475,16 @@ def max_fee_per_blob_gas(
     if max_fee_per_blob_gas is None:
         network_blob_base_fee = eth_rpc.blob_base_fee()
         max_fee_per_blob_gas = int(network_blob_base_fee * 1.5)
+        net_gwei = network_blob_base_fee / 10**9
+        calc_gwei = max_fee_per_blob_gas / 10**9
         logger.info(
-            f"Calculated max fee per blob gas from network: {network_blob_base_fee / 10**9:.2f} Gwei * 1.5 = {max_fee_per_blob_gas / 10**9:.2f} Gwei"
+            f"Calculated max fee per blob gas from network: "
+            f"{net_gwei:.2f} Gwei * 1.5 = {calc_gwei:.2f} Gwei"
         )
     else:
+        blob_gwei = max_fee_per_blob_gas / 10**9
         logger.info(
-            f"Using default max fee per blob gas: {max_fee_per_blob_gas / 10**9:.2f} Gwei"
+            f"Using default max fee per blob gas: {blob_gwei:.2f} Gwei"
         )
     return max_fee_per_blob_gas
 
@@ -443,8 +493,12 @@ def max_fee_per_blob_gas(
 def gas_price(max_fee_per_gas: int, max_priority_fee_per_gas: int) -> int:
     """Return gas price used for transactions in a given test."""
     calculated_gas_price = max_fee_per_gas + max_priority_fee_per_gas
+    fee_gwei = max_fee_per_gas / 10**9
+    prio_gwei = max_priority_fee_per_gas / 10**9
+    total_gwei = calculated_gas_price / 10**9
     logger.debug(
-        f"Calculated gas price: {max_fee_per_gas / 10**9:.2f} Gwei (max fee) + {max_priority_fee_per_gas / 10**9:.2f} Gwei (max priority fee) = {calculated_gas_price / 10**9:.2f} Gwei"
+        f"Calculated gas price: {fee_gwei:.2f} Gwei (max fee) + "
+        f"{prio_gwei:.2f} Gwei (max priority fee) = {total_gwei:.2f} Gwei"
     )
     return calculated_gas_price
 
@@ -536,9 +590,8 @@ def gas_limit_accumulator() -> Generator[GasInfoAccumulator, None, None]:
     gas_limit_accumulator = GasInfoAccumulator()
     yield gas_limit_accumulator
     logger.info(f"Total gas limit: {gas_limit_accumulator.total_gas_limit()}")
-    logger.info(
-        f"Total minimum balance: {gas_limit_accumulator.total_minimum_balance() / 10**18:.18f}"
-    )
+    total_min_eth = gas_limit_accumulator.total_minimum_balance() / 10**18
+    logger.info(f"Total minimum balance: {total_min_eth:.18f}")
 
 
 def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
@@ -584,6 +637,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         When parametrize, indirect must be used along with the fixture format
         as value.
         """
+        del fixed_opcode_count
         execute_format = request.param
         assert execute_format in BaseExecute.formats.values()
         assert issubclass(execute_format, BaseExecute)
@@ -638,8 +692,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 )
                 if max_gas_limit_per_test is not None:
                     assert gas_consumption <= max_gas_limit_per_test, (
-                        f"Test gas consumption ({gas_consumption}) exceeds the gas limit allowed "
-                        f"per test({max_gas_limit_per_test})."
+                        f"Test gas consumption ({gas_consumption}) exceeds "
+                        f"the gas limit allowed per test"
+                        f"({max_gas_limit_per_test})."
                     )
 
                 gas_limit_accumulator.add(
@@ -649,29 +704,29 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 )
 
                 if dry_run:
-                    logger.info(
-                        f"Minimum balance required: {minimum_balance / 10**18:.18f}"
-                    )
+                    min_eth = minimum_balance / 10**18
+                    logger.info(f"Minimum balance required: {min_eth:.18f}")
                     logger.info(f"Gas consumption: {gas_consumption}")
                     return
 
                 # send the funds to the required sender accounts
                 pre.send_pending_transactions()
 
-                # wait for pre-requisite transactions to be included in blocks
-                pre.wait_for_transactions()
                 for (
                     deployed_contract,
                     expected_code,
                 ) in pre._deployed_contracts:
                     actual_code = eth_rpc.get_code(deployed_contract)
                     if actual_code != expected_code:
-                        raise Exception(
-                            f"Deployed test contract didn't match expected code at address "
-                            f"{deployed_contract} (not enough gas_limit?).\n"
+                        msg = (
+                            f"Deployed test contract didn't match expected "
+                            f"code at address {deployed_contract} "
+                            f"(not enough gas_limit?).\n"
                             f"Expected: {expected_code}\n"
                             f"Actual: {actual_code}"
                         )
+                        logger.error(msg)
+                        raise Exception(msg)
                 request.node.config.funded_accounts = ", ".join(
                     [str(eoa) for eoa in pre._funded_eoa]
                 )
@@ -757,7 +812,7 @@ def pytest_collection_modifyitems(
             elif marker.name == "valid_at_transition_to":
                 items_for_removal.append(i)
                 continue
-            elif marker.name == "pre_alloc_modify":
+            elif marker.name == "pre_alloc_mutable":
                 item.add_marker(
                     pytest.mark.skip(
                         reason="Pre-alloc modification not supported"

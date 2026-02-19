@@ -1,4 +1,4 @@
-"""test account touch behavior."""
+"""Test account touch behavior."""
 
 import pytest
 from execution_testing import (

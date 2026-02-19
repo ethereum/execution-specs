@@ -15,6 +15,7 @@ from execution_testing.specs import BaseTest
 from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Alloc, ChainConfig
 
+from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 ALL_FIXTURE_PARAMETERS = {
@@ -39,7 +40,7 @@ def pytest_configure(config: pytest.Config) -> None:
     Pytest hook called after command line options have been parsed and before
     test collection begins.
 
-    Couple of notes:
+    A couple of notes:
     1. Register the plugin's custom markers and process command-line options.
 
        Custom marker registration:
@@ -53,12 +54,9 @@ def pytest_configure(config: pytest.Config) -> None:
         "execution_testing.cli.pytest_commands.plugins.filler.filler"
     ):
         for fixture_format in BaseFixture.formats.values():
-            config.addinivalue_line(
-                "markers",
-                (
-                    f"{fixture_format.format_name.lower()}: {fixture_format.description}"
-                ),
-            )
+            name = fixture_format.format_name.lower()
+            desc = fixture_format.description
+            config.addinivalue_line("markers", f"{name}: {desc}")
         for (
             label,
             labeled_fixture_format,
@@ -71,12 +69,9 @@ def pytest_configure(config: pytest.Config) -> None:
         "execution_testing.cli.pytest_commands.plugins.execute.execute"
     ):
         for execute_format in BaseExecute.formats.values():
-            config.addinivalue_line(
-                "markers",
-                (
-                    f"{execute_format.format_name.lower()}: {execute_format.description}"
-                ),
-            )
+            name = execute_format.format_name.lower()
+            desc = execute_format.description
+            config.addinivalue_line("markers", f"{name}: {desc}")
         for (
             label,
             labeled_execute_format,
@@ -104,7 +99,8 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "compile_yul_with(fork): Always compile Yul source using the corresponding evm version.",
+        "compile_yul_with(fork): Always compile Yul source using the "
+        "corresponding evm version.",
     )
     config.addinivalue_line(
         "markers",
@@ -124,44 +120,43 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "exception_test: Negative tests that include an invalid block or transaction.",
+        "exception_test: Negative tests that include an invalid block or "
+        "transaction.",
     )
     config.addinivalue_line(
         "markers",
-        "eip_checklist(item_id, eip=None): Mark a test as implementing a specific checklist item. "
-        "The first positional parameter is the checklist item ID. "
-        "The optional 'eip' keyword parameter specifies additional EIPs covered by the test.",
+        "eip_checklist(item_id, eip=None): Mark a test as implementing a "
+        "specific checklist item. The first positional parameter is the "
+        "checklist item ID. The optional 'eip' keyword parameter specifies "
+        "additional EIPs covered by the test.",
     )
     config.addinivalue_line(
         "markers",
-        "derived_test: Mark a test as a derived test (E.g. a BlockchainTest that is derived "
-        "from a StateTest).",
+        "derived_test: Mark a test as a derived test (E.g. a BlockchainTest "
+        "that is derived from a StateTest).",
     )
     config.addinivalue_line(
         "markers",
-        "tagged: Marks a static test as tagged. Tags are used to generate dynamic "
-        "addresses for static tests at fill time. All tagged tests are compatible with "
-        "dynamic address generation.",
+        "tagged: Marks a static test as tagged. Tags are used to generate "
+        "dynamic addresses for static tests at fill time. All tagged tests "
+        "are compatible with dynamic address generation.",
     )
     config.addinivalue_line(
         "markers",
-        "untagged: Marks a static test as untagged. Tags are used to generate dynamic "
-        "addresses for static tests at fill time. Untagged tests are incompatible with "
-        "dynamic address generation.",
+        "untagged: Marks a static test as untagged. Tags are used to generate "
+        "dynamic addresses for static tests at fill time. Untagged tests are "
+        "incompatible with dynamic address generation.",
     )
     config.addinivalue_line(
         "markers",
-        "verify_sync: Marks a test to be run with `consume sync`, verifying blockchain "
-        "engine tests and having hive clients sync after payload execution.",
+        "verify_sync: Marks a test to be run with `consume sync`, verifying "
+        "blockchain engine tests and having hive clients sync after payload "
+        "execution.",
     )
     config.addinivalue_line(
         "markers",
         "pre_alloc_group: Control shared pre-allocation grouping (use "
         '"separate" for isolated group or custom string for named groups)',
-    )
-    config.addinivalue_line(
-        "markers",
-        "pre_alloc_modify: Marks a test to apply plugin-specific pre_alloc_group modifiers",
     )
     config.addinivalue_line(
         "markers",
@@ -177,7 +172,17 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "mainnet: Specialty tests crafted for running on mainnet and sanity checking.",
+        "mainnet: Specialty tests crafted for running on mainnet and sanity "
+        "checking.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "fully_tagged: Marks a static test as fully tagged with all metadata.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "pre_alloc_mutable: Marks a test to allow impossible mutations in the "
+        "pre-state.",
     )
 
 
@@ -187,7 +192,10 @@ def test_case_description(request: pytest.FixtureRequest) -> str:
     Fixture to extract and combine docstrings from the test class and the test
     function.
     """
-    description_unavailable = "No description available - add a docstring to the python test class or function."
+    description_unavailable = (
+        "No description available - add a docstring to the python test "
+        "class or function."
+    )
     test_class_doc = ""
     test_function_doc = ""
     if hasattr(request.node, "cls"):
@@ -237,7 +245,8 @@ def pytest_runtest_call(item: pytest.Item) -> None:
         and "blockchain_test" in item.fixturenames
     ):
         raise InvalidFillerError(
-            "A filler should only implement either a state test or a blockchain test; not both."
+            "A filler should only implement either a state test or a "
+            "blockchain test; not both."
         )
 
     # Check that the test defines either test type as parameter.
@@ -260,6 +269,30 @@ def sender(pre: Alloc) -> EOA:
 def chain_config() -> ChainConfig:
     """Return chain configuration."""
     return ChainConfig()
+
+
+@pytest.fixture(scope="function")
+def alloc_flags_from_test_markers(
+    request: pytest.FixtureRequest,
+) -> AllocFlags:
+    """Return allocation mode for a given test based on its markers."""
+    flags = AllocFlags.NONE
+    if request.node.get_closest_marker("pre_alloc_mutable"):
+        flags |= AllocFlags.MUTABLE
+    return flags
+
+
+@pytest.fixture(scope="function")
+def alloc_flags(
+    alloc_flags_from_test_markers: AllocFlags,
+) -> AllocFlags:
+    """
+    Return allocation mode for the test.
+
+    By default, this is based on markers tests only, but plugins can
+    override this behavior.
+    """
+    return alloc_flags_from_test_markers
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

@@ -188,7 +188,10 @@ def selfdestruct_code(
     ],
     indirect=["sendall_recipient_addresses"],
 )
-@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
+@pytest.mark.parametrize(
+    "selfdestruct_contract_initial_balance",
+    [0, 100_000],
+)
 @pytest.mark.valid_from("Shanghai")
 def test_create_selfdestruct_same_tx(
     state_test: StateTestFiller,
@@ -358,7 +361,10 @@ def test_create_selfdestruct_same_tx(
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
 @pytest.mark.parametrize("call_times", [0, 1])
-@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
+@pytest.mark.parametrize(
+    "selfdestruct_contract_initial_balance",
+    [0, 100_000],
+)
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode(
     state_test: StateTestFiller,
@@ -487,7 +493,10 @@ def test_self_destructing_initcode(
 
 
 @pytest.mark.parametrize("tx_value", [0, 100_000])
-@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
+@pytest.mark.parametrize(
+    "selfdestruct_contract_initial_balance",
+    [0, 100_000],
+)
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode_create_tx(
     state_test: StateTestFiller,
@@ -515,9 +524,11 @@ def test_self_destructing_initcode_create_tx(
         gas_limit=500_000,
     )
     selfdestruct_contract_address = tx.created_contract
-    pre.fund_address(
-        selfdestruct_contract_address, selfdestruct_contract_initial_balance
-    )
+    if selfdestruct_contract_initial_balance > 0:
+        pre.fund_address(
+            selfdestruct_contract_address,
+            selfdestruct_contract_initial_balance,
+        )
 
     # Our entry point is an initcode that in turn creates a self-destructing
     # contract
@@ -549,7 +560,10 @@ def test_self_destructing_initcode_create_tx(
     ],
     indirect=["sendall_recipient_addresses"],
 )
-@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
+@pytest.mark.parametrize(
+    "selfdestruct_contract_initial_balance",
+    [0, 100_000],
+)
 @pytest.mark.parametrize("recreate_times", [1])
 @pytest.mark.parametrize("call_times", [1])
 @pytest.mark.valid_from("Shanghai")
@@ -626,9 +640,11 @@ def test_recreate_self_destructed_contract_different_txs(
         initcode=selfdestruct_contract_initcode,
         opcode=create_opcode,
     )
-    pre.fund_address(
-        selfdestruct_contract_address, selfdestruct_contract_initial_balance
-    )
+    if selfdestruct_contract_initial_balance > 0:
+        pre.fund_address(
+            selfdestruct_contract_address,
+            selfdestruct_contract_initial_balance,
+        )
     for i in range(len(sendall_recipient_addresses)):
         if sendall_recipient_addresses[i] == SELF_ADDRESS:
             sendall_recipient_addresses[i] = selfdestruct_contract_address
@@ -998,9 +1014,11 @@ def test_calling_from_new_contract_to_pre_existing_contract(
         address=entry_code_address, nonce=1
     )
 
-    pre.fund_address(
-        selfdestruct_contract_address, selfdestruct_contract_initial_balance
-    )
+    if selfdestruct_contract_initial_balance > 0:
+        pre.fund_address(
+            selfdestruct_contract_address,
+            selfdestruct_contract_initial_balance,
+        )
 
     # self-destructing call
     selfdestruct_code = call_opcode(address=pre_existing_selfdestruct_address)

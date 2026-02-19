@@ -102,17 +102,17 @@ cp -r /path/to/your/go-ethereum ./clients/go-ethereum/go-ethereum-local
 Force rebuild base images:
 
 ```bash
-./hive --docker.pull --sim ethereum/eest/consume-engine
+./hive --docker.pull --sim ethereum/eels/consume-engine
 ```
 
 Force rebuild specific client:
 
 ```bash
-./hive --docker.nocache "clients/go-ethereum" --sim ethereum/eest/consume-engine
+./hive --docker.nocache "clients/go-ethereum" --sim ethereum/eels/consume-engine
 ```
 
 Show the docker container build output:
 
 ```bash
-./hive --docker.buildoutput --sim ethereum/eest/consume-engine
+./hive --docker.buildoutput --sim ethereum/eels/consume-engine
 ```

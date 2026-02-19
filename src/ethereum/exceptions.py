@@ -18,7 +18,7 @@ class InvalidBlock(EthereumException):
 
 class StateWithEmptyAccount(EthereumException):
     """
-    Thrown when the state has empty account.
+    Thrown when the state has an empty account.
     """
 
 

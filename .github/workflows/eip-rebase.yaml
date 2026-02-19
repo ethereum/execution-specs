@@ -1,0 +1,39 @@
+name: EIP Rebase Onto Fork Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      fork:
+        description: 'Fork name (e.g., amsterdam)'
+        required: true
+        type: string
+      eip_number:
+        description: 'EIP number'
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.fork }}-${{ github.event.inputs.eip_number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  rebase-eip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
+
+      - name: Rebase EIP branch onto fork
+        uses: ./.github/actions/rebase-eip-branch
+        with:
+          fork: ${{ github.event.inputs.fork }}
+          eip_number: ${{ github.event.inputs.eip_number }}

@@ -31,9 +31,7 @@ REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
 @pytest.mark.parametrize(
     "create2_dest_already_in_state",
     (
-        pytest.param(
-            True, marks=pytest.mark.execute(pytest.mark.skip("Modifies pre"))
-        ),
+        pytest.param(True, marks=pytest.mark.pre_alloc_mutable),
         False,
     ),
 )
@@ -263,9 +261,7 @@ def test_dynamic_create2_selfdestruct_collision(
 @pytest.mark.parametrize(
     "create2_dest_already_in_state",
     (
-        pytest.param(
-            True, marks=pytest.mark.execute(pytest.mark.skip("Modifies pre"))
-        ),
+        pytest.param(True, marks=pytest.mark.pre_alloc_mutable),
         False,
     ),
 )

@@ -59,14 +59,14 @@ def call_type() -> Op:
 
 
 @pytest.fixture
-def call_gas() -> int:
+def call_gas(fork: Fork) -> int:
     """
     Amount of gas to pass to the precompile.
 
-    Defaults to POINT_EVALUATION_PRECOMPILE_GAS, but can be parametrized to
-    test different amounts.
+    Defaults to the point evaluation precompile gas cost, but can be
+    parametrized to test different amounts.
     """
-    return Spec.POINT_EVALUATION_PRECOMPILE_GAS
+    return fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
 
 
 def copy_opcode_cost(fork: Fork, length: int) -> int:
@@ -149,6 +149,7 @@ def tx(
     pre: Alloc,
     precompile_caller_address: Address,
     precompile_input: bytes,
+    fork: Fork,
 ) -> Transaction:
     """Prepare transaction used to call the precompile caller account."""
     return Transaction(
@@ -156,7 +157,7 @@ def tx(
         data=precompile_input,
         to=precompile_caller_address,
         value=0,
-        gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 20,
+        gas_limit=fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION * 20,
     )
 
 
@@ -165,16 +166,16 @@ def post(
     precompile_caller_address: Address,
     proof: Literal["correct", "incorrect"],
     call_gas: int,
+    fork: Fork,
 ) -> Dict:
     """
     Prepare expected post for each test, depending on the success or failure of
     the precompile call and the gas usage.
     """
+    precompile_gas = fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
     if proof == "correct":
         expected_gas_usage = (
-            call_gas
-            if call_gas < Spec.POINT_EVALUATION_PRECOMPILE_GAS
-            else Spec.POINT_EVALUATION_PRECOMPILE_GAS
+            call_gas if call_gas < precompile_gas else precompile_gas
         )
     else:
         expected_gas_usage = call_gas

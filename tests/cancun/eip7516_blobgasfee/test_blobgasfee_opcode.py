@@ -15,6 +15,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
@@ -23,8 +24,6 @@ from execution_testing import (
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7516.md"
 REFERENCE_SPEC_VERSION = "dcd2f4ede58a6ed908acd3cc2c198e9f605cbf3b"
-
-BLOBBASEFEE_GAS = 2
 
 
 @pytest.fixture
@@ -127,22 +126,39 @@ def test_blobbasefee_stack_overflow(
 
 
 @pytest.mark.parametrize(
-    "call_gas,call_fails",
+    "call_fails",
     [
-        pytest.param(BLOBBASEFEE_GAS, False, id="enough_gas"),
-        pytest.param(BLOBBASEFEE_GAS - 1, True, id="out_of_gas"),
+        pytest.param(False, id="enough_gas"),
+        pytest.param(True, id="out_of_gas"),
     ],
 )
 @pytest.mark.valid_from("Cancun")
 def test_blobbasefee_out_of_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    caller_address: Address,
-    callee_address: Address,
-    tx: Transaction,
+    fork: Fork,
     call_fails: bool,
 ) -> None:
     """Tests that the BLOBBASEFEE opcode fails with insufficient gas."""
+    blobbasefee_gas = Op.BLOBBASEFEE.gas_cost(fork)
+    call_gas = blobbasefee_gas - 1 if call_fails else blobbasefee_gas
+
+    callee_code = Op.BLOBBASEFEE + Op.STOP
+    callee_address = pre.deploy_contract(callee_code)
+
+    caller_code = Op.SSTORE(
+        Op.SELFBALANCE,
+        Op.CALL(gas=call_gas, address=callee_address),
+    )
+    caller_address = pre.deploy_contract(caller_code)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+        to=caller_address,
+        value=1,
+    )
+
     post = {
         caller_address: Account(
             storage={1: 0 if call_fails else 1},

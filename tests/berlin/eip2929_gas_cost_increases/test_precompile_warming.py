@@ -103,7 +103,7 @@ def test_precompile_warming(
     pre: Alloc,
 ) -> None:
     """
-    Call BALANCE of a precompile addresses before and after a fork.
+    Call BALANCE of precompile addresses before and after a fork.
 
     According to EIP-2929, when a transaction begins, accessed_addresses is
     initialized to include:
@@ -161,14 +161,12 @@ def test_precompile_warming(
     successor = get_transition_fork_successor(fork)
 
     def get_expected_gas(precompile_present: bool, fork: Fork) -> int:
-        gas_costs = fork.gas_costs()
-        warm_access_cost = gas_costs.G_WARM_ACCOUNT_ACCESS
-        cold_access_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
-        extra_cost = gas_costs.G_BASE * 2 + gas_costs.G_VERY_LOW
-        if precompile_present:
-            return warm_access_cost + extra_cost
-        else:
-            return cold_access_cost + extra_cost
+        balance_cost = Op.BALANCE(address_warm=precompile_present).gas_cost(
+            fork
+        )
+        # Overhead: GAS + POP + SUB
+        overhead_cost = (Op.GAS + Op.POP + Op.SUB).gas_cost(fork)
+        return balance_cost + overhead_cost
 
     expected_gas_before = get_expected_gas(
         precompile_in_predecessor, predecessor

@@ -9,8 +9,6 @@ from functools import cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import pytest
-
 from execution_testing.exceptions import (
     BlockException,
     ExceptionMapper,
@@ -18,7 +16,6 @@ from execution_testing.exceptions import (
 )
 from execution_testing.fixtures import (
     BlockchainFixture,
-    EOFFixture,
     FixtureFormat,
     StateFixture,
 )
@@ -105,22 +102,11 @@ class Nethtest(EthereumCLI):
         help_command.append("--help")
         return self._run_command(help_command).stdout
 
-    @cache  # noqa
-    def has_eof_support(self) -> bool:
-        """
-        Return True if the `nethtest` binary supports the `--eofTest` flag.
-
-        Currently, nethtest EOF support is only available in nethermind's
-        feature/evm/eof branch
-        https://github.com/NethermindEth/nethermind/tree/feature/evm/eof
-        """
-        return "--eofTest" in self.help()
-
 
 class NethtestFixtureConsumer(
     Nethtest,
     FixtureConsumerTool,
-    fixture_formats=[StateFixture, BlockchainFixture, EOFFixture],
+    fixture_formats=[StateFixture, BlockchainFixture],
 ):
     """Nethermind implementation of the fixture consumer."""
 
@@ -143,11 +129,10 @@ class NethtestFixtureConsumer(
             # TODO: consider using `--filter` here to readily access traces
             # from the output
             pass  # no additional options needed
-        elif fixture_format is EOFFixture:
-            command += ["--eofTest"]
         else:
             raise Exception(
-                f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
+                f"Fixture format {fixture_format.format_name} "
+                f"not supported by {self.binary}"
             )
         command += ["--input", str(fixture_path)]
         if debug_output_path:
@@ -179,14 +164,16 @@ class NethtestFixtureConsumer(
 
         if result.returncode != 0:
             raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
+                f"Unexpected exit code:\n{' '.join(command)}\n\n"
+                f"Error:\n{result.stderr}"
             )
 
         try:
             result_json = json.loads(result.stdout)
         except json.JSONDecodeError as e:
             raise Exception(
-                f"Failed to parse JSON output on stdout from nethtest:\n{result.stdout}"
+                f"Failed to parse JSON output on stdout from nethtest:\n"
+                f"{result.stdout}"
             ) from e
 
         if not isinstance(result_json, list):
@@ -206,7 +193,7 @@ class NethtestFixtureConsumer(
         Consume a single state test.
 
         Uses the cached result from `consume_state_test_file` in order to not
-        call the command every time an select a single result from there.
+        call the command every time and select a single result from there.
         """
         file_results, stderr = self.consume_state_test_file(
             fixture_path=fixture_path,
@@ -221,8 +208,8 @@ class NethtestFixtureConsumer(
                 test_result["name"].endswith(nethtest_suffix)
                 for test_result in file_results
             ), (
-                "consume direct with nethtest doesn't support the multi-data statetest format "
-                "used in ethereum/tests (yet)"
+                "consume direct with nethtest doesn't support the "
+                "multi-data statetest format used in ethereum/tests (yet)"
             )
             test_result = [
                 test_result
@@ -237,7 +224,8 @@ class NethtestFixtureConsumer(
                 f"Test result for {fixture_name} missing"
             )
             assert test_result[0]["pass"], (
-                f"State test '{fixture_name}' failed, available stderr:\n {stderr}"
+                f"State test '{fixture_name}' failed, "
+                f"available stderr:\n {stderr}"
             )
         else:
             if any(not test_result["pass"] for test_result in file_results):
@@ -267,74 +255,12 @@ class NethtestFixtureConsumer(
 
         if result.returncode != 0:
             raise Exception(
-                f"nethtest exited with non-zero exit code ({result.returncode}).\n"
+                f"nethtest exited with non-zero exit code "
+                f"({result.returncode}).\n"
                 f"stdout:\n{result.stdout}\n"
                 f"stderr:\n{result.stderr}\n"
                 f"{' '.join(command)}"
             )
-
-    @cache  # noqa
-    def consume_eof_test_file(
-        self,
-        fixture_path: Path,
-        command: Tuple[str, ...],
-        debug_output_path: Optional[Path] = None,
-    ) -> Tuple[Dict[Any, Any], str, str]:
-        """Consume an entire EOF fixture file."""
-        del fixture_path
-        result = subprocess.run(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-
-        pattern = re.compile(r"^(test_.+?)\s+(PASS|FAIL)$", re.MULTILINE)
-        test_results = {
-            match.group(1): match.group(2) == "PASS"  # Convert "PASS" to True
-            # and "FAIL" to False
-            for match in pattern.finditer(result.stdout)
-        }
-
-        if debug_output_path:
-            self._consume_debug_dump(command, result, debug_output_path)
-
-        if result.returncode != 0:
-            raise Exception(
-                f"Unexpected exit code:\n{' '.join(command)}\n\n Error:\n{result.stderr}"
-            )
-
-        return test_results, result.stdout, result.stderr
-
-    def consume_eof_test(
-        self,
-        command: Tuple[str, ...],
-        fixture_path: Path,
-        fixture_name: Optional[str],
-        debug_output_path: Optional[Path],
-    ) -> None:
-        """Execute the the EOF fixture at `fixture_path` via `nethtest`."""
-        if not self.has_eof_support():
-            pytest.skip(
-                "This version of nethtest does not support the `--eofTest` flag."
-            )
-        file_results, stdout, stderr = self.consume_eof_test_file(
-            fixture_path=fixture_path,
-            command=command,
-            debug_output_path=debug_output_path,
-        )
-        assert fixture_name, "fixture_name is required for EOF tests"
-        modified_fixture_name = fixture_name.split("::")[-1].replace(
-            "\\x", "/x"
-        )
-        assert modified_fixture_name in file_results, (
-            f"Test result for {fixture_name} missing, available stdout:\n{stdout}.\n"
-            f"Parsed test results: {file_results}"
-        )
-        if stderr:
-            available_stderr = f"Available stderr:\n{stderr}"
-        else:
-            available_stderr = "(No output available.)"
-        assert file_results[modified_fixture_name], (
-            f"EOF test '{fixture_name}' failed. {available_stderr}"
-        )
 
     def consume_fixture(
         self,
@@ -364,16 +290,10 @@ class NethtestFixtureConsumer(
                 fixture_name=fixture_name,
                 debug_output_path=debug_output_path,
             )
-        elif fixture_format == EOFFixture:
-            self.consume_eof_test(
-                command=command,
-                fixture_path=fixture_path,
-                fixture_name=fixture_name,
-                debug_output_path=debug_output_path,
-            )
         else:
             raise Exception(
-                f"Fixture format {fixture_format.format_name} not supported by {self.binary}"
+                f"Fixture format {fixture_format.format_name} "
+                f"not supported by {self.binary}"
             )
 
 
@@ -383,15 +303,28 @@ class NethermindExceptionMapper(ExceptionMapper):
     mapping_substring = {
         TransactionException.SENDER_NOT_EOA: "sender has deployed code",
         TransactionException.INTRINSIC_GAS_TOO_LOW: "intrinsic gas too low",
-        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: "intrinsic gas too low",
-        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: "miner premium is negative",
+        TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
+            "intrinsic gas too low"
+        ),
+        TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS: (
+            "miner premium is negative"
+        ),
         TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS: (
             "InvalidMaxPriorityFeePerGas: Cannot be higher than maxFeePerGas"
         ),
-        TransactionException.GAS_ALLOWANCE_EXCEEDED: "Block gas limit exceeded",
+        TransactionException.GAS_ALLOWANCE_EXCEEDED: (
+            "Block gas limit exceeded"
+        ),
         TransactionException.NONCE_IS_MAX: "NonceTooHigh",
-        TransactionException.INITCODE_SIZE_EXCEEDED: "max initcode size exceeded",
-        TransactionException.NONCE_MISMATCH_TOO_LOW: "wrong transaction nonce",
+        TransactionException.INITCODE_SIZE_EXCEEDED: (
+            "max initcode size exceeded"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_LOW: (
+            "transaction nonce is too low"
+        ),
+        TransactionException.NONCE_MISMATCH_TOO_HIGH: (
+            "transaction nonce is too high"
+        ),
         TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS: (
             "InsufficientMaxFeePerBlobGas: Not enough to cover blob gas fee"
         ),
@@ -404,11 +337,15 @@ class NethermindExceptionMapper(ExceptionMapper):
         TransactionException.TYPE_3_TX_PRE_FORK: (
             "InvalidTxType: Transaction type in Custom is not supported"
         ),
-        TransactionException.TYPE_3_TX_ZERO_BLOBS: "blob transaction missing blob hashes",
+        TransactionException.TYPE_3_TX_ZERO_BLOBS: (
+            "blob transaction must have at least 1 blob"
+        ),
         TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH: (
             "InvalidBlobVersionedHashVersion: Blob version not supported"
         ),
-        TransactionException.TYPE_3_TX_CONTRACT_CREATION: "blob transaction of type create",
+        TransactionException.TYPE_3_TX_CONTRACT_CREATION: (
+            "blob transaction of type create"
+        ),
         TransactionException.TYPE_4_EMPTY_AUTHORIZATION_LIST: (
             "MissingAuthorizationList: Must be set"
         ),
@@ -419,9 +356,12 @@ class NethermindExceptionMapper(ExceptionMapper):
             "InvalidTxType: Transaction type in Custom is not supported"
         ),
         BlockException.INCORRECT_BLOB_GAS_USED: (
-            "HeaderBlobGasMismatch: Blob gas in header does not match calculated"
+            "HeaderBlobGasMismatch: "
+            "Blob gas in header does not match calculated"
         ),
-        BlockException.INVALID_REQUESTS: "InvalidRequestsHash: Requests hash mismatch in block",
+        BlockException.INVALID_REQUESTS: (
+            "InvalidRequestsHash: Requests hash mismatch in block"
+        ),
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             "ExceededGasLimit: Gas used exceeds gas limit."
         ),
@@ -431,23 +371,44 @@ class NethermindExceptionMapper(ExceptionMapper):
         BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
             "DepositsInvalid: Invalid deposit event layout:"
         ),
-        BlockException.INVALID_BASEFEE_PER_GAS: "InvalidBaseFeePerGas: Does not match calculated",
-        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: "InvalidTimestamp: Timestamp in header cannot be lower than ancestor",
-        BlockException.INVALID_BLOCK_NUMBER: "InvalidBlockNumber: Block number does not match the parent",
-        BlockException.EXTRA_DATA_TOO_BIG: "InvalidExtraData: Extra data in header is not valid",
-        BlockException.INVALID_GASLIMIT: "InvalidGasLimit: Gas limit is not correct",
-        BlockException.INVALID_RECEIPTS_ROOT: "InvalidReceiptsRoot: Receipts root in header does not match",
-        BlockException.INVALID_LOG_BLOOM: "InvalidLogsBloom: Logs bloom in header does not match",
-        BlockException.INVALID_STATE_ROOT: "InvalidStateRoot: State root in header does not match",
+        BlockException.INVALID_BASEFEE_PER_GAS: (
+            "InvalidBaseFeePerGas: Does not match calculated"
+        ),
+        BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
+            "InvalidTimestamp: "
+            "Timestamp in header cannot be lower than ancestor"
+        ),
+        BlockException.INVALID_BLOCK_NUMBER: (
+            "InvalidBlockNumber: Block number does not match the parent"
+        ),
+        BlockException.EXTRA_DATA_TOO_BIG: (
+            "InvalidExtraData: Extra data in header is not valid"
+        ),
+        BlockException.INVALID_GASLIMIT: (
+            "InvalidGasLimit: Gas limit is not correct"
+        ),
+        BlockException.INVALID_RECEIPTS_ROOT: (
+            "InvalidReceiptsRoot: Receipts root in header does not match"
+        ),
+        BlockException.INVALID_LOG_BLOOM: (
+            "InvalidLogsBloom: Logs bloom in header does not match"
+        ),
+        BlockException.INVALID_STATE_ROOT: (
+            "InvalidStateRoot: State root in header does not match"
+        ),
+        BlockException.GAS_USED_OVERFLOW: ("Block gas limit exceeded"),
     }
     mapping_regex = {
         TransactionException.INSUFFICIENT_ACCOUNT_FUNDS: (
-            r"insufficient sender balance|insufficient MaxFeePerGas for sender balance"
+            r"insufficient sender balance|"
+            r"insufficient MaxFeePerGas for sender balance"
         ),
-        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: r"Transaction \d+ is not valid",
+        TransactionException.TYPE_3_TX_WITH_FULL_BLOBS: (
+            r"Transaction \d+ is not valid"
+        ),
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (
-            r"BlockBlobGasExceeded: A block cannot have more than \d+ blob gas, blobs count \d+, "
-            r"blobs gas used: \d+"
+            r"BlockBlobGasExceeded: A block cannot have more than "
+            r"\d+ blob gas, blobs count \d+, blobs gas used: \d+"
         ),
         TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED: (
             r"BlobTxGasLimitExceeded: Transaction's totalDataGas=\d+ "
@@ -457,11 +418,12 @@ class NethermindExceptionMapper(ExceptionMapper):
             r"TxGasLimitCapExceeded: Gas limit \d+ \w+ cap of \d+\.?"
         ),
         BlockException.INCORRECT_EXCESS_BLOB_GAS: (
-            r"HeaderExcessBlobGasMismatch: Excess blob gas in header does not match calculated"
-            r"|Overflow in excess blob gas"
+            r"HeaderExcessBlobGasMismatch: Excess blob gas in header "
+            r"does not match calculated|Overflow in excess blob gas"
         ),
         BlockException.INVALID_BLOCK_HASH: (
-            r"Invalid block hash 0x[0-9a-f]+ does not match calculated hash 0x[0-9a-f]+"
+            r"Invalid block hash 0x[0-9a-f]+ does not match "
+            r"calculated hash 0x[0-9a-f]+"
         ),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
             r"(Withdrawals|Consolidations)Empty: Contract is not deployed\."
@@ -471,17 +433,19 @@ class NethermindExceptionMapper(ExceptionMapper):
         ),
         # BAL Exceptions: TODO - review once all clients completed.
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"could not be parsed as a block: Could not decode block access list."
+            r"could not be parsed as a block: "
+            r"Could not decode block access list."
         ),
         BlockException.INVALID_BAL_HASH: (r"InvalidBlockLevelAccessListRoot:"),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             r"InvalidBlockLevelAccessListRoot:"
         ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
-            r"InvalidBlockLevelAccessListRoot:"
-            r"|could not be parsed as a block: Could not decode block access list."
+            r"InvalidBlockLevelAccessListRoot:|could not be parsed as a "
+            r"block: Could not decode block access list."
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
-            r"could not be parsed as a block: Could not decode block access list."
+            r"could not be parsed as a block: "
+            r"Could not decode block access list."
         ),
     }

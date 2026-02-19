@@ -4,24 +4,19 @@ stable:
   fill-params: --until=Prague --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
 
 develop:
-  evm-type: develop 
+  evm-type: develop
   fill-params: --until=BPO4 --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
 
 benchmark:
   evm-type: benchmark
-  fill-params: --fork=Prague --gas-benchmark-values 1,10,30,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
-
-benchmark_develop:
-  evm-type: benchmark
-  fill-params: --fork=Osaka --gas-benchmark-values 1,10,30,60,100,150 -m "benchmark and not state_test" ./tests/benchmark
-  feature_only: true
+  fill-params: --fork=Osaka --gas-benchmark-values 1,5,10,30,60,100,150 -m benchmark ./tests/benchmark --maxprocesses=30 --dist=worksteal
 
 benchmark_fast:
   evm-type: benchmark
-  fill-params: --fork=Prague --gas-benchmark-values 100 -m "benchmark and not state_test" ./tests/benchmark
+  fill-params: --fork=Osaka --gas-benchmark-values 100 -m "benchmark" ./tests/benchmark
   feature_only: true
 
 bal:
   evm-type: develop
-  fill-params: --fork=Amsterdam ./tests/amsterdam/eip7928_block_level_access_lists
+  fill-params: --fork=Amsterdam --fill-static-tests
   feature_only: true

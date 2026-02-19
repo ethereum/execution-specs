@@ -67,7 +67,7 @@ The Ethereum specification is maintained as a Python library, for better integra
 
 Requires Python 3.11+
 
-### Building Specification Doucumentation
+### Building Specification Documentation
 
 Building the spec documentation is most easily done through [`tox`](https://tox.readthedocs.io/en/latest/):
 

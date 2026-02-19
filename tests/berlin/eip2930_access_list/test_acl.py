@@ -42,15 +42,15 @@ def test_account_storage_warm_cold_state(
 ) -> None:
     """Test type 1 transaction."""
     env = Environment()
-    gas_costs = fork.gas_costs()
 
     storage_reader_contract = pre.deploy_contract(Op.SLOAD(1) + Op.STOP)
+    # Overhead: PUSH args for CALL (popped_stack_items - 1)
+    # + GAS opcode + PUSH for SLOAD
     overhead_cost = (
-        gas_costs.G_VERY_LOW
-        * (Op.CALL.popped_stack_items - 1)  # Call stack items
-        + gas_costs.G_BASE  # Call gas
-        + gas_costs.G_VERY_LOW  # SLOAD Push
-    )
+        Op.PUSH1(0) * (Op.CALL.popped_stack_items - 1)
+        + Op.GAS
+        + Op.PUSH1(0)  # SLOAD push
+    ).gas_cost(fork)
     contract_address = pre.deploy_contract(
         CodeGasMeasure(
             code=Op.CALL(address=storage_reader_contract),
@@ -59,19 +59,16 @@ def test_account_storage_warm_cold_state(
             sstore_key=0,
         )
     )
-    expected_gas_cost = 0
     access_list_address = Address(0)
     access_list_storage_key = Hash(0)
+    # Expected gas: CALL access cost + SLOAD cost
+    expected_gas_cost = Op.CALL(address_warm=account_warm).gas_cost(
+        fork
+    ) + Op.SLOAD(key_warm=storage_key_warm).gas_cost(fork)
     if account_warm:
-        expected_gas_cost += gas_costs.G_WARM_ACCOUNT_ACCESS
         access_list_address = storage_reader_contract
-    else:
-        expected_gas_cost += gas_costs.G_COLD_ACCOUNT_ACCESS
     if storage_key_warm:
-        expected_gas_cost += gas_costs.G_WARM_SLOAD
         access_list_storage_key = Hash(1)
-    else:
-        expected_gas_cost += gas_costs.G_COLD_SLOAD
 
     access_lists: List[AccessList] = [
         AccessList(
@@ -233,7 +230,6 @@ def test_transaction_intrinsic_gas_cost(
     )
     sender = pre.fund_eoa()
     tx_value = 1
-    pre.fund_address(sender, tx_value)
 
     contract_creation = False
     tx_data = b""
@@ -289,12 +285,13 @@ def test_repeated_address_acl(
     of each access in order to make debugging easier.
     """
     sender = pre.fund_eoa()
-    gsc = fork.gas_costs()
+
+    # Cost of pushing SLOAD args
+    sload_push_cost = (Op.PUSH1(0) * len(Op.SLOAD.kwargs)).gas_cost(fork)
 
     sload0_measure = CodeGasMeasure(
         code=Op.SLOAD(0),
-        overhead_cost=gsc.G_VERY_LOW
-        * len(Op.SLOAD.kwargs),  # Cost of pushing SLOAD args
+        overhead_cost=sload_push_cost,
         extra_stack_items=1,  # SLOAD pushes 1 item to the stack
         sstore_key=0,
         stop=False,  # Because it's the first CodeGasMeasure
@@ -302,8 +299,7 @@ def test_repeated_address_acl(
 
     sload1_measure = CodeGasMeasure(
         code=Op.SLOAD(1),
-        overhead_cost=gsc.G_VERY_LOW
-        * len(Op.SLOAD.kwargs),  # Cost of pushing SLOAD args
+        overhead_cost=sload_push_cost,
         extra_stack_items=1,  # SLOAD pushes 1 item to the stack
         sstore_key=1,
     )
@@ -327,7 +323,7 @@ def test_repeated_address_acl(
         ],
     )
 
-    sload_cost = gsc.G_WARM_ACCOUNT_ACCESS
+    sload_cost = Op.SLOAD(key_warm=True).gas_cost(fork)
 
     state_test(
         env=Environment(),

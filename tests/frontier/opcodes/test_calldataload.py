@@ -1,4 +1,4 @@
-"""test `CALLDATALOAD` opcode."""
+"""Test `CALLDATALOAD` opcode."""
 
 import pytest
 from execution_testing import (
@@ -10,7 +10,6 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing import Macros as Om
-from execution_testing.forks import Byzantium
 
 
 @pytest.mark.ported_from(
@@ -92,7 +91,7 @@ def test_calldataload(
         tx = Transaction(
             data=calldata,
             gas_limit=100_000,
-            protected=fork >= Byzantium,
+            protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=to,
         )
@@ -101,7 +100,7 @@ def test_calldataload(
         tx = Transaction(
             data=calldata,
             gas_limit=100_000,
-            protected=fork >= Byzantium,
+            protected=fork.supports_protected_txs(),
             sender=pre.fund_eoa(),
             to=contract_address,
         )

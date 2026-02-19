@@ -22,17 +22,29 @@ from execution_testing.test_types.transaction_types import (
 )
 
 from .base import BaseFixture
-from .common import FixtureAuthorizationTuple, FixtureBlobSchedule
+from .common import (
+    FixtureAuthorizationTuple,
+    FixtureBlobSchedule,
+    FixtureTransactionReceipt,
+)
 
 
 class FixtureEnvironment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     """Type used to describe the environment of a state test."""
+
+    # Allow extra fields: FixtureEnvironment is constructed from Environment
+    # via model_dump(), which includes many fields not in EnvironmentGeneric.
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     prev_randao: Hash | None = Field(None, alias="currentRandom")  # type: ignore
 
 
 class FixtureTransaction(TransactionFixtureConverter):
     """Type used to describe a transaction in a state test."""
+
+    # Allow extra fields: FixtureTransaction is constructed from Transaction
+    # via model_dump(), which includes many fields not in this model.
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     nonce: ZeroPaddedHexNumber
     gas_price: ZeroPaddedHexNumber | None = None
@@ -81,6 +93,7 @@ class FixtureForkPost(CamelModel):
 
     state_root: Hash = Field(..., alias="hash")
     logs_hash: Hash = Field(..., alias="logs")
+    receipt: FixtureTransactionReceipt | None = None
     tx_bytes: Bytes = Field(..., alias="txbytes")
     indexes: FixtureForkPostIndexes = Field(
         default_factory=FixtureForkPostIndexes

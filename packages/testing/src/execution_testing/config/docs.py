@@ -11,10 +11,10 @@ from pydantic import BaseModel
 class DocsConfig(BaseModel):
     """A class for accessing documentation-related configurations."""
 
-    TARGET_FORK: str = "Osaka"
+    TARGET_FORK: str = "Amsterdam"
     """The target fork for the documentation."""
 
-    GENERATE_UNTIL_FORK: str = "Osaka"
+    GENERATE_UNTIL_FORK: str = "Amsterdam"
     """The fork until which documentation should be generated."""
 
     DOCS_BASE_URL: str = "https://eest.ethereum.org"

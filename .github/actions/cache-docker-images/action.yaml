@@ -1,0 +1,51 @@
+name: Cache Docker Images
+description: Cache Docker images to avoid Docker Hub rate limits
+
+inputs:
+  images:
+    description: "Space-separated list of Docker images to cache"
+    required: true
+    default: "docker.io/ethereum/client-go:latest docker.io/alpine:latest docker.io/library/golang:1-alpine"
+  cache-key-prefix:
+    description: "Prefix for the cache key"
+    required: false
+    default: "docker-images"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get week number
+      id: week
+      shell: bash
+      run: echo "num=$(date +%U)" >> $GITHUB_OUTPUT
+
+    - name: Restore Docker image cache
+      id: cache-restore
+      uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: /tmp/docker-images
+        key: ${{ inputs.cache-key-prefix }}-week${{ steps.week.outputs.num }}-${{ hashFiles('.github/actions/cache-docker-images/action.yaml', 'execution-specs/.github/actions/cache-docker-images/action.yaml') }}
+
+    - name: Pull and save Docker images
+      shell: bash
+      run: |
+        mkdir -p /tmp/docker-images
+        for image in ${{ inputs.images }}; do
+          # Create a safe filename from image name
+          filename=$(echo "$image" | sed 's/[\/:]/-/g').tar.gz
+          if [ ! -f "/tmp/docker-images/$filename" ]; then
+            echo "Pulling $image..."
+            docker pull "$image"
+            echo "Saving $image to /tmp/docker-images/$filename..."
+            docker save "$image" | gzip > "/tmp/docker-images/$filename"
+          else
+            echo "Cache hit for $image, skipping pull"
+          fi
+        done
+
+    - name: Save Docker image cache 
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+      with:
+        path: /tmp/docker-images
+        key: ${{ inputs.cache-key-prefix }}-week${{ steps.week.outputs.num }}-${{ hashFiles('.github/actions/cache-docker-images/action.yaml', 'execution-specs/.github/actions/cache-docker-images/action.yaml') }}

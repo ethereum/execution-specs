@@ -24,7 +24,7 @@ from execution_testing import (
     Op,
 )
 
-from tests.benchmark.compute.helpers import (
+from ..helpers import (
     ReturnDataStyle,
 )
 
@@ -43,25 +43,34 @@ def test_call_frame_context_ops(
 ) -> None:
     """Benchmark call zero-parameter instructions."""
     benchmark_test(
+        target_opcode=opcode,
         code_generator=ExtCallGenerator(attack_block=opcode),
     )
 
 
-@pytest.mark.repricing(calldata_length=1_000)
-@pytest.mark.parametrize("calldata_length", [0, 1_000, 10_000])
+@pytest.mark.repricing(zero_data=True)
+@pytest.mark.parametrize("calldata_size", [0, 32, 256, 1024])
+@pytest.mark.parametrize("zero_data", [True, False])
 def test_calldatasize(
-    benchmark_test: BenchmarkTestFiller,
-    calldata_length: int,
+    benchmark_test: BenchmarkTestFiller, calldata_size: int, zero_data: bool
 ) -> None:
     """Benchmark CALLDATASIZE instruction."""
+    calldata = (
+        b"\x00" * calldata_size
+        if zero_data
+        else Bytes([i % 256 for i in range(calldata_size)])
+    )
+
     benchmark_test(
+        target_opcode=Op.CALLDATASIZE,
         code_generator=ExtCallGenerator(
             attack_block=Op.CALLDATASIZE,
-            tx_kwargs={"data": b"\x00" * calldata_length},
+            tx_kwargs={"data": calldata},
         ),
     )
 
 
+@pytest.mark.repricing(non_zero_value=True)
 @pytest.mark.parametrize("non_zero_value", [True, False])
 def test_callvalue_from_origin(
     benchmark_test: BenchmarkTestFiller,
@@ -71,6 +80,7 @@ def test_callvalue_from_origin(
     Benchmark CALLVALUE instruction from origin.
     """
     benchmark_test(
+        target_opcode=Op.CALLVALUE,
         code_generator=JumpLoopGenerator(
             attack_block=Op.POP(Op.CALLVALUE),
             tx_kwargs={"value": int(non_zero_value)},
@@ -108,37 +118,31 @@ def test_callvalue_from_call(
     )
 
 
-@pytest.mark.repricing(calldata=b"")
-@pytest.mark.parametrize(
-    "calldata",
-    [
-        pytest.param(b"", id="empty"),
-        pytest.param(b"\x00", id="zero-loop"),
-        pytest.param(b"\x00" * 31 + b"\x20", id="one-loop"),
-    ],
-)
+@pytest.mark.repricing(zero_data=True)
+@pytest.mark.parametrize("calldata_size", [0, 32, 256, 1024])
+@pytest.mark.parametrize("zero_data", [True, False])
 def test_calldataload(
-    benchmark_test: BenchmarkTestFiller,
-    calldata: bytes,
+    benchmark_test: BenchmarkTestFiller, calldata_size: int, zero_data: bool
 ) -> None:
     """Benchmark CALLDATALOAD instruction."""
+    calldata = (
+        b"\x00" * calldata_size
+        if zero_data
+        else Bytes([i % 256 for i in range(calldata_size)])
+    )
     benchmark_test(
+        target_opcode=Op.CALLDATALOAD,
         code_generator=JumpLoopGenerator(
-            setup=Op.PUSH0,
-            attack_block=Op.CALLDATALOAD,
+            attack_block=Op.CALLDATALOAD(Op.PUSH0),
             tx_kwargs={"data": calldata},
         ),
     )
 
 
+@pytest.mark.repricing(fixed_src_dst=True)
 @pytest.mark.parametrize(
-    "size",
-    [
-        pytest.param(0, id="0 bytes"),
-        pytest.param(100, id="100 bytes"),
-        pytest.param(10 * 1024, id="10KiB"),
-        pytest.param(1024 * 1024, id="1MiB"),
-    ],
+    "mem_size",
+    [0, 32, 256, 1024, 10 * 1024, 1024 * 1024],
 )
 @pytest.mark.parametrize(
     "fixed_src_dst",
@@ -148,70 +152,49 @@ def test_calldataload(
     ],
 )
 @pytest.mark.parametrize(
-    "non_zero_data",
-    [
-        True,
-        False,
-    ],
+    "calldata_size",
+    [0, 32, 256, 1024],
 )
 def test_calldatacopy_from_origin(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
-    size: int,
+    mem_size: int,
     fixed_src_dst: bool,
-    non_zero_data: bool,
+    calldata_size: int,
     tx_gas_limit: int,
 ) -> None:
     """Benchmark CALLDATACOPY instruction."""
-    if size == 0 and non_zero_data:
-        pytest.skip("Non-zero data with size 0 is not applicable.")
-
-    # If `non_zero_data` is True, we fill the calldata with deterministic
-    # random data. Note that if `size == 0` and `non_zero_data` is a skipped
-    # case.
-    data = Bytes([i % 256 for i in range(size)]) if non_zero_data else Bytes()
+    # Generate calldata of the specified size with deterministic data.
+    data = Bytes([i % 256 for i in range(calldata_size)])
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     min_gas = intrinsic_gas_calculator(calldata=data)
     if min_gas > tx_gas_limit:
         pytest.skip(
-            "Minimum gas required for calldata ({min_gas}) is greater "
+            f"Minimum gas required for calldata ({min_gas}) is greater "
             "than the gas limit"
         )
 
-    # We create the contract that will be doing the CALLDATACOPY multiple
-    # times.
-    #
-    # If `non_zero_data` is True, we leverage CALLDATASIZE for the copy
-    # length. Otherwise, since we
-    # don't send zero data explicitly via calldata, PUSH the target size and
-    # use DUP1 to copy it.
-    setup = Op.CALLDATASIZE if non_zero_data or size == 0 else Op.PUSH3(size)
+    # Setup pushes the memory size to copy onto the stack.
+    # The attack block uses DUP1 to reuse this value for the copy length.
+    setup = Op.PUSH3(mem_size) if mem_size > 0 else Op.PUSH0
     src_dst = 0 if fixed_src_dst else Op.AND(Op.GAS, 7)
     attack_block = Op.CALLDATACOPY(
         src_dst,
         src_dst,
-        Op.DUP1,
+        Op.CALLDATASIZE,
     )
 
     benchmark_test(
+        target_opcode=Op.CALLDATACOPY,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
             tx_kwargs={"data": data},
-        )
+        ),
     )
 
 
-@pytest.mark.parametrize(
-    "size",
-    [
-        pytest.param(0, id="0 bytes"),
-        pytest.param(100, id="100 bytes"),
-        pytest.param(10 * 1024, id="10KiB"),
-        pytest.param(1024 * 1024, id="1MiB"),
-    ],
-)
 @pytest.mark.parametrize(
     "fixed_src_dst",
     [
@@ -226,22 +209,30 @@ def test_calldatacopy_from_origin(
         False,
     ],
 )
+@pytest.mark.parametrize(
+    "calldata_size",
+    [0, 32, 256, 1024],
+)
 def test_calldatacopy_from_call(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
-    size: int,
+    calldata_size: int,
     fixed_src_dst: bool,
     non_zero_data: bool,
     tx_gas_limit: int,
 ) -> None:
     """Benchmark CALLDATACOPY instruction."""
-    if size == 0 and non_zero_data:
+    if calldata_size == 0 and non_zero_data:
         pytest.skip("Non-zero data with size 0 is not applicable.")
 
     # If `non_zero_data` is True, we fill the calldata with deterministic
     # random data. Note that if `size == 0` and `non_zero_data` is a skipped
     # case.
-    data = Bytes([i % 256 for i in range(size)]) if non_zero_data else Bytes()
+    data = (
+        Bytes([i % 256 for i in range(calldata_size)])
+        if non_zero_data
+        else Bytes()
+    )
 
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     min_gas = intrinsic_gas_calculator(calldata=data)
@@ -258,26 +249,30 @@ def test_calldatacopy_from_call(
     # length. Otherwise, since we
     # don't send zero data explicitly via calldata, PUSH the target size and
     # use DUP1 to copy it.
-    setup = Bytecode() if non_zero_data or size == 0 else Op.PUSH3(size)
+    setup = (
+        Bytecode()
+        if non_zero_data or calldata_size == 0
+        else Op.PUSH3(calldata_size)
+    )
     src_dst = 0 if fixed_src_dst else Op.AND(Op.GAS, 7)
     attack_block = Op.CALLDATACOPY(
         src_dst,
         src_dst,
-        Op.CALLDATASIZE if non_zero_data or size == 0 else Op.DUP1,
+        Op.CALLDATASIZE if non_zero_data or calldata_size == 0 else Op.DUP1,
     )
 
     benchmark_test(
+        target_opcode=Op.CALLDATACOPY,
         code_generator=ExtCallGenerator(
             setup=setup,
             attack_block=attack_block,
             tx_kwargs={"data": data},
-        )
+        ),
     )
 
 
 @pytest.mark.repricing(
-    returned_size=1,
-    return_data_style=ReturnDataStyle.RETURN,
+    return_data_style=ReturnDataStyle.IDENTITY,
 )
 @pytest.mark.parametrize(
     "return_data_style",
@@ -287,7 +282,7 @@ def test_calldatacopy_from_call(
         ReturnDataStyle.IDENTITY,
     ],
 )
-@pytest.mark.parametrize("returned_size", [1, 0])
+@pytest.mark.parametrize("returned_size", [0, 32, 256, 1024])
 def test_returndatasize_nonzero(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -316,31 +311,28 @@ def test_returndatasize_nonzero(
         )
 
     benchmark_test(
+        target_opcode=Op.RETURNDATASIZE,
         code_generator=JumpLoopGenerator(
             setup=setup, attack_block=Op.POP(Op.RETURNDATASIZE)
         ),
     )
 
 
-@pytest.mark.repricing
 def test_returndatasize_zero(
     benchmark_test: BenchmarkTestFiller,
 ) -> None:
     """Benchmark RETURNDATASIZE instruction with zero buffer."""
     benchmark_test(
+        target_opcode=Op.RETURNDATASIZE,
         code_generator=ExtCallGenerator(attack_block=Op.RETURNDATASIZE),
     )
 
 
-@pytest.mark.repricing(size=10 * 1024, fixed_dst=True)
+@pytest.mark.repricing(fixed_dst=True)
+@pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
 @pytest.mark.parametrize(
-    "size",
-    [
-        pytest.param(0, id="0 bytes"),
-        pytest.param(100, id="100 bytes"),
-        pytest.param(10 * 1024, id="10KiB"),
-        pytest.param(1024 * 1024, id="1MiB"),
-    ],
+    "return_size",
+    [0, 32, 256, 1024, 10 * 1024, 1024 * 1024],
 )
 @pytest.mark.parametrize(
     "fixed_dst",
@@ -352,7 +344,8 @@ def test_returndatasize_zero(
 def test_returndatacopy(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
-    size: int,
+    mem_size: int,
+    return_size: int,
     fixed_dst: bool,
 ) -> None:
     """Benchmark RETURNDATACOPY instruction."""
@@ -363,23 +356,34 @@ def test_returndatacopy(
     # predictable. If `size` is 0, this helper contract won't be used.
     code = (
         Op.MSTORE8(0, Op.GAS)
-        + Op.MSTORE8(size // 2, Op.GAS)
-        + Op.MSTORE8(size - 1, Op.GAS)
-        + Op.RETURN(0, size)
+        + Op.MSTORE8(return_size // 2, Op.GAS)
+        + Op.MSTORE8(return_size - 1, Op.GAS)
+        + Op.RETURN(0, return_size)
     )
     helper_contract = pre.deploy_contract(code=code)
 
-    returndata_gen = (
-        Op.STATICCALL(address=helper_contract) if size > 0 else Bytecode()
+    setup = Bytecode()
+    setup += Op.MSTORE8(mem_size - 1, 0xFF) if mem_size > 0 else Bytecode()
+    setup += (
+        Op.STATICCALL(address=helper_contract)
+        if return_size > 0
+        else Bytecode()
+    )
+
+    cleanup = (
+        Op.STATICCALL(address=helper_contract)
+        if return_size > 0
+        else Bytecode()
     )
     dst = 0 if fixed_dst else Op.MOD(Op.GAS, 7)
 
     attack_block = Op.RETURNDATACOPY(dst, Op.PUSH0, Op.RETURNDATASIZE)
 
     benchmark_test(
+        target_opcode=Op.RETURNDATACOPY,
         code_generator=JumpLoopGenerator(
-            setup=returndata_gen,
+            setup=setup,
             attack_block=attack_block,
-            cleanup=returndata_gen,
+            cleanup=cleanup,
         ),
     )

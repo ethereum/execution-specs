@@ -1,7 +1,9 @@
 """
-Return data management around create2 Port
-call_outsize_then_create2_successful_then_returndatasizeFiller.json test Port
-call_then_create2_successful_then_returndatasizeFiller.json test.
+Test CREATE2 return data memory management.
+
+Ported tests for return data management around CREATE2:
+- call_outsize_then_create2_successful_then_returndatasizeFiller.json
+- call_then_create2_successful_then_returndatasizeFiller.json
 """
 
 import pytest

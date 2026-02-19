@@ -6,7 +6,6 @@ from pydantic import BeforeValidator, PlainSerializer
 
 from .base import from_pipe_str, to_pipe_str
 from .block import BlockException
-from .eof import EOFException
 from .transaction import TransactionException
 
 """
@@ -33,12 +32,6 @@ BlockExceptionInstanceOrList = Annotated[
     PlainSerializer(to_pipe_str),
 ]
 
-EOFExceptionInstanceOrList = Annotated[
-    List[EOFException] | EOFException,
-    BeforeValidator(from_pipe_str),
-    PlainSerializer(to_pipe_str),
-]
-
 ExceptionBoundTypeVar = TypeVar(
-    "ExceptionBoundTypeVar", TransactionException, BlockException, EOFException
+    "ExceptionBoundTypeVar", TransactionException, BlockException
 )

@@ -14,17 +14,16 @@ from typing import Any, Generator
 import pytest
 
 from execution_testing.base_types import to_json
+from execution_testing.cli.pytest_commands.plugins.consume.consume import (
+    FixturesSource,
+)
 from execution_testing.client_clis.ethereum_cli import EthereumCLI
 from execution_testing.client_clis.fixture_consumer_tool import (
     FixtureConsumerTool,
 )
-from execution_testing.cli.pytest_commands.plugins.consume.consume import (
-    FixturesSource,
-)
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainFixture,
-    EOFFixture,
     StateFixture,
 )
 from execution_testing.fixtures.consume import (
@@ -65,8 +64,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         type=Path,
         default=[],
         help=(
-            "Path to a geth evm executable that provides `blocktest` or `statetest`. "
-            "Flag can be used multiple times to specify multiple fixture consumer binaries."
+            "Path to a geth evm executable that provides `blocktest` or "
+            "`statetest`. Flag can be used multiple times to specify "
+            "multiple fixture consumer binaries."
         ),
     )
     consume_group.addoption(
@@ -74,7 +74,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
         action="store_true",
         dest="consumer_collect_traces",
         default=False,
-        help="Collect traces of the execution information from the fixture consumer tool.",
+        help=(
+            "Collect traces of the execution information from the fixture "
+            "consumer tool."
+        ),
     )
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
     debug_group.addoption(
@@ -91,7 +94,6 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     config.supported_fixture_formats = [  # type: ignore[attr-defined]
         StateFixture,
         BlockchainFixture,
-        EOFFixture,
     ]
     fixture_consumers = []
     for fixture_consumer_bin_path in config.getoption("fixture_consumer_bin"):
@@ -106,16 +108,18 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     elif not fixture_consumers and config.option.collectonly:
         warnings.warn(
             (
-                "No fixture consumer binaries provided; using a dummy consumer for collect-only; "
-                "all possible fixture formats will be collected. "
-                "Specify fixture consumer(s) via `--bin` to see actual collection results."
+                "No fixture consumer binaries provided; using a dummy "
+                "consumer for collect-only; all possible fixture formats "
+                "will be collected. Specify fixture consumer(s) via `--bin` "
+                "to see actual collection results."
             ),
             stacklevel=1,
         )
         fixture_consumers = [CollectOnlyFixtureConsumer()]
     elif not fixture_consumers:
         pytest.exit(
-            "No fixture consumer binaries provided; please specify a binary path via `--bin`."
+            "No fixture consumer binaries provided; please specify a binary "
+            "path via `--bin`."
         )
     config.fixture_consumers = fixture_consumers  # type: ignore[attr-defined]
 

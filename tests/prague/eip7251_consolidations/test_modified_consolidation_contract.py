@@ -29,7 +29,10 @@ from .spec import ref_spec_7251
 REFERENCE_SPEC_GIT_PATH: str = ref_spec_7251.git_path
 REFERENCE_SPEC_VERSION: str = ref_spec_7251.version
 
-pytestmark: pytest.MarkDecorator = pytest.mark.valid_from("Prague")
+pytestmark: List[pytest.MarkDecorator] = [
+    pytest.mark.valid_from("Prague"),
+    pytest.mark.pre_alloc_mutable(),
+]
 
 
 def consolidation_list_with_custom_fee(n: int) -> List[ConsolidationRequest]:  # noqa: D103
@@ -81,9 +84,6 @@ def consolidation_list_with_custom_fee(n: int) -> List[ConsolidationRequest]:  #
             id="5_consolidation_requests",
         ),
     ],
-)
-@pytest.mark.pre_alloc_group(
-    "separate", reason="Deploys custom consolidation contract bytecode"
 )
 def test_extra_consolidations(
     blockchain_test: BlockchainTestFiller,
@@ -144,9 +144,6 @@ def test_extra_consolidations(
 @pytest.mark.parametrize(
     "system_contract",
     [Address(Spec_EIP7251.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS)],
-)
-@pytest.mark.pre_alloc_group(
-    "separate", reason="Deploys custom consolidation contract bytecode"
 )
 @generate_system_contract_error_test(  # type: ignore[arg-type]
     max_gas_limit=Spec_EIP7251.SYSTEM_CALL_GAS_LIMIT,

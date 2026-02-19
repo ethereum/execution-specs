@@ -59,7 +59,7 @@ test_module_with_verify_sync = textwrap.dedent(
             ],
         )
 
-    """
+    """  # noqa: E501
 )
 
 

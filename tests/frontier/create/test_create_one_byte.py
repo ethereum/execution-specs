@@ -1,6 +1,6 @@
 """
-The test calls CREATE in a loop deploying 1-byte contracts with all possible
-byte values, records in storage the values that failed to deploy.
+Test calling CREATE in a loop to deploy 1-byte contracts with all possible
+byte values, recording in storage the values that failed to deploy.
 """
 
 import pytest
@@ -17,7 +17,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Byzantium, London
+from execution_testing.forks import London
 
 
 @pytest.mark.ported_from(
@@ -100,7 +100,7 @@ def test_create_one_byte(
         data=b"",
         nonce=0,
         sender=sender,
-        protected=fork >= Byzantium,
+        protected=fork.supports_protected_txs(),
     )
 
     post = {

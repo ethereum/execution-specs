@@ -1,8 +1,10 @@
 """Abstract base class for Ethereum forks."""
 
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod
 from typing import (
+    TYPE_CHECKING,
     Any,
+    Callable,
     ClassVar,
     Dict,
     List,
@@ -12,10 +14,12 @@ from typing import (
     Protocol,
     Set,
     Sized,
-    Tuple,
     Type,
     Union,
 )
+
+if TYPE_CHECKING:
+    from execution_testing.fixtures.blockchain import FixtureHeader
 
 from execution_testing.base_types import (
     AccessList,
@@ -23,7 +27,11 @@ from execution_testing.base_types import (
     BlobSchedule,
 )
 from execution_testing.base_types.conversions import BytesConvertible
-from execution_testing.vm import EVMCodeType, Opcodes
+from execution_testing.vm import (
+    ForkOpcodeInterface,
+    OpcodeBase,
+    Opcodes,
+)
 
 from .base_decorators import prefer_transition_to_method
 from .gas_costs import GasCosts
@@ -237,7 +245,7 @@ class BaseForkMeta(ABCMeta):
         return cls is other or BaseForkMeta._is_subclass_of(other, cls)
 
 
-class BaseFork(ABC, metaclass=BaseForkMeta):
+class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     """
     An abstract class representing an Ethereum fork.
 
@@ -345,6 +353,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         """Return true if the header must contain beacon chain requests."""
         pass
 
+    @classmethod
+    @abstractmethod
+    def header_bal_hash_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """Return true if the header must contain block access list hash."""
+        pass
+
     # Gas related abstract methods
 
     @classmethod
@@ -353,6 +369,21 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> GasCosts:
         """Return dataclass with the gas costs constants for the fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def opcode_gas_map(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
+        """
+        Return a mapping of opcodes to either int or callable.
+
+        The values of the mapping can be as follow:
+        - Constants (int): Direct gas cost values from gas_costs()
+        - Callables: Functions that take the opcode instance with metadata and
+                     return gas cost
+        """
         pass
 
     @classmethod
@@ -570,6 +601,12 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def supports_protected_txs(cls) -> bool:
+        """Return whether the fork implements EIP-155 protection."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def tx_types(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[int]:
@@ -613,7 +650,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def precompiles(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """Return list pre-compiles supported by the fork."""
+        """Return list of precompiles supported by the fork."""
         pass
 
     @classmethod
@@ -621,7 +658,19 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def system_contracts(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """Return list system-contracts supported by the fork."""
+        """Return list of system contracts supported by the fork."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def deterministic_factory_predeploy_address(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Address | None:
+        """
+        Return the address of the deterministic factory predeploy at a
+        given fork. Return `None` if the fork does not support deterministic
+        deployment.
+        """
         pass
 
     @classmethod
@@ -712,6 +761,17 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def engine_execution_payload_block_access_list(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        Return `True` if the engine api version requires execution payload to
+        include a `block_access_list`.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def engine_payload_attribute_target_blobs_per_block(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:
@@ -767,14 +827,6 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     # EVM information abstract methods
     @classmethod
     @abstractmethod
-    def evm_code_types(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[EVMCodeType]:
-        """Return list of EVM code types supported by the fork."""
-        pass
-
-    @classmethod
-    @abstractmethod
     def max_code_size(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> int:
@@ -807,11 +859,8 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @abstractmethod
     def call_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
-        """
-        Return list of tuples with the call opcodes and its corresponding EVM
-        code type.
-        """
+    ) -> List[Opcodes]:
+        """Return list of call opcodes supported by the fork."""
         pass
 
     @classmethod
@@ -826,11 +875,8 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @abstractmethod
     def create_opcodes(
         cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> List[Tuple[Opcodes, EVMCodeType]]:
-        """
-        Return list of tuples with the create opcodes and its corresponding EVM
-        code type.
-        """
+    ) -> List[Opcodes]:
+        """Return list of create opcodes supported by the fork."""
         pass
 
     @classmethod
@@ -920,3 +966,13 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def children(cls) -> Set[Type["BaseFork"]]:
         """Return the children forks."""
         return set(cls._children)
+
+    @classmethod
+    @abstractmethod
+    def build_default_block_header(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> "FixtureHeader":
+        """
+        Build a default block header for this fork with the given attributes.
+        """
+        pass

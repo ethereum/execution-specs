@@ -61,7 +61,7 @@ def test_address() -> None:
             "0x06012c8cf97bead5deae237070f9587f8e7a266d",
             id="large-nonce-0x-str-address",
             marks=pytest.mark.xfail(
-                reason="Nonce too large to convert with hard-coded to_bytes length of 1"
+                reason="Nonce too large for hard-coded to_bytes length of 1"
             ),
         ),
     ],
@@ -145,7 +145,7 @@ def test_compute_create2_address(
     https://github.com/ethereum/go-ethereum/blob/2189773093b2fe6d161b6477589f964470ff5bce/core/vm/instructions_test.go.
 
     Note: `compute_create2_address` does not generate checksum addresses.
-    """
+    """  # noqa: E501
     salt_as_int = int(salt, 16)
     initcode_as_bytes = bytes.fromhex(initcode[2:])
     assert (

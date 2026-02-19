@@ -333,6 +333,8 @@ class GenesisConfig(CamelModel):
                         if synonym:
                             stripped_key = synonym
                         else:
+                            # Remove deprecated fork keys that have no synonym
+                            data.pop(key)
                             continue
                     fork_activation_times[stripped_key] = data.pop(key)
             if fork_activation_times:
@@ -360,7 +362,8 @@ class Genesis(CamelModel):
     def hash(self) -> Hash:
         """Calculate the genesis hash."""
         dumped_genesis = self.model_dump(
-            mode="json", exclude={"config", "alloc"}
+            mode="json",
+            exclude={"config", "alloc", "nonce", "mixhash", "parent_hash"},
         )
         genesis_fork = self.config.fork()
         env = Environment(**dumped_genesis).set_fork_requirements(genesis_fork)

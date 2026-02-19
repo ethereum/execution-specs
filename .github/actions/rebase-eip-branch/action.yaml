@@ -1,0 +1,74 @@
+name: Rebase EIP Branch
+description: Rebases an EIP branch onto a fork branch
+inputs:
+  fork:
+    description: 'Fork name (e.g., amsterdam)'
+    required: true
+  eip_number:
+    description: 'EIP number'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Configure Git
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Rebase EIP branch (create if missing)
+      shell: bash
+      env:
+        FORK: ${{ inputs.fork }}
+        EIP_NUMBER: ${{ inputs.eip_number }}
+        REMOTE: origin
+      run: |
+        set -euo pipefail
+
+        echo "FORK=$FORK"
+        echo "EIP_NUMBER=$EIP_NUMBER"
+        EIP_BRANCH="eips/${FORK}/eip-${EIP_NUMBER}"
+        FORK_BRANCH="forks/${FORK}"
+
+        git fetch "${REMOTE}" --prune
+
+        # Sanity: fork base must exist
+        if ! git show-ref --verify --quiet "refs/remotes/${REMOTE}/${FORK_BRANCH}"; then
+          echo "Error: Base fork branch ${REMOTE}/${FORK_BRANCH} does not exist"
+          exit 1
+        fi
+
+        # Create local branch from remote if it exists, else create from fork base
+        if git show-ref --verify --quiet "refs/remotes/${REMOTE}/${EIP_BRANCH}"; then
+          echo "Checking out existing ${EIP_BRANCH} (tracking ${REMOTE})"
+          git checkout -B "${EIP_BRANCH}" "${REMOTE}/${EIP_BRANCH}"
+        else
+          echo "Branch ${EIP_BRANCH} does not exist on ${REMOTE}; creating from ${REMOTE}/${FORK_BRANCH}"
+          git checkout -B "${EIP_BRANCH}" "${REMOTE}/${FORK_BRANCH}"
+
+          # First push creates the remote branch (no force needed)
+          git push -u "${REMOTE}" "${EIP_BRANCH}"
+        fi
+
+        echo "Rebasing ${EIP_BRANCH} onto ${REMOTE}/${FORK_BRANCH}"
+        if ! git rebase "${REMOTE}/${FORK_BRANCH}"; then
+          echo "Error: Rebase conflict occurred while rebasing ${EIP_BRANCH} onto ${FORK_BRANCH}"
+          git rebase --abort || true
+          exit 1
+        fi
+
+        echo "Running static checks on rebased branch"
+        uvx --with=tox-uv tox -e static
+
+        echo "Rebase successful"
+
+    - name: Push rebased branch
+      shell: bash
+      env:
+        FORK: ${{ inputs.fork }}
+        EIP_NUMBER: ${{ inputs.eip_number }}
+        REMOTE: origin
+      run: |
+        EIP_BRANCH="eips/${FORK}/eip-${EIP_NUMBER}"
+        echo "Force pushing ${EIP_BRANCH} to ${REMOTE}"
+        git push --force-with-lease "${REMOTE}" "${EIP_BRANCH}"

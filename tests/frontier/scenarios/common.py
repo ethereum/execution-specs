@@ -37,9 +37,10 @@ class ScenarioExpectOpcode(Enum):
 @dataclass
 class ScenarioEnvironment:
     """
-    Scenario evm environment Each scenario must define an environment on which
-    program is executed This is so post state verification could check results
-    of evm opcodes.
+    Scenario EVM environment.
+
+    Each scenario must define an environment on which the program is executed.
+    This is so post state verification can check the results of EVM opcodes.
     """
 
     code_address: Address  # Op.ADDRESS, address scope for program
@@ -50,7 +51,7 @@ class ScenarioEnvironment:
     call_value: int  # Op.CALLVALUE of call that is done to the program
     call_dataload_0: int  # Op.CALLDATALOAD(0) expected result
     call_datasize: int  # Op.CALLDATASIZE expected result
-    has_static: bool = False  # Weather scenario execution context is static
+    has_static: bool = False  # Whether scenario execution context is static
 
 
 @dataclass
@@ -247,8 +248,9 @@ def make_gas_hash_contract(pre: Alloc) -> Address:
 
 def make_invalid_opcode_contract(pre: Alloc, fork: Fork) -> Address:
     """
-    Deploy a contract that will execute any asked byte as an opcode from
-    calldataload Deploy 20 empty stack elements. Jump to opcode instruction. if
+    Deploy a contract that will execute any asked byte as an opcode.
+
+    Deploy 20 empty stack elements. Jump to opcode instruction. If it
     worked, return 0.
     """
     invalid_opcode_caller = pre.deploy_contract(

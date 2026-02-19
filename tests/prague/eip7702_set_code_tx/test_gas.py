@@ -18,8 +18,10 @@ from execution_testing import (
     Address,
     Alloc,
     AuthorizationTuple,
+    BalAccountExpectation,
+    BalNonceChange,
+    BlockAccessListExpectation,
     Bytecode,
-    Bytes,
     ChainConfig,
     CodeGasMeasure,
     Fork,
@@ -178,10 +180,7 @@ def authority_iterator(
                     assert not self_sponsored or i > 0, (
                         "Self-sponsored contract authority is not supported"
                     )
-                    authority = pre.fund_eoa()
-                    authority_account = pre[authority]
-                    assert authority_account is not None
-                    authority_account.code = Bytes(Op.STOP)
+                    authority = pre.fund_eoa(code=Op.STOP)
                     yield AuthorityWithProperties(
                         authority=authority,
                         address_type=current_authority_type,
@@ -723,7 +722,7 @@ def gas_test_parameter_args(
             {
                 "authority_type": AddressType.CONTRACT,
             },
-            marks=pytest.mark.pre_alloc_modify,
+            marks=[pytest.mark.pre_alloc_mutable],
             id="single_valid_authorization_invalid_contract_authority",
         ),
         pytest.param(
@@ -735,7 +734,7 @@ def gas_test_parameter_args(
                 ],
                 "authorizations_count": multiple_authorizations_count,
             },
-            marks=pytest.mark.pre_alloc_modify,
+            marks=[pytest.mark.pre_alloc_mutable],
             id="multiple_authorizations_empty_account_then_contract_authority",
         ),
         pytest.param(
@@ -744,7 +743,7 @@ def gas_test_parameter_args(
                 "authority_type": [AddressType.EOA, AddressType.CONTRACT],
                 "authorizations_count": multiple_authorizations_count,
             },
-            marks=pytest.mark.pre_alloc_modify,
+            marks=[pytest.mark.pre_alloc_mutable],
             id="multiple_authorizations_eoa_then_contract_authority",
         ),
         pytest.param(
@@ -754,7 +753,7 @@ def gas_test_parameter_args(
                 "authority_type": [AddressType.EOA, AddressType.CONTRACT],
                 "authorizations_count": multiple_authorizations_count,
             },
-            marks=pytest.mark.pre_alloc_modify,
+            marks=[pytest.mark.pre_alloc_mutable],
             id="multiple_authorizations_eoa_self_sponsored_then_contract_authority",
         ),
     ]
@@ -884,20 +883,14 @@ def test_gas_cost(
     # SSTORE opcodes in order to make sure that the refund is less than one
     # fifth (EIP-3529) of the total gas used, so we can see the full discount
     # being reflected in most of the tests.
-    gas_costs = fork.gas_costs()
-    gas_opcode_cost = gas_costs.G_BASE
+    gas_opcode_cost = Op.GAS.gas_cost(fork)
     sstore_opcode_count = 10
     push_opcode_count = (2 * (sstore_opcode_count)) - 1
-    push_opcode_cost = gas_costs.G_VERY_LOW * push_opcode_count
-    sstore_opcode_cost = gas_costs.G_STORAGE_SET * sstore_opcode_count
-    cold_storage_cost = gas_costs.G_COLD_SLOAD * sstore_opcode_count
-
     execution_gas = (
-        gas_opcode_cost
-        + push_opcode_cost
-        + sstore_opcode_cost
-        + cold_storage_cost
-    )
+        Op.GAS
+        + Op.PUSH1(0) * push_opcode_count
+        + Op.SSTORE(key_warm=False) * sstore_opcode_count
+    ).gas_cost(fork)
 
     # The first opcode that executes in the code is the GAS opcode, which costs
     # 2 gas, so we subtract that from the expected gas measure.
@@ -937,7 +930,7 @@ def test_gas_cost(
         authorization_list=authorization_list,
         access_list=access_list,
         sender=sender,
-        expected_receipt=TransactionReceipt(gas_used=gas_used),
+        expected_receipt=TransactionReceipt(cumulative_gas_used=gas_used),
     )
 
     state_test(
@@ -1246,21 +1239,20 @@ def test_call_to_pre_authorized_oog(
     # Callee tries to call the auth_signer which delegates
     # to the delegation contract. The call instruction should out-of-gas
     # because of the addition cost of the delegation account access.
-    callee_code = Bytecode(
-        Op.SSTORE(0, call_opcode(gas=0, address=auth_signer)),
-    )
+    callee_code = Op.SSTORE(0, call_opcode(gas=0, address=auth_signer))
     callee_storage = Storage()
     callee_storage[0] = 0xFF  # Value other than 0 or 1. Should not be changed.
     callee_address = pre.deploy_contract(callee_code, storage=callee_storage)
 
-    gas_costs = fork.gas_costs()
     intrinsic_gas_cost_calculator = (
         fork.transaction_intrinsic_cost_calculator()
     )
     tx_gas_limit = (
         intrinsic_gas_cost_calculator()
-        + len(call_opcode.kwargs) * gas_costs.G_VERY_LOW
-        + (gas_costs.G_COLD_ACCOUNT_ACCESS * 2)
+        + (
+            Op.PUSH1(0) * len(call_opcode.kwargs)
+            + call_opcode(address_warm=False, delegated_address=True)
+        ).gas_cost(fork)
         - 1
     )
     tx = Transaction(
@@ -1268,6 +1260,27 @@ def test_call_to_pre_authorized_oog(
         to=callee_address,
         sender=pre.fund_eoa(),
     )
+
+    expected_block_access_list = None
+    if fork.header_bal_hash_required():
+        # Sender nonce changes, callee is accessed but storage unchanged (OOG)
+        # auth_signer is tracked (we read its code to check delegation)
+        # delegation is NOT tracked (OOG before reading it)
+        account_expectations = {
+            tx.sender: BalAccountExpectation(
+                nonce_changes=[
+                    BalNonceChange(block_access_index=1, post_nonce=1)
+                ],
+            ),
+            callee_address: BalAccountExpectation.empty(),
+            # read for calculating delegation access cost:
+            auth_signer: BalAccountExpectation.empty(),
+            # OOG - not enough gas for delegation access:
+            delegation: None,
+        }
+        expected_block_access_list = BlockAccessListExpectation(
+            account_expectations=account_expectations
+        )
 
     state_test(
         pre=pre,
@@ -1277,4 +1290,5 @@ def test_call_to_pre_authorized_oog(
             auth_signer: Account(code=Spec.delegation_designation(delegation)),
             delegation: Account(storage=Storage()),
         },
+        expected_block_access_list=expected_block_access_list,
     )

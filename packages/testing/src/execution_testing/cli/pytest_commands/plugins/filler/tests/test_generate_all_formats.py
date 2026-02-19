@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from execution_testing.cli.pytest_commands.plugins.filler.fixture_output import (
+from execution_testing.cli.pytest_commands.plugins.filler.fixture_output import (  # noqa: E501
     FixtureOutput,
 )
 

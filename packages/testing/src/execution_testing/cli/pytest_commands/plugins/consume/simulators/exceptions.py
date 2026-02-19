@@ -24,8 +24,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="disable_strict_exception_matching",
         default="",
         help=(
-            "Comma-separated list of client names and/or forks which should NOT use strict "
-            "exception matching."
+            "Comma-separated list of client names and/or forks which should "
+            "NOT use strict exception matching."
         ),
     )
 

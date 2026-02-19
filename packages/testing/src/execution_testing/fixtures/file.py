@@ -62,10 +62,10 @@ class Fixtures(EthereumTestRootModel):
         lock_file_path = file_path.with_suffix(".lock")
         with FileLock(lock_file_path):
             if file_path.exists():
-                with open(file_path, "r") as f:
-                    json_fixtures = json.load(f)
+                json_fixtures = json.loads(file_path.read_bytes())
             for name, fixture in self.items():
                 json_fixtures[name] = fixture.json_dict_with_info()
 
-            with open(file_path, "w") as f:
-                json.dump(dict(sorted(json_fixtures.items())), f, indent=4)
+            file_path.write_text(
+                json.dumps(dict(sorted(json_fixtures.items())), indent=4)
+            )

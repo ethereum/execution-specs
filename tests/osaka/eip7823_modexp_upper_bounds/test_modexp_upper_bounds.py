@@ -283,7 +283,7 @@ def test_modexp_upper_bounds(
         ),
     ],
 )
-@pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
+@pytest.mark.valid_at_transition_to("Osaka")
 def test_modexp_upper_bounds_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

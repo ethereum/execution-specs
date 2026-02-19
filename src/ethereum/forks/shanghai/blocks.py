@@ -150,7 +150,7 @@ class Header:
 
     number: Uint
     """
-    Block number, (height) in the chain.
+    Block number (height) in the chain.
     """
 
     gas_limit: Uint
@@ -237,7 +237,7 @@ class Block:
     header: Header
     """
     The block header containing metadata and cryptographic commitments. Refer
-    [headers] for more details on the fields included in the header.
+    to [headers] for more details on the fields included in the header.
 
     [headers]: ref:ethereum.forks.shanghai.blocks.Header
     """

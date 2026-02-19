@@ -13,7 +13,7 @@ from execution_testing import (
 )
 from py_ecc.bn128 import G1, G2, multiply
 
-from tests.benchmark.compute.helpers import concatenate_parameters
+from ..helpers import concatenate_parameters
 
 
 @pytest.mark.parametrize(
@@ -30,6 +30,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_add",
+            marks=pytest.mark.repricing,
         ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L326
@@ -44,6 +45,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_add_infinities",
+            marks=pytest.mark.repricing,
         ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L329
@@ -95,6 +97,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_mul_infinities_32_byte_scalar",
+            marks=pytest.mark.repricing,
         ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L341
@@ -134,6 +137,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_mul_32_byte_coord_and_2_scalar",
+            marks=pytest.mark.repricing,
         ),
         # Ported from
         # https://github.com/NethermindEth/nethermind/blob/ceb8d57b8530ce8181d7427c115ca593386909d6/tools/EngineRequestsGenerator/TestCase.cs#L350
@@ -147,6 +151,7 @@ from tests.benchmark.compute.helpers import concatenate_parameters
                 ]
             ),
             id="bn128_mul_32_byte_coord_and_scalar",
+            marks=pytest.mark.repricing,
         ),
         pytest.param(
             0x08,
@@ -356,14 +361,10 @@ from tests.benchmark.compute.helpers import concatenate_parameters
 )
 def test_alt_bn128(
     benchmark_test: BenchmarkTestFiller,
-    fork: Fork,
     precompile_address: Address,
     calldata: bytes,
 ) -> None:
     """Benchmark ALT_BN128 precompile."""
-    if precompile_address not in fork.precompiles():
-        pytest.skip("Precompile not enabled")
-
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS, address=precompile_address, args_size=Op.CALLDATASIZE
@@ -371,6 +372,7 @@ def test_alt_bn128(
     )
 
     benchmark_test(
+        target_opcode=Op.STATICCALL,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
             attack_block=attack_block,
@@ -418,23 +420,31 @@ def _generate_bn128_pairs(n: int, seed: int = 0) -> Bytes:
 def test_bn128_pairings_amortized(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
-    gas_benchmark_value: int,
+    tx_gas_limit: int,
 ) -> None:
     """Test running a block with as many BN128 pairings as possible."""
-    base_cost = 45_000
-    pairing_cost = 34_000
     size_per_pairing = 192
 
     gsc = fork.gas_costs()
+    base_cost = gsc.G_PRECOMPILE_ECPAIRING_BASE
+    pairing_cost = gsc.G_PRECOMPILE_ECPAIRING_PER_POINT
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
+    warm_account_access_cost = Op.STATICCALL(
+        gas=Op.GAS,
+        address=Op.PUSH20(0),
+        args_offset=Op.PUSH0,
+        args_size=Op.PUSH0,
+        ret_offset=Op.PUSH0,
+        ret_size=Op.PUSH0,
+        # gas accounting
+        address_warm=True,
+    ).gas_cost(fork)
 
     # This is a theoretical maximum number of pairings that can be done in a
     # block. It is only used for an upper bound for calculating the optimal
     # number of pairings below.
-    maximum_number_of_pairings = (
-        gas_benchmark_value - base_cost
-    ) // pairing_cost
+    maximum_number_of_pairings = (tx_gas_limit - base_cost) // pairing_cost
 
     # Discover the optimal number of pairings balancing two dimensions:
     # 1. Amortize the precompile base cost as much as possible.
@@ -444,7 +454,7 @@ def test_bn128_pairings_amortized(
     for i in range(1, maximum_number_of_pairings + 1):
         # We'll pass all pairing arguments via calldata.
         available_gas_after_intrinsic = (
-            gas_benchmark_value
+            tx_gas_limit
             - intrinsic_gas_calculator(
                 calldata=[0xFF]
                 * size_per_pairing
@@ -458,10 +468,8 @@ def test_bn128_pairings_amortized(
             - mem_exp_gas_calculator(new_bytes=i * size_per_pairing),
         )
 
-        # This is ignoring "glue" opcodes, but helps to have a rough idea of
-        # the right cutting point.
         approx_gas_cost_per_call = (
-            gsc.G_WARM_ACCOUNT_ACCESS + base_cost + i * pairing_cost
+            warm_account_access_cost + base_cost + i * pairing_cost
         )
 
         num_precompile_calls = (
@@ -480,6 +488,7 @@ def test_bn128_pairings_amortized(
     )
 
     benchmark_test(
+        target_opcode=Op.STATICCALL,
         code_generator=JumpLoopGenerator(
             setup=setup,
             attack_block=attack_block,
@@ -488,5 +497,28 @@ def test_bn128_pairings_amortized(
                     optimal_per_call_num_pairings, 42
                 )
             },
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
+def test_alt_bn128_benchmark(
+    benchmark_test: BenchmarkTestFiller,
+    num_pairs: int,
+) -> None:
+    """Benchmark BN128 pairings precompile with varying number of pairs."""
+    calldata = _generate_bn128_pairs(num_pairs, seed=42)
+
+    attack_block = Op.POP(
+        Op.STATICCALL(gas=Op.GAS, address=0x08, args_size=Op.CALLDATASIZE),
+    )
+
+    benchmark_test(
+        target_opcode=Op.STATICCALL,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=attack_block,
+            tx_kwargs={"data": calldata},
         ),
     )

@@ -142,7 +142,7 @@ def test_pow_validation_block_headers(
     ).decode()
     block_json_data = json.loads(block_str_data)
 
-    load = Load(json_fork, eels_fork)
+    load = Load(eels_fork)
     header = load.json_to_header(block_json_data)
     fork_module.validate_proof_of_work(header)
 

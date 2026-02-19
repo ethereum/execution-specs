@@ -131,7 +131,8 @@ def extend_with_defaults(
     for i, case in enumerate(cases):
         if not (len(case.values) == 1 and isinstance(case.values[0], dict)):
             raise ValueError(
-                "each case must contain exactly one value; a dict of parameter values"
+                "each case must contain exactly one value; "
+                "a dict of parameter values"
             )
         if set(case.values[0].keys()) - set(defaults.keys()):
             raise UnknownParameterInCasesError()

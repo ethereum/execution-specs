@@ -254,8 +254,10 @@ def test_maximum_gas_refund(
 
     # Base Operation: SSTORE(slot, 0)
     iteration_cost = (
-        gas_costs.G_STORAGE_RESET + gas_costs.G_BASE + gas_costs.G_VERY_LOW
-    )
+        Op.SSTORE(key_warm=True, original_value=1, new_value=0)
+        + Op.PUSH0
+        + Op.PUSH1(0)
+    ).gas_cost(fork)
     gas_refund = gas_costs.R_STORAGE_CLEAR
 
     # EIP-3529: Reduction in refunds

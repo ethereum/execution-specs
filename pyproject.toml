@@ -13,6 +13,7 @@ urls = { "Homepage" = "https://github.com/ethereum/execution-specs" }
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: Implementation :: CPython",
     "Intended Audience :: Developers",
@@ -148,6 +149,12 @@ packages = [
     "ethereum.forks.bpo1.vm.instructions",
     "ethereum.forks.bpo1.vm.precompiled_contracts",
     "ethereum.forks.bpo1.vm.precompiled_contracts.bls12_381",
+    "ethereum.forks.bpo2",
+    "ethereum.forks.bpo2.utils",
+    "ethereum.forks.bpo2.vm",
+    "ethereum.forks.bpo2.vm.instructions",
+    "ethereum.forks.bpo2.vm.precompiled_contracts",
+    "ethereum.forks.bpo2.vm.precompiled_contracts.bls12_381",
 ]
 
 [tool.setuptools.package-data]
@@ -188,6 +195,11 @@ lint = [
     "vulture==2.14.0",
     "types-requests>=2.31,<2.33",
 ]
+actionlint = [
+    "actionlint-py>=1.7",
+    "pyflakes>=3.0",
+    "shellcheck-py>=0.10",
+]
 doc = [
     "docc>=0.3.0,<0.4.0",
     "fladrif>=0.2.0,<0.3.0",
@@ -216,9 +228,11 @@ mkdocs = [
 dev = [
     { include-group = "test" },
     { include-group = "lint" },
+    { include-group = "actionlint" },
     { include-group = "doc" },
     { include-group = "mkdocs" },
     "ethereum-execution[optimized]",
+    "psutil>=7.2.2",
 ]
 
 [tool.setuptools.dynamic]
@@ -378,6 +392,15 @@ ignore = [
 "src/ethereum_spec_tools/evm_tools/t8n/evm_trace.py" = [
     "N815"          # The traces must use camel case in JSON property names
 ]
+"src/ethereum/forks/amsterdam/blocks.py" = [
+    "E501"          # Line too long - needed for long ref links
+]
+ "src/ethereum/forks/amsterdam/block_access_lists/builder.py" = [
+    "E501"          # Line too long - needed for long ref links
+ ]
+"src/ethereum/forks/amsterdam/block_access_lists/rlp_utils.py" = [
+    "E501"          # Line too long - needed for long ref links
+ ]
 "tests/*" = ["ARG001"]
 "vulture_whitelist.py" = [
     "B018",  # Useless expression (intentional for Vulture whitelisting)
@@ -385,23 +408,41 @@ ignore = [
     "F405",  # Undefined names from star imports
 ]
 
+[tool.ruff.lint.mccabe]
+# Set the maximum allowed cyclomatic complexity. C901 default is 10.
+max-complexity = 7
+
 [tool.codespell]
-builtin = "clear,code,usage"    # Built-in dictionaries to use
-skip = [                        # Don't check these files/folders
-    ".git/*",
-    ".tox/*",
-    ".venv/*",
-    "build/*",
-    "dist/*",
-    "*.pyc",
-    "ethereum_execution.egg-info/*",
-    "*.coverage*",
-    "__pycache__",
+builtin = "clear,code,usage"
+# Version control & tooling, build artifacts, data files, test fixtures, temp files, lock files
+skip = [
+    ".devcontainer",
+    ".git",
+    ".tox",
+    ".venv",
     ".ruff_cache",
+    ".mypy_cache",
+    ".pytest_cache",
+    "__pycache__",
+    "*.pyc",
+    "build",
+    "cov",
+    "dist",
+    "logs",
+    "site",
+    "*.egg-info",
+    "*.json",
+    "*.log",
+    "*.xml",
+    "*.csv",
+    "*.tar.gz",
+    "*.png",
+    "*/tests/fixtures",
+    "*/json_infra/fixtures",
     "fixtures.*",
-    "tests/fixtures",
-    "tests/json_infra/fixtures",
-    "src/ethereum_spec_tools/evm_tools/t8n" # Temporary while being re-written
+    "tmp",
+    "*.coverage*",
+    "uv.lock",
 ]
 ignore-words = "whitelist.txt"  # Custom whitelist file
 count = true                    # Display counts of errors
@@ -421,6 +462,7 @@ mypy_path = ["src", "packages/testing/src", "packages/testing/stubs"]
 files = ["src", "tests", "packages"]
 exclude = [
     "^\\.cache/",
+    "^\\.devcontainer/",
     "^\\.git/",
     "^\\.pytest_cache/",
     "^\\.ruff_cache/",

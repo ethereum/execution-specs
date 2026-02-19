@@ -66,6 +66,8 @@ remote = _create_execute_subcommand(
     ],
 )
 
+EXECUTE_PATH = Path("cli/pytest_commands/plugins/execute")
+
 eth_config = _create_execute_subcommand(
     "eth-config",
     "pytest-execute-eth-config.ini",
@@ -75,9 +77,7 @@ eth_config = _create_execute_subcommand(
         "--rpc-endpoint=http://localhost:8545",
     ],
     command_logic_test_paths=[
-        Path(
-            "cli/pytest_commands/plugins/execute/eth_config/execute_eth_config.py"
-        )
+        EXECUTE_PATH / "eth_config" / "execute_eth_config.py"
     ],
 )
 
@@ -91,7 +91,18 @@ recover = _create_execute_subcommand(
         "--start-eoa-index=1",
         "--destination=0x0000000000000000000000000000000000000000",
     ],
+    command_logic_test_paths=[EXECUTE_PATH / "execute_recover.py"],
+)
+
+deploy_required_contracts = _create_execute_subcommand(
+    "deploy-required-contracts",
+    "pytest-execute-deploy-required-contracts.ini",
+    "Deploy required contracts (deterministic deployment proxy) to a network.",
+    required_args=[
+        "--rpc-endpoint=http://localhost:8545",
+        "--chain-id=1",
+    ],
     command_logic_test_paths=[
-        Path("cli/pytest_commands/plugins/execute/execute_recover.py")
+        EXECUTE_PATH / "execute_deploy_required_contracts.py"
     ],
 )

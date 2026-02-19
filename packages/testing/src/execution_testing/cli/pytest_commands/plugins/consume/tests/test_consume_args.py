@@ -201,7 +201,10 @@ def test_consume_simlimit_collectonly(
     pytester.copy_example(
         name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
     )
-    consume_test_path = "src/execution_testing/cli/pytest_commands/plugins/consume/direct/test_via_direct.py"
+    consume_test_path = (
+        "src/execution_testing/cli/pytest_commands/plugins/"
+        "consume/direct/test_via_direct.py"
+    )
     args = [
         "-c",
         "pytest-consume.ini",

@@ -28,6 +28,7 @@ from pydantic import (
     computed_field,
     model_validator,
 )
+from pydantic_core import PydanticUndefined
 
 from execution_testing.base_types import (
     Address,
@@ -42,6 +43,7 @@ from execution_testing.base_types import (
     HexNumber,
     Number,
     ZeroPaddedHexNumber,
+    unwrap_annotation,
 )
 from execution_testing.exceptions import (
     EngineAPIError,
@@ -62,7 +64,11 @@ from execution_testing.test_types.transaction_types import (
 )
 
 from .base import BaseFixture, FixtureFillingPhase
-from .common import FixtureAuthorizationTuple, FixtureBlobSchedule
+from .common import (
+    FixtureAuthorizationTuple,
+    FixtureBlobSchedule,
+    FixtureTransactionReceipt,
+)
 
 
 def post_state_validator(
@@ -95,11 +101,13 @@ def post_state_validator(
 
                 if field1_value is None and field2_value is None:
                     raise ValueError(
-                        f"Either {field1_name} or {field2_name} must be provided."
+                        f"Either {field1_name} or {field2_name} "
+                        "must be provided."
                     )
                 if field1_value is not None and field2_value is not None:
                     raise ValueError(
-                        f"Only one of {field1_name} or {field2_name} must be provided."
+                        f"Only one of {field1_name} or {field2_name} "
+                        "must be provided."
                     )
             return self
 
@@ -142,6 +150,10 @@ class FixtureHeader(CamelModel):
 
     We combine the `Environment` and `Result` contents to create this model.
     """
+
+    # Allow extra fields: FixtureHeader is constructed from merged Result
+    # and Environment data via model_dump(), which has extra fields.
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     parent_hash: Hash = Hash(0)
     ommers_hash: Hash = Field(Hash(EmptyOmmersRoot), alias="uncleHash")
@@ -199,6 +211,9 @@ class FixtureHeader(CamelModel):
     requests_hash: (
         Annotated[Hash, HeaderForkRequirement("requests")] | None
     ) = Field(None)
+    block_access_list_hash: (
+        Annotated[Hash, HeaderForkRequirement("bal_hash")] | None
+    ) = Field(None, alias="blockAccessListHash")
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -268,6 +283,85 @@ class FixtureHeader(CamelModel):
         return self.rlp.keccak256()
 
     @classmethod
+    def get_default_from_annotation(
+        cls,
+        fork: Fork,
+        field_name: str,
+        field_hint: Any,
+        block_number: int = 0,
+        timestamp: int = 0,
+    ) -> Any:
+        """
+        Get default value for a header field based on its type hint.
+
+        This method handles:
+        1. Fork requirement checking - only returns a default if the fork
+           requires the field
+        2. Model-defined defaults - uses the field's default value if available
+        3. Type-based defaults - constructs defaults based on the field type
+
+        Args:
+            fork: Fork to check requirements against
+            field_name: Name of the field
+            field_hint: Type annotation of the field
+            block_number: Block number for fork requirement checking
+                (default: 0)
+            timestamp: Timestamp for fork requirement checking (default: 0)
+
+        Returns:
+            Default value appropriate for the field type, or None if
+            the field is not required by the fork
+
+        Raises:
+            TypeError: If the field type is not supported and no default
+                value is defined in the model. This indicates that support
+                for the type needs to be added or an explicit default must
+                be provided.
+
+        """
+        # Check if this field has a HeaderForkRequirement annotation
+        header_fork_requirement = HeaderForkRequirement.get_from_annotation(
+            field_hint
+        )
+        if header_fork_requirement is not None:
+            # Only provide a default if the fork requires this field
+            if not header_fork_requirement.required(
+                fork, block_number, timestamp
+            ):
+                return None
+
+        # Check if the field has a default value defined in the model
+        if field_name in cls.model_fields:
+            field_info = cls.model_fields[field_name]
+            if (
+                field_info.default is not None
+                and field_info.default is not PydanticUndefined
+            ):
+                return field_info.default
+            if field_info.default_factory is not None:
+                return field_info.default_factory()  # type: ignore[call-arg]
+
+        # Unwrap type annotations to get the actual type
+        actual_type = unwrap_annotation(field_hint)
+
+        # Construct default based on type
+        if actual_type == ZeroPaddedHexNumber:
+            return ZeroPaddedHexNumber(0)
+        elif actual_type == Hash:
+            return Hash(0)
+        elif actual_type == Address:
+            return Address(0)
+        elif actual_type == Bytes:
+            return Bytes(b"")
+        else:
+            # Unsupported type - raise error to catch this during development
+            raise TypeError(
+                f"Cannot generate default value for field '{field_name}' "
+                f"with unsupported type '{actual_type}'. "
+                "Add support for this type or provide a default explicitly."
+            )
+
+    @classmethod
     def genesis(cls, fork: Fork, env: Environment, state_root: Hash) -> Self:
         """Get the genesis header for the given fork."""
         environment_values = env.model_dump(
@@ -283,6 +377,11 @@ class FixtureHeader(CamelModel):
             "requests_hash": Requests()
             if fork.header_requests_required(block_number=0, timestamp=0)
             else None,
+            "block_access_list_hash": (
+                BlockAccessList().rlp_hash
+                if fork.header_bal_hash_required(block_number=0, timestamp=0)
+                else None
+            ),
             "fork": fork,
         }
         return cls(**environment_values, **extras)
@@ -292,6 +391,10 @@ class FixtureExecutionPayload(CamelModel):
     """
     Representation of an Ethereum execution payload within a test Fixture.
     """
+
+    # Allow extra fields: FixtureExecutionPayload is constructed from
+    # FixtureHeader via model_dump(), which includes fields not in this model.
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     parent_hash: Hash
     fee_recipient: Address
@@ -333,7 +436,7 @@ class FixtureExecutionPayload(CamelModel):
         transactions, a list of withdrawals, and an optional block access list.
         """
         return cls(
-            **header.model_dump(exclude={"rlp"}, exclude_none=True),
+            **header.model_dump(exclude_none=True),
             transactions=[tx.rlp() for tx in transactions],
             withdrawals=withdrawals,
             block_access_list=block_access_list,
@@ -408,6 +511,15 @@ class FixtureEngineNewPayload(CamelModel):
             "Invalid header for engine_newPayload"
         )
 
+        if fork.engine_execution_payload_block_access_list(
+            block_number=header.number, timestamp=header.timestamp
+        ):
+            if block_access_list is None:
+                raise ValueError(
+                    "`block_access_list` is required in engine "
+                    f"`ExecutionPayload` for >={fork}."
+                )
+
         execution_payload = FixtureExecutionPayload.from_fixture_header(
             header=header,
             transactions=transactions,
@@ -460,6 +572,10 @@ class FixtureTransaction(
 ):
     """Representation of an Ethereum transaction within a test Fixture."""
 
+    # Allow extra fields: FixtureTransaction is constructed from
+    # Transaction via model_dump(), which includes fields not in this model.
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
     authorization_list: List[FixtureAuthorizationTuple] | None = None
     initcodes: List[Bytes] | None = None
 
@@ -505,6 +621,19 @@ class FixtureBlockBase(CamelModel):
     bytes.
     """
 
+    @model_validator(mode="before")
+    @classmethod
+    def strip_block_number_computed_field(cls, data: Any) -> Any:
+        """
+        Strip the block_number computed field included in model_dump().
+
+        This field is not a valid input field.
+        """
+        if isinstance(data, dict):
+            data.pop("blocknumber", None)
+            data.pop("block_number", None)
+        return data
+
     header: FixtureHeader = Field(..., alias="blockHeader")
     txs: List[FixtureTransaction] = Field(
         default_factory=list, alias="transactions"
@@ -513,10 +642,12 @@ class FixtureBlockBase(CamelModel):
         default_factory=list, alias="uncleHeaders"
     )
     withdrawals: List[FixtureWithdrawal] | None = None
+    receipts: List[FixtureTransactionReceipt] | None = None
     execution_witness: WitnessChunk | None = None
     block_access_list: BlockAccessList | None = Field(
         None, description="EIP-7928 Block Access List"
     )
+    fork: Fork | None = Field(None, exclude=True)
 
     @computed_field(alias="blocknumber")  # type: ignore[prop-decorator]
     @cached_property
@@ -536,9 +667,6 @@ class FixtureBlockBase(CamelModel):
 
         if self.withdrawals is not None:
             block.append([w.to_serializable_list() for w in self.withdrawals])
-
-        if self.block_access_list is not None:
-            block.append(self.block_access_list.to_list())
 
         return FixtureBlock(
             **self.model_dump(),
@@ -677,6 +805,10 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     test execution without client restarts.
     """
 
+    # Allow extra fields: BlockchainEngineXFixture is constructed from shared
+    # fixture_data that has fields for other fixture formats (e.g. genesis).
+    model_config = CamelModel.model_config | {"extra": "ignore"}
+
     format_name: ClassVar[str] = "blockchain_test_engine_x"
     description: ClassVar[str] = (
         "Tests that generate a Blockchain Test Engine X fixture."
@@ -713,7 +845,8 @@ class BlockchainEngineSyncFixture(BlockchainEngineFixture):
 
     format_name: ClassVar[str] = "blockchain_test_sync"
     description: ClassVar[str] = (
-        "Tests that generate a blockchain test fixture for Engine API testing with client sync."
+        "Tests that generate a blockchain test fixture for Engine API "
+        "testing with client sync."
     )
     sync_payload: FixtureEngineNewPayload | None = None
 

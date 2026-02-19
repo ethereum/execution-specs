@@ -10,6 +10,7 @@ import math
 import pytest
 from execution_testing import (
     BenchmarkTestFiller,
+    Bytecode,
     Fork,
     JumpLoopGenerator,
     Op,
@@ -18,7 +19,6 @@ from execution_testing import (
 KECCAK_RATE = 136
 
 
-@pytest.mark.repricing
 def test_keccak_max_permutations(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
@@ -29,7 +29,6 @@ def test_keccak_max_permutations(
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     available_gas = tx_gas_limit - intrinsic_gas_calculator()
 
-    gsc = fork.gas_costs()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
 
     # Discover the optimal input size to maximize keccak-permutations,
@@ -39,13 +38,9 @@ def test_keccak_max_permutations(
     max_keccak_perm_per_block = 0
     optimal_input_length = 0
     for i in range(1, 1_000_000, 32):
-        iteration_gas_cost = (
-            2 * gsc.G_VERY_LOW  # PUSHN + PUSH1
-            + gsc.G_KECCAK_256  # KECCAK256 static cost
-            + math.ceil(i / 32) * gsc.G_KECCAK_256_WORD  # KECCAK256 dynamic
-            # cost
-            + gsc.G_BASE  # POP
-        )
+        # Iteration cost disregarding memory expansion
+        iteration_bytecode = Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1, data_size=i))
+        iteration_gas_cost = iteration_bytecode.gas_cost(fork)
         # From the available gas, we subtract the mem expansion costs
         # considering we know the current input size length i.
         available_gas_after_expansion = max(
@@ -63,25 +58,58 @@ def test_keccak_max_permutations(
             optimal_input_length = i
 
     benchmark_test(
+        target_opcode=Op.SHA3,
         code_generator=JumpLoopGenerator(
             setup=Op.PUSH20[optimal_input_length],
-            attack_block=Op.POP(Op.SHA3(Op.PUSH0, Op.DUP1)),
+            attack_block=Op.POP(
+                Op.SHA3(Op.PUSH0, Op.DUP1, data_size=optimal_input_length)
+            ),
         ),
     )
 
 
 @pytest.mark.parametrize("mem_alloc", [b"", b"ff", b"ff" * 32])
 @pytest.mark.parametrize("offset", [0, 31, 1024])
+@pytest.mark.parametrize("mem_update", [True, False])
 def test_keccak(
     benchmark_test: BenchmarkTestFiller,
     offset: int,
     mem_alloc: bytes,
+    mem_update: bool,
 ) -> None:
     """Benchmark KECCAK256 instruction with diff input data and offsets."""
+    code_hash = Op.SHA3(offset, Op.CALLDATASIZE)
+    attack_block = (
+        Op.MSTORE(Op.PUSH0, code_hash) if mem_update else Op.POP(code_hash)
+    )
+
     benchmark_test(
+        target_opcode=Op.SHA3,
         code_generator=JumpLoopGenerator(
             setup=Op.CALLDATACOPY(offset, Op.PUSH0, Op.CALLDATASIZE),
-            attack_block=Op.POP(Op.SHA3(offset, Op.CALLDATASIZE)),
+            attack_block=attack_block,
             tx_kwargs={"data": mem_alloc},
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("mem_size", [0, 32, 256, 1024])
+@pytest.mark.parametrize("msg_size", [0, 32, 256, 1024])
+def test_keccak_diff_mem_msg_sizes(
+    benchmark_test: BenchmarkTestFiller,
+    mem_size: int,
+    msg_size: int,
+) -> None:
+    """Benchmark KECCAK256 instruction with diff memory and message sizes."""
+    # Setup expands memory to mem_size bytes (if > 0) by storing a value
+    # Then the attack block hashes msg_size bytes starting from offset 0.
+    setup = Op.MSTORE8(mem_size - 1, 0xFF) if mem_size > 0 else Bytecode()
+
+    benchmark_test(
+        target_opcode=Op.SHA3,
+        code_generator=JumpLoopGenerator(
+            setup=setup,
+            attack_block=Op.MSTORE(Op.PUSH0, Op.SHA3(Op.PUSH0, msg_size)),
         ),
     )

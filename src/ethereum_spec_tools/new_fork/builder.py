@@ -413,7 +413,7 @@ class ForkBuilder:
         """
         Create a temporary working directory so we don't end up in the state
         where this process ~~barfs~~ abnormally terminates and we leave a
-        half-modified fork directory laying around.
+        half-modified fork directory lying around.
         """
         output = self.new_fork_path.parent
         output.mkdir(parents=True, exist_ok=True)

@@ -10,12 +10,11 @@ from .logger import (
     VERBOSE_LEVEL,
     ColorFormatter,
     EESTLogger,
-    UTCFormatter,
-    get_logger,
     LogLevel,
+    UTCFormatter,
     configure_logging,
+    get_logger,
 )
-
 
 __all__ = [
     "VERBOSE_LEVEL",

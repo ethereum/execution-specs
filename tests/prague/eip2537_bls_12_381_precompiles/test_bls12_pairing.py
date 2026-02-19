@@ -5,6 +5,8 @@ Tests the BLS12_PAIRING precompile implementation from
 [EIP-2537: Precompile for BLS12-381 curve operations](https://eips.ethereum.org/EIPS/eip-2537).
 """
 
+from typing import Tuple
+
 import pytest
 from execution_testing import (
     EOA,
@@ -140,6 +142,59 @@ def test_valid(
     )
 
 
+def binary_search(
+    *,
+    fork: Fork,
+    max_gas_limit: int,
+    iteration_data: bytes,
+    suffix_data: bytes = b"",
+    extra_gas: int = 100_000,
+) -> Tuple[int, bytes]:
+    """
+    Calculate the optimal transaction gas limit and input data to stay below
+    the maximum gas limit.
+    """
+    intrinsic_gas_cost_calculator = (
+        fork.transaction_intrinsic_cost_calculator()
+    )
+    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
+    len_iteration_data = len(iteration_data)
+    len_prefix_data = len(suffix_data)
+
+    def calc_tx_gas_limit(n: int) -> int:
+        return (
+            extra_gas
+            + intrinsic_gas_cost_calculator(
+                calldata=(iteration_data * n) + suffix_data
+            )
+            + memory_expansion_gas_calculator(
+                new_bytes=(len_iteration_data * n) + len_prefix_data,
+            )
+            + pairing_gas((len_iteration_data * n) + len_prefix_data)
+        )
+
+    low = 1
+    high = 2
+
+    while calc_tx_gas_limit(high) < max_gas_limit:
+        low = high
+        high *= 2
+
+    # Binary search for exact fit
+    while low < high:
+        mid = (low + high) // 2
+        if calc_tx_gas_limit(mid) > max_gas_limit:
+            high = mid
+        else:
+            low = mid + 1
+
+    best_iterations = low - 1
+    return (
+        calc_tx_gas_limit(best_iterations),
+        (iteration_data * best_iterations) + suffix_data,
+    )
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize("precompile_gas", [None], ids=[""])
 @pytest.mark.parametrize("expected_output", [Spec.PAIRING_TRUE], ids=[""])
@@ -155,39 +210,21 @@ def test_valid_multi_inf(
     Test maximum input given the current environment gas limit for the
     BLS12_PAIRING precompile.
     """
-    intrinsic_gas_cost_calculator = (
-        fork.transaction_intrinsic_cost_calculator()
-    )
-    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     extra_gas = 100_000
 
-    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-    max_gas_limit = (
-        Environment().gas_limit
-        if tx_gas_limit_cap is None
-        else tx_gas_limit_cap
-    )
+    max_gas_limit = fork.transaction_gas_limit_cap() or Environment().gas_limit
 
     inf_data = Spec.INF_G1 + Spec.INF_G2
-    input_data = inf_data
 
-    while True:
-        precompile_gas = pairing_gas(len(input_data + inf_data))
-        new_tx_gas_limit = (
-            extra_gas
-            + intrinsic_gas_cost_calculator(calldata=input_data + inf_data)
-            + memory_expansion_gas_calculator(
-                new_bytes=len(input_data + inf_data)
-            )
-            + precompile_gas
-        )
-        if new_tx_gas_limit > max_gas_limit:
-            break
-        tx_gas_limit = new_tx_gas_limit
-        input_data += inf_data
+    gas_limit, input_data = binary_search(
+        fork=fork,
+        max_gas_limit=max_gas_limit,
+        iteration_data=inf_data,
+        extra_gas=extra_gas,
+    )
 
     tx = Transaction(
-        gas_limit=tx_gas_limit,
+        gas_limit=gas_limit,
         data=input_data,
         to=call_contract_address,
         sender=sender,
@@ -379,39 +416,23 @@ def test_invalid_multi_inf(
     Test maximum input given the current environment gas limit for the
     BLS12_PAIRING precompile and an invalid tail.
     """
-    intrinsic_gas_cost_calculator = (
-        fork.transaction_intrinsic_cost_calculator()
-    )
-    memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     extra_gas = 100_000
 
-    tx_gas_limit_cap = fork.transaction_gas_limit_cap()
-    max_gas_limit = (
-        Environment().gas_limit
-        if tx_gas_limit_cap is None
-        else tx_gas_limit_cap
-    )
+    max_gas_limit = fork.transaction_gas_limit_cap() or Environment().gas_limit
 
     inf_data = Spec.INF_G1 + Spec.INF_G2
-    input_data = PointG1(Spec.P, 0) + Spec.INF_G2
+    invalid_data = PointG1(Spec.P, 0) + Spec.INF_G2
 
-    while True:
-        precompile_gas = pairing_gas(len(input_data + inf_data))
-        new_tx_gas_limit = (
-            extra_gas
-            + intrinsic_gas_cost_calculator(calldata=input_data + inf_data)
-            + memory_expansion_gas_calculator(
-                new_bytes=len(input_data + inf_data)
-            )
-            + precompile_gas
-        )
-        if new_tx_gas_limit > max_gas_limit:
-            break
-        tx_gas_limit = new_tx_gas_limit
-        input_data = inf_data + input_data
+    gas_limit, input_data = binary_search(
+        fork=fork,
+        max_gas_limit=max_gas_limit,
+        iteration_data=inf_data,
+        suffix_data=invalid_data,
+        extra_gas=extra_gas,
+    )
 
     tx = Transaction(
-        gas_limit=tx_gas_limit,
+        gas_limit=gas_limit,
         data=input_data,
         to=call_contract_address,
         sender=sender,

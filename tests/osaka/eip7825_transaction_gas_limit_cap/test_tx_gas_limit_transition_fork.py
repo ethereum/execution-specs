@@ -28,7 +28,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7825.version
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedBeforeFork()
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.AcceptedAfterFork()
 @EIPChecklist.ModifiedTransactionValidityConstraint.Test.ForkTransition.RejectedAfterFork()
-@pytest.mark.valid_at_transition_to("Osaka", subsequent_forks=True)
+@pytest.mark.valid_at_transition_to("Osaka")
 @pytest.mark.parametrize(
     "transaction_at_cap",
     [

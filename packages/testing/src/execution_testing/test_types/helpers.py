@@ -10,7 +10,8 @@ from execution_testing.base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
 )
-from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.vm import Bytecode, Op
 
 from .account_types import EOA
 from .utils import int_to_bytes
@@ -18,6 +19,33 @@ from .utils import int_to_bytes
 """
 Helper functions
 """
+
+# Default deterministic factory address and bytecode for forks that do not
+# support EIP-7997.
+# See https://github.com/Arachnid/deterministic-deployment-proxy for more
+# details.
+DETERMINISTIC_FACTORY_ADDRESS = Address(
+    0x4E59B44847B379578588920CA78FBF26C0B4956C
+)
+DETERMINISTIC_FACTORY_BYTECODE = (
+    Op.ADD(Op.CALLDATASIZE, 2**256 - 32)
+    + Op.PUSH1[0x0]
+    + Op.CALLDATACOPY(dest_offset=Op.DUP3, offset=0x20, size=Op.DUP2)
+    + Op.CREATE2(
+        value=Op.CALLVALUE,
+        offset=Op.DUP3,
+        size=Op.DUP3,
+        salt=Op.CALLDATALOAD(Op.DUP1),
+    )
+    + Op.JUMPI(pc=0x39, condition=Op.ISZERO(Op.ISZERO(Op.DUP1)))
+    + Op.REVERT(offset=Op.DUP3, size=Op.DUP2)
+    + Op.JUMPDEST
+    + Op.MSTORE(offset=Op.DUP3, value=Op.DUP1)
+    + Op.POP
+    + Op.POP
+    + Op.POP
+    + Op.RETURN(offset=0xC, size=0x14)
+)
 
 
 def ceiling_division(a: int, b: int) -> int:
@@ -60,35 +88,47 @@ def compute_create_address(
 def compute_create2_address(
     address: FixedSizeBytesConvertible,
     salt: FixedSizeBytesConvertible,
-    initcode: BytesConvertible,
+    initcode: Bytecode | BytesConvertible,
 ) -> Address:
     """
     Compute address of the resulting contract created using the `CREATE2`
     opcode.
     """
+    if isinstance(initcode, Bytecode):
+        initcode_hash = initcode.keccak256()
+    else:
+        initcode_hash = Bytes(initcode).keccak256()
     hash_bytes = Bytes(
-        b"\xff" + Address(address) + Hash(salt) + Bytes(initcode).keccak256()
+        b"\xff" + Address(address) + Hash(salt) + initcode_hash
     ).keccak256()
     return Address(hash_bytes[-20:])
 
 
-def compute_eofcreate_address(
-    address: FixedSizeBytesConvertible, salt: FixedSizeBytesConvertible
+def compute_deterministic_create2_address(
+    *,
+    salt: FixedSizeBytesConvertible,
+    initcode: BytesConvertible,
+    fork: Fork,
 ) -> Address:
     """
-    Compute address of the resulting contract created using the `EOFCREATE`
-    opcode.
+    Compute address of the resulting contract created using the `CREATE2`
+    opcode using the `DETERMINISTIC_FACTORY_ADDRESS`.
     """
-    hash_bytes = Bytes(
-        b"\xff" + b"\x00" * 12 + Address(address) + Hash(salt)
-    ).keccak256()
-    return Address(hash_bytes[-20:])
+    factory_address = (
+        fork.deterministic_factory_predeploy_address()
+        or DETERMINISTIC_FACTORY_ADDRESS
+    )
+    return compute_create2_address(
+        address=factory_address,
+        salt=salt,
+        initcode=initcode,
+    )
 
 
 def add_kzg_version(
     b_hashes: List[bytes | SupportsBytes | int | str], kzg_version: int
 ) -> List[Hash]:
-    """Add  Kzg Version to each blob hash."""
+    """Add KZG version to each blob hash."""
     kzg_version_hex = bytes([kzg_version])
     kzg_versioned_hashes = []
 
@@ -105,6 +145,28 @@ def add_kzg_version(
                 "Blob hash must be either an integer, string or bytes"
             )
     return kzg_versioned_hashes
+
+
+def contract_address_from_hash(account_hash: Hash, salt: int) -> Address:
+    """
+    Calculate an address from a given (account) hash plus a salt.
+
+    Useful to not duplicate accounts in the pre-allocation when grouping
+    many tests.
+    """
+    return Address(
+        Bytes(account_hash + salt.to_bytes(64, "big")).sha256()[12:]
+    )
+
+
+def eoa_from_hash(account_hash: Hash, salt: int) -> EOA:
+    """
+    Calculate an EOA from a given (account) hash plus a salt.
+
+    Useful to not duplicate accounts in the pre-allocation when grouping
+    many tests.
+    """
+    return EOA(key=Bytes(account_hash + salt.to_bytes(64, "big")).sha256())
 
 
 class TestParameterGroup(BaseModel):

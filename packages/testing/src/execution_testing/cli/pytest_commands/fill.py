@@ -100,7 +100,7 @@ class FillCommand(PytestCommand):
         ]
 
     def _add_default_ignores(self, args: List[str]) -> List[str]:
-        """Add default ignore paths for directories not used by fill command."""
+        """Add default ignore paths for directories not used by fill."""
         # Directories to ignore by default
         default_ignores = [
             "tests/evm_tools",

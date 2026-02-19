@@ -56,7 +56,9 @@ def check_json(json_file_path: Path) -> None:
             raise HashMismatchExceptionError(
                 original_hash,
                 new_hash,
-                message=f"Fixture hash attributes do not match for {fixture_name}",
+                message=(
+                    f"Fixture hash attributes do not match for {fixture_name}"
+                ),
             )
         if "hash" in fixture.info and fixture.info["hash"] != original_hash:
             info_hash = fixture.info["hash"]
@@ -125,7 +127,9 @@ def check_fixtures(
 
     with Progress(
         TextColumn(
-            f"[bold cyan]{{task.fields[filename]:<{filename_display_width}}}[/]",
+            "[bold cyan]"
+            f"{{task.fields[filename]:<{filename_display_width}}}"
+            "[/]",
             justify="left",
         ),
         BarColumn(

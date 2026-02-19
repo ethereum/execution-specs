@@ -55,8 +55,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=str,
         default=None,
         help=(
-            "Name of the network to verify for the RPC client. Supported networks by default: "
-            f"{', '.join(DEFAULT_NETWORKS.root.keys())}."
+            "Name of the network to verify for the RPC client. Supported "
+            f"networks by default: {', '.join(DEFAULT_NETWORKS.root.keys())}."
         ),
     )
     eth_config_group.addoption(
@@ -66,10 +66,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         required=False,
         type=Path,
         default=None,
-        help="Path to the yml file that contains custom network configuration "
-        "(e.g. ./src/execution_testing/cli/pytest_commands/plugins/execute/eth_config/networks.yml).\nIf no config is provided "
-        "then majority mode will be used for devnet testing (clients that have a different "
-        "response than the majority of clients will fail the test)",
+        help=(
+            "Path to the yml file that contains custom network configuration "
+            "(e.g. ./src/execution_testing/cli/pytest_commands/plugins/"
+            "execute/eth_config/networks.yml). If no config is provided then "
+            "majority mode will be used for devnet testing (clients that have "
+            "a different response than the majority of clients will fail the "
+            "test)"
+        ),
     )
     eth_config_group.addoption(
         "--clients",
@@ -78,9 +82,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="clients",
         type=str,
         default=None,
-        help="Comma-separated list of clients to be tested in majority mode. Example: "
-        '"besu,erigon,geth,nethermind,nimbusel,reth"\nIf you do not pass a value, majority mode '
-        "testing will be disabled.",
+        help=(
+            "Comma-separated list of clients to be tested in majority mode. "
+            'Example: "besu,erigon,geth,nethermind,nimbusel,reth". If you do '
+            "not pass a value, majority mode testing will be disabled."
+        ),
     )
     eth_config_group.addoption(
         "--genesis-config-file",
@@ -89,8 +95,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         required=False,
         type=Path,
         default=None,
-        help="Path to a genesis JSON file from which a custom network configuration "
-        "must be derived.",
+        help=(
+            "Path to a genesis JSON file from which a custom network "
+            "configuration must be derived."
+        ),
     )
     eth_config_group.addoption(
         "--genesis-config-url",
@@ -99,8 +107,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         required=False,
         type=str,
         default=None,
-        help="URL to a genesis JSON file from which a custom network configuration "
-        "must be derived.",
+        help=(
+            "URL to a genesis JSON file from which a custom network "
+            "configuration must be derived."
+        ),
     )
     eth_config_group.addoption(
         "--rpc-endpoint",
@@ -127,13 +137,14 @@ def pytest_configure(config: pytest.Config) -> None:
 
     if genesis_config_file and genesis_config_url:
         pytest.exit(
-            "Cannot specify both the --genesis-config-file and --genesis-config-url flags."
+            "Cannot specify both the --genesis-config-file and "
+            "--genesis-config-url flags."
         )
 
     if (genesis_config_file or genesis_config_url) and network_name:
         pytest.exit(
-            "Cannot specify a network name when using the --genesis-config-file or "
-            "--genesis-config-url flag."
+            "Cannot specify a network name when using the "
+            "--genesis-config-file or --genesis-config-url flag."
         )
     # handle the one of the three flags that was passed
     #   case 1: genesis_config_file
@@ -153,7 +164,8 @@ def pytest_configure(config: pytest.Config) -> None:
             network_configs_path = DEFAULT_NETWORK_CONFIGS_FILE
         if not network_configs_path.exists():
             pytest.exit(
-                f'Specified networks file "{network_configs_path}" does not exist.'
+                f'Specified networks file "{network_configs_path}" does not '
+                "exist."
             )
         try:
             network_configs = NetworkConfigFile.from_yaml(network_configs_path)
@@ -162,7 +174,8 @@ def pytest_configure(config: pytest.Config) -> None:
 
         if network_name not in network_configs.root:
             pytest.exit(
-                f'Network "{network_name}" could not be found in file "{network_configs_path}".'
+                f'Network "{network_name}" could not be found in file '
+                f'"{network_configs_path}".'
             )
         config.network = network_configs.root[network_name]  # type: ignore
 
@@ -181,7 +194,8 @@ def pytest_configure(config: pytest.Config) -> None:
             config.option.majority_clients = clients  # List[str]
     else:
         logger.info(
-            "Majority test mode is disabled because no --clients value was passed."
+            "Majority test mode is disabled because no --clients value was "
+            "passed."
         )
 
     if config.getoption("collectonly", default=False):
@@ -201,7 +215,8 @@ def pytest_configure(config: pytest.Config) -> None:
         pytest.exit(f"Could not connect to RPC endpoint {rpc_endpoint}: {e}")
     try:
         logger.debug(
-            "Will now briefly check whether eth_config is supported by target rpc.."
+            "Will now briefly check whether eth_config is supported by "
+            "target rpc.."
         )
         eth_rpc.config()
         logger.debug(
@@ -271,7 +286,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             # The test function is not run because we only have a single
             # client, so no majority comparison
             logger.info(
-                "Skipping eth_config majority because less than 2 exec clients were passed"
+                "Skipping eth_config majority because less than 2 exec "
+                "clients were passed"
             )
             metafunc.parametrize(
                 ["all_rpc_endpoints"],
@@ -302,7 +318,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
                     rpc_endpoint,
                     id=f"{metafunc.definition.name}[{endpoint_name}]",
                 )
-                for endpoint_name, rpc_endpoint in all_rpc_endpoints_dict.items()
+                for endpoint_name, rpc_endpoint in (
+                    all_rpc_endpoints_dict.items()
+                )
             ],
             scope="function",
         )

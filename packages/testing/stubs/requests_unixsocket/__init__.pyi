@@ -1,8 +1,9 @@
+from typing import Callable, Self, Tuple
+
 import requests
-from typing import Tuple, Callable, Self
-from requests.sessions import _Data
 from _typeshed import Incomplete
 from requests.models import _JSON, Response
+from requests.sessions import _Data
 
 DEFAULT_SCHEME: str
 
@@ -11,7 +12,7 @@ class Session(requests.Session):
         self, url_scheme: str = ..., *args: Incomplete, **kwargs: Incomplete
     ) -> None: ...
 
-class monkeypatch:
+class monkeypatch:  # noqa: N801
     session: Session
     methods: Tuple[str | bytes, ...]
     orig_methods: dict[str | bytes, Callable]

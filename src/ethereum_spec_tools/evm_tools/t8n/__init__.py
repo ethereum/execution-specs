@@ -255,10 +255,7 @@ class T8N(Load):
 
         self.logger = get_stream_logger("T8N")
 
-        super().__init__(
-            self.options.state_fork,
-            fork,
-        )
+        super().__init__(fork)
 
         self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
         self.alloc = Alloc(self, stdin)
@@ -386,20 +383,26 @@ class T8N(Load):
                 data=block_env.parent_beacon_block_root,
             )
 
-        for i, tx in zip(
-            self.txs.successfully_parsed,
-            self.txs.transactions,
-            strict=True,
+        for tx_index, (original_idx, tx) in enumerate(
+            zip(
+                self.txs.successfully_parsed,
+                self.txs.transactions,
+                strict=True,
+            )
         ):
             self.backup_state()
             try:
                 self.fork.process_transaction(
-                    block_env, block_output, tx, Uint(i)
+                    block_env, block_output, tx, Uint(tx_index)
                 )
             except EthereumException as e:
-                self.txs.rejected_txs[i] = f"Failed transaction: {e!r}"
+                self.txs.rejected_txs[original_idx] = (
+                    f"Failed transaction: {e!r}"
+                )
                 self.restore_state()
-                self.logger.warning(f"Transaction {i} failed: {e!r}")
+                self.logger.warning(
+                    f"Transaction {original_idx} failed: {e!r}"
+                )
 
         if not self.fork.proof_of_stake:
             if self.options.state_reward is None:
@@ -416,6 +419,12 @@ class T8N(Load):
 
         if self.fork.has_compute_requests_hash:
             self.fork.process_general_purpose_requests(block_env, block_output)
+
+        if self.fork.has_block_access_list_hash:
+            # Build block access list from block_env.state_changes
+            block_output.block_access_list = self.fork.build_block_access_list(
+                block_env.state_changes
+            )
 
     def run_blockchain_test(self) -> None:
         """

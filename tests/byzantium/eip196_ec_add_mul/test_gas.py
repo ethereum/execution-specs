@@ -3,28 +3,26 @@
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     StateTestFiller,
     Transaction,
 )
-from execution_testing.base_types.base_types import Address
-from execution_testing.forks import Byzantium
 from execution_testing.forks.helpers import Fork
 from execution_testing.vm import Opcodes as Op
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-196.md"
-REFERENCE_SPEC_VERSION = "6538d198b1db10784ddccd6931888d7ae718de75"
+from .spec import Spec, ref_spec_196
 
-EC_ADD_ADDRESS = Address(0x06)
-EC_MUL_ADDRESS = Address(0x07)
+REFERENCE_SPEC_GIT_PATH = ref_spec_196.git_path
+REFERENCE_SPEC_VERSION = ref_spec_196.version
 
 
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
     "address",
     [
-        pytest.param(EC_ADD_ADDRESS, id="ecadd"),
-        pytest.param(EC_MUL_ADDRESS, id="ecmul"),
+        pytest.param(Spec.ECADD, id="ecadd"),
+        pytest.param(Spec.ECMUL, id="ecmul"),
     ],
 )
 @pytest.mark.parametrize("enough_gas", [True, False])
@@ -36,13 +34,12 @@ def test_gas_costs(
     enough_gas: bool,
 ) -> None:
     """
-    Tests the constant gas behavior of `ecadd/ecmul/ecpairing` precompiled
-    contract.
+    Tests the constant gas behavior of `ecadd/ecmul` precompiled contracts.
     """
     gas_costs = fork.gas_costs()
     gas = (
         gas_costs.G_PRECOMPILE_ECADD
-        if address == EC_ADD_ADDRESS
+        if address == Spec.ECADD
         else gas_costs.G_PRECOMPILE_ECMUL
     )
     if not enough_gas:
@@ -57,7 +54,7 @@ def test_gas_costs(
         to=account,
         sender=pre.fund_eoa(),
         gas_limit=100_0000,
-        protected=fork >= Byzantium,
+        protected=fork.supports_protected_txs(),
     )
 
     post = {account: Account(storage={0: 1 if enough_gas else 0})}

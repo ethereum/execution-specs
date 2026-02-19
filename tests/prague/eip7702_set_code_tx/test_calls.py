@@ -79,6 +79,7 @@ def target_address(
 
 @pytest.mark.parametrize("target_account_type", TargetAccountType)
 @pytest.mark.parametrize("delegate", [True, False])
+@pytest.mark.parametrize("sender_delegated", [True, False])
 @pytest.mark.parametrize("call_from_initcode", [True, False])
 def test_delegate_call_targets(
     state_test: StateTestFiller,
@@ -86,6 +87,7 @@ def test_delegate_call_targets(
     target_account_type: TargetAccountType,
     target_address: Address,
     delegate: bool,
+    sender_delegated: bool,
     call_from_initcode: bool,
 ) -> None:
     """
@@ -97,6 +99,12 @@ def test_delegate_call_targets(
     if delegate:
         target_address = pre.fund_eoa(0, delegation=target_address)
 
+    if sender_delegated:
+        sender_delegation_target = pre.deploy_contract(Op.STOP)
+        sender_address = pre.fund_eoa(delegation=sender_delegation_target)
+    else:
+        sender_address = pre.fund_eoa()
+
     delegate_call_code = Op.SSTORE(
         slot_call_result, Op.DELEGATECALL(address=target_address)
     ) + Op.SSTORE(slot_code_worked, value_code_worked)
@@ -105,7 +113,7 @@ def test_delegate_call_targets(
         # Call from initcode
         caller_contract = delegate_call_code + Op.RETURN(0, 0)
         tx = Transaction(
-            sender=pre.fund_eoa(),
+            sender=sender_address,
             to=None,
             data=caller_contract,
             gas_limit=4_000_000,
@@ -117,7 +125,7 @@ def test_delegate_call_targets(
         calling_contract_address = pre.deploy_contract(caller_contract)
 
         tx = Transaction(
-            sender=pre.fund_eoa(),
+            sender=sender_address,
             to=calling_contract_address,
             gas_limit=4_000_000,
         )

@@ -49,7 +49,10 @@ class JSONRPCError(Exception):
     def __str__(self) -> str:
         """Return string representation of the JSONRPCError."""
         if self.data is not None:
-            return f"JSONRPCError(code={self.code}, message={self.message}, data={self.data})"
+            return (
+                f"JSONRPCError(code={self.code}, message={self.message}, "
+                f"data={self.data})"
+            )
 
         return f"JSONRPCError(code={self.code}, message={self.message})"
 
@@ -57,11 +60,14 @@ class JSONRPCError(Exception):
 class TransactionByHashResponse(Transaction):
     """Represents the response of a transaction by hash request."""
 
+    model_config = Transaction.model_config | {"extra": "ignore"}
+
     block_hash: Hash | None = None
     block_number: HexNumber | None = None
 
     gas_limit: HexNumber = Field(HexNumber(21_000), alias="gas")
     transaction_hash: Hash = Field(..., alias="hash")
+    transaction_index: HexNumber | None = None
     sender: EOA | None = Field(None, alias="from")
 
     # The to field can have different names in different clients, so we use
@@ -149,6 +155,8 @@ class PayloadAttributes(CamelModel):
     suggested_fee_recipient: Address
     withdrawals: List[Withdrawal] | None = None
     parent_beacon_block_root: Hash | None = None
+    target_blobs_per_block: HexNumber | None = None
+    max_blobs_per_block: HexNumber | None = None
 
 
 class BlobsBundle(CamelModel):
@@ -188,6 +196,8 @@ class BlobAndProofV2(CamelModel):
 
 class GetPayloadResponse(CamelModel):
     """Represents the response of a get payload request."""
+
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     execution_payload: FixtureExecutionPayload
     blobs_bundle: BlobsBundle | None = None

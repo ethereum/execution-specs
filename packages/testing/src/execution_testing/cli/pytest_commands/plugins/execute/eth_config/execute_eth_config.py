@@ -235,12 +235,14 @@ def test_eth_config_majority(
                 response = eth_rpc_target.config(timeout=5)
                 if response is None:
                     logger.warning(
-                        f"Got 'None' as eth_config response from {eth_rpc_target}"
+                        f"Got 'None' as eth_config response from "
+                        f"{eth_rpc_target}"
                     )
                     continue
             except Exception as e:
                 logger.warning(
-                    f"When trying to get eth_config from {eth_rpc_target} a problem occurred: {e}"
+                    f"When trying to get eth_config from {eth_rpc_target} a "
+                    f"problem occurred: {e}"
                 )
                 continue
 
@@ -256,12 +258,12 @@ def test_eth_config_majority(
             break  # no need to gather more responses for this client
 
     assert len(responses.keys()) == len(all_rpc_endpoints.keys()), (
-        "Failed to get an eth_config response "
-        f" from each specified execution client. Full list of execution clients is "
-        f"{all_rpc_endpoints.keys()} but we were only able to gather eth_config responses "
-        f"from: {responses.keys()}\n"
-        "Will try again with a different consensus-execution client combination for "
-        "this execution client"
+        "Failed to get an eth_config response from each specified execution "
+        f"client. Full list of execution clients is "
+        f"{all_rpc_endpoints.keys()} but we were only able to gather "
+        f"eth_config responses from: {responses.keys()}\n"
+        "Will try again with a different consensus-execution client "
+        "combination for this execution client"
     )
     # determine hashes of client responses
     client_to_hash_dict = {}  # Dict[exec_client : response hash] # noqa: C408
@@ -298,5 +300,6 @@ def test_eth_config_majority(
     assert expected_hash != ""
 
     logger.info(
-        "All clients returned the same eth_config response. Test has been passed!"
+        "All clients returned the same eth_config response. Test has been "
+        "passed!"
     )

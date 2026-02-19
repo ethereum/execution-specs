@@ -21,7 +21,7 @@ def test_function(state_test, pre):
 
 
 @pytest.fixture
-def expected_exit_code() -> pytest.ExitCode:
+def expected_exit_code() -> pytest.ExitCode:  # noqa: D103
     return pytest.ExitCode.OK
 
 
@@ -57,7 +57,6 @@ class TestFillClickCli:
         result = run_fill("--help")
         assert "[--evm-bin EVM_BIN]" in result.output
         assert "[--traces]" in result.output
-        assert "[--evm-code-type EVM_CODE_TYPE]" in result.output
         assert "--help" in result.output
         assert "Arguments defining evm executable behavior:" in result.output
 
@@ -82,9 +81,10 @@ class TestFillPytester:
     """
     Test fill command using pytester.
 
-    This mode skips the fill command's Click CLI and uses pytester to run the command.
+    This mode skips the fill command's Click CLI and uses pytester to run
+    the command.
 
-    Pytester allows to actually fill the python test files.
+    Pytester allows actually filling the Python test files.
     """
 
     @pytest.fixture
@@ -144,7 +144,10 @@ class TestFillPytester:
     @pytest.fixture()
     def default_html_report_file_path(self) -> str:
         """File path for fill's pytest html report."""
-        return execution_testing.cli.pytest_commands.plugins.filler.filler.default_html_report_file_path()
+        filler_module = (
+            execution_testing.cli.pytest_commands.plugins.filler.filler
+        )
+        return filler_module.default_html_report_file_path()
 
     @pytest.fixture(scope="function")
     def default_fixtures_output(
@@ -161,7 +164,7 @@ class TestFillPytester:
         Monkeypatch default output directory for the pytest commands.
 
         This avoids using the local directory in user space for the output of
-        pytest commands and uses the a temporary directory instead.
+        pytest commands and uses a temporary directory instead.
         """
 
         def mock_default_output_directory() -> Path:

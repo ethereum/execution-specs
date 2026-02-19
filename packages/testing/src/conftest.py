@@ -8,6 +8,7 @@ import pytest
 from execution_testing.client_clis import (
     BesuTransitionTool,
     ExecutionSpecsTransitionTool,
+    GethTransitionTool,
     TransitionTool,
 )
 
@@ -49,11 +50,16 @@ def installed_transition_tool_instances() -> Generator[
 
 
 @pytest.fixture(
-    params=INSTALLED_TRANSITION_TOOLS,
-    ids=[
-        transition_tool_class.__name__
-        for transition_tool_class in INSTALLED_TRANSITION_TOOLS
-    ],
+    params=[
+        pytest.param(
+            transition_tool,
+            marks=[pytest.mark.xfail(reason="Geth t8n needs update")]
+            if transition_tool == GethTransitionTool
+            else [],
+            id=transition_tool.__name__,
+        )
+        for transition_tool in INSTALLED_TRANSITION_TOOLS
+    ]
 )
 def installed_t8n(
     request: pytest.FixtureRequest,
@@ -89,13 +95,11 @@ def default_t8n(
         DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS.__name__
     )
     if instance is None:
-        raise Exception(
-            f"Failed to instantiate {DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS.__name__}"
-        )
+        tool_name = DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS.__name__
+        raise Exception(f"Failed to instantiate {tool_name}")
     if isinstance(instance, Exception):
-        raise Exception(
-            f"Failed to instantiate {DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS.__name__}"
-        ) from instance
+        tool_name = DEFAULT_TRANSITION_TOOL_FOR_UNIT_TESTS.__name__
+        raise Exception(f"Failed to instantiate {tool_name}") from instance
     return instance
 
 

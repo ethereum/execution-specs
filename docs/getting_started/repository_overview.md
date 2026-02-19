@@ -4,43 +4,43 @@
 The most relevant folders and files in the repo are:
 
 ```text
-📁 execution-test-specs/
-├─╴📁 tests/                     # test cases
-│   ├── 📁 eips/
-│   ├── 📁 vm/
+📁 execution-specs/
+├─╴📁 tests/                     # test cases organized by fork
+│   ├── 📁 amsterdam/
+│   ├── 📁 osaka/
+│   ├── 📁 prague/
 │   └── 📁 ...
 ├─╴📁 fixtures/                  # default fixture output dir
 │   ├── 📁 blockchain_tests/
 │   ├── 📁 blockchain_tests_engine/
 │   ├── 📁 state_tests/
 │   └── 📁 ...
-├─╴📁 src/                       # library & framework packages
-│   ├── 📁 ethereum_test_fork/
-│   ├── 📁 ethereum_test_tools/
+├─╴📁 packages/                  # library & framework packages
+│   └── 📁 testing/
+│       └── 📁 src/
+│           └── 📁 execution_testing/
+├─╴📁 src/                       # execution spec packages
+│   ├── 📁 ethereum/
 │   └── 📁 ...
 ├─╴📁 docs/                      # markdown documentation
-│   ├── 📁 getting_started
-│   ├── 📁 dev
+│   ├── 📁 getting_started/
+│   ├── 📁 dev/
 │   └── 📁 ...
-├─╴📁 .vscode/                   # visual studio code config
-│   ├── 📄 settings.recommended.json # copy to settings.json
-│   ├── 📄 launch.recommended.json
-│   └── 📄 extensions.json
 └── 📄 whitelist.txt             # spellcheck dictionary
 ```
 
 #### `tests/`
 
-Contains the implementation of the Ethereum consensus tests available in this repository.
+Contains the implementation of the Ethereum consensus tests available in this repository, organized by fork.
+
+#### `packages/`
+
+Contains the `execution_testing` package which provides tools to define test cases and to interface with the `evm t8n` command. Additionally, it contains packages that enable test case execution by customizing pytest which acts as the test framework.
 
 #### `src/`
 
-Contains various packages that help to define test cases and to interface with the `evm t8n` command. Additionally, it contains some packages that enable test case execution by customizing pytest which acts as the test framework.
+Contains the Ethereum execution spec packages.
 
 #### `docs/`
 
 Contains documentation configuration and source files.
-
-#### `.vscode/`
-
-See [VS Code Setup](./setup_vs_code.md).
