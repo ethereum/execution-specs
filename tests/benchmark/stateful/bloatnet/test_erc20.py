@@ -56,6 +56,7 @@ MAX_UINT256 = (1 << 256) - 1
 @pytest.mark.parametrize("initial", [0, MAX_UINT256])
 @pytest.mark.parametrize("target", [0, MAX_UINT256, 2])
 @pytest.mark.parametrize("warm", [False, True])
+@pytest.mark.repricing
 def test_sstore_erc20(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
