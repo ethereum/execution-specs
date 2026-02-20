@@ -57,9 +57,6 @@ def max_count_with_intrinsic_cost_at_most(
     return low
 
 
-def deterministic_access_list_address(index: int) -> Address:
-    """Generate a stable, unique address with mostly non-zero bytes."""
-    return Address(f"0x1234567890abcdef1234567890abcdef{index:08x}")
 
 
 def tx_gas_limit_cap_tests(fork: Fork) -> List[ParameterSet]:
