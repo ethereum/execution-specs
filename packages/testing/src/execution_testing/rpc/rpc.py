@@ -780,22 +780,6 @@ class EthRPC(BaseRPC):
                 raise SendTransactionExceptionError(str(e), tx=tx) from e
         return results
 
-    def storage_at_keys(
-        self,
-        account: Address,
-        keys: List[Hash],
-        block_number: BlockNumberType = "latest",
-    ) -> Dict[Hash, Hash]:
-        """
-        Retrieve the storage values for the specified keys at a given address
-        and block number.
-        """
-        results: Dict[Hash, Hash] = {}
-        for key in keys:
-            storage_value = self.get_storage_at(account, key, block_number)
-            results[key] = storage_value
-        return results
-
     def _build_get_account_calls(
         self,
         address: Address,
