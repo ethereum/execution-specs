@@ -152,7 +152,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             REFUND_STORAGE_CLEAR=4_800,
             GAS_SELF_DESTRUCT=5_000,
             GAS_CREATE=32_000,
-            GAS_CODE_DEPOSIT=200,
+            GAS_CODE_DEPOSIT_PER_BYTE=200,
             GAS_INIT_CODE_WORD_COST=2,
             GAS_CALL_VALUE=9_000,
             GAS_CALL_STIPEND=2_300,
@@ -689,7 +689,7 @@ class Frontier(BaseFork, solc_name="homestead"):
 
         # Code deposit cost when returning from initcode
         code_deposit_size = metadata["code_deposit_size"]
-        return gas_costs.GAS_CODE_DEPOSIT * code_deposit_size
+        return gas_costs.GAS_CODE_DEPOSIT_PER_BYTE * code_deposit_size
 
     @classmethod
     def _calculate_selfdestruct_gas(

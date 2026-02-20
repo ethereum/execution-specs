@@ -26,7 +26,7 @@ class GasCosts:
     GAS_SELF_DESTRUCT: int
     GAS_CREATE: int
 
-    GAS_CODE_DEPOSIT: int
+    GAS_CODE_DEPOSIT_PER_BYTE: int
     GAS_INIT_CODE_WORD_COST: int
 
     GAS_CALL_VALUE: int

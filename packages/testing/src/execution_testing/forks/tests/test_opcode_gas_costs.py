@@ -401,7 +401,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.RETURN(code_deposit_size=100, new_memory_size=32),
-            Osaka.gas_costs().GAS_CODE_DEPOSIT * 100
+            Osaka.gas_costs().GAS_CODE_DEPOSIT_PER_BYTE * 100
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="return_with_code_deposit",
         ),
