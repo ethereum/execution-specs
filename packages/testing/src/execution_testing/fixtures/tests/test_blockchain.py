@@ -1068,7 +1068,6 @@ fixture_header_ones = FixtureHeader(
                     "network": "Prague",
                     "chainid": "0x01",
                 },
-                "snapshotId": "snapshot-1",
                 "snapshotBlockNumber": "0x64",
                 "snapshotBlockHash": Hash(99).hex(),
                 "setupEngineNewPayloads": [
