@@ -107,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: static
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         fork:
           - frontier
