@@ -25,10 +25,10 @@ from execution_testing.exceptions import (
     TransactionException,
     UndefinedException,
 )
+from execution_testing.fixtures.blockchain import ExecutionWitnessTemp
 from execution_testing.logging import (
     get_logger,
 )
-from execution_testing.fixtures.blockchain import ExecutionWitnessTemp
 from execution_testing.test_types import (
     Alloc,
     BlockAccessList,

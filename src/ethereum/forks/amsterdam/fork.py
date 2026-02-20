@@ -74,6 +74,7 @@ from .state_tracker import (
     set_account_balance,
     track_address,
 )
+from .stateless_types import ExecutionWitnessBuilder, build_execution_witness
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,
