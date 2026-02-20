@@ -104,7 +104,7 @@ jobs:
           PYPY_GC_MIN: "1G"
 
   json_infra:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     strategy:
       fail-fast: true
