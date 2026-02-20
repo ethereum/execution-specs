@@ -850,6 +850,10 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
         "Tests that generate a Blockchain Test fixture for "
         "snapshot-based stateful Engine API testing."
     )
+    format_phases: ClassVar[Set[FixtureFillingPhase]] = {
+        FixtureFillingPhase.FILL,
+        FixtureFillingPhase.PRE_ALLOC_GENERATION,
+    }
 
     snapshot_id: str
     snapshot_block_number: HexNumber
