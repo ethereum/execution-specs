@@ -26,6 +26,7 @@ class TransactionLog(CamelModel):
     block_hash: Hash | None = None
     log_index: HexNumber | None = None
     removed: bool | None = None
+    block_timestamp: HexNumber | None = None
 
 
 class ReceiptDelegation(CamelModel):

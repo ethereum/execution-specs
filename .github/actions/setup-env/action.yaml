@@ -12,7 +12,7 @@ runs:
     - name: Install Tox and any other packages
       shell: bash
       run: |
-        DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
         pip install 'tox>=4.11,<5' requests
 
     - name: Download Geth and add to $PATH

@@ -1600,7 +1600,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         fixture_source_url: str,
         gas_benchmark_value: int,
         fixed_opcode_count: int | None,
-        witness_generator: Any,
     ) -> Any:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -1753,11 +1752,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     ref_spec=reference_spec,
                     _info_metadata=t8n._info_metadata,
                 )
-
-                # Generate witness data if witness functionality is enabled via
-                # the witness plugin
-                if witness_generator is not None:
-                    witness_generator(fixture)
 
                 fixture_path = fixture_collector.add_fixture(
                     node_to_test_info(request.node),

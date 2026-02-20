@@ -1102,3 +1102,157 @@ def test_bal_account_absent_values_empty_slot_changes_raises() -> None:
                 )
             ]
         )
+
+
+# --- Tests for BalStorageSlot.validate_any_change ---
+
+
+def test_validate_any_change_passes_with_non_empty_actual() -> None:
+    """validate_any_change=True passes when actual has at least one change."""
+    addr = Address(0xA)
+
+    actual_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=addr,
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0x01,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=0, post_value=0xBEEF
+                            )
+                        ],
+                    ),
+                ],
+            )
+        ]
+    )
+
+    expectation = BlockAccessListExpectation(
+        account_expectations={
+            addr: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(slot=0x01, validate_any_change=True),
+                ],
+            ),
+        }
+    )
+
+    expectation.verify_against(actual_bal)
+
+
+def test_validate_any_change_fails_with_empty_actual() -> None:
+    """validate_any_change=True fails when actual has no changes."""
+    addr = Address(0xA)
+
+    actual_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=addr,
+                storage_changes=[
+                    BalStorageSlot(slot=0x01, slot_changes=[]),
+                ],
+            )
+        ]
+    )
+
+    expectation = BlockAccessListExpectation(
+        account_expectations={
+            addr: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(slot=0x01, validate_any_change=True),
+                ],
+            ),
+        }
+    )
+
+    with pytest.raises(
+        BlockAccessListValidationError,
+        match="Expected at least one change in slot",
+    ):
+        expectation.verify_against(actual_bal)
+
+
+def test_validate_any_change_mutual_exclusion_with_slot_changes() -> None:
+    """
+    validate_any_change=True and non-empty slot_changes raises ValueError.
+    """
+    with pytest.raises(
+        ValueError,
+        match="Cannot set both validate_any_change=True and slot_changes",
+    ):
+        BalStorageSlot(
+            slot=0x01,
+            validate_any_change=True,
+            slot_changes=[
+                BalStorageChange(block_access_index=0, post_value=0xBEEF)
+            ],
+        )
+
+
+def test_slot_changes_empty_asserts_no_changes() -> None:
+    """slot_changes=[] asserts that actual has no changes."""
+    addr = Address(0xA)
+
+    actual_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=addr,
+                storage_changes=[
+                    BalStorageSlot(
+                        slot=0x01,
+                        slot_changes=[
+                            BalStorageChange(
+                                block_access_index=0, post_value=0xBEEF
+                            )
+                        ],
+                    ),
+                ],
+            )
+        ]
+    )
+
+    expectation = BlockAccessListExpectation(
+        account_expectations={
+            addr: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(slot=0x01, slot_changes=[]),
+                ],
+            ),
+        }
+    )
+
+    with pytest.raises(
+        BlockAccessListValidationError,
+        match="Expected no changes in slot",
+    ):
+        expectation.verify_against(actual_bal)
+
+
+def test_slot_changes_empty_passes_when_actual_empty() -> None:
+    """slot_changes=[] passes when actual also has no changes."""
+    addr = Address(0xA)
+
+    actual_bal = BlockAccessList(
+        [
+            BalAccountChange(
+                address=addr,
+                storage_changes=[
+                    BalStorageSlot(slot=0x01, slot_changes=[]),
+                ],
+            )
+        ]
+    )
+
+    expectation = BlockAccessListExpectation(
+        account_expectations={
+            addr: BalAccountExpectation(
+                storage_changes=[
+                    BalStorageSlot(slot=0x01, slot_changes=[]),
+                ],
+            ),
+        }
+    )
+
+    expectation.verify_against(actual_bal)

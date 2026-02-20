@@ -105,7 +105,6 @@ def pytest_configure(config: pytest.Config) -> None:
                 "defining debug",
                 "pre-allocation behavior during test filling",
                 "ported",
-                "witness",
                 "benchmark",
             ],
         )

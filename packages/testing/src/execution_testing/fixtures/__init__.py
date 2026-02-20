@@ -10,6 +10,7 @@ from .base import (
 from .blockchain import (
     BlockchainEngineFixture,
     BlockchainEngineFixtureCommon,
+    BlockchainEngineStatefulFixture,
     BlockchainEngineSyncFixture,
     BlockchainEngineXFixture,
     BlockchainFixture,
@@ -34,6 +35,7 @@ __all__ = [
     "BaseFixture",
     "BlockchainEngineFixture",
     "BlockchainEngineFixtureCommon",
+    "BlockchainEngineStatefulFixture",
     "BlockchainEngineSyncFixture",
     "BlockchainEngineXFixture",
     "BlockchainFixture",

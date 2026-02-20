@@ -5,9 +5,9 @@ This module contains the core data structures representing changes to accounts
 in a block access list as defined in EIP-7928.
 """
 
-from typing import ClassVar, List, Union
+from typing import ClassVar, List, Self, Union
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from execution_testing.base_types import (
     Address,
@@ -79,8 +79,27 @@ class BalStorageSlot(CamelModel, RLPSerializable):
     slot_changes: List[BalStorageChange] = Field(
         default_factory=list, description="List of changes to this slot"
     )
+    validate_any_change: bool = Field(
+        default=False,
+        description=(
+            "If True, asserts at least one change exists in this slot "
+            "without validating specific values. Mutually exclusive with "
+            "non-empty slot_changes."
+        ),
+        exclude=True,
+    )
 
     rlp_fields: ClassVar[List[str]] = ["slot", "slot_changes"]
+
+    @model_validator(mode="after")
+    def _check_mutual_exclusion(self) -> Self:
+        if self.validate_any_change and self.slot_changes:
+            raise ValueError(
+                "Cannot set both validate_any_change=True and slot_changes. "
+                "Use validate_any_change=True to assert at least one change "
+                "exists, or slot_changes=[...] to validate specific changes."
+            )
+        return self
 
 
 class BalAccountChange(CamelModel, RLPSerializable):

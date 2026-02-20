@@ -290,6 +290,9 @@ class BenchmarkTest(BaseTest):
     fixed_opcode_count: float | None = None
     target_opcode: Op | None = None
     code_generator: BenchmarkCodeGenerator | None = None
+    # By default, benchmark tests require neither of these
+    include_full_post_state_in_output: bool = False
+    include_tx_receipts_in_output: bool = False
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -343,9 +346,14 @@ class BenchmarkTest(BaseTest):
 
         blocks: List[Block] = self.setup_blocks
 
-        if self.fixed_opcode_count is not None and self.code_generator is None:
+        if (
+            self.fixed_opcode_count is not None
+            and self.code_generator is None
+            and self.target_opcode is None
+        ):
             pytest.skip(
-                "Cannot run fixed opcode count tests without a code generator"
+                "Cannot run fixed opcode count tests without a "
+                "code generator or a target opcode set"
             )
 
         if self.code_generator is not None:
@@ -486,6 +494,8 @@ class BenchmarkTest(BaseTest):
             pre=self.pre,
             post=self.post,
             blocks=self.blocks,
+            include_full_post_state_in_output=self.include_full_post_state_in_output,
+            include_tx_receipts_in_output=self.include_tx_receipts_in_output,
         )
 
     def _verify_target_opcode_count(
@@ -534,10 +544,9 @@ class BenchmarkTest(BaseTest):
                 self.target_opcode is not None
                 and self.fixed_opcode_count is not None
             ):
-                opcode_count = t8n.opcode_count
-                if opcode_count is None:
-                    raise Exception("Opcode count is not available")
-                self._verify_target_opcode_count(opcode_count)
+                self._verify_target_opcode_count(
+                    blockchain_test._benchmark_opcode_count
+                )
             return fixture
         else:
             raise Exception(f"Unsupported fixture format: {fixture_format}")

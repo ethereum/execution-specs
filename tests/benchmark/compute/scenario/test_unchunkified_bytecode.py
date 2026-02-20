@@ -22,6 +22,7 @@ from execution_testing import (
 from ..helpers import CustomSizedContractFactory
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [
@@ -40,6 +41,7 @@ def test_unchunkified_bytecode(
     fork: Fork,
     opcode: Op,
     gas_benchmark_value: int,
+    fixed_opcode_count: float | None,
 ) -> None:
     """Benchmark scenario of accessing max-code size bytecode."""
     # The attack gas limit represents the transaction gas limit cap or
@@ -115,13 +117,18 @@ def test_unchunkified_bytecode(
     attack_address = pre.deploy_contract(code=attack_code)
 
     # Calculate the number of contracts to be targeted.
-    num_contracts = sum(
-        attack_code.tx_iterations_by_gas_limit(
-            fork=fork,
-            gas_limit=attack_gas_limit,
-            calldata=calldata,
+    if fixed_opcode_count is not None:
+        # Fixed opcode count mode
+        num_contracts = int(fixed_opcode_count * 1000)
+    else:
+        # Gas limit mode
+        num_contracts = sum(
+            attack_code.tx_iterations_by_gas_limit(
+                fork=fork,
+                gas_limit=attack_gas_limit,
+                calldata=calldata,
+            )
         )
-    )
 
     # Deploy num_contracts via multiple txs (each capped by tx gas limit).
     with TestPhaseManager.setup():
@@ -136,15 +143,27 @@ def test_unchunkified_bytecode(
 
     with TestPhaseManager.execution():
         attack_sender = pre.fund_eoa()
-        attack_txs = list(
-            attack_code.transactions_by_gas_limit(
-                fork=fork,
-                gas_limit=attack_gas_limit,
-                sender=attack_sender,
-                to=attack_address,
-                calldata=calldata,
+        if fixed_opcode_count is not None:
+            # Fixed opcode count mode.
+            attack_txs = list(
+                attack_code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=int(fixed_opcode_count * 1000),
+                    sender=attack_sender,
+                    to=attack_address,
+                    calldata=calldata,
+                )
             )
-        )
+        else:
+            attack_txs = list(
+                attack_code.transactions_by_gas_limit(
+                    fork=fork,
+                    gas_limit=attack_gas_limit,
+                    sender=attack_sender,
+                    to=attack_address,
+                    calldata=calldata,
+                )
+            )
         total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
 
     post = {}
@@ -161,5 +180,6 @@ def test_unchunkified_bytecode(
             Block(txs=contracts_deployment_txs),
             Block(txs=attack_txs),
         ],
+        target_opcode=opcode,
         expected_benchmark_gas_used=total_gas_cost,
     )

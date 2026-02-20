@@ -2,7 +2,12 @@
 
 from typing import Any, ClassVar, Dict, List
 
-from pydantic import AliasChoices, Field, computed_field, model_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    computed_field,
+    model_validator,
+)
 
 from execution_testing.base_types import (
     BlobSchedule,
@@ -101,6 +106,8 @@ class FixtureAuthorizationTuple(
 
 class FixtureTransactionLog(CamelModel, RLPSerializable):
     """Fixture variant of the TransactionLog type."""
+
+    model_config = CamelModel.model_config | {"extra": "ignore"}
 
     address: Address | None = None
     topics: List[Hash] | None = None

@@ -312,10 +312,23 @@ class BlockAccessListExpectation(CamelModel):
                             ].slot_changes
                             expected_slot_changes = expected_slot.slot_changes
 
-                            if not expected_slot_changes:
-                                # Empty expected means any
-                                # slot_changes are acceptable
-                                pass
+                            if expected_slot.validate_any_change:
+                                # Assert at least one change exists
+                                if not actual_slot_changes:
+                                    raise BlockAccessListValidationError(
+                                        f"Expected at least one change "
+                                        f"in slot {expected_slot.slot} "
+                                        f"(validate_any_change=True) "
+                                        f"but found none"
+                                    )
+                            elif not expected_slot_changes:
+                                # Explicitly empty = assert no changes
+                                if actual_slot_changes:
+                                    raise BlockAccessListValidationError(
+                                        f"Expected no changes in slot "
+                                        f"{expected_slot.slot} but found "
+                                        f"{actual_slot_changes}"
+                                    )
                             else:
                                 # Validate slot_changes as subsequence
                                 slot_actual_idx = 0

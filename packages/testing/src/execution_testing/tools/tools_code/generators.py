@@ -188,7 +188,12 @@ class CodeGasMeasure(Bytecode):
         res += (
             Op.SWAP1
             + Op.SUB
-            + Op.PUSH1(overhead_cost + 2)
+            + Op.PUSH1[overhead_cost]
+            + Op.GAS
+            + Op.GAS
+            + Op.SWAP1
+            + Op.SUB
+            + Op.ADD
             + Op.SWAP1
             + Op.SSTORE(sstore_key, Op.SUB)
         )

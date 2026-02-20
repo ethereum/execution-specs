@@ -24,7 +24,6 @@ from execution_testing import (
     Transaction,
     TransactionException,
     TransactionReceipt,
-    ceiling_division,
     compute_create_address,
 )
 
@@ -141,11 +140,9 @@ def test_contract_creating_tx(
     )
 
     tx = Transaction(
-        nonce=0,
         to=None,
         data=initcode,
-        gas_limit=10000000,
-        gas_price=10,
+        gas_limit=10_000_000,
         sender=sender,
     )
 
@@ -320,12 +317,10 @@ class TestContractCreationGasUsage:
             pytest.fail("Invalid gas test case provided.")
 
         return Transaction(
-            nonce=0,
             to=None,
             access_list=tx_access_list,
             data=initcode,
             gas_limit=gas_limit,
-            gas_price=10,
             error=tx_error,
             sender=sender,
             # The entire gas limit is expected to be consumed.
@@ -415,29 +410,52 @@ class TestCreateInitcode:
         return 0xDEADBEEF
 
     @pytest.fixture
-    def creator_code(self, opcode: Op, create2_salt: int) -> Bytecode:
+    def create_code(
+        self, opcode: Op, create2_salt: int, initcode: Initcode
+    ) -> Bytecode:
+        """
+        Generate the CREATE/CREATE2 bytecode.
+        """
+        return (
+            opcode(
+                size=Op.CALLDATASIZE,
+                salt=create2_salt,
+                init_code_size=len(initcode),
+            )
+            if opcode == Op.CREATE2
+            else opcode(size=Op.CALLDATASIZE, init_code_size=len(initcode))
+        )
+
+    @pytest.fixture
+    def creator_code(self, fork: Fork, create_code: Bytecode) -> Bytecode:
         """
         Generate code for the creator contract which calls CREATE/CREATE2.
         """
         return (
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
             + Op.GAS
-            + (
-                opcode(size=Op.CALLDATASIZE, salt=create2_salt)
-                if opcode == Op.CREATE2
-                else opcode(size=Op.CALLDATASIZE)
-            )
+            + create_code
             + Op.GAS
             # stack: [Gas 2, Call Result, Gas 1]
             + Op.SWAP1
             # stack: [Call Result, Gas 2, Gas 1]
-            + Op.SSTORE(0, unchecked=True)
+            + Op.PUSH1[0]
+            # stack: [0, Call Result, Gas 2, Gas 1]
+            + Op.SSTORE
             # stack: [Gas 2, Gas 1]
             + Op.SWAP1
             # stack: [Gas 1, Gas 2]
             + Op.SUB
             # stack: [Gas 1 - Gas 2]
-            + Op.SSTORE(1, unchecked=True)
+            + Op.PUSH1[Op.GAS.gas_cost(fork)]
+            # stack: [Op.GAS cost, Gas 1 - Gas 2]
+            + Op.SWAP1
+            # stack: [Gas 1 - Gas 2, Op.GAS cost]
+            + Op.SUB
+            # stack: [Gas 1 - Gas 2 - Op.GAS cost]
+            + Op.PUSH1[1]
+            # stack: [1, Gas 1 - Gas 2 - Op.GAS cost]
+            + Op.SSTORE
         )
 
     @pytest.fixture
@@ -491,43 +509,10 @@ class TestCreateInitcode:
     ) -> Transaction:
         """Generate transaction that executes the caller contract."""
         return Transaction(
-            nonce=0,
             to=caller_contract_address,
             data=initcode,
-            gas_limit=10000000,
-            gas_price=10,
+            gas_limit=10_000_000,
             sender=sender,
-        )
-
-    @pytest.fixture
-    def contract_creation_gas_cost(
-        self, fork: Fork, opcode: Op, create2_salt: int
-    ) -> int:
-        """Calculate gas cost of the contract creation operation."""
-        create_code = (
-            opcode(size=Op.CALLDATASIZE, salt=create2_salt)
-            if opcode == Op.CREATE2
-            else opcode(size=Op.CALLDATASIZE)
-        )
-        return (create_code + Op.GAS).gas_cost(fork)
-
-    @pytest.fixture
-    def initcode_word_cost(self, fork: Fork, initcode: Initcode) -> int:
-        """Calculate gas cost charged for the initcode length."""
-        gas_costs = fork.gas_costs()
-        return ceiling_division(len(initcode), 32) * gas_costs.G_INITCODE_WORD
-
-    @pytest.fixture
-    def create2_word_cost(
-        self, opcode: Op, fork: Fork, initcode: Initcode
-    ) -> int:
-        """Calculate gas cost charged for the initcode length."""
-        if opcode == Op.CREATE:
-            return 0
-
-        gas_costs = fork.gas_costs()
-        return (
-            ceiling_division(len(initcode), 32) * gas_costs.G_KECCAK_256_WORD
         )
 
     @pytest.mark.xdist_group(name="bigmem")
@@ -543,9 +528,7 @@ class TestCreateInitcode:
         caller_contract_address: Address,
         creator_contract_address: Address,
         created_contract_address: Address,
-        contract_creation_gas_cost: int,
-        initcode_word_cost: int,
-        create2_word_cost: int,
+        create_code: Bytecode,
         fork: Fork,
     ) -> None:
         """
@@ -574,17 +557,9 @@ class TestCreateInitcode:
             )
 
         else:
-            expected_gas_usage = contract_creation_gas_cost
+            expected_gas_usage = create_code.gas_cost(fork)
             # The initcode is only executed if the length check succeeds
             expected_gas_usage += initcode.gas_cost(fork)
-
-            # CREATE2 hashing cost should only be deducted if the initcode
-            # does not exceed the max length
-            expected_gas_usage += create2_word_cost
-
-            # Initcode word cost is only deducted if the length check
-            # succeeds
-            expected_gas_usage += initcode_word_cost
 
             # Call returns 1 as valid initcode length s[0]==1 && s[1]==1
             post[caller_contract_address] = Account(
