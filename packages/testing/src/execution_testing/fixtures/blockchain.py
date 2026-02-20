@@ -855,7 +855,6 @@ class BlockchainEngineStatefulFixture(BlockchainEngineFixtureCommon):
         FixtureFillingPhase.PRE_ALLOC_GENERATION,
     }
 
-    snapshot_id: str
     snapshot_block_number: HexNumber
     snapshot_block_hash: Hash
 
