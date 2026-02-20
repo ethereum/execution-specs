@@ -149,7 +149,16 @@ def pytest_configure(config: Config) -> None:
     if desired_fork:
         if desired_fork not in all_forks:
             raise ValueError(f"Unknown fork: {desired_fork}")
-        desired_forks.append(desired_fork)
+        # When --file-list is also set, only include the fork if it
+        # is among the affected forks determined from the changed files.
+        if file_list:
+            affected = extract_affected_forks(
+                config.rootpath, file_list, optimized
+            )
+            if desired_fork in affected:
+                desired_forks.append(desired_fork)
+        else:
+            desired_forks.append(desired_fork)
     elif forks_from or forks_until:
         # Determine start and end indices
         start_idx = 0
