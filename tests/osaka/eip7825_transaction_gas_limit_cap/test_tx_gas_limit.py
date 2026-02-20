@@ -57,8 +57,6 @@ def max_count_with_intrinsic_cost_at_most(
     return low
 
 
-
-
 def tx_gas_limit_cap_tests(fork: Fork) -> List[ParameterSet]:
     """
     Return a list of tests for transaction gas limit cap parametrized for each
@@ -673,7 +671,7 @@ def test_tx_gas_limit_cap_authorized_tx(
     def make_access_list(auth_count: int) -> List[AccessList]:
         return [
             AccessList(
-                address=addr,
+                address=Address(i + 1),
                 storage_keys=[],
             )
             for i in range(auth_count)
