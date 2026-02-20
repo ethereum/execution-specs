@@ -68,8 +68,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         type=int,
         default=120,
         help=(
-            "Timeout in seconds for workers waiting to be funded. "
-            "Default=120"
+            "Timeout in seconds for workers waiting to be funded. Default=120"
         ),
     )
 
