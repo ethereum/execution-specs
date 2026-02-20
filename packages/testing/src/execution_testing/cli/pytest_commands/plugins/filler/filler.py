@@ -42,6 +42,7 @@ from execution_testing.client_clis.clis.geth import FixtureConsumerTool
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
+    BlockchainEngineXFixture,
     BlockchainFixture,
     FixtureCollector,
     FixtureConsumer,
@@ -66,7 +67,7 @@ from execution_testing.forks import (
     get_transition_forks,
 )
 from execution_testing.specs import BaseTest
-from execution_testing.specs.base import OpMode
+from execution_testing.specs.base import FillResult, OpMode
 from execution_testing.test_types import EnvironmentDefaults
 from execution_testing.tools.utility.versioning import (
     generate_github_url,
@@ -1706,12 +1707,12 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     )
                     group = session.get_pre_alloc_group(pre_alloc_hash)
                     self.pre = group.pre
+                fill_result: FillResult | None = None
                 try:
                     fill_result = self.generate(
                         t8n=t8n,
                         fixture_format=fixture_format,
                     )
-                    fixture = fill_result.fixture
                 finally:
                     if (
                         self.operation_mode == OpMode.OPTIMIZE_GAS
@@ -1725,8 +1726,13 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         # Force adding something to the list, even if it's
                         # None, to keep track of failed tests in the output
                         # file.
-                        gas_optimized_tests[request.node.nodeid] = None
-
+                        gas_optimized_tests[request.node.nodeid] = (
+                            fill_result.gas_optimization
+                            if fill_result is not None
+                            else None
+                        )
+                assert fill_result is not None
+                fixture = fill_result.fixture
                 # If operation mode is benchmarking, check the gas used.
                 self.validate_benchmark_gas(
                     benchmark_gas_used=fill_result.benchmark_gas_used,
@@ -1740,6 +1746,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     in fixture_format.format_phases
                     and pre_alloc_hash is not None
                 ):
+                    # TODO: This should be handled by the `generate` method
+                    # of the spec.
+                    assert isinstance(fixture, BlockchainEngineXFixture)
                     fixture.pre_hash = pre_alloc_hash
 
                     # Calculate state diff for efficiency

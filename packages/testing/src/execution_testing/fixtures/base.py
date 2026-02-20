@@ -168,7 +168,7 @@ class BaseFixture(CamelModel):
         fixture_source_url: str,
         opcode_count: OpcodeCount | None,
         ref_spec: ReferenceSpec | None,
-        _info_metadata: Dict[str, Any],
+        _info_metadata: Dict[str, Any] | None,
     ) -> None:
         """Fill the info field for this fixture."""
         if "comment" not in self.info:
