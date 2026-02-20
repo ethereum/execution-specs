@@ -599,7 +599,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
     def make_access_list(account_count: int) -> List[AccessList]:
         return [
             AccessList(
-                address=deterministic_access_list_address(i),
+                address=Address(i + 1),
                 storage_keys=[Hash(i)],
             )
             for i in range(account_count)
@@ -676,7 +676,7 @@ def test_tx_gas_limit_cap_authorized_tx(
     def make_access_list(auth_count: int) -> List[AccessList]:
         return [
             AccessList(
-                address=deterministic_access_list_address(i),
+                address=addr,
                 storage_keys=[],
             )
             for i in range(auth_count)
