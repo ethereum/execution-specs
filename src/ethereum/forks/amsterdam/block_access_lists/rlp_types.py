@@ -8,36 +8,33 @@ address -> field -> block_access_index -> change.
 """
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, TypeAlias
 
-from ethereum_types.bytes import Bytes, Bytes20
+from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U16, U64, U256
+
+from ..fork_types import Address
 
 # Type aliases for clarity (matching EIP-7928 specification)
-Address = Bytes20
-StorageKey = U256
-StorageValue = U256
-CodeData = Bytes
-BlockAccessIndex = Uint  # uint16 in the spec, but using Uint for compatibility
-Balance = U256  # Post-transaction balance in wei
-Nonce = U64
-
-# Constants chosen to support a 630m block gas limit
-MAX_TXS = 30_000
-# MAX_SLOTS = 300_000
-# MAX_ACCOUNTS = 300_000
-MAX_CODE_SIZE = 24_576
-MAX_CODE_CHANGES = 1
+StorageKey: TypeAlias = U256
+StorageValue: TypeAlias = U256
+CodeData: TypeAlias = Bytes
+BlockAccessIndex: TypeAlias = U16
+Balance: TypeAlias = U256  # Post-transaction balance in wei
+Nonce: TypeAlias = U64
 
 
 @slotted_freezable
 @dataclass
 class StorageChange:
     """
-    Storage change: [block_access_index, new_value].
-    RLP encoded as a list.
-    """
+    In a [`SlotChanges`][slot], represents a single change in an [`Account`]'s
+    storage slot.
+
+    [slot]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.SlotChanges
+    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    """  # noqa: E501
 
     block_access_index: BlockAccessIndex
     new_value: StorageValue
@@ -47,9 +44,12 @@ class StorageChange:
 @dataclass
 class BalanceChange:
     """
-    Balance change: [block_access_index, post_balance].
-    RLP encoded as a list.
-    """
+    In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
+    balance.
+
+    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    """  # noqa: E501
 
     block_access_index: BlockAccessIndex
     post_balance: Balance
@@ -59,9 +59,12 @@ class BalanceChange:
 @dataclass
 class NonceChange:
     """
-    Nonce change: [block_access_index, new_nonce].
-    RLP encoded as a list.
-    """
+    In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
+    nonce.
+
+    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    """  # noqa: E501
 
     block_access_index: BlockAccessIndex
     new_nonce: Nonce
@@ -71,9 +74,12 @@ class NonceChange:
 @dataclass
 class CodeChange:
     """
-    Code change: [block_access_index, new_code].
-    RLP encoded as a list.
-    """
+    In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
+    code.
+
+    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    """  # noqa: E501
 
     block_access_index: BlockAccessIndex
     new_code: CodeData
@@ -83,9 +89,12 @@ class CodeChange:
 @dataclass
 class SlotChanges:
     """
-    All changes to a single storage slot: [slot, [changes]].
-    RLP encoded as a list.
-    """
+    In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
+    storage.
+
+    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
+    """  # noqa: E501
 
     slot: StorageKey
     changes: Tuple[StorageChange, ...]
@@ -95,9 +104,9 @@ class SlotChanges:
 @dataclass
 class AccountChanges:
     """
-    All changes for a single account, grouped by field type.
-    RLP encoded as: [address, storage_changes, storage_reads,
-    balance_changes, nonce_changes, code_changes].
+    All changes for a single [`Account`], grouped by field type.
+
+    [`Account`]: ref:ethereum.forks.amsterdam.fork_types.Account
     """
 
     address: Address
@@ -118,4 +127,9 @@ class AccountChanges:
     code_changes: Tuple[CodeChange, ...]
 
 
-BlockAccessList = List[AccountChanges]
+BlockAccessList: TypeAlias = List[AccountChanges]
+"""
+List of state changes recorded across a [`Block`].
+
+[`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+"""

@@ -931,8 +931,8 @@ requires-dist = [
     { name = "coincurve", specifier = ">=20,<21" },
     { name = "cryptography", specifier = ">=45.0.1,<46" },
     { name = "ethash", marker = "extra == 'optimized'", specifier = ">=1.1.0,<2" },
-    { name = "ethereum-rlp", specifier = ">=0.1.4,<0.2" },
-    { name = "ethereum-types", specifier = ">=0.2.4,<0.3" },
+    { name = "ethereum-rlp", specifier = ">=0.1.5,<0.2" },
+    { name = "ethereum-types", specifier = ">=0.3.0,<0.4" },
     { name = "libcst", specifier = ">=1.8,<2" },
     { name = "platformdirs", specifier = ">=4.2,<5" },
     { name = "py-ecc", specifier = ">=8.0.0b2,<9" },
@@ -1099,8 +1099,8 @@ requires-dist = [
     { name = "eth-abi", specifier = ">=5.2.0" },
     { name = "ethereum-execution", editable = "." },
     { name = "ethereum-hive", specifier = ">=0.1.0a1,<1.0.0" },
-    { name = "ethereum-rlp", specifier = ">=0.1.3,<0.2" },
-    { name = "ethereum-types", specifier = ">=0.2.1,<0.3" },
+    { name = "ethereum-rlp", specifier = ">=0.1.5,<0.2" },
+    { name = "ethereum-types", specifier = ">=0.3.0,<0.4" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
     { name = "gitpython", specifier = ">=3.1.31,<4" },
     { name = "jinja2", specifier = ">=3,<4" },
@@ -1155,27 +1155,27 @@ wheels = [
 
 [[package]]
 name = "ethereum-rlp"
-version = "0.1.4"
+version = "0.1.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ethereum-types" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fc/af/91de6fc397f4b4e201c64b5bf0a7838e2d990bc2aa1451a118b01ab99c8e/ethereum_rlp-0.1.4.tar.gz", hash = "sha256:979f2161cfde39ecf6aecca765735124ca4cf57d2a43a74f353fa08f0d52557e", size = 13618, upload-time = "2025-06-24T17:16:29.576Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/27/2b/22ec601ed0924f8a54f9e91381e20bb8e98ad1afc8f23799826bb2c313e6/ethereum_rlp-0.1.5.tar.gz", hash = "sha256:679d4fa1163e32bc8c288680f29077980aa2f6b5321d71e8e2bff55c5233b7bd", size = 13724, upload-time = "2026-02-20T04:25:43.158Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3c/67/cef084060dfb2ec912a245fca5c7e282a282bd0d7cb741eaeabc4764500d/ethereum_rlp-0.1.4-py3-none-any.whl", hash = "sha256:a1612e382081bf08d7b0a6b08a89f8718dba3ca19536eec893795afa214f4f41", size = 9868, upload-time = "2025-06-24T17:16:28.18Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/bc/c6006debf372615af7c911e815c79f63395099defed3c8308db37d31511a/ethereum_rlp-0.1.5-py3-none-any.whl", hash = "sha256:4cbb84ec4d4e65e4af3b49757ecd623e04520cbae521ac5386151149ad0a1b7a", size = 9898, upload-time = "2026-02-20T04:25:42.074Z" },
 ]
 
 [[package]]
 name = "ethereum-types"
-version = "0.2.4"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/10/82c0b2e4e153d937c28300394671b69bd6c5e669422ea669514e4c3b76b3/ethereum_types-0.2.4.tar.gz", hash = "sha256:9012fd9c5f81795302ac1510631b47e79420ba6154c0e16d0417588a18fd0c90", size = 15402, upload-time = "2025-07-23T21:16:33.042Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/90/32d9440ae5b2ac97d873862c9cbbacd28c82cf6d471efb54ef3051700739/ethereum_types-0.3.0.tar.gz", hash = "sha256:e5324efd269a0f66993163366543e39aae474a53f48031c31acec956867d8995", size = 15697, upload-time = "2026-02-20T03:47:40.169Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9b/93/b11cf0f238f1cb24bee873650b883839fc8bd7e36b7c66e9bc4779469528/ethereum_types-0.2.4-py3-none-any.whl", hash = "sha256:38496286d55ed6010abef30b6807b00be7ba8fa82165ed4f987c2c29ad13b2ed", size = 10562, upload-time = "2025-07-23T21:16:32.191Z" },
+    { url = "https://files.pythonhosted.org/packages/73/3f/e9c35c2d879cd0084e9eb59e0e650e1688cc75ec3776291d92d4b7989fff/ethereum_types-0.3.0-py3-none-any.whl", hash = "sha256:ade1aae9df702067387b1e100f7b65fe96c87b1d7731fb7838cca79e84e51cca", size = 10685, upload-time = "2026-02-20T03:47:39.065Z" },
 ]
 
 [[package]]

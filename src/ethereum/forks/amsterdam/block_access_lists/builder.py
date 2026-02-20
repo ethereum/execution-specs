@@ -10,8 +10,8 @@ The builder follows a two-phase approach:
 2. **Build Phase**: After block execution, the accumulated data is sorted
    and encoded into the final deterministic format.
 
-[`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList  # noqa: E501
-"""
+[`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+"""  # noqa: E501
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Set
@@ -86,8 +86,8 @@ class BlockAccessListBuilder:
     by address, field type, and transaction index to enable efficient
     reconstruction of state changes.
 
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList  # noqa: E501
-    """
+    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    """  # noqa: E501
 
     accounts: Dict[Address, AccountData] = field(default_factory=dict)
     """
@@ -103,17 +103,9 @@ def ensure_account(builder: BlockAccessListBuilder, address: Address) -> None:
     doesn't already exist. This function is idempotent and safe to call
     multiple times for the same address.
 
-    Parameters
-    ----------
-    builder :
-        The block access list builder instance.
-    address :
-        The account address to ensure exists.
+    [`AccountData`]: ref:ethereum.forks.amsterdam.block_access_lists.builder.AccountData
 
-    [`AccountData`] :
-        ref:ethereum.forks.amsterdam.block_access_lists.builder.AccountData
-
-    """
+    """  # noqa: E501
     if address not in builder.accounts:
         builder.accounts[address] = AccountData()
 
@@ -130,22 +122,7 @@ def add_storage_write(
 
     Records a storage slot modification for a given address at a specific
     transaction index. If multiple writes occur to the same slot within the
-    same transaction (same block_access_index), only the final value is kept.
-
-    Parameters
-    ----------
-    builder :
-        The block access list builder instance.
-    address :
-        The account address whose storage is being modified.
-    slot :
-        The storage slot being written to.
-    block_access_index :
-        The block access index for this change (0 for pre-execution,
-        1..n for transactions, n+1 for post-execution).
-    new_value :
-        The new value being written to the storage slot.
-
+    same transaction (same `block_access_index`), only the final value is kept.
     """
     ensure_account(builder, address)
 
@@ -180,17 +157,7 @@ def add_storage_read(
     that are both read and written will only appear in the storage changes
     list, not in the storage reads list, as per [EIP-7928].
 
-    Parameters
-    ----------
-    builder :
-        The block access list builder instance.
-    address :
-        The account address whose storage is being read.
-    slot :
-        The storage slot being read.
-
     [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
-
     """
     ensure_account(builder, address)
     builder.accounts[address].storage_reads.add(slot)
@@ -208,19 +175,6 @@ def add_balance_change(
     Records the post-transaction balance for an account after it has been
     modified. This includes changes from transfers, gas fees, block rewards,
     and any other balance-affecting operations.
-
-    Parameters
-    ----------
-    builder :
-        The block access list builder instance.
-    address :
-        The account address whose balance changed.
-    block_access_index :
-        The block access index for this change (0 for pre-execution,
-        1..n for transactions, n+1 for post-execution).
-    post_balance :
-        The account balance after the change as U256.
-
     """
     ensure_account(builder, address)
 
@@ -259,21 +213,8 @@ def add_nonce_change(
     a transaction or when a contract performs [`CREATE`] or [`CREATE2`]
     operations.
 
-    Parameters
-    ----------
-    builder :
-        The block access list builder instance.
-    address :
-        The account address whose nonce changed.
-    block_access_index :
-        The block access index for this change (0 for pre-execution,
-        1..n for transactions, n+1 for post-execution).
-    new_nonce :
-        The new nonce value after the change.
-
     [`CREATE`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create
     [`CREATE2`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create2
-
     """
     ensure_account(builder, address)
 
@@ -306,24 +247,12 @@ def add_code_change(
     Add a code change to the block access list.
 
     Records contract code deployment or modification. This typically occurs
-    during contract creation via [`CREATE`], [`CREATE2`], or [`SETCODE`]
-    operations.
-
-    Parameters
-    ----------
-    builder :
-        The block access list builder instance.
-    address :
-        The account address receiving new code.
-    block_access_index :
-        The block access index for this change (0 for pre-execution,
-        1..n for transactions, n+1 for post-execution).
-    new_code :
-        The deployed contract bytecode.
+    during contract creation via [`CREATE`], [`CREATE2`], or
+    [`SetCodeTransaction`][sct] operations.
 
     [`CREATE`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create
     [`CREATE2`]: ref:ethereum.forks.amsterdam.vm.instructions.system.create2
-
+    [sct]: ref:ethereum.forks.amsterdam.transactions.SetCodeTransaction
     """
     ensure_account(builder, address)
 
@@ -334,7 +263,8 @@ def add_code_change(
     for i, existing in enumerate(existing_changes):
         if existing.block_access_index == block_access_index:
             # Replace the existing code change with the new one
-            # For selfdestructs, this ensures we only record the final state (empty code)
+            # For selfdestructs, this ensures we only record the final
+            # state (empty code)
             existing_changes[i] = CodeChange(
                 block_access_index=block_access_index, new_code=new_code
             )
@@ -358,23 +288,11 @@ def add_touched_account(
     [`EXTCODESIZE`], and [`EXTCODECOPY`] that read account data without
     modifying it.
 
-    Parameters
-    ----------
-    builder :
-        The block access list builder instance.
-    address :
-        The account address that was accessed.
-
-    [`EXTCODEHASH`] :
-        ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodehash
-    [`BALANCE`] :
-        ref:ethereum.forks.amsterdam.vm.instructions.environment.balance
-    [`EXTCODESIZE`] :
-        ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodesize
-    [`EXTCODECOPY`] :
-        ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodecopy
-
-    """
+    [`EXTCODEHASH`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodehash
+    [`BALANCE`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.balance
+    [`EXTCODESIZE`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodesize
+    [`EXTCODECOPY`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodecopy
+    """  # noqa: E501
     ensure_account(builder, address)
 
 
@@ -392,19 +310,8 @@ def _build_from_builder(
        - Storage slots (lexicographically)
        - Transaction indices (numerically) for each change type
 
-    Parameters
-    ----------
-    builder :
-        The block access list builder containing all tracked changes.
-
-    Returns
-    -------
-    block_access_list :
-        The final sorted and encoded block access list.
-
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList  # noqa: E501
-
-    """
+    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    """  # noqa: E501
     block_access_list: BlockAccessList = []
 
     for address, changes in builder.accounts.items():
@@ -460,20 +367,9 @@ def build_block_access_list(
     Converts the accumulated state changes from the frame-based architecture
     into the final deterministic BlockAccessList format.
 
-    Parameters
-    ----------
-    state_changes :
-        The block-level StateChanges frame containing all changes from the block.
-
-    Returns
-    -------
-    block_access_list :
-        The final sorted and encoded block access list.
-
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList  # noqa: E501
+    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
     [`StateChanges`]: ref:ethereum.forks.amsterdam.state_tracker.StateChanges
-
-    """
+    """  # noqa: E501
     builder = BlockAccessListBuilder()
 
     # Add all touched addresses

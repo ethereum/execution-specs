@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U16, U64, U256
 
 from .block_access_lists.rlp_types import BlockAccessIndex
 from .fork_types import Address
@@ -89,9 +89,7 @@ def increment_block_access_index(root_frame: StateChanges) -> None:
         The root block-level frame.
 
     """
-    root_frame.block_access_index = BlockAccessIndex(
-        root_frame.block_access_index + Uint(1)
-    )
+    root_frame.block_access_index = root_frame.block_access_index + U16(1)
 
 
 def get_transaction_frame(state_changes: StateChanges) -> StateChanges:

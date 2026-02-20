@@ -12,10 +12,7 @@ from .builder import (
     add_touched_account,
     build_block_access_list,
 )
-from .rlp_utils import (
-    compute_block_access_list_hash,
-    rlp_encode_block_access_list,
-)
+from .rlp_utils import compute_block_access_list_hash
 
 __all__ = [
     "BlockAccessListBuilder",
@@ -27,5 +24,4 @@ __all__ = [
     "add_touched_account",
     "build_block_access_list",
     "compute_block_access_list_hash",
-    "rlp_encode_block_access_list",
 ]

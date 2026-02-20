@@ -24,8 +24,8 @@ dependencies = [
     "coincurve>=20,<21",
     "typing_extensions>=4.4",
     "py-ecc>=8.0.0b2,<9",
-    "ethereum-types>=0.2.4,<0.3",
-    "ethereum-rlp>=0.1.4,<0.2",
+    "ethereum-types>=0.3.0,<0.4",
+    "ethereum-rlp>=0.1.5,<0.2",
     "cryptography>=45.0.1,<46",
     "platformdirs>=4.2,<5",
     "libcst>=1.8,<2",
@@ -417,15 +417,6 @@ ignore = [
 "src/ethereum_spec_tools/evm_tools/t8n/evm_trace.py" = [
     "N815"          # The traces must use camel case in JSON property names
 ]
-"src/ethereum/forks/amsterdam/blocks.py" = [
-    "E501"          # Line too long - needed for long ref links
-]
- "src/ethereum/forks/amsterdam/block_access_lists/builder.py" = [
-    "E501"          # Line too long - needed for long ref links
- ]
-"src/ethereum/forks/amsterdam/block_access_lists/rlp_utils.py" = [
-    "E501"          # Line too long - needed for long ref links
- ]
 "tests/*" = ["ARG001"]
 "vulture_whitelist.py" = [
     "B018",  # Useless expression (intentional for Vulture whitelisting)
