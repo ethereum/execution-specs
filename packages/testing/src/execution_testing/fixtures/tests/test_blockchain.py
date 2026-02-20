@@ -1060,7 +1060,9 @@ fixture_header_ones = FixtureHeader(
                 ],
             ),
             {
-                "_info": {},
+                "_info": {
+                    "fixture-format": "blockchain_test_stateful_engine",
+                },
                 "network": "Prague",
                 "postStateHash": Hash(2).hex(),
                 "lastblockhash": Hash(1).hex(),
