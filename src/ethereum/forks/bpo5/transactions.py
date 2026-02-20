@@ -54,7 +54,7 @@ TX_CREATE_COST = Uint(32000)
 Additional gas cost for creating a new contract.
 """
 
-TX_ACCESS_LIST_ADDRESS_COST = Uint(2400)
+GAS_TX_ACCESS_LIST_ADDRESS = Uint(2400)
 """
 Gas cost for including an address in the access list of a transaction.
 """
@@ -626,7 +626,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         ),
     ):
         for access in tx.access_list:
-            access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
+            access_list_cost += GAS_TX_ACCESS_LIST_ADDRESS
             access_list_cost += (
                 ulen(access.slots) * TX_ACCESS_LIST_STORAGE_KEY_COST
             )
