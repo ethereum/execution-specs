@@ -247,6 +247,9 @@ class _FixturesDownloader:
 
     def fetch_http(self, url: str, location: str) -> None:
         path = self.root.joinpath(location)
+        if path.exists() and any(path.iterdir()):
+            print(f"{location} already available, skipping download.")
+            return
         print(f"Downloading {location}...")
 
         with self.session.get(url, stream=True) as response:
