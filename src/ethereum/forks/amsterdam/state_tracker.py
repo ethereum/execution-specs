@@ -28,7 +28,7 @@ from ethereum_types.numeric import U256, Uint
 from ethereum.state import EMPTY_ACCOUNT, Account, Address, PreState
 
 if TYPE_CHECKING:
-    from .block_access_lists.builder import BlockAccessListBuilder
+    from .block_access_lists import BlockAccessListBuilder
 
 
 @dataclass
@@ -670,7 +670,7 @@ def incorporate_tx_into_block(
         The BAL builder for incremental updates.
 
     """
-    from .block_access_lists.builder import update_builder_from_tx
+    from .block_access_lists import update_builder_from_tx
 
     block = tx_state.parent
 

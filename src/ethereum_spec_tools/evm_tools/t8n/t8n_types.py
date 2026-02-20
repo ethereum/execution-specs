@@ -351,10 +351,8 @@ class Result:
 
         if hasattr(block_output, "block_access_list"):
             self.block_access_list = block_output.block_access_list
-            self.block_access_list_hash = (
-                t8n.fork.compute_block_access_list_hash(
-                    block_output.block_access_list
-                )
+            self.block_access_list_hash = t8n.fork.hash_block_access_list(
+                block_output.block_access_list
             )
 
     @staticmethod

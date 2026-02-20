@@ -30,12 +30,12 @@ from ethereum.exceptions import (
 from ethereum.state import Address
 
 from . import vm
-from .block_access_lists.builder import (
+from .block_access_lists import (
+    BlockAccessIndex,
     BlockAccessListBuilder,
     build_block_access_list,
+    hash_block_access_list,
 )
-from .block_access_lists.rlp_types import BlockAccessIndex
-from .block_access_lists.rlp_utils import compute_block_access_list_hash
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -267,7 +267,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block_logs_bloom = logs_bloom(block_output.block_logs)
     withdrawals_root = root(block_output.withdrawals_trie)
     requests_hash = compute_requests_hash(block_output.requests)
-    computed_block_access_list_hash = compute_block_access_list_hash(
+    computed_block_access_list_hash = hash_block_access_list(
         block_output.block_access_list
     )
 

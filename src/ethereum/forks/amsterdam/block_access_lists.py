@@ -1,37 +1,273 @@
 """
-Implements the Block Access List builder that tracks all account
-and storage accesses during block execution and constructs the final
-[`BlockAccessList`].
+Block access lists (BALs), originally defined in [EIP-7928], record all
+accounts and storage locations accessed during block execution along with their
+post-execution values.
 
-The builder follows a two-phase approach:
+BALs enable parallel disk reads, parallel transaction validation, parallel
+state root computation, and applying state updates without executing bytecode.
 
-1. **Collection Phase**: During transaction execution, all state accesses are
-   recorded via the tracking functions.
-2. **Build Phase**: After block execution, the accumulated data is sorted
-   and encoded into the final deterministic format.
+See [`BlockAccessList`][bal] for more detail.
 
-[`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
-"""  # noqa: E501
+[EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
+[bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+"""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple, TypeAlias
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.frozen import slotted_freezable
+from ethereum_types.numeric import U16, U64, U256, Uint
 
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import Account, Address, PreState
 
-from ..state_tracker import BlockState, TransactionState
-from .rlp_types import (
-    AccountChanges,
-    BalanceChange,
-    BlockAccessIndex,
-    BlockAccessList,
-    CodeChange,
-    NonceChange,
-    SlotChanges,
-    StorageChange,
-)
+from .state_tracker import BlockState, TransactionState
+
+# TODO: Either remove or generalize these type aliases (#2260).
+
+StorageKey: TypeAlias = U256
+"""
+Slot within an [`Account`](ref:ethereum.state.Account)'s storage.
+"""
+
+StorageValue: TypeAlias = U256
+"""
+Value associated with a [`StorageKey`] within an [`Account`]'s storage.
+
+[`StorageKey`]: ref:ethereum.forks.amsterdam.block_access_lists.StorageKey
+[`Account`]: ref:ethereum.state.Account
+"""
+
+CodeData: TypeAlias = Bytes
+"""
+Bytecode associated with an [`Account`](ref:ethereum.state.Account).
+"""
+
+BlockAccessIndex: TypeAlias = U16
+"""
+Position within the set of all changes in a [`Block`].
+
+[`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+"""
+
+Balance: TypeAlias = U256
+"""
+Balance associated with an [`Account`], in wei.
+
+[`Account`]: ref:ethereum.state.Account
+"""
+
+Nonce: TypeAlias = U64
+"""
+Nonce associated with an [`Account`](ref:ethereum.state.Account).
+"""
+
+
+@slotted_freezable
+@dataclass
+class StorageChange:
+    """
+    In a [`SlotChanges`][s], represents a single change in an [`Account`]'s
+    storage slot.
+
+    [s]: ref:ethereum.forks.amsterdam.block_access_lists.SlotChanges
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+    block_access_index: BlockAccessIndex
+    """
+    Position within the set of all changes in a [`Block`].
+
+    [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+    """
+
+    new_value: StorageValue
+    """
+    Value of an [`Account`]'s storage slot after this change has been applied.
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+
+@slotted_freezable
+@dataclass
+class BalanceChange:
+    """
+    In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
+    balance.
+
+    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [`Account`]: ref:ethereum.state.Account
+    """  # noqa: E501
+
+    block_access_index: BlockAccessIndex
+    """
+    Position within the set of all changes in a [`Block`].
+
+    [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+    """
+
+    post_balance: Balance
+    """
+    Balance of an [`Account`] after this change has been applied.
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+
+@slotted_freezable
+@dataclass
+class NonceChange:
+    """
+    In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
+    nonce.
+
+    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [`Account`]: ref:ethereum.state.Account
+    """  # noqa: E501
+
+    block_access_index: BlockAccessIndex
+    """
+    Position within the set of all changes in a [`Block`].
+
+    [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+    """
+
+    new_nonce: Nonce
+    """
+    Nonce of an [`Account`] after this change has been applied.
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+
+@slotted_freezable
+@dataclass
+class CodeChange:
+    """
+    In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
+    code.
+
+    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [`Account`]: ref:ethereum.state.Account
+    """  # noqa: E501
+
+    block_access_index: BlockAccessIndex
+    """
+    Position within the set of all changes in a [`Block`].
+
+    [`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+    """
+
+    new_code: CodeData
+    """
+    Code of an [`Account`] after this change has been applied.
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+
+@slotted_freezable
+@dataclass
+class SlotChanges:
+    """
+    In a [`BlockAccessList`][bal], represents a change in an [`Account`]'s
+    storage.
+
+    [bal]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
+    [`Account`]: ref:ethereum.state.Account
+    """  # noqa: E501
+
+    slot: StorageKey
+    """
+    Location within an [`Account`]'s storage that has been modified.
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+    changes: Tuple[StorageChange, ...]
+    """
+    Sequence of changes that have been made to one particular storage slot.
+    """
+
+
+@slotted_freezable
+@dataclass
+class AccountChanges:
+    """
+    All changes for a single [`Account`], grouped by field type.
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+    address: Address
+    """
+    Address of the account containing these changes.
+    """
+
+    storage_changes: Tuple[SlotChanges, ...]
+    """
+    Writes to the storage of the associated [`Account`].
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+    storage_reads: Tuple[StorageKey, ...]
+    """
+    Storage slots of the associated [`Account`] that have been read but not
+    changed.
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+    balance_changes: Tuple[BalanceChange, ...]
+    """
+    Writes to the balance of the associated [`Account`].
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+    nonce_changes: Tuple[NonceChange, ...]
+    """
+    Writes to the nonce of the associated [`Account`].
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+    code_changes: Tuple[CodeChange, ...]
+    """
+    Writes to the code of the associated [`Account`].
+
+    [`Account`]: ref:ethereum.state.Account
+    """
+
+
+BlockAccessList: TypeAlias = List[AccountChanges]
+"""
+List of state changes recorded across a [`Block`].
+
+The hash of a block's access list is included in its [`Header`], though the
+access list itself is not included in the block body.
+
+A `BlockAccessList` includes, for example, the targets of:
+
+- [`BALANCE`], [`EXTCODESIZE`][ecs], [`EXTCODECOPY`][ecc],
+  and [`EXTCODEHASH`][ech] instructions;
+- the [call family][call] of instructions _even if they revert_;
+- the [create family][create] of instructions if the target is accessed;
+- etc.
+
+[`Block`]: ref:ethereum.forks.amsterdam.blocks.Block
+[`Header`]: ref:ethereum.forks.amsterdam.blocks.Header
+[`BALANCE`]: ref:ethereum.forks.amsterdam.vm.instructions.environment.balance
+[ecs]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodesize
+[ecc]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodecopy
+[ech]: ref:ethereum.forks.amsterdam.vm.instructions.environment.extcodehash
+[call]: ref:ethereum.forks.amsterdam.vm.instructions.system.call
+[create]: ref:ethereum.forks.amsterdam.vm.instructions.system.create
+"""
 
 
 @dataclass
@@ -85,7 +321,14 @@ class BlockAccessListBuilder:
     by address, field type, and transaction index to enable efficient
     reconstruction of state changes.
 
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    The builder follows a two-phase approach:
+
+    1. **Collection Phase**: During transaction execution, all state accesses
+       are recorded via the tracking functions.
+    1. **Build Phase**: After block execution, the accumulated data is sorted
+       and encoded into the final deterministic format.
+
+    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
     """  # noqa: E501
 
     block_access_index: BlockAccessIndex = BlockAccessIndex(0)
@@ -107,12 +350,12 @@ def ensure_account(builder: BlockAccessListBuilder, address: Address) -> None:
     """
     Ensure an account exists in the builder's tracking structure.
 
-    Creates an empty [`AccountData`] entry for the given address if it
+    Creates an empty [`AccountData`][ad] entry for the given address if it
     doesn't already exist. This function is idempotent and safe to call
     multiple times for the same address.
 
-    [`AccountData`]: ref:ethereum.forks.amsterdam.block_access_lists.builder.AccountData
-    """  # noqa: E501
+    [ad]: ref:ethereum.forks.amsterdam.block_access_lists.AccountData
+    """
     if address not in builder.accounts:
         builder.accounts[address] = AccountData()
 
@@ -315,7 +558,7 @@ def _build_from_builder(
        - Storage slots (lexicographically)
        - Transaction indices (numerically) for each change type
 
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
     """  # noqa: E501
     block_access_list: BlockAccessList = []
 
@@ -460,7 +703,7 @@ def build_block_access_list(
     Feed accumulated reads from the block state into the builder, then produce
     the final sorted and encoded block access list.
 
-    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_types.BlockAccessList
+    [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
     """  # noqa: E501
     # Add storage reads (convert Bytes32 to U256 for BAL encoding)
     for address, slot in block_state.storage_reads:
@@ -471,3 +714,12 @@ def build_block_access_list(
         add_touched_account(builder, address)
 
     return _build_from_builder(builder)
+
+
+def hash_block_access_list(
+    block_access_list: BlockAccessList,
+) -> Hash32:
+    """
+    Compute the hash of a Block Access List.
+    """
+    return keccak256(rlp.encode(block_access_list))
