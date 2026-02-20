@@ -1,0 +1,46 @@
+name: Check Fork Affected
+description: Check if a fork is affected by changed files
+
+inputs:
+  fork:
+    description: The fork short name to check (e.g. gray_glacier)
+    required: true
+  file_list:
+    description: Path to file containing changed file paths
+    required: true
+
+outputs:
+  should_run:
+    description: Whether the fork's tests should run (true/false)
+    value: ${{ steps.check.outputs.should_run }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check if fork is affected
+      id: check
+      shell: bash
+      run: |
+        FILE_LIST="${{ inputs.file_list }}"
+        FORK="${{ inputs.fork }}"
+        should_run=false
+        if [ ! -f "$FILE_LIST" ]; then
+          should_run=true
+        else
+          while IFS= read -r file || [ -n "$file" ]; do
+            case "$file" in
+              tests/json_infra/*)
+                should_run=true; break ;;
+              src/ethereum_spec_tools/evm_tools*)
+                should_run=true; break ;;
+              src/ethereum/forks/"$FORK"/*)
+                should_run=true; break ;;
+              src/ethereum/forks/*)
+                ;; # Different fork, skip
+              src/ethereum/*)
+                should_run=true; break ;;
+            esac
+          done < "$FILE_LIST"
+        fi
+        echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+        echo "Fork $FORK affected: $should_run"
