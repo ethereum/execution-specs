@@ -596,6 +596,14 @@ class FixtureWithdrawal(WithdrawalGeneric[ZeroPaddedHexNumber]):
         return cls(**w.model_dump())
 
 
+class ExecutionWitnessTemp(CamelModel):
+    """Execution witness for stateless validation."""
+
+    state: List[Bytes] = Field(default_factory=list)
+    codes: List[Bytes] = Field(default_factory=list)
+    headers: List[Bytes] = Field(default_factory=list)
+
+
 class FixtureBlockBase(CamelModel):
     """
     Representation of an Ethereum block within a test Fixture without RLP
@@ -624,6 +632,7 @@ class FixtureBlockBase(CamelModel):
     )
     withdrawals: List[FixtureWithdrawal] | None = None
     receipts: List[FixtureTransactionReceipt] | None = None
+    execution_witness_temp: ExecutionWitnessTemp | None = None
     block_access_list: BlockAccessList | None = Field(
         None, description="EIP-7928 Block Access List"
     )

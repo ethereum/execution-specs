@@ -143,6 +143,20 @@ class ForkLoad:
         return hasattr(module, "compute_block_access_list_hash")
 
     @property
+    def has_execution_witness(self) -> bool:
+        """Check if the fork has an `ExecutionWitness` type."""
+        try:
+            module = self._module("stateless_types")
+        except ModuleNotFoundError:
+            return False
+        return hasattr(module, "ExecutionWitness")
+
+    @property
+    def build_execution_witness(self) -> Any:
+        """Build function of the fork."""
+        return self._module("stateless_types").build_execution_witness
+
+    @property
     def signing_hash_2930(self) -> Any:
         """signing_hash_2930 function of the fork."""
         return self._module("transactions").signing_hash_2930

@@ -24,6 +24,7 @@ from ethereum.state import Address
 
 from ..block_access_lists.builder import BlockAccessListBuilder
 from ..block_access_lists.rlp_types import BlockAccessList
+from ..stateless_types import ExecutionWitness, ExecutionWitnessBuilder
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Authorization, VersionedHash
 from ..state_tracker import BlockState, TransactionState
@@ -51,6 +52,7 @@ class BlockEnvironment:
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
     block_access_list_builder: BlockAccessListBuilder
+    execution_witness: ExecutionWitnessBuilder
 
 
 @dataclass
@@ -79,6 +81,8 @@ class BlockOutput:
         Hash of all the requests in the block.
     block_access_list: `BlockAccessList`
         The block access list for the block.
+    execution_witness : `ExecutionWitness`
+        Execution witness data for stateless validation.
     """
 
     block_gas_used: Uint = Uint(0)
@@ -96,6 +100,7 @@ class BlockOutput:
     blob_gas_used: U64 = U64(0)
     requests: List[Bytes] = field(default_factory=list)
     block_access_list: BlockAccessList = field(default_factory=list)
+    execution_witness: Optional[ExecutionWitness] = None
 
 
 @dataclass
