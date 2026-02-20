@@ -46,7 +46,9 @@ class State:
     _storage_tries: Dict[Address, Trie[Bytes32, U256]] = field(
         default_factory=dict
     )
-    _code_store: Dict[Hash32, Bytes] = field(default_factory=dict)
+    _code_store: Dict[Hash32, Bytes] = field(
+        default_factory=dict, compare=False
+    )
 
     def get_code(self, code_hash: Hash32) -> Bytes:
         """
