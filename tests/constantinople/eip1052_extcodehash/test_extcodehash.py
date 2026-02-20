@@ -45,7 +45,7 @@ def test_extcodehash_self(
         slot_size, Op.EXTCODESIZE(Op.ADDRESS)
     )
 
-    storage[slot_hash] = keccak256(bytes(code))
+    storage[slot_hash] = code.keccak256()
     storage[slot_size] = len(code)
 
     code_address = pre.deploy_contract(code)
