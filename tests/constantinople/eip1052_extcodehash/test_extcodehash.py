@@ -26,6 +26,45 @@ pytestmark = [
 
 @pytest.mark.ported_from(
     [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSelfFiller.json",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2249"],
+)
+def test_extcodehash_self(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE of the currently executing account.
+    """
+    storage = Storage()
+    slot_hash = storage.store_next(0)
+    slot_size = storage.store_next(0)
+
+    code = Op.SSTORE(slot_hash, Op.EXTCODEHASH(Op.ADDRESS)) + Op.SSTORE(
+        slot_size, Op.EXTCODESIZE(Op.ADDRESS)
+    )
+
+    storage[slot_hash] = keccak256(bytes(code))
+    storage[slot_size] = len(code)
+
+    code_address = pre.deploy_contract(code)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashNonExistingAccountFiller.yml",  # noqa: E501
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashAccountWithoutCodeFiller.yml",  # noqa: E501
     ],
