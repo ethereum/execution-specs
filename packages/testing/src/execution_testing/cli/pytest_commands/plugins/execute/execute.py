@@ -650,6 +650,8 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             )
 
         class BaseTestWrapper(cls):  # type: ignore
+            __is_base_test_wrapper__ = True
+
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 if "pre" not in kwargs:
                     kwargs["pre"] = pre

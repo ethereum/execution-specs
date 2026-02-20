@@ -1725,9 +1725,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         # Force adding something to the list, even if it's
                         # None, to keep track of failed tests in the output
                         # file.
-                        gas_optimized_tests[request.node.nodeid] = (
-                            self._gas_optimization
-                        )
+                        gas_optimized_tests[request.node.nodeid] = None
 
                 # If operation mode is benchmarking, check the gas used.
                 self.validate_benchmark_gas(

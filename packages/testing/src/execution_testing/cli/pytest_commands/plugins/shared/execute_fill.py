@@ -306,7 +306,10 @@ def alloc_flags(
 
 @pytest.fixture(scope="function")
 def is_tx_gas_heavy_test(request: pytest.FixtureRequest) -> bool:
-    """Check if the test is gas-heavy for transaction execution."""
+    """
+    Check, given the test node properties, whether the test is gas-heavy
+    for transaction execution.
+    """
     node = request.node
     has_slow_marker = node.get_closest_marker("slow") is not None
     has_benchmark_marker = node.get_closest_marker("benchmark") is not None
@@ -316,11 +319,8 @@ def is_tx_gas_heavy_test(request: pytest.FixtureRequest) -> bool:
 @pytest.fixture(scope="function")
 def is_exception_test(request: pytest.FixtureRequest) -> bool:
     """
-    Check if the test is an exception test (invalid block, invalid
-    transaction).
-
-    `None` is returned if it's not possible to determine if the test is
-    negative or not. This is the case when the test is not run in pytest.
+    Check, given the test node properties, whether the test is an exception
+    test (invalid block, invalid transaction).
     """
     return request.node.get_closest_marker("exception_test") is not None
 
