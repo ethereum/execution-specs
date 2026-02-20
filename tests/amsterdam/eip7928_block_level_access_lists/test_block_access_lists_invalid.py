@@ -30,6 +30,12 @@ from execution_testing.test_types.block_access_list.modifiers import (
     append_change,
     append_storage,
     duplicate_account,
+    duplicate_balance_change,
+    duplicate_nonce_change,
+    duplicate_slot_change,
+    duplicate_storage_read,
+    duplicate_storage_slot,
+    insert_storage_read,
     modify_balance,
     modify_nonce,
     modify_storage,
@@ -833,6 +839,106 @@ def test_bal_invalid_extraneous_entries(
                         charlie=charlie,
                     )
                 ),
+            )
+        ],
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+@pytest.mark.exception_test
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        pytest.param(
+            lambda alice, **_: duplicate_nonce_change(alice, 1),
+            id="duplicate_nonce_change",
+        ),
+        pytest.param(
+            lambda oracle, **_: duplicate_balance_change(oracle, 1),
+            id="duplicate_balance_change",
+        ),
+        pytest.param(
+            lambda oracle, **_: duplicate_storage_slot(oracle, 1),
+            id="duplicate_storage_slot",
+        ),
+        pytest.param(
+            lambda oracle, **_: duplicate_storage_read(oracle, 2),
+            id="duplicate_storage_read",
+        ),
+        pytest.param(
+            lambda oracle, **_: duplicate_slot_change(oracle, 1, 1),
+            id="duplicate_slot_change",
+        ),
+        pytest.param(
+            lambda oracle, **_: insert_storage_read(oracle, 1),
+            id="storage_key_in_both_changes_and_reads",
+        ),
+    ],
+)
+def test_bal_invalid_duplicate_entries(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    modifier: Callable,
+) -> None:
+    """
+    Test that clients reject blocks where BAL contains duplicate entries.
+
+    Verify the EIP-7928 uniqueness constraints: each block_access_index
+    must appear at most once per change list, each storage key at most
+    once in storage_changes and storage_reads, and no key in both.
+    """
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(
+        code=Op.SSTORE(1, 0x42) + Op.SLOAD(2),
+        storage={2: 0x84},
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=oracle,
+        value=100,
+        gas_limit=1_000_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        post=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=BlockException.INCORRECT_BLOCK_FORMAT,
+                expected_block_access_list=BlockAccessListExpectation(
+                    account_expectations={
+                        alice: BalAccountExpectation(
+                            nonce_changes=[
+                                BalNonceChange(
+                                    block_access_index=1,
+                                    post_nonce=1,
+                                ),
+                            ],
+                        ),
+                        oracle: BalAccountExpectation(
+                            balance_changes=[
+                                BalBalanceChange(
+                                    block_access_index=1,
+                                    post_balance=100,
+                                ),
+                            ],
+                            storage_changes=[
+                                BalStorageSlot(
+                                    slot=1,
+                                    slot_changes=[
+                                        BalStorageChange(
+                                            block_access_index=1,
+                                            post_value=0x42,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            storage_reads=[2],
+                        ),
+                    }
+                ).modify(modifier(alice=alice, oracle=oracle)),
             )
         ],
     )
