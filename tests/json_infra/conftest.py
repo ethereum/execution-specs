@@ -247,7 +247,8 @@ class _FixturesDownloader:
 
     def fetch_http(self, url: str, location: str) -> None:
         path = self.root.joinpath(location)
-        if path.exists() and any(path.iterdir()):
+        marker = path / ".source_url"
+        if marker.exists() and marker.read_text().strip() == url:
             print(f"{location} already available, skipping download.")
             return
         print(f"Downloading {location}...")
@@ -270,6 +271,7 @@ class _FixturesDownloader:
                 shutil.rmtree(path, ignore_errors=True)
                 print(f"Extracting {location}...")
                 tar.extractall(path)
+            marker.write_text(url + "\n")
 
     def fetch_git(self, url: str, location: str, commit_hash: str) -> None:
         path = self.root.joinpath(location)
