@@ -461,10 +461,8 @@ class T8N(Load):
             )
 
         if self.fork.has_execution_witness:
-            block_output.execution_witness = (
-                self.fork.build_execution_witness(
-                    block_env.execution_witness
-                )
+            block_output.execution_witness = self.fork.build_execution_witness(
+                block_env.execution_witness
             )
 
     def run_blockchain_test(self) -> None:
