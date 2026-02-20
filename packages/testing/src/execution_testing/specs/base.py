@@ -260,7 +260,7 @@ class BaseTest(BaseModel):
         the expectation of the benchmark test.
 
         Requires the following fields to be set:
-        - _benchmark_gas_used
+        - expected_benchmark_gas_used
         - operation_mode
         """
         if self.operation_mode != OpMode.BENCHMARKING:
