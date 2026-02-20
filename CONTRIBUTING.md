@@ -28,6 +28,7 @@ This specification aims to be:
 - Attempt to use descriptive English words (or _very common_ abbreviations) in documentation and identifiers.
 - Avoid using EIP numbers in identifiers, and prefer descriptive text instead (eg. `FeeMarketTransaction` instead of `Eip1559Transaction`).
 - If necessary, there is a custom dictionary `whitelist.txt`.
+- Avoid uninformative prefixes in identifiers (like `get_` or `compute_`). They don't add useful meaning and take up valuable real estate.
 
 #### Comments
 
