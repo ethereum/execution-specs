@@ -994,7 +994,6 @@ fixture_header_ones = FixtureHeader(
                 last_block_hash=Hash(1),
                 post_state_hash=Hash(2),
                 config=FixtureConfig(fork=Prague),
-                snapshot_id="snapshot-1",
                 snapshot_block_number=100,
                 snapshot_block_hash=Hash(99),
                 setup_payloads=[
