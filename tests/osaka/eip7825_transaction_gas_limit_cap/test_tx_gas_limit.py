@@ -5,7 +5,7 @@ Tests for transaction gas limit cap in [EIP-7825: Transaction Gas Limit
 Cap](https://eips.ethereum.org/EIPS/eip-7825).
 """
 
-from typing import List
+from typing import Callable, List
 
 import pytest
 from execution_testing import (
@@ -34,6 +34,32 @@ from .spec import Spec, ref_spec_7825
 # Update reference spec constants
 REFERENCE_SPEC_GIT_PATH = ref_spec_7825.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7825.version
+
+
+def max_count_with_intrinsic_cost_at_most(
+    cost_fn: Callable[[int], int], gas_limit: int
+) -> int:
+    """Return the largest count where cost_fn(count) <= gas_limit."""
+    low = 0
+    high = 1
+
+    while cost_fn(high) <= gas_limit:
+        low = high
+        high *= 2
+
+    while low < high:
+        mid = (low + high + 1) // 2
+        if cost_fn(mid) <= gas_limit:
+            low = mid
+        else:
+            high = mid - 1
+
+    return low
+
+
+def deterministic_access_list_address(index: int) -> Address:
+    """Generate a stable, unique address with mostly non-zero bytes."""
+    return Address(f"0x1234567890abcdef1234567890abcdef{index:08x}")
 
 
 def tx_gas_limit_cap_tests(fork: Fork) -> List[ParameterSet]:
@@ -483,21 +509,22 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
     assert tx_gas_limit_cap is not None, (
         "Fork does not have a transaction gas limit cap"
     )
-    gas_available = tx_gas_limit_cap - intrinsic_cost()
-
-    gas_costs = fork.gas_costs()
-    gas_per_address = gas_costs.G_ACCESS_LIST_ADDRESS
-    gas_per_storage_key = gas_costs.G_ACCESS_LIST_STORAGE
-
-    gas_after_address = gas_available - gas_per_address
-    num_storage_keys = gas_after_address // gas_per_storage_key + int(
-        exceed_tx_gas_limit
-    )
-
     access_address = Address("0x1234567890123456789012345678901234567890")
-    storage_keys = []
-    for i in range(num_storage_keys):
-        storage_keys.append(Hash(i))
+
+    def intrinsic_cost_for_num_storage_keys(storage_key_count: int) -> int:
+        return intrinsic_cost(
+            access_list=[
+                AccessList(
+                    address=access_address,
+                    storage_keys=[Hash(i) for i in range(storage_key_count)],
+                )
+            ]
+        )
+
+    num_storage_keys = max_count_with_intrinsic_cost_at_most(
+        intrinsic_cost_for_num_storage_keys, tx_gas_limit_cap
+    ) + int(exceed_tx_gas_limit)
+    storage_keys = [Hash(i) for i in range(num_storage_keys)]
 
     access_list = [
         AccessList(
@@ -568,23 +595,22 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
     assert tx_gas_limit_cap is not None, (
         "Fork does not have a transaction gas limit cap"
     )
-    gas_available = tx_gas_limit_cap - intrinsic_cost()
+    def make_access_list(account_count: int) -> List[AccessList]:
+        return [
+            AccessList(
+                address=deterministic_access_list_address(i),
+                storage_keys=[Hash(i)],
+            )
+            for i in range(account_count)
+        ]
 
-    gas_costs = fork.gas_costs()
-    gas_per_address = gas_costs.G_ACCESS_LIST_ADDRESS
-    gas_per_storage_key = gas_costs.G_ACCESS_LIST_STORAGE
+    def intrinsic_cost_for_num_accounts(account_count: int) -> int:
+        return intrinsic_cost(access_list=make_access_list(account_count))
 
-    account_num = gas_available // (
-        gas_per_address + gas_per_storage_key
+    account_num = max_count_with_intrinsic_cost_at_most(
+        intrinsic_cost_for_num_accounts, tx_gas_limit_cap
     ) + int(exceed_tx_gas_limit)
-
-    access_list = [
-        AccessList(
-            address=pre.fund_eoa(),
-            storage_keys=[Hash(i)],
-        )
-        for i in range(account_num)
-    ]
+    access_list = make_access_list(account_num)
 
     correct_intrinsic_cost = intrinsic_cost(access_list=access_list)
     if exceed_tx_gas_limit:
@@ -645,37 +671,38 @@ def test_tx_gas_limit_cap_authorized_tx(
     assert tx_gas_limit_cap is not None, (
         "Fork does not have a transaction gas limit cap"
     )
-    gas_available = tx_gas_limit_cap - intrinsic_cost()
+    def make_access_list(auth_count: int) -> List[AccessList]:
+        return [
+            AccessList(
+                address=deterministic_access_list_address(i),
+                storage_keys=[],
+            )
+            for i in range(auth_count)
+        ]
 
-    gas_costs = fork.gas_costs()
-    gas_per_address = gas_costs.G_ACCESS_LIST_ADDRESS
+    def intrinsic_cost_for_auth_list_length(auth_count: int) -> int:
+        return intrinsic_cost(
+            access_list=make_access_list(auth_count),
+            authorization_list_or_count=auth_count,
+        )
 
-    per_empty_account_cost = 25_000
-    auth_list_length = gas_available // (
-        gas_per_address + per_empty_account_cost
+    auth_list_length = max_count_with_intrinsic_cost_at_most(
+        intrinsic_cost_for_auth_list_length, tx_gas_limit_cap
     ) + int(exceed_tx_gas_limit)
 
     # EIP-7702 authorization transaction cost:
     # 21000 + 16 * non-zero calldata bytes + 4 * zero calldata bytes + 1900 *
-    # access list storage key count + 2400 * access list address count +
-    # PER_EMPTY_ACCOUNT_COST * authorization list length
+    # access list storage key count + 2400 * access list address count + access
+    # list data cost + PER_EMPTY_ACCOUNT_COST * authorization list length
     #
-    # There is no calldata and no storage keys in this test case and the access
-    # address list count is equal to the authorization list length
-    #
-    # total cost = 21000 + (2400 + 25_000) * auth_list_length
+    # There is no calldata and no storage keys in this test case.
+    # However, each access-list address includes data bytes that may contribute
+    # additional cost depending on fork repricing.
 
     auth_address = pre.deploy_contract(code=Op.STOP)
 
     auth_signers = [pre.fund_eoa() for _ in range(auth_list_length)]
-
-    access_list = [
-        AccessList(
-            address=addr,
-            storage_keys=[],
-        )
-        for addr in auth_signers
-    ]
+    access_list = make_access_list(auth_list_length)
 
     auth_tuples = [
         AuthorizationTuple(
