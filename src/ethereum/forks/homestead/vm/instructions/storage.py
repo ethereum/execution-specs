@@ -76,7 +76,7 @@ def sstore(evm: Evm) -> None:
         gas_cost = GAS_STORAGE_UPDATE
 
     if new_value == 0 and current_value != 0:
-        evm.refund_counter += int(REFUND_STORAGE_CLEAR)
+        evm.refund_counter += REFUND_STORAGE_CLEAR
 
     charge_gas(evm, gas_cost)
 
