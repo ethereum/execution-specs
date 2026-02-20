@@ -21,9 +21,11 @@ from execution_testing import (
     BlockAccessListExpectation,
     BlockchainTestFiller,
     BlockException,
+    Initcode,
     Op,
     Storage,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.test_types.block_access_list.modifiers import (
     append_account,
@@ -31,6 +33,7 @@ from execution_testing.test_types.block_access_list.modifiers import (
     append_storage,
     duplicate_account,
     duplicate_balance_change,
+    duplicate_code_change,
     duplicate_nonce_change,
     duplicate_slot_change,
     duplicate_storage_read,
@@ -858,6 +861,10 @@ def test_bal_invalid_extraneous_entries(
             id="duplicate_balance_change",
         ),
         pytest.param(
+            lambda created, **_: duplicate_code_change(created, 1),
+            id="duplicate_code_change",
+        ),
+        pytest.param(
             lambda oracle, **_: duplicate_storage_slot(oracle, 1),
             id="duplicate_storage_slot",
         ),
@@ -883,21 +890,32 @@ def test_bal_invalid_duplicate_entries(
     """
     Test that clients reject blocks where BAL contains duplicate entries.
 
+    Oracle writes storage, reads storage, and CREATEs a small contract.
     Verify the EIP-7928 uniqueness constraints: each block_access_index
-    must appear at most once per change list, each storage key at most
-    once in storage_changes and storage_reads, and no key in both.
+    must appear at most once per change list (nonce, balance, code,
+    slot), each storage key at most once in storage_changes and
+    storage_reads, and no key in both.
     """
     alice = pre.fund_eoa()
+    deploy_code = b"\x13\x37"
+    initcode = Initcode(deploy_code=deploy_code)
+    initcode_word = int.from_bytes(bytes(initcode).ljust(32, b"\x00"), "big")
     oracle = pre.deploy_contract(
-        code=Op.SSTORE(1, 0x42) + Op.SLOAD(2),
+        code=(
+            Op.SSTORE(1, 0x42)
+            + Op.SLOAD(2)
+            + Op.MSTORE(0, initcode_word)
+            + Op.CREATE(0, 0, len(initcode))
+        ),
         storage={2: 0x84},
     )
+    created = compute_create_address(address=oracle, nonce=1)
 
     tx = Transaction(
         sender=alice,
         to=oracle,
         value=100,
-        gas_limit=1_000_000,
+        gas_limit=2_000_000,
     )
 
     blockchain_test(
@@ -906,7 +924,7 @@ def test_bal_invalid_duplicate_entries(
         blocks=[
             Block(
                 txs=[tx],
-                exception=BlockException.INCORRECT_BLOCK_FORMAT,
+                exception=BlockException.INVALID_BLOCK_ACCESS_LIST,
                 expected_block_access_list=BlockAccessListExpectation(
                     account_expectations={
                         alice: BalAccountExpectation(
@@ -937,8 +955,22 @@ def test_bal_invalid_duplicate_entries(
                             ],
                             storage_reads=[2],
                         ),
+                        created: BalAccountExpectation(
+                            code_changes=[
+                                BalCodeChange(
+                                    block_access_index=1,
+                                    new_code=deploy_code,
+                                ),
+                            ],
+                        ),
                     }
-                ).modify(modifier(alice=alice, oracle=oracle)),
+                ).modify(
+                    modifier(
+                        alice=alice,
+                        oracle=oracle,
+                        created=created,
+                    )
+                ),
             )
         ],
     )

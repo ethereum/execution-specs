@@ -592,6 +592,21 @@ def duplicate_balance_change(
     )
 
 
+def duplicate_code_change(
+    address: Address, block_access_index: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Duplicate a code change entry for a given block access index."""
+    return _duplicate_in_field(
+        address,
+        "code_changes",
+        match_fn=lambda c: c.block_access_index == block_access_index,
+        error_msg=(
+            f"Block access index {block_access_index} not found in "
+            f"code_changes of account {address}"
+        ),
+    )
+
+
 def duplicate_storage_slot(
     address: Address, slot: int
 ) -> Callable[[BlockAccessList], BlockAccessList]:
@@ -772,6 +787,7 @@ __all__ = [
     # Duplicate entry modifiers (uniqueness constraint testing)
     "duplicate_nonce_change",
     "duplicate_balance_change",
+    "duplicate_code_change",
     "duplicate_storage_slot",
     "duplicate_storage_read",
     "duplicate_slot_change",

@@ -6,6 +6,7 @@ from execution_testing.base_types import Address
 from execution_testing.test_types.block_access_list import (
     BalAccountChange,
     BalBalanceChange,
+    BalCodeChange,
     BalNonceChange,
     BalStorageChange,
     BalStorageSlot,
@@ -14,6 +15,7 @@ from execution_testing.test_types.block_access_list import (
 from execution_testing.test_types.block_access_list.modifiers import (
     duplicate_account,
     duplicate_balance_change,
+    duplicate_code_change,
     duplicate_nonce_change,
     duplicate_slot_change,
     duplicate_storage_read,
@@ -37,6 +39,9 @@ def sample_bal() -> BlockAccessList:
                 ],
                 balance_changes=[
                     BalBalanceChange(block_access_index=1, post_balance=100),
+                ],
+                code_changes=[
+                    BalCodeChange(block_access_index=1, new_code=b"\x60"),
                 ],
             ),
             BalAccountChange(
@@ -101,6 +106,27 @@ def test_duplicate_balance_change_missing_index_raises(
     """Raise when the block_access_index is absent."""
     with pytest.raises(ValueError, match="not found"):
         duplicate_balance_change(ALICE, 99)(sample_bal)
+
+
+# --- duplicate_code_change ---
+
+
+def test_duplicate_code_change(sample_bal: BlockAccessList) -> None:
+    """Duplicate a code change by block_access_index."""
+    result = duplicate_code_change(ALICE, 1)(sample_bal)
+    assert len(result.root[0].code_changes) == 2
+    assert (
+        result.root[0].code_changes[0].block_access_index
+        == result.root[0].code_changes[1].block_access_index
+    )
+
+
+def test_duplicate_code_change_missing_index_raises(
+    sample_bal: BlockAccessList,
+) -> None:
+    """Raise when the block_access_index is absent."""
+    with pytest.raises(ValueError, match="not found"):
+        duplicate_code_change(ALICE, 99)(sample_bal)
 
 
 def test_duplicate_storage_slot(sample_bal: BlockAccessList) -> None:
