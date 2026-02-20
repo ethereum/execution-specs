@@ -595,6 +595,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
     assert tx_gas_limit_cap is not None, (
         "Fork does not have a transaction gas limit cap"
     )
+
     def make_access_list(account_count: int) -> List[AccessList]:
         return [
             AccessList(
@@ -671,6 +672,7 @@ def test_tx_gas_limit_cap_authorized_tx(
     assert tx_gas_limit_cap is not None, (
         "Fork does not have a transaction gas limit cap"
     )
+
     def make_access_list(auth_count: int) -> List[AccessList]:
         return [
             AccessList(
