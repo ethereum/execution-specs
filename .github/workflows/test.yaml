@@ -137,7 +137,7 @@ jobs:
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Fetch full history for commit comparison
       - uses: ./.github/actions/get-changed-files
         id: get-changed-files
       - uses: ./.github/actions/check-fork-affected
