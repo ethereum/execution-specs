@@ -61,6 +61,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
 
+    sender_group.addoption(
+        "--worker-funding-timeout",
+        action="store",
+        dest="worker_funding_timeout",
+        type=int,
+        default=120,
+        help=(
+            "Timeout in seconds for workers waiting to be funded. "
+            "Default=120"
+        ),
+    )
+
 
 @pytest.fixture(scope="session")
 def sender_funding_transactions_gas_price(
@@ -310,8 +322,18 @@ def session_worker_key(
             worker_funded_file.touch()
 
     if not is_last_worker:
-        logger.info("Waiting for all workers to be funded...")
+        funding_timeout = request.config.option.worker_funding_timeout
+        logger.info(
+            "Waiting for all workers to be funded "
+            f"(timeout={funding_timeout}s)..."
+        )
+        deadline = time.monotonic() + funding_timeout
         while not worker_funded_file.exists():
+            if time.monotonic() > deadline:
+                raise TimeoutError(
+                    f"Timed out after {funding_timeout}s waiting "
+                    "for all workers to be funded"
+                )
             time.sleep(0.1)
         logger.info("All workers funded, proceeding")
 
@@ -391,7 +413,7 @@ def worker_key(
     """Prepare the worker key for the current test."""
     logger.debug(f"Preparing worker key {session_worker_key} for test")
     session_worker_account = eth_rpc.get_account(
-        session_worker_key, skip_code=True
+        session_worker_key, block_number="pending", skip_code=True
     )
     rpc_nonce = Number(session_worker_account.nonce)
     if rpc_nonce != session_worker_key.nonce:
