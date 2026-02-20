@@ -770,7 +770,7 @@ class EthRPC(BaseRPC):
         responses = self.post_batch_request(calls=calls)
 
         results: List[Hash] = []
-        for tx, response in zip(transactions, responses, strict=False):
+        for tx, response in zip(transactions, responses, strict=True):
             try:
                 result_hash = Hash(response.result_or_raise())
                 assert result_hash == tx.hash
