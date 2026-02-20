@@ -16,7 +16,7 @@ from ..state import (
     account_exists,
     get_account,
     increment_nonce,
-    set_authority_code,
+    set_code,
 )
 from ..state_tracker import (
     capture_pre_code,
@@ -215,7 +215,7 @@ def set_delegation(message: Message) -> U256:
         # EIP-7928: Capture pre-code before any changes
         capture_pre_code(tx_frame, authority, authority_code)
 
-        set_authority_code(state, authority, code_to_set)
+        set_code(state, authority, code_to_set)
 
         if authority_code != code_to_set:
             # Track code change if different from current

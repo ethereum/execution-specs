@@ -604,32 +604,6 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
     modify_state(state, address, write_code)
 
 
-def set_authority_code(state: State, address: Address, code: Bytes) -> None:
-    """
-    Sets authority account code for EIP-7702 delegation.
-
-    This function is used specifically for setting authority code within
-    EIP-7702 Set Code Transactions.
-
-    Parameters
-    ----------
-    state:
-        The current state.
-
-    address:
-        Address of the authority account whose code needs to be set.
-
-    code:
-        The delegation designation bytecode to set.
-
-    """
-
-    def write_code(sender: Account) -> None:
-        sender.code = code
-
-    modify_state(state, address, write_code)
-
-
 def get_storage_original(state: State, address: Address, key: Bytes32) -> U256:
     """
     Get the original value in a storage slot i.e. the value before the current
