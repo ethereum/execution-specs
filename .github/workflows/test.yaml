@@ -110,30 +110,30 @@ jobs:
       fail-fast: false
       matrix:
         fork:
-          - Frontier
-          - Homestead
-          - "Dao Fork"
-          - EIP150
-          - EIP158
-          - Byzantium
-          - ConstantinopleFix
-          - Istanbul
-          - "Muir Glacier"
-          - Berlin
-          - London
-          - "Arrow Glacier"
-          - "Gray Glacier"
-          - Paris
-          - Shanghai
-          - Cancun
-          - Prague
-          - Osaka
-          - BPO1
-          - BPO2
-          - BPO3
-          - BPO4
-          - BPO5
-          - Amsterdam
+          - frontier
+          - homestead
+          - dao_fork
+          - tangerine_whistle
+          - spurious_dragon
+          - byzantium
+          - constantinople
+          - istanbul
+          - muir_glacier
+          - berlin
+          - london
+          - arrow_glacier
+          - gray_glacier
+          - paris
+          - shanghai
+          - cancun
+          - prague
+          - osaka
+          - bpo1
+          - bpo2
+          - bpo3
+          - bpo4
+          - bpo5
+          - amsterdam
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:

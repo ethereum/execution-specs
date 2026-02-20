@@ -146,7 +146,13 @@ def pytest_configure(config: Config) -> None:
 
     desired_forks = []
     all_forks = list(FORKS.keys())
+    # Build a lookup from short_name to json_test_name so that
+    # --fork accepts either format (e.g. "gray_glacier" or
+    # "Gray Glacier").
+    short_to_json = {f.short_name: name for name, f in FORKS.items()}
     if desired_fork:
+        if desired_fork in short_to_json:
+            desired_fork = short_to_json[desired_fork]
         if desired_fork not in all_forks:
             raise ValueError(f"Unknown fork: {desired_fork}")
         # When --file-list is also set, only include the fork if it
