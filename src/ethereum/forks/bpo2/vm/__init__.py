@@ -20,12 +20,12 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
+from ethereum.trie import Trie
 
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage
 from ..transactions import LegacyTransaction
-from ..trie import Trie
 
 __all__ = ("Environment", "Evm", "Message")
 

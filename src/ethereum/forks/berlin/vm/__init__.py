@@ -20,12 +20,12 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
+from ethereum.trie import Trie
 
 from ..blocks import Log, Receipt
 from ..fork_types import Address
 from ..state import State, account_exists_and_is_empty
 from ..transactions import LegacyTransaction
-from ..trie import Trie
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")

@@ -21,6 +21,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
 from ethereum.state import Address
+from ethereum.trie import Trie
 
 from ..block_access_lists.builder import BlockAccessListBuilder
 from ..block_access_lists.rlp_types import BlockAccessList
@@ -28,7 +29,6 @@ from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Authorization, VersionedHash
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
-from ..trie import Trie
 
 __all__ = ("Environment", "Evm", "Message")
 
