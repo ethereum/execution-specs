@@ -611,6 +611,54 @@ def make_receipt(
     return encode_receipt(tx, receipt)
 
 
+def process_checked_system_transaction(
+    block_env: vm.BlockEnvironment,
+    target_address: Address,
+    data: Bytes,
+) -> MessageCallOutput:
+    """
+    Process a system transaction and raise an error if the contract does not
+    contain code or if the transaction fails.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    target_address :
+        Address of the contract to call.
+    data :
+        Data to pass to the contract.
+
+    Returns
+    -------
+    system_tx_output : `MessageCallOutput`
+        Output of processing the system transaction.
+
+    """
+    pre_state_account = block_env.state.pre_state.get_account_optional(
+        target_address
+    )
+    if pre_state_account is None or len(pre_state_account.code) == 0:
+        raise InvalidBlock(
+            f"System contract address {target_address.hex()} does not "
+            "contain code"
+        )
+
+    system_tx_output = process_unchecked_system_transaction(
+        block_env,
+        target_address,
+        data,
+    )
+
+    if system_tx_output.error:
+        raise InvalidBlock(
+            f"System contract ({target_address.hex()}) call failed: "
+            f"{system_tx_output.error}"
+        )
+
+    return system_tx_output
+
+
 def process_unchecked_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
@@ -677,54 +725,6 @@ def process_unchecked_system_transaction(
     incorporate_tx_into_block(
         system_tx_state, block_env.block_access_list_builder
     )
-
-    return system_tx_output
-
-
-def process_checked_system_transaction(
-    block_env: vm.BlockEnvironment,
-    target_address: Address,
-    data: Bytes,
-) -> MessageCallOutput:
-    """
-    Process a system transaction and raise an error if the contract does not
-    contain code or if the transaction fails.
-
-    Parameters
-    ----------
-    block_env :
-        The block scoped environment.
-    target_address :
-        Address of the contract to call.
-    data :
-        Data to pass to the contract.
-
-    Returns
-    -------
-    system_tx_output : `MessageCallOutput`
-        Output of processing the system transaction.
-
-    """
-    pre_state_account = block_env.state.pre_state.get_account_optional(
-        target_address
-    )
-    if pre_state_account is None or len(pre_state_account.code) == 0:
-        raise InvalidBlock(
-            f"System contract address {target_address.hex()} does not "
-            "contain code"
-        )
-
-    system_tx_output = process_unchecked_system_transaction(
-        block_env,
-        target_address,
-        data,
-    )
-
-    if system_tx_output.error:
-        raise InvalidBlock(
-            f"System contract ({target_address.hex()}) call failed: "
-            f"{system_tx_output.error}"
-        )
 
     return system_tx_output
 
