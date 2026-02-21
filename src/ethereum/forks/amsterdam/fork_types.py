@@ -18,6 +18,12 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U8, U64, U256
 
 from ethereum.crypto.hash import Hash32
+from ethereum.state import (
+    EMPTY_ACCOUNT as EMPTY_ACCOUNT,
+)
+from ethereum.state import (
+    Account as Account,
+)
 from ethereum.state import Address
 
 VersionedHash = Hash32
