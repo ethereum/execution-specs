@@ -305,6 +305,25 @@ class ForkLoad:
         return hasattr(module, "BlockState")
 
     @property
+    def has_track_ancestor_access(self) -> bool:
+        """Check if the fork has ancestor tracking."""
+        try:
+            module = self._module("state_tracker")
+        except ModuleNotFoundError:
+            return False
+        return hasattr(module, "track_ancestor_access")
+
+    @property
+    def track_ancestor_access(self) -> Any:
+        """track_ancestor_access function of the fork."""
+        return self._module("state_tracker").track_ancestor_access
+
+    @property
+    def get_witness_ancestors(self) -> Any:
+        """get_witness_ancestors function of the fork."""
+        return self._module("state_tracker").get_witness_ancestors
+
+    @property
     def State(self) -> Any:
         """State class of the fork."""
         return self._module("state").State

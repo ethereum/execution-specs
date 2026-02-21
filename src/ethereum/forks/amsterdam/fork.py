@@ -71,7 +71,9 @@ from .state_tracker import (
     incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
+    get_witness_ancestors,
     track_address,
+    track_ancestor_access,
 )
 from .stateless_types import ExecutionWitnessBuilder, build_execution_witness
 from .transactions import (
@@ -252,6 +254,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
         execution_witness=ExecutionWitnessBuilder(),
+        block_headers=[
+            rlp.encode(blk.header) for blk in chain.blocks
+        ],
     )
 
     block_output = apply_body(
@@ -815,6 +820,10 @@ def apply_body(
         target_address=HISTORY_STORAGE_ADDRESS,
         data=block_env.block_hashes[-1],  # The parent hash
     )
+    track_ancestor_access(
+        block_env.state,
+        Uint(1),
+    )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         process_transaction(block_env, block_output, tx, Uint(i))
@@ -837,6 +846,13 @@ def apply_body(
 
     block_output.execution_witness = build_execution_witness(
         block_env.execution_witness
+    )
+    # TODO(zkevm): whenever https://github.com/ethereum/execution-specs/pull/2259 is merged,
+    # rebase on top of it and make the following code add the ancestor in the
+    # block_output.execution_witness
+    ancestor_headers = get_witness_ancestors(
+        block_env.block_headers,
+        block_env.state.oldest_ancestor_offset,
     )
 
     return block_output
