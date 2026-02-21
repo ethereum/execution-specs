@@ -21,7 +21,7 @@ import dataclasses
 import logging
 from collections import defaultdict
 from itertools import tee, zip_longest
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import (
     Dict,
     Final,
@@ -320,6 +320,28 @@ class EthereumBuilder(PythonBuilder):
     A `PythonBuilder` that additionally builds `Document`s from `DiffSource`s.
     """
 
+    @staticmethod
+    def _sources_identical(diff_source: "DiffSource[Source]") -> bool:
+        """
+        Return True if both sides of a diff have identical file content.
+
+        Avoid AST parsing and tree diffing when the source
+        files are byte-for-byte the same.
+        """
+        before = diff_source.before
+        after = diff_source.after
+
+        if before is None or after is None:
+            return False
+
+        before_path = getattr(before, "absolute_path", None)
+        after_path = getattr(after, "absolute_path", None)
+
+        if before_path is None or after_path is None:
+            return False
+
+        return Path(before_path).read_bytes() == Path(after_path).read_bytes()
+
     def build(
         self,
         unprocessed: Set[Source],
@@ -335,8 +357,29 @@ class EthereumBuilder(PythonBuilder):
         source_set = set(s for s in unprocessed if isinstance(s, DiffSource))
         unprocessed -= source_set
 
-        before_unprocessed = {s.before for s in source_set if s.before}
-        after_unprocessed = {s.after for s in source_set if s.after}
+        # Separate identical sources from changed sources to skip
+        # tree diffing for files that haven't changed.
+        changed: Set[DiffSource[Source]] = set()
+        identical: Set[DiffSource[Source]] = set()
+
+        for s in source_set:
+            if self._sources_identical(s):
+                identical.add(s)
+            else:
+                changed.add(s)
+
+        if identical:
+            logging.info(
+                "Skipping tree diff for %s identical file pair(s)",
+                len(identical),
+            )
+
+        before_unprocessed = {s.before for s in changed if s.before}
+        after_unprocessed = {s.after for s in changed if s.after}
+
+        # For identical pairs we only need the after tree.
+        after_identical = {s.after for s in identical if s.after}
+        after_unprocessed |= after_identical
 
         # Rebuild the sources so we get distinct tree objects.
         before_processed: Dict[Source, Document] = dict()
@@ -345,7 +388,7 @@ class EthereumBuilder(PythonBuilder):
         super().build(before_unprocessed, before_processed)
         super().build(after_unprocessed, after_processed)
 
-        for diff_source in source_set:
+        for diff_source in changed:
             before: Node = BlankNode()
             if diff_source.before:
                 before_document = before_processed[diff_source.before]
@@ -362,6 +405,17 @@ class EthereumBuilder(PythonBuilder):
                 diff_source.before_name, before, diff_source.after_name, after
             )
             document = Document(root)
+            processed[diff_source] = document
+
+        # For identical pairs, use the after document directly.
+        # No DiffNode wrapper means MinimizeDiffsTransform has
+        # nothing to diff — the content passes through unchanged.
+        for diff_source in identical:
+            if diff_source.after:
+                document = after_processed[diff_source.after]
+                del after_processed[diff_source.after]
+            else:
+                document = Document(BlankNode())
             processed[diff_source] = document
 
 
