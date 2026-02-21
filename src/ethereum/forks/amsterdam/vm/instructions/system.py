@@ -25,7 +25,6 @@ from ...state_tracker import (
     is_account_alive,
     move_ether,
     set_account_balance,
-    track_address,
 )
 from ...utils.address import (
     compute_contract_address,
@@ -113,7 +112,6 @@ def generic_create(
 
     evm.accessed_addresses.add(contract_address)
 
-    track_address(tx_state, contract_address)
     if account_has_code_or_nonce(
         tx_state, contract_address
     ) or account_has_storage(tx_state, contract_address):
@@ -422,7 +420,6 @@ def call(evm: Evm) -> None:
         # check enough gas for delegation access
         extra_gas += delegation_access_cost
         check_gas(evm, extra_gas + extend_memory.cost)
-        track_address(tx_state, code_address)
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
@@ -525,7 +522,6 @@ def callcode(evm: Evm) -> None:
         # check enough gas for delegation access
         extra_gas += delegation_access_cost
         check_gas(evm, extra_gas + extend_memory.cost)
-        track_address(tx_state, code_address)
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
@@ -601,8 +597,6 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    track_address(tx_state, beneficiary)
-
     if (
         not is_account_alive(tx_state, beneficiary)
         and get_account(tx_state, evm.message.current_target).balance != 0
@@ -613,8 +607,6 @@ def selfdestruct(evm: Evm) -> None:
 
     originator = evm.message.current_target
     originator_balance = get_account(tx_state, originator).balance
-
-    track_address(tx_state, originator)
 
     # Transfer balance
     move_ether(tx_state, originator, beneficiary, originator_balance)
@@ -686,7 +678,6 @@ def delegatecall(evm: Evm) -> None:
         # check enough gas for delegation access
         extra_gas += delegation_access_cost
         check_gas(evm, extra_gas + extend_memory.cost)
-        track_address(tx_state, code_address)
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 
@@ -776,7 +767,6 @@ def staticcall(evm: Evm) -> None:
         # check enough gas for delegation access
         extra_gas += delegation_access_cost
         check_gas(evm, extra_gas + extend_memory.cost)
-        track_address(tx_state, code_address)
         if code_address not in evm.accessed_addresses:
             evm.accessed_addresses.add(code_address)
 

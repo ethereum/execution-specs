@@ -18,7 +18,7 @@ from ethereum.crypto.hash import keccak256
 from ethereum.state import EMPTY_ACCOUNT
 from ethereum.utils.numeric import ceil32
 
-from ...state_tracker import get_account, track_address
+from ...state_tracker import get_account
 from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
@@ -87,7 +87,6 @@ def balance(evm: Evm) -> None:
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     tx_state = evm.message.tx_env.state
     balance = get_account(tx_state, address).balance
-    track_address(tx_state, address)
 
     push(evm.stack, balance)
 
@@ -356,7 +355,6 @@ def extcodesize(evm: Evm) -> None:
     # OPERATION
     tx_state = evm.message.tx_env.state
     code = get_account(tx_state, address).code
-    track_address(tx_state, address)
 
     codesize = U256(len(code))
     push(evm.stack, codesize)
@@ -403,7 +401,6 @@ def extcodecopy(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     tx_state = evm.message.tx_env.state
     code = get_account(tx_state, address).code
-    track_address(tx_state, address)
 
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -496,7 +493,6 @@ def extcodehash(evm: Evm) -> None:
     # OPERATION
     tx_state = evm.message.tx_env.state
     account = get_account(tx_state, address)
-    track_address(tx_state, address)
 
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)

@@ -71,7 +71,6 @@ from .state_tracker import (
     incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
-    track_address,
 )
 from .transactions import (
     AccessListTransaction,
@@ -916,8 +915,6 @@ def process_transaction(
     )
     tx_state = TransactionState(parent=block_env.state)
 
-    track_address(tx_state, block_env.coinbase)
-
     trie_set(
         block_output.transactions_trie,
         rlp.encode(index),
@@ -950,7 +947,6 @@ def process_transaction(
     gas = tx.gas - intrinsic_gas
 
     increment_nonce(tx_state, sender)
-    track_address(tx_state, sender)
 
     sender_balance_after_gas_fee = (
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
@@ -1080,7 +1076,6 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        track_address(wd_state, wd.address)
         current_balance = get_account(wd_state, wd.address).balance
         new_balance = current_balance + wd.amount * GWEI_TO_WEI
         set_account_balance(wd_state, wd.address, new_balance)
