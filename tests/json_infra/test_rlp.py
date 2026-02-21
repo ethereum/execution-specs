@@ -6,8 +6,9 @@ from typing import List, Sequence, Tuple
 
 import pytest
 from ethereum_rlp import Extended, rlp
+from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import Uint
 
-from ethereum.forks.frontier.fork_types import Bytes, Uint
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from . import TEST_FIXTURES
