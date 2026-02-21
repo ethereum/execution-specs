@@ -292,8 +292,8 @@ class ForkBuilder:
     """
     Fork immediately before `template_fork`, if one exists (else `None`).
 
-    Necessary because some modules (notably `trie.py`) import types from the
-    preceding fork, and those references need to be updated.
+    Necessary because some modules import types from the preceding fork,
+    and those references need to be updated.
     """
 
     template_fork: Final[Hardfork]
