@@ -611,17 +611,14 @@ def make_receipt(
     return encode_receipt(tx, receipt)
 
 
-def process_system_transaction(
+def process_unchecked_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
     data: Bytes,
 ) -> MessageCallOutput:
     """
-    Process a system transaction.
-
-    Prefer calling `process_checked_system_transaction` or
-    `process_unchecked_system_transaction` depending on whether missing code or
-    an execution error should cause the block to be rejected.
+    Process a system transaction without checking if the contract contains
+    code or if the transaction fails.
 
     Parameters
     ----------
@@ -717,7 +714,7 @@ def process_checked_system_transaction(
             "contain code"
         )
 
-    system_tx_output = process_system_transaction(
+    system_tx_output = process_unchecked_system_transaction(
         block_env,
         target_address,
         data,
@@ -730,37 +727,6 @@ def process_checked_system_transaction(
         )
 
     return system_tx_output
-
-
-def process_unchecked_system_transaction(
-    block_env: vm.BlockEnvironment,
-    target_address: Address,
-    data: Bytes,
-) -> MessageCallOutput:
-    """
-    Process a system transaction without checking if the contract contains code
-    or if the transaction fails.
-
-    Parameters
-    ----------
-    block_env :
-        The block scoped environment.
-    target_address :
-        Address of the contract to call.
-    data :
-        Data to pass to the contract.
-
-    Returns
-    -------
-    system_tx_output : `MessageCallOutput`
-        Output of processing the system transaction.
-
-    """
-    return process_system_transaction(
-        block_env,
-        target_address,
-        data,
-    )
 
 
 def apply_body(
