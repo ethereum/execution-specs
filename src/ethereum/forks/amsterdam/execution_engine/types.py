@@ -10,10 +10,11 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.state import Address, Root
 
 from ..blocks import Withdrawal
 from ..fork import BlockChain
-from ..fork_types import Address, Bloom, Root, VersionedHash
+from ..fork_types import Bloom, VersionedHash
 from ..transactions import LegacyTransaction
 
 # In this module, the execution engine is the chain/state container used by
