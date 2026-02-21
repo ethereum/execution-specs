@@ -635,10 +635,18 @@ def process_checked_system_transaction(
         Output of processing the system transaction.
 
     """
-    pre_state_account = block_env.state.pre_state.get_account_optional(
-        target_address
-    )
-    if pre_state_account is None or len(pre_state_account.code) == 0:
+    # Read through BlockState (not pre-state) so that a system contract
+    # deployed by an earlier transaction in the same block is visible.
+    # See EIP-7002 and EIP-7251 for this edge case.
+    #
+    # This read is not recorded in the state tracker.
+    # However, this is fine because `process_unchecked_system_transaction`
+    # does its own get_account on the TransactionState that we do incorporate
+    # into BlockState.
+    untracked_state = TransactionState(parent=block_env.state)
+    system_contract_code = get_account(untracked_state, target_address).code
+
+    if len(system_contract_code) == 0:
         raise InvalidBlock(
             f"System contract address {target_address.hex()} does not "
             "contain code"
