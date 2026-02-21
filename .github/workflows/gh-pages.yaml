@@ -31,17 +31,17 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - name: Install uv ${{ vars.UV_VERSION }} and python ${{ vars.DEFAULT_PYTHON_VERSION }}
+        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182 # v5.4.1
         with:
-          python-version: "3.11"
-
-      - name: Install Tox
-        run: pip install tox
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          version: ${{ vars.UV_VERSION }}
+          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
 
       - name: Build Documentation
         run: |
-          tox -e spec-docs
+          uvx tox -e spec-docs
           touch .tox/docs/.nojekyll
 
       - name: Upload Pages Artifact
