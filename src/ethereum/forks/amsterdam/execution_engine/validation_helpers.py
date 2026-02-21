@@ -9,10 +9,10 @@ from ethereum_types.bytes import Bytes, Bytes8
 from ethereum_types.numeric import Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.state import Root
 
 from ..blocks import Block, Header
 from ..fork import EMPTY_OMMER_HASH
-from ..fork_types import Root
 from ..requests import compute_requests_hash
 from ..transactions import LegacyTransaction
 from ..trie import Trie, root, trie_set

@@ -10,10 +10,11 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import Hash32
+from ethereum.state import Root
 
 from .blocks import Block
 from .execution_engine.types import NewPayloadRequest
-from .fork_types import Root, VersionedHash
+from .fork_types import VersionedHash
 
 # Amsterdam currently carries execution requests as raw bytes in order.
 ExecutionRequests = Tuple[Bytes, ...]

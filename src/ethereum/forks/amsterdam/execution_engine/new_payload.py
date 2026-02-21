@@ -8,9 +8,10 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 
 from ethereum.crypto.hash import keccak256
+from ethereum.state import Root
 
 from ..fork import state_transition
-from ..fork_types import Root, VersionedHash
+from ..fork_types import VersionedHash
 from ..transactions import BlobTransaction, decode_transaction
 from ..trie import copy_trie
 from .types import ExecutionEngine, ExecutionPayload, NewPayloadRequest
@@ -86,7 +87,6 @@ def notify_new_payload(
         address: copy_trie(storage_trie)
         for address, storage_trie in chain.state._storage_tries.items()
     }
-    created_accounts_snapshot = chain.state.created_accounts.copy()
     blocks_snapshot = list(chain.blocks)
 
     try:
@@ -108,7 +108,6 @@ def notify_new_payload(
         # payload; restore pre-execution snapshots.
         chain.state._main_trie = state_main_trie_snapshot
         chain.state._storage_tries = state_storage_tries_snapshot
-        chain.state.created_accounts = created_accounts_snapshot
         chain.blocks = blocks_snapshot
         return False
 
