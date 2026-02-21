@@ -37,7 +37,6 @@ from ..state_tracker import (
     copy_tx_state,
     destroy_storage,
     get_account,
-    get_account_optional,
     increment_nonce,
     mark_account_created,
     move_ether,
@@ -259,9 +258,6 @@ def process_message(message: Message) -> Evm:
 
     # take snapshot of state before processing the message
     snapshot = copy_tx_state(tx_state)
-
-    # Entering an account is a state access for BAL tracking.
-    get_account_optional(tx_state, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(

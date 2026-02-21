@@ -614,11 +614,10 @@ def make_receipt(
 def process_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
-    system_contract_code: Bytes,
     data: Bytes,
 ) -> MessageCallOutput:
     """
-    Process a system transaction with the given code.
+    Process a system transaction.
 
     Prefer calling `process_checked_system_transaction` or
     `process_unchecked_system_transaction` depending on whether missing code or
@@ -630,8 +629,6 @@ def process_system_transaction(
         The block scoped environment.
     target_address :
         Address of the contract to call.
-    system_contract_code :
-        Code of the contract to call.
     data :
         Data to pass to the contract.
 
@@ -642,6 +639,7 @@ def process_system_transaction(
 
     """
     system_tx_state = TransactionState(parent=block_env.state)
+    system_contract_code = get_account(system_tx_state, target_address).code
 
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
@@ -710,10 +708,10 @@ def process_checked_system_transaction(
         Output of processing the system transaction.
 
     """
-    system_tx_state = TransactionState(parent=block_env.state)
-    system_contract_code = get_account(system_tx_state, target_address).code
-
-    if len(system_contract_code) == 0:
+    pre_state_account = block_env.state.pre_state.get_account_optional(
+        target_address
+    )
+    if pre_state_account is None or len(pre_state_account.code) == 0:
         raise InvalidBlock(
             f"System contract address {target_address.hex()} does not "
             "contain code"
@@ -722,7 +720,6 @@ def process_checked_system_transaction(
     system_tx_output = process_system_transaction(
         block_env,
         target_address,
-        system_contract_code,
         data,
     )
 
@@ -759,12 +756,9 @@ def process_unchecked_system_transaction(
         Output of processing the system transaction.
 
     """
-    system_tx_state = TransactionState(parent=block_env.state)
-    system_contract_code = get_account(system_tx_state, target_address).code
     return process_system_transaction(
         block_env,
         target_address,
-        system_contract_code,
         data,
     )
 
