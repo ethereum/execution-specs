@@ -6,6 +6,8 @@ from inspect import signature
 from typing import Any, Final
 
 from ethereum.state import EMPTY_ACCOUNT, Account
+from ethereum.trie import copy_trie, trie_get
+from ethereum.trie import root as trie_root
 from ethereum_spec_tools.forks import Hardfork
 
 
@@ -203,7 +205,7 @@ class ForkLoad:
 
     @property
     def EMPTY_ACCOUNT(self) -> Any:
-        """EMPTY_ACCOUNT of the fork."""
+        """EMPTY_ACCOUNT."""
         return EMPTY_ACCOUNT
 
     @property
@@ -213,7 +215,7 @@ class ForkLoad:
 
     @property
     def Account(self) -> Any:
-        """Account class of the fork."""
+        """Account class."""
         return Account
 
     @property
@@ -320,18 +322,18 @@ class ForkLoad:
 
     @property
     def root(self) -> Any:
-        """Root function of the fork."""
-        return self._module("trie").root
+        """Root function."""
+        return trie_root
 
     @property
     def copy_trie(self) -> Any:
-        """copy_trie function of the fork."""
-        return self._module("trie").copy_trie
+        """copy_trie function."""
+        return copy_trie
 
     @property
     def trie_get(self) -> Any:
-        """trie_get function of the fork."""
-        return self._module("trie").trie_get
+        """trie_get function."""
+        return trie_get
 
     @property
     def hex_to_address(self) -> Any:
