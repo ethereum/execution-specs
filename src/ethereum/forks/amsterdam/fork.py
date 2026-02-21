@@ -50,7 +50,6 @@ from .exceptions import (
     TransactionTypeContractCreationError,
 )
 from .fork_types import Authorization, VersionedHash
-from .stateless_types import ExecutionWitnessBuilder, build_execution_witness
 from .requests import (
     CONSOLIDATION_REQUEST_TYPE,
     DEPOSIT_REQUEST_TYPE,
