@@ -30,6 +30,7 @@ from ethereum.exceptions import (
     NonceMismatchError,
 )
 from ethereum.fork_criteria import ByBlockNumber
+from ethereum.trie import root, trie_set
 
 from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt
@@ -51,7 +52,6 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .trie import root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 

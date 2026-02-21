@@ -24,9 +24,16 @@ from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.state import EMPTY_ACCOUNT, Account
+from ethereum.trie import (
+    EMPTY_TRIE_ROOT,
+    Trie,
+    copy_trie,
+    root,
+    trie_get,
+    trie_set,
+)
 
 from .fork_types import Address, Root
-from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 
 @dataclass

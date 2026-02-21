@@ -28,6 +28,7 @@ from ethereum.exceptions import (
     NonceMismatchError,
 )
 from ethereum.state import Address
+from ethereum.trie import root, trie_set
 
 from . import vm
 from .block_access_lists.builder import (
@@ -86,7 +87,6 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .trie import root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message

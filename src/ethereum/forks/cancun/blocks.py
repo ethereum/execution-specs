@@ -110,7 +110,7 @@ class Header:
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [`state_root()`]: ref:ethereum.forks.cancun.state.state_root
-    [Trie]: ref:ethereum.forks.cancun.trie.Trie
+    [Trie]: ref:ethereum.trie.Trie
     """
 
     transactions_root: Root
@@ -121,8 +121,8 @@ class Header:
     transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.cancun.trie.root
-    [Trie]: ref:ethereum.forks.cancun.trie.Trie
+    [`root()`]: ref:ethereum.trie.root
+    [Trie]: ref:ethereum.trie.Trie
     """
 
     receipt_root: Root
@@ -132,8 +132,8 @@ class Header:
     function over the Merkle-Patricia [trie] constructed from the receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.cancun.trie.root
-    [Trie]: ref:ethereum.forks.cancun.trie.Trie
+    [`root()`]: ref:ethereum.trie.root
+    [Trie]: ref:ethereum.trie.Trie
     """
 
     bloom: Bloom

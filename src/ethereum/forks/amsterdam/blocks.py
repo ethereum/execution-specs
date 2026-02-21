@@ -113,7 +113,7 @@ class Header:
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [changes]: ref:ethereum.forks.amsterdam.state.State.compute_state_root_and_trie_changes
-    [Trie]: ref:ethereum.forks.amsterdam.trie.Trie
+    [Trie]: ref:ethereum.trie.Trie
     """  # noqa: E501
 
     transactions_root: Root
@@ -124,8 +124,8 @@ class Header:
     transactions as the parameter.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.amsterdam.trie.root
-    [Trie]: ref:ethereum.forks.amsterdam.trie.Trie
+    [`root()`]: ref:ethereum.trie.root
+    [Trie]: ref:ethereum.trie.Trie
     """
 
     receipt_root: Root
@@ -135,8 +135,8 @@ class Header:
     function over the Merkle-Patricia [trie] constructed from the receipts.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`root()`]: ref:ethereum.forks.amsterdam.trie.root
-    [Trie]: ref:ethereum.forks.amsterdam.trie.Trie
+    [`root()`]: ref:ethereum.trie.root
+    [Trie]: ref:ethereum.trie.Trie
     """
 
     bloom: Bloom

@@ -27,6 +27,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
+from ethereum.trie import root, trie_set
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
@@ -55,7 +56,6 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .trie import root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
