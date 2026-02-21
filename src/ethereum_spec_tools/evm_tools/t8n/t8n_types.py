@@ -520,7 +520,7 @@ class Result:
 
         if self.execution_witness is not None:
             ew = self.execution_witness
-            data["executionWitnessTemp"] = {
+            data["executionWitness"] = {
                 "state": ["0x" + s.hex() for s in ew.state],
                 "codes": ["0x" + c.hex() for c in ew.codes],
                 "headers": ["0x" + h.hex() for h in ew.headers],

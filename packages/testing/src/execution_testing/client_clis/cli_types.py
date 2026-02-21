@@ -25,7 +25,6 @@ from execution_testing.exceptions import (
     TransactionException,
     UndefinedException,
 )
-from execution_testing.fixtures.blockchain import ExecutionWitnessTemp
 from execution_testing.logging import (
     get_logger,
 )
@@ -33,6 +32,7 @@ from execution_testing.test_types import (
     Alloc,
     BlockAccessList,
     Environment,
+    ExecutionWitness,
     Transaction,
     TransactionReceipt,
 )
@@ -290,7 +290,7 @@ class Result(CamelModel):
     requests: List[Bytes] | None = None
     block_access_list: BlockAccessList | None = None
     block_access_list_hash: Hash | None = None
-    execution_witness_temp: ExecutionWitnessTemp | None = None
+    execution_witness: ExecutionWitness | None = None
     block_exception: Annotated[
         BlockExceptionWithMessage | UndefinedException | None,
         ExceptionMapperValidator,
