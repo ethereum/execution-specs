@@ -14,7 +14,6 @@ from ethereum.forks.frontier.state import (
     set_storage,
     state_root,
 )
-from ethereum.forks.frontier.trie import Trie, root
 from ethereum.forks.frontier.utils.hexadecimal import hex_to_address
 from ethereum.genesis import (
     GenesisFork,
@@ -22,6 +21,7 @@ from ethereum.genesis import (
     get_genesis_configuration,
 )
 from ethereum.state import Account
+from ethereum.trie import Trie, root
 from ethereum.utils.hexadecimal import hex_to_hash
 from ethereum_spec_tools.forks import Hardfork
 
