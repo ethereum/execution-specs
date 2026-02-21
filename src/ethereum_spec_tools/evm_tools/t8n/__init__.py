@@ -330,6 +330,10 @@ class T8N(Load):
 
         if self.fork.has_execution_witness:
             kw_arguments["execution_witness"] = ExecutionWitnessBuilder()
+        if self.fork.has_track_ancestor_access:
+            kw_arguments["block_headers"] = (
+                self.env.block_headers
+            )
 
         return block_environment(**kw_arguments)
 
@@ -412,6 +416,11 @@ class T8N(Load):
                 target_address=self.fork.HISTORY_STORAGE_ADDRESS,
                 data=block_env.block_hashes[-1],  # The parent hash
             )
+            if self.fork.has_track_ancestor_access:
+                self.fork.track_ancestor_access(
+                    block_env.state,
+                    Uint(1),
+                )
 
         if self.fork.has_beacon_roots_address:
             self.fork.process_unchecked_system_transaction(
@@ -472,6 +481,11 @@ class T8N(Load):
         if self.fork.has_execution_witness:
             block_output.execution_witness = self.fork.build_execution_witness(
                 block_env.execution_witness
+            )
+        if self.fork.has_track_ancestor_access:
+            ancestor_headers = self.fork.get_witness_ancestors(
+                block_env.block_headers,
+                block_env.state.oldest_ancestor_offset,
             )
 
     def run_blockchain_test(self) -> None:

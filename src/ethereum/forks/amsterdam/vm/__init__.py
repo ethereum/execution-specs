@@ -52,6 +52,7 @@ class BlockEnvironment:
     parent_beacon_block_root: Hash32
     block_access_list_builder: BlockAccessListBuilder
     execution_witness: ExecutionWitnessBuilder
+    block_headers: List[Bytes]
 
 
 @dataclass

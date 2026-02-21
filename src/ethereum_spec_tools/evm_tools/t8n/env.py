@@ -47,6 +47,7 @@ class Env:
     parent_gas_limit: Optional[Uint]
     parent_base_fee_per_gas: Optional[Uint]
     block_hashes: Optional[List[Any]]
+    block_headers: List[Any]
     parent_ommers_hash: Optional[Hash32]
     ommers: Any
     parent_beacon_block_root: Optional[Hash32]
@@ -72,6 +73,7 @@ class Env:
         self.read_base_fee_per_gas(data, t8n)
         self.read_randao(data, t8n)
         self.read_block_hashes(data)
+        self.read_block_headers(data)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
 
@@ -300,6 +302,28 @@ class Env:
                 block_hashes.append(None)
 
         self.block_hashes = block_hashes
+
+    def read_block_headers(self, data: Any) -> None:
+        """
+        Read RLP-encoded block headers as an ordered list without gaps.
+        """
+        if "blockHeaders" not in data:
+            self.block_headers = []
+            return
+
+        block_headers = [
+            hex_to_bytes(value)
+            for value in data["blockHeaders"]
+        ]
+
+        expected_count = min(Uint(256), self.block_number)
+        if len(block_headers) != expected_count:
+            raise ValueError(
+                f"expected {expected_count} block headers,"
+                f" got {len(block_headers)}"
+            )
+
+        self.block_headers = block_headers
 
     def read_ommers(self, data: Any, t8n: "T8N") -> None:
         """
