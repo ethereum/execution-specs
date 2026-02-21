@@ -19,6 +19,7 @@ Plugins for docc specific to the Ethereum execution specification.
 
 import dataclasses
 import logging
+import os
 from collections import defaultdict
 from itertools import tee, zip_longest
 from pathlib import Path, PurePath
@@ -85,6 +86,25 @@ class EthereumDiscover(Discover):
         forks = base / "forks"
         self.forks = Hardfork.discover([str(forks)])
 
+    @staticmethod
+    def _diff_forks() -> Optional[FrozenSet[str]]:
+        """
+        Return fork short names to limit diffing to, or None for all.
+
+        Controlled by the DOCC_DIFF_FORKS environment variable (comma-
+        separated fork short names).  When set, only fork pairs where
+        at least one side is listed will be discovered.
+        """
+        env = os.environ.get("DOCC_DIFF_FORKS", "").strip()
+        if not env:
+            return None
+        names = frozenset(
+            name.strip() for name in env.split(",") if name.strip()
+        )
+        if names:
+            logging.info("Limiting diffs to forks: %s", ", ".join(names))
+        return names or None
+
     def discover(self, known: FrozenSet[T]) -> Iterator[Source]:
         """
         Find sources.
@@ -121,8 +141,17 @@ class EthereumDiscover(Discover):
 
             by_fork[fork][fork_relative_path] = source
 
+        diff_forks = self._diff_forks()
+
         diff_count = 0
         for before, after in pairwise(self.forks):
+            if diff_forks is not None:
+                if (
+                    before.short_name not in diff_forks
+                    and after.short_name not in diff_forks
+                ):
+                    continue
+
             paths = set(by_fork[before].keys()) | set(by_fork[after].keys())
 
             for path in paths:

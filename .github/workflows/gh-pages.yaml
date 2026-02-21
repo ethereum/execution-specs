@@ -39,6 +39,23 @@ jobs:
           version: ${{ vars.UV_VERSION }}
           python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
 
+      - uses: ./.github/actions/get-changed-files
+        if: github.event_name == 'pull_request'
+        id: get-changed-files
+
+      - name: Detect changed forks
+        if: github.event_name == 'pull_request'
+        run: |
+          FILE_LIST="${{ steps.get-changed-files.outputs.file_list }}"
+          FORKS=$(grep '^src/ethereum/forks/' "$FILE_LIST" | cut -d/ -f4 | sort -u | paste -sd, - || true)
+
+          if [ -n "$FORKS" ] && ! grep -qv '^src/ethereum/forks/' "$FILE_LIST"; then
+            echo "DOCC_DIFF_FORKS=$FORKS" >> "$GITHUB_ENV"
+            echo "Building diffs for changed forks only: $FORKS"
+          else
+            echo "Non-fork files changed, building all diffs"
+          fi
+
       - name: Build Documentation
         run: |
           uvx tox -e spec-docs
