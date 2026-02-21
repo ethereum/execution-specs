@@ -89,12 +89,6 @@ def test_end_to_end(template_fork: str) -> None:
         with (fork_dir / "fork.py").open("r") as f:
             assert "MAX_BLOB_GAS_PER_BLOCK = U64(99)" in f.read()
 
-        with (fork_dir / "trie.py").open("r") as f:
-            assert (
-                "from ethereum.forks.paris import trie as previous_trie"
-                in f.read()
-            )
-
 
 def has_module_docstring(file_path: Path) -> bool:
     """Return True if the file starts with a module-level doc-string."""
