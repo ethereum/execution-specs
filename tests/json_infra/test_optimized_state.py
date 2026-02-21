@@ -7,8 +7,8 @@ import pytest
 from ethereum_types.numeric import U256
 
 import ethereum.forks.frontier.state as state
-from ethereum.forks.frontier.fork_types import EMPTY_ACCOUNT
 from ethereum.forks.tangerine_whistle.utils.hexadecimal import hex_to_address
+from ethereum.state import EMPTY_ACCOUNT
 
 try:
     import ethereum_optimized.state_db as state_db

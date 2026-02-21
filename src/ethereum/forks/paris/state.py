@@ -23,7 +23,9 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
-from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
+from ethereum.state import EMPTY_ACCOUNT, Account
+
+from .fork_types import Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 

@@ -27,6 +27,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
+from ethereum.state import Account
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
@@ -35,7 +36,7 @@ from .exceptions import (
     InsufficientMaxFeePerGasError,
     PriorityFeeGreaterThanMaxFeeError,
 )
-from .fork_types import Account, Address
+from .fork_types import Address
 from .state import (
     State,
     destroy_account,
