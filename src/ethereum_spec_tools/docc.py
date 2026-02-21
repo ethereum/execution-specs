@@ -315,6 +315,17 @@ class DiffNode(Node):
         )
 
 
+class IdenticalDiffNode(DiffNode):
+    """
+    A DiffNode where both sides have identical source content.
+
+    FixIndexTransform still rewrites identifiers, but
+    MinimizeDiffsTransform skips tree diffing entirely.
+    """
+
+    pass
+
+
 class EthereumBuilder(PythonBuilder):
     """
     A `PythonBuilder` that additionally builds `Document`s from `DiffSource`s.
@@ -407,15 +418,23 @@ class EthereumBuilder(PythonBuilder):
             document = Document(root)
             processed[diff_source] = document
 
-        # For identical pairs, use the after document directly.
-        # No DiffNode wrapper means MinimizeDiffsTransform has
-        # nothing to diff — the content passes through unchanged.
+        # For identical pairs, wrap in IdenticalDiffNode so that
+        # FixIndexTransform rewrites identifiers correctly, but
+        # MinimizeDiffsTransform can skip the expensive tree diff.
         for diff_source in identical:
+            after_node: Node = BlankNode()
             if diff_source.after:
-                document = after_processed[diff_source.after]
+                after_document = after_processed[diff_source.after]
                 del after_processed[diff_source.after]
-            else:
-                document = Document(BlankNode())
+                after_node = AfterNode(after_document.root)
+
+            root = IdenticalDiffNode(
+                diff_source.before_name,
+                BeforeNode(BlankNode()),
+                diff_source.after_name,
+                after_node,
+            )
+            document = Document(root)
             processed[diff_source] = document
 
 
@@ -1077,6 +1096,14 @@ class _MinimizeDiffsVisitor(Visitor):
         self._stack = []
         self.root = None
 
+    def _replace_node(self, node: Node, output: Node) -> None:
+        if 1 == len(self._stack):
+            self._stack[0] = output
+            self.root = output
+        else:
+            self._stack[-2].replace_child(node, output)
+            self._stack[-1] = output
+
     def enter(self, node: Node) -> Visit:
         self._stack.append(node)
         if self.root is None:
@@ -1084,6 +1111,15 @@ class _MinimizeDiffsVisitor(Visitor):
 
         if not isinstance(node, DiffNode):
             return Visit.TraverseChildren
+
+        # Identical files: skip tree diff, use after content directly.
+        if isinstance(node, IdenticalDiffNode):
+            after = node.after
+            if isinstance(after, AfterNode):
+                self._replace_node(node, after.child)
+            else:
+                self._replace_node(node, BlankNode())
+            return Visit.SkipChildren
 
         before = node.before
         after = node.after
@@ -1108,12 +1144,7 @@ class _MinimizeDiffsVisitor(Visitor):
         apply.root.visit(_HardenVisitor())
         output = apply.output()
 
-        if 1 == len(self._stack):
-            self._stack[0] = output
-            self.root = output
-        else:
-            self._stack[-2].replace_child(node, output)
-            self._stack[-1] = output
+        self._replace_node(node, output)
 
         return Visit.SkipChildren
 
