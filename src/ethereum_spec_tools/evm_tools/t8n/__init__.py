@@ -483,7 +483,7 @@ class T8N(Load):
                 block_env.execution_witness
             )
         if self.fork.has_track_ancestor_access:
-            ancestor_headers = self.fork.get_witness_ancestors(
+            ancestor_headers = self.fork.get_witness_ancestors(  # noqa: F841
                 block_env.block_headers,
                 block_env.state.oldest_ancestor_offset,
             )
