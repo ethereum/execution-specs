@@ -19,7 +19,6 @@ from ...state_tracker import (
     get_transient_storage,
     set_storage,
     set_transient_storage,
-    track_storage_read,
 )
 from .. import Evm
 from ..exceptions import WriteInStaticContext
@@ -60,7 +59,6 @@ def sload(evm: Evm) -> None:
     # OPERATION
     tx_state = evm.message.tx_env.state
     value = get_storage(tx_state, evm.message.current_target, key)
-    track_storage_read(tx_state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
@@ -99,8 +97,6 @@ def sstore(evm: Evm) -> None:
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GAS_COLD_SLOAD
-
-    track_storage_read(tx_state, evm.message.current_target, key)
 
     if original_value == current_value and current_value != new_value:
         if original_value == 0:

@@ -35,7 +35,7 @@ from ethereum.state import (
 )
 
 if TYPE_CHECKING:
-    from .block_access_lists.builder import BlockAccessListBuilder
+    from .block_access_lists import BlockAccessListBuilder
 
 
 @dataclass
@@ -111,6 +111,7 @@ def get_account_optional(
         Account at address.
 
     """
+    tx_state.account_reads.add(address)
     if address in tx_state.account_writes:
         return tx_state.account_writes[address]
     if address in tx_state.parent.account_writes:
@@ -196,6 +197,7 @@ def get_storage(
         Value at the key.
 
     """
+    tx_state.storage_reads.add((address, key))
     if address in tx_state.storage_writes:
         if key in tx_state.storage_writes[address]:
             return tx_state.storage_writes[address][key]
@@ -714,7 +716,7 @@ def incorporate_tx_into_block(
         The BAL builder for incremental updates.
 
     """
-    from .block_access_lists.builder import update_builder_from_tx
+    from .block_access_lists import update_builder_from_tx
 
     block = tx_state.parent
 
@@ -777,38 +779,3 @@ def extract_block_diffs(
     )
 
 
-# -- BAL Tracking -----------------------------------------------------------
-
-
-def track_address(tx_state: TransactionState, address: Address) -> None:
-    """
-    Record that an address was accessed.
-
-    Parameters
-    ----------
-    tx_state :
-        The transaction state.
-    address :
-        The address that was accessed.
-
-    """
-    tx_state.account_reads.add(address)
-
-
-def track_storage_read(
-    tx_state: TransactionState, address: Address, key: Bytes32
-) -> None:
-    """
-    Record a storage read operation.
-
-    Parameters
-    ----------
-    tx_state :
-        The transaction state.
-    address :
-        The address whose storage was read.
-    key :
-        The storage key that was read.
-
-    """
-    tx_state.storage_reads.add((address, key))

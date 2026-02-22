@@ -43,7 +43,6 @@ from ..state_tracker import (
     move_ether,
     restore_tx_state,
     set_code,
-    track_address,
 )
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
@@ -112,7 +111,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
         is_collision = account_has_code_or_nonce(
             tx_state, message.current_target
         ) or account_has_storage(tx_state, message.current_target)
-        track_address(tx_state, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0),
@@ -137,7 +135,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
                 get_account(tx_state, delegated_address).code_hash,
             )
             message.code_address = delegated_address
-            track_address(tx_state, delegated_address)
 
         evm = process_message(message)
 
@@ -266,11 +263,7 @@ def process_message(message: Message) -> Evm:
     # take snapshot of state before processing the message
     snapshot = copy_tx_state(tx_state)
 
-    track_address(tx_state, message.current_target)
-
     if message.should_transfer_value and message.value != 0:
-        track_address(tx_state, message.caller)
-
         move_ether(
             tx_state,
             message.caller,

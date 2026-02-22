@@ -174,7 +174,6 @@ packages = [
     "ethereum.forks.bpo5.vm.precompiled_contracts",
     "ethereum.forks.bpo5.vm.precompiled_contracts.bls12_381",
     "ethereum.forks.amsterdam",
-    "ethereum.forks.amsterdam.block_access_lists",
     "ethereum.forks.amsterdam.utils",
     "ethereum.forks.amsterdam.vm",
     "ethereum.forks.amsterdam.vm.instructions",
@@ -356,7 +355,7 @@ files = [
 ]
 
 [tool.docc.output]
-path = "docs"
+path = "api_docs"
 extension = ".html"
 
 [tool.vulture]

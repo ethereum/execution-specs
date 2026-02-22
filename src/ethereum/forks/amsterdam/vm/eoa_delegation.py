@@ -19,7 +19,6 @@ from ..state_tracker import (
     get_code,
     increment_nonce,
     set_code,
-    track_address,
 )
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
@@ -143,7 +142,6 @@ def calculate_delegation_cost(
     tx_state = evm.message.tx_env.state
 
     code = get_code(tx_state, get_account(tx_state, address).code_hash)
-    track_address(tx_state, address)
 
     if not is_valid_delegation(code):
         return False, address, Uint(0)
@@ -191,7 +189,6 @@ def set_delegation(message: Message) -> U256:
 
         authority_account = get_account(tx_state, authority)
         authority_code = get_code(tx_state, authority_account.code_hash)
-        track_address(tx_state, authority)
 
         if authority_code and not is_valid_delegation(authority_code):
             continue

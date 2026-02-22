@@ -30,12 +30,12 @@ from ethereum.exceptions import (
 from ethereum.state import EMPTY_CODE_HASH, Address
 
 from . import vm
-from .block_access_lists.builder import (
+from .block_access_lists import (
+    BlockAccessIndex,
     BlockAccessListBuilder,
     build_block_access_list,
+    hash_block_access_list,
 )
-from .block_access_lists.rlp_types import BlockAccessIndex
-from .block_access_lists.rlp_utils import compute_block_access_list_hash
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
 from .exceptions import (
@@ -72,7 +72,6 @@ from .state_tracker import (
     incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
-    track_address,
 )
 from .transactions import (
     AccessListTransaction,
@@ -272,7 +271,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block_logs_bloom = logs_bloom(block_output.block_logs)
     withdrawals_root = root(block_output.withdrawals_trie)
     requests_hash = compute_requests_hash(block_output.requests)
-    computed_block_access_list_hash = compute_block_access_list_hash(
+    computed_block_access_list_hash = hash_block_access_list(
         block_output.block_access_list
     )
 
@@ -620,18 +619,14 @@ def make_receipt(
     return encode_receipt(tx, receipt)
 
 
-def process_system_transaction(
+def process_checked_system_transaction(
     block_env: vm.BlockEnvironment,
     target_address: Address,
-    system_contract_code: Bytes,
     data: Bytes,
 ) -> MessageCallOutput:
     """
-    Process a system transaction with the given code.
-
-    Prefer calling `process_checked_system_transaction` or
-    `process_unchecked_system_transaction` depending on whether missing code or
-    an execution error should cause the block to be rejected.
+    Process a system transaction and raise an error if the contract does not
+    contain code or if the transaction fails.
 
     Parameters
     ----------
@@ -639,8 +634,65 @@ def process_system_transaction(
         The block scoped environment.
     target_address :
         Address of the contract to call.
-    system_contract_code :
-        Code of the contract to call.
+    data :
+        Data to pass to the contract.
+
+    Returns
+    -------
+    system_tx_output : `MessageCallOutput`
+        Output of processing the system transaction.
+
+    """
+    # Read through BlockState (not pre-state) so that a system contract
+    # deployed by an earlier transaction in the same block is visible.
+    # See EIP-7002 and EIP-7251 for this edge case.
+    #
+    # This read is not recorded in the state tracker.
+    # However, this is fine because `process_unchecked_system_transaction`
+    # does its own get_account on the TransactionState that we do incorporate
+    # into BlockState.
+    untracked_state = TransactionState(parent=block_env.state)
+    system_contract_code = get_code(
+        untracked_state,
+        get_account(untracked_state, target_address).code_hash,
+    )
+
+    if len(system_contract_code) == 0:
+        raise InvalidBlock(
+            f"System contract address {target_address.hex()} does not "
+            "contain code"
+        )
+
+    system_tx_output = process_unchecked_system_transaction(
+        block_env,
+        target_address,
+        data,
+    )
+
+    if system_tx_output.error:
+        raise InvalidBlock(
+            f"System contract ({target_address.hex()}) call failed: "
+            f"{system_tx_output.error}"
+        )
+
+    return system_tx_output
+
+
+def process_unchecked_system_transaction(
+    block_env: vm.BlockEnvironment,
+    target_address: Address,
+    data: Bytes,
+) -> MessageCallOutput:
+    """
+    Process a system transaction without checking if the contract contains
+    code or if the transaction fails.
+
+    Parameters
+    ----------
+    block_env :
+        The block scoped environment.
+    target_address :
+        Address of the contract to call.
     data :
         Data to pass to the contract.
 
@@ -651,6 +703,10 @@ def process_system_transaction(
 
     """
     system_tx_state = TransactionState(parent=block_env.state)
+    system_contract_code = get_code(
+        system_tx_state,
+        get_account(system_tx_state, target_address).code_hash,
+    )
 
     tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
@@ -693,95 +749,6 @@ def process_system_transaction(
     )
 
     return system_tx_output
-
-
-def process_checked_system_transaction(
-    block_env: vm.BlockEnvironment,
-    target_address: Address,
-    data: Bytes,
-) -> MessageCallOutput:
-    """
-    Process a system transaction and raise an error if the contract does not
-    contain code or if the transaction fails.
-
-    Parameters
-    ----------
-    block_env :
-        The block scoped environment.
-    target_address :
-        Address of the contract to call.
-    data :
-        Data to pass to the contract.
-
-    Returns
-    -------
-    system_tx_output : `MessageCallOutput`
-        Output of processing the system transaction.
-
-    """
-    system_tx_state = TransactionState(parent=block_env.state)
-    system_contract_code = get_code(
-        system_tx_state,
-        get_account(system_tx_state, target_address).code_hash,
-    )
-
-    if len(system_contract_code) == 0:
-        raise InvalidBlock(
-            f"System contract address {target_address.hex()} does not "
-            "contain code"
-        )
-
-    system_tx_output = process_system_transaction(
-        block_env,
-        target_address,
-        system_contract_code,
-        data,
-    )
-
-    if system_tx_output.error:
-        raise InvalidBlock(
-            f"System contract ({target_address.hex()}) call failed: "
-            f"{system_tx_output.error}"
-        )
-
-    return system_tx_output
-
-
-def process_unchecked_system_transaction(
-    block_env: vm.BlockEnvironment,
-    target_address: Address,
-    data: Bytes,
-) -> MessageCallOutput:
-    """
-    Process a system transaction without checking if the contract contains code
-    or if the transaction fails.
-
-    Parameters
-    ----------
-    block_env :
-        The block scoped environment.
-    target_address :
-        Address of the contract to call.
-    data :
-        Data to pass to the contract.
-
-    Returns
-    -------
-    system_tx_output : `MessageCallOutput`
-        Output of processing the system transaction.
-
-    """
-    system_tx_state = TransactionState(parent=block_env.state)
-    system_contract_code = get_code(
-        system_tx_state,
-        get_account(system_tx_state, target_address).code_hash,
-    )
-    return process_system_transaction(
-        block_env,
-        target_address,
-        system_contract_code,
-        data,
-    )
 
 
 def apply_body(
@@ -930,8 +897,6 @@ def process_transaction(
     )
     tx_state = TransactionState(parent=block_env.state)
 
-    track_address(tx_state, block_env.coinbase)
-
     trie_set(
         block_output.transactions_trie,
         rlp.encode(index),
@@ -964,7 +929,6 @@ def process_transaction(
     gas = tx.gas - intrinsic_gas
 
     increment_nonce(tx_state, sender)
-    track_address(tx_state, sender)
 
     sender_balance_after_gas_fee = (
         Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
@@ -1094,7 +1058,6 @@ def process_withdrawals(
             rlp.encode(wd),
         )
 
-        track_address(wd_state, wd.address)
         current_balance = get_account(wd_state, wd.address).balance
         new_balance = current_balance + wd.amount * GWEI_TO_WEI
         set_account_balance(wd_state, wd.address, new_balance)

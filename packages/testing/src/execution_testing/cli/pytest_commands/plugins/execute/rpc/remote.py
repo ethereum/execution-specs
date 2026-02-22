@@ -177,7 +177,6 @@ def eth_rpc(
     rpc_endpoint: str,
     engine_rpc: EngineRPC | None,
     session_fork: Fork,
-    transactions_per_block: int,
     session_temp_folder: Path,
     max_transactions_per_batch: int | None,
 ) -> EthRPC:
@@ -194,7 +193,6 @@ def eth_rpc(
         rpc_endpoint=rpc_endpoint,
         fork=session_fork,
         engine_rpc=engine_rpc,
-        transactions_per_block=transactions_per_block,
         session_temp_folder=session_temp_folder,
         get_payload_wait_time=get_payload_wait_time,
         transaction_wait_timeout=tx_wait_timeout,
