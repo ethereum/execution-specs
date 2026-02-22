@@ -777,5 +777,3 @@ def extract_block_diffs(
         block_state.storage_writes,
         block_state.code_writes,
     )
-
-
