@@ -58,8 +58,6 @@ class BlockState:
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
-    # TODO: Include code_reads for ExecutionWitness. If we get an
-    # accounts balance, we don't want to include its bytecode too.
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
 
 
