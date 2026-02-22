@@ -67,15 +67,15 @@ def test_genesis(fork: Hardfork) -> None:
     """Tests genesis block creation for all hardforks."""
     description: GenesisFork = GenesisFork(
         Address=fork.module("fork_types").Address,
-        Account=fork.module("fork_types").Account,
-        Trie=fork.module("trie").Trie,
+        Account=Account,
+        Trie=Trie,
         Bloom=fork.module("fork_types").Bloom,
         Header=fork.module("blocks").Header,
         Block=fork.module("blocks").Block,
         set_account=fork.module("state").set_account,
         set_storage=fork.module("state").set_storage,
         state_root=fork.module("state").state_root,
-        root=fork.module("trie").root,
+        root=root,
         hex_to_address=fork.module("utils.hexadecimal").hex_to_address,
     )
 

@@ -31,6 +31,7 @@ from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.state import Account as Account_cls
 
 from .utils import add_item
 
@@ -57,11 +58,8 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
     """
     patches: Dict[str, Any] = {}
 
-    types_mod = cast(
-        Any, import_module("ethereum.forks." + fork + ".fork_types")
-    )
     state_mod = cast(Any, import_module("ethereum.forks." + fork + ".state"))
-    Account = types_mod.Account  # noqa N806
+    Account = Account_cls  # noqa: N806
 
     has_transient_storage = hasattr(state_mod, "TransientStorage")
 

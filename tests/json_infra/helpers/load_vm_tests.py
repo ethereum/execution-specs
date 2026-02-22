@@ -12,6 +12,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from pytest import Collector
 
 from ethereum.crypto.hash import keccak256
+from ethereum.state import Account
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,
@@ -63,7 +64,7 @@ class VmTestLoader:
         self.storage_root = self.state.storage_root
 
         self.fork_types = self._module("fork_types")
-        self.Account = self.fork_types.Account
+        self.Account = Account
         self.Address = self.fork_types.Address
 
         self.transactions = self._module("transactions")

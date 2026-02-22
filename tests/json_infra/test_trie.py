@@ -1,12 +1,12 @@
 """Run the trie tests from json fixtures."""
 
-import importlib
 import json
 from typing import Any, Optional
 
 import pytest
 from ethereum_types.bytes import Bytes
 
+from ethereum.trie import Trie, root, trie_set
 from ethereum.utils.hexadecimal import has_hex_prefix, hex_to_bytes
 
 from . import FORKS, TEST_FIXTURES
@@ -36,14 +36,11 @@ def test_trie_secure_hex(fork: str, request: pytest.FixtureRequest) -> None:
 
     tests = load_tests("hex_encoded_securetrie_test.json")
 
-    eels_fork = FORKS[fork].short_name
-    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
-
     for name, test in tests.items():
-        st = trie_module.Trie(secured=True, default=b"")
+        st: Trie[Bytes, Bytes] = Trie(secured=True, default=b"")
         for k, v in test.get("in").items():
-            trie_module.trie_set(st, to_bytes(k), to_bytes(v))
-        result = trie_module.root(st)
+            trie_set(st, to_bytes(k), to_bytes(v))
+        result = root(st)
         expected = hex_to_bytes(test.get("root"))
         assert result == expected, f"test {name} failed"
 
@@ -57,14 +54,11 @@ def test_trie_secure(fork: str, request: pytest.FixtureRequest) -> None:
 
     tests = load_tests("trietest_secureTrie.json")
 
-    eels_fork = FORKS[fork].short_name
-    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
-
     for name, test in tests.items():
-        st = trie_module.Trie(secured=True, default=b"")
+        st: Trie[Bytes, Bytes] = Trie(secured=True, default=b"")
         for t in test.get("in"):
-            trie_module.trie_set(st, to_bytes(t[0]), to_bytes(t[1]))
-        result = trie_module.root(st)
+            trie_set(st, to_bytes(t[0]), to_bytes(t[1]))
+        result = root(st)
         expected = hex_to_bytes(test.get("root"))
         assert result == expected, f"test {name} failed"
 
@@ -80,14 +74,11 @@ def test_trie_secure_any_order(
 
     tests = load_tests("trieanyorder_secureTrie.json")
 
-    eels_fork = FORKS[fork].short_name
-    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
-
     for name, test in tests.items():
-        st = trie_module.Trie(secured=True, default=b"")
+        st: Trie[Bytes, Bytes] = Trie(secured=True, default=b"")
         for k, v in test.get("in").items():
-            trie_module.trie_set(st, to_bytes(k), to_bytes(v))
-        result = trie_module.root(st)
+            trie_set(st, to_bytes(k), to_bytes(v))
+        result = root(st)
         expected = hex_to_bytes(test.get("root"))
         assert result == expected, f"test {name} failed"
 
@@ -101,14 +92,11 @@ def test_trie(fork: str, request: pytest.FixtureRequest) -> None:
 
     tests = load_tests("trietest.json")
 
-    eels_fork = FORKS[fork].short_name
-    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
-
     for name, test in tests.items():
-        st = trie_module.Trie(secured=False, default=b"")
+        st: Trie[Bytes, Bytes] = Trie(secured=False, default=b"")
         for t in test.get("in"):
-            trie_module.trie_set(st, to_bytes(t[0]), to_bytes(t[1]))
-        result = trie_module.root(st)
+            trie_set(st, to_bytes(t[0]), to_bytes(t[1]))
+        result = root(st)
         expected = hex_to_bytes(test.get("root"))
         assert result == expected, f"test {name} failed"
 
@@ -122,14 +110,11 @@ def test_trie_any_order(fork: str, request: pytest.FixtureRequest) -> None:
 
     tests = load_tests("trieanyorder.json")
 
-    eels_fork = FORKS[fork].short_name
-    trie_module = importlib.import_module(f"ethereum.forks.{eels_fork}.trie")
-
     for name, test in tests.items():
-        st = trie_module.Trie(secured=False, default=b"")
+        st: Trie[Bytes, Bytes] = Trie(secured=False, default=b"")
         for k, v in test.get("in").items():
-            trie_module.trie_set(st, to_bytes(k), to_bytes(v))
-        result = trie_module.root(st)
+            trie_set(st, to_bytes(k), to_bytes(v))
+        result = root(st)
         expected = hex_to_bytes(test.get("root"))
         assert result == expected, f"test {name} failed"
 

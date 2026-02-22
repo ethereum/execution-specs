@@ -21,6 +21,9 @@ from ethereum_types.bytes import Bytes0, Bytes256
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum import genesis
+from ethereum.state import Account
+from ethereum.trie import Trie
+from ethereum.trie import root as trie_root
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -831,15 +834,15 @@ class Sync(ForkTracking):
 
             description: genesis.GenesisFork = genesis.GenesisFork(
                 Address=self.active_fork.module("fork_types").Address,
-                Account=self.active_fork.module("fork_types").Account,
-                Trie=self.active_fork.module("trie").Trie,
+                Account=Account,
+                Trie=Trie,
                 Bloom=self.active_fork.module("fork_types").Bloom,
                 Header=self.active_fork.module("blocks").Header,
                 Block=self.active_fork.module("blocks").Block,
                 set_account=self.active_fork.module("state").set_account,
                 set_storage=self.active_fork.module("state").set_storage,
                 state_root=self.active_fork.module("state").state_root,
-                root=self.active_fork.module("trie").root,
+                root=trie_root,
                 hex_to_address=self.active_fork.module(
                     "utils.hexadecimal"
                 ).hex_to_address,
