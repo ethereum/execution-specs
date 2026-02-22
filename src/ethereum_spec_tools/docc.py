@@ -1116,11 +1116,9 @@ class MinimizeDiffsTransform(Transform):
     """
 
     _count: int
-    _total: int
 
-    def __init__(self, settings: PluginSettings) -> None:
+    def __init__(self, settings: PluginSettings) -> None:  # noqa: ARG002
         self._count = 0
-        self._total = 0
 
     def transform(self, context: Context) -> None:
         """
