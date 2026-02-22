@@ -311,10 +311,7 @@ class Env:
             self.block_headers = []
             return
 
-        block_headers = [
-            hex_to_bytes(value)
-            for value in data["blockHeaders"]
-        ]
+        block_headers = [hex_to_bytes(value) for value in data["blockHeaders"]]
 
         expected_count = min(Uint(256), self.block_number)
         if len(block_headers) != expected_count:

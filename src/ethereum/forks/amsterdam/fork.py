@@ -254,9 +254,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
         execution_witness=ExecutionWitnessBuilder(),
-        block_headers=[
-            rlp.encode(blk.header) for blk in chain.blocks
-        ],
+        block_headers=[rlp.encode(blk.header) for blk in chain.blocks],
     )
 
     block_output = apply_body(

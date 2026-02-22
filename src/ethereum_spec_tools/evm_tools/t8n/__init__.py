@@ -333,9 +333,7 @@ class T8N(Load):
         if self.fork.has_execution_witness:
             kw_arguments["execution_witness"] = ExecutionWitnessBuilder()
         if self.fork.has_track_ancestor_access:
-            kw_arguments["block_headers"] = (
-                self.env.block_headers
-            )
+            kw_arguments["block_headers"] = self.env.block_headers
 
         return block_environment(**kw_arguments)
 

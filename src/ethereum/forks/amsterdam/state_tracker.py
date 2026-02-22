@@ -783,9 +783,7 @@ def get_witness_ancestors(
     return list(block_headers[-int(oldest_ancestor_offset) :])
 
 
-def track_ancestor_access(
-    block_state: BlockState, offset: Uint
-) -> None:
+def track_ancestor_access(block_state: BlockState, offset: Uint) -> None:
     """
     Record that an ancestor block was accessed.
 
