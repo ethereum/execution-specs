@@ -1134,9 +1134,8 @@ class MinimizeDiffsTransform(Transform):
             kind = "diff"
 
         logging.info(
-            "MinimizeDiffs [%d]: %s (%s)",
+            "MinimizeDiffs [%d] (%s)",
             self._count,
-            context[Source].output_path,
             kind,
         )
 
