@@ -421,12 +421,23 @@ class EthereumBuilder(PythonBuilder):
         after_identical = {s.after for s in identical if s.after}
         after_unprocessed |= after_identical
 
+        logging.info(
+            "Building diff trees: %d changed, %d identical"
+            " (%d before + %d after sources)",
+            len(changed),
+            len(identical),
+            len(before_unprocessed),
+            len(after_unprocessed),
+        )
+
         # Rebuild the sources so we get distinct tree objects.
         before_processed: Dict[Source, Document] = dict()
         after_processed: Dict[Source, Document] = dict()
 
         super().build(before_unprocessed, before_processed)
+        logging.info("Built %d before trees", len(before_processed))
         super().build(after_unprocessed, after_processed)
+        logging.info("Built %d after trees", len(after_processed))
 
         for diff_source in changed:
             before: Node = BlankNode()
@@ -1104,15 +1115,35 @@ class MinimizeDiffsTransform(Transform):
     Move `DiffNode` nodes as far down the tree as reasonably possible.
     """
 
+    _count: int
+    _total: int
+
     def __init__(self, settings: PluginSettings) -> None:
-        pass
+        self._count = 0
+        self._total = 0
 
     def transform(self, context: Context) -> None:
         """
         Apply the transformation to the given document.
         """
+        self._count += 1
+        root = context[Document].root
+
+        kind = "skip"
+        if isinstance(root, IdenticalDiffNode):
+            kind = "identical"
+        elif isinstance(root, DiffNode):
+            kind = "diff"
+
+        logging.info(
+            "MinimizeDiffs [%d]: %s (%s)",
+            self._count,
+            context[Source].output_path,
+            kind,
+        )
+
         visitor = _MinimizeDiffsVisitor()
-        context[Document].root.visit(visitor)
+        root.visit(visitor)
         assert visitor.root is not None
         context[Document].root = visitor.root
 
