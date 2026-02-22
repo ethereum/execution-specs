@@ -68,10 +68,10 @@ from .state_tracker import (
     destroy_account,
     extract_block_diffs,
     get_account,
+    get_witness_ancestors,
     incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
-    get_witness_ancestors,
     track_address,
     track_ancestor_access,
 )
@@ -847,10 +847,10 @@ def apply_body(
     block_output.execution_witness = build_execution_witness(
         block_env.execution_witness
     )
-    # TODO(zkevm): whenever https://github.com/ethereum/execution-specs/pull/2259 is merged,
-    # rebase on top of it and make the following code add the ancestor in the
-    # block_output.execution_witness
-    ancestor_headers = get_witness_ancestors(
+    # TODO(zkevm): whenever PR #2259 is merged, rebase on
+    # top of it and make the following code add the ancestor
+    # in the block_output.execution_witness
+    ancestor_headers = get_witness_ancestors(  # noqa: F841
         block_env.block_headers,
         block_env.state.oldest_ancestor_offset,
     )
