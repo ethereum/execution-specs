@@ -73,7 +73,7 @@ class Env:
         self.read_base_fee_per_gas(data, t8n)
         self.read_randao(data, t8n)
         self.read_block_hashes(data)
-        self.read_block_headers(data)
+        self.read_block_headers(data, t8n)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
 
@@ -303,22 +303,31 @@ class Env:
 
         self.block_hashes = block_hashes
 
-    def read_block_headers(self, data: Any) -> None:
+    def read_block_headers(self, data: Any, t8n: "T8N") -> None:
         """
         Read RLP-encoded block headers as an ordered list without gaps.
         """
-        if "blockHeaders" not in data:
-            self.block_headers = []
+        self.block_headers = []
+
+        if not t8n.fork.has_track_ancestor_access:
             return
 
-        block_headers = [hex_to_bytes(value) for value in data["blockHeaders"]]
+        if not data.get("blockHeaders"):
+            return
 
-        expected_count = min(Uint(256), self.block_number)
-        if len(block_headers) != expected_count:
-            raise ValueError(
-                f"expected {expected_count} block headers,"
-                f" got {len(block_headers)}"
-            )
+        raw = data["blockHeaders"]
+
+        # blockHeaders is a dict mapping hex block number to hex RLP.
+        clean: Dict[int, bytes] = {}
+        for key, value in raw.items():
+            clean[int(key, 16)] = hex_to_bytes(value)
+
+        max_count = min(Uint(256), self.block_number)
+        block_headers: List[Any] = []
+        for number in range(self.block_number - max_count, self.block_number):
+            if number not in clean:
+                raise ValueError(f"missing block header for block {number}")
+            block_headers.append(clean[number])
 
         self.block_headers = block_headers
 
