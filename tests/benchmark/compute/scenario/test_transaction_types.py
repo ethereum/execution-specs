@@ -274,7 +274,7 @@ def total_cost_floor_per_token(fork: Fork) -> int:
 @pytest.fixture
 def total_cost_standard_per_token(fork: Fork) -> int:
     """Standard cost per token (EIP-7623)."""
-    return fork.gas_costs().TX_DATA_STANDARD_TOKEN_COST
+    return fork.gas_costs().GAS_TX_DATA_TOKEN_STANDARD
 
 
 def calldata_generator(
@@ -286,7 +286,7 @@ def calldata_generator(
     # Gas cost calculation based on EIP-7683: (https://eips.ethereum.org/EIPS/eip-7683)
     #
     #   tx.gasUsed = 21000 + max(
-    #       TX_DATA_STANDARD_TOKEN_COST * tokens_in_calldata
+    #       GAS_TX_DATA_TOKEN_STANDARD * tokens_in_calldata
     #       + execution_gas_used
     #       + isContractCreation * (32000 +
     #                                 INITCODE_WORD_COST * words(calldata)),
@@ -298,10 +298,10 @@ def calldata_generator(
     #
     # Therefore:
     #   max_token_cost =
-    #       max(TX_DATA_STANDARD_TOKEN_COST, TX_DATA_FLOOR_TOKEN_COST)
+    #       max(GAS_TX_DATA_TOKEN_STANDARD, TX_DATA_FLOOR_TOKEN_COST)
     #   tx.gasUsed = 21000 + tokens_in_calldata * max_token_cost
     #
-    # Since max(TX_DATA_STANDARD_TOKEN_COST, TX_DATA_FLOOR_TOKEN_COST) = 10:
+    # Since max(GAS_TX_DATA_TOKEN_STANDARD, TX_DATA_FLOOR_TOKEN_COST) = 10:
     #   tx.gasUsed = 21000 + tokens_in_calldata * 10
     #
     # Token accounting:

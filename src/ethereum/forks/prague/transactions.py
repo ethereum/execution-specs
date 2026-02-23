@@ -37,7 +37,7 @@ the minimum gas cost for transactions that include calldata.
 [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
 """
 
-TX_DATA_STANDARD_TOKEN_COST = Uint(4)
+GAS_TX_DATA_TOKEN_STANDARD = Uint(4)
 """
 Gas cost per byte of calldata as per [EIP-7623]. Used to calculate the
 gas cost for transactions that include calldata.
@@ -600,7 +600,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
         tokens_in_calldata * TX_DATA_FLOOR_TOKEN_COST + GAS_TX_BASE
     )
 
-    data_cost = tokens_in_calldata * TX_DATA_STANDARD_TOKEN_COST
+    data_cost = tokens_in_calldata * GAS_TX_DATA_TOKEN_STANDARD
 
     if tx.to == Bytes0(b""):
         create_cost = GAS_TX_CREATE + init_code_cost(ulen(tx.data))
