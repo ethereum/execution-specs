@@ -23,6 +23,7 @@ from ethereum.forks.amsterdam.block_access_lists import (
     BlockAccessIndex,
     BlockAccessListBuilder,
 )
+from ethereum.forks.amsterdam.stateless_types import ExecutionWitnessBuilder
 from ethereum_spec_tools.forks import Hardfork, TemporaryHardfork
 
 from ..loaders.fixture_loader import Load
@@ -327,6 +328,9 @@ class T8N(Load):
                 BlockAccessListBuilder()
             )
 
+        if self.fork.has_execution_witness:
+            kw_arguments["execution_witness"] = ExecutionWitnessBuilder()
+
         return block_environment(**kw_arguments)
 
     def backup_state(self) -> None:
@@ -463,6 +467,11 @@ class T8N(Load):
         if self.fork.has_hash_block_access_list:
             block_output.block_access_list = self.fork.build_block_access_list(
                 block_env.block_access_list_builder, block_env.state
+            )
+
+        if self.fork.has_execution_witness:
+            block_output.execution_witness = self.fork.build_execution_witness(
+                block_env.execution_witness
             )
 
     def run_blockchain_test(self) -> None:

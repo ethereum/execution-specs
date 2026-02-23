@@ -15,6 +15,7 @@ from ethereum.state import Root
 from .blocks import Block
 from .execution_engine.types import NewPayloadRequest
 from .fork_types import VersionedHash
+from .stateless_types import ExecutionWitness
 
 # Amsterdam currently carries execution requests as raw bytes in order.
 ExecutionRequests = Tuple[Bytes, ...]
@@ -44,31 +45,6 @@ class NewPayloadRequestHeader:
     versioned_hashes: Sequence[VersionedHash]
     parent_beacon_block_root: Root
     execution_requests: ExecutionRequests
-
-
-@slotted_freezable
-@dataclass
-class ExecutionWitness:
-    """
-    Execution witness data for stateless validation.
-    """
-
-    state: Tuple[Bytes, ...]
-    """
-    Hashed trie-node preimages needed during execution and state-root
-    recomputation.
-    """
-
-    codes: Tuple[Bytes, ...]
-    """
-    Contract-code preimages (created or accessed) needed during execution.
-    """
-
-    headers: Tuple[Bytes, ...]
-    """
-    RLP-encoded block headers used for pre-state and ``BLOCKHASH`` correctness
-    proofs. This may trend toward empty with EIP-2935 and EIP-7709.
-    """
 
 
 @slotted_freezable

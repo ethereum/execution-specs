@@ -61,6 +61,7 @@ from execution_testing.fixtures import (
     LabeledFixtureFormat,
 )
 from execution_testing.fixtures.blockchain import (
+    ExecutionWitness,
     FixtureBlock,
     FixtureBlockBase,
     FixtureConfig,
@@ -381,6 +382,7 @@ class BuiltBlock(CamelModel):
     engine_api_error_code: EngineAPIError | None = None
     fork: Fork
     block_access_list: BlockAccessList | None
+    execution_witness: ExecutionWitness | None = None
 
     def get_fixture_block(
         self, *, include_receipts: bool = True
@@ -409,6 +411,9 @@ class BuiltBlock(CamelModel):
             ),
             block_access_list=self.block_access_list
             if self.block_access_list
+            else None,
+            execution_witness=self.execution_witness
+            if self.execution_witness
             else None,
             fork=self.fork,
         ).with_rlp(txs=self.txs)
@@ -773,6 +778,9 @@ class BlockchainTest(BaseTest):
             engine_api_error_code=block.engine_api_error_code,
             fork=self.fork,
             block_access_list=bal,
+            execution_witness=(
+                transition_tool_output.result.execution_witness
+            ),
         )
 
         try:
