@@ -165,6 +165,22 @@ def calibrated_block_gas_limit(
     )
 
 
+@pytest.fixture(autouse=True)
+def calibrate_gas_limit(
+    env: Environment,
+    fork: Fork,
+    block_size_limit: int,
+) -> None:
+    """Calibrate block gas limit for fork-specific calldata pricing."""
+    env.gas_limit = ZeroPaddedHexNumber(
+        calibrated_block_gas_limit(
+            fork=fork,
+            block_size_limit=block_size_limit,
+            requested_gas_limit=env.gas_limit,
+        )
+    )
+
+
 def get_block_rlp_size(
     fork: Fork,
     transactions: List[Transaction],
@@ -357,18 +373,20 @@ def _exact_size_transactions_impl(
         else min(tx_gas_limit_cap, block_gas_limit)
     )
 
-    max_generic_data_len = max_zero_calldata_bytes_for_gas(
-        calculator,
-        per_tx_gas_budget,
-        max_len_hint=500_000,
-    )
-    if max_generic_data_len == 0:
+    max_data_len = 500_000
+    if tx_gas_limit_cap is not None:
+        while (
+            max_data_len > 0
+            and calculator(calldata=b"\x00" * max_data_len) > tx_gas_limit_cap
+        ):
+            max_data_len //= 2
+
+    data_large = Bytes(b"\x00" * max_data_len)
+    gas_limit_large = calculator(calldata=data_large)
+    if gas_limit_large > per_tx_gas_budget:
         raise ValueError(
             "Unable to build calldata transaction within gas limits"
         )
-
-    data_large = Bytes(b"\x00" * max_generic_data_len)
-    gas_limit_large = calculator(calldata=data_large)
     empty_tx_gas_limit = calculator(calldata=b"")
 
     not_all_generic_txs = any(
@@ -629,14 +647,6 @@ def test_block_at_rlp_size_limit_boundary(
     - At the limit, the block is valid
     - At the limit + 1 byte, the block is invalid
     """
-    env.gas_limit = ZeroPaddedHexNumber(
-        calibrated_block_gas_limit(
-            fork=fork,
-            block_size_limit=block_size_limit,
-            requested_gas_limit=env.gas_limit,
-        )
-    )
-
     transactions, extra_data_len = exact_size_transactions(
         sender,
         block_size_limit,
@@ -679,14 +689,6 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
     typed_transaction: Transaction,
 ) -> None:
     """Test the block RLP size limit with all transaction types."""
-    env.gas_limit = ZeroPaddedHexNumber(
-        calibrated_block_gas_limit(
-            fork=fork,
-            block_size_limit=block_size_limit,
-            requested_gas_limit=env.gas_limit,
-        )
-    )
-
     transactions, extra_data_len = exact_size_transactions(
         sender,
         block_size_limit,
@@ -724,14 +726,6 @@ def test_block_at_rlp_limit_with_logs(
     Test that a block at the RLP size limit is valid even when transactions
     emit logs.
     """
-    env.gas_limit = ZeroPaddedHexNumber(
-        calibrated_block_gas_limit(
-            fork=fork,
-            block_size_limit=block_size_limit,
-            requested_gas_limit=env.gas_limit,
-        )
-    )
-
     transactions, extra_data_len = exact_size_transactions(
         sender,
         block_size_limit,
@@ -769,14 +763,6 @@ def test_block_at_rlp_limit_with_withdrawals(
     Test that a block at the RLP size limit is valid even when the block
     contains withdrawals.
     """
-    env.gas_limit = ZeroPaddedHexNumber(
-        calibrated_block_gas_limit(
-            fork=fork,
-            block_size_limit=block_size_limit,
-            requested_gas_limit=env.gas_limit,
-        )
-    )
-
     withdrawals = [
         Withdrawal(
             index=0,
@@ -844,14 +830,6 @@ def test_fork_transition_block_rlp_limit(
     - At fork (timestamp 15000): Block at limit should be accepted
     - At fork (timestamp 15000): Block at limit +1 should be rejected
     """
-    env.gas_limit = ZeroPaddedHexNumber(
-        calibrated_block_gas_limit(
-            fork=fork,
-            block_size_limit=block_size_limit,
-            requested_gas_limit=env.gas_limit,
-        )
-    )
-
     sender_before_fork = pre.fund_eoa()
     sender_at_fork = pre.fund_eoa()
 
