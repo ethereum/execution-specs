@@ -316,10 +316,6 @@ class ForkLoad:
         """track_ancestor_access function of the fork."""
         return self._module("state_tracker").track_ancestor_access
 
-    @property
-    def get_witness_ancestors(self) -> Any:
-        """get_witness_ancestors function of the fork."""
-        return self._module("state_tracker").get_witness_ancestors
 
     @property
     def State(self) -> Any:
