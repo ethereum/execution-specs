@@ -312,22 +312,22 @@ class Env:
         if not t8n.fork.has_track_ancestor_access:
             return
 
-        if not data.get("blockHeaders"):
-            return
-
-        raw = data["blockHeaders"]
-
+        assert data.get("blockHeaders"), (
+            "blockHeaders is required for track ancestor access"
+        )
         # blockHeaders is a dict mapping hex block number to hex RLP.
-        clean: Dict[int, bytes] = {}
-        for key, value in raw.items():
-            clean[int(key, 16)] = hex_to_bytes(value)
+        dic_block_headers = data["blockHeaders"]
+
+        headers_by_number: Dict[int, bytes] = {}
+        for key, value in dic_block_headers.items():
+            headers_by_number[int(key, 16)] = hex_to_bytes(value)
 
         max_count = min(Uint(256), self.block_number)
         block_headers: List[Any] = []
         for number in range(self.block_number - max_count, self.block_number):
-            if number not in clean:
+            if number not in headers_by_number:
                 raise ValueError(f"missing block header for block {number}")
-            block_headers.append(clean[number])
+            block_headers.append(headers_by_number[number])
 
         self.block_headers = block_headers
 
