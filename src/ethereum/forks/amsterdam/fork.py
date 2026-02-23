@@ -823,7 +823,7 @@ def apply_body(
 
     block_output.execution_witness = build_execution_witness(
         block_env.execution_witness, block_env.state, block_env.block_headers
-    ) 
+    )
 
     return block_output
 
