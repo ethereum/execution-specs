@@ -315,11 +315,7 @@ class HTMLRoot(OutputNode):
             markup = ET.tostring(element, encoding="unicode", method="html")
             rendered.write(markup)
 
-        env = Environment(
-            extensions=[_ReferenceExtension],
-            loader=PackageLoader("docc.plugins.html"),
-            autoescape=select_autoescape(),
-        )
+        env = _get_env("docc.plugins.html")
         template = env.get_template("base.html")
         body = rendered.getvalue()
         static_path = _static_path_from(context)
@@ -409,6 +405,39 @@ class _ElementTreeVisitor(Visitor):
             raise TypeError(f"unsupported node {node.__class__.__name__}")
 
 
+# Cache entry_points and loaded renderers globally - they never change
+_cached_entry_points: Optional[Dict[str, EntryPoint]] = None
+_cached_renderers: Dict[Type[Node], Callable[..., object]] = {}
+
+
+def _get_entry_points() -> Dict[str, EntryPoint]:
+    global _cached_entry_points
+    if _cached_entry_points is None:
+        found = entry_points(group="docc.plugins.html")
+        _cached_entry_points = {entry.name: entry for entry in found}
+    return _cached_entry_points
+
+
+# Cache Jinja Environments per package
+_cached_envs: Dict[str, Environment] = {}
+
+
+def _get_env(package: str) -> Environment:
+    try:
+        return _cached_envs[package]
+    except KeyError:
+        pass
+    env = Environment(
+        extensions=[_ReferenceExtension],
+        loader=PackageLoader(package),
+        autoescape=select_autoescape(),
+    )
+    env.filters["html"] = _html_filter
+    env.filters["find"] = _find_filter
+    _cached_envs[package] = env
+    return env
+
+
 class HTMLVisitor(Visitor):
     """
     Visits a Document's tree and converts Nodes to HTML.
@@ -424,12 +453,10 @@ class HTMLVisitor(Visitor):
     context: Context
 
     def __init__(self, context: Context) -> None:
-        # Discover render functions.
-        found = entry_points(group="docc.plugins.html")
-        self.entry_points = {entry.name: entry for entry in found}
+        self.entry_points = _get_entry_points()
         self.root = HTMLRoot(context)
         self.stack = [self.root]
-        self.renderers = {}
+        self.renderers = _cached_renderers
         self.context = context
 
     def _renderer(self, node: Node) -> Callable[..., object]:
@@ -740,13 +767,7 @@ def render_template(
     Render a template as a child of the given parent.
     """
     static_path = _static_path_from(context)
-    env = Environment(
-        extensions=[_ReferenceExtension],
-        loader=PackageLoader(package),
-        autoescape=select_autoescape(),
-    )
-    env.filters["html"] = _html_filter
-    env.filters["find"] = _find_filter
+    env = _get_env(package)
     template = env.get_template(template_name)
     parser = HTMLParser(context)
     parser.feed(
