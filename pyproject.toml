@@ -496,7 +496,8 @@ required-version = ">=0.7.0"
 extra-build-dependencies = { ethash = ["setuptools", "cmake>=4.2.1,<5"] }
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/*", "vendor/*"]
 
 [tool.uv.sources]
 ethereum-execution-testing = { workspace = true }
+docc = { workspace = true }

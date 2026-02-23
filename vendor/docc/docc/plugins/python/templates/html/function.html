@@ -1,0 +1,35 @@
+{#
+ # Copyright (C) 2022-2023 Ethereum Foundation
+ #
+ # This program is free software: you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation, either version 3 of the License, or
+ # (at your option) any later version.
+ #
+ # This program is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+ #
+ # You should have received a copy of the GNU General Public License
+ # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-#}
+<section>
+    <h3>{{ node.name|html }}</h3>
+    {% if node.docstring %}
+    <div class="docstring">
+        {{ node.docstring|html }}
+    </div>
+    {% endif %}
+    <div class="scroll-x">
+        {% for decorator in node.decorators %}{{ decorator|html }}{% endfor %}
+        <details open>
+            <summary class="code-like">
+                <code>
+                {%- if node.asynchronous %}async {% endif -%}
+    <span class="nobr"><span class="hi-function-def">def</span> <span class="hi-name">{{ node.name|html }}</span>(</span>{% for arg in node.parameters %}&#8203;{{ arg|html }}{% if not loop.last %}, {% endif %}&#8203;{% endfor %}<span class="nobr">){% if node.return_type %} -&gt; {{ node.return_type|html }}{% endif %}:</span></code>
+            </summary>
+            {{- node.body|html -}}
+        </details>
+    </div>
+</section>

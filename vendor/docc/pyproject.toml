@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docc"
+description = "Python code documentation compiler"
+version = "0.3.1"
+requires-python = ">=3.10"
+dependencies = [
+    "libcst>=1.0.1,<2",
+    "mistletoe>=1.2.1,<2",
+    "importlib-resources>=6.0.1,<7",
+    "tomli>=2.0.1,<3",
+    "rich>=13.5.2,<14",
+    "Jinja2>=3.1.2,<4",
+    "inflection>=0.5.1,<0.6",
+    "typing-extensions>=4.7.1,<5",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+docc = ["py.typed"]
+"docc.plugins.html" = [
+    "templates/**",
+    "static/docc.css",
+    "static/search.js",
+    "static/chota/dist/chota.min.css",
+    "static/fuse/dist/fuse.min.js",
+]
+"docc.plugins.listing" = ["templates/**"]
+"docc.plugins.python" = ["templates/**"]
+
+[project.scripts]
+docc = "docc.cli:main"
+
+[project.entry-points."docc.plugins"]
+"docc.python.discover" = "docc.plugins.python:PythonDiscover"
+"docc.python.build" = "docc.plugins.python:PythonBuilder"
+"docc.python.transform" = "docc.plugins.python:PythonTransform"
+"docc.html.transform" = "docc.plugins.html:HTMLTransform"
+"docc.html.discover" = "docc.plugins.html:HTMLDiscover"
+"docc.html.context" = "docc.plugins.html:HTMLContext"
+"docc.references.context" = "docc.plugins.references:IndexContext"
+"docc.references.index" = "docc.plugins.references:IndexTransform"
+"docc.mistletoe.transform" = "docc.plugins.mistletoe:DocstringTransform"
+"docc.mistletoe.reference" = "docc.plugins.mistletoe:ReferenceTransform"
+"docc.listing.discover" = "docc.plugins.listing:ListingDiscover"
+"docc.listing.build" = "docc.plugins.listing:ListingBuilder"
+"docc.resources.build" = "docc.plugins.resources:ResourceBuilder"
+"docc.files.build" = "docc.plugins.files:FilesBuilder"
+"docc.files.discover" = "docc.plugins.files:FilesDiscover"
+"docc.search.context" = "docc.plugins.search:SearchContext"
+"docc.search.transform" = "docc.plugins.search:SearchTransform"
+"docc.search.discover" = "docc.plugins.search:SearchDiscover"
+"docc.search.build" = "docc.plugins.search:SearchBuilder"
+"docc.debug.transform" = "docc.plugins.debug:DebugTransform"
+"docc.verbatim.transform" = "docc.plugins.verbatim:Transcribe"
+
+[project.entry-points."docc.plugins.html"]
+"docc.document:BlankNode" = "docc.plugins.html:blank_node"
+"docc.document:ListNode" = "docc.plugins.html:list_node"
+"docc.plugins.python.nodes:Module" = "docc.plugins.python.html:render_module"
+"docc.plugins.python.nodes:Class" = "docc.plugins.python.html:render_class"
+"docc.plugins.python.nodes:Attribute" = "docc.plugins.python.html:render_attribute"
+"docc.plugins.python.nodes:Name" = "docc.plugins.python.html:render_name"
+"docc.plugins.python.nodes:Access" = "docc.plugins.python.html:render_access"
+"docc.plugins.python.nodes:Function" = "docc.plugins.python.html:render_function"
+"docc.plugins.python.nodes:Parameter" = "docc.plugins.python.html:render_parameter"
+"docc.plugins.python.nodes:Type" = "docc.plugins.python.html:render_type"
+"docc.plugins.python.nodes:List" = "docc.plugins.python.html:render_list"
+"docc.plugins.python.nodes:Tuple" = "docc.plugins.python.html:render_tuple"
+"docc.plugins.python.nodes:Docstring" = "docc.plugins.python.html:render_docstring"
+"docc.plugins.python.nodes:Subscript" = "docc.plugins.python.html:render_subscript"
+"docc.plugins.python.nodes:BinaryOperation" = "docc.plugins.python.html:render_binary_operation"
+"docc.plugins.python.nodes:BitOr" = "docc.plugins.python.html:render_bit_or"
+"docc.plugins.verbatim:Transcribed" = "docc.plugins.verbatim.html:render_transcribed"
+"docc.plugins.verbatim:Line" = "docc.plugins.verbatim.html:render_line"
+"docc.plugins.verbatim:Highlight" = "docc.plugins.verbatim.html:render_highlight"
+"docc.plugins.verbatim:Text" = "docc.plugins.verbatim.html:render_text"
+"docc.plugins.references:Definition" = "docc.plugins.html:references_definition"
+"docc.plugins.references:Reference" = "docc.plugins.html:references_reference"
+"docc.plugins.mistletoe:MarkdownNode" = "docc.plugins.mistletoe:render_html"
+"docc.plugins.listing:ListingNode" = "docc.plugins.listing:render_html"
+"docc.plugins.html:HTMLTag" = "docc.plugins.html:html_tag"
+"docc.plugins.html:TextNode" = "docc.plugins.html:text_node"

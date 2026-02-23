@@ -1,0 +1,294 @@
+/*!
+ * docc | GPL-3.0 License | https://github.com/SamWilsn/docc
+ */
+:root {
+    --default-color: black;
+    --default-font-weight: normal;
+
+    --keyword-color: blue;
+    --keyword-font-weight: bold;
+
+    --literal-color: teal;
+
+    --name-color: maroon;
+
+    --code-max-width: 100%;
+
+    --grid-maxWidth: 100%;
+}
+
+.row.reverse {
+    /* Possible bug in chota? Reversed rows overflow to the left on narrow
+     * screens. */
+    justify-content: flex-end;
+}
+
+pre {
+    margin: 0;
+    padding: 0;
+}
+
+a > code {
+  text-decoration: underline dotted;
+}
+
+.nobr, .code-like {
+    white-space: nowrap;
+}
+
+.code-like {
+    font-family: var(--font-family-mono);
+    background-color: var(--bg-secondary-color);
+    max-width: var(--code-max-width);
+}
+
+table.verbatim {
+    max-width: var(--code-max-width);
+}
+
+table.verbatim > tbody > tr > td {
+    width: 100%;
+    background-color: var(--bg-secondary-color);
+}
+
+table.verbatim > tbody > tr > th {
+    white-space: nowrap;
+    user-select: none;
+}
+
+table.verbatim > tbody > tr > td,
+table.verbatim > tbody > tr > th {
+    padding: 0 0.5ex;
+}
+
+section section {
+    padding-left: 1em;
+    margin-top: 2em;
+    border-left: 3px solid var(--bg-secondary-color);
+}
+
+details > summary > code {
+    color: inherit;
+    margin-left: 2em;
+    text-indent: -2em;
+}
+
+details > summary {
+    list-style: none;
+    display: flex;
+    flex-grow: 1;
+}
+
+details > summary::marker {
+    content: '';
+    display: none;
+}
+
+details > summary::after {
+    content: 'show source';
+    margin-left: auto;
+    margin-right: 1ex;
+    cursor: pointer;
+    color: var(--color-primary);
+    white-space: nowrap;
+}
+
+details[open] > summary::after {
+    content: 'hide source';
+}
+
+.scroll-x {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+/* Breadcrumbs */
+.breadcrumbs-row > [class*="col"] {
+    padding: 0;
+    margin-bottom: 0;
+    margin-top: 0;
+}
+
+.breadcrumbs {
+    padding: 0 .5rem;
+}
+
+.breadcrumbs ul {
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: fit-content;
+}
+
+.breadcrumbs li:not(:last-child)::after {
+    display: inline-block;
+    margin: 0 .5rem;
+    content: "/";
+    color: var(--color-grey);
+}
+
+/* Module Table of Contents */
+.width-limiter {
+    max-width: 960px;
+}
+
+.members, .module {
+    max-width: 100%;
+}
+
+.module > .members > .width-limiter > section {
+    width: 100%;
+}
+
+.module > .toc {
+    padding-left: 1em;
+    margin-top: 3.85em;
+    word-wrap: anywhere;
+}
+
+.module > .toc ul, .module > .toc ol {
+    list-style: none;
+    padding-left: 0;
+    font-size: 1.3rem;
+}
+
+/* Class Table of Contents */
+.class > .toc ul, .class > .toc ol {
+    list-style: none;
+    margin: 0;
+}
+
+/* Reference Tooltips */
+.tooltip {
+    display: inline;
+    position: relative;
+}
+
+.tooltip > :not(:first-child) {
+    color: #177cb9;
+}
+
+.tooltip-content {
+    display: none;
+    position: absolute;
+    padding: 1ex;
+    box-shadow: 0px 10px 15px -3px rgba(0,0,0,0.1);
+    background-color: var(--bg-secondary-color);
+    min-width: 100%;
+    min-height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    width: max-content;
+}
+
+.tooltip:hover > .tooltip-content,
+.tooltip:focus-within > .tooltip-content {
+  display: block;
+}
+
+.tooltip-content > a {
+    display: block;
+}
+
+/* Markdown */
+.markdown pre {
+    margin-bottom: 16px;
+}
+
+/* Search */
+#search {
+    max-width: 100%;
+    margin: 0;
+}
+
+#search > * {
+    margin: 0;
+    padding: 0;
+}
+
+#search-results-container {
+    display: none;
+}
+
+.search-bar {
+    margin: 1em;
+}
+
+.search-path {
+    color: var(--color-grey);
+    font-family: var(--font-family-mono);
+}
+
+#search-results > li:not(:last-child) {
+   margin-bottom: 1em;
+}
+
+/* Resets */
+.hi * {
+    color: var(--default-color);
+    font-weight: var(--default-font-weight);
+}
+
+/* Theme */
+.hi a {
+    text-decoration: none;
+    border-bottom: 1px dotted rgba(0, 0, 0, 0.3);
+}
+
+.hi-function-def,
+.hi-and,
+.hi-or,
+.hi-for,
+.hi-while,
+.hi-comp-for,
+.hi-comp-if,
+.hi-if,
+.hi-else,
+.hi-elif,
+.hi-if-exp,
+.hi-is,
+.hi-is-not,
+.hi-continue,
+.hi-break,
+.hi-assert,
+.hi-return,
+.hi-yield,
+.hi-pass,
+.hi-not,
+.hi-raise,
+.hi-from,
+.hi-try,
+.hi-except-handler,
+.hi-with,
+.hi-class,
+.hi-in,
+.hi-lambda,
+.hi-finally,
+.hi-as-name {
+    color: var(--keyword-color);
+    font-weight: var(--keyword-font-weight);
+}
+
+.hi-simple-string,
+.hi-formatted-string,
+.hi-formatted-string-text,
+.hi-formatted-string-expression,
+.hi-integer {
+    color: var(--literal-color);
+}
+
+.hi-formatted-string-expression {
+    font-weight: bold;
+}
+
+.hi-name {
+    color: var(--name-color);
+}
+
+.hi-call > .hi-name,
+.hi-call > .hi-attribute > .hi-name:last-child {
+    font-weight: bold;
+}

@@ -1,0 +1,68 @@
+{#
+ # Copyright (C) 2022-2023 Ethereum Foundation
+ #
+ # This program is free software: you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation, either version 3 of the License, or
+ # (at your option) any later version.
+ #
+ # This program is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+ #
+ # You should have received a copy of the GNU General Public License
+ # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-#}
+<section class="class">
+    <h3>{{ node.name|html }}</h3>
+
+    {% if node.docstring %}
+    <div class="docstring">
+        {{ node.docstring|html }}
+    </div>
+    {% endif %}
+
+    {% for decorator in node.decorators %}{{ decorator|html }}{% endfor %}
+    <pre class="code-like"><span class="hi-class">class</span> <span class="hi-name">{{ node.name|html }}</span>{%- if node.bases -%}
+    (
+    {%- for base in node.bases -%}
+    {{- base|html -}}
+    {%- if not loop.last -%}, {% endif -%}
+    {%- endfor -%}
+    )
+    {%- endif %}:</pre>
+
+    {% with %}
+    {% set attributes = node|find("docc.plugins.python.nodes:Attribute") %}
+    {% set functions = node|find("docc.plugins.python.nodes:Function") %}
+    {% if attributes or functions %}
+    <nav class="toc code-like">
+        <ul>
+            {% for (definition, attribute) in attributes %}
+            {% for name in attribute.names %}
+            <li>
+                {% reference definition.identifier %}
+                <span class="hi-name">{{ name|html }}</span>
+                {% endreference %}
+            </li>
+            {% endfor %}
+            {% endfor %}
+
+            {% for (definition, function) in functions %}
+            <li>
+                {% reference definition.identifier %}
+                <span class="hi-function-def">def</span>
+                <span class="hi-name">{{ function.name|html }}</span>(&#8230;):&nbsp;&#8230;
+                {% endreference %}
+            </li>
+            {% endfor %}
+        </ul>
+    </nav>
+    {% endif %}
+    {% endwith %}
+
+    {% for member in node.members %}
+    {{ member|html }}
+    {% endfor %}
+</section>

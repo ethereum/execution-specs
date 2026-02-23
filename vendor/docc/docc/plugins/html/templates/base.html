@@ -1,0 +1,68 @@
+{#
+ # Copyright (C) 2022-2023 Ethereum Foundation
+ #
+ # This program is free software: you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation, either version 3 of the License, or
+ # (at your option) any later version.
+ #
+ # This program is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+ #
+ # You should have received a copy of the GNU General Public License
+ # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ #}<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{{ output_path.name }} (in {{ output_path.parent }})</title>
+        <link href="{{ static_path }}/chota.min.css" rel="stylesheet">
+        <link href="{{ static_path }}/docc.css" rel="stylesheet">
+        {% if search_path %}
+        <link id="search-path" rel="preload" as="script" href="{{ search_path }}">
+        <meta name="docc:search" value="{{ search_base }}">
+        <script defer src="{{ static_path }}/fuse.min.js"></script>
+        <script defer src="{{ static_path }}/search.js"></script>
+        {% endif %}
+        {% for sheet in extra_css %}
+        <link href="{{ sheet }}" rel="stylesheet">
+        {% endfor %}
+    </head>
+    <body>
+        <div class="container">
+            {% if search_path %}
+            {% include "search.html" %}
+            {% endif %}
+            {% if breadcrumbs %}
+            <div class="row breadcrumbs-row">
+                <div class="col-12 col-3-md col-2-lg"></div>
+                <nav aria-label="breadcrumbs" class="breadcrumbs">
+                    <ul>
+                        {% for path, url in breadcrumbs %}
+                        <li><a href="{{ url }}">
+                            {%- if path.name -%}
+                            {{- path.name -}}
+                            {%- else -%}
+                            .
+                            {%- endif -%}
+                        </a></li>
+                        {% endfor %}
+
+                        <li>
+                            <span aria-current="page">
+                                {{- output_path.name -}}
+                            </span>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+        </div>
+        <main class="container" id="main-content">
+        {{ body }}
+        </main>
+    </body>
+</html>

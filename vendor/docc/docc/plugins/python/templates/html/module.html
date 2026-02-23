@@ -1,0 +1,103 @@
+{#
+ # Copyright (C) 2022-2023 Ethereum Foundation
+ #
+ # This program is free software: you can redistribute it and/or modify
+ # it under the terms of the GNU General Public License as published by
+ # the Free Software Foundation, either version 3 of the License, or
+ # (at your option) any later version.
+ #
+ # This program is distributed in the hope that it will be useful,
+ # but WITHOUT ANY WARRANTY; without even the implied warranty of
+ # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ # GNU General Public License for more details.
+ #
+ # You should have received a copy of the GNU General Public License
+ # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-#}
+<section class="module row reverse">
+    <div class="members col">
+        <div class="width-limiter">
+            {% if node.name %}
+            <h2>{{ node.name|html }}</h2>
+            {% endif %}
+
+            {% if node.docstring %}
+            <div class="docstring">
+                {{ node.docstring|html }}
+            </div>
+            {% endif %}
+
+
+            {% for member in node.members %}
+            {{ member|html }}
+            {% endfor %}
+        </div>
+    </div>
+
+    <nav class="toc col-12 col-3-md col-2-lg">
+        <h3>Members</h3>
+        <ul>
+            {% with attributes = node|find("docc.plugins.python.nodes:Attribute") %}
+            {% if attributes %}
+            <li>
+                <h4>
+                    Attributes
+                </h4>
+
+                <ul>
+                    {% for (definition, attribute) in attributes %}
+                    {% for name in attribute.names %}
+                    <li>
+                        {% reference definition.identifier %}
+                        {{ name|html }}
+                        {% endreference %}
+                    </li>
+                    {% endfor %}
+                    {% endfor %}
+                </ul>
+            </li>
+            {% endif %}
+            {% endwith %}
+
+            {% with classes = node|find("docc.plugins.python.nodes:Class") %}
+            {% if classes %}
+            <li>
+                <h4>
+                    Classes
+                </h4>
+
+                <ul>
+                    {% for (definition, class) in classes %}
+                    <li>
+                        {% reference definition.identifier %}
+                        {{ class.name|html }}
+                        {% endreference %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </li>
+            {% endif %}
+            {% endwith %}
+
+            {% with functions = node|find("docc.plugins.python.nodes:Function") %}
+            {% if functions %}
+            <li>
+                <h4>
+                    Functions
+                </h4>
+
+                <ul>
+                    {% for (definition, function) in functions %}
+                    <li>
+                        {% reference definition.identifier %}
+                        {{ function.name|html }}
+                        {% endreference %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </li>
+            {% endif %}
+            {% endwith %}
+        </ul>
+    </nav>
+</section>
