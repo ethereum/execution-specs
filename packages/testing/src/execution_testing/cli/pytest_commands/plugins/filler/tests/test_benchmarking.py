@@ -14,6 +14,7 @@ from execution_testing.cli.pytest_commands.plugins.shared.benchmarking import (
 )
 from execution_testing.cli.pytest_commands.plugins.shared.fixture_output import (  # noqa: E501
     FORK_SUBDIR_PREFIX,
+    SUBFOLDER_LEVEL_SEPARATOR,
     format_fork_subdir,
 )
 
@@ -307,6 +308,61 @@ def test_benchmark_gas_values_split_into_subdirs(
     assert not top_level_for_dirs, (
         f"Unexpected top-level {FORK_SUBDIR_PREFIX} dirs: {top_level_for_dirs}"
     )
+
+
+def test_fixed_opcode_count_split_into_subdirs(
+    pytester: pytest.Pytester, tmp_path: Path
+) -> None:
+    """Ensure per-opcode-count outputs go to separate subdirectories."""
+    setup_test_directory_structure(
+        pytester, test_module_dummy, "test_dummy_benchmark.py"
+    )
+
+    output_dir = tmp_path / "fixtures"
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        "Prague",
+        "--fixed-opcode-count=1,2",
+        "-m",
+        "benchmark and blockchain_test and not derived_test",
+        "--no-html",
+        "--skip-index",
+        f"--output={output_dir}",
+        f"--evm-bin={BENCHMARK_EVM_T8N}",
+        "tests/benchmark/dummy_test_module/",
+        "-q",
+    )
+
+    assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
+
+    prefix = f"{FORK_SUBDIR_PREFIX}prague"
+    op1_subdir = f"{prefix}{SUBFOLDER_LEVEL_SEPARATOR}opcount_1.0K"
+    op2_subdir = f"{prefix}{SUBFOLDER_LEVEL_SEPARATOR}opcount_2.0K"
+    op1_dir = output_dir / "blockchain_tests" / op1_subdir
+    op2_dir = output_dir / "blockchain_tests" / op2_subdir
+    assert op1_dir.exists(), f"Expected {op1_subdir}/ under blockchain_tests"
+    assert op2_dir.exists(), f"Expected {op2_subdir}/ under blockchain_tests"
+
+    op1_files = list(op1_dir.rglob("*.json"))
+    op2_files = list(op2_dir.rglob("*.json"))
+    assert op1_files, f"Expected fixtures under {op1_subdir}"
+    assert op2_files, f"Expected fixtures under {op2_subdir}"
+
+    for file_path in op1_files:
+        data = json.loads(file_path.read_text())
+        for key in data:
+            assert "opcount_1.0K" in key, (
+                f"Expected opcount_1.0K in key {key} ({file_path})"
+            )
+
+    for file_path in op2_files:
+        data = json.loads(file_path.read_text())
+        for key in data:
+            assert "opcount_2.0K" in key, (
+                f"Expected opcount_2.0K in key {key} ({file_path})"
+            )
 
 
 def test_benchmarking_mode_not_configured_without_option(
