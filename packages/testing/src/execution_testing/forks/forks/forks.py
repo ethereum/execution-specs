@@ -168,7 +168,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_LOG_DATA=8,
             GAS_LOG_TOPIC=375,
             GAS_KECCAK256=30,
-            GAS_KECCAK256_WORD=6,
+            GAS_KECCAK256_PER_WORD=6,
             GAS_COPY=3,
             GAS_BLOCK_HASH=20,
             GAS_PRECOMPILE_ECRECOVER=3_000,
@@ -368,7 +368,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             Opcodes.SHA3: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.GAS_KECCAK256
-                    + gas_costs.GAS_KECCAK256_WORD
+                    + gas_costs.GAS_KECCAK256_PER_WORD
                     * ((op.metadata["data_size"] + 31) // 32)
                 ),
                 memory_expansion_calculator,
@@ -1741,7 +1741,7 @@ class Constantinople(Byzantium):
         # Keccak256 hashing cost
         init_code_size = metadata["init_code_size"]
         init_code_words = (init_code_size + 31) // 32
-        hash_gas = gas_costs.GAS_KECCAK256_WORD * init_code_words
+        hash_gas = gas_costs.GAS_KECCAK256_PER_WORD * init_code_words
 
         return gas_costs.GAS_CREATE + hash_gas
 
