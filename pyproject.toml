@@ -196,7 +196,6 @@ packages = [
 
 [project.optional-dependencies]
 optimized = [
-    "cmake>=3.27",
     "rust-pyspec-glue>=0.0.9,<0.1.0",
     "ethash>=1.1.0,<2",
 ]
@@ -246,7 +245,7 @@ mkdocs = [
     "mkdocs-material-extensions>=1.1.1,<2",
     "mkdocstrings>=0.21.2,<1",
     "mkdocstrings-python>=1.0.0,<2",
-    "pillow>=10.0.1,<13",
+    "pillow>=12,<13",
     "pyspelling>=2.8.2,<3",
     "lxml>=6.0.0,<7",                       # needs to be >= 6.0 for pypy
 ]
@@ -494,7 +493,7 @@ plugins = ["pydantic.mypy"]
 
 [tool.uv]
 required-version = ">=0.7.0"
-no-build-isolation-package = ["ethash"]
+extra-build-dependencies = { ethash = ["setuptools", "cmake>=4.2.1,<5"] }
 
 [tool.uv.workspace]
 members = ["packages/*"]
