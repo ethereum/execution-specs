@@ -32,6 +32,7 @@ from ethereum_types.numeric import Uint
 
 from ethereum.crypto.hash import keccak256
 from ethereum.state import Account, Address, Root
+
 from .trie import (
     EMPTY_TRIE_ROOT,
     K,
