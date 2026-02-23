@@ -27,7 +27,7 @@ class GasCosts:
     GAS_CREATE: int
 
     GAS_CODE_DEPOSIT_PER_BYTE: int
-    GAS_INIT_CODE_WORD_COST: int
+    GAS_CODE_INIT_PER_WORD: int
 
     GAS_CALL_VALUE: int
     GAS_CALL_STIPEND: int

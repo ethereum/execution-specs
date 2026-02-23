@@ -153,7 +153,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_SELF_DESTRUCT=5_000,
             GAS_CREATE=32_000,
             GAS_CODE_DEPOSIT_PER_BYTE=200,
-            GAS_INIT_CODE_WORD_COST=2,
+            GAS_CODE_INIT_PER_WORD=2,
             GAS_CALL_VALUE=9_000,
             GAS_CALL_STIPEND=2_300,
             GAS_NEW_ACCOUNT=25_000,
@@ -852,7 +852,7 @@ class Frontier(BaseFork, solc_name="homestead"):
 
             if contract_creation:
                 intrinsic_cost += (
-                    gas_costs.GAS_INIT_CODE_WORD_COST
+                    gas_costs.GAS_CODE_INIT_PER_WORD
                     * ceiling_division(len(Bytes(calldata)), 32)
                 )
 
@@ -2248,7 +2248,7 @@ class Shanghai(Paris):
         # Add initcode cost (EIP-3860)
         init_code_size = metadata["init_code_size"]
         init_code_words = (init_code_size + 31) // 32
-        init_code_gas = gas_costs.GAS_INIT_CODE_WORD_COST * init_code_words
+        init_code_gas = gas_costs.GAS_CODE_INIT_PER_WORD * init_code_words
 
         return base_cost + init_code_gas
 
@@ -2270,7 +2270,7 @@ class Shanghai(Paris):
         # Add initcode cost (EIP-3860)
         init_code_size = metadata["init_code_size"]
         init_code_words = (init_code_size + 31) // 32
-        init_code_gas = gas_costs.GAS_INIT_CODE_WORD_COST * init_code_words
+        init_code_gas = gas_costs.GAS_CODE_INIT_PER_WORD * init_code_words
 
         return base_cost + init_code_gas
 

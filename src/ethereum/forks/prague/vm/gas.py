@@ -64,7 +64,7 @@ GAS_BLAKE2_PER_ROUND = Uint(1)
 GAS_COLD_SLOAD = Uint(2100)
 GAS_COLD_ACCOUNT_ACCESS = Uint(2600)
 GAS_WARM_ACCESS = Uint(100)
-GAS_INIT_CODE_WORD_COST = Uint(2)
+GAS_CODE_INIT_PER_WORD = Uint(2)
 GAS_BLOBHASH_OPCODE = Uint(3)
 GAS_POINT_EVALUATION = Uint(50000)
 
@@ -279,7 +279,7 @@ def init_code_cost(init_code_length: Uint) -> Uint:
         The gas to be charged for the init code.
 
     """
-    return GAS_INIT_CODE_WORD_COST * ceil32(init_code_length) // Uint(32)
+    return GAS_CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
 
 
 def calculate_excess_blob_gas(parent_header: Header) -> U64:

@@ -269,7 +269,7 @@ from ..helpers import Fork
             Op.CREATE(init_code_size=100, new_memory_size=100),
             Osaka.gas_costs().GAS_CREATE
             # (100 + 31) // 32 = 4
-            + Osaka.gas_costs().GAS_INIT_CODE_WORD_COST * 4
+            + Osaka.gas_costs().GAS_CODE_INIT_PER_WORD * 4
             + Osaka.memory_expansion_gas_calculator()(new_bytes=100),
             id="create_with_initcode",
         ),
@@ -278,7 +278,7 @@ from ..helpers import Fork
             Osaka,
             Op.CREATE2(init_code_size=64, new_memory_size=64),
             Osaka.gas_costs().GAS_CREATE
-            + Osaka.gas_costs().GAS_INIT_CODE_WORD_COST * 2
+            + Osaka.gas_costs().GAS_CODE_INIT_PER_WORD * 2
             + Osaka.gas_costs().GAS_KECCAK256_PER_WORD * 2
             + Osaka.memory_expansion_gas_calculator()(new_bytes=64),
             id="create2_with_initcode_and_hash",
