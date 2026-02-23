@@ -12,6 +12,7 @@ This repository contains the specifications related to the Ethereum execution cl
 
 | Version and Code Name | Block No. | Released | Incl EIPs | Specs | Blog |
 |-----------------------|-----------|----------|-----------|-------|-------|
+| Osaka | 23935694 | 2025-12-03 | [EIP-7594] <br> [EIP-7642] <br> [EIP-7823] <br> [EIP-7825] <br> [EIP-7883] <br> [EIP-7892] <br> [EIP-7910] <br> [EIP-7917] <br> [EIP-7918] <br> [EIP-7934] <br> [EIP-7935] <br> [EIP-7939] <br> [EIP-7951] | [Specs](https://eips.ethereum.org/EIPS/eip-7607) | [Blog](https://blog.ethereum.org/2025/11/06/fusaka-mainnet-announcement) |
 | Prague | 22431084 | 2025-05-07 | [EIP-2537] <br> [EIP-2935] <br> [EIP-6110] <br> [EIP-7002] <br> [EIP-7251] <br> [EIP-7549] <br> [EIP-7623] <br> [EIP-7685] <br> [EIP-7691] <br> [EIP-7702] | [Specs](https://eips.ethereum.org/EIPS/eip-7600) | [Blog](https://blog.ethereum.org/2025/04/23/pectra-mainnet) |
 | Cancun | 19426587 | 2024-03-13<br />(1710338135) | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153) </br> [EIP-4788](https://eips.ethereum.org/EIPS/eip-4788)</br> [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)</br> [EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)</br> [EIP-6780](https://eips.ethereum.org/EIPS/eip-6780) </br> [EIP-7044](https://eips.ethereum.org/EIPS/eip-7044) </br> [EIP-7045](https://eips.ethereum.org/EIPS/eip-7045) </br> [EIP-7514](https://eips.ethereum.org/EIPS/eip-7514) </br> [EIP-7516](https://eips.ethereum.org/EIPS/eip-7516)| [Specification](/src/ethereum/forks/cancun/__init__.py) | [Blog](https://blog.ethereum.org/2024/02/27/dencun-mainnet-announcement) |
 | Shanghai | 17034870 | 2023-04-12<br/>(1681338455) | [EIP-3651](https://eips.ethereum.org/EIPS/eip-3651) <br/> [EIP-3855](https://eips.ethereum.org/EIPS/eip-3855) <br/> [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860) <br/> [EIP-4895](https://eips.ethereum.org/EIPS/eip-4895) | [Specification](/src/ethereum/forks/shanghai/__init__.py) | [Blog](https://blog.ethereum.org/2023/03/28/shapella-mainnet-announcement) |
@@ -45,6 +46,19 @@ This repository contains the specifications related to the Ethereum execution cl
 [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
 [EIP-7691]: https://eips.ethereum.org/EIPS/eip-7691
 [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
+[EIP-7594]: https://eips.ethereum.org/EIPS/eip-7594
+[EIP-7642]: https://eips.ethereum.org/EIPS/eip-7642
+[EIP-7823]: https://eips.ethereum.org/EIPS/eip-7823
+[EIP-7825]: https://eips.ethereum.org/EIPS/eip-7825
+[EIP-7883]: https://eips.ethereum.org/EIPS/eip-7883
+[EIP-7892]: https://eips.ethereum.org/EIPS/eip-7892
+[EIP-7910]: https://eips.ethereum.org/EIPS/eip-7910
+[EIP-7917]: https://eips.ethereum.org/EIPS/eip-7917
+[EIP-7918]: https://eips.ethereum.org/EIPS/eip-7918
+[EIP-7934]: https://eips.ethereum.org/EIPS/eip-7934
+[EIP-7935]: https://eips.ethereum.org/EIPS/eip-7935
+[EIP-7939]: https://eips.ethereum.org/EIPS/eip-7939
+[EIP-7951]: https://eips.ethereum.org/EIPS/eip-7951
 
 Some clarifications were enabled without protocol releases:
 
