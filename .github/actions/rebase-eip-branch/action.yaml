@@ -83,10 +83,10 @@ runs:
           fi
 
           echo "Rebase of ${EIP_BRANCH} successful"
-        done
 
-        echo "Running static checks on rebased branch"
-        uvx --with=tox-uv tox -e static
+          echo "Running static checks on ${EIP_BRANCH}"
+          uvx --with=tox-uv tox -e static
+        done
 
     - name: Push rebased branches
       shell: bash
