@@ -19,7 +19,7 @@ within a single transaction and supports copy-on-write rollback.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -776,6 +776,7 @@ def extract_block_diffs(
         block_state.storage_writes,
         block_state.code_writes,
     )
+
 
 def get_witness_ancestors(
     block_headers: List[Bytes],

@@ -72,6 +72,7 @@ from .state_tracker import (
     incorporate_tx_into_block,
     increment_nonce,
     set_account_balance,
+    track_ancestor_access,
 )
 from .stateless_types import ExecutionWitnessBuilder, build_execution_witness
 from .transactions import (
