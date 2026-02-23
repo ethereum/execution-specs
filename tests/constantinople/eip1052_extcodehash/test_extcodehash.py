@@ -347,3 +347,58 @@ def test_extcodehash_empty_contract_creation(
         },
         tx=tx,
     )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/dynamicAccountOverwriteEmpty_ParisFiller.yml",  # noqa: E501
+    ],
+    pr=[],
+)
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
+    "balance, nonce",
+    [
+        pytest.param(1, 0, id="balance"),
+        pytest.param(0, 1, id="nonce"),
+        pytest.param(1, 1, id="balance_and_nonce"),
+    ],
+)
+def test_extcodehash_codeless_with_storage(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    balance: int,
+    nonce: int,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE of a codeless account that has storage.
+
+    All three variants are non-empty per EIP-161 (non-zero balance or nonce),
+    so EXTCODEHASH returns keccak256("") and EXTCODESIZE returns 0.
+    Storage is not part of the EIP-161 emptiness check.
+    """
+    target_address = pre.empty_account()
+    pre[target_address] = Account(balance=balance, nonce=nonce, storage={1: 1})
+
+    storage = Storage()
+    code = Op.SSTORE(
+        storage.store_next(keccak256(b"")),
+        Op.EXTCODEHASH(target_address),
+    ) + Op.SSTORE(
+        storage.store_next(0),
+        Op.EXTCODESIZE(target_address),
+    )
+
+    code_address = pre.deploy_contract(code)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=100_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
