@@ -165,7 +165,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_TX_BASE=21_000,
             GAS_TX_CREATE=32_000,
             GAS_LOG=375,
-            GAS_LOG_DATA=8,
+            GAS_LOG_DATA_PER_BYTE=8,
             GAS_LOG_TOPIC=375,
             GAS_KECCAK256=30,
             GAS_KECCAK256_PER_WORD=6,
@@ -450,14 +450,16 @@ class Frontier(BaseFork, solc_name="homestead"):
             Opcodes.LOG0: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA * op.metadata["data_size"]
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG1: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA * op.metadata["data_size"]
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
                     + gas_costs.GAS_LOG_TOPIC
                 ),
                 memory_expansion_calculator,
@@ -465,7 +467,8 @@ class Frontier(BaseFork, solc_name="homestead"):
             Opcodes.LOG2: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA * op.metadata["data_size"]
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
                     + gas_costs.GAS_LOG_TOPIC * 2
                 ),
                 memory_expansion_calculator,
@@ -473,7 +476,8 @@ class Frontier(BaseFork, solc_name="homestead"):
             Opcodes.LOG3: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA * op.metadata["data_size"]
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
                     + gas_costs.GAS_LOG_TOPIC * 3
                 ),
                 memory_expansion_calculator,
@@ -481,7 +485,8 @@ class Frontier(BaseFork, solc_name="homestead"):
             Opcodes.LOG4: cls._with_memory_expansion(
                 lambda op: (
                     gas_costs.GAS_LOG
-                    + gas_costs.GAS_LOG_DATA * op.metadata["data_size"]
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
                     + gas_costs.GAS_LOG_TOPIC * 4
                 ),
                 memory_expansion_calculator,

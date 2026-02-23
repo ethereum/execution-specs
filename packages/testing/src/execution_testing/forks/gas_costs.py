@@ -45,7 +45,7 @@ class GasCosts:
     GAS_TX_DATA_TOKEN_FLOOR: int
 
     GAS_LOG: int
-    GAS_LOG_DATA: int
+    GAS_LOG_DATA_PER_BYTE: int
     GAS_LOG_TOPIC: int
 
     GAS_KECCAK256: int
