@@ -74,13 +74,11 @@ from execution_testing.tools.utility.versioning import (
     get_current_commit_hash_or_tag,
 )
 
-from ..shared.benchmarking import GasBenchmarkValues
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
 from ..shared.fixture_output import (
     FORK_SUBDIR_PREFIX,
     FixtureOutput,
-    format_fork_subdir,
-    format_gas_limit_subdir,
+    resolve_fixture_subfolder,
 )
 from ..shared.helpers import (
     get_spec_format_for_item,
@@ -1776,28 +1774,9 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     _info_metadata=t8n._info_metadata,
                 )
 
-                from ..shared.benchmarking import (
-                    GasBenchmarkValues,
-                    format_gas_limit_subdir,
+                output_subdir = resolve_fixture_subfolder(
+                    list(request.node.iter_markers("fixture_subfolder"))
                 )
-                from ..shared.fixture_output import format_fork_subdir
-
-                gas_benchmark_values = GasBenchmarkValues.from_config(
-                    request.config
-                )
-                is_benchmark_test = any(
-                    request.node.get_closest_marker(name)
-                    for name in ("benchmark", "stateful", "repricing")
-                )
-                if gas_benchmark_values is not None and is_benchmark_test:
-                    gas_limit_subdir = format_gas_limit_subdir(
-                        gas_benchmark_value, gas_benchmark_values.root
-                    )
-                    output_subdir = Path(
-                        format_fork_subdir(fork.name(), gas_limit_subdir)
-                    )
-                else:
-                    output_subdir = Path(format_fork_subdir(fork.name()))
 
                 fixture_path = fixture_collector.add_fixture(
                     node_to_test_info(request.node),

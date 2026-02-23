@@ -193,6 +193,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "transition_tool_cache_key: Key used to match the transition tool "
         "cache for the test during fill.",
     )
+    config.addinivalue_line(
+        "markers",
+        "fixture_subfolder(level, prefix): "
+        "Signal that fixtures should be placed in a subfolder",
+    )
 
 
 @pytest.fixture(scope="function")

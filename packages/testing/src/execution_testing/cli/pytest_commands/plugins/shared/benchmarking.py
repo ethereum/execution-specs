@@ -12,7 +12,11 @@ from execution_testing.test_types import Environment, EnvironmentDefaults
 from execution_testing.tools import ParameterSet
 
 from .execute_fill import OpMode
-from .fixture_output import FORK_SUBDIR_PREFIX
+from .fixture_output import (
+    FORK_SUBDIR_PREFIX,
+    SUBFOLDER_LEVEL_SEPARATOR,
+    format_gas_limit_prefix,
+)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -30,7 +34,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Gas limits (in millions) for benchmark tests. "
             "Example: '100,500' runs tests with 100M and 500M gas. "
             "Benchmark outputs are grouped under "
-            f"{FORK_SUBDIR_PREFIX}{{fork}}_at_XXXXM/ subdirectories. "
+            f"{FORK_SUBDIR_PREFIX}{{fork}}"
+            f"{SUBFOLDER_LEVEL_SEPARATOR}XXXXM/ subdirectories. "
             f"Cannot be used with {OpcodeCountsConfig.flag}."
         ),
     )
@@ -159,6 +164,12 @@ class GasBenchmarkValues(RootModel, BenchmarkParametrizer):
             pytest.param(
                 gas_value * 1_000_000,
                 id=f"benchmark-gas-value_{gas_value}M",
+                marks=[
+                    pytest.mark.fixture_subfolder(
+                        level=1,
+                        prefix=format_gas_limit_prefix(gas_value, self.root),
+                    ),
+                ],
             )
             for gas_value in self.root
         ]
@@ -266,7 +277,16 @@ class OpcodeCountsConfig(BaseModel, BenchmarkParametrizer):
         # Deduplicate while preserving order
         unique_counts = list(dict.fromkeys(self.get_opcode_counts(test_name)))
         return [
-            pytest.param(opcode_count, id=f"opcount_{opcode_count}K")
+            pytest.param(
+                opcode_count,
+                id=f"opcount_{opcode_count}K",
+                marks=[
+                    pytest.mark.fixture_subfolder(
+                        level=1,
+                        prefix=f"opcount_{opcode_count}K",
+                    ),
+                ],
+            )
             for opcode_count in unique_counts
         ]
 

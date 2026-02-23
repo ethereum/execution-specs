@@ -20,6 +20,9 @@ from typing import (
 )
 
 from execution_testing.base_types import to_json
+from execution_testing.cli.pytest_commands.plugins.shared.fixture_output import (  # noqa: E501
+    SUBFOLDER_LEVEL_SEPARATOR,
+)
 
 from .base import BaseFixture
 from .consume import FixtureConsumer
@@ -257,8 +260,9 @@ class FixtureCollector:
     ) -> Path:
         """Add fixture and immediately stream to partial JSONL file."""
         fixture_basename = self.get_fixture_basename(info)
-        if output_subdir is not None and re.search(
-            r"_\d{4,}M$", output_subdir.name
+        if (
+            output_subdir is not None
+            and SUBFOLDER_LEVEL_SEPARATOR in output_subdir.name
         ):
             parts = fixture_basename.parts
             if parts and parts[0] == "benchmark":

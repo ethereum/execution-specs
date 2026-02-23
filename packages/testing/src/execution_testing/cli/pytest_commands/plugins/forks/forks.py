@@ -1101,24 +1101,24 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             metafunc.parametrize("fork", pytest_params, scope="function")
     else:
         unsupported_forks: Set[Fork] = metafunc.config.unsupported_forks  # type: ignore
-        pytest_params = [
-            (
-                ForkParametrizer(
-                    fork=fork,
-                    marks=[
-                        pytest.mark.skip(
-                            reason=(
-                                f"Fork '{fork}' unsupported by "
-                                f"{metafunc.config.t8n.__class__.__name__}."  # type: ignore
-                            )
+        pytest_params = []
+        for fork in sorted(intersection_set):
+            marks: List[pytest.MarkDecorator] = [
+                pytest.mark.fixture_subfolder(
+                    level=0,
+                    prefix=f"for_{fork.name().lower()}",
+                ),
+            ]
+            if fork in unsupported_forks:
+                marks.append(
+                    pytest.mark.skip(
+                        reason=(
+                            f"Fork '{fork}' unsupported by "
+                            f"{metafunc.config.t8n.__class__.__name__}."  # type: ignore
                         )
-                    ],
+                    )
                 )
-                if fork in sorted(unsupported_forks)
-                else ForkParametrizer(fork=fork)
-            )
-            for fork in sorted(intersection_set)
-        ]
+            pytest_params.append(ForkParametrizer(fork=fork, marks=marks))
         add_fork_covariant_parameters(metafunc, pytest_params)
         parametrize_fork(metafunc, pytest_params)
 
