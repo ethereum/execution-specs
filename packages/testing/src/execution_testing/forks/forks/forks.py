@@ -182,7 +182,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             # replace() in the fork that activates them.
             GAS_TX_DATA_TOKEN_STANDARD=0,
             GAS_TX_DATA_TOKEN_FLOOR=0,
-            GAS_AUTH_PER_EMPTY_ACCOUNT_COST=0,
+            GAS_AUTH_PER_EMPTY_ACCOUNT=0,
             REFUND_PER_AUTH_BASE_COST=0,
             GAS_PRECOMPILE_ECADD=0,
             GAS_PRECOMPILE_ECMUL=0,
@@ -2757,7 +2757,7 @@ class Prague(Cancun):
             ),
             GAS_TX_DATA_TOKEN_STANDARD=4,  # https://eips.ethereum.org/EIPS/eip-7623
             GAS_TX_DATA_TOKEN_FLOOR=10,
-            GAS_AUTH_PER_EMPTY_ACCOUNT_COST=25_000,
+            GAS_AUTH_PER_EMPTY_ACCOUNT=25_000,
             REFUND_PER_AUTH_BASE_COST=12_500,
             GAS_PRECOMPILE_BLS_G1ADD=375,
             GAS_PRECOMPILE_BLS_G1MUL=12_000,
@@ -2918,7 +2918,7 @@ class Prague(Cancun):
                     )
                 intrinsic_cost += (
                     authorization_list_or_count
-                    * gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT_COST
+                    * gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT
                 )
 
             if return_cost_deducted_prior_execution:

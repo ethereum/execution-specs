@@ -594,7 +594,7 @@ def test_auth_transaction(
             total_refund += min(
                 tx_gas_used // 5,
                 (
-                    gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT_COST
+                    gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT
                     - gas_costs.REFUND_PER_AUTH_BASE_COST
                 )
                 * auths_in_this_tx,

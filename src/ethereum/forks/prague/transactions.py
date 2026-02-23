@@ -586,7 +586,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     gas cost of the transaction and the minimum gas cost used by the
     transaction based on the calldata size.
     """
-    from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT_COST
+    from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
     from .vm.gas import init_code_cost
 
     zero_bytes = 0
@@ -625,9 +625,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_cost += Uint(
-            GAS_AUTH_PER_EMPTY_ACCOUNT_COST * len(tx.authorizations)
-        )
+        auth_cost += Uint(GAS_AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations))
 
     return (
         Uint(
