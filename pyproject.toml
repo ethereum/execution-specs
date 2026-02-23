@@ -364,6 +364,7 @@ ignore_names = ["pytest_*"]
 
 [tool.ruff]
 line-length = 79
+exclude = ["vendor"]
 
 [tool.ruff.lint]
 exclude = ["tests/fixtures"]
@@ -458,6 +459,7 @@ skip = [
     "tmp",
     "*.coverage*",
     "uv.lock",
+    "vendor",
 ]
 ignore-words = "whitelist.txt"  # Custom whitelist file
 count = true                    # Display counts of errors
