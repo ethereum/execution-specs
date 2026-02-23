@@ -89,3 +89,6 @@ logs/
 env.yaml
 
 site/
+
+# Vendored static assets (overrides dist/ rule)
+!vendor/docc/docc/plugins/html/static/**/dist/
