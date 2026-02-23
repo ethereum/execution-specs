@@ -1,0 +1,354 @@
+"""
+Fork transition tests for
+[EIP-7954: Increase Maximum Contract Size](https://eips.ethereum.org/EIPS/eip-7954).
+
+Tests that the new max code size and initcode size limits activate
+exactly at the Amsterdam fork boundary (timestamp 15,000).
+"""
+
+from typing import Any
+
+import pytest
+from execution_testing import (
+    Account,
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Fork,
+    Initcode,
+    Op,
+    Transaction,
+    TransactionException,
+    compute_create2_address,
+    compute_create_address,
+)
+
+from .spec import ref_spec_7954
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_7954.git_path
+REFERENCE_SPEC_VERSION = ref_spec_7954.version
+
+pytestmark = pytest.mark.valid_at_transition_to("Amsterdam")
+
+CREATE2_SALT = 0xC0FFEE
+
+
+def test_deploy_size_fork_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """Ensure the new max code size limit activates at the fork boundary."""
+    code_size = fork.max_code_size()
+    deploy_code = Op.JUMPDEST * code_size
+    initcode = Initcode(deploy_code=deploy_code)
+
+    sender_pre = pre.fund_eoa()
+    sender_post = pre.fund_eoa()
+
+    create_address_pre = compute_create_address(address=sender_pre, nonce=0)
+    create_address_post = compute_create_address(address=sender_post, nonce=0)
+
+    blocks = [
+        Block(
+            timestamp=14_999,
+            txs=[
+                Transaction(
+                    sender=sender_pre,
+                    to=None,
+                    data=initcode,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+        Block(
+            timestamp=15_000,
+            txs=[
+                Transaction(
+                    sender=sender_post,
+                    to=None,
+                    data=initcode,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+    ]
+
+    post: dict[Any, Account | None] = {
+        create_address_pre: Account.NONEXISTENT,
+        create_address_post: Account(code=deploy_code),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.with_all_create_opcodes()
+def test_create_opcode_deploy_size_fork_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """Ensure the new max code size limit activates at the fork via opcodes."""
+    code_size = fork.max_code_size()
+    deploy_code = Op.JUMPDEST * code_size
+    initcode = Initcode(deploy_code=deploy_code)
+    initcode_bytes = bytes(initcode)
+
+    sender_pre = pre.fund_eoa()
+    sender_post = pre.fund_eoa()
+
+    create_call = (
+        create_opcode(
+            value=0, offset=0, size=Op.CALLDATASIZE, salt=CREATE2_SALT
+        )
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=Op.CALLDATASIZE)
+    )
+
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(0, create_call)
+        + Op.STOP
+    )
+
+    factory_pre = pre.deploy_contract(factory_code)
+    factory_post = pre.deploy_contract(factory_code)
+
+    create_address_pre = (
+        compute_create2_address(
+            address=factory_pre, salt=CREATE2_SALT, initcode=initcode
+        )
+        if create_opcode == Op.CREATE2
+        else compute_create_address(address=factory_pre, nonce=1)
+    )
+    create_address_post = (
+        compute_create2_address(
+            address=factory_post, salt=CREATE2_SALT, initcode=initcode
+        )
+        if create_opcode == Op.CREATE2
+        else compute_create_address(address=factory_post, nonce=1)
+    )
+
+    blocks = [
+        Block(
+            timestamp=14_999,
+            txs=[
+                Transaction(
+                    sender=sender_pre,
+                    to=factory_pre,
+                    data=initcode_bytes,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+        Block(
+            timestamp=15_000,
+            txs=[
+                Transaction(
+                    sender=sender_post,
+                    to=factory_post,
+                    data=initcode_bytes,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+    ]
+
+    post: dict[Any, Account | None] = {
+        create_address_pre: Account.NONEXISTENT,
+        create_address_post: Account(code=deploy_code),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.exception_test
+def test_initcode_size_fork_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """Ensure the new max initcode size limit activates exactly at the fork."""
+    initcode = Initcode(
+        deploy_code=Op.STOP,
+        initcode_length=fork.max_initcode_size(),
+    )
+
+    sender_pre = pre.fund_eoa()
+    sender_post = pre.fund_eoa()
+
+    create_address_post = compute_create_address(address=sender_post, nonce=0)
+
+    initcode_too_large = TransactionException.INITCODE_SIZE_EXCEEDED
+
+    blocks = [
+        # Pre-fork: initcode at the new max exceeds the parent fork's limit,
+        # so the tx is rejected and the block is invalid.
+        Block(
+            timestamp=14_999,
+            txs=[
+                Transaction(
+                    sender=sender_pre,
+                    to=None,
+                    data=initcode,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                    error=initcode_too_large,
+                )
+            ],
+            exception=initcode_too_large,
+        ),
+        # Post-fork: the new limit is in effect, tx succeeds.
+        Block(
+            timestamp=15_000,
+            txs=[
+                Transaction(
+                    sender=sender_post,
+                    to=None,
+                    data=initcode,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+    ]
+
+    post: dict[Any, Account | None] = {
+        create_address_post: Account(code=Op.STOP),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+@pytest.mark.with_all_create_opcodes()
+def test_create_opcode_initcode_size_fork_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Op,
+) -> None:
+    """Ensure the new max initcode size limit activates at fork via opcodes."""
+    initcode = Initcode(
+        deploy_code=Op.STOP,
+        initcode_length=fork.max_initcode_size(),
+    )
+    initcode_bytes = bytes(initcode)
+
+    sender_pre = pre.fund_eoa()
+    sender_post = pre.fund_eoa()
+
+    create_call = (
+        create_opcode(
+            value=0, offset=0, size=Op.CALLDATASIZE, salt=CREATE2_SALT
+        )
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=Op.CALLDATASIZE)
+    )
+
+    factory_code = (
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(0, create_call)
+        + Op.STOP
+    )
+
+    factory_pre = pre.deploy_contract(factory_code)
+    factory_post = pre.deploy_contract(factory_code)
+
+    create_address_pre = (
+        compute_create2_address(
+            address=factory_pre, salt=CREATE2_SALT, initcode=initcode
+        )
+        if create_opcode == Op.CREATE2
+        else compute_create_address(address=factory_pre, nonce=1)
+    )
+    create_address_post = (
+        compute_create2_address(
+            address=factory_post, salt=CREATE2_SALT, initcode=initcode
+        )
+        if create_opcode == Op.CREATE2
+        else compute_create_address(address=factory_post, nonce=1)
+    )
+
+    blocks = [
+        Block(
+            timestamp=14_999,
+            txs=[
+                Transaction(
+                    sender=sender_pre,
+                    to=factory_pre,
+                    data=initcode_bytes,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+        Block(
+            timestamp=15_000,
+            txs=[
+                Transaction(
+                    sender=sender_post,
+                    to=factory_post,
+                    data=initcode_bytes,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+    ]
+
+    # Pre-fork: CREATE returns 0 (initcode exceeds parent fork limit)
+    # Post-fork: CREATE succeeds
+    post: dict[Any, Account | None] = {
+        factory_pre: Account(storage={0: 0}),
+        create_address_pre: Account.NONEXISTENT,
+        factory_post: Account(storage={0: create_address_post}),
+        create_address_post: Account(code=Op.STOP),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
+def test_deploy_at_parent_max_across_fork(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """Ensure previous max code size works after transition."""
+    code_size = fork.parent().max_code_size()
+    deploy_code = Op.JUMPDEST * code_size
+    initcode = Initcode(deploy_code=deploy_code)
+
+    sender_pre = pre.fund_eoa()
+    sender_post = pre.fund_eoa()
+
+    create_address_pre = compute_create_address(address=sender_pre, nonce=0)
+    create_address_post = compute_create_address(address=sender_post, nonce=0)
+
+    blocks = [
+        Block(
+            timestamp=14_999,
+            txs=[
+                Transaction(
+                    sender=sender_pre,
+                    to=None,
+                    data=initcode,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+        Block(
+            timestamp=15_000,
+            txs=[
+                Transaction(
+                    sender=sender_post,
+                    to=None,
+                    data=initcode,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+    ]
+
+    post: dict[Any, Account | None] = {
+        create_address_pre: Account(code=deploy_code),
+        create_address_post: Account(code=deploy_code),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)

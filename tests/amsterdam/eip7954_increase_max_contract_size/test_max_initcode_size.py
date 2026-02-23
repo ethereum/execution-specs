@@ -4,6 +4,8 @@ Test [EIP-7954: Increase Maximum Contract Size](https://eips.ethereum.org/EIPS/e
 Tests for the increased maximum initcode size (64 KiB).
 """
 
+from typing import Any, Callable
+
 import pytest
 from execution_testing import (
     Account,
@@ -29,13 +31,11 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 CREATE2_SALT = 0xC0FFEE
 
 INITCODE_SIZE_PARAMS = [
-    pytest.param(lambda f: f.parent().max_initcode_size(), id="prev_max"),
     pytest.param(lambda f: f.max_initcode_size(), id="at_max"),
     pytest.param(lambda f: f.max_initcode_size() + 1, id="over_max"),
 ]
 
 TX_INITCODE_SIZE_PARAMS = [
-    pytest.param(lambda f: f.parent().max_initcode_size(), id="prev_max"),
     pytest.param(lambda f: f.max_initcode_size(), id="at_max"),
     pytest.param(
         lambda f: f.max_initcode_size() + 1,
@@ -50,7 +50,7 @@ def test_initcode_size(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    initcode_size,
+    initcode_size: Callable[[Fork], int],
 ) -> None:
     """Ensure the new max initcode size is enforced for transactions."""
     size = initcode_size(fork)
@@ -69,11 +69,12 @@ def test_initcode_size(
         gas_limit=fork.transaction_gas_limit_cap(),
     )
 
+    post: dict[Any, Account | None] = {}
     if size <= fork.max_initcode_size():
-        post = {create_address: Account(code=Op.STOP)}
+        post[create_address] = Account(code=Op.STOP)
     else:
         tx.error = TransactionException.INITCODE_SIZE_EXCEEDED
-        post = {create_address: Account.NONEXISTENT}
+        post[create_address] = Account.NONEXISTENT
 
     state_test(pre=pre, tx=tx, post=post)
 
@@ -84,8 +85,8 @@ def test_create_opcode_initcode_size(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    initcode_size,
-    create_opcode,
+    initcode_size: Callable[[Fork], int],
+    create_opcode: Op,
 ) -> None:
     """Ensure the new max initcode size is enforced via create opcodes."""
     size = initcode_size(fork)
@@ -97,18 +98,17 @@ def test_create_opcode_initcode_size(
 
     sender = pre.fund_eoa()
 
-    extra_create_kwargs = (
-        {"salt": CREATE2_SALT} if create_opcode == Op.CREATE2 else {}
+    create_call = (
+        create_opcode(
+            value=0, offset=0, size=Op.CALLDATASIZE, salt=CREATE2_SALT
+        )
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=Op.CALLDATASIZE)
     )
 
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(
-            0,
-            create_opcode(
-                value=0, offset=0, size=Op.CALLDATASIZE, **extra_create_kwargs
-            ),
-        )
+        + Op.SSTORE(0, create_call)
         + Op.STOP
     )
 
@@ -132,12 +132,13 @@ def test_create_opcode_initcode_size(
     # Opcode-level: oversized initcode causes OutOfGasError
     # (tx succeeds, CREATE returns 0)
     created = size <= fork.max_initcode_size()
-    post = {
-        create_address: Account(code=Op.STOP)
-        if created
-        else Account.NONEXISTENT,
+    post: dict[Any, Account | None] = {
         factory: Account(storage={0: create_address if created else 0}),
     }
+    if created:
+        post[create_address] = Account(code=Op.STOP)
+    else:
+        post[create_address] = Account.NONEXISTENT
 
     state_test(pre=pre, tx=tx, post=post)
 
@@ -201,7 +202,7 @@ def test_initcode_gas_metering_create_opcodes(
     pre: Alloc,
     fork: Fork,
     gas_shortfall: int,
-    create_opcode,
+    create_opcode: Op,
 ) -> None:
     """
     Verify gas metering via create opcodes for the new
@@ -230,19 +231,18 @@ def test_initcode_gas_metering_create_opcodes(
     )
     sender = pre.fund_eoa()
 
-    extra_create_kwargs = (
-        {"salt": CREATE2_SALT} if create_opcode == Op.CREATE2 else {}
+    create_call = (
+        create_opcode(
+            value=0, offset=0, size=Op.CALLDATASIZE, salt=CREATE2_SALT
+        )
+        if create_opcode == Op.CREATE2
+        else create_opcode(value=0, offset=0, size=Op.CALLDATASIZE)
     )
 
     # Factory stores CREATE return value in slot 0
     factory_code = (
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        + Op.SSTORE(
-            0,
-            create_opcode(
-                value=0, offset=0, size=Op.CALLDATASIZE, **extra_create_kwargs
-            ),
-        )
+        + Op.SSTORE(0, create_call)
         + Op.STOP
     )
 
