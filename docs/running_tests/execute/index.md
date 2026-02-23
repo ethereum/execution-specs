@@ -80,3 +80,24 @@ A warning is logged when `max_transactions_per_batch` exceeds 1000, as this may 
 - **Benchmark tests**: Tests that measure gas consumption often generate many transactions
 - **Stress testing**: When intentionally testing RPC endpoint limits
 - **Slow RPC endpoints**: Reduce batch size to avoid timeouts on slower endpoints
+
+### Block Building with `testing_buildBlockV1`
+
+By default, the `execute` plugin drives block production through the Engine API: transactions are sent to the client's mempool via `eth_sendRawTransaction`, and blocks are built using the `engine_forkchoiceUpdatedVX` / `engine_getPayloadVX` / `engine_newPayloadVX` sequence.
+
+Clients that implement the [`testing_buildBlockV1`](https://github.com/ethereum/execution-apis/blob/main/src/testing/testing_buildBlockV1.yaml) endpoint offer an alternative route that collapses transaction submission and block building into a single RPC call. When enabled, the plugin:
+
+1. Collects the raw RLP-encoded transactions for each batch.
+2. Calls `testing_buildBlockV1` with the parent block hash, payload attributes, and the transaction list.
+3. Finalizes the returned payload with `engine_newPayloadVX` and `engine_forkchoiceUpdatedVX`.
+
+Because transactions are included directly in the built block (rather than pulled from the mempool), the standard Engine API `engine_getPayloadVX` call and the `--get-payload-wait-time` delay are both skipped.
+
+**CLI Configuration:**
+
+```bash
+# Enable the testing_buildBlockV1 route
+execute hive --fork=Prague --use-testing-build-block
+```
+
+This flag is available for both `execute hive` and `execute remote` (when an engine endpoint is configured). See [Execute Hive](./hive.md) and [Execute Remote](./remote.md) for mode-specific details.
