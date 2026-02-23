@@ -39,7 +39,7 @@ TX_DATA_COST_PER_ZERO = Uint(4)
 Gas cost per zero byte in the transaction data.
 """
 
-TX_CREATE_COST = Uint(32000)
+GAS_TX_CREATE = Uint(32000)
 """
 Additional gas cost for creating a new contract.
 """
@@ -387,7 +387,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
             data_cost += TX_DATA_COST_PER_NON_ZERO
 
     if tx.to == Bytes0(b""):
-        create_cost = TX_CREATE_COST
+        create_cost = GAS_TX_CREATE
     else:
         create_cost = Uint(0)
 

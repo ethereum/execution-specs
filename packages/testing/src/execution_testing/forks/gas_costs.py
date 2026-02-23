@@ -38,7 +38,7 @@ class GasCosts:
 
     GAS_MEMORY: int
     GAS_TX_BASE: int
-    TX_CREATE_COST: int
+    GAS_TX_CREATE: int
     TX_DATA_COST_PER_ZERO: int
     TX_DATA_COST_PER_NON_ZERO: int
     TX_DATA_STANDARD_TOKEN_COST: int

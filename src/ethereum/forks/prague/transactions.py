@@ -45,7 +45,7 @@ gas cost for transactions that include calldata.
 [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
 """
 
-TX_CREATE_COST = Uint(32000)
+GAS_TX_CREATE = Uint(32000)
 """
 Additional gas cost for creating a new contract.
 """
@@ -603,7 +603,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     data_cost = tokens_in_calldata * TX_DATA_STANDARD_TOKEN_COST
 
     if tx.to == Bytes0(b""):
-        create_cost = TX_CREATE_COST + init_code_cost(ulen(tx.data))
+        create_cost = GAS_TX_CREATE + init_code_cost(ulen(tx.data))
     else:
         create_cost = Uint(0)
 

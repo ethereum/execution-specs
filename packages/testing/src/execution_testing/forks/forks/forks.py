@@ -163,7 +163,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             TX_DATA_COST_PER_ZERO=4,
             TX_DATA_COST_PER_NON_ZERO=68,
             GAS_TX_BASE=21_000,
-            TX_CREATE_COST=32_000,
+            GAS_TX_CREATE=32_000,
             GAS_LOG=375,
             GAS_LOG_DATA=8,
             GAS_LOG_TOPIC=375,
@@ -1553,7 +1553,7 @@ class Homestead(Frontier):
                 authorization_list_or_count=authorization_list_or_count,
             )
             if contract_creation:
-                intrinsic_cost += gas_costs.TX_CREATE_COST
+                intrinsic_cost += gas_costs.GAS_TX_CREATE
             return intrinsic_cost
 
         return fn
