@@ -45,8 +45,8 @@ class BlockState:
 
     Read chain: block writes -> pre_state.
 
-    ``account_reads`` and ``storage_reads`` accumulate across all
-    transactions for BAL generation.
+    ``account_reads``, ``storage_reads``, and ``code_reads`` accumulate
+    across all transactions for BAL generation.
     """
 
     pre_state: PreState
@@ -58,6 +58,7 @@ class BlockState:
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
+    code_reads: Set[Hash32] = field(default_factory=set)
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     oldest_ancestor_offset: Optional[Uint] = None
 
@@ -69,9 +70,9 @@ class TransactionState:
 
     Read chain: tx writes -> block writes -> pre_state.
 
-    ``storage_reads`` and ``account_reads`` are shared references
-    that survive rollback (reads from failed calls still appear in the
-    Block Access List).
+    ``storage_reads``, ``account_reads``, and ``code_reads`` are shared
+    references that survive rollback (reads from failed calls still
+    appear in the Block Access List).
     """
 
     parent: BlockState
@@ -83,6 +84,7 @@ class TransactionState:
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
+    code_reads: Set[Hash32] = field(default_factory=set)
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     created_accounts: Set[Address] = field(default_factory=set)
     transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
@@ -167,6 +169,7 @@ def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
     """
     if code_hash == EMPTY_CODE_HASH:
         return b""
+    tx_state.code_reads.add(code_hash)
     if code_hash in tx_state.code_writes:
         return tx_state.code_writes[code_hash]
     if code_hash in tx_state.parent.code_writes:
@@ -644,8 +647,8 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
     Create a snapshot of the transaction state for rollback.
 
     Deep-copy writes and transient storage.  The parent reference,
-    ``created_accounts``, ``storage_reads``, and ``account_reads``
-    are shared (not rolled back).
+    ``created_accounts``, ``storage_reads``, ``account_reads``, and
+    ``code_reads`` are shared (not rolled back).
 
     Parameters
     ----------
@@ -665,6 +668,7 @@ def copy_tx_state(tx_state: TransactionState) -> TransactionState:
             addr: dict(slots)
             for addr, slots in tx_state.storage_writes.items()
         },
+        code_reads=tx_state.code_reads,
         code_writes=dict(tx_state.code_writes),
         created_accounts=tx_state.created_accounts,
         transient_storage=dict(tx_state.transient_storage),
@@ -725,6 +729,7 @@ def incorporate_tx_into_block(
     # Merge reads and touches into block-level sets
     block.storage_reads.update(tx_state.storage_reads)
     block.account_reads.update(tx_state.account_reads)
+    block.code_reads.update(tx_state.code_reads)
 
     # Merge cumulative writes
     for address, account in tx_state.account_writes.items():
@@ -744,6 +749,7 @@ def incorporate_tx_into_block(
     tx_state.transient_storage.clear()
     tx_state.storage_reads = set()
     tx_state.account_reads = set()
+    tx_state.code_reads = set()
 
 
 def extract_block_diffs(
