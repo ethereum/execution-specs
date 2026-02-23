@@ -251,8 +251,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         excess_blob_gas=block.header.excess_blob_gas,
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
-        execution_witness=ExecutionWitnessBuilder(),
-        block_headers=[rlp.encode(blk.header) for blk in chain.blocks],
+        execution_witness=ExecutionWitnessBuilder(
+            blockchain_headers=[rlp.encode(blk.header) for blk in chain.blocks]
+        ),
     )
 
     block_output = apply_body(
@@ -822,7 +823,7 @@ def apply_body(
     )
 
     block_output.execution_witness = build_execution_witness(
-        block_env.execution_witness, block_env.state, block_env.block_headers
+        block_env.execution_witness, block_env.state
     )
 
     return block_output

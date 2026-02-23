@@ -9,7 +9,6 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import Uint
 
-from .blocks import Header
 from .state_tracker import BlockState
 
 
@@ -44,15 +43,14 @@ class ExecutionWitnessBuilder:
     Mutable accumulator for execution witness data during block execution.
     """
 
+    blockchain_headers: List[Bytes] = field(default_factory=list)
     state: List[Bytes] = field(default_factory=list)
     codes: List[Bytes] = field(default_factory=list)
-    headers: List[Header] = field(default_factory=list)
 
 
 def build_execution_witness(
     builder: ExecutionWitnessBuilder,
     block_state: BlockState,
-    block_headers: List[Bytes],
 ) -> ExecutionWitness:
     """
     Build the execution witness from the accumulated builder data.
@@ -61,7 +59,7 @@ def build_execution_witness(
     ascending.
     """
     ancestor_headers = get_witness_ancestors(
-        block_headers,
+        builder.blockchain_headers,
         block_state.oldest_ancestor_offset,
     )
     return ExecutionWitness(
