@@ -3,11 +3,14 @@ Stateless validation types.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import Uint
+
+from ethereum.crypto.hash import Hash32
+from ethereum.state import PreState
 
 from .state_tracker import BlockState
 
@@ -45,7 +48,6 @@ class ExecutionWitnessBuilder:
 
     blockchain_headers: List[Bytes] = field(default_factory=list)
     state: List[Bytes] = field(default_factory=list)
-    codes: List[Bytes] = field(default_factory=list)
 
 
 def build_execution_witness(
@@ -62,11 +64,41 @@ def build_execution_witness(
         builder.blockchain_headers,
         block_state.oldest_ancestor_offset,
     )
+    codes = get_witness_codes(block_state.code_reads, block_state.pre_state)
+
     return ExecutionWitness(
         state=tuple(sorted(builder.state)),
-        codes=tuple(sorted(builder.codes)),
+        codes=tuple(codes),
         headers=tuple(ancestor_headers),
     )
+
+
+def get_witness_codes(
+    code_reads: Set[Hash32],
+    pre_state: PreState,
+) -> List[Bytes]:
+    """
+    Collect bytecodes from the pre-state for all code hashes read
+    during execution.
+
+    Skip hashes that do not exist in the pre-state (e.g. code deployed
+    within the same block).
+
+    Parameters
+    ----------
+    code_reads :
+        Code hashes accessed during block execution.
+    pre_state :
+        The pre-execution state.
+
+    """
+    codes: List[Bytes] = []
+    for code_hash in code_reads:
+        try:
+            codes.append(pre_state.get_code(code_hash))
+        except KeyError:
+            pass
+    return sorted(codes)
 
 
 def get_witness_ancestors(
