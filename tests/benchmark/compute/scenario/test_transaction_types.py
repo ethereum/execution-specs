@@ -268,7 +268,7 @@ def test_ether_transfers_to_precompile(
 @pytest.fixture
 def total_cost_floor_per_token(fork: Fork) -> int:
     """Total cost floor per token (EIP-7623)."""
-    return fork.gas_costs().TX_DATA_FLOOR_TOKEN_COST
+    return fork.gas_costs().GAS_TX_DATA_TOKEN_FLOOR
 
 
 @pytest.fixture
@@ -290,7 +290,7 @@ def calldata_generator(
     #       + execution_gas_used
     #       + isContractCreation * (32000 +
     #                                 INITCODE_WORD_COST * words(calldata)),
-    #       TX_DATA_FLOOR_TOKEN_COST * tokens_in_calldata)
+    #       GAS_TX_DATA_TOKEN_FLOOR * tokens_in_calldata)
     #
     # Simplified in this test case:
     # - No execution gas used (no opcodes are executed)
@@ -298,10 +298,10 @@ def calldata_generator(
     #
     # Therefore:
     #   max_token_cost =
-    #       max(GAS_TX_DATA_TOKEN_STANDARD, TX_DATA_FLOOR_TOKEN_COST)
+    #       max(GAS_TX_DATA_TOKEN_STANDARD, GAS_TX_DATA_TOKEN_FLOOR)
     #   tx.gasUsed = 21000 + tokens_in_calldata * max_token_cost
     #
-    # Since max(GAS_TX_DATA_TOKEN_STANDARD, TX_DATA_FLOOR_TOKEN_COST) = 10:
+    # Since max(GAS_TX_DATA_TOKEN_STANDARD, GAS_TX_DATA_TOKEN_FLOOR) = 10:
     #   tx.gasUsed = 21000 + tokens_in_calldata * 10
     #
     # Token accounting:

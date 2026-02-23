@@ -25,4 +25,4 @@ class Spec:
     """
 
     GAS_TX_DATA_TOKEN_STANDARD = 4
-    TX_DATA_FLOOR_TOKEN_COST = 10
+    GAS_TX_DATA_TOKEN_FLOOR = 10
