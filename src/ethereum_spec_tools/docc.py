@@ -19,6 +19,7 @@ Plugins for docc specific to the Ethereum execution specification.
 
 import dataclasses
 import logging
+import os
 from collections import defaultdict
 from itertools import tee, zip_longest
 from pathlib import PurePath
@@ -89,6 +90,10 @@ class EthereumDiscover(Discover):
         """
         Find sources.
         """
+        if os.environ.get("DOCC_SKIP_DIFFS"):
+            logging.info("Skipping diff discovery (DOCC_SKIP_DIFFS)")
+            return
+
         forks = {f.path: f for f in self.forks if f.path is not None}
 
         by_fork: Dict[Hardfork, Dict[PurePath, Source]] = defaultdict(dict)
