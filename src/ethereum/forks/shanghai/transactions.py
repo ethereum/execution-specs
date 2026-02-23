@@ -23,7 +23,7 @@ from ethereum.exceptions import (
 from .exceptions import InitCodeTooLargeError, TransactionTypeError
 from .fork_types import Address
 
-TX_BASE_COST = Uint(21000)
+GAS_TX_BASE = Uint(21000)
 """
 Base cost of a transaction in gas units. This is the minimum amount of gas
 required to execute a transaction.
@@ -380,7 +380,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (`TX_BASE_COST`)
+    1. Base cost (`GAS_TX_BASE`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
     4. Cost for access list entries (if applicable)
@@ -411,7 +411,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
                 ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
             )
 
-    return TX_BASE_COST + data_cost + create_cost + access_list_cost
+    return GAS_TX_BASE + data_cost + create_cost + access_list_cost
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:

@@ -37,7 +37,7 @@ class GasCosts:
     GAS_EXPONENTIATION_PER_BYTE: int
 
     GAS_MEMORY: int
-    TX_BASE_COST: int
+    GAS_TX_BASE: int
     TX_CREATE_COST: int
     TX_DATA_COST_PER_ZERO: int
     TX_DATA_COST_PER_NON_ZERO: int

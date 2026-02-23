@@ -28,7 +28,7 @@ from .exceptions import (
 )
 from .fork_types import Authorization, VersionedHash
 
-TX_BASE_COST = Uint(21000)
+GAS_TX_BASE = Uint(21000)
 """
 Base cost of a transaction in gas units. This is the minimum amount of gas
 required to execute a transaction.
@@ -584,7 +584,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (`TX_BASE_COST`)
+    1. Base cost (`GAS_TX_BASE`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
     4. Cost for access list entries (if applicable)
@@ -606,7 +606,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
     # EIP-7623 floor price (note: no EVM costs)
     calldata_floor_gas_cost = (
-        tokens_in_calldata * TX_DATA_FLOOR_TOKEN_COST + TX_BASE_COST
+        tokens_in_calldata * TX_DATA_FLOOR_TOKEN_COST + GAS_TX_BASE
     )
 
     data_cost = tokens_in_calldata * TX_DATA_STANDARD_TOKEN_COST
@@ -640,7 +640,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
 
     return (
         Uint(
-            TX_BASE_COST
+            GAS_TX_BASE
             + data_cost
             + create_cost
             + access_list_cost

@@ -353,9 +353,7 @@ class Alloc(SharedAlloc):
                 raise ValueError(
                     f"initcode too large {len(initcode)} > {max_initcode_size}"
                 )
-            deploy_gas_limit = (
-                gas_costs.TX_BASE_COST + gas_costs.TX_CREATE_COST
-            )
+            deploy_gas_limit = gas_costs.GAS_TX_BASE + gas_costs.TX_CREATE_COST
             deploy_gas_limit += (
                 len(deploy_code) * gas_costs.GAS_CODE_DEPOSIT_PER_BYTE
             )
@@ -455,7 +453,7 @@ class Alloc(SharedAlloc):
 
         initcode_prefix = Bytecode()
 
-        deploy_gas_limit = gas_costs.TX_BASE_COST + gas_costs.TX_CREATE_COST
+        deploy_gas_limit = gas_costs.GAS_TX_BASE + gas_costs.TX_CREATE_COST
 
         if len(storage.root) > 0:
             initcode_prefix += sum(
