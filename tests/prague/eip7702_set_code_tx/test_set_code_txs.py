@@ -2248,6 +2248,69 @@ def test_set_code_all_invalid_authorization_tuples(
     )
 
 
+def test_set_code_invalid_authorization_authority_not_cleared(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that an authority account is not cleared from state when
+    referenced by an invalid authorization tuple.
+
+    The authorization validation reads the authority account but the
+    authorization is invalid (wrong nonce). The authority must not be
+    destroyed or modified as a side-effect of the validation.
+
+    Ref: https://github.com/hyperledger/besu/issues/9840
+    """
+    authority = pre.fund_eoa(1)
+
+    success_slot = 1
+    set_code_to = pre.deploy_contract(Op.SSTORE(success_slot, 1) + Op.STOP)
+
+    # Valid signer that will actually get its code set
+    auth_signer = pre.fund_eoa(0)
+
+    tx = Transaction(
+        gas_limit=500_000,
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            # Valid authorization for auth_signer
+            AuthorizationTuple(
+                address=set_code_to,
+                nonce=0,
+                signer=auth_signer,
+            ),
+            # Invalid authorization for authority (wrong nonce)
+            AuthorizationTuple(
+                address=set_code_to,
+                nonce=1,
+                signer=authority,
+            ),
+        ],
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                nonce=1,
+                code=Spec.delegation_designation(set_code_to),
+                storage={
+                    success_slot: 1,
+                },
+            ),
+            # Authority must survive: the invalid authorization only reads
+            # the account during validation, it must not cause the account
+            # to be destroyed or modified.
+            authority: Account(nonce=0, balance=1),
+        },
+    )
+
+
 @pytest.mark.xdist_group(name="bigmem")
 def test_set_code_using_chain_specific_id(
     state_test: StateTestFiller,
