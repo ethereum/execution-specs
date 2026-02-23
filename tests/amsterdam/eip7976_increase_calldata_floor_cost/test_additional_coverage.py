@@ -559,6 +559,14 @@ class TestExactThresholdBoundary:
             pytest.param(2, id="type_2"),
         ],
     )
+    @pytest.mark.parametrize(
+        "threshold_offset",
+        [
+            pytest.param(0, id="below_threshold"),
+            pytest.param(1, id="above_threshold"),
+            pytest.param(2, id="above_threshold_plus_2"),
+        ],
+    )
     def test_exact_threshold_boundary(
         self,
         state_test: StateTestFiller,
@@ -569,6 +577,7 @@ class TestExactThresholdBoundary:
         access_list: List[AccessList] | None,
         authorization_list: List[AuthorizationTuple] | None,
         ty: int,
+        threshold_offset: int,
     ) -> None:
         """
         Find exact calldata byte count N where floor_cost == intrinsic_cost.
@@ -606,125 +615,46 @@ class TestExactThresholdBoundary:
             intrinsic_gas_cost_calculator=intrinsic_cost,
         )
 
-        # Test N bytes (at threshold)
-        bytes_below = threshold_bytes
-        calldata_below = bytes_to_data(bytes_below)
-        # Use helper to get cost before floor is applied
-        intrinsic_below_raw = intrinsic_cost(bytes_below)
-        floor_below_raw = floor_cost(bytes_below)
+        byte_count = threshold_bytes + threshold_offset
+        calldata = bytes_to_data(byte_count)
+        intrinsic_raw = intrinsic_cost(byte_count)
+        floor_raw = floor_cost(byte_count)
 
-        # At threshold, intrinsic should be >= floor
-        assert intrinsic_below_raw >= floor_below_raw, (
-            "At threshold: intrinsic should dominate"
-        )
+        if threshold_offset == 0:
+            assert intrinsic_raw >= floor_raw, (
+                "At threshold: intrinsic should dominate"
+            )
+        else:
+            assert floor_raw > intrinsic_raw, (
+                f"Above threshold: floor should dominate. "
+                f"floor={floor_raw}, intrinsic={intrinsic_raw}"
+            )
 
-        # Total gas includes the floor if it's higher
-        intrinsic_below_total = intrinsic_cost_calculator(
-            calldata=calldata_below,
+        intrinsic_total = intrinsic_cost_calculator(
+            calldata=calldata,
             contract_creation=False,
             access_list=access_list,
             authorization_list_or_count=authorization_list,
         )
 
-        tx_below = Transaction(
+        tx = Transaction(
             ty=ty,
             sender=sender,
             to=to,
-            nonce=0,  # Each tagged state_test is independent, so nonce=0
-            data=calldata_below,
-            gas_limit=intrinsic_below_total,
+            nonce=0,
+            data=calldata,
+            gas_limit=intrinsic_total,
             access_list=access_list,
             authorization_list=authorization_list,
         )
-        tx_below.expected_receipt = TransactionReceipt(
-            cumulative_gas_used=intrinsic_below_total
-        )
-
-        # Test N+1 bytes (above threshold)
-        bytes_above = threshold_bytes + 1
-        calldata_above = bytes_to_data(bytes_above)
-        intrinsic_above_raw = intrinsic_cost(bytes_above)
-        floor_above_raw = floor_cost(bytes_above)
-
-        # Above threshold, floor should dominate
-        assert floor_above_raw > intrinsic_above_raw, (
-            f"Above threshold: floor should dominate. "
-            f"floor={floor_above_raw}, intrinsic={intrinsic_above_raw}"
-        )
-
-        # Total gas includes the floor since it's higher
-        intrinsic_above_total = intrinsic_cost_calculator(
-            calldata=calldata_above,
-            contract_creation=False,
-            access_list=access_list,
-            authorization_list_or_count=authorization_list,
-        )
-
-        tx_above = Transaction(
-            ty=ty,
-            sender=sender,
-            to=to,
-            nonce=0,  # Each tagged state_test is independent, so nonce=0
-            data=calldata_above,
-            gas_limit=intrinsic_above_total,
-            access_list=access_list,
-            authorization_list=authorization_list,
-        )
-        tx_above.expected_receipt = TransactionReceipt(
-            cumulative_gas_used=intrinsic_above_total
-        )
-
-        # Test N+2 bytes (well above threshold)
-        bytes_above_2 = threshold_bytes + 2
-        calldata_above_2 = bytes_to_data(bytes_above_2)
-        intrinsic_above_2_raw = intrinsic_cost(bytes_above_2)
-        floor_above_2_raw = floor_cost(bytes_above_2)
-
-        assert floor_above_2_raw > intrinsic_above_2_raw, (
-            "N+2: floor should dominate"
-        )
-
-        intrinsic_above_2_total = intrinsic_cost_calculator(
-            calldata=calldata_above_2,
-            contract_creation=False,
-            access_list=access_list,
-            authorization_list_or_count=authorization_list,
-        )
-
-        tx_above_2 = Transaction(
-            ty=ty,
-            sender=sender,
-            to=to,
-            nonce=0,  # Each tagged state_test is independent, so nonce=0
-            data=calldata_above_2,
-            gas_limit=intrinsic_above_2_total,
-            access_list=access_list,
-            authorization_list=authorization_list,
-        )
-        tx_above_2.expected_receipt = TransactionReceipt(
-            cumulative_gas_used=intrinsic_above_2_total
-        )
-
-        # Run all three tests
-        state_test(
-            pre=pre,
-            post={},
-            tx=tx_below,
-            tag="below_threshold",
+        tx.expected_receipt = TransactionReceipt(
+            cumulative_gas_used=intrinsic_total
         )
 
         state_test(
             pre=pre,
             post={},
-            tx=tx_above,
-            tag="above_threshold",
-        )
-
-        state_test(
-            pre=pre,
-            post={},
-            tx=tx_above_2,
-            tag="above_threshold_plus_2",
+            tx=tx,
         )
 
 
