@@ -111,14 +111,14 @@ class RethExceptionMapper(ExceptionMapper):
         ),
         # BAL Exceptions: TODO - review once all clients completed.
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-           r"block access list hash mismatch"
+            r"block access list hash mismatch"
         ),
         BlockException.INVALID_BAL_HASH: (r"block access list hash mismatch"),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             r"block access list hash mismatch"
         ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
-           r"block access list hash mismatch"
+            r"block access list hash mismatch"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"block access list hash mismatch"
