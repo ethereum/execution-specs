@@ -73,6 +73,7 @@ from .state_tracker import (
     set_account_balance,
     track_address,
 )
+from .stateless_types import ExecutionWitnessBuilder, build_execution_witness
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,
@@ -250,6 +251,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         excess_blob_gas=block.header.excess_blob_gas,
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
+        execution_witness=ExecutionWitnessBuilder(),
     )
 
     block_output = apply_body(
@@ -831,6 +833,10 @@ def apply_body(
 
     block_output.block_access_list = build_block_access_list(
         block_env.block_access_list_builder, block_env.state
+    )
+
+    block_output.execution_witness = build_execution_witness(
+        block_env.execution_witness
     )
 
     return block_output

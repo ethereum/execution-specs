@@ -52,6 +52,7 @@ from execution_testing.forks import Fork, Paris
 from execution_testing.test_types import (
     BlockAccessList,
     Environment,
+    ExecutionWitness,
     Requests,
     Transaction,
     Withdrawal,
@@ -624,6 +625,7 @@ class FixtureBlockBase(CamelModel):
     )
     withdrawals: List[FixtureWithdrawal] | None = None
     receipts: List[FixtureTransactionReceipt] | None = None
+    execution_witness: ExecutionWitness | None = None
     block_access_list: BlockAccessList | None = Field(
         None, description="EIP-7928 Block Access List"
     )

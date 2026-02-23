@@ -270,6 +270,7 @@ class Result:
     block_exception: Optional[str] = None
     block_access_list: Optional[Any] = None
     block_access_list_hash: Optional[Hash32] = None
+    execution_witness: Optional[Any] = None
 
     def get_receipts_from_output(
         self,
@@ -356,6 +357,9 @@ class Result:
                     block_output.block_access_list
                 )
             )
+
+        if hasattr(block_output, "execution_witness"):
+            self.execution_witness = block_output.execution_witness
 
     @staticmethod
     def _block_access_list_to_json(account_changes: Any) -> Any:
@@ -513,5 +517,13 @@ class Result:
             data["blockAccessListHash"] = encode_to_hex(
                 self.block_access_list_hash
             )
+
+        if self.execution_witness is not None:
+            ew = self.execution_witness
+            data["executionWitness"] = {
+                "state": ["0x" + s.hex() for s in ew.state],
+                "codes": ["0x" + c.hex() for c in ew.codes],
+                "headers": ["0x" + h.hex() for h in ew.headers],
+            }
 
         return data
