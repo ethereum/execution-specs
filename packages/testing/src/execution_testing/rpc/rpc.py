@@ -1365,7 +1365,7 @@ class TestingRPC(BaseJWTRPC):
         self,
         parent_block_hash: Hash,
         payload_attributes: PayloadAttributes,
-        transactions: List[str] | None,
+        transactions: Sequence[TransactionProtocol] | None,
         extra_data: Bytes | None = None,
         *,
         version: int = 1,
@@ -1380,8 +1380,11 @@ class TestingRPC(BaseJWTRPC):
         params: List[Any] = [
             str(parent_block_hash),
             to_json(payload_attributes),
-            transactions,
         ]
+        if transactions is not None:
+            params.append([tx.rlp().hex() for tx in transactions])
+        else:
+            params.append(None)
         if extra_data is not None:
             params.append(str(extra_data))
 
