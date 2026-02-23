@@ -318,7 +318,6 @@ class ForkLoad:
         """track_ancestor_access function of the fork."""
         return self._module("state_tracker").track_ancestor_access
 
-
     @property
     def State(self) -> Any:
         """State class of the fork."""

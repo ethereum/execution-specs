@@ -19,7 +19,7 @@ within a single transaction and supports copy-on-write rollback.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
@@ -759,6 +759,7 @@ def track_storage_read(
 
     """
     tx_state.storage_reads.add((address, key))
+
 
 def track_ancestor_access(block_state: BlockState, offset: Uint) -> None:
     """

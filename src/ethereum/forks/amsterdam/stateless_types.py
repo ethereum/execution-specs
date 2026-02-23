@@ -5,14 +5,12 @@ Stateless validation types.
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
-from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import Uint
 
-from ethereum.forks.amsterdam.state_tracker import BlockState
-
 from .blocks import Header
+from .state_tracker import BlockState
 
 
 @slotted_freezable
@@ -53,7 +51,7 @@ class ExecutionWitnessBuilder:
 
 def build_execution_witness(
     builder: ExecutionWitnessBuilder,
-    block_state : BlockState,
+    block_state: BlockState,
     block_headers: List[Bytes],
 ) -> ExecutionWitness:
     """
@@ -62,15 +60,16 @@ def build_execution_witness(
     Sort state and codes lexicographically, headers by block number
     ascending.
     """
-    ancestor_headers = get_witness_ancestors(  
+    ancestor_headers = get_witness_ancestors(
         block_headers,
         block_state.oldest_ancestor_offset,
     )
     return ExecutionWitness(
         state=tuple(sorted(builder.state)),
         codes=tuple(sorted(builder.codes)),
-        headers=ancestor_headers,
+        headers=tuple(ancestor_headers),
     )
+
 
 def get_witness_ancestors(
     block_headers: List[Bytes],
