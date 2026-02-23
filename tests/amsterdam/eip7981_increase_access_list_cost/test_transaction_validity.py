@@ -105,8 +105,9 @@ def test_floor_cost_validation_with_access_list(
     According to EIP-7981:
     - Any transaction with a gas limit below the floor cost is invalid
     - Floor cost = TX_BASE_COST + TOTAL_COST_FLOOR_PER_TOKEN *
-      total_data_tokens
-    - total_data_tokens = tokens_in_calldata + tokens_in_access_list
+      total_floor_data_tokens
+    - total_floor_data_tokens =
+      floor_tokens_in_calldata + floor_tokens_in_access_list
     """
     state_test(
         pre=pre,
@@ -206,9 +207,8 @@ def test_mixed_zero_nonzero_bytes_floor_cost(
     """
     Test floor cost calculation with mixed zero and non-zero bytes.
 
-    This tests the token calculation where:
-    - Zero bytes contribute 1 token each
-    - Non-zero bytes contribute 4 tokens each
+    This ensures floor gas uses floor token counting:
+    - Each data byte contributes 4 floor tokens
     """
     state_test(
         pre=pre,
