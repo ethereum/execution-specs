@@ -27,7 +27,7 @@ Base cost of a transaction in gas units. This is the minimum amount of gas
 required to execute a transaction.
 """
 
-TX_DATA_COST_PER_NON_ZERO = Uint(68)
+GAS_TX_DATA_PER_NON_ZERO = Uint(68)
 """
 Gas cost per non-zero byte in the transaction data.
 """
@@ -150,7 +150,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
         if byte == 0:
             data_cost += GAS_TX_DATA_PER_ZERO
         else:
-            data_cost += TX_DATA_COST_PER_NON_ZERO
+            data_cost += GAS_TX_DATA_PER_NON_ZERO
 
     return GAS_TX_BASE + data_cost
 

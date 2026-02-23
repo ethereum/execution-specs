@@ -40,7 +40,7 @@ class GasCosts:
     GAS_TX_BASE: int
     GAS_TX_CREATE: int
     GAS_TX_DATA_PER_ZERO: int
-    TX_DATA_COST_PER_NON_ZERO: int
+    GAS_TX_DATA_PER_NON_ZERO: int
     GAS_TX_DATA_TOKEN_STANDARD: int
     GAS_TX_DATA_TOKEN_FLOOR: int
 
