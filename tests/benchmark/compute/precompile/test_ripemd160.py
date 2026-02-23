@@ -25,7 +25,7 @@ def test_ripemd160(
         available_gas=gas_available,
         fork=fork,
         static_cost=gas_costs.GAS_PRECOMPILE_RIPEMD160_BASE,
-        per_word_dynamic_cost=gas_costs.GAS_PRECOMPILE_RIPEMD160_WORD,
+        per_word_dynamic_cost=gas_costs.GAS_PRECOMPILE_RIPEMD160_PER_WORD,
         bytes_per_unit_of_work=64,
     )
 

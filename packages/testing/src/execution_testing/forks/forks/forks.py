@@ -175,7 +175,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_PRECOMPILE_SHA256_BASE=60,
             GAS_PRECOMPILE_SHA256_PER_WORD=12,
             GAS_PRECOMPILE_RIPEMD160_BASE=600,
-            GAS_PRECOMPILE_RIPEMD160_WORD=120,
+            GAS_PRECOMPILE_RIPEMD160_PER_WORD=120,
             GAS_PRECOMPILE_IDENTITY_BASE=15,
             GAS_PRECOMPILE_IDENTITY_WORD=3,
             # Zero-initialized: introduced in later forks, set via
