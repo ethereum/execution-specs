@@ -647,12 +647,6 @@ def test_block_at_rlp_size_limit_boundary(
     - At the limit, the block is valid
     - At the limit + 1 byte, the block is invalid
     """
-    env.gas_limit = calibrated_block_gas_limit(
-        fork=fork,
-        block_size_limit=block_size_limit,
-        requested_gas_limit=env.gas_limit,
-    )
-
     transactions, extra_data_len = exact_size_transactions(
         sender,
         block_size_limit,
@@ -695,12 +689,6 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
     typed_transaction: Transaction,
 ) -> None:
     """Test the block RLP size limit with all transaction types."""
-    env.gas_limit = calibrated_block_gas_limit(
-        fork=fork,
-        block_size_limit=block_size_limit,
-        requested_gas_limit=env.gas_limit,
-    )
-
     transactions, extra_data_len = exact_size_transactions(
         sender,
         block_size_limit,
@@ -738,12 +726,6 @@ def test_block_at_rlp_limit_with_logs(
     Test that a block at the RLP size limit is valid even when transactions
     emit logs.
     """
-    env.gas_limit = calibrated_block_gas_limit(
-        fork=fork,
-        block_size_limit=block_size_limit,
-        requested_gas_limit=env.gas_limit,
-    )
-
     transactions, extra_data_len = exact_size_transactions(
         sender,
         block_size_limit,
@@ -781,12 +763,6 @@ def test_block_at_rlp_limit_with_withdrawals(
     Test that a block at the RLP size limit is valid even when the block
     contains withdrawals.
     """
-    env.gas_limit = calibrated_block_gas_limit(
-        fork=fork,
-        block_size_limit=block_size_limit,
-        requested_gas_limit=env.gas_limit,
-    )
-
     withdrawals = [
         Withdrawal(
             index=0,
@@ -854,12 +830,6 @@ def test_fork_transition_block_rlp_limit(
     - At fork (timestamp 15000): Block at limit should be accepted
     - At fork (timestamp 15000): Block at limit +1 should be rejected
     """
-    env.gas_limit = calibrated_block_gas_limit(
-        fork=fork,
-        block_size_limit=block_size_limit,
-        requested_gas_limit=env.gas_limit,
-    )
-
     sender_before_fork = pre.fund_eoa()
     sender_at_fork = pre.fund_eoa()
 
