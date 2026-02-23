@@ -312,9 +312,8 @@ class Env:
         if not t8n.fork.has_track_ancestor_access:
             return
 
-        assert data.get("blockHeaders"), (
-            "blockHeaders is required for track ancestor access"
-        )
+        if not data.get("blockHeaders"):
+            return
         # blockHeaders is a dict mapping hex block number to hex RLP.
         dic_block_headers = data["blockHeaders"]
 
