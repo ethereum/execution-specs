@@ -59,11 +59,11 @@ def test_initcode_size(
         initcode_length=size,
     )
 
-    sender = pre.fund_eoa()
-    create_address = compute_create_address(address=sender, nonce=0)
+    alice = pre.fund_eoa()
+    create_address = compute_create_address(address=alice, nonce=0)
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=None,
         data=initcode,
         gas_limit=fork.transaction_gas_limit_cap(),
@@ -96,7 +96,7 @@ def test_create_opcode_initcode_size(
     )
     initcode_bytes = bytes(initcode)
 
-    sender = pre.fund_eoa()
+    alice = pre.fund_eoa()
 
     create_call = (
         create_opcode(
@@ -123,7 +123,7 @@ def test_create_opcode_initcode_size(
     )
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=factory,
         data=initcode_bytes,
         gas_limit=fork.transaction_gas_limit_cap(),
@@ -164,14 +164,14 @@ def test_initcode_gas_metering_tx(
     initcode = Initcode(
         deploy_code=Op.STOP, initcode_length=fork.max_initcode_size()
     )
-    sender = pre.fund_eoa()
+    alice = pre.fund_eoa()
 
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         calldata=initcode, contract_creation=True
     )
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=None,
         data=initcode,
         gas_limit=intrinsic_gas - gas_shortfall,
@@ -181,7 +181,7 @@ def test_initcode_gas_metering_tx(
     )
 
     post = {
-        compute_create_address(address=sender, nonce=0): Account.NONEXISTENT
+        compute_create_address(address=alice, nonce=0): Account.NONEXISTENT
         if gas_shortfall
         else Account(code=Op.STOP),
     }
@@ -210,9 +210,9 @@ def test_initcode_gas_metering_create_opcodes(
 
     Gas forwarding chain::
 
-        ┌────────┐
-        │ Sender │
-        └───┬────┘
+        ┌───────┐
+        │ Alice │
+        └───┬───┘
             ▼
         ┌────────┐
         │ Caller │ gas: tx_gas_limit_cap
@@ -229,7 +229,7 @@ def test_initcode_gas_metering_create_opcodes(
     initcode = Initcode(
         deploy_code=Op.STOP, initcode_length=fork.max_initcode_size()
     )
-    sender = pre.fund_eoa()
+    alice = pre.fund_eoa()
 
     create_call = (
         create_opcode(
@@ -288,7 +288,7 @@ def test_initcode_gas_metering_create_opcodes(
     )
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=caller,
         data=bytes(initcode),
         gas_limit=fork.transaction_gas_limit_cap(),

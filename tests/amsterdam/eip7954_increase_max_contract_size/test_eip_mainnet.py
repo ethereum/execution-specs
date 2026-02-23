@@ -36,11 +36,11 @@ def test_deploy_max_code_size_mainnet(
     deploy_code = Op.JUMPDEST * fork.max_code_size()
     initcode = Initcode(deploy_code=deploy_code)
 
-    sender = pre.fund_eoa()
-    create_address = compute_create_address(address=sender, nonce=0)
+    alice = pre.fund_eoa()
+    create_address = compute_create_address(address=alice, nonce=0)
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=None,
         data=initcode,
         gas_limit=fork.transaction_gas_limit_cap(),
@@ -60,11 +60,11 @@ def test_deploy_over_max_code_size_mainnet(
     deploy_code = Op.JUMPDEST * (fork.max_code_size() + 1)
     initcode = Initcode(deploy_code=deploy_code)
 
-    sender = pre.fund_eoa()
-    create_address = compute_create_address(address=sender, nonce=0)
+    alice = pre.fund_eoa()
+    create_address = compute_create_address(address=alice, nonce=0)
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=None,
         data=initcode,
         gas_limit=fork.transaction_gas_limit_cap(),
@@ -88,11 +88,11 @@ def test_max_initcode_tx_mainnet(
         initcode_length=fork.max_initcode_size(),
     )
 
-    sender = pre.fund_eoa()
-    create_address = compute_create_address(address=sender, nonce=0)
+    alice = pre.fund_eoa()
+    create_address = compute_create_address(address=alice, nonce=0)
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=None,
         data=initcode,
         gas_limit=fork.transaction_gas_limit_cap(),
@@ -115,11 +115,11 @@ def test_over_max_initcode_tx_mainnet(
         initcode_length=fork.max_initcode_size() + 1,
     )
 
-    sender = pre.fund_eoa()
-    create_address = compute_create_address(address=sender, nonce=0)
+    alice = pre.fund_eoa()
+    create_address = compute_create_address(address=alice, nonce=0)
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=None,
         data=initcode,
         gas_limit=fork.transaction_gas_limit_cap(),
@@ -167,11 +167,11 @@ def test_opcodes_on_max_size_contract_mainnet(
     target_code = Op.JUMPDEST * fork.max_code_size()
     target = pre.deploy_contract(code=target_code)
 
-    sender = pre.fund_eoa()
+    alice = pre.fund_eoa()
     oracle = pre.deploy_contract(code=operation(target))
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=oracle,
         gas_limit=fork.transaction_gas_limit_cap(),
     )

@@ -45,12 +45,12 @@ def test_deploy_size(
     code_size = deploy_code_size(fork)
     deploy_code = Op.JUMPDEST * code_size
 
-    sender = pre.fund_eoa()
+    alice = pre.fund_eoa()
     initcode = Initcode(deploy_code=deploy_code)
-    create_address = compute_create_address(address=sender, nonce=0)
+    create_address = compute_create_address(address=alice, nonce=0)
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=None,
         data=initcode,
         gas_limit=fork.transaction_gas_limit_cap(),
@@ -80,7 +80,7 @@ def test_create_opcode_deploy_size(
     initcode = Initcode(deploy_code=deploy_code)
     initcode_bytes = bytes(initcode)
 
-    sender = pre.fund_eoa()
+    alice = pre.fund_eoa()
 
     create_call = (
         create_opcode(
@@ -107,7 +107,7 @@ def test_create_opcode_deploy_size(
     )
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=factory,
         data=initcode_bytes,
         gas_limit=fork.transaction_gas_limit_cap(),
@@ -139,8 +139,8 @@ def test_deploy_gas_usage(
     deploy_code = Op.JUMPDEST * fork.max_code_size()
     initcode = Initcode(deploy_code=deploy_code)
 
-    sender = pre.fund_eoa()
-    create_address = compute_create_address(address=sender, nonce=0)
+    alice = pre.fund_eoa()
+    create_address = compute_create_address(address=alice, nonce=0)
 
     # Use return_cost_deducted_prior_execution to get the actual gas consumed
     # before EVM execution (excludes EIP-7623 floor data cost which would
@@ -166,7 +166,7 @@ def test_deploy_gas_usage(
     )
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=None,
         data=initcode,
         gas_limit=(
@@ -244,7 +244,7 @@ def test_opcodes(
     opcodes operate on the large contract's own code while writing
     results to the caller's storage.
     """
-    sender = pre.fund_eoa()
+    alice = pre.fund_eoa()
 
     if delegate:
         logic = operation(None) + Op.STOP
@@ -259,7 +259,7 @@ def test_opcodes(
         oracle = pre.deploy_contract(code=operation(target))
 
     tx = Transaction(
-        sender=sender,
+        sender=alice,
         to=oracle,
         gas_limit=fork.transaction_gas_limit_cap(),
     )

@@ -43,18 +43,18 @@ def test_deploy_size_fork_transition(
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
 
-    sender_pre = pre.fund_eoa()
-    sender_post = pre.fund_eoa()
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
 
-    create_address_pre = compute_create_address(address=sender_pre, nonce=0)
-    create_address_post = compute_create_address(address=sender_post, nonce=0)
+    create_address_pre = compute_create_address(address=alice, nonce=0)
+    create_address_post = compute_create_address(address=bob, nonce=0)
 
     blocks = [
         Block(
             timestamp=14_999,
             txs=[
                 Transaction(
-                    sender=sender_pre,
+                    sender=alice,
                     to=None,
                     data=initcode,
                     gas_limit=fork.transaction_gas_limit_cap(),
@@ -65,7 +65,7 @@ def test_deploy_size_fork_transition(
             timestamp=15_000,
             txs=[
                 Transaction(
-                    sender=sender_post,
+                    sender=bob,
                     to=None,
                     data=initcode,
                     gas_limit=fork.transaction_gas_limit_cap(),
@@ -95,8 +95,8 @@ def test_create_opcode_deploy_size_fork_transition(
     initcode = Initcode(deploy_code=deploy_code)
     initcode_bytes = bytes(initcode)
 
-    sender_pre = pre.fund_eoa()
-    sender_post = pre.fund_eoa()
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
 
     create_call = (
         create_opcode(
@@ -135,7 +135,7 @@ def test_create_opcode_deploy_size_fork_transition(
             timestamp=14_999,
             txs=[
                 Transaction(
-                    sender=sender_pre,
+                    sender=alice,
                     to=factory_pre,
                     data=initcode_bytes,
                     gas_limit=fork.transaction_gas_limit_cap(),
@@ -146,7 +146,7 @@ def test_create_opcode_deploy_size_fork_transition(
             timestamp=15_000,
             txs=[
                 Transaction(
-                    sender=sender_post,
+                    sender=bob,
                     to=factory_post,
                     data=initcode_bytes,
                     gas_limit=fork.transaction_gas_limit_cap(),
@@ -175,10 +175,10 @@ def test_initcode_size_fork_transition(
         initcode_length=fork.max_initcode_size(),
     )
 
-    sender_pre = pre.fund_eoa()
-    sender_post = pre.fund_eoa()
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
 
-    create_address_post = compute_create_address(address=sender_post, nonce=0)
+    create_address_post = compute_create_address(address=bob, nonce=0)
 
     initcode_too_large = TransactionException.INITCODE_SIZE_EXCEEDED
 
@@ -189,7 +189,7 @@ def test_initcode_size_fork_transition(
             timestamp=14_999,
             txs=[
                 Transaction(
-                    sender=sender_pre,
+                    sender=alice,
                     to=None,
                     data=initcode,
                     gas_limit=fork.transaction_gas_limit_cap(),
@@ -203,7 +203,7 @@ def test_initcode_size_fork_transition(
             timestamp=15_000,
             txs=[
                 Transaction(
-                    sender=sender_post,
+                    sender=bob,
                     to=None,
                     data=initcode,
                     gas_limit=fork.transaction_gas_limit_cap(),
@@ -233,8 +233,8 @@ def test_create_opcode_initcode_size_fork_transition(
     )
     initcode_bytes = bytes(initcode)
 
-    sender_pre = pre.fund_eoa()
-    sender_post = pre.fund_eoa()
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
 
     create_call = (
         create_opcode(
@@ -273,7 +273,7 @@ def test_create_opcode_initcode_size_fork_transition(
             timestamp=14_999,
             txs=[
                 Transaction(
-                    sender=sender_pre,
+                    sender=alice,
                     to=factory_pre,
                     data=initcode_bytes,
                     gas_limit=fork.transaction_gas_limit_cap(),
@@ -284,7 +284,7 @@ def test_create_opcode_initcode_size_fork_transition(
             timestamp=15_000,
             txs=[
                 Transaction(
-                    sender=sender_post,
+                    sender=bob,
                     to=factory_post,
                     data=initcode_bytes,
                     gas_limit=fork.transaction_gas_limit_cap(),
@@ -315,18 +315,18 @@ def test_deploy_at_parent_max_across_fork(
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
 
-    sender_pre = pre.fund_eoa()
-    sender_post = pre.fund_eoa()
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
 
-    create_address_pre = compute_create_address(address=sender_pre, nonce=0)
-    create_address_post = compute_create_address(address=sender_post, nonce=0)
+    create_address_pre = compute_create_address(address=alice, nonce=0)
+    create_address_post = compute_create_address(address=bob, nonce=0)
 
     blocks = [
         Block(
             timestamp=14_999,
             txs=[
                 Transaction(
-                    sender=sender_pre,
+                    sender=alice,
                     to=None,
                     data=initcode,
                     gas_limit=fork.transaction_gas_limit_cap(),
@@ -337,7 +337,7 @@ def test_deploy_at_parent_max_across_fork(
             timestamp=15_000,
             txs=[
                 Transaction(
-                    sender=sender_post,
+                    sender=bob,
                     to=None,
                     data=initcode,
                     gas_limit=fork.transaction_gas_limit_cap(),
