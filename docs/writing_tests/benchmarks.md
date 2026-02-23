@@ -87,6 +87,18 @@ This mode is designed for gas limit testing, and gas repricing, where it enables
 
 The subdirectory name follows the pattern `for_{fork}_at_{gas}M` (see [Fixture Output Directory Structure](../running_tests/releases.md#fixture-output-directory-structure) for details). Non-benchmark (consensus) fixtures use `for_{fork}` without the gas limit suffix.
 
+**Output layout with fixed opcode counts:** When `--fixed-opcode-count` is provided, the subdirectory name uses the opcode count instead of the gas limit (`for_{fork}_at_opcount_{N}K`):
+
+```text
+<output>/
+  blockchain_tests/
+    for_osaka_at_opcount_10K/...
+    for_osaka_at_opcount_20K/...
+  blockchain_tests_engine/
+    for_osaka_at_opcount_10K/...
+    for_osaka_at_opcount_20K/...
+```
+
 ## Developing Benchmarks
 
 Before writing benchmark-specific tests, please refer to the [general documentation](./writing_a_new_test.md) for the fundamentals of writing tests in the EELS framework.
