@@ -3,11 +3,14 @@ Stateless validation types.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
+from ethereum_types.numeric import Uint
+
+from ethereum.forks.amsterdam.state_tracker import BlockState
 
 from .blocks import Header
 
@@ -50,6 +53,8 @@ class ExecutionWitnessBuilder:
 
 def build_execution_witness(
     builder: ExecutionWitnessBuilder,
+    block_state : BlockState,
+    block_headers: List[Bytes],
 ) -> ExecutionWitness:
     """
     Build the execution witness from the accumulated builder data.
@@ -57,11 +62,33 @@ def build_execution_witness(
     Sort state and codes lexicographically, headers by block number
     ascending.
     """
+    ancestor_headers = get_witness_ancestors(  
+        block_headers,
+        block_state.oldest_ancestor_offset,
+    )
     return ExecutionWitness(
         state=tuple(sorted(builder.state)),
         codes=tuple(sorted(builder.codes)),
-        headers=tuple(
-            rlp.encode(h)
-            for h in sorted(builder.headers, key=lambda h: h.number)
-        ),
+        headers=ancestor_headers,
     )
+
+def get_witness_ancestors(
+    block_headers: List[Bytes],
+    oldest_ancestor_offset: Optional[Uint],
+) -> List[Bytes]:
+    """
+    Collect RLP-encoded ancestor headers from ``oldest_ancestor_offset``
+    blocks back onward.
+
+    Parameters
+    ----------
+    block_headers :
+        RLP-encoded headers.
+    oldest_ancestor_offset :
+        Offset from the current block to the oldest ancestor accessed
+        during execution, or ``None`` if no ancestor was accessed.
+
+    """
+    if oldest_ancestor_offset is None:
+        return []
+    return list(block_headers[-int(oldest_ancestor_offset) :])

@@ -469,12 +469,9 @@ class T8N(Load):
 
         if self.fork.has_execution_witness:
             block_output.execution_witness = self.fork.build_execution_witness(
-                block_env.execution_witness
-            )
-        if self.fork.has_track_ancestor_access:
-            ancestor_headers = self.fork.get_witness_ancestors(  # noqa: F841
+                block_env.execution_witness,
+                block_env.state,
                 block_env.block_headers,
-                block_env.state.oldest_ancestor_offset,
             )
 
     def run_blockchain_test(self) -> None:

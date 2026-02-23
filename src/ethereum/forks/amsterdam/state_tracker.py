@@ -760,29 +760,6 @@ def track_storage_read(
     """
     tx_state.storage_reads.add((address, key))
 
-
-def get_witness_ancestors(
-    block_headers: List[Bytes],
-    oldest_ancestor_offset: Optional[Uint],
-) -> List[Bytes]:
-    """
-    Collect RLP-encoded ancestor headers from ``oldest_ancestor_offset``
-    blocks back onward.
-
-    Parameters
-    ----------
-    block_headers :
-        RLP-encoded headers.
-    oldest_ancestor_offset :
-        Offset from the current block to the oldest ancestor accessed
-        during execution, or ``None`` if no ancestor was accessed.
-
-    """
-    if oldest_ancestor_offset is None:
-        return []
-    return list(block_headers[-int(oldest_ancestor_offset) :])
-
-
 def track_ancestor_access(block_state: BlockState, offset: Uint) -> None:
     """
     Record that an ancestor block was accessed.
