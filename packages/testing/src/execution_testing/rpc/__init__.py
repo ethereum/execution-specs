@@ -13,6 +13,7 @@ from .rpc import (
     NetRPC,
     PeerConnectionTimeoutError,
     SendTransactionExceptionError,
+    TestingRPC,
 )
 from .rpc_types import (
     BlobAndProofV1,
@@ -45,5 +46,6 @@ __all__ = [
     "RPCCall",
     "PeerConnectionTimeoutError",
     "SendTransactionExceptionError",
+    "TestingRPC",
     "TransactionProtocol",
 ]
