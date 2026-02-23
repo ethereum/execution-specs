@@ -88,4 +88,4 @@ class GasCosts:
 
     # Refund constants
     REFUND_STORAGE_CLEAR: int
-    REFUND_PER_AUTH_BASE_COST: int
+    REFUND_AUTH_PER_EXISTING_ACCOUNT: int

@@ -2906,7 +2906,8 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
         authorization_list_or_count=[auth],
     )
     discount = min(
-        Spec.GAS_AUTH_PER_EMPTY_ACCOUNT - Spec.REFUND_PER_AUTH_BASE_COST,
+        Spec.GAS_AUTH_PER_EMPTY_ACCOUNT
+        - Spec.REFUND_AUTH_PER_EXISTING_ACCOUNT,
         intrinsic_gas // 5,  # max discount EIP-3529
     )
 

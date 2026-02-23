@@ -876,7 +876,7 @@ def test_gas_cost(
                 seen_authority.add(authority)
 
     discount_gas = (
-        Spec.GAS_AUTH_PER_EMPTY_ACCOUNT - Spec.REFUND_PER_AUTH_BASE_COST
+        Spec.GAS_AUTH_PER_EMPTY_ACCOUNT - Spec.REFUND_AUTH_PER_EXISTING_ACCOUNT
     ) * discounted_authorizations
 
     # We calculate the exact gas required to execute the test code. We add

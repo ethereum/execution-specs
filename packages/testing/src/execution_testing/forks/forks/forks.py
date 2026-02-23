@@ -183,7 +183,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_TX_DATA_TOKEN_STANDARD=0,
             GAS_TX_DATA_TOKEN_FLOOR=0,
             GAS_AUTH_PER_EMPTY_ACCOUNT=0,
-            REFUND_PER_AUTH_BASE_COST=0,
+            REFUND_AUTH_PER_EXISTING_ACCOUNT=0,
             GAS_PRECOMPILE_ECADD=0,
             GAS_PRECOMPILE_ECMUL=0,
             GAS_PRECOMPILE_ECPAIRING_BASE=0,
@@ -2763,7 +2763,7 @@ class Prague(Cancun):
             GAS_TX_DATA_TOKEN_STANDARD=4,  # https://eips.ethereum.org/EIPS/eip-7623
             GAS_TX_DATA_TOKEN_FLOOR=10,
             GAS_AUTH_PER_EMPTY_ACCOUNT=25_000,
-            REFUND_PER_AUTH_BASE_COST=12_500,
+            REFUND_AUTH_PER_EXISTING_ACCOUNT=12_500,
             GAS_PRECOMPILE_BLS_G1ADD=375,
             GAS_PRECOMPILE_BLS_G1MUL=12_000,
             GAS_PRECOMPILE_BLS_G1MAP=5_500,
