@@ -346,7 +346,6 @@ def test_tx_gas_limit_cap_full_calldata(
     state_test: StateTestFiller,
     pre: Alloc,
     zero_byte: bool,
-    total_cost_floor_per_token: int,
     exceed_tx_gas_limit: bool,
     correct_intrinsic_cost_in_transaction_gas_limit: bool,
     fork: Fork,
@@ -357,26 +356,14 @@ def test_tx_gas_limit_cap_full_calldata(
     assert tx_gas_limit_cap is not None, (
         "Fork does not have a transaction gas limit cap"
     )
-    gas_available = tx_gas_limit_cap - intrinsic_cost()
-
-    max_tokens_in_calldata = gas_available // total_cost_floor_per_token
-    num_of_bytes = (
-        max_tokens_in_calldata if zero_byte else max_tokens_in_calldata // 4
-    )
-
-    num_of_bytes += int(exceed_tx_gas_limit)
-
-    # Gas cost calculation based on EIP-7623:
-    # (https://eips.ethereum.org/EIPS/eip-7623)
-    #
-    # Simplified in this test case:
-    # - No execution gas used (no opcodes are executed)
-    # - Not a contract creation (no initcode)
-    #
-    # Token accounting:
-    #   tokens_in_calldata = zero_bytes + 4 * non_zero_bytes
-
     byte_data = b"\x00" if zero_byte else b"\xff"
+    max_num_of_bytes = max_count_with_intrinsic_cost_at_most(
+        lambda calldata_size: intrinsic_cost(
+            calldata=byte_data * calldata_size
+        ),
+        tx_gas_limit_cap,
+    )
+    num_of_bytes = max_num_of_bytes + int(exceed_tx_gas_limit)
 
     correct_intrinsic_cost = intrinsic_cost(calldata=byte_data * num_of_bytes)
     if exceed_tx_gas_limit:
