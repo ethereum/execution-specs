@@ -1103,7 +1103,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         unsupported_forks: Set[Fork] = metafunc.config.unsupported_forks  # type: ignore
         pytest_params = []
         for fork in sorted(intersection_set):
-            marks: List[pytest.MarkDecorator] = [
+            marks: List[pytest.MarkDecorator | pytest.Mark] = [
                 pytest.mark.fixture_subfolder(
                     level=0,
                     prefix=f"for_{fork.name().lower()}",
