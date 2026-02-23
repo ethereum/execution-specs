@@ -49,7 +49,7 @@ GAS_TX_ACCESS_LIST_ADDRESS = Uint(2400)
 Gas cost for including an address in the access list of a transaction.
 """
 
-TX_ACCESS_LIST_STORAGE_KEY_COST = Uint(1900)
+GAS_TX_ACCESS_LIST_STORAGE_KEY = Uint(1900)
 """
 Gas cost for including a storage key in the access list of a transaction.
 """
@@ -408,7 +408,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
         for access in tx.access_list:
             access_list_cost += GAS_TX_ACCESS_LIST_ADDRESS
             access_list_cost += (
-                ulen(access.slots) * TX_ACCESS_LIST_STORAGE_KEY_COST
+                ulen(access.slots) * GAS_TX_ACCESS_LIST_STORAGE_KEY
             )
 
     return TX_BASE_COST + data_cost + create_cost + access_list_cost

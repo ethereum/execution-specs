@@ -143,7 +143,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_WARM_ACCOUNT_ACCESS=100,
             GAS_COLD_ACCOUNT_ACCESS=2_600,
             GAS_TX_ACCESS_LIST_ADDRESS=2_400,
-            TX_ACCESS_LIST_STORAGE_KEY_COST=1_900,
+            GAS_TX_ACCESS_LIST_STORAGE_KEY=1_900,
             GAS_WARM_SLOAD=100,
             GAS_COLD_SLOAD=2_100,
             GAS_STORAGE_SET=20_000,
@@ -1927,7 +1927,7 @@ class Berlin(Istanbul):
                     intrinsic_cost += gas_costs.GAS_TX_ACCESS_LIST_ADDRESS
                     for _ in access.storage_keys:
                         intrinsic_cost += (
-                            gas_costs.TX_ACCESS_LIST_STORAGE_KEY_COST
+                            gas_costs.GAS_TX_ACCESS_LIST_STORAGE_KEY
                         )
             return intrinsic_cost
 
