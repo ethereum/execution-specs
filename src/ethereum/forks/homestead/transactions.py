@@ -32,7 +32,7 @@ TX_DATA_COST_PER_NON_ZERO = Uint(68)
 Gas cost per non-zero byte in the transaction data.
 """
 
-TX_DATA_COST_PER_ZERO = Uint(4)
+GAS_TX_DATA_PER_ZERO = Uint(4)
 """
 Gas cost per zero byte in the transaction data.
 """
@@ -154,7 +154,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     for byte in tx.data:
         if byte == 0:
-            data_cost += TX_DATA_COST_PER_ZERO
+            data_cost += GAS_TX_DATA_PER_ZERO
         else:
             data_cost += TX_DATA_COST_PER_NON_ZERO
 
