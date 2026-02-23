@@ -74,13 +74,6 @@ class FixtureOutput(BaseModel):
         engine_x_dir = BlockchainEngineXFixture.output_base_dir_name()
         return self.directory / engine_x_dir / "pre_alloc"
 
-    @property
-    def should_auto_enable_all_formats(self) -> bool:
-        """
-        Check if all formats should be auto-enabled due to tarball output.
-        """
-        return self.is_tarball
-
     @staticmethod
     def strip_tarball_suffix(path: Path) -> Path:
         """Strip the '.tar.gz' suffix from the output path."""
@@ -330,15 +323,6 @@ def format_gas_limit_prefix(
     return f"{gas_value_millions:0{width}d}M"
 
 
-def format_gas_limit_subdir(
-    gas_benchmark_value: int, gas_values_millions: list[int]
-) -> str:
-    """Return a stable, sortable gas-limit subdirectory name."""
-    return format_gas_limit_prefix(
-        gas_benchmark_value // 1_000_000, gas_values_millions
-    )
-
-
 def format_fork_subdir(
     fork_name: str,
     gas_limit_subdir: str | None = None,
@@ -356,7 +340,7 @@ def format_fork_subdir(
 
 
 def resolve_fixture_subfolder(
-    markers: list,
+    markers: list[pytest.Mark],
 ) -> Path | None:
     """
     Build the output subdirectory from ``fixture_subfolder`` markers.

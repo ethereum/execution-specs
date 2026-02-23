@@ -266,6 +266,8 @@ class FixtureCollector:
         ):
             parts = fixture_basename.parts
             if parts and parts[0] == "benchmark":
+                # Strip the "benchmark/" prefix from the fixture path so
+                # files land directly under the gas-limit subdirectory.
                 fixture_basename = Path(*parts[1:])
 
         format_output_dir = self.output_dir / fixture.output_base_dir_name()

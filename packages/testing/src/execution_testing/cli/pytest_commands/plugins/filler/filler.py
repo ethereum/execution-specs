@@ -76,7 +76,6 @@ from execution_testing.tools.utility.versioning import (
 
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
 from ..shared.fixture_output import (
-    FORK_SUBDIR_PREFIX,
     FixtureOutput,
     resolve_fixture_subfolder,
 )
@@ -2017,9 +2016,6 @@ def _verify_fixtures_post_merge(
             continue
 
         top_dir = relative_path.parts[0]
-        is_fork_subdir = top_dir.startswith(FORK_SUBDIR_PREFIX)
-        if is_fork_subdir and len(relative_path.parts) > 1:
-            top_dir = relative_path.parts[1]
         fixture_format = dir_to_format.get(top_dir)
         if fixture_format is None:
             continue
