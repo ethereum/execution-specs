@@ -1056,6 +1056,16 @@ class ValidForBPOForks(
         return resulting_set
 
 
+def fork_markers(*, fork: Fork) -> List[pytest.MarkDecorator | pytest.Mark]:
+    """Return the marks that have to be added to a test given the fork."""
+    return [
+        pytest.mark.fixture_subfolder(
+            level=0,
+            prefix=f"for_{fork.name().lower()}",
+        ),
+    ]
+
+
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """Pytest hook used to dynamically generate test cases."""
     test_name = metafunc.function.__name__
@@ -1103,12 +1113,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         unsupported_forks: Set[Fork] = metafunc.config.unsupported_forks  # type: ignore
         pytest_params = []
         for fork in sorted(intersection_set):
-            marks: List[pytest.MarkDecorator | pytest.Mark] = [
-                pytest.mark.fixture_subfolder(
-                    level=0,
-                    prefix=f"for_{fork.name().lower()}",
-                ),
-            ]
+            marks: List[pytest.MarkDecorator | pytest.Mark] = fork_markers(
+                fork=fork,
+            )
             if fork in unsupported_forks:
                 marks.append(
                     pytest.mark.skip(
