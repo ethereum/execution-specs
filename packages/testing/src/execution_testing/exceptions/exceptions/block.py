@@ -186,3 +186,7 @@ class BlockException(ExceptionBase):
     """
     Block BAL is missing an account change that is present in the computed BAL.
     """
+    BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED = auto()
+    """
+    Block access list exceeds the gas limit constraint (EIP-7928).
+    """

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Final
 
 from ethereum_types.numeric import Uint
 
-from ethereum.exceptions import InvalidTransaction
+from ethereum.exceptions import InvalidBlock, InvalidTransaction
 
 if TYPE_CHECKING:
     from .transactions import Transaction
@@ -131,7 +131,7 @@ class TransactionGasLimitExceededError(InvalidTransaction):
     """
 
 
-class BlockAccessListGasLimitExceededError(Exception):
+class BlockAccessListGasLimitExceededError(InvalidBlock):
     """
     The block access list exceeds the gas limit constraint.
 

@@ -22,6 +22,7 @@ from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
 from ethereum.forks.amsterdam.block_access_lists import (
     BlockAccessIndex,
     BlockAccessListBuilder,
+    validate_block_access_list_gas_limit,
 )
 from ethereum_spec_tools.forks import Hardfork, TemporaryHardfork
 
@@ -463,6 +464,12 @@ class T8N(Load):
         if self.fork.has_hash_block_access_list:
             block_output.block_access_list = self.fork.build_block_access_list(
                 block_env.block_access_list_builder, block_env.state
+            )
+
+            # Validate block access list gas limit constraint (EIP-7928)
+            validate_block_access_list_gas_limit(
+                block_access_list=block_output.block_access_list,
+                block_gas_limit=block_env.block_gas_limit,
             )
 
     def run_blockchain_test(self) -> None:
