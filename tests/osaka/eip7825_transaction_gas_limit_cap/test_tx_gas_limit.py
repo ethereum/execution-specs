@@ -685,10 +685,8 @@ def test_tx_gas_limit_cap_authorized_tx(
 
     auth_address = pre.deploy_contract(code=Op.STOP)
 
+    access_list = make_access_list(auth_list_length)
     auth_signers = [pre.fund_eoa() for _ in range(auth_list_length)]
-    access_list = [
-        AccessList(address=addr, storage_keys=[]) for addr in auth_signers
-    ]
 
     auth_tuples = [
         AuthorizationTuple(
