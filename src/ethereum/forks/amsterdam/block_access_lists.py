@@ -760,10 +760,10 @@ def validate_block_access_list_gas_limit(
     """
     from .vm.gas import GAS_WARM_ACCESS
 
-    count_bal_items = Uint(0)
+    bal_items = Uint(0)
     for account in block_access_list:
         # Count each address as one item
-        count_bal_items += Uint(1)
+        bal_items += Uint(1)
 
         # Collect unique storage keys across both
         # reads and writes
@@ -774,7 +774,7 @@ def validate_block_access_list_gas_limit(
             unique_slots.add(slot)
 
         # Count each unique storage key as one item
-        count_bal_items += Uint(len(unique_slots))
+        bal_items += Uint(len(unique_slots))
 
     item_cost = GAS_WARM_ACCESS + TX_ACCESS_LIST_STORAGE_KEY_COST
 
