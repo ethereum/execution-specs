@@ -560,6 +560,9 @@ def _build_from_builder(
        - Storage slots (lexicographically)
        - Transaction indices (numerically) for each change type
 
+    Addresses, storage slots, and block access indices are unique.
+    Storage reads that also appear in storage changes are excluded.
+
     [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
     """  # noqa: E501
     block_access_list: BlockAccessList = []
