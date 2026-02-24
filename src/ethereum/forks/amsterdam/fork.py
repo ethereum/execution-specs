@@ -253,7 +253,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
         execution_witness=ExecutionWitnessBuilder(
-            blockchain_headers=[rlp.encode(blk.header) for blk in chain.blocks]
+            pre_state_accounts_data=chain.state._main_trie,
+            pre_state_storages_data=chain.state._storage_tries,
+            blockchain_headers=[
+                rlp.encode(blk.header) for blk in chain.blocks
+            ],
         ),
     )
 
@@ -267,6 +271,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     )
     block_state_root, _ = chain.state.compute_state_root_and_trie_changes(
         account_changes, storage_changes
+    )
+    block_output.execution_witness = build_execution_witness(
+        block_env.execution_witness,
+        block_env.state,
+        expected_post_state_root=block_state_root,
     )
     apply_changes_to_state(
         chain.state, account_changes, storage_changes, code_changes
@@ -827,10 +836,6 @@ def apply_body(
 
     block_output.block_access_list = build_block_access_list(
         block_env.block_access_list_builder, block_env.state
-    )
-
-    block_output.execution_witness = build_execution_witness(
-        block_env.execution_witness, block_env.state
     )
 
     return block_output
