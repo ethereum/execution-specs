@@ -66,7 +66,7 @@ REFERENCE_SPEC_VERSION = "1.0"
 )
 @pytest.mark.parametrize(
     "second_opcode",
-    ["EXTCODESIZE", "EXTCODECOPY", "EXTCODEHASH", "STATICCALL", "CALL"],
+    [Op.EXTCODESIZE, Op.EXTCODECOPY, Op.EXTCODEHASH, Op.STATICCALL, Op.CALL],
 )
 @pytest.mark.parametrize(
     "balance_first",
@@ -80,7 +80,7 @@ def test_bloatnet_balance_opcode(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     balance_first: bool,
-    second_opcode: str,
+    second_opcode: Op,
     factory_stub: str,
 ) -> None:
     """
@@ -124,9 +124,9 @@ def test_bloatnet_balance_opcode(
     # Build the second opcode's bytecode
     balance_op = Op.POP(Op.BALANCE)
 
-    if second_opcode == "EXTCODESIZE":
+    if second_opcode == Op.EXTCODESIZE:
         other_op = Op.POP(Op.EXTCODESIZE)
-    elif second_opcode == "EXTCODECOPY":
+    elif second_opcode == Op.EXTCODECOPY:
         max_contract_size = fork.max_code_size()
         other_op = Op.POP(
             Op.EXTCODECOPY(
@@ -137,9 +137,9 @@ def test_bloatnet_balance_opcode(
                 data_size=1,
             )
         )
-    elif second_opcode == "EXTCODEHASH":
+    elif second_opcode == Op.EXTCODEHASH:
         other_op = Op.POP(Op.EXTCODEHASH)
-    elif second_opcode == "STATICCALL":
+    elif second_opcode == Op.STATICCALL:
         # gas=1: forces account/code loading, then fails
         other_op = Op.POP(
             Op.STATICCALL(
@@ -151,7 +151,7 @@ def test_bloatnet_balance_opcode(
                 ret_size=0,
             )
         )
-    elif second_opcode == "CALL":
+    elif second_opcode == Op.CALL:
         # gas=1: forces account/code loading, then fails
         other_op = Op.POP(
             Op.CALL(

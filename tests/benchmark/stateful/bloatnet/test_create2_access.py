@@ -60,7 +60,7 @@ REFERENCE_SPEC_VERSION = "1.0"
 )
 @pytest.mark.parametrize(
     "access_opcode",
-    ["EXTCODEHASH", "BALANCE", "EXTCODECOPY"],
+    [Op.EXTCODEHASH, Op.BALANCE, Op.EXTCODECOPY],
 )
 def test_create2_immediate_access(
     benchmark_test: BenchmarkTestFiller,
@@ -69,7 +69,7 @@ def test_create2_immediate_access(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     code_size: int,
-    access_opcode: str,
+    access_opcode: Op,
 ) -> None:
     """
     Benchmark CREATE2 followed by immediate opcode access.
@@ -131,11 +131,11 @@ def test_create2_immediate_access(
     )
 
     # Access the just-deployed contract
-    if access_opcode == "EXTCODEHASH":
+    if access_opcode == Op.EXTCODEHASH:
         access_op = Op.POP(Op.EXTCODEHASH(create2_op, address_warm=True))
-    elif access_opcode == "BALANCE":
+    elif access_opcode == Op.BALANCE:
         access_op = Op.POP(Op.BALANCE(create2_op, address_warm=True))
-    elif access_opcode == "EXTCODECOPY":
+    elif access_opcode == Op.EXTCODECOPY:
         # Copy 1 byte from end of deployed code
         access_op = Op.EXTCODECOPY(
             address=create2_op,
