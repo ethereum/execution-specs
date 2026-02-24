@@ -39,10 +39,10 @@ def test_burn_log_at_fork_transition(
     to_self: bool,
 ) -> None:
     """
-    Test selfdestruct log emission across the Amsterdam fork transition.
+    Test burn log emission across the Amsterdam fork transition.
 
     same_tx_to_self: Factory CREATEs and selfdestructs to self in one tx.
-    At/after Amsterdam emits a CREATE transfer log + Selfdestruct log.
+    At/after Amsterdam emits a CREATE transfer log + Burn log.
 
     pre_existing_to_self: Pre-existing contract selfdestructs to self.
     No logs at any fork — SELFDESTRUCT to same account emits nothing.

@@ -47,7 +47,7 @@ def test_selfdestruct_to_self_pre_existing_no_log(
     """
     Test that selfdestruct-to-self emits NO log for pre-existing contracts.
 
-    Selfdestruct log only emitted when created and destroyed in same tx.
+    Burn log only emitted when created and destroyed in same tx.
     """
     contract_balance = 2000
 
@@ -90,7 +90,7 @@ def test_selfdestruct_to_self_same_tx(
     """
     Test selfdestruct-to-self for same-tx created contracts.
 
-    - With balance, SELFDESTRUCT log emitted (burns ETH).
+    - With balance, Burn log emitted (burns ETH).
     - No balance, no logs expected.
     """
     initcode = Op.SELFDESTRUCT(Op.ADDRESS)
@@ -356,10 +356,10 @@ def test_finalization_burn_logs(
     to_self: bool,
 ) -> None:
     """
-    Test Selfdestruct logs at finalization for post-selfdestruct balance.
+    Test Burn logs at finalization for post-selfdestruct balance.
 
     X contracts (x1, x2, x3) selfdestruct, then receive ETH via payer contracts
-    (p1, p2, p3). At finalization, X contracts emit SELFDESTRUCT logs for their
+    (p1, p2, p3). At finalization, X contracts emit Burn logs for their
     in lexicographical address order (only if they received ETH).
 
     When to_self=True, X contracts SELFDESTRUCT to themselves (burning ETH
@@ -446,7 +446,7 @@ def test_finalization_burn_logs(
     ]
 
     if to_self:
-        # SELFDESTRUCT to self burns ETH → LOG2 Selfdestruct
+        # SELFDESTRUCT to self burns ETH → LOG2 Burn
         execution_logs.extend(
             [
                 burn_log(x1, 1000),
@@ -632,7 +632,7 @@ def test_selfdestruct_finalization_after_priority_fee(
             transfer_log(payer, created_address, funding_amount)
         )
 
-    # finalization selfdestruct log
+    # finalization burn log
     expected_logs.append(burn_log(created_address, finalization_balance))
 
     tx = Transaction(
