@@ -150,31 +150,26 @@ def test_endofcode_behavior(
     Test DUPN when the immediate byte is beyond the end of code.
 
     Per EIP-8024, code[pc + 1] evaluates to 0 if beyond the end of the code,
-    matching PUSH behavior. With immediate = 0, decode_single(0) = 17, so
-    DUPN duplicates the 17th stack item.
+    matching PUSH behavior. With immediate = 0, decode_single(0) = 145, so
+    DUPN duplicates the 145th stack item.
 
     This test verifies the transaction succeeds (doesn't revert) when DUPN
     is the last byte of the code with no immediate byte following it.
     """
     sender = pre.fund_eoa()
 
-    # decode_single(0) = 17, which duplicates the 17th item from top
-    # We need 17 items on the stack for this to succeed
-    stack_height = 17
+    # decode_single(0) = 145, which duplicates the 145th item from top
+    # We need 145 items on the stack for this to succeed
+    stack_height = 145
     marker_value = 0x42
-    # The value at position 17 (first pushed) will be duplicated
-    dup_target_value = 0xBEEF
 
     # Build code: store marker, push enough items, then DUPN (no immediate)
     code = Bytecode()
     code += Op.SSTORE(0, marker_value)  # Store marker
 
-    # Push 17 items to stack so DUPN with implicit imm=0 succeeds
+    # Push 145 items to stack so DUPN with implicit imm=0 succeeds
     for i in range(stack_height):
-        if i == 0:
-            code += Op.PUSH2(dup_target_value)  # This will be at position 17
-        else:
-            code += Op.PUSH1(i)
+        code += Op.PUSH1(i % 256)
 
     # Add just the DUPN opcode without immediate byte
     # After DUPN, pc += 2 goes beyond code, causing implicit STOP
@@ -312,9 +307,9 @@ def test_dupn_with_dup1_sequence(
     """
     Test DUPN duplicating the bottom item after building stack with DUP1.
 
-    Stack layout: PUSH1(1) PUSH1(0) DUP1*15 DUPN[0]
-    Before DUPN: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1] (17 items)
-    After DUPN[0] (decode_single(0)=17): [1, 0, 0, ..., 0, 1] (18 items)
+    Stack layout: PUSH1(1) PUSH1(0) DUP1*15 DUPN[0x80]
+    Before DUPN: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+    After DUPN[0x80] (decode_single(0x80)=17): [1, 0, 0, ..., 0, 1]
     Result: 18 stack items, top=1, bottom=1, rest=0
     """
     sender = pre.fund_eoa()
@@ -328,9 +323,9 @@ def test_dupn_with_dup1_sequence(
 
     # Stack now has 17 items:
     # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-    # DUPN with immediate 0 (decode_single(0) = 17) duplicates position 17
+    # DUPN with immediate 0x80 (decode_single(0x80) = 17) duplicates pos 17
     # Pass as bytes (raw immediate byte for testing)
-    code += Op.DUPN[b"\x00"]
+    code += Op.DUPN[b"\x80"]
 
     # Store all stack values to verify
     for i in range(18):

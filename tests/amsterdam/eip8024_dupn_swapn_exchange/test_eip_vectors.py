@@ -28,13 +28,13 @@ def test_eip_vector_dupn_duplicate_bottom(
     state_test: StateTestFiller,
 ) -> None:
     """
-    EIP test vector: 60016000808080808080808080808080808080e600.
+    EIP test vector: 60016000808080808080808080808080808080e680.
 
     Results in 18 stack items, top=1, bottom=1, rest=0.
 
-    PUSH1 1, PUSH1 0, 15x DUP1, DUPN[0]
+    PUSH1 1, PUSH1 0, 15x DUP1, DUPN[0x80]
     - After 15 DUP1s: 17 items [0,0,0,...,0,1]
-    - DUPN[0]: decode_single(0)=17, duplicate position 17 (value 1)
+    - DUPN[0x80]: decode_single(0x80)=17, duplicate position 17 (value 1)
     - Result: 18 items, top=1, bottom=1
     """
     sender = pre.fund_eoa()
@@ -74,13 +74,13 @@ def test_eip_vector_swapn_swap_with_bottom(
     state_test: StateTestFiller,
 ) -> None:
     """
-    EIP test vector: 600160008080808080808080808080808080806002e700.
+    EIP test vector: 600160008080808080808080808080808080806002e780.
 
     Results in 18 stack items, top=1, bottom=2, rest=0.
 
-    PUSH1 1, PUSH1 0, 15x DUP1, PUSH1 2, SWAPN[0]
+    PUSH1 1, PUSH1 0, 15x DUP1, PUSH1 2, SWAPN[0x80]
     - After PUSH1 2: 18 items with top=2, bottom=1
-    - SWAPN[0]: decode_single(0)=17, swap position 1 with position (17+1)=18
+    - SWAPN[0x80]: decode_single(0x80)=17, swap pos 1 with pos (17+1)=18
     - Result: 18 items, top=1, bottom=2
     """
     sender = pre.fund_eoa()
@@ -126,19 +126,19 @@ def test_eip_vector_exchange_swap_positions(
     state_test: StateTestFiller,
 ) -> None:
     """
-    EIP test vector: 600060016002e801.
+    EIP test vector: 600060016002e88e.
 
     Results in 3 stack items, from top to bottom: [2, 0, 1].
 
-    PUSH1 0, PUSH1 1, PUSH1 2, EXCHANGE[1]
+    PUSH1 0, PUSH1 1, PUSH1 2, EXCHANGE[0x8e]
     - After pushes: [2, 1, 0] (top to bottom)
-    - EXCHANGE[1]: decode_pair(1)=(1,2), swap positions 2 and 3
+    - EXCHANGE[0x8e]: decode_pair(0x8e)=(1,2), swap positions 2 and 3
     - Result: [2, 0, 1]
     """
     sender = pre.fund_eoa()
 
     # Build the exact bytecode from the EIP
-    code = Op.PUSH1[0x0] + Op.PUSH1[0x1] + Op.PUSH1[0x2] + Op.EXCHANGE[b"\x01"]
+    code = Op.PUSH1[0x0] + Op.PUSH1[0x1] + Op.PUSH1[0x2] + Op.EXCHANGE[b"\x8e"]
 
     # Store all 3 stack values
     code += Op.PUSH1(0) + Op.SSTORE  # Store position 1 / top (should be 2)
@@ -236,26 +236,20 @@ def test_eip_vector_exchange_with_iszero(
     state_test: StateTestFiller,
 ) -> None:
     """
-    EIP test vector: 600060006000e80115.
+    EIP test vector: 60008080e88e15.
 
     Results in 3 stack items, top=1, rest=0.
 
-    PUSH1 0, PUSH1 0, PUSH1 0, EXCHANGE[1], ISZERO
-    - After pushes: [0, 0, 0]
-    - EXCHANGE[1]: swap positions 2 and 3 (both 0, no visible change)
+    PUSH1 0, DUP1, DUP1, EXCHANGE[0x8e], ISZERO
+    - After DUP1s: [0, 0, 0]
+    - EXCHANGE[0x8e]: decode_pair(0x8e)=(1,2), swap pos 2 and 3
     - ISZERO: pop 0, push 1
     - Result: [1, 0, 0]
     """
     sender = pre.fund_eoa()
 
     # Build the exact bytecode from the EIP
-    code = (
-        Op.PUSH1[0x0]
-        + Op.PUSH1[0x0]
-        + Op.PUSH1[0x0]
-        + Op.EXCHANGE[b"\x01"]
-        + Op.ISZERO
-    )
+    code = Op.PUSH1[0x0] + Op.DUP1 + Op.DUP1 + Op.EXCHANGE[b"\x8e"] + Op.ISZERO
 
     # Store all 3 stack values
     code += Op.PUSH1(0) + Op.SSTORE  # Store top (should be 1)
@@ -284,19 +278,19 @@ def test_eip_vector_dupn_stack_underflow(
     state_test: StateTestFiller,
 ) -> None:
     """
-    EIP test vector: 6000808080808080808080808080808080e600.
+    EIP test vector: 6000808080808080808080808080808080e680.
 
     Results in exceptional halt (stack underflow).
 
-    PUSH1 0, 15x DUP1, DUPN[0]
+    PUSH1 0, 15x DUP1, DUPN[0x80]
     - After 15 DUP1s: 16 items
-    - DUPN[0]: decode_single(0)=17, needs position 17 but only 16 items
+    - DUPN[0x80]: decode_single(0x80)=17, needs position 17 but only 16 items
     - Result: exceptional halt
     """
     sender = pre.fund_eoa()
 
     # Build the exact bytecode from the EIP
-    code = Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[b"\x00"]
+    code = Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[b"\x80"]
 
     # This should not execute due to stack underflow
     code += Op.PUSH1(1) + Op.PUSH1(0) + Op.SSTORE
@@ -316,11 +310,11 @@ def test_vector_dupn_followed_by_jumpdest(
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test vector: e6005b [DUPN 17, JUMPDEST].
+    Test vector: e6805b [DUPN 17, JUMPDEST].
 
-    Verifies that DUPN with immediate 0x00 correctly consumes the immediate
+    Verifies that DUPN with immediate 0x80 correctly consumes the immediate
     byte. The 0x5b following the DUPN is a separate JUMPDEST instruction,
-    not part of DUPN. decode_single(0x00) = 17, so DUPN duplicates the 17th
+    not part of DUPN. decode_single(0x80) = 17, so DUPN duplicates the 17th
     stack item.
     """
     sender = pre.fund_eoa()
@@ -453,15 +447,15 @@ def test_vector_dupn_invalid_0x5f(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def test_vector_exchange_0x12(
+def test_vector_exchange_0x9d(
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test vector: e812 [EXCHANGE 2 3].
+    Test vector: e89d [EXCHANGE 2 3].
 
-    EXCHANGE with immediate 0x12 (18 decimal).
-    decode_pair(18) = (2, 3), swaps positions 3 and 4.
+    EXCHANGE with immediate 0x9d (157 decimal).
+    decode_pair(0x9d) = (2, 3), swaps positions 3 and 4.
     """
     sender = pre.fund_eoa()
 
@@ -473,9 +467,9 @@ def test_vector_exchange_0x12(
     code += Op.PUSH2(0x2222)  # Position 2
     code += Op.PUSH2(0x1111)  # Position 1 (top)
 
-    # EXCHANGE with immediate 0x12 - swaps positions 3 and 4
-    # Hex: e8 12
-    code += Op.EXCHANGE[b"\x12"]
+    # EXCHANGE with immediate 0x9d - swaps positions 3 and 4
+    # Hex: e8 9d
+    code += Op.EXCHANGE[b"\x9d"]
 
     # Store all values to verify the swap
     code += Op.PUSH1(0) + Op.SSTORE  # Position 1 (top)
@@ -487,7 +481,7 @@ def test_vector_exchange_0x12(
     contract_address = pre.deploy_contract(code=code)
     tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
 
-    # After EXCHANGE[0x12]: positions 3 and 4 are swapped
+    # After EXCHANGE[0x9d]: positions 3 and 4 are swapped
     post = {
         contract_address: Account(
             storage={
@@ -502,15 +496,15 @@ def test_vector_exchange_0x12(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def test_vector_exchange_0xd0(
+def test_vector_exchange_0x2f(
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test vector: e8d0 [EXCHANGE 1 19].
+    Test vector: e82f [EXCHANGE 1 19].
 
-    EXCHANGE with immediate 0xd0 (208 decimal).
-    decode_pair(208) = (1, 19), swaps positions 2 and 20.
+    EXCHANGE with immediate 0x2f (47 decimal).
+    decode_pair(0x2f) = (1, 19), swaps positions 2 and 20.
     """
     sender = pre.fund_eoa()
 
@@ -523,9 +517,9 @@ def test_vector_exchange_0xd0(
     code += Op.PUSH2(0xAAAA)  # Position 2 (will be swapped)
     code += Op.PUSH2(0x1111)  # Position 1 (top)
 
-    # EXCHANGE with immediate 0xd0 - swaps positions 2 and 20
-    # Hex: e8 d0
-    code += Op.EXCHANGE[b"\xd0"]
+    # EXCHANGE with immediate 0x2f - swaps positions 2 and 20
+    # Hex: e8 2f
+    code += Op.EXCHANGE[b"\x2f"]
 
     # Store position 1, 2, and 20 to verify
     code += Op.PUSH1(0) + Op.SSTORE  # Position 1 (top, unchanged)
@@ -541,7 +535,7 @@ def test_vector_exchange_0xd0(
     contract_address = pre.deploy_contract(code=code)
     tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
 
-    # After EXCHANGE[0xd0]: positions 2 and 20 are swapped
+    # After EXCHANGE[0x2f]: positions 2 and 20 are swapped
     post = {
         contract_address: Account(
             storage={
@@ -555,15 +549,113 @@ def test_vector_exchange_0xd0(
     state_test(pre=pre, post=post, tx=tx)
 
 
-def test_vector_exchange_invalid_0x50(
+def test_vector_exchange_valid_0x50(
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test vector: e850 [INVALID_EXCHANGE, POP].
+    Test vector: e850 [EXCHANGE 14 16].
 
-    EXCHANGE with immediate 0x50 (80 decimal) is in the invalid range (80-127).
-    Execution should abort with exceptional halt.
+    EXCHANGE with immediate 0x50 (80 decimal) is valid.
+    decode_pair(0x50) = (14, 16), swaps positions 15 and 17.
+    """
+    sender = pre.fund_eoa()
+
+    # Build stack with 17 items, with known values at positions 15 and 17
+    code = Bytecode()
+    for i in range(17):
+        stack_pos = 17 - i  # Position from top (1-indexed)
+        if stack_pos == 15:
+            code += Op.PUSH2(0xAAAA)
+        elif stack_pos == 17:
+            code += Op.PUSH2(0xBBBB)
+        else:
+            code += Op.PUSH2(0x1000 + i)
+
+    # EXCHANGE with immediate 0x50 - swaps positions 15 and 17
+    code += Op.EXCHANGE[b"\x50"]
+
+    # Store swapped positions to verify
+    # Pop to position 15 (pop 14 items)
+    for _ in range(14):
+        code += Op.POP
+    code += Op.PUSH1(0) + Op.SSTORE  # Position 15 (was 0xBBBB)
+    code += Op.POP  # Skip position 16
+    code += Op.PUSH1(1) + Op.SSTORE  # Position 17 (was 0xAAAA)
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    post = {
+        contract_address: Account(
+            storage={
+                0: 0xBBBB,  # Position 15 now has value from 17
+                1: 0xAAAA,  # Position 17 now has value from 15
+            }
+        )
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_vector_exchange_valid_0x51(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test vector: e851 [EXCHANGE 14 15].
+
+    EXCHANGE with immediate 0x51 (81 decimal) is valid.
+    decode_pair(0x51) = (14, 15), swaps positions 15 and 16.
+    """
+    sender = pre.fund_eoa()
+
+    # Build stack with 16 items, with known values at positions 15 and 16
+    code = Bytecode()
+    for i in range(16):
+        stack_pos = 16 - i
+        if stack_pos == 15:
+            code += Op.PUSH2(0xAAAA)
+        elif stack_pos == 16:
+            code += Op.PUSH2(0xBBBB)
+        else:
+            code += Op.PUSH2(0x1000 + i)
+
+    # EXCHANGE with immediate 0x51 - swaps positions 15 and 16
+    code += Op.EXCHANGE[b"\x51"]
+
+    # Pop to position 15 (pop 14 items)
+    for _ in range(14):
+        code += Op.POP
+    code += Op.PUSH1(0) + Op.SSTORE  # Position 15 (was 0xBBBB)
+    code += Op.PUSH1(1) + Op.SSTORE  # Position 16 (was 0xAAAA)
+    code += Op.STOP
+
+    contract_address = pre.deploy_contract(code=code)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+
+    post = {
+        contract_address: Account(
+            storage={
+                0: 0xBBBB,  # Position 15 now has value from 16
+                1: 0xAAAA,  # Position 16 now has value from 15
+            }
+        )
+    }
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+def test_vector_exchange_invalid_0x52(
+    pre: Alloc,
+    state_test: StateTestFiller,
+) -> None:
+    """
+    Test vector: e852 [INVALID_EXCHANGE, MSTORE].
+
+    EXCHANGE with immediate 0x52 (82 decimal) is in the invalid
+    range (82-127). Execution should abort with exceptional halt.
     """
     sender = pre.fund_eoa()
 
@@ -572,12 +664,12 @@ def test_vector_exchange_invalid_0x50(
     for i in range(30):
         code += Op.PUSH1(i)
 
-    # EXCHANGE with invalid immediate 0x50 - should abort
-    # Hex: e8 50
-    code += Op.EXCHANGE[b"\x50"]
+    # EXCHANGE with invalid immediate 0x52 - should abort
+    # Hex: e8 52
+    code += Op.EXCHANGE[b"\x52"]
 
-    # This would be POP if we got here (0x50 = POP opcode)
-    code += Op.POP
+    # This would be MSTORE if we got here (0x52 = MSTORE opcode)
+    code += Op.MSTORE
     code += Op.PUSH1(0x42) + Op.PUSH1(0) + Op.SSTORE
     code += Op.STOP
 
@@ -593,9 +685,9 @@ def test_vector_exchange_invalid_0x50(
 @pytest.mark.parametrize(
     "eip8024_opcode,stack_items",
     [
-        pytest.param(Op.DUPN, 17, id="dupn"),
-        pytest.param(Op.SWAPN, 18, id="swapn"),
-        pytest.param(Op.EXCHANGE, 30, id="exchange"),
+        pytest.param(Op.DUPN, 145, id="dupn"),
+        pytest.param(Op.SWAPN, 146, id="swapn"),
+        pytest.param(Op.EXCHANGE, 17, id="exchange"),
     ],
 )
 def test_eip_vector_end_of_code(
@@ -608,9 +700,9 @@ def test_eip_vector_end_of_code(
     Test EIP-8024 opcodes at end of code (no immediate byte).
 
     When an opcode appears at end of code, code[pc+1] = 0 beyond end of code.
-    - DUPN: decode_single(0) = 17, needs 17 items on stack
-    - SWAPN: decode_single(0) = 17, needs 18 items on stack
-    - EXCHANGE: decode_pair(0) = (1, 29), needs 30 items on stack
+    - DUPN: decode_single(0) = 145, needs 145 items on stack
+    - SWAPN: decode_single(0) = 145, needs 146 items on stack
+    - EXCHANGE: decode_pair(0) = (9, 16), needs 17 items on stack
 
     Store a marker before the opcode to verify the transaction succeeded,
     since adding any opcode after would make that opcode byte the immediate.

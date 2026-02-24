@@ -19,7 +19,7 @@ class ReferenceSpec:
 
 ref_spec_8024 = ReferenceSpec(
     git_path="EIPS/eip-8024.md",
-    version="b54accd182b0e2e040ce2ba1a8a61bff6ca9fa0e",
+    version="b9a5fa56ec91e4d82243e832d134c4f2984e1197",
 )
 
 
@@ -36,7 +36,7 @@ class Spec:
 
     # EXCHANGE constraints: 1 <= n < m <= 29, n + m <= 30
     EXCHANGE_MIN_N: int = 1
-    EXCHANGE_MAX_N: int = 13
+    EXCHANGE_MAX_N: int = 14
     EXCHANGE_MAX_M: int = 29
     EXCHANGE_MAX_SUM: int = 30
 
