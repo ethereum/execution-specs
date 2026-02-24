@@ -10,17 +10,17 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32
-from ethereum.forks.amsterdam.incremental_mpt import (
+from ethereum.state import Account, Address, PreState, Root
+
+from .incremental_mpt import (
     IncrementalMPT,
     build_mpt,
     mpt_get,
     mpt_root,
     mpt_set,
 )
-from ethereum.forks.amsterdam.trie import EMPTY_TRIE_ROOT, Trie
-from ethereum.state import Account, Address, PreState, Root
-
 from .state_tracker import BlockState
+from .trie import EMPTY_TRIE_ROOT, Trie
 
 
 @slotted_freezable
