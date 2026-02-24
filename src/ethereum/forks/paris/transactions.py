@@ -39,16 +39,6 @@ TX_DATA_COST_PER_ZERO = Uint(4)
 Gas cost per zero byte in the transaction data.
 """
 
-CALLDATA_TOKENS_PER_ZERO_BYTE = Uint(1)
-"""
-Token count contribution of each zero byte in transaction data.
-"""
-
-CALLDATA_TOKENS_PER_NONZERO_BYTE = Uint(4)
-"""
-Token count contribution of each non-zero byte in transaction data.
-"""
-
 TX_CREATE_COST = Uint(32000)
 """
 Additional gas cost for creating a new contract.
@@ -388,8 +378,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction.
     """
-    tokens_in_calldata = count_tokens_in_data(tx.data)
-    data_cost = tokens_in_calldata * TX_DATA_COST_PER_ZERO
+    data_cost = count_gas_in_data(tx.data)
 
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST
@@ -407,18 +396,18 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     return TX_BASE_COST + data_cost + create_cost + access_list_cost
 
 
-def count_tokens_in_data(data: bytes) -> Uint:
+def count_gas_in_data(data: bytes) -> Uint:
     """
-    Count the data tokens in arbitrary input bytes.
+    Count the calldata gas in arbitrary input bytes.
     """
-    tokens = Uint(0)
+    gas_cost = Uint(0)
     for byte in data:
         if byte == 0:
-            tokens += CALLDATA_TOKENS_PER_ZERO_BYTE
+            gas_cost += TX_DATA_COST_PER_ZERO
         else:
-            tokens += CALLDATA_TOKENS_PER_NONZERO_BYTE
+            gas_cost += TX_DATA_COST_PER_NON_ZERO
 
-    return tokens
+    return gas_cost
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:

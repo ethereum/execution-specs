@@ -602,12 +602,19 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     6. Cost for authorizations (if applicable)
 
     Access lists incur data costs in addition to storage access costs. Token
-    counting uses `CALLDATA_TOKENS_PER_ZERO_BYTE` and
-    `CALLDATA_TOKENS_PER_NONZERO_BYTE`.
+    counting uses
+    [`CALLDATA_TOKENS_PER_ZERO_BYTE`](
+        ref:ethereum.forks.amsterdam.transactions.CALLDATA_TOKENS_PER_ZERO_BYTE
+    )
+    and
+    [`CALLDATA_TOKENS_PER_NONZERO_BYTE`](
+        ref:ethereum.forks.amsterdam.transactions.CALLDATA_TOKENS_PER_NONZERO_BYTE
+    ).
 
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction and the minimum gas cost used by the
     transaction based on the calldata and access list size.
+
     """
     from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST
     from .vm.gas import init_code_cost
