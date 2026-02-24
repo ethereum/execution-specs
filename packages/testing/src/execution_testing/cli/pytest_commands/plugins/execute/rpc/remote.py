@@ -197,10 +197,7 @@ def eth_rpc(
     get_payload_wait_time = request.config.getoption("get_payload_wait_time")
     testing_rpc = None
     if use_testing_build_block:
-        testing_rpc = TestingRPC(
-            engine_rpc.url,
-            jwt_secret=engine_rpc.jwt_secret,
-        )
+        testing_rpc = TestingRPC(rpc_endpoint)
     return ChainBuilderEthRPC(
         rpc_endpoint=rpc_endpoint,
         fork=session_fork,

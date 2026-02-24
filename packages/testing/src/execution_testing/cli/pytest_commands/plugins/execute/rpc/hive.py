@@ -405,7 +405,7 @@ def eth_rpc(
     tx_wait_timeout = request.config.getoption("tx_wait_timeout")
     testing_rpc = None
     if use_testing_build_block:
-        testing_rpc = TestingRPC(f"http://{client.ip}:8551")
+        testing_rpc = TestingRPC(f"http://{client.ip}:8545")
     return ChainBuilderEthRPC(
         rpc_endpoint=f"http://{client.ip}:8545",
         fork=session_fork,

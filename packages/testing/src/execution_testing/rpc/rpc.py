@@ -1355,7 +1355,7 @@ class NetRPC(BaseRPC):
         return _wait_for_peers()
 
 
-class TestingRPC(BaseJWTRPC):
+class TestingRPC(BaseRPC):
     """
     RPC class for the testing namespace, providing access to
     testing-only methods like ``testing_buildBlockV1``.

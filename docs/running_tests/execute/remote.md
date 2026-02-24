@@ -100,7 +100,7 @@ uv run execute remote --fork=Prague \
     --use-testing-build-block
 ```
 
-This flag requires `--engine-endpoint` to be set, because `testing_buildBlockV1` is served on the authenticated Engine API port.
+This flag requires `--engine-endpoint` to be set, because `engine_newPayload` and `engine_forkchoiceUpdated` are still needed to finalize blocks built by `testing_buildBlockV1`. Note that `testing_buildBlockV1` itself is served on the unauthenticated ETH RPC port.
 
 See [Block Building with `testing_buildBlockV1`](./index.md#block-building-with-testing_buildblockv1) for architectural details.
 
