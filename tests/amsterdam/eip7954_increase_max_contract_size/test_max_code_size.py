@@ -157,9 +157,9 @@ def test_deploy_gas_usage(
     gas_costs = fork.gas_costs()
     code_words = ceiling_division(len(bytes(deploy_code)), 32)
     initcode_execution_gas = (
-        gas_costs.G_VERY_LOW * 5  # PUSH2 + PUSH1 + DUP2 + PUSH1 + DUP3
-        + gas_costs.G_VERY_LOW  # CODECOPY base
-        + gas_costs.G_COPY * code_words  # CODECOPY copy cost
+        gas_costs.GAS_VERY_LOW * 5  # PUSH2 + PUSH1 + DUP2 + PUSH1 + DUP3
+        + gas_costs.GAS_VERY_LOW  # CODECOPY base
+        + gas_costs.GAS_COPY * code_words  # CODECOPY copy cost
         + fork.memory_expansion_gas_calculator()(
             new_bytes=len(bytes(deploy_code))
         )
@@ -172,7 +172,7 @@ def test_deploy_gas_usage(
         gas_limit=(
             intrinsic_gas
             + initcode_execution_gas
-            + initcode.deployment_gas
+            + initcode.deployment_gas(fork)
             - gas_shortfall
         ),
     )

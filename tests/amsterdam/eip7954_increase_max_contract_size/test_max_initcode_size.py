@@ -263,13 +263,13 @@ def test_initcode_gas_metering_create_opcodes(
     factory_gas = (
         factory_code.gas_cost(fork)
         + fork.memory_expansion_gas_calculator()(new_bytes=len(initcode))
-        + gas_costs.G_COPY * initcode_words
-        + initcode_words * gas_costs.G_INITCODE_WORD
-        + initcode.execution_gas
-        + initcode.deployment_gas
+        + gas_costs.GAS_COPY * initcode_words
+        + initcode_words * gas_costs.GAS_CODE_INIT_PER_WORD
+        + initcode.execution_gas(fork)
+        + initcode.deployment_gas(fork)
     )
     if create_opcode == Op.CREATE2:
-        factory_gas += initcode_words * gas_costs.G_KECCAK_256_WORD
+        factory_gas += initcode_words * gas_costs.GAS_KECCAK256_PER_WORD
 
     # Caller CALLs factory with explicit gas to bypass EIP-7623 floor data
     # cost and the 63/64 rule (EIP-150).

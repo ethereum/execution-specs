@@ -311,7 +311,10 @@ def test_deploy_at_parent_max_across_fork(
     fork: Fork,
 ) -> None:
     """Ensure previous max code size works after transition."""
-    code_size = fork.parent().max_code_size()
+    parent = fork.parent()
+    assert parent is not None, "Parent fork must be defined for this test"
+
+    code_size = parent.max_code_size()
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
 
