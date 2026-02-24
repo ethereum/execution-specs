@@ -98,12 +98,12 @@ def test_sstore_erc20(
     code_loop = Op.POP(Op.STATICCALL(address=erc20_address, args_offset=28, args_size=68))
                  
     if not warm:
-        code_loop = code_loop + Op.MSTORE(Op.ADD(Op.MLOAD(32), 1))
+        code_loop = code_loop + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
     
     set_min_gas = (Op.GAS + code_loop + Op.GAS + Op.SWAP1 + Op.SUB +
                     Op.PUSH32(after_loop_costs_minimum) + Op.ADD + Op.PUSH1(96) + Op.MSTORE)
 
-    loop = While(body=code_loop, condition=Op.GT(Op.GASLEFT, Op.MLOAD(96)))
+    loop = While(body=code_loop, condition=Op.GT(Op.GAS, Op.MLOAD(96)))
 
     final_steps = Op.SSTORE(Op.MLOAD(128), Op.MLOAD(32))
 
