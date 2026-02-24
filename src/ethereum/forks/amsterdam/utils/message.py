@@ -64,7 +64,9 @@ def prepare_message(
         current_target = tx.to
         msg_data = tx.data
         code = get_code(
-            tx_env.state, get_account(tx_env.state, tx.to).code_hash
+            tx_env.state,
+            get_account(tx_env.state, tx.to).code_hash,
+            tx.to,
         )
         code_address = tx.to
     else:
