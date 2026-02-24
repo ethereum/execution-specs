@@ -5,6 +5,7 @@ Test EIP-1052 EXTCODEHASH.
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Initcode,
     Op,
@@ -49,7 +50,7 @@ def test_extcodehash_self(
     storage[slot_hash] = code.keccak256()
     storage[slot_size] = len(code)
 
-    code_address = pre.deploy_contract(code)
+    code_address = pre.deploy_contract(code, storage=storage.canary())
 
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -95,7 +96,7 @@ def test_extcodehash_of_empty(
         Op.EXTCODESIZE(target_address),
     )
 
-    code_address = pre.deploy_contract(code)
+    code_address = pre.deploy_contract(code, storage=storage.canary())
 
     tx = Transaction(
         sender=(pre.fund_eoa()),
@@ -147,7 +148,9 @@ def test_extcodehash_empty_send_value(
         )
     )
 
-    code_address = pre.deploy_contract(code, balance=10**18)
+    code_address = pre.deploy_contract(
+        code, balance=10**18, storage=storage.canary()
+    )
 
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -257,7 +260,9 @@ def test_extcodehash_empty_account_variants(
         )
     )
 
-    code_address = pre.deploy_contract(code, balance=10**18)
+    code_address = pre.deploy_contract(
+        code, balance=10**18, storage=storage.canary()
+    )
 
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -322,7 +327,7 @@ def test_extcodehash_empty_contract_creation(
         + Op.STOP
     )
 
-    code_address = pre.deploy_contract(code)
+    code_address = pre.deploy_contract(code, storage=storage.canary())
     created_address = (
         compute_create2_address(
             address=code_address,
@@ -390,7 +395,7 @@ def test_extcodehash_codeless_with_storage(
         Op.EXTCODESIZE(target_address),
     )
 
-    code_address = pre.deploy_contract(code)
+    code_address = pre.deploy_contract(code, storage=storage.canary())
 
     tx = Transaction(
         sender=pre.fund_eoa(),
@@ -505,7 +510,9 @@ def test_extcodehash_dynamic_account_overwrite(
         )
     )
 
-    caller_address = pre.deploy_contract(caller_code, balance=1)
+    caller_address = pre.deploy_contract(
+        caller_code, balance=1, storage=caller_storage.canary()
+    )
 
     target_address = compute_create2_address(
         address=caller_address,
@@ -538,5 +545,47 @@ def test_extcodehash_dynamic_account_overwrite(
                 storage=target_storage,
             ),
         },
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashPrecompilesFiller.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2302"],
+)
+@pytest.mark.with_all_precompiles
+def test_extcodehash_precompile(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    precompile: Address,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE of precompile addresses.
+
+    Precompiles have no associated code, so both return 0.
+    """
+    storage = Storage()
+
+    code = Op.SSTORE(
+        storage.store_next(0),
+        Op.EXTCODEHASH(precompile),
+    ) + Op.SSTORE(
+        storage.store_next(0),
+        Op.EXTCODESIZE(precompile),
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
         tx=tx,
     )
