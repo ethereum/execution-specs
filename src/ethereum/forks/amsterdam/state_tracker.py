@@ -38,6 +38,10 @@ if TYPE_CHECKING:
     from .block_access_lists import BlockAccessListBuilder
 
 
+CodeRead = Tuple[Address, Hash32]
+"""Code read keyed by account address and code hash."""
+
+
 @dataclass
 class BlockState:
     """
@@ -45,8 +49,9 @@ class BlockState:
 
     Read chain: block writes -> pre_state.
 
-    ``account_reads``, ``storage_reads``, and ``code_reads`` accumulate
-    across all transactions for BAL generation.
+    ``account_reads`` and ``storage_reads`` accumulate across all transactions
+    for BAL generation. ``code_reads`` accumulates code accesses used for
+    execution witness generation.
     """
 
     pre_state: PreState
@@ -58,7 +63,7 @@ class BlockState:
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
-    code_reads: Set[Hash32] = field(default_factory=set)
+    code_reads: Set[CodeRead] = field(default_factory=set)
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     oldest_ancestor_offset: Optional[Uint] = None
 
@@ -84,7 +89,7 @@ class TransactionState:
     storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
-    code_reads: Set[Hash32] = field(default_factory=set)
+    code_reads: Set[CodeRead] = field(default_factory=set)
     code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
     created_accounts: Set[Address] = field(default_factory=set)
     transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
@@ -148,7 +153,11 @@ def get_account(tx_state: TransactionState, address: Address) -> Account:
         return EMPTY_ACCOUNT
 
 
-def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
+def get_code(
+    tx_state: TransactionState,
+    code_hash: Hash32,
+    address: Address,
+) -> Bytes:
     """
     Get the bytecode for a given code hash.
 
@@ -160,6 +169,8 @@ def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
         The transaction state.
     code_hash :
         Hash of the code to look up.
+    address :
+        Address whose code is being accessed.
 
     Returns
     -------
@@ -169,7 +180,7 @@ def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
     """
     if code_hash == EMPTY_CODE_HASH:
         return b""
-    tx_state.code_reads.add(code_hash)
+    tx_state.code_reads.add((address, code_hash))
     if code_hash in tx_state.code_writes:
         return tx_state.code_writes[code_hash]
     if code_hash in tx_state.parent.code_writes:

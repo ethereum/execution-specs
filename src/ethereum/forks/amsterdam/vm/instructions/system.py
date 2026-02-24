@@ -425,7 +425,7 @@ def call(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     message_call_gas = calculate_message_call_gas(
         value,
@@ -528,7 +528,7 @@ def callcode(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     message_call_gas = calculate_message_call_gas(
         value,
@@ -685,7 +685,7 @@ def delegatecall(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     message_call_gas = calculate_message_call_gas(
         U256(0),
@@ -775,7 +775,7 @@ def staticcall(evm: Evm) -> None:
             evm.accessed_addresses.add(code_address)
 
     code_hash = get_account(tx_state, code_address).code_hash
-    code = get_code(tx_state, code_hash)
+    code = get_code(tx_state, code_hash, code_address)
 
     message_call_gas = calculate_message_call_gas(
         U256(0),

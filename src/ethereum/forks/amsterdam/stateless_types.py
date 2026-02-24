@@ -10,7 +10,7 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import Uint
 
 from ethereum.crypto.hash import Hash32
-from ethereum.state import PreState
+from ethereum.state import Address, PreState
 
 from .state_tracker import BlockState
 
@@ -74,26 +74,33 @@ def build_execution_witness(
 
 
 def get_witness_codes(
-    code_reads: Set[Hash32],
+    code_reads: Set[Tuple[Address, Hash32]],
     pre_state: PreState,
 ) -> List[Bytes]:
     """
-    Collect bytecodes from the pre-state for all code hashes read
-    during execution.
+    Collect bytecodes from the pre-state for all code reads during execution.
 
-    Skip hashes that do not exist in the pre-state (e.g. code deployed
-    within the same block).
+    Include a code hash only when the same address already had that code in the
+    pre-state. This avoids accidentally including bytecode created during the
+    current block when the same hash already exists elsewhere.
 
     Parameters
     ----------
     code_reads :
-        Code hashes accessed during block execution.
+        Code reads as ``(address, code_hash)`` during block execution.
     pre_state :
         The pre-execution state.
 
     """
+    witness_code_hashes: Set[Hash32] = set()
+    for address, code_hash in code_reads:
+        pre_account = pre_state.get_account_optional(address)
+        if pre_account is None or pre_account.code_hash != code_hash:
+            continue
+        witness_code_hashes.add(code_hash)
+
     codes: List[Bytes] = []
-    for code_hash in code_reads:
+    for code_hash in witness_code_hashes:
         try:
             codes.append(pre_state.get_code(code_hash))
         except KeyError:
