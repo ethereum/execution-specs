@@ -811,8 +811,12 @@ class Frontier(
     ) -> TransactionDataFloorCostCalculator:
         """At frontier, the transaction data floor cost is a constant zero."""
 
-        def fn(*, data: BytesConvertible) -> int:
-            del data
+        def fn(
+            *,
+            data: BytesConvertible,
+            access_list: List[AccessList] | None = None,
+        ) -> int:
+            del data, access_list
             return 0
 
         return fn

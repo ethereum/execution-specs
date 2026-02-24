@@ -1,63 +1,55 @@
 """
-EIP-7623: Increase calldata cost.
+EIP-7981: Increase Access List Cost.
 
-Increase calldata cost to reduce maximum block size.
+Price access lists for data to reduce maximum block size.
 
-https://eips.ethereum.org/EIPS/eip-7623
+https://eips.ethereum.org/EIPS/eip-7981
 """
 
-from dataclasses import replace
 from typing import List, Sized
 
-from execution_testing.base_types import AccessList, Bytes
+from execution_testing.base_types import AccessList
 from execution_testing.base_types.conversions import BytesConvertible
 
 from ....base_fork import (
     BaseFork,
-    CalldataGasCalculator,
     TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
-from ....gas_costs import GasCosts
 
 
-class EIP7623(BaseFork):
-    """EIP-7623 class."""
-
-    @classmethod
-    def gas_costs(cls) -> GasCosts:
-        """Add standard and floor token costs for calldata."""
-        return replace(
-            super(EIP7623, cls).gas_costs(),
-            TX_DATA_TOKEN_STANDARD=4,
-            TX_DATA_TOKEN_FLOOR=10,
-        )
+class EIP7981(BaseFork):
+    """EIP-7981 class."""
 
     @classmethod
-    def calldata_gas_calculator(cls) -> CalldataGasCalculator:
+    def _access_list_token_count(
+        cls, access_list: List[AccessList] | None
+    ) -> int:
         """
-        Return a callable that calculates the transaction gas cost for its
-        calldata depending on its contents.
+        Return the total number of data tokens contributed by an access list.
+
+        Tokens are counted per EIP-7981:
+        - zero byte = 1 token
+        - non-zero byte = 4 tokens
         """
-        gas_costs = cls.gas_costs()
+        if not access_list:
+            return 0
 
-        def fn(*, data: BytesConvertible, floor: bool = False) -> int:
-            raw = Bytes(data)
-            num_zeros = raw.count(0)
-            num_non_zeros = len(raw) - num_zeros
-            tokens = num_zeros + num_non_zeros * 4
-            if floor:
-                return tokens * gas_costs.TX_DATA_TOKEN_FLOOR
-            return tokens * gas_costs.TX_DATA_TOKEN_STANDARD
-
-        return fn
+        tokens = 0
+        for access in access_list:
+            for b in access.address:
+                tokens += 1 if b == 0 else 4
+            for slot in access.storage_keys:
+                for b in slot:
+                    tokens += 1 if b == 0 else 4
+        return tokens
 
     @classmethod
     def transaction_data_floor_cost_calculator(
         cls,
     ) -> TransactionDataFloorCostCalculator:
         """
-        Transaction data floor cost is introduced.
+        Floor cost includes calldata and access list tokens.
         """
         calldata_gas_calculator = cls.calldata_gas_calculator()
         gas_costs = cls.gas_costs()
@@ -67,10 +59,11 @@ class EIP7623(BaseFork):
             data: BytesConvertible,
             access_list: List[AccessList] | None = None,
         ) -> int:
-            del access_list
+            access_list_tokens = cls._access_list_token_count(access_list)
             return (
                 calldata_gas_calculator(data=data, floor=True)
-                + gas_costs.TX_BASE
+                + access_list_tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+                + gas_costs.GAS_TX_BASE
             )
 
         return fn
@@ -80,10 +73,11 @@ class EIP7623(BaseFork):
         cls,
     ) -> TransactionIntrinsicCostCalculator:
         """
-        Transaction intrinsic cost wraps the parent calculator with a floor
-        cost.
+        Access list data is charged at the floor token cost and
+        contributes to the floor gas cost per EIP-7981.
         """
-        super_fn = super(EIP7623, cls).transaction_intrinsic_cost_calculator()
+        super_fn = super(EIP7981, cls).transaction_intrinsic_cost_calculator()
+        gas_costs = cls.gas_costs()
         transaction_data_floor_cost_calculator = (
             cls.transaction_data_floor_cost_calculator()
         )
@@ -101,14 +95,20 @@ class EIP7623(BaseFork):
                 contract_creation=contract_creation,
                 access_list=access_list,
                 authorization_list_or_count=authorization_list_or_count,
-                return_cost_deducted_prior_execution=False,
+                return_cost_deducted_prior_execution=True,
+            )
+            access_list_tokens = cls._access_list_token_count(access_list)
+            intrinsic_cost += (
+                access_list_tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
             )
 
             if return_cost_deducted_prior_execution:
                 return intrinsic_cost
 
             transaction_floor_data_cost = (
-                transaction_data_floor_cost_calculator(data=calldata)
+                transaction_data_floor_cost_calculator(
+                    data=calldata, access_list=access_list
+                )
             )
             return max(intrinsic_cost, transaction_floor_data_cost)
 
