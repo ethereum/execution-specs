@@ -12,10 +12,11 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes32
+from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -27,7 +28,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
-from ethereum.state import EMPTY_CODE_HASH, Address
+from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
 
 from . import vm
 from .block_access_lists import (
@@ -130,6 +131,16 @@ MAX_RLP_BLOCK_SIZE = MAX_BLOCK_SIZE - SAFETY_MARGIN
 BLOB_COUNT_LIMIT = 6
 
 
+@slotted_freezable
+@dataclass
+class ChainContext:
+    """Chain context needed for block execution."""
+
+    chain_id: U64
+    block_hashes: List[Hash32]
+    parent_header: Header
+
+
 @dataclass
 class BlockChain:
     """
@@ -228,20 +239,75 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         Block to apply to `chain`.
 
     """
+    chain_context = ChainContext(
+        chain_id=chain.chain_id,
+        block_hashes=get_last_256_block_hashes(chain),
+        parent_header=chain.blocks[-1].header,
+    )
+
+    account_changes, storage_changes, code_changes = execute_block(
+        block, chain.state, chain_context
+    )
+
+    apply_changes_to_state(
+        chain.state, account_changes, storage_changes, code_changes
+    )
+    chain.blocks.append(block)
+    if len(chain.blocks) > 255:
+        # Real clients have to store more blocks to deal with reorgs, but the
+        # protocol only requires the last 255
+        chain.blocks = chain.blocks[-255:]
+
+
+def execute_block(
+    block: Block,
+    pre_state: PreState,
+    chain_context: ChainContext,
+) -> Tuple[
+    Dict[Address, Optional[Account]],
+    Dict[Address, Dict[Bytes32, U256]],
+    Dict[Hash32, Bytes],
+]:
+    """
+    Execute a block and validate the resulting roots against the header.
+
+    This method is idempotent.
+
+    Parameters
+    ----------
+    block :
+        Block to validate and execute.
+    pre_state :
+        Pre-execution state provider.
+    chain_context :
+        Chain context that the block may need during execution.
+
+    Returns
+    -------
+    account_changes :
+        Per-address account diffs produced by execution.
+    storage_changes :
+        Per-address storage diffs produced by execution.
+    code_changes :
+        New bytecodes (keyed by code hash) introduced by execution.
+
+    """
     if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
         raise InvalidBlock("Block rlp size exceeds MAX_RLP_BLOCK_SIZE")
 
-    validate_header(chain, block.header)
+    parent_header = chain_context.parent_header
+    validate_header(parent_header, block.header)
+
     if block.ommers != ():
         raise InvalidBlock
 
-    block_state = BlockState(pre_state=chain.state)
+    block_state = BlockState(pre_state=pre_state)
 
     block_env = vm.BlockEnvironment(
-        chain_id=chain.chain_id,
+        chain_id=chain_context.chain_id,
         state=block_state,
         block_gas_limit=block.header.gas_limit,
-        block_hashes=get_last_256_block_hashes(chain),
+        block_hashes=chain_context.block_hashes,
         coinbase=block.header.coinbase,
         number=block.header.number,
         base_fee_per_gas=block.header.base_fee_per_gas,
@@ -260,11 +326,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     account_changes, storage_changes, code_changes = extract_block_diffs(
         block_state
     )
-    block_state_root, _ = chain.state.compute_state_root_and_trie_changes(
+    block_state_root, _ = pre_state.compute_state_root_and_trie_changes(
         account_changes, storage_changes
-    )
-    apply_changes_to_state(
-        chain.state, account_changes, storage_changes, code_changes
     )
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
@@ -296,11 +359,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if computed_block_access_list_hash != block.header.block_access_list_hash:
         raise InvalidBlock("Invalid block access list hash")
 
-    chain.blocks.append(block)
-    if len(chain.blocks) > 255:
-        # Real clients have to store more blocks to deal with reorgs, but the
-        # protocol only requires the last 255
-        chain.blocks = chain.blocks[-255:]
+    return account_changes, storage_changes, code_changes
 
 
 def calculate_base_fee_per_gas(
@@ -366,9 +425,9 @@ def calculate_base_fee_per_gas(
     return Uint(expected_base_fee_per_gas)
 
 
-def validate_header(chain: BlockChain, header: Header) -> None:
+def validate_header(parent_header: Header, header: Header) -> None:
     """
-    Verifies a block header.
+    Verify a block header against its parent.
 
     In order to consider a block's header valid, the logic for the
     quantities in the header should match the logic for the block itself.
@@ -379,16 +438,14 @@ def validate_header(chain: BlockChain, header: Header) -> None:
 
     Parameters
     ----------
-    chain :
-        History and current state.
+    parent_header :
+        Header of the parent block.
     header :
         Header to check for correctness.
 
     """
     if header.number < Uint(1):
         raise InvalidBlock
-
-    parent_header = chain.blocks[-1].header
 
     excess_blob_gas = calculate_excess_blob_gas(parent_header)
     if header.excess_blob_gas != excess_blob_gas:
