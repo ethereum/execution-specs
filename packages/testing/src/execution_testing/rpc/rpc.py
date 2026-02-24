@@ -334,7 +334,7 @@ class BaseRPC:
         return results
 
 
-class BaseJWTRPC(BaseRPC):
+class BaseJwtRPC(BaseRPC):
     """
     Represents an RPC namespace class that uses JWT authentication.
     """
@@ -397,10 +397,7 @@ class EthRPC(BaseRPC):
         max_transactions_per_batch: int | None = None,
         **kwargs: Any,
     ) -> None:
-        """
-        Initialize EthRPC class with the given url and transaction wait
-        timeout.
-        """
+        """Initialize JWT-authenticated RPC class with the given JWT secret."""
         super().__init__(*args, **kwargs)
         self.transaction_wait_timeout = transaction_wait_timeout
 
@@ -1115,7 +1112,7 @@ class DebugRPC(EthRPC):
         ).result_or_raise()
 
 
-class EngineRPC(BaseJWTRPC):
+class EngineRPC(BaseJwtRPC):
     """
     Represents an Engine API RPC class for every Engine API method used within
     EEST based hive simulators.
