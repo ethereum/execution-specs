@@ -178,6 +178,7 @@ class BaseRPC:
         self.url = url
         self.request_id_counter = count(1)
         self.response_validation_context = response_validation_context
+        self.session = requests.Session()
 
     def __init_subclass__(cls, namespace: str | None = None) -> None:
         """
@@ -218,7 +219,7 @@ class BaseRPC:
           application-level issues rather than transient network problems
         """
         logger.debug(f"Making HTTP request to {url}, timeout={timeout}")
-        return requests.post(
+        return self.session.post(
             url, json=json_payload, headers=headers, timeout=timeout
         )
 
