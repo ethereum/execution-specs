@@ -60,7 +60,12 @@ class TransactionDataFloorCostCalculator(Protocol):
     Calculate the transaction floor cost due to its calldata for a given fork.
     """
 
-    def __call__(self, *, data: BytesConvertible) -> int:
+    def __call__(
+        self,
+        *,
+        data: BytesConvertible,
+        access_list: List[AccessList] | None = None,
+    ) -> int:
         """Return transaction gas cost of calldata given its contents."""
         pass
 
