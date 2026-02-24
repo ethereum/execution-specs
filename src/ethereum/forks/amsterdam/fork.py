@@ -253,6 +253,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
         execution_witness=ExecutionWitnessBuilder(
+            pre_state_accounts_data = chain.state._main_trie,
+            pre_state_storages_data = chain.state._storage_tries,
             blockchain_headers=[rlp.encode(blk.header) for blk in chain.blocks]
         ),
     )

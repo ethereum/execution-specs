@@ -330,7 +330,9 @@ class T8N(Load):
 
         if self.fork.has_execution_witness:
             kw_arguments["execution_witness"] = ExecutionWitnessBuilder(
-                blockchain_headers=self.env.block_headers
+                pre_state_accounts_data=self.alloc.state._main_trie,
+                pre_state_storages_data=self.alloc.state._storage_tries,
+                blockchain_headers=self.env.block_headers,
             )
 
         return block_environment(**kw_arguments)
