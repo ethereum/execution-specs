@@ -134,11 +134,18 @@ BLOB_COUNT_LIMIT = 6
 @slotted_freezable
 @dataclass
 class ChainContext:
-    """Chain context needed for block execution."""
+    """
+    Chain context needed for block execution.
+    """
 
     chain_id: U64
+    """Identify the chain for transaction signature recovery."""
+
     block_hashes: List[Hash32]
+    """Recent ancestor hashes (up to 256) for the ``BLOCKHASH`` opcode."""
+
     parent_header: Header
+    """Parent header used for header validation and system contracts."""
 
 
 @dataclass
