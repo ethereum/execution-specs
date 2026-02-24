@@ -742,24 +742,9 @@ def validate_block_access_list_gas_limit(
     """
     Validate that the block access list does not exceed the gas limit.
 
-    The constraint is:
-    ``bal_items <= block_gas_limit // ITEM_COST``
-
-    Where ``bal_items = storage_keys + addresses`` and
-    ``ITEM_COST = GAS_WARM_ACCESS + GAS_TX_ACCESS_LIST_STORAGE_KEY``.
-
-    Parameters
-    ----------
-    block_access_list :
-        The block access list to validate.
-    block_gas_limit :
-        The gas limit of the block.
-
-    Raises
-    ------
-    BlockAccessListGasLimitExceededError :
-        If the block access list exceeds the gas limit constraint.
-
+    The total number of items (addresses + unique storage keys) must not
+    exceed ``block_gas_limit // ITEM_COST``, where
+    ``ITEM_COST = GAS_WARM_ACCESS + TX_ACCESS_LIST_STORAGE_KEY_COST``.
     """
     from .vm.gas import GAS_WARM_ACCESS
 
