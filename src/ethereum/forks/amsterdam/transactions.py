@@ -611,8 +611,8 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             GasCosts.AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations)
         )
 
-    # Floor tokens from calldata.
-    floor_tokens_in_calldata = tokens_in_calldata
+    # EIP-7976 floor tokens: all calldata bytes count uniformly.
+    floor_tokens_in_calldata = ulen(tx.data) * GasCosts.TX_DATA_TOKEN_STANDARD
 
     # Total floor tokens.
     total_floor_tokens = floor_tokens_in_calldata + tokens_in_access_list
