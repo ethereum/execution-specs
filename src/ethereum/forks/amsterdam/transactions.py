@@ -30,6 +30,22 @@ from .fork_types import Authorization, VersionedHash
 
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
 
+ACCESS_LIST_ADDRESS_FLOOR_TOKENS = Uint(80)
+"""
+Floor data tokens contributed by a single access list address per
+[EIP-7981].
+
+[EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+"""
+
+ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS = Uint(128)
+"""
+Floor data tokens contributed by a single access list storage key per
+[EIP-7981].
+
+[EIP-7981]: https://eips.ethereum.org/EIPS/eip-7981
+"""
+
 
 @slotted_freezable
 @dataclass
@@ -443,7 +459,6 @@ Transaction = (
 Union type representing any valid transaction type.
 """
 
-
 AccessListCapableTransaction = (
     AccessListTransaction
     | FeeMarketTransaction
@@ -575,12 +590,23 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
     4. Cost for access list entries (if applicable)
-    5. Cost for authorizations (if applicable)
+    5. Cost for access list data (if applicable)
+    6. Cost for authorizations (if applicable)
 
+    Access lists incur data costs in addition to storage access costs. Token
+    counting uses
+    [`CALLDATA_TOKENS_PER_ZERO_BYTE`](
+        ref:ethereum.forks.amsterdam.transactions.CALLDATA_TOKENS_PER_ZERO_BYTE
+    )
+    and
+    [`CALLDATA_TOKENS_PER_NONZERO_BYTE`](
+        ref:ethereum.forks.amsterdam.transactions.CALLDATA_TOKENS_PER_NONZERO_BYTE
+    ).
 
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction and the minimum gas cost used by the
-    transaction based on the calldata size.
+    transaction based on the calldata and access list size.
+
     """
     from .vm.gas import GasCosts, init_code_cost
 
@@ -593,6 +619,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     else:
         create_cost = Uint(0)
 
+    # Calculate access-list tokens and costs.
     access_list_cost = Uint(0)
     tokens_in_access_list = Uint(0)
     if has_access_list(tx):
@@ -601,9 +628,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
             access_list_cost += (
                 ulen(access.slots) * GasCosts.TX_ACCESS_LIST_STORAGE_KEY
             )
-
-    # Data token floor cost for access list bytes.
-    access_list_cost += tokens_in_access_list * GAS_TX_DATA_TOKEN_FLOOR
+            tokens_in_access_list += ACCESS_LIST_ADDRESS_FLOOR_TOKENS
+            tokens_in_access_list += (
+                ulen(access.slots) * ACCESS_LIST_STORAGE_KEY_FLOOR_TOKENS
+            )
 
     # Data token floor cost for access list bytes.
     access_list_cost += tokens_in_access_list * GasCosts.TX_DATA_TOKEN_FLOOR
