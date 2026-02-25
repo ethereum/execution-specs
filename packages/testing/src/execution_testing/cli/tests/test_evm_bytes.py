@@ -8,13 +8,17 @@ from ..evm_bytes import process_evm_bytes_string
 
 basic_vector = [
     "0x60008080808061AAAA612d5ff1600055",
-    "Op.PUSH1[0x0] + Op.DUP1 + Op.DUP1 + Op.DUP1 + Op.DUP1 + "
-    "Op.PUSH2[0xaaaa] + Op.PUSH2[0x2d5f] + Op.CALL + Op.PUSH1[0x0] + "
-    "Op.SSTORE",
+    "Op.SSTORE(key=0x0, value=Op.CALL(gas=0x2d5f, "
+    "address=0xaaaa, value=Op.DUP1, args_offset=Op.DUP1, "
+    "args_size=Op.DUP1, ret_offset=Op.DUP1, ret_size=0x0))",
 ]
 complex_vector = [
     "0x7fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf5f527fc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf6020527fe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff60405260786040356020355f35608a565b5f515f55602051600155604051600255005b5e56",  # noqa: E501
-    "Op.PUSH32[0xa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf] + Op.PUSH0 + Op.MSTORE + Op.PUSH32[0xc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf] + Op.PUSH1[0x20] + Op.MSTORE + Op.PUSH32[0xe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff] + Op.PUSH1[0x40] + Op.MSTORE + Op.PUSH1[0x78] + Op.PUSH1[0x40] + Op.CALLDATALOAD + Op.PUSH1[0x20] + Op.CALLDATALOAD + Op.PUSH0 + Op.CALLDATALOAD + Op.PUSH1[0x8a] + Op.JUMP + Op.JUMPDEST + Op.PUSH0 + Op.MLOAD + Op.PUSH0 + Op.SSTORE + Op.PUSH1[0x20] + Op.MLOAD + Op.PUSH1[0x1] + Op.SSTORE + Op.PUSH1[0x40] + Op.MLOAD + Op.PUSH1[0x2] + Op.SSTORE + Op.STOP + Op.JUMPDEST + Op.MCOPY + Op.JUMP",  # noqa: E501
+    "Op.MSTORE(offset=Op.PUSH0, "
+    "value="
+    "0xa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf"
+    ") + Op.MSTORE(offset=0x20, "
+    "value=0xc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf) + Op.MSTORE(offset=0x40, value=0xe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff) + Op.PUSH1[0x78] + Op.CALLDATALOAD(offset=0x40) + Op.CALLDATALOAD(offset=0x20) + Op.CALLDATALOAD(offset=Op.PUSH0) + Op.JUMP(pc=0x8a) + Op.JUMPDEST + Op.SSTORE(key=Op.PUSH0, value=Op.MLOAD(offset=Op.PUSH0)) + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20)) + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x40)) + Op.STOP + Op.JUMPDEST + Op.MCOPY + Op.JUMP",  # noqa: E501
 ]
 
 
