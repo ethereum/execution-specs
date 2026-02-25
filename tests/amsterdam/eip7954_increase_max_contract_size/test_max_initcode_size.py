@@ -202,28 +202,7 @@ def test_initcode_gas_metering_create_opcodes(
     gas_shortfall: int,
     create_opcode: Op,
 ) -> None:
-    """
-    Verify gas metering via create opcodes for the new
-    initcode size.
-
-    Gas forwarding chain::
-
-        ┌───────┐
-        │ Alice │
-        └───┬───┘
-            ▼
-        ┌────────┐
-        │ Caller │ gas: tx_gas_limit_cap
-        └───┬────┘
-            ▼
-        ┌─────────┐
-        │ Factory │ gas: factory_gas - shortfall
-        └───┬─────┘
-            ▼
-        ┌────────┐
-        │ CREATE │ gas: 63/64 of remaining
-        └────────┘
-    """
+    """Verify gas metering via create opcodes for the new initcode size."""
     initcode = Initcode(
         deploy_code=Op.STOP, initcode_length=fork.max_initcode_size()
     )
