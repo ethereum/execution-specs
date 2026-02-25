@@ -427,7 +427,9 @@ params = [
 ]
 
 
-@pytest.mark.parametrize("base, exp", params)
+# Mersenne prime exponent used as base and exp
+@pytest.mark.parametrize("base", [3, 5, 7, 11, 13, 136279841])
+@pytest.mark.parametrize("exp", [3, 5, 7, 11, 13, 136279841])
 def test_exp_bench_arithmetic(
     benchmark_test: BenchmarkTestFiller, base: int, exp: int
 ) -> None:
