@@ -3521,6 +3521,22 @@ class Amsterdam(BPO2):
         return 6
 
     @classmethod
+    def max_code_size(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """From Amsterdam, max contract code size is 32 KiB. See EIP-7954."""
+        del block_number, timestamp
+        return 32 * 1024
+
+    @classmethod
+    def max_initcode_size(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """From Amsterdam, max initcode size is 64 KiB. See EIP-7954."""
+        del block_number, timestamp
+        return 64 * 1024
+
+    @classmethod
     def engine_execution_payload_block_access_list(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:
