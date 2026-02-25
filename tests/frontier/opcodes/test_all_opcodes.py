@@ -55,11 +55,6 @@ def prepare_suffix(opcode: Opcode) -> Bytecode:
     """Prepare after opcode instructions."""
     if opcode == Op.JUMPI or opcode == Op.JUMP:
         return Op.JUMPDEST
-    if opcode in (Op.DUPN, Op.SWAPN):
-        # EIP-8024: The suffix byte serves as the implicit immediate.
-        # 0x80 decodes to stack index 17 via decode_single, which is
-        # within the 32 items pushed by prepare_stack.
-        return Bytecode(b"\x80", popped_stack_items=0, pushed_stack_items=0)
     return Op.STOP
 
 
@@ -85,9 +80,17 @@ def test_all_opcodes(
     valid_opcodes = set(fork.valid_opcodes())
     all_opcodes = set(Opcode(i) for i in range(0xFF + 1))
     for opcode in sorted(valid_opcodes | all_opcodes):
+        test_opcode: Opcode | Bytecode = opcode
+        if opcode.has_data_portion():
+            if opcode in [Op.SWAPN, Op.DUPN]:
+                test_opcode = opcode[17]
+            elif opcode == Op.EXCHANGE:
+                test_opcode = opcode[1, 2]
+            else:
+                test_opcode = opcode[0]
         code_contract[opcode] = pre.deploy_contract(
             balance=10,
-            code=prepare_stack(opcode) + opcode + prepare_suffix(opcode),
+            code=prepare_stack(opcode) + test_opcode + prepare_suffix(opcode),
             storage={},
         )
 
