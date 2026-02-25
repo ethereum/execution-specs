@@ -500,6 +500,202 @@ def duplicate_account(
     return transform
 
 
+def _duplicate_in_field(
+    address: Address,
+    field_name: str,
+    match_fn: Callable[[Any], bool],
+    error_msg: str,
+    sub_field: Optional[str] = None,
+    sub_match_fn: Optional[Callable[[Any], bool]] = None,
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Duplicate the first matching entry in an account's field list.
+
+    When sub_field and sub_match_fn are provided, find the parent entry
+    via match_fn then duplicate within sub_field using sub_match_fn.
+    """
+    found = False
+
+    def _copy(entry: Any) -> Any:
+        if hasattr(entry, "model_copy"):
+            return entry.model_copy(deep=True)
+        return ZeroPaddedHexNumber(entry)
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        nonlocal found
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == address:
+                new_account = account_change.model_copy(deep=True)
+                entries = getattr(new_account, field_name)
+
+                if sub_field is not None and sub_match_fn is not None:
+                    for parent in entries:
+                        if match_fn(parent):
+                            children = getattr(parent, sub_field)
+                            new_children = []
+                            for child in children:
+                                new_children.append(child)
+                                if not found and sub_match_fn(child):
+                                    found = True
+                                    new_children.append(_copy(child))
+                            setattr(parent, sub_field, new_children)
+                            break
+                else:
+                    new_entries = []
+                    for entry in entries:
+                        new_entries.append(entry)
+                        if not found and match_fn(entry):
+                            found = True
+                            new_entries.append(_copy(entry))
+                    setattr(new_account, field_name, new_entries)
+
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+
+        if not found:
+            raise ValueError(error_msg)
+
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
+def duplicate_nonce_change(
+    address: Address, block_access_index: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Duplicate a nonce change entry for a given block access index."""
+    return _duplicate_in_field(
+        address,
+        "nonce_changes",
+        match_fn=lambda c: c.block_access_index == block_access_index,
+        error_msg=(
+            f"Block access index {block_access_index} not found in "
+            f"nonce_changes of account {address}"
+        ),
+    )
+
+
+def duplicate_balance_change(
+    address: Address, block_access_index: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Duplicate a balance change entry for a given block access index."""
+    return _duplicate_in_field(
+        address,
+        "balance_changes",
+        match_fn=lambda c: c.block_access_index == block_access_index,
+        error_msg=(
+            f"Block access index {block_access_index} not found in "
+            f"balance_changes of account {address}"
+        ),
+    )
+
+
+def duplicate_code_change(
+    address: Address, block_access_index: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Duplicate a code change entry for a given block access index."""
+    return _duplicate_in_field(
+        address,
+        "code_changes",
+        match_fn=lambda c: c.block_access_index == block_access_index,
+        error_msg=(
+            f"Block access index {block_access_index} not found in "
+            f"code_changes of account {address}"
+        ),
+    )
+
+
+def duplicate_storage_slot(
+    address: Address, slot: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Duplicate a storage slot entry in storage_changes."""
+    return _duplicate_in_field(
+        address,
+        "storage_changes",
+        match_fn=lambda s: s.slot == slot,
+        error_msg=(
+            f"Storage slot {slot} not found in storage_changes "
+            f"of account {address}"
+        ),
+    )
+
+
+def duplicate_storage_read(
+    address: Address, slot: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Duplicate a storage read entry."""
+    return _duplicate_in_field(
+        address,
+        "storage_reads",
+        match_fn=lambda r: r == slot,
+        error_msg=(
+            f"Storage slot {slot} not found in storage_reads "
+            f"of account {address}"
+        ),
+    )
+
+
+def duplicate_slot_change(
+    address: Address, slot: int, block_access_index: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """Duplicate a slot change within a specific storage slot."""
+    return _duplicate_in_field(
+        address,
+        "storage_changes",
+        match_fn=lambda s: s.slot == slot,
+        error_msg=(
+            f"Block access index {block_access_index} not found "
+            f"in storage slot {slot} of account {address}"
+        ),
+        sub_field="slot_changes",
+        sub_match_fn=lambda c: c.block_access_index == block_access_index,
+    )
+
+
+def insert_storage_read(
+    address: Address, slot: int
+) -> Callable[[BlockAccessList], BlockAccessList]:
+    """
+    Insert a storage read at the correct sorted position.
+
+    Useful for testing that a key must not appear in both
+    storage_changes and storage_reads.
+    """
+    found_address = False
+
+    def transform(bal: BlockAccessList) -> BlockAccessList:
+        nonlocal found_address
+        new_root = []
+        for account_change in bal.root:
+            if account_change.address == address:
+                found_address = True
+                new_account = account_change.model_copy(deep=True)
+                reads = list(new_account.storage_reads)
+                new_slot = ZeroPaddedHexNumber(slot)
+                # Find insertion point to maintain sorted order
+                insert_idx = len(reads)
+                for i, existing in enumerate(reads):
+                    if existing >= new_slot:
+                        insert_idx = i
+                        break
+                reads.insert(insert_idx, new_slot)
+                new_account.storage_reads = reads
+                new_root.append(new_account)
+            else:
+                new_root.append(account_change)
+
+        if not found_address:
+            raise ValueError(
+                f"Address {address} not found in BAL to insert storage read"
+            )
+
+        return BlockAccessList(root=new_root)
+
+    return transform
+
+
 def reverse_accounts() -> Callable[[BlockAccessList], BlockAccessList]:
     """Reverse the order of accounts in the BAL."""
 
@@ -567,7 +763,6 @@ def keep_only(
 
 
 __all__ = [
-    # Core functions
     # Account-level modifiers
     "remove_accounts",
     "append_account",
@@ -589,4 +784,12 @@ __all__ = [
     "modify_code",
     # Block access index modifiers
     "swap_bal_indices",
+    # Duplicate entry modifiers (uniqueness constraint testing)
+    "duplicate_nonce_change",
+    "duplicate_balance_change",
+    "duplicate_code_change",
+    "duplicate_storage_slot",
+    "duplicate_storage_read",
+    "duplicate_slot_change",
+    "insert_storage_read",
 ]

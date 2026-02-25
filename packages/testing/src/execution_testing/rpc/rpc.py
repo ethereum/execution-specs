@@ -5,6 +5,7 @@ JSON-RPC methods and helper functions for EEST consume based hive simulators.
 import logging
 import os
 import time
+from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pprint import pprint
 from typing import Any, Callable, ClassVar, Dict, List, Literal, Sequence
@@ -24,7 +25,14 @@ from tenacity import (
     wait_fixed as wait_fixed_tenacity,
 )
 
-from execution_testing.base_types import Address, Bytes, Hash, to_json
+from execution_testing.base_types import (
+    Account,
+    Address,
+    Alloc,
+    Bytes,
+    Hash,
+    to_json,
+)
 from execution_testing.logging import (
     get_logger,
 )
@@ -35,10 +43,12 @@ from .rpc_types import (
     ForkchoiceUpdateResponse,
     GetBlobsResponse,
     GetPayloadResponse,
-    JSONRPCError,
+    JSONRPCRequest,
+    JSONRPCResponse,
     PayloadAttributes,
     PayloadStatus,
     PayloadStatusEnum,
+    RPCCall,
     TransactionByHashResponse,
     TransactionProtocol,
 )
@@ -192,7 +202,7 @@ class BaseRPC:
     def _make_request(
         self,
         url: str,
-        json_payload: dict[str, Any],
+        json_payload: dict[str, Any] | list[dict[str, Any]],
         headers: dict[str, str],
         timeout: int | None,
     ) -> requests.Response:
@@ -212,59 +222,150 @@ class BaseRPC:
             url, json=json_payload, headers=headers, timeout=timeout
         )
 
+    def _build_json_rpc_request(
+        self,
+        call: RPCCall,
+    ) -> JSONRPCRequest:
+        """Build a JSON-RPC request object with namespace prefix."""
+        assert self.namespace, "RPC namespace not set"
+
+        next_request_id_counter = next(self.request_id_counter)
+        request_id = call.request_id
+        if request_id is None:
+            request_id = next_request_id_counter
+
+        return JSONRPCRequest(
+            method=f"{self.namespace}_{call.method}",
+            params=call.params,
+            id=request_id,
+        )
+
+    def namespace_extra_headers(self) -> Dict[str, str]:
+        """
+        Extra headers that are included by default in this namespace.
+
+        For non-jwt namespaces, this method returns an empty dictionary.
+        """
+        return {}
+
     def post_request(
         self,
         *,
-        method: str,
-        params: List[Any] | None = None,
+        request: RPCCall,
         extra_headers: Dict[str, str] | None = None,
-        request_id: int | str | None = None,
         timeout: int | None = None,
-    ) -> Any:
+    ) -> JSONRPCResponse:
         """
         Send JSON-RPC POST request to the client RPC server at port defined in
         the url.
         """
         if extra_headers is None:
             extra_headers = {}
-        if params is None:
-            params = []
 
-        assert self.namespace, "RPC namespace not set"
-
-        next_request_id_counter = next(self.request_id_counter)
-        if request_id is None:
-            request_id = next_request_id_counter
-
-        payload = {
-            "jsonrpc": "2.0",
-            "method": f"{self.namespace}_{method}",
-            "params": params,
-            "id": request_id,
-        }
+        json_rpc_request = self._build_json_rpc_request(request)
         base_header = {
             "Content-Type": "application/json",
         }
-        headers = base_header | extra_headers
+        headers = base_header | extra_headers | self.namespace_extra_headers()
 
         logger.debug(
             f"Sending RPC request to {self.url}, "
-            f"method={self.namespace}_{method}, timeout={timeout}..."
+            f"method={json_rpc_request.method}, timeout={timeout}..."
+        )
+
+        response = self._make_request(
+            self.url, json_rpc_request.model_dump(), headers, timeout
+        )
+        response.raise_for_status()
+
+        return JSONRPCResponse.model_validate(response.json())
+
+    def post_batch_request(
+        self,
+        *,
+        calls: Sequence[RPCCall],
+        extra_headers: Dict[str, str] | None = None,
+        timeout: int | None = None,
+    ) -> List[JSONRPCResponse]:
+        """
+        Send a JSON-RPC batch POST request to the client RPC server at port
+        defined in the url.
+        """
+        if extra_headers is None:
+            extra_headers = {}
+
+        json_rpc_requests = [
+            self._build_json_rpc_request(call) for call in calls
+        ]
+        payload = [r.model_dump() for r in json_rpc_requests]
+        base_header = {
+            "Content-Type": "application/json",
+        }
+        headers = base_header | extra_headers | self.namespace_extra_headers()
+
+        logger.debug(
+            f"Sending batch RPC request to {self.url}, "
+            f"{len(json_rpc_requests)} calls, timeout={timeout}..."
         )
 
         response = self._make_request(self.url, payload, headers, timeout)
         response.raise_for_status()
         response_json = response.json()
 
-        if "error" in response_json:
-            raise JSONRPCError(**response_json["error"])
-
-        assert "result" in response_json, (
-            "RPC response didn't contain a result field"
+        assert isinstance(response_json, list), (
+            "Batch RPC response is not a list"
         )
-        result = response_json["result"]
-        logger.info(f"RPC Result: {result}")
-        return result
+
+        response_map: dict[int | str, JSONRPCResponse] = {
+            r.id: r
+            for r in [
+                JSONRPCResponse.model_validate(item) for item in response_json
+            ]
+        }
+
+        results = []
+        for json_rpc_request in json_rpc_requests:
+            assert json_rpc_request.id in response_map, (
+                f"Missing response for request ID {json_rpc_request.id}"
+            )
+            results.append(response_map[json_rpc_request.id])
+
+        logger.info(f"Batch RPC: {len(results)} responses received")
+        return results
+
+
+class BaseJwtRPC(BaseRPC):
+    """
+    Represents an RPC namespace class that uses JWT authentication.
+    """
+
+    jwt_secret: bytes
+
+    # Default secret used in hive
+    DEFAULT_JWT_SECRET: bytes = b"secretsecretsecretsecretsecretse"
+
+    def __init__(
+        self,
+        *args: Any,
+        jwt_secret: bytes = DEFAULT_JWT_SECRET,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize Engine RPC class with the given JWT secret."""
+        super().__init__(*args, **kwargs)
+        self.jwt_secret = jwt_secret
+
+    def namespace_extra_headers(self) -> Dict[str, str]:
+        """
+        Overload to include JWT authentication header field.
+        """
+        jwt_token = encode(
+            {"iat": int(time.time())},
+            self.jwt_secret,
+            algorithm="HS256",
+        )
+        return {
+            "Authorization": f"Bearer {jwt_token}",
+        }
 
 
 class EthRPC(BaseRPC):
@@ -296,10 +397,7 @@ class EthRPC(BaseRPC):
         max_transactions_per_batch: int | None = None,
         **kwargs: Any,
     ) -> None:
-        """
-        Initialize EthRPC class with the given url and transaction wait
-        timeout.
-        """
+        """Initialize JWT-authenticated RPC class with the given JWT secret."""
         super().__init__(*args, **kwargs)
         self.transaction_wait_timeout = transaction_wait_timeout
 
@@ -351,7 +449,9 @@ class EthRPC(BaseRPC):
         """
         try:
             logger.info("Requesting eth_config..")
-            response = self.post_request(method="config", timeout=timeout)
+            response = self.post_request(
+                request=RPCCall(method="config"), timeout=timeout
+            ).result_or_raise()
             if response is None:
                 logger.warning("eth_config request: failed to get response")
                 return None
@@ -370,7 +470,9 @@ class EthRPC(BaseRPC):
     def chain_id(self) -> int:
         """`eth_chainId`: Returns the current chain id."""
         logger.info("Requesting chainid of provided RPC endpoint..")
-        response = self.post_request(method="chainId", timeout=10)
+        response = self.post_request(
+            request=RPCCall(method="chainId"), timeout=10
+        ).result_or_raise()
         return int(response, 16)
 
     def get_block_by_number(
@@ -387,8 +489,9 @@ class EthRPC(BaseRPC):
         )
         logger.info(f"Requesting info about block {block}..")
         params = [block, full_txs]
-        response = self.post_request(method="getBlockByNumber", params=params)
-        return response
+        return self.post_request(
+            request=RPCCall(method="getBlockByNumber", params=params)
+        ).result_or_raise()
 
     def get_block_by_hash(
         self, block_hash: Hash, full_txs: bool = True
@@ -396,8 +499,9 @@ class EthRPC(BaseRPC):
         """`eth_getBlockByHash`: Returns information about a block by hash."""
         logger.info(f"Requesting block info of {block_hash}..")
         params = [f"{block_hash}", full_txs]
-        response = self.post_request(method="getBlockByHash", params=params)
-        return response
+        return self.post_request(
+            request=RPCCall(method="getBlockByHash", params=params)
+        ).result_or_raise()
 
     def get_block_by_hash_with_retry(
         self,
@@ -470,7 +574,9 @@ class EthRPC(BaseRPC):
         )
         logger.info(f"Requesting balance of {address} at block {block}")
         params = [f"{address}", block]
-        response = self.post_request(method="getBalance", params=params)
+        response = self.post_request(
+            request=RPCCall(method="getBalance", params=params)
+        ).result_or_raise()
         return int(response, 16)
 
     def get_code(
@@ -484,7 +590,9 @@ class EthRPC(BaseRPC):
         )
         logger.info(f"Requesting code of {address} at block {block}")
         params = [f"{address}", block]
-        response = self.post_request(method="getCode", params=params)
+        response = self.post_request(
+            request=RPCCall(method="getCode", params=params)
+        ).result_or_raise()
         return Bytes(response)
 
     def get_transaction_count(
@@ -502,8 +610,8 @@ class EthRPC(BaseRPC):
         logger.info(f"Requesting nonce of {address}")
         params = [f"{address}", block]
         response = self.post_request(
-            method="getTransactionCount", params=params
-        )
+            request=RPCCall(method="getTransactionCount", params=params)
+        ).result_or_raise()
         return int(response, 16)
 
     def get_transaction_by_hash(
@@ -513,8 +621,11 @@ class EthRPC(BaseRPC):
         try:
             logger.info(f"Requesting tx details of {transaction_hash}")
             response = self.post_request(
-                method="getTransactionByHash", params=[f"{transaction_hash}"]
-            )
+                request=RPCCall(
+                    method="getTransactionByHash",
+                    params=[f"{transaction_hash}"],
+                )
+            ).result_or_raise()
             if response is None:
                 return None
             return TransactionByHashResponse.model_validate(
@@ -523,6 +634,39 @@ class EthRPC(BaseRPC):
         except ValidationError as e:
             pprint(e.errors())
             raise e
+
+    def get_transactions_by_hash(
+        self, transaction_hashes: Sequence[Hash]
+    ) -> List[TransactionByHashResponse | None]:
+        """
+        Batch `eth_getTransactionByHash` for multiple hashes.
+
+        Return a list of responses in the same order as the input
+        hashes. Entries are `None` if the transaction was not found.
+        """
+        if not transaction_hashes:
+            return []
+        calls = [
+            RPCCall(
+                method="getTransactionByHash",
+                params=[f"{tx_hash}"],
+            )
+            for tx_hash in transaction_hashes
+        ]
+        responses = self.post_batch_request(calls=calls)
+        results: List[TransactionByHashResponse | None] = []
+        for response in responses:
+            result = response.result_or_raise()
+            if result is None:
+                results.append(None)
+            else:
+                results.append(
+                    TransactionByHashResponse.model_validate(
+                        result,
+                        context=self.response_validation_context,
+                    )
+                )
+        return results
 
     def get_transaction_receipt(
         self, transaction_hash: Hash
@@ -534,10 +678,12 @@ class EthRPC(BaseRPC):
         in benchmark tests.
         """
         logger.info(f"Requesting tx receipt of {transaction_hash}")
-        response = self.post_request(
-            method="getTransactionReceipt", params=[f"{transaction_hash}"]
-        )
-        return response
+        return self.post_request(
+            request=RPCCall(
+                method="getTransactionReceipt",
+                params=[f"{transaction_hash}"],
+            )
+        ).result_or_raise()
 
     def get_storage_at(
         self,
@@ -559,7 +705,9 @@ class EthRPC(BaseRPC):
             f"of contract {address}"
         )
         params = [f"{address}", f"{position}", block]
-        response = self.post_request(method="getStorageAt", params=params)
+        response = self.post_request(
+            request=RPCCall(method="getStorageAt", params=params)
+        ).result_or_raise()
         return Hash(response)
 
     def _get_gas_information(
@@ -572,7 +720,9 @@ class EthRPC(BaseRPC):
             time.time() - self._gas_information_cache_timestamp[method]
             > self.gas_information_stale_seconds
         ):
-            response = self.post_request(method=method)
+            response = self.post_request(
+                request=RPCCall(method=method)
+            ).result_or_raise()
             logger.info(f"Requesting stale {method}")
             self._gas_information_cache[method] = int(response, 16)
             self._gas_information_cache_timestamp[method] = time.time()
@@ -602,10 +752,12 @@ class EthRPC(BaseRPC):
         try:
             logger.info("Sending raw tx..")
             response = self.post_request(
-                method="sendRawTransaction",
-                params=[transaction_rlp.hex()],
-                request_id=request_id,
-            )
+                request=RPCCall(
+                    method="sendRawTransaction",
+                    params=[transaction_rlp.hex()],
+                    request_id=request_id,
+                )
+            ).result_or_raise()
             result_hash = Hash(response)
             assert result_hash is not None
             return result_hash
@@ -623,10 +775,12 @@ class EthRPC(BaseRPC):
         try:
             logger.info("Sending tx..")
             response = self.post_request(
-                method="sendRawTransaction",
-                params=[transaction.rlp().hex()],
-                request_id=transaction.metadata_string(),
-            )
+                request=RPCCall(
+                    method="sendRawTransaction",
+                    params=[transaction.rlp().hex()],
+                    request_id=transaction.metadata_string(),
+                )
+            ).result_or_raise()
             result_hash = Hash(response)
             assert result_hash == transaction.hash
             assert result_hash is not None
@@ -638,26 +792,198 @@ class EthRPC(BaseRPC):
         self, transactions: Sequence[TransactionProtocol]
     ) -> List[Hash]:
         """
-        Use `eth_sendRawTransaction` to send a list of transactions to the
+        Use `eth_sendRawTransaction` to send a batch of transactions to the
         client.
         """
-        return [self.send_transaction(tx) for tx in transactions]
+        if not transactions:
+            return []
 
-    def storage_at_keys(
-        self,
-        account: Address,
-        keys: List[Hash],
-        block_number: BlockNumberType = "latest",
-    ) -> Dict[Hash, Hash]:
-        """
-        Retrieve the storage values for the specified keys at a given address
-        and block number.
-        """
-        results: Dict[Hash, Hash] = {}
-        for key in keys:
-            storage_value = self.get_storage_at(account, key, block_number)
-            results[key] = storage_value
+        calls = [
+            RPCCall(
+                method="sendRawTransaction",
+                params=[tx.rlp().hex()],
+                request_id=tx.metadata_string(),
+            )
+            for tx in transactions
+        ]
+        responses = self.post_batch_request(calls=calls)
+
+        results: List[Hash] = []
+        for tx, response in zip(transactions, responses, strict=True):
+            try:
+                result_hash = Hash(response.result_or_raise())
+                assert result_hash == tx.hash
+                assert result_hash is not None
+                results.append(tx.hash)
+            except Exception as e:
+                raise SendTransactionExceptionError(str(e), tx=tx) from e
         return results
+
+    def _build_get_account_calls(
+        self,
+        address: Address,
+        account: Account | None,
+        block: str,
+        skip_code: bool = False,
+    ) -> tuple[List[RPCCall], List[tuple[str, Any]]]:
+        """Build the RPC calls needed to fetch an account's state."""
+        calls: List[RPCCall] = []
+        # (field_name, storage_key)
+        call_info: List[tuple[str, Any]] = []
+
+        calls.append(
+            RPCCall(
+                method="getBalance",
+                params=[f"{address}", block],
+            )
+        )
+        call_info.append(("balance", None))
+        if not skip_code:
+            calls.append(
+                RPCCall(
+                    method="getCode",
+                    params=[f"{address}", block],
+                )
+            )
+            call_info.append(("code", None))
+        calls.append(
+            RPCCall(
+                method="getTransactionCount",
+                params=[f"{address}", block],
+            )
+        )
+        call_info.append(("nonce", None))
+
+        if account is not None and "storage" in account.model_fields_set:
+            for key in account.storage.root:
+                calls.append(
+                    RPCCall(
+                        method="getStorageAt",
+                        params=[
+                            f"{address}",
+                            f"{Hash(key)}",
+                            block,
+                        ],
+                    )
+                )
+                call_info.append(("storage", key))
+
+        return calls, call_info
+
+    @staticmethod
+    def _parse_account_responses(
+        call_info: List[tuple[str, Any]],
+        responses: List[JSONRPCResponse],
+    ) -> Account:
+        """Parse RPC responses into an Account."""
+        data: Dict[str, Any] = {}
+        for (field, key), response in zip(call_info, responses, strict=True):
+            result = response.result_or_raise()
+            if field == "balance":
+                data["balance"] = int(result, 16)
+            elif field == "code":
+                data["code"] = Bytes(result)
+            elif field == "nonce":
+                data["nonce"] = int(result, 16)
+            elif field == "storage":
+                if "storage" not in data:
+                    data["storage"] = {}
+                data["storage"][key] = Hash(result)
+        return Account(**data)
+
+    def get_account(
+        self,
+        address: Address,
+        account: Account | None = None,
+        block_number: BlockNumberType = "latest",
+        skip_code: bool = False,
+    ) -> Account:
+        """
+        Fetch account state from the chain for a single address using
+        a batch RPC request.
+
+        If `account` is provided, its storage keys are also fetched.
+        If `skip_code` is True, the code fetch is omitted.
+        """
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
+        calls, call_info = self._build_get_account_calls(
+            address, account, block, skip_code=skip_code
+        )
+        responses = self.post_batch_request(calls=calls)
+        return self._parse_account_responses(call_info, responses)
+
+    def get_alloc(
+        self,
+        alloc: Alloc,
+        block_number: BlockNumberType = "latest",
+        skip_code: bool = False,
+    ) -> Alloc:
+        """
+        Fetch account state from the chain for all addresses in the
+        given alloc using a batch RPC request.
+
+        If `skip_code` is True, the code fetch is omitted for all
+        accounts.
+        """
+        if not alloc.root:
+            return Alloc()
+
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
+
+        all_calls: List[RPCCall] = []
+        # (address, per-account call_info list, call count)
+        address_info: List[tuple[Address, List[tuple[str, Any]]]] = []
+
+        for address, account in alloc.root.items():
+            calls, call_info = self._build_get_account_calls(
+                address, account, block, skip_code=skip_code
+            )
+            all_calls.extend(calls)
+            address_info.append((address, call_info))
+
+        responses = self.post_batch_request(calls=all_calls)
+
+        result_alloc: Dict[Address, Account | None] = {}
+        offset = 0
+        for address, call_info in address_info:
+            n = len(call_info)
+            result_alloc[address] = self._parse_account_responses(
+                call_info, responses[offset : offset + n]
+            )
+            offset += n
+
+        return Alloc(root=result_alloc)
+
+    @property
+    def transaction_polling_context(self) -> AbstractContextManager:
+        """
+        Return a context manager acquired during transaction polling.
+
+        By default a no-op. Subclasses can override to synchronize
+        transaction querying with block building.
+        """
+        return nullcontext()
+
+    def pending_transactions_handler(self) -> None:
+        """
+        Called inside the transaction_polling_context context during the
+        transaction inclusion wait-loop.
+
+        Useful for subclasses to override to introduce logic to perform
+        between transaction waits, such as triggering the block building
+        process.
+
+        By default it only waits the `poll_interval`.
+        """
+        time.sleep(self.poll_interval)
 
     def wait_for_transaction(
         self, transaction: TransactionProtocol
@@ -670,56 +996,76 @@ class EthRPC(BaseRPC):
         start_time = time.time()
         while True:
             logger.info(f"Waiting for inclusion of tx {tx_hash} in a block..")
-            tx = self.get_transaction_by_hash(tx_hash)
-            if tx is not None and tx.block_number is not None:
-                return tx
-            if (time.time() - start_time) > self.transaction_wait_timeout:
-                break
-            time.sleep(self.poll_interval)
+            with self.transaction_polling_context:
+                tx = self.get_transaction_by_hash(tx_hash)
+                if tx is not None and tx.block_number is not None:
+                    return tx
+                if (time.time() - start_time) > self.transaction_wait_timeout:
+                    break
+                self.pending_transactions_handler()
         raise Exception(
             f"Transaction {tx_hash} ({transaction.model_dump_json()}) "
-            f"not included in a block after {self.transaction_wait_timeout} "
-            "seconds"
+            f"not included in a block after "
+            f"{self.transaction_wait_timeout} seconds"
         )
 
     def wait_for_transactions(
         self, transactions: Sequence[TransactionProtocol]
     ) -> List[TransactionByHashResponse]:
         """
-        Use `eth_getTransactionByHash` to wait until all transactions in list
-        are included in a block.
+        Use `eth_getTransactionByHash` batch requests to wait until all
+        transactions in list are included in a block.
         """
-        tx_hashes = [tx.hash for tx in transactions]
-        responses: List[TransactionByHashResponse] = []
+        if not transactions:
+            return []
+
+        pending: dict[Hash, TransactionProtocol] = {
+            tx.hash: tx for tx in transactions
+        }
+        found: dict[Hash, TransactionByHashResponse] = {}
         start_time = time.time()
-        logger.info("Waiting for all transaction to be included in a block..")
-        while True:
-            i = 0
-            while i < len(tx_hashes):
-                tx_hash = tx_hashes[i]
-                tx = self.get_transaction_by_hash(tx_hash)
-                if tx is not None and tx.block_number is not None:
-                    responses.append(tx)
-                    logger.info(
-                        f"Tx {tx.hash} was included in block {tx.block_number}"
+        logger.info("Waiting for all transactions to be included in a block..")
+
+        while pending:
+            with self.transaction_polling_context:
+                pending_hashes = list(pending.keys())
+                tx_responses = self.get_transactions_by_hash(pending_hashes)
+
+                newly_found: List[Hash] = []
+                for tx_hash, tx_response in zip(
+                    pending_hashes, tx_responses, strict=True
+                ):
+                    if tx_response is None:
+                        continue
+                    if tx_response.block_number is not None:
+                        found[tx_hash] = tx_response
+                        newly_found.append(tx_hash)
+                        logger.info(
+                            f"Tx {tx_response.hash} was included "
+                            f"in block {tx_response.block_number}"
+                        )
+
+                for tx_hash in newly_found:
+                    del pending[tx_hash]
+
+                if not pending:
+                    break
+
+                if (time.time() - start_time) > self.transaction_wait_timeout:
+                    missing_txs_strings = [
+                        f"{tx.hash} ({tx.model_dump_json()})"
+                        for tx in transactions
+                        if tx.hash in pending
+                    ]
+                    raise Exception(
+                        f"Transactions "
+                        f"{', '.join(missing_txs_strings)} not "
+                        f"included in a block after "
+                        f"{self.transaction_wait_timeout} seconds"
                     )
-                    tx_hashes.pop(i)
-                else:
-                    i += 1
-            if not tx_hashes:
-                return responses
-            if (time.time() - start_time) > self.transaction_wait_timeout:
-                break
-            time.sleep(self.poll_interval)
-        missing_txs_strings = [
-            f"{tx.hash} ({tx.model_dump_json()})"
-            for tx in transactions
-            if tx.hash in tx_hashes
-        ]
-        raise Exception(
-            f"Transactions {', '.join(missing_txs_strings)} not included "
-            f"in a block after {self.transaction_wait_timeout} seconds"
-        )
+                self.pending_transactions_handler()
+
+        return [found[tx.hash] for tx in transactions]
 
     def send_wait_transaction(self, transaction: TransactionProtocol) -> Any:
         """Send transaction and waits until it is included in a block."""
@@ -761,61 +1107,16 @@ class DebugRPC(EthRPC):
     def trace_call(self, tr: dict[str, str], block_number: str) -> Any | None:
         """`debug_traceCall`: Returns pre state required for transaction."""
         params = [tr, block_number, {"tracer": "prestateTracer"}]
-        return self.post_request(method="traceCall", params=params)
+        return self.post_request(
+            request=RPCCall(method="traceCall", params=params)
+        ).result_or_raise()
 
 
-class EngineRPC(BaseRPC):
+class EngineRPC(BaseJwtRPC):
     """
     Represents an Engine API RPC class for every Engine API method used within
     EEST based hive simulators.
     """
-
-    jwt_secret: bytes
-
-    # Default secret used in hive
-    DEFAULT_JWT_SECRET: bytes = b"secretsecretsecretsecretsecretse"
-
-    def __init__(
-        self,
-        *args: Any,
-        jwt_secret: bytes = DEFAULT_JWT_SECRET,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize Engine RPC class with the given JWT secret."""
-        super().__init__(*args, **kwargs)
-        self.jwt_secret = jwt_secret
-
-    def post_request(
-        self,
-        *,
-        method: str,
-        params: Any | None = None,
-        extra_headers: Dict[str, str] | None = None,
-        request_id: int | str | None = None,
-        timeout: int | None = None,
-    ) -> Any:
-        """
-        Send JSON-RPC POST request to the client RPC server at port defined in
-        the url.
-        """
-        if extra_headers is None:
-            extra_headers = {}
-        jwt_token = encode(
-            {"iat": int(time.time())},
-            self.jwt_secret,
-            algorithm="HS256",
-        )
-        extra_headers = {
-            "Authorization": f"Bearer {jwt_token}",
-        } | extra_headers
-
-        return super().post_request(
-            method=method,
-            params=params,
-            extra_headers=extra_headers,
-            timeout=timeout,
-            request_id=request_id,
-        )
 
     def new_payload(self, *params: Any, version: int) -> PayloadStatus:
         """
@@ -826,7 +1127,9 @@ class EngineRPC(BaseRPC):
         params_list = [to_json(param) for param in params]
 
         return PayloadStatus.model_validate(
-            self.post_request(method=method, params=params_list),
+            self.post_request(
+                request=RPCCall(method=method, params=params_list)
+            ).result_or_raise(),
             context=self.response_validation_context,
         )
 
@@ -850,9 +1153,8 @@ class EngineRPC(BaseRPC):
 
         return ForkchoiceUpdateResponse.model_validate(
             self.post_request(
-                method=method,
-                params=params,
-            ),
+                request=RPCCall(method=method, params=params),
+            ).result_or_raise(),
             context=self.response_validation_context,
         )
 
@@ -870,9 +1172,8 @@ class EngineRPC(BaseRPC):
 
         return GetPayloadResponse.model_validate(
             self.post_request(
-                method=method,
-                params=[f"{payload_id}"],
-            ),
+                request=RPCCall(method=method, params=[f"{payload_id}"]),
+            ).result_or_raise(),
             context=self.response_validation_context,
         )
 
@@ -889,9 +1190,8 @@ class EngineRPC(BaseRPC):
         params = [f"{h}" for h in versioned_hashes]
 
         response = self.post_request(
-            method=method,
-            params=[params],
-        )
+            request=RPCCall(method=method, params=[params]),
+        ).result_or_raise()
         if response is None:  # for tests that request non-existing blobs
             logger.debug("get_blobs response received but it has value: None")
             return None
@@ -984,7 +1284,9 @@ class NetRPC(BaseRPC):
 
     def peer_count(self) -> int:
         """`net_peerCount`: Get the number of peers connected to the client."""
-        response = self.post_request(method="peerCount")
+        response = self.post_request(
+            request=RPCCall(method="peerCount")
+        ).result_or_raise()
         return int(response, 16)  # hex -> int
 
     def wait_for_peer_connection(
@@ -1050,9 +1352,52 @@ class NetRPC(BaseRPC):
         return _wait_for_peers()
 
 
+class TestingRPC(BaseRPC):
+    """
+    RPC class for the testing namespace, providing access to
+    testing-only methods like ``testing_buildBlockV1``.
+    """
+
+    def build_block(
+        self,
+        parent_block_hash: Hash,
+        payload_attributes: PayloadAttributes,
+        transactions: Sequence[TransactionProtocol] | None,
+        extra_data: Bytes | None = None,
+        *,
+        version: int = 1,
+    ) -> GetPayloadResponse:
+        """
+        Build a block on top of *parent_block_hash* using the
+        provided *payload_attributes* and *transactions*.
+
+        Calls ``testing_buildBlockVX``.
+        """
+        method = f"buildBlockV{version}"
+        params: List[Any] = [
+            str(parent_block_hash),
+            to_json(payload_attributes),
+        ]
+        if transactions is not None:
+            params.append([tx.rlp().hex() for tx in transactions])
+        else:
+            params.append(None)
+        if extra_data is not None:
+            params.append(str(extra_data))
+
+        return GetPayloadResponse.model_validate(
+            self.post_request(
+                request=RPCCall(method=method, params=params)
+            ).result_or_raise(),
+            context=self.response_validation_context,
+        )
+
+
 class AdminRPC(BaseRPC):
     """Represents an admin RPC class for administrative RPC calls."""
 
     def add_peer(self, enode: str) -> bool:
         """`admin_addPeer`: Add a peer by enode URL."""
-        return self.post_request(method="addPeer", params=[enode])
+        return self.post_request(
+            request=RPCCall(method="addPeer", params=[enode])
+        ).result_or_raise()

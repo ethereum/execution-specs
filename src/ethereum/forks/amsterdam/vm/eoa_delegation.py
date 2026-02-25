@@ -10,19 +10,15 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSignatureError
+from ethereum.state import Address
 
-from ..fork_types import Address, Authorization
-from ..state import (
+from ..fork_types import Authorization
+from ..state_tracker import (
     account_exists,
     get_account,
+    get_code,
     increment_nonce,
-    set_authority_code,
-)
-from ..state_tracker import (
-    capture_pre_code,
-    track_address,
-    track_code_change,
-    track_nonce_change,
+    set_code,
 )
 from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
@@ -32,8 +28,8 @@ SET_CODE_TX_MAGIC = b"\x05"
 EOA_DELEGATION_MARKER = b"\xef\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
-PER_EMPTY_ACCOUNT_COST = 25000
-PER_AUTH_BASE_COST = 12500
+GAS_AUTH_PER_EMPTY_ACCOUNT = 25000
+REFUND_AUTH_PER_EXISTING_ACCOUNT = 12500
 NULL_ADDRESS = hex_to_address("0x0000000000000000000000000000000000000000")
 
 
@@ -143,10 +139,9 @@ def calculate_delegation_cost(
         The delegation address and access gas cost.
 
     """
-    state = evm.message.block_env.state
+    tx_state = evm.message.tx_env.state
 
-    code = get_account(state, address).code
-    track_address(evm.state_changes, address)
+    code = get_code(tx_state, get_account(tx_state, address).code_hash)
 
     if not is_valid_delegation(code):
         return False, address, Uint(0)
@@ -176,7 +171,7 @@ def set_delegation(message: Message) -> U256:
         Refund from authority which already exists in state.
 
     """
-    state = message.block_env.state
+    tx_state = message.tx_env.state
     refund_counter = U256(0)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
@@ -192,9 +187,8 @@ def set_delegation(message: Message) -> U256:
 
         message.accessed_addresses.add(authority)
 
-        authority_account = get_account(state, authority)
-        authority_code = authority_account.code
-        track_address(message.tx_env.state_changes, authority)
+        authority_account = get_account(tx_state, authority)
+        authority_code = get_code(tx_state, authority_account.code_hash)
 
         if authority_code and not is_valid_delegation(authority_code):
             continue
@@ -203,31 +197,25 @@ def set_delegation(message: Message) -> U256:
         if authority_nonce != auth.nonce:
             continue
 
-        if account_exists(state, authority):
-            refund_counter += U256(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST)
+        if account_exists(tx_state, authority):
+            refund_counter += U256(
+                GAS_AUTH_PER_EMPTY_ACCOUNT - REFUND_AUTH_PER_EXISTING_ACCOUNT
+            )
 
         if auth.address == NULL_ADDRESS:
             code_to_set = b""
         else:
             code_to_set = EOA_DELEGATION_MARKER + auth.address
 
-        tx_frame = message.tx_env.state_changes
-        # EIP-7928: Capture pre-code before any changes
-        capture_pre_code(tx_frame, authority, authority_code)
-
-        set_authority_code(state, authority, code_to_set)
-
-        if authority_code != code_to_set:
-            # Track code change if different from current
-            track_code_change(tx_frame, authority, code_to_set)
-
-        increment_nonce(state, authority)
-        nonce_after = get_account(state, authority).nonce
-        track_nonce_change(tx_frame, authority, U64(nonce_after))
+        set_code(tx_state, authority, code_to_set)
+        increment_nonce(tx_state, authority)
 
     if message.code_address is None:
         raise InvalidBlock("Invalid type 4 transaction: no target")
 
-    message.code = get_account(state, message.code_address).code
+    message.code = get_code(
+        tx_state,
+        get_account(tx_state, message.code_address).code_hash,
+    )
 
     return refund_counter

@@ -356,7 +356,6 @@ class TestMultipleWithdrawalsSameAddress:
     def test_multiple_withdrawals_same_address(
         self,
         blockchain_test: BlockchainTestFiller,
-        test_case: str,
         pre: Alloc,
         addresses: List[Address],
         blocks: List[Block],
@@ -372,7 +371,7 @@ class TestMultipleWithdrawalsSameAddress:
                 storage={},
             )
 
-        blockchain_test(pre=pre, post=post, blocks=blocks, tag=test_case)
+        blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
 def test_many_withdrawals(
@@ -710,7 +709,6 @@ def test_zero_amount(
         # to allow for Account.NONEXISTENT
         post=post,
         blocks=[Block(withdrawals=withdrawals)],
-        tag=test_case.value,
     )
 
 

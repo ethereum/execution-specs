@@ -5,6 +5,7 @@ Loader for code from the relevant fork.
 from inspect import signature
 from typing import Any, Final
 
+from ethereum.state import EMPTY_ACCOUNT
 from ethereum_spec_tools.forks import Hardfork
 
 
@@ -122,24 +123,22 @@ class ForkLoad:
 
     @property
     def build_block_access_list(self) -> Any:
-        """Build function of the fork."""
+        """build_block_access_list function of the fork."""
         return self._module("block_access_lists").build_block_access_list
 
     @property
-    def compute_block_access_list_hash(self) -> Any:
-        """compute_block_access_list_hash function of the fork."""
-        return self._module(
-            "block_access_lists"
-        ).compute_block_access_list_hash
+    def hash_block_access_list(self) -> Any:
+        """hash_block_access_list function of the fork."""
+        return self._module("block_access_lists").hash_block_access_list
 
     @property
-    def has_block_access_list_hash(self) -> bool:
-        """Check if the fork has a `block_access_list_hash` function."""
+    def has_hash_block_access_list(self) -> bool:
+        """Check if the fork has a `hash_block_access_list` function."""
         try:
             module = self._module("block_access_lists")
         except ModuleNotFoundError:
             return False
-        return hasattr(module, "compute_block_access_list_hash")
+        return hasattr(module, "hash_block_access_list")
 
     @property
     def signing_hash_2930(self) -> Any:
@@ -203,6 +202,8 @@ class ForkLoad:
     @property
     def EMPTY_ACCOUNT(self) -> Any:
         """EMPTY_ACCOUNT of the fork."""
+        if self.has_block_state:
+            return EMPTY_ACCOUNT
         return self._module("fork_types").EMPTY_ACCOUNT
 
     @property
@@ -279,6 +280,15 @@ class ForkLoad:
         return hasattr(self._module("transactions"), "decode_transaction")
 
     @property
+    def has_block_state(self) -> bool:
+        """Check if the fork uses BlockState instead of State."""
+        try:
+            module = self._module("state_tracker")
+        except ModuleNotFoundError:
+            return False
+        return hasattr(module, "BlockState")
+
+    @property
     def State(self) -> Any:
         """State class of the fork."""
         return self._module("state").State
@@ -287,6 +297,15 @@ class ForkLoad:
     def set_account(self) -> Any:
         """set_account function of the fork."""
         return self._module("state").set_account
+
+    @property
+    def set_code(self) -> Any:
+        """set_code function of the fork."""
+        # TODO: Remove once we backport it
+        # pass amsterdam fork
+        if self.has_block_state:
+            return self._module("state").set_code
+        return None
 
     @property
     def set_storage(self) -> Any:

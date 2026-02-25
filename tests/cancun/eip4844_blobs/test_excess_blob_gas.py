@@ -332,7 +332,6 @@ def test_correct_excess_blob_gas_calculation(
         post=post,
         blocks=blocks,
         genesis_environment=env,
-        tag=f"expected_excess_blob_gas:{hex(correct_excess_blob_gas)}",
     )
 
 
@@ -399,7 +398,6 @@ def test_correct_increasing_blob_gas_costs(
         post=post,
         blocks=blocks,
         genesis_environment=env,
-        tag=f"expected_excess_blob_gas:{hex(correct_excess_blob_gas)}",
     )
 
 
@@ -431,7 +429,6 @@ def test_correct_decreasing_blob_gas_costs(
         post=post,
         blocks=blocks,
         genesis_environment=env,
-        tag=f"expected_excess_blob_gas:{hex(correct_excess_blob_gas)}",
     )
 
 
@@ -466,12 +463,6 @@ def test_invalid_zero_excess_blob_gas_in_header(
         post={},
         blocks=blocks,
         genesis_environment=env,
-        tag="-".join(
-            [
-                f"correct:{hex(correct_excess_blob_gas)}",
-                f"header:{hex(header_excess_blob_gas)}",
-            ]
-        ),
     )
 
 
@@ -517,12 +508,6 @@ def test_invalid_blob_gas_used_in_header(
         post={},
         blocks=blocks,
         genesis_environment=env,
-        tag="-".join(
-            [
-                f"correct:{hex(new_blobs * blob_gas_per_blob)}",
-                f"header:{hex(header_blob_gas_used)}",
-            ]
-        ),
     )
 
 
@@ -557,9 +542,9 @@ def test_invalid_excess_blob_gas_above_target_change(
     """
     Test rejection of blocks where the `excessBlobGas`.
 
-    - decreases more than `TARGET_BLOB_GAS_PER_BLOCK` in a single block
+    - decreases more than `BLOB_TARGET_GAS_PER_BLOCK` in a single block
         with zero blobs.
-    - increases more than `TARGET_BLOB_GAS_PER_BLOCK` in a single block
+    - increases more than `BLOB_TARGET_GAS_PER_BLOCK` in a single block
         with max blobs.
     """
     if header_excess_blob_gas is None:
@@ -573,12 +558,6 @@ def test_invalid_excess_blob_gas_above_target_change(
         post={},
         blocks=blocks,
         genesis_environment=env,
-        tag="-".join(
-            [
-                f"correct:{hex(correct_excess_blob_gas)}",
-                f"header:{hex(header_excess_blob_gas)}",
-            ]
-        ),
     )
 
 
@@ -617,12 +596,6 @@ def test_invalid_static_excess_blob_gas(
         post={},
         blocks=blocks,
         genesis_environment=env,
-        tag="-".join(
-            [
-                f"correct:{hex(correct_excess_blob_gas)}",
-                f"header:{hex(parent_excess_blob_gas)}",
-            ]
-        ),
     )
 
 
@@ -662,12 +635,6 @@ def test_invalid_excess_blob_gas_target_blobs_increase_from_zero(
         post={},
         blocks=blocks,
         genesis_environment=env,
-        tag="-".join(
-            [
-                f"correct:{hex(correct_excess_blob_gas)}",
-                f"header:{hex(header_excess_blob_gas)}",
-            ]
-        ),
     )
 
 
@@ -707,12 +674,6 @@ def test_invalid_static_excess_blob_gas_from_zero_on_blobs_above_target(
         post={},
         blocks=blocks,
         genesis_environment=env,
-        tag="-".join(
-            [
-                f"correct:{hex(correct_excess_blob_gas)}",
-                f"header:{hex(header_excess_blob_gas)}",
-            ]
-        ),
     )
 
 
@@ -761,12 +722,6 @@ def test_invalid_excess_blob_gas_change(
         post={},
         blocks=blocks,
         genesis_environment=env,
-        tag="-".join(
-            [
-                f"correct:{hex(correct_excess_blob_gas)}",
-                f"header:{hex(header_excess_blob_gas)}",
-            ]
-        ),
     )
 
 
@@ -814,12 +769,6 @@ def test_invalid_negative_excess_blob_gas(
         post={},
         blocks=blocks,
         genesis_environment=env,
-        tag="-".join(
-            [
-                f"correct:{hex(correct_excess_blob_gas)}",
-                f"header:{hex(header_excess_blob_gas)}",
-            ]
-        ),
     )
 
 
@@ -867,10 +816,4 @@ def test_invalid_non_multiple_excess_blob_gas(
         post={},
         blocks=blocks,
         genesis_environment=env,
-        tag="-".join(
-            [
-                f"correct:{hex(correct_excess_blob_gas)}",
-                f"header:{hex(header_excess_blob_gas)}",
-            ]
-        ),
     )

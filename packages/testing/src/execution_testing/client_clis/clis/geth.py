@@ -231,7 +231,7 @@ class GethEvm(EthereumCLI):
             """
         )
         dump_files_to_directory(
-            str(debug_output_path),
+            debug_output_path,
             {
                 "consume_direct_args.py": command,
                 "consume_direct_returncode.txt": result.returncode,

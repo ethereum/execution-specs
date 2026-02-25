@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 from pytest import TempPathFactory
 
-from ..fixture_output import FixtureOutput
+from ...shared.fixture_output import FixtureOutput
 
 MINIMAL_TEST_FILE_NAME = "test_example.py"
 MINIMAL_TEST_CONTENTS = """

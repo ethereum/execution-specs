@@ -3,6 +3,8 @@ Benchmark operations that force the inclusion of max size bytecodes.
 This scenario is relevant in forks that have unchunkified bytecode.
 """
 
+from typing import List
+
 import pytest
 from execution_testing import (
     Account,
@@ -19,7 +21,7 @@ from execution_testing import (
     While,
 )
 
-from ..helpers import CustomSizedContractFactory
+from ..helpers import ContractDeploymentTransaction, CustomSizedContractFactory
 
 
 @pytest.mark.repricing
@@ -131,15 +133,22 @@ def test_unchunkified_bytecode(
         )
 
     # Deploy num_contracts via multiple txs (each capped by tx gas limit).
+    post = {}
     with TestPhaseManager.setup():
         setup_sender = pre.fund_eoa()
-        contracts_deployment_txs = list(
+        contracts_deployment_txs: List[ContractDeploymentTransaction] = []
+        for contract_creating_tx in (
             custom_sized_contract_factory.transactions_by_total_contract_count(
                 fork=fork,
                 sender=setup_sender,
                 contract_count=num_contracts,
             )
-        )
+        ):
+            contracts_deployment_txs.append(contract_creating_tx)
+            if custom_sized_contract_factory.contract_size > 0:
+                post[contract_creating_tx.deployed_contracts[-1]] = Account(
+                    nonce=1
+                )
 
     with TestPhaseManager.execution():
         attack_sender = pre.fund_eoa()
@@ -165,13 +174,6 @@ def test_unchunkified_bytecode(
                 )
             )
         total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
-
-    post = {}
-    for i in range(num_contracts):
-        deployed_contract_address = (
-            custom_sized_contract_factory.created_contract_address(salt=i)
-        )
-        post[deployed_contract_address] = Account(nonce=1)
 
     benchmark_test(
         pre=pre,

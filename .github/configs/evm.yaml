@@ -12,7 +12,6 @@ static:
   ref: master
   targets: ["evmone-t8n"]
 benchmark:
-  impl: evmone
-  repo: ethereum/evmone
+  impl: geth
+  repo: ethereum/go-ethereum
   ref: master
-  targets: ["evmone-t8n"]

@@ -10,7 +10,6 @@ from execution_testing.execution import (
     TransactionPost,
 )
 from execution_testing.fixtures import (
-    BaseFixture,
     FixtureFormat,
     LabeledFixtureFormat,
     TransactionFixture,
@@ -18,7 +17,7 @@ from execution_testing.fixtures import (
 from execution_testing.fixtures.transaction import FixtureResult
 from execution_testing.test_types import Alloc, Transaction
 
-from .base import BaseTest
+from .base import BaseTest, FillResult, OpMode
 
 
 class TransactionTest(BaseTest):
@@ -44,7 +43,7 @@ class TransactionTest(BaseTest):
 
     def make_transaction_test_fixture(
         self,
-    ) -> TransactionFixture:
+    ) -> FillResult:
         """Create a fixture from the transaction test definition."""
         if self.tx.error is not None:
             result = FixtureResult(
@@ -70,18 +69,24 @@ class TransactionTest(BaseTest):
                 sender=self.tx.sender,
             )
 
-        return TransactionFixture(
+        fixture = TransactionFixture(
             result={
                 self.fork: result,
             },
             transaction=self.tx.with_signature_and_sender().rlp(),
+        )
+        return FillResult(
+            fixture=fixture,
+            gas_optimization=None,
+            benchmark_gas_used=None,
+            benchmark_opcode_count=None,
         )
 
     def generate(
         self,
         t8n: TransitionTool,
         fixture_format: FixtureFormat,
-    ) -> BaseFixture:
+    ) -> FillResult:
         """Generate the TransactionTest fixture."""
         del t8n
 
@@ -98,9 +103,11 @@ class TransactionTest(BaseTest):
     ) -> BaseExecute:
         """Execute the transaction test by sending it to the live network."""
         if execute_format == TransactionPost:
+            benchmark_mode = self.operation_mode == OpMode.BENCHMARKING
             return TransactionPost(
                 blocks=[[self.tx]],
                 post={},
+                benchmark_mode=benchmark_mode,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 

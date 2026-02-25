@@ -422,6 +422,10 @@ def node_id_for_entropy(
     across fixture types and forks for the same test.
     """
     node_id: str = request.node.nodeid
+    # Strip xdist group suffix (e.g., @t8n-cache-abc12345) so entropy is
+    # deterministic regardless of whether xdist is active.
+    if "@" in node_id:
+        node_id = node_id.rsplit("@", 1)[0]
     if fork is None:
         # FIXME: Static tests don't have a fork, so we need to get it from the
         # node.
@@ -429,7 +433,7 @@ def node_id_for_entropy(
         fork = request.node.fork
     for fixture_format_name in ALL_FIXTURE_FORMAT_NAMES:
         if fixture_format_name in node_id:
-            parts = request.node.nodeid.split("::")
+            parts = node_id.split("::")
             test_file_path = parts[0]
             test_name = "::".join(parts[1:])
             stripped_test_name = test_name.replace(

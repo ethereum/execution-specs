@@ -12,7 +12,7 @@ from execution_testing.test_types.chain_config_types import (
 )
 
 from ..pre_alloc import AddressStubs
-from .chain_builder_eth_rpc import ChainBuilderEthRPC
+from .chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -177,26 +177,34 @@ def eth_rpc(
     rpc_endpoint: str,
     engine_rpc: EngineRPC | None,
     session_fork: Fork,
-    transactions_per_block: int,
     session_temp_folder: Path,
     max_transactions_per_batch: int | None,
+    use_testing_build_block: bool,
 ) -> EthRPC:
     """Initialize ethereum RPC client for the execution client under test."""
     tx_wait_timeout = request.config.getoption("tx_wait_timeout")
     if engine_rpc is None:
+        if use_testing_build_block:
+            raise pytest.UsageError(
+                "--use-testing-build-block requires "
+                "--engine-endpoint to be set"
+            )
         return EthRPC(
             rpc_endpoint,
             transaction_wait_timeout=tx_wait_timeout,
             max_transactions_per_batch=max_transactions_per_batch,
         )
     get_payload_wait_time = request.config.getoption("get_payload_wait_time")
+    testing_rpc = None
+    if use_testing_build_block:
+        testing_rpc = TestingRPC(rpc_endpoint)
     return ChainBuilderEthRPC(
         rpc_endpoint=rpc_endpoint,
         fork=session_fork,
         engine_rpc=engine_rpc,
-        transactions_per_block=transactions_per_block,
         session_temp_folder=session_temp_folder,
         get_payload_wait_time=get_payload_wait_time,
         transaction_wait_timeout=tx_wait_timeout,
         max_transactions_per_batch=max_transactions_per_batch,
+        testing_rpc=testing_rpc,
     )

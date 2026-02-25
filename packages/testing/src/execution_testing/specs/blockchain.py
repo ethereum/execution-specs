@@ -17,7 +17,6 @@ import pytest
 from pydantic import (
     ConfigDict,
     Field,
-    PrivateAttr,
     field_validator,
     model_serializer,
 )
@@ -89,7 +88,7 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessListExpectation,
 )
 
-from .base import BaseTest, OpMode, verify_result
+from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
 from .helpers import verify_block, verify_transactions
 
@@ -279,6 +278,11 @@ class Block(Header):
     If set, the block is expected to produce an error response from the Engine
     API.
     """
+    include_receipts_in_output: bool | None = None
+    """
+    If set to `True`, the block’s output fixture representation will include
+    full transaction receipts. If unset, the test-level value is used.
+    """
     txs: List[Transaction] = Field(default_factory=list)
     """List of transactions included in the block."""
     ommers: List[Header] | None = None
@@ -378,7 +382,9 @@ class BuiltBlock(CamelModel):
     fork: Fork
     block_access_list: BlockAccessList | None
 
-    def get_fixture_block(self) -> FixtureBlock | InvalidFixtureBlock:
+    def get_fixture_block(
+        self, *, include_receipts: bool = True
+    ) -> FixtureBlock | InvalidFixtureBlock:
         """Get a FixtureBlockBase from the built block."""
         fixture_block = FixtureBlockBase(
             header=self.header,
@@ -398,7 +404,7 @@ class BuiltBlock(CamelModel):
                     )
                     for i, r in enumerate(self.result.receipts)
                 ]
-                if self.result.receipts
+                if self.result.receipts and include_receipts
                 else None
             ),
             block_access_list=self.block_access_list
@@ -499,13 +505,15 @@ class BlockchainTest(BaseTest):
     blocks: List[Block]
     genesis_environment: Environment = Field(default_factory=Environment)
     chain_id: int = 1
-    exclude_full_post_state_in_output: bool = False
+    include_full_post_state_in_output: bool = True
     """
-    Exclude the post state from the fixture output. In this case, the state
+    Include the post state in the fixture output. Otherwise, the state
     verification is only performed based on the state root.
     """
-
-    _benchmark_opcode_count: OpcodeCount | None = PrivateAttr(None)
+    include_tx_receipts_in_output: bool = True
+    """
+    Include transaction receipts in the fixture output.
+    """
 
     supported_fixture_formats: ClassVar[
         Sequence[FixtureFormat | LabeledFixtureFormat]
@@ -602,7 +610,6 @@ class BlockchainTest(BaseTest):
         block: Block,
         previous_env: Environment,
         previous_alloc: Alloc | LazyAlloc,
-        last_block: bool,
     ) -> BuiltBlock:
         """
         Generate common block data for both make_fixture and make_hive_fixture.
@@ -635,17 +642,8 @@ class BlockchainTest(BaseTest):
                 ),
                 blob_schedule=self.fork.blob_schedule(),
             ),
-            debug_output_path=self.get_next_transition_tool_output_path(),
-            slow_request=self.is_tx_gas_heavy_test(),
+            slow_request=self.is_tx_gas_heavy_test,
         )
-
-        if transition_tool_output.result.opcode_count is not None:
-            if self._opcode_count is None:
-                self._opcode_count = transition_tool_output.result.opcode_count
-            else:
-                self._opcode_count += (
-                    transition_tool_output.result.opcode_count
-                )
 
         # One special case of the invalid transactions is the blob gas used,
         # since this value is not included in the transition tool result, but
@@ -684,25 +682,6 @@ class BlockchainTest(BaseTest):
                 raise Exception(
                     f"Verification of block {int(env.number)} failed"
                 ) from e
-
-        if last_block and self._operation_mode == OpMode.BENCHMARKING:
-            expected_benchmark_gas_used = self.expected_benchmark_gas_used
-            assert expected_benchmark_gas_used is not None, (
-                "expected_benchmark_gas_used is not set"
-            )
-            gas_used = int(transition_tool_output.result.gas_used)
-
-            if not self.skip_gas_used_validation:
-                diff = gas_used - expected_benchmark_gas_used
-                assert gas_used == expected_benchmark_gas_used, (
-                    f"gas_used ({gas_used}) does not match "
-                    f"expected_benchmark_gas_used "
-                    f"({expected_benchmark_gas_used}), difference: {diff}"
-                )
-
-            self._benchmark_opcode_count = (
-                transition_tool_output.result.opcode_count
-            )
 
         requests_list: List[Bytes] | None = None
         if self.fork.header_requests_required(
@@ -860,7 +839,7 @@ class BlockchainTest(BaseTest):
     def make_fixture(
         self,
         t8n: TransitionTool,
-    ) -> BlockchainFixture:
+    ) -> FillResult:
         """Create a fixture from the blockchain test definition."""
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
 
@@ -871,7 +850,10 @@ class BlockchainTest(BaseTest):
         env = environment_from_parent_header(genesis.header)
         head = genesis.header.block_hash
         invalid_blocks = 0
+        benchmark_gas_used: int | None = None
+        benchmark_opcode_count: OpcodeCount | None = None
         for i, block in enumerate(self.blocks):
+            is_last_block = i == len(self.blocks) - 1
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
             # Set the environment according to the block to execute.
@@ -880,9 +862,20 @@ class BlockchainTest(BaseTest):
                 block=block,
                 previous_env=env,
                 previous_alloc=alloc,
-                last_block=i == len(self.blocks) - 1,
             )
-            fixture_blocks.append(built_block.get_fixture_block())
+            if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
+                benchmark_gas_used = int(built_block.result.gas_used)
+                benchmark_opcode_count = built_block.result.opcode_count
+            include_receipts = (
+                block.include_receipts_in_output
+                if block.include_receipts_in_output is not None
+                else self.include_tx_receipts_in_output
+            )
+            fixture_blocks.append(
+                built_block.get_fixture_block(
+                    include_receipts=include_receipts
+                )
+            )
 
             # BAL verification already done in to_fixture_bal() if
             # expected_block_access_list set
@@ -907,10 +900,7 @@ class BlockchainTest(BaseTest):
         self.check_exception_test(exception=invalid_blocks > 0)
         alloc = alloc.get() if isinstance(alloc, LazyAlloc) else alloc
         self.verify_post_state(t8n, t8n_state=alloc)
-        info = {}
-        if self._opcode_count is not None:
-            info["opcode_count"] = self._opcode_count.model_dump()
-        return BlockchainFixture(
+        fixture = BlockchainFixture(
             fork=self.fork,
             genesis=genesis.header,
             genesis_rlp=genesis.rlp,
@@ -918,10 +908,10 @@ class BlockchainTest(BaseTest):
             last_block_hash=head,
             pre=pre,
             post_state=alloc
-            if not self.exclude_full_post_state_in_output
+            if self.include_full_post_state_in_output
             else None,
             post_state_hash=state_root
-            if self.exclude_full_post_state_in_output
+            if not self.include_full_post_state_in_output
             else None,
             config=FixtureConfig(
                 fork=self.fork,
@@ -930,18 +920,19 @@ class BlockchainTest(BaseTest):
                 ),
                 chain_id=self.chain_id,
             ),
-            info=info,
+        )
+        return FillResult(
+            fixture=fixture,
+            gas_optimization=None,
+            benchmark_gas_used=benchmark_gas_used,
+            benchmark_opcode_count=benchmark_opcode_count,
         )
 
     def make_hive_fixture(
         self,
         t8n: TransitionTool,
         fixture_format: FixtureFormat = BlockchainEngineFixture,
-    ) -> (
-        BlockchainEngineFixture
-        | BlockchainEngineXFixture
-        | BlockchainEngineSyncFixture
-    ):
+    ) -> FillResult:
         """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
 
@@ -954,14 +945,19 @@ class BlockchainTest(BaseTest):
         env = environment_from_parent_header(genesis.header)
         head_hash = genesis.header.block_hash
         invalid_blocks = 0
+        benchmark_gas_used: int | None = None
+        benchmark_opcode_count: OpcodeCount | None = None
         for i, block in enumerate(self.blocks):
+            is_last_block = i == len(self.blocks) - 1
             built_block = self.generate_block_data(
                 t8n=t8n,
                 block=block,
                 previous_env=env,
                 previous_alloc=alloc,
-                last_block=i == len(self.blocks) - 1,
             )
+            if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
+                benchmark_gas_used = int(built_block.result.gas_used)
+                benchmark_opcode_count = built_block.result.opcode_count
             fixture_payloads.append(
                 built_block.get_fixture_engine_new_payload()
             )
@@ -995,16 +991,13 @@ class BlockchainTest(BaseTest):
         self.verify_post_state(t8n, t8n_state=alloc)
 
         # Create base fixture data, common to all fixture formats
-        info = {}
-        if self._opcode_count is not None:
-            info["opcode_count"] = self._opcode_count.model_dump()
         fixture_data = {
             "fork": self.fork,
             "genesis": genesis.header,
             "payloads": fixture_payloads,
             "last_block_hash": head_hash,
             "post_state_hash": state_root
-            if self.exclude_full_post_state_in_output
+            if not self.include_full_post_state_in_output
             else None,
             "config": FixtureConfig(
                 fork=self.fork,
@@ -1013,22 +1006,22 @@ class BlockchainTest(BaseTest):
                     self.fork.blob_schedule()
                 ),
             ),
-            "info": info,
         }
 
         # Add format-specific fields
+        fixture: BaseFixture
         if fixture_format == BlockchainEngineXFixture:
             # For Engine X format, exclude pre (will be provided via shared
             # state) and prepare for state diff optimization
             fixture_data.update(
                 {
                     "post_state": alloc
-                    if not self.exclude_full_post_state_in_output
+                    if self.include_full_post_state_in_output
                     else None,
                     "pre_hash": "",  # Will be set by BaseTestWrapper
                 }
             )
-            return BlockchainEngineXFixture(**fixture_data)
+            fixture = BlockchainEngineXFixture(**fixture_data)
         elif fixture_format == BlockchainEngineSyncFixture:
             # Sync fixture format
             assert genesis.header.block_hash != head_hash, (
@@ -1043,7 +1036,6 @@ class BlockchainTest(BaseTest):
                 block=Block(),
                 previous_env=env,
                 previous_alloc=alloc,
-                last_block=False,
             )
             fixture_data.update(
                 {
@@ -1052,30 +1044,36 @@ class BlockchainTest(BaseTest):
                     ),
                     "pre": pre,
                     "post_state": alloc
-                    if not self.exclude_full_post_state_in_output
+                    if self.include_full_post_state_in_output
                     else None,
                 }
             )
-            return BlockchainEngineSyncFixture(**fixture_data)
+            fixture = BlockchainEngineSyncFixture(**fixture_data)
         else:
             # Standard engine fixture
             fixture_data.update(
                 {
                     "pre": pre,
                     "post_state": alloc
-                    if not self.exclude_full_post_state_in_output
+                    if self.include_full_post_state_in_output
                     else None,
                 }
             )
-            return BlockchainEngineFixture(**fixture_data)
+            fixture = BlockchainEngineFixture(**fixture_data)
+
+        return FillResult(
+            fixture=fixture,
+            gas_optimization=None,
+            benchmark_gas_used=benchmark_gas_used,
+            benchmark_opcode_count=benchmark_opcode_count,
+        )
 
     def generate(
         self,
         t8n: TransitionTool,
         fixture_format: FixtureFormat,
-    ) -> BaseFixture:
+    ) -> FillResult:
         """Generate the BlockchainTest fixture."""
-        t8n.reset_traces()
         if fixture_format in [
             BlockchainEngineFixture,
             BlockchainEngineXFixture,
@@ -1099,14 +1097,14 @@ class BlockchainTest(BaseTest):
                 blocks += [block.txs]
             # Pass gas validation params for benchmark tests
             # If not benchmark mode, skip gas used validation
-            if self._operation_mode != OpMode.BENCHMARKING:
+            if self.operation_mode != OpMode.BENCHMARKING:
                 self.skip_gas_used_validation = True
 
+            benchmark_mode = self.operation_mode == OpMode.BENCHMARKING
             return TransactionPost(
                 blocks=blocks,
                 post=self.post,
-                expected_benchmark_gas_used=self.expected_benchmark_gas_used,
-                skip_gas_used_validation=self.skip_gas_used_validation,
+                benchmark_mode=benchmark_mode,
             )
         raise Exception(f"Unsupported execute format: {execute_format}")
 

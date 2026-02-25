@@ -1,16 +1,22 @@
 """Sender mutex class that allows sending transactions one at a time."""
 
+import json
+import time
 from pathlib import Path
-from typing import Generator, Iterator
+from typing import Generator, Iterator, List
 
 import pytest
 from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
 
-from execution_testing.base_types import Number, Wei
+from execution_testing.base_types import Address, Number, Wei
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
-from execution_testing.test_types import EOA, Transaction
+from execution_testing.test_types import (
+    EOA,
+    Transaction,
+    TransactionTestMetadata,
+)
 
 logger = get_logger(__name__)
 
@@ -52,6 +58,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=21_000,
         help=(
             "Gas limit set for the funding transactions of each worker's sender key."  # noqa: E501
+        ),
+    )
+
+    sender_group.addoption(
+        "--worker-funding-timeout",
+        action="store",
+        dest="worker_funding_timeout",
+        type=int,
+        default=120,
+        help=(
+            "Timeout in seconds for workers waiting to be funded. Default=120"
         ),
     )
 
@@ -256,55 +273,68 @@ def session_worker_key(
     assert worker_key_funding_amount is not None, (
         "`worker_key_funding_amount` is None"
     )
-    # For the seed sender we do need to keep track of the nonce because it is
-    # shared among different processes, and there might not be a new block
-    # produced between the transactions.
-    seed_sender_nonce_file_name = "seed_sender_nonce"
-    seed_sender_lock_file_name = f"{seed_sender_nonce_file_name}.lock"
-    seed_sender_nonce_file = session_temp_folder / seed_sender_nonce_file_name
-    seed_sender_lock_file = session_temp_folder / seed_sender_lock_file_name
+    worker_keys_file_name = "worker_keys.json"
+    worker_keys_lock_file_name = f"{worker_keys_file_name}.lock"
+    worker_keys_file = session_temp_folder / worker_keys_file_name
+    worker_keys_lock_file = session_temp_folder / worker_keys_lock_file_name
+    worker_funded_file = session_temp_folder / "worker_keys_funded"
 
     worker_key = next(eoa_iterator)
     logger.info(f"Allocated worker key: {worker_key}")
 
-    # Prepare funding transaction for this specific worker.
-    # Each worker locks the next nonce by using a file lock to coordinate.
-    with FileLock(seed_sender_lock_file):
-        if seed_sender_nonce_file.exists():
-            with seed_sender_nonce_file.open("r") as f:
-                seed_key.nonce = Number(f.read())
-                logger.debug(
-                    f"Loaded seed key nonce from file: {seed_key.nonce}"
+    # Each worker registers its key. The last worker to register builds
+    # and sends all funding transactions as a single batch.
+    is_last_worker = False
+    with FileLock(worker_keys_lock_file):
+        if worker_keys_file.exists():
+            registered_keys = json.loads(worker_keys_file.read_text())
+        else:
+            registered_keys = []
+        registered_keys.append(str(worker_key))
+        worker_keys_file.write_text(json.dumps(registered_keys))
+
+        if len(registered_keys) == worker_count:
+            is_last_worker = True
+            fund_txs: List[Transaction] = []
+            for i, key_str in enumerate(registered_keys):
+                fund_tx = Transaction(
+                    sender=seed_key,
+                    to=Address(key_str),
+                    gas_limit=sender_fund_refund_gas_limit,
+                    gas_price=sender_funding_transactions_gas_price,
+                    value=worker_key_funding_amount,
+                    metadata=TransactionTestMetadata(
+                        test_id="global",
+                        phase="setup",
+                        action="fund_eoa",
+                        target="Session Worker Key",
+                        tx_index=i,
+                    ),
+                ).with_signature_and_sender()
+                fund_txs.append(fund_tx)
+
+            if not dry_run:
+                eth_rpc.send_wait_transactions(fund_txs)
+                logger.info("All worker funding transactions confirmed")
+            else:
+                logger.info("Dry run: skipping funding transaction send")
+            worker_funded_file.touch()
+
+    if not is_last_worker:
+        funding_timeout = request.config.option.worker_funding_timeout
+        logger.info(
+            "Waiting for all workers to be funded "
+            f"(timeout={funding_timeout}s)..."
+        )
+        deadline = time.monotonic() + funding_timeout
+        while not worker_funded_file.exists():
+            if time.monotonic() > deadline:
+                raise TimeoutError(
+                    f"Timed out after {funding_timeout}s waiting "
+                    "for all workers to be funded"
                 )
-        else:
-            logger.debug(
-                "No existing seed key nonce file, using current nonce"
-            )
-        fund_tx = Transaction(
-            sender=seed_key,
-            to=worker_key,
-            gas_limit=sender_fund_refund_gas_limit,
-            gas_price=sender_funding_transactions_gas_price,
-            value=worker_key_funding_amount,
-        ).with_signature_and_sender()
-        fund_eth = worker_key_funding_amount / 10**18
-        logger.info(
-            f"Preparing funding transaction: {fund_eth:.18f} ETH "
-            f"from {seed_key} to {worker_key} (nonce={seed_key.nonce})"
-        )
-        if not dry_run:
-            eth_rpc.send_transaction(fund_tx)
-            logger.info(f"Sent funding transaction: {fund_tx.hash}")
-        else:
-            logger.info("Dry run: skipping funding transaction send")
-        with seed_sender_nonce_file.open("w") as f:
-            f.write(str(seed_key.nonce))
-    if not dry_run:
-        logger.info(
-            f"Waiting for funding transaction to be mined: {fund_tx.hash}"
-        )
-        eth_rpc.wait_for_transaction(fund_tx)
-        logger.info(f"Funding transaction confirmed: {fund_tx.hash}")
+            time.sleep(0.1)
+        logger.info("All workers funded, proceeding")
 
     # Run all tests for this worker.
     yield worker_key
@@ -313,8 +343,8 @@ def session_worker_key(
     logger.info(
         f"All tests completed for worker {worker_key}, preparing refund"
     )
-    remaining_balance = eth_rpc.get_balance(worker_key)
-    worker_key.nonce = Number(eth_rpc.get_transaction_count(worker_key))
+    worker_account = eth_rpc.get_account(worker_key, skip_code=True)
+    remaining_balance = worker_account.balance
     used_balance = worker_key_funding_amount - remaining_balance
     logger.info(
         f"Worker {worker_key} used balance: {used_balance / 10**18:.18f} ETH "
@@ -346,7 +376,7 @@ def session_worker_key(
 
     # Update the nonce of the sender in case one of the pre-alloc transactions
     # failed
-    worker_key.nonce = Number(eth_rpc.get_transaction_count(worker_key))
+    worker_key.nonce = worker_account.nonce
     refund_value = remaining_balance - tx_cost - 1
     logger.info(
         f"Preparing refund transaction: {refund_value / 10**18:.18f} ETH "
@@ -359,12 +389,19 @@ def session_worker_key(
         gas_limit=refund_gas_limit,
         gas_price=refund_gas_price,
         value=refund_value,
+        metadata=TransactionTestMetadata(
+            test_id="global",
+            phase="cleanup",
+            action="fund_eoa",
+            target="Session Worker Key Refund",
+            tx_index=worker_key.nonce,
+        ),
     ).with_signature_and_sender()
 
     logger.info(
         f"Sending and waiting for refund transaction: {refund_tx.hash}"
     )
-    eth_rpc.send_wait_transaction(refund_tx)
+    eth_rpc.send_wait_transactions([refund_tx])
     logger.info(f"Refund transaction confirmed: {refund_tx.hash}")
 
 
@@ -374,11 +411,10 @@ def worker_key(
 ) -> Generator[EOA, None, None]:
     """Prepare the worker key for the current test."""
     logger.debug(f"Preparing worker key {session_worker_key} for test")
-    rpc_nonce = Number(
-        eth_rpc.get_transaction_count(
-            session_worker_key, block_number="pending"
-        )
+    session_worker_account = eth_rpc.get_account(
+        session_worker_key, block_number="pending", skip_code=True
     )
+    rpc_nonce = Number(session_worker_account.nonce)
     if rpc_nonce != session_worker_key.nonce:
         wk_nonce = session_worker_key.nonce
         logger.info(f"Worker key nonce mismatch: {wk_nonce} != {rpc_nonce}")
@@ -386,7 +422,7 @@ def worker_key(
         session_worker_key.nonce = rpc_nonce
 
     # Record the start balance of the worker key
-    worker_key_start_balance = eth_rpc.get_balance(session_worker_key)
+    worker_key_start_balance = session_worker_account.balance
     start_eth = worker_key_start_balance / 10**18
     logger.debug(f"Worker key start balance: {start_eth:.18f} ETH")
 

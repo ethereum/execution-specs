@@ -121,24 +121,6 @@ jobs:
       - name: Run json infra tests
         run: tox -e json_infra -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
 
-  optimized:
-    runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: static
-    steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
-        with:
-          submodules: recursive
-          fetch-depth: 0  # Fetch full history for commit comparison
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: "3.11"
-      - uses: ./.github/actions/setup-env
-      - uses: ./.github/actions/get-changed-files
-        id: get-changed-files
-      - name: Run optimized tests
-        run: tox -e optimized -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
-
   tests_pytest_py3:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static

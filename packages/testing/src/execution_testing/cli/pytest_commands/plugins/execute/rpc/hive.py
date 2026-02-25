@@ -24,6 +24,8 @@ from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.forks import Fork
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.test_types import (
+    DETERMINISTIC_FACTORY_ADDRESS,
+    DETERMINISTIC_FACTORY_BYTECODE,
     EOA,
     Alloc,
     ChainConfig,
@@ -33,7 +35,7 @@ from execution_testing.test_types import (
 )
 
 from ...consume.simulators.helpers.ruleset import ruleset
-from .chain_builder_eth_rpc import ChainBuilderEthRPC
+from .chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -104,7 +106,14 @@ def base_pre(
     seed_key_initial_balance = request.config.getoption(
         "seed_key_initial_balance"
     )
-    return Alloc({seed_key: Account(balance=seed_key_initial_balance)})
+    return Alloc(
+        {
+            seed_key: Account(balance=seed_key_initial_balance),
+            DETERMINISTIC_FACTORY_ADDRESS: Account(
+                nonce=1, code=DETERMINISTIC_FACTORY_BYTECODE
+            ),
+        }
+    )
 
 
 @pytest.fixture(scope="session")
@@ -387,20 +396,23 @@ def eth_rpc(
     client: Client,
     engine_rpc: EngineRPC,
     session_fork: Fork,
-    transactions_per_block: int,
     session_temp_folder: Path,
     max_transactions_per_batch: int | None,
+    use_testing_build_block: bool,
 ) -> EthRPC:
     """Initialize ethereum RPC client for the execution client under test."""
     get_payload_wait_time = request.config.getoption("get_payload_wait_time")
     tx_wait_timeout = request.config.getoption("tx_wait_timeout")
+    testing_rpc = None
+    if use_testing_build_block:
+        testing_rpc = TestingRPC(f"http://{client.ip}:8545")
     return ChainBuilderEthRPC(
         rpc_endpoint=f"http://{client.ip}:8545",
         fork=session_fork,
         engine_rpc=engine_rpc,
-        transactions_per_block=transactions_per_block,
         session_temp_folder=session_temp_folder,
         get_payload_wait_time=get_payload_wait_time,
         transaction_wait_timeout=tx_wait_timeout,
         max_transactions_per_batch=max_transactions_per_batch,
+        testing_rpc=testing_rpc,
     )

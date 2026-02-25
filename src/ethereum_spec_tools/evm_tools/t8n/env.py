@@ -145,7 +145,7 @@ class Env:
         if t8n.fork.has_compute_requests_hash:
             arguments["requests_hash"] = Hash32(b"\0" * 32)
 
-        if t8n.fork.has_block_access_list_hash:
+        if t8n.fork.has_hash_block_access_list:
             arguments["block_access_list_hash"] = Hash32(b"\0" * 32)
 
         parent_header = t8n.fork.Header(**arguments)

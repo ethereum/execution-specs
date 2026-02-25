@@ -24,8 +24,8 @@ def test_sha256(
     optimal_input_length = calculate_optimal_input_length(
         available_gas=gas_available,
         fork=fork,
-        static_cost=gas_costs.G_PRECOMPILE_SHA256_BASE,
-        per_word_dynamic_cost=gas_costs.G_PRECOMPILE_SHA256_WORD,
+        static_cost=gas_costs.GAS_PRECOMPILE_SHA256_BASE,
+        per_word_dynamic_cost=gas_costs.GAS_PRECOMPILE_SHA256_PER_WORD,
         bytes_per_unit_of_work=64,
     )
 

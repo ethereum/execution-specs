@@ -1210,7 +1210,7 @@ def test_bal_7702_delegated_create(
         + init_code.gas_cost(fork)
     )
 
-    refund_counter = gsc.R_AUTHORIZATION_EXISTING_AUTHORITY
+    refund_counter = gsc.REFUND_AUTH_PER_EXISTING_ACCOUNT
 
     effective_refund = min(refund_counter, gas_used // max_refund_quotient)
     gas_used_post_refund = gas_used - effective_refund

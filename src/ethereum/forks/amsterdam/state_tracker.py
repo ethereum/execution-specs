@@ -1,558 +1,777 @@
 """
-EIP-7928 Block Access Lists: Hierarchical State Change Tracking.
+State Tracking for Block Execution.
 
-Frame hierarchy mirrors EVM execution: Block -> Transaction -> Call frames.
-Each frame tracks state accesses and merges to parent on completion.
+Track state changes on top of a read-only ``PreState``.  At block end,
+accumulated diffs feed into
+``PreState.compute_state_root_and_trie_changes()``.
 
-On success, changes merge upward with net-zero filtering (pre-state vs final).
-On failure, only reads merge (writes discarded). Pre-state captures use
-first-write-wins semantics and are stored at the transaction frame level.
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
 
-[EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
+Introduction
+------------
+
+Replace the mutable ``State`` class with lightweight state trackers that
+record diffs.  ``BlockState`` accumulates committed transaction
+changes across a block.  ``TransactionState`` tracks in-flight changes
+within a single transaction and supports copy-on-write rollback.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.frozen import modify
+from ethereum_types.numeric import U256, Uint
 
-from .block_access_lists.rlp_types import BlockAccessIndex
-from .fork_types import Address
+from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.state import (
+    EMPTY_ACCOUNT,
+    EMPTY_CODE_HASH,
+    Account,
+    Address,
+    PreState,
+)
+
+if TYPE_CHECKING:
+    from .block_access_lists import BlockAccessListBuilder
 
 
 @dataclass
-class StateChanges:
+class BlockState:
     """
-    Tracks state changes within a single execution frame.
+    Accumulate committed transaction-level changes across a block.
 
-    Frames form a hierarchy (Block -> Transaction -> Call) linked by parent
-    references. The block_access_index is stored at the root frame. Pre-state
-    captures (pre_balances, etc.) are only populated at the transaction level.
+    Read chain: block writes -> pre_state.
+
+    ``account_reads`` and ``storage_reads`` accumulate across all
+    transactions for BAL generation.
     """
 
-    parent: Optional["StateChanges"] = None
-    block_access_index: BlockAccessIndex = BlockAccessIndex(0)
-
-    touched_addresses: Set[Address] = field(default_factory=set)
+    pre_state: PreState
+    account_reads: Set[Address] = field(default_factory=set)
+    account_writes: Dict[Address, Optional[Account]] = field(
+        default_factory=dict
+    )
     storage_reads: Set[Tuple[Address, Bytes32]] = field(default_factory=set)
-    storage_writes: Dict[Tuple[Address, Bytes32, BlockAccessIndex], U256] = (
-        field(default_factory=dict)
-    )
-
-    balance_changes: Dict[Tuple[Address, BlockAccessIndex], U256] = field(
+    storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
         default_factory=dict
     )
-    nonce_changes: Set[Tuple[Address, BlockAccessIndex, U64]] = field(
-        default_factory=set
-    )
-    code_changes: Dict[Tuple[Address, BlockAccessIndex], Bytes] = field(
-        default_factory=dict
-    )
-
-    # Pre-state captures (transaction-scoped, only populated at tx frame)
-    pre_balances: Dict[Address, U256] = field(default_factory=dict)
-    pre_storage: Dict[Tuple[Address, Bytes32], U256] = field(
-        default_factory=dict
-    )
-    pre_code: Dict[Address, Bytes] = field(default_factory=dict)
+    code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
 
 
-def get_block_frame(state_changes: StateChanges) -> StateChanges:
+@dataclass
+class TransactionState:
     """
-    Walk to the root (block-level) frame.
+    Track in-flight state changes within a single transaction.
+
+    Read chain: tx writes -> block writes -> pre_state.
+
+    ``storage_reads`` and ``account_reads`` are shared references
+    that survive rollback (reads from failed calls still appear in the
+    Block Access List).
+    """
+
+    parent: BlockState
+    account_reads: Set[Address] = field(default_factory=set)
+    account_writes: Dict[Address, Optional[Account]] = field(
+        default_factory=dict
+    )
+    storage_reads: Set[Tuple[Address, Bytes32]] = field(default_factory=set)
+    storage_writes: Dict[Address, Dict[Bytes32, U256]] = field(
+        default_factory=dict
+    )
+    code_writes: Dict[Hash32, Bytes] = field(default_factory=dict)
+    created_accounts: Set[Address] = field(default_factory=set)
+    transient_storage: Dict[Tuple[Address, Bytes32], U256] = field(
+        default_factory=dict
+    )
+
+
+def get_account_optional(
+    tx_state: TransactionState, address: Address
+) -> Optional[Account]:
+    """
+    Get the ``Account`` object at an address. Return ``None`` (rather than
+    ``EMPTY_ACCOUNT``) if there is no account at the address.
 
     Parameters
     ----------
-    state_changes :
-        Any frame in the hierarchy.
+    tx_state :
+        The transaction state.
+    address :
+        Address to look up.
 
     Returns
     -------
-    block_frame : StateChanges
-        The root block-level frame.
+    account : ``Optional[Account]``
+        Account at address.
 
     """
-    block_frame = state_changes
-    while block_frame.parent is not None:
-        block_frame = block_frame.parent
-    return block_frame
+    tx_state.account_reads.add(address)
+    if address in tx_state.account_writes:
+        return tx_state.account_writes[address]
+    if address in tx_state.parent.account_writes:
+        return tx_state.parent.account_writes[address]
+    return tx_state.parent.pre_state.get_account_optional(address)
 
 
-def increment_block_access_index(root_frame: StateChanges) -> None:
+def get_account(tx_state: TransactionState, address: Address) -> Account:
     """
-    Increment the block access index in the root frame.
+    Get the ``Account`` object at an address. Return ``EMPTY_ACCOUNT``
+    if there is no account at the address.
+
+    Use ``get_account_optional()`` if you care about the difference
+    between a non-existent account and ``EMPTY_ACCOUNT``.
 
     Parameters
     ----------
-    root_frame :
-        The root block-level frame.
-
-    """
-    root_frame.block_access_index = BlockAccessIndex(
-        root_frame.block_access_index + Uint(1)
-    )
-
-
-def get_transaction_frame(state_changes: StateChanges) -> StateChanges:
-    """
-    Walk to the transaction-level frame (child of block frame).
-
-    Parameters
-    ----------
-    state_changes :
-        Any frame in the hierarchy.
+    tx_state :
+        The transaction state.
+    address :
+        Address to look up.
 
     Returns
     -------
-    tx_frame : StateChanges
-        The transaction-level frame.
+    account : ``Account``
+        Account at address.
 
     """
-    tx_frame = state_changes
-    while tx_frame.parent is not None and tx_frame.parent.parent is not None:
-        tx_frame = tx_frame.parent
-    return tx_frame
+    account = get_account_optional(tx_state, address)
+    if isinstance(account, Account):
+        return account
+    else:
+        return EMPTY_ACCOUNT
 
 
-def capture_pre_balance(
-    tx_frame: StateChanges, address: Address, balance: U256
-) -> None:
+def get_code(tx_state: TransactionState, code_hash: Hash32) -> Bytes:
     """
-    Capture pre-balance if not already captured (first-write-wins).
+    Get the bytecode for a given code hash.
+
+    Read chain: tx code_writes -> block code_writes -> pre_state.
 
     Parameters
     ----------
-    tx_frame :
-        The transaction-level frame.
-    address :
-        The address whose balance to capture.
-    balance :
-        The current balance value.
+    tx_state :
+        The transaction state.
+    code_hash :
+        Hash of the code to look up.
+
+    Returns
+    -------
+    code : ``Bytes``
+        The bytecode.
 
     """
-    # Only capture pre-values in a transaction level
-    # or block level frame
-    assert tx_frame.parent is None or tx_frame.parent.parent is None
-    if address not in tx_frame.pre_balances:
-        tx_frame.pre_balances[address] = balance
+    if code_hash == EMPTY_CODE_HASH:
+        return b""
+    if code_hash in tx_state.code_writes:
+        return tx_state.code_writes[code_hash]
+    if code_hash in tx_state.parent.code_writes:
+        return tx_state.parent.code_writes[code_hash]
+    return tx_state.parent.pre_state.get_code(code_hash)
 
 
-def capture_pre_storage(
-    tx_frame: StateChanges, address: Address, key: Bytes32, value: U256
-) -> None:
+def get_storage(
+    tx_state: TransactionState, address: Address, key: Bytes32
+) -> U256:
     """
-    Capture pre-storage value if not already captured (first-write-wins).
+    Get a value at a storage key on an account. Return ``U256(0)`` if
+    the storage key has not been set previously.
 
     Parameters
     ----------
-    tx_frame :
-        The transaction-level frame.
+    tx_state :
+        The transaction state.
     address :
-        The address whose storage to capture.
+        Address of the account.
     key :
-        The storage key.
-    value :
-        The current storage value.
+        Key to look up.
+
+    Returns
+    -------
+    value : ``U256``
+        Value at the key.
 
     """
-    # Only capture pre-values in a transaction level
-    # or block level frame
-    assert tx_frame.parent is None or tx_frame.parent.parent is None
-    slot = (address, key)
-    if slot not in tx_frame.pre_storage:
-        tx_frame.pre_storage[slot] = value
+    tx_state.storage_reads.add((address, key))
+    if address in tx_state.storage_writes:
+        if key in tx_state.storage_writes[address]:
+            return tx_state.storage_writes[address][key]
+    if address in tx_state.parent.storage_writes:
+        if key in tx_state.parent.storage_writes[address]:
+            return tx_state.parent.storage_writes[address][key]
+    return tx_state.parent.pre_state.get_storage(address, key)
 
 
-def capture_pre_code(
-    tx_frame: StateChanges, address: Address, code: Bytes
-) -> None:
+def get_storage_original(
+    tx_state: TransactionState, address: Address, key: Bytes32
+) -> U256:
     """
-    Capture pre-code if not already captured (first-write-wins).
+    Get the original value in a storage slot i.e. the value before the
+    current transaction began. Read from block-level writes, then
+    pre_state. Return ``U256(0)`` for accounts created in the current
+    transaction.
 
     Parameters
     ----------
-    tx_frame :
-        The transaction-level frame.
+    tx_state :
+        The transaction state.
     address :
-        The address whose code to capture.
-    code :
-        The current code value.
-
-    """
-    # Only capture pre-values in a transaction level
-    # or block level frame
-    assert tx_frame.parent is None or tx_frame.parent.parent is None
-    if address not in tx_frame.pre_code:
-        tx_frame.pre_code[address] = code
-
-
-def track_address(state_changes: StateChanges, address: Address) -> None:
-    """
-    Record that an address was accessed.
-
-    Parameters
-    ----------
-    state_changes :
-        The state changes frame.
-    address :
-        The address that was accessed.
-
-    """
-    state_changes.touched_addresses.add(address)
-
-
-def track_storage_read(
-    state_changes: StateChanges, address: Address, key: Bytes32
-) -> None:
-    """
-    Record a storage read operation.
-
-    Parameters
-    ----------
-    state_changes :
-        The state changes frame.
-    address :
-        The address whose storage was read.
+        Address of the account to read the value from.
     key :
-        The storage key that was read.
+        Key of the storage slot.
 
     """
-    state_changes.storage_reads.add((address, key))
+    if address in tx_state.created_accounts:
+        return U256(0)
+    if address in tx_state.parent.storage_writes:
+        if key in tx_state.parent.storage_writes[address]:
+            return tx_state.parent.storage_writes[address][key]
+    return tx_state.parent.pre_state.get_storage(address, key)
 
 
-def track_storage_write(
-    state_changes: StateChanges,
+def get_transient_storage(
+    tx_state: TransactionState, address: Address, key: Bytes32
+) -> U256:
+    """
+    Get a value at a storage key on an account from transient storage.
+    Return ``U256(0)`` if the storage key has not been set previously.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account.
+    key :
+        Key to look up.
+
+    Returns
+    -------
+    value : ``U256``
+        Value at the key.
+
+    """
+    return tx_state.transient_storage.get((address, key), U256(0))
+
+
+def account_exists(tx_state: TransactionState, address: Address) -> bool:
+    """
+    Check if an account exists in the state trie.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    account_exists : ``bool``
+        True if account exists in the state trie, False otherwise.
+
+    """
+    return get_account_optional(tx_state, address) is not None
+
+
+def account_has_code_or_nonce(
+    tx_state: TransactionState, address: Address
+) -> bool:
+    """
+    Check if an account has non-zero nonce or non-empty code.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    has_code_or_nonce : ``bool``
+        True if the account has non-zero nonce or non-empty code,
+        False otherwise.
+
+    """
+    account = get_account(tx_state, address)
+    return account.nonce != Uint(0) or account.code_hash != EMPTY_CODE_HASH
+
+
+def account_has_storage(tx_state: TransactionState, address: Address) -> bool:
+    """
+    Check if an account has storage.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    has_storage : ``bool``
+        True if the account has storage, False otherwise.
+
+    """
+    if tx_state.storage_writes.get(address):
+        return True
+    if tx_state.parent.storage_writes.get(address):
+        return True
+    return tx_state.parent.pre_state.account_has_storage(address)
+
+
+def account_exists_and_is_empty(
+    tx_state: TransactionState, address: Address
+) -> bool:
+    """
+    Check if an account exists and has zero nonce, empty code and zero
+    balance.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    exists_and_is_empty : ``bool``
+        True if an account exists and has zero nonce, empty code and
+        zero balance, False otherwise.
+
+    """
+    account = get_account_optional(tx_state, address)
+    return (
+        account is not None
+        and account.nonce == Uint(0)
+        and account.code_hash == EMPTY_CODE_HASH
+        and account.balance == 0
+    )
+
+
+def is_account_alive(tx_state: TransactionState, address: Address) -> bool:
+    """
+    Check whether an account is both in the state and non-empty.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    is_alive : ``bool``
+        True if the account is alive.
+
+    """
+    account = get_account_optional(tx_state, address)
+    return account is not None and account != EMPTY_ACCOUNT
+
+
+def set_account(
+    tx_state: TransactionState,
+    address: Address,
+    account: Optional[Account],
+) -> None:
+    """
+    Set the ``Account`` object at an address. Setting to ``None``
+    deletes the account (but not its storage, see
+    ``destroy_account()``).
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address to set.
+    account :
+        Account to set at address.
+
+    """
+    tx_state.account_writes[address] = account
+
+
+def set_storage(
+    tx_state: TransactionState,
     address: Address,
     key: Bytes32,
     value: U256,
 ) -> None:
     """
-    Record a storage write keyed by (address, key, block_access_index).
+    Set a value at a storage key on an account.
 
     Parameters
     ----------
-    state_changes :
-        The state changes frame.
+    tx_state :
+        The transaction state.
     address :
-        The address whose storage was written.
+        Address of the account.
     key :
-        The storage key that was written.
+        Key to set.
     value :
-        The new storage value.
+        Value to set at the key.
 
     """
-    idx = state_changes.block_access_index
-    state_changes.storage_writes[(address, key, idx)] = value
+    assert get_account_optional(tx_state, address) is not None
+    if address not in tx_state.storage_writes:
+        tx_state.storage_writes[address] = {}
+    tx_state.storage_writes[address][key] = value
 
 
-def track_balance_change(
-    state_changes: StateChanges,
+def destroy_account(tx_state: TransactionState, address: Address) -> None:
+    """
+    Completely remove the account at ``address`` and all of its storage.
+
+    This function is made available exclusively for the ``SELFDESTRUCT``
+    opcode. It is expected that ``SELFDESTRUCT`` will be disabled in a
+    future hardfork and this function will be removed. Only supports same
+    transaction destruction.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of account to destroy.
+
+    """
+    destroy_storage(tx_state, address)
+    set_account(tx_state, address, None)
+
+
+def destroy_storage(tx_state: TransactionState, address: Address) -> None:
+    """
+    Completely remove the storage at ``address``.
+
+    Convert storage writes to reads before deleting so that accesses
+    from created-then-destroyed accounts appear in the Block Access
+    List. Only supports same transaction destruction.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of account whose storage is to be deleted.
+
+    """
+    if address in tx_state.storage_writes:
+        for key in tx_state.storage_writes[address]:
+            tx_state.storage_reads.add((address, key))
+        del tx_state.storage_writes[address]
+
+
+def mark_account_created(tx_state: TransactionState, address: Address) -> None:
+    """
+    Mark an account as having been created in the current transaction.
+    This information is used by ``get_storage_original()`` to handle an
+    obscure edgecase, and to respect the constraints added to
+    SELFDESTRUCT by EIP-6780.
+
+    The marker is not removed even if the account creation reverts.
+    Since the account cannot have had code prior to its creation and
+    can't call ``get_storage_original()``, this is harmless.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account that has been created.
+
+    """
+    tx_state.created_accounts.add(address)
+
+
+def set_transient_storage(
+    tx_state: TransactionState,
     address: Address,
-    new_balance: U256,
+    key: Bytes32,
+    value: U256,
 ) -> None:
     """
-    Record a balance change keyed by (address, block_access_index).
+    Set a value at a storage key on an account in transient storage.
 
     Parameters
     ----------
-    state_changes :
-        The state changes frame.
+    tx_state :
+        The transaction state.
     address :
-        The address whose balance changed.
-    new_balance :
-        The new balance value.
+        Address of the account.
+    key :
+        Key to set.
+    value :
+        Value to set at the key.
 
     """
-    idx = state_changes.block_access_index
-    state_changes.balance_changes[(address, idx)] = new_balance
+    if value == U256(0):
+        tx_state.transient_storage.pop((address, key), None)
+    else:
+        tx_state.transient_storage[(address, key)] = value
 
 
-def track_nonce_change(
-    state_changes: StateChanges,
+def modify_state(
+    tx_state: TransactionState,
     address: Address,
-    new_nonce: U64,
+    f: Callable[[Account], None],
 ) -> None:
     """
-    Record a nonce change as (address, block_access_index, new_nonce).
-
-    Parameters
-    ----------
-    state_changes :
-        The state changes frame.
-    address :
-        The address whose nonce changed.
-    new_nonce :
-        The new nonce value.
-
+    Modify an ``Account`` in the state. If, after modification, the
+    account exists and has zero nonce, empty code, and zero balance, it
+    is destroyed.
     """
-    idx = state_changes.block_access_index
-    state_changes.nonce_changes.add((address, idx, new_nonce))
+    set_account(tx_state, address, modify(get_account(tx_state, address), f))
+    if account_exists_and_is_empty(tx_state, address):
+        destroy_account(tx_state, address)
 
 
-def track_code_change(
-    state_changes: StateChanges,
-    address: Address,
-    new_code: Bytes,
+def move_ether(
+    tx_state: TransactionState,
+    sender_address: Address,
+    recipient_address: Address,
+    amount: U256,
 ) -> None:
     """
-    Record a code change keyed by (address, block_access_index).
+    Move funds between accounts.
 
     Parameters
     ----------
-    state_changes :
-        The state changes frame.
-    address :
-        The address whose code changed.
-    new_code :
-        The new code value.
+    tx_state :
+        The transaction state.
+    sender_address :
+        Address of the sender.
+    recipient_address :
+        Address of the recipient.
+    amount :
+        The amount to transfer.
 
     """
-    idx = state_changes.block_access_index
-    state_changes.code_changes[(address, idx)] = new_code
+
+    def reduce_sender_balance(sender: Account) -> None:
+        if sender.balance < amount:
+            raise AssertionError
+        sender.balance -= amount
+
+    def increase_recipient_balance(recipient: Account) -> None:
+        recipient.balance += amount
+
+    modify_state(tx_state, sender_address, reduce_sender_balance)
+    modify_state(tx_state, recipient_address, increase_recipient_balance)
 
 
-def track_selfdestruct(
-    tx_frame: StateChanges,
-    address: Address,
+def set_account_balance(
+    tx_state: TransactionState, address: Address, amount: U256
 ) -> None:
     """
-    Handle selfdestruct of account created in same transaction.
-
-    Per EIP-7928/EIP-6780: removes nonce/code changes, converts storage
-    writes to reads. Balance changes handled by net-zero filtering.
+    Set the balance of an account.
 
     Parameters
     ----------
-    tx_frame :
-        The state changes tracker. Should be a transaction frame.
+    tx_state :
+        The transaction state.
     address :
-        The address that self-destructed.
+        Address of the account whose balance needs to be set.
+    amount :
+        The amount that needs to be set in the balance.
 
     """
-    # Has to be a transaction frame
-    assert tx_frame.parent is not None and tx_frame.parent.parent is None
 
-    idx = tx_frame.block_access_index
+    def set_balance(account: Account) -> None:
+        account.balance = amount
 
-    # Remove nonce changes from current transaction
-    tx_frame.nonce_changes = {
-        (addr, i, nonce)
-        for addr, i, nonce in tx_frame.nonce_changes
-        if not (addr == address and i == idx)
-    }
-
-    # Remove balance changes from current transaction
-    if (address, idx) in tx_frame.balance_changes:
-        pre_balance = tx_frame.pre_balances[address]
-        if pre_balance == U256(0):
-            # Post balance will be U256(0) after deletion.
-            # So no change and hence bal does not need to
-            # capture anything.
-            del tx_frame.balance_changes[(address, idx)]
-
-    # Remove code changes from current transaction
-    if (address, idx) in tx_frame.code_changes:
-        del tx_frame.code_changes[(address, idx)]
-
-    # Convert storage writes from current transaction to reads
-    for addr, key, i in list(tx_frame.storage_writes.keys()):
-        if addr == address and i == idx:
-            del tx_frame.storage_writes[(addr, key, i)]
-            tx_frame.storage_reads.add((addr, key))
+    modify_state(tx_state, address, set_balance)
 
 
-def merge_on_success(child_frame: StateChanges) -> None:
+def increment_nonce(tx_state: TransactionState, address: Address) -> None:
     """
-    Merge child frame into parent on success.
-
-    Child values overwrite parent values (most recent wins). No net-zero
-    filtering here - that happens once at transaction commit via
-    normalize_transaction().
+    Increment the nonce of an account.
 
     Parameters
     ----------
-    child_frame :
-        The child frame being merged.
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account whose nonce needs to be incremented.
 
     """
-    assert child_frame.parent is not None
-    parent_frame = child_frame.parent
 
-    # Merge address accesses
-    parent_frame.touched_addresses.update(child_frame.touched_addresses)
+    def increase_nonce(sender: Account) -> None:
+        sender.nonce += Uint(1)
 
-    # Merge storage: reads union, writes overwrite (child supersedes parent)
-    parent_frame.storage_reads.update(child_frame.storage_reads)
-    for storage_key, storage_value in child_frame.storage_writes.items():
-        parent_frame.storage_writes[storage_key] = storage_value
-
-    # Merge balance changes: child overwrites parent for same key
-    for balance_key, balance_value in child_frame.balance_changes.items():
-        parent_frame.balance_changes[balance_key] = balance_value
-
-    # Merge nonce changes: keep highest nonce per address
-    address_final_nonces: Dict[Address, Tuple[BlockAccessIndex, U64]] = {}
-    for addr, idx, nonce in child_frame.nonce_changes:
-        if (
-            addr not in address_final_nonces
-            or nonce > address_final_nonces[addr][1]
-        ):
-            address_final_nonces[addr] = (idx, nonce)
-    for addr, (idx, final_nonce) in address_final_nonces.items():
-        parent_frame.nonce_changes.add((addr, idx, final_nonce))
-
-    # Merge code changes: child overwrites parent for same key
-    for code_key, code_value in child_frame.code_changes.items():
-        parent_frame.code_changes[code_key] = code_value
+    modify_state(tx_state, address, increase_nonce)
 
 
-def merge_on_failure(child_frame: StateChanges) -> None:
+def set_code(
+    tx_state: TransactionState, address: Address, code: Bytes
+) -> None:
     """
-    Merge child frame into parent on failure/revert.
-
-    Only reads merge; writes are discarded (converted to reads).
+    Set Account code.
 
     Parameters
     ----------
-    child_frame :
-        The failed child frame.
+    tx_state :
+        The transaction state.
+    address :
+        Address of the account whose code needs to be updated.
+    code :
+        The bytecode that needs to be set.
 
     """
-    assert child_frame.parent is not None
-    parent_frame = child_frame.parent
-    # Only merge reads and address accesses on failure
-    parent_frame.touched_addresses.update(child_frame.touched_addresses)
-    parent_frame.storage_reads.update(child_frame.storage_reads)
+    code_hash = keccak256(code)
+    if code_hash != EMPTY_CODE_HASH:
+        tx_state.code_writes[code_hash] = code
 
-    # Convert writes to reads (failed writes still accessed the slots)
-    for address, key, _idx in child_frame.storage_writes.keys():
-        parent_frame.storage_reads.add((address, key))
+    def write_code_hash(sender: Account) -> None:
+        sender.code_hash = code_hash
 
-    # Note: balance_changes, nonce_changes, and code_changes are NOT
-    # merged on failure - they are discarded
+    modify_state(tx_state, address, write_code_hash)
 
 
-def commit_transaction_frame(tx_frame: StateChanges) -> None:
+# -- Snapshot / Rollback ---------------------------------------------------
+
+
+def copy_tx_state(tx_state: TransactionState) -> TransactionState:
     """
-    Commit transaction frame to block frame.
+    Create a snapshot of the transaction state for rollback.
 
-    Filters net-zero changes before merging to ensure only actual state
-    modifications are recorded in the block access list.
+    Deep-copy writes and transient storage.  The parent reference,
+    ``created_accounts``, ``storage_reads``, and ``account_reads``
+    are shared (not rolled back).
 
     Parameters
     ----------
-    tx_frame :
-        The transaction frame to commit.
-
-    """
-    assert tx_frame.parent is not None
-    block_frame = tx_frame.parent
-
-    # Filter net-zero changes before committing
-    filter_net_zero_frame_changes(tx_frame)
-
-    # Merge address accesses
-    block_frame.touched_addresses.update(tx_frame.touched_addresses)
-
-    # Merge storage operations
-    block_frame.storage_reads.update(tx_frame.storage_reads)
-    for (addr, key, idx), value in tx_frame.storage_writes.items():
-        block_frame.storage_writes[(addr, key, idx)] = value
-
-    # Merge balance changes
-    for (addr, idx), final_balance in tx_frame.balance_changes.items():
-        block_frame.balance_changes[(addr, idx)] = final_balance
-
-    # Merge nonce changes
-    for addr, idx, nonce in tx_frame.nonce_changes:
-        block_frame.nonce_changes.add((addr, idx, nonce))
-
-    # Merge code changes
-    for (addr, idx), final_code in tx_frame.code_changes.items():
-        block_frame.code_changes[(addr, idx)] = final_code
-
-
-def create_child_frame(parent: StateChanges) -> StateChanges:
-    """
-    Create a child frame linked to the given parent.
-
-    Inherits block_access_index from parent so track functions can
-    access it directly without walking up the frame hierarchy.
-
-    Parameters
-    ----------
-    parent :
-        The parent frame.
+    tx_state :
+        The transaction state to snapshot.
 
     Returns
     -------
-    child : StateChanges
-        A new child frame with parent reference and inherited
-        block_access_index.
+    snapshot : ``TransactionState``
+        A copy of the transaction state.
 
     """
-    return StateChanges(
-        parent=parent,
-        block_access_index=parent.block_access_index,
+    return TransactionState(
+        parent=tx_state.parent,
+        account_writes=dict(tx_state.account_writes),
+        storage_writes={
+            addr: dict(slots)
+            for addr, slots in tx_state.storage_writes.items()
+        },
+        code_writes=dict(tx_state.code_writes),
+        created_accounts=tx_state.created_accounts,
+        transient_storage=dict(tx_state.transient_storage),
+        storage_reads=tx_state.storage_reads,
+        account_reads=tx_state.account_reads,
     )
 
 
-def filter_net_zero_frame_changes(tx_frame: StateChanges) -> None:
+def restore_tx_state(
+    tx_state: TransactionState, snapshot: TransactionState
+) -> None:
     """
-    Filter net-zero changes from transaction frame before commit.
-
-    Compares final values against pre-tx state for storage, balance, and code.
-    Net-zero storage writes are converted to reads. Net-zero balance/code
-    changes are removed entirely. Nonces are not filtered (only increment).
+    Restore transaction state from a snapshot (rollback on failure).
 
     Parameters
     ----------
-    tx_frame :
-        The transaction-level state changes frame.
+    tx_state :
+        The transaction state to restore.
+    snapshot :
+        The snapshot to restore from.
 
     """
-    idx = tx_frame.block_access_index
+    tx_state.account_writes = snapshot.account_writes
+    tx_state.storage_writes = snapshot.storage_writes
+    tx_state.code_writes = snapshot.code_writes
+    tx_state.transient_storage = snapshot.transient_storage
 
-    # Filter storage: compare against pre_storage, convert net-zero to reads
-    addresses_to_check_storage = [
-        (addr, key)
-        for (addr, key, i) in tx_frame.storage_writes.keys()
-        if i == idx
-    ]
-    for addr, key in addresses_to_check_storage:
-        # For any (address, key) whose balance has changed, its
-        # pre-value should have been captured
-        assert (addr, key) in tx_frame.pre_storage
-        pre_value = tx_frame.pre_storage[(addr, key)]
-        post_value = tx_frame.storage_writes[(addr, key, idx)]
-        if pre_value == post_value:
-            # Net-zero write - convert to read
-            del tx_frame.storage_writes[(addr, key, idx)]
-            tx_frame.storage_reads.add((addr, key))
 
-    # Filter balance: compare pre vs post, remove if equal
-    addresses_to_check_balance = [
-        addr for (addr, i) in tx_frame.balance_changes.keys() if i == idx
-    ]
-    for addr in addresses_to_check_balance:
-        # For any account whose balance has changed, its
-        # pre-balance should have been captured
-        assert addr in tx_frame.pre_balances
-        pre_balance = tx_frame.pre_balances[addr]
-        post_balance = tx_frame.balance_changes[(addr, idx)]
-        if pre_balance == post_balance:
-            del tx_frame.balance_changes[(addr, idx)]
+# -- Lifecycle --------------------------------------------------------------
 
-    # Filter code: compare pre vs post, remove if equal
-    addresses_to_check_code = [
-        addr for (addr, i) in tx_frame.code_changes.keys() if i == idx
-    ]
-    for addr in addresses_to_check_code:
-        assert addr in tx_frame.pre_code
-        pre_code = tx_frame.pre_code[addr]
-        post_code = tx_frame.code_changes[(addr, idx)]
-        if pre_code == post_code:
-            del tx_frame.code_changes[(addr, idx)]
 
-    # Nonces: no filtering needed (nonces only increment, never net-zero)
+def incorporate_tx_into_block(
+    tx_state: TransactionState,
+    builder: "BlockAccessListBuilder",
+) -> None:
+    """
+    Merge transaction writes into the block state and clear for reuse.
+
+    Update the BAL builder incrementally by diffing this transaction's
+    writes against the block's cumulative state.  Merge reads and
+    touches into block-level sets.
+
+    Parameters
+    ----------
+    tx_state :
+        The transaction state to commit.
+    builder :
+        The BAL builder for incremental updates.
+
+    """
+    from .block_access_lists import update_builder_from_tx
+
+    block = tx_state.parent
+
+    # Update BAL builder before merging writes into block state
+    update_builder_from_tx(builder, tx_state)
+
+    # Merge reads and touches into block-level sets
+    block.storage_reads.update(tx_state.storage_reads)
+    block.account_reads.update(tx_state.account_reads)
+
+    # Merge cumulative writes
+    for address, account in tx_state.account_writes.items():
+        block.account_writes[address] = account
+
+    for address, slots in tx_state.storage_writes.items():
+        if address not in block.storage_writes:
+            block.storage_writes[address] = {}
+        block.storage_writes[address].update(slots)
+
+    block.code_writes.update(tx_state.code_writes)
+
+    tx_state.account_writes.clear()
+    tx_state.storage_writes.clear()
+    tx_state.code_writes.clear()
+    tx_state.created_accounts.clear()
+    tx_state.transient_storage.clear()
+    tx_state.storage_reads = set()
+    tx_state.account_reads = set()
+
+
+def extract_block_diffs(
+    block_state: BlockState,
+) -> Tuple[
+    Dict[Address, Optional[Account]],
+    Dict[Address, Dict[Bytes32, U256]],
+    Dict[Hash32, Bytes],
+]:
+    """
+    Extract account, storage, and code diffs from the block state.
+
+    Parameters
+    ----------
+    block_state :
+        The block state.
+
+    Returns
+    -------
+    account_diffs :
+        Account changes to apply.
+    storage_diffs :
+        Storage changes to apply.
+    code_diffs :
+        Code changes to apply.
+
+    """
+    return (
+        block_state.account_writes,
+        block_state.storage_writes,
+        block_state.code_writes,
+    )

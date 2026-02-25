@@ -18,8 +18,9 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.state import Address, Root
 
-from .fork_types import Address, Bloom, Root
+from .fork_types import Bloom
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,
@@ -106,13 +107,14 @@ class Header:
     Root hash ([`keccak256`]) of the state trie after executing all
     transactions in this block. It represents the state of the Ethereum Virtual
     Machine (EVM) after all transactions in this block have been processed. It
-    is computed using the [`state_root()`] function, which computes the root
-    of the Merkle-Patricia [Trie] representing the Ethereum world state.
+    is computed using [`compute_state_root_and_trie_changes()`][changes],
+    which computes the root of the Merkle-Patricia [Trie] representing the
+    Ethereum world state after applying the block's state changes.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
-    [`state_root()`]: ref:ethereum.forks.amsterdam.state.state_root
+    [changes]: ref:ethereum.forks.amsterdam.state.State.compute_state_root_and_trie_changes
     [Trie]: ref:ethereum.forks.amsterdam.trie.Trie
-    """
+    """  # noqa: E501
 
     transactions_root: Root
     """
@@ -246,12 +248,12 @@ class Header:
     """
     [`keccak256`] hash of the Block Access List containing all accounts and
     storage locations accessed during block execution. Introduced in
-    [EIP-7928]. See [`compute_block_access_list_hash`][cbalh] for more
+    [EIP-7928]. See [`hash_block_access_list`][cbalh] for more
     details.
 
     [`keccak256`]: ref:ethereum.crypto.hash.keccak256
     [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
-    [cbalh]: ref:ethereum.forks.amsterdam.block_access_lists.rlp_utils.compute_block_access_list_hash
+    [cbalh]: ref:ethereum.forks.amsterdam.block_access_lists.hash_block_access_list
     """  # noqa: E501
 
 

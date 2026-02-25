@@ -268,13 +268,13 @@ def test_ether_transfers_to_precompile(
 @pytest.fixture
 def total_cost_floor_per_token(fork: Fork) -> int:
     """Total cost floor per token (EIP-7623)."""
-    return fork.gas_costs().G_TX_DATA_FLOOR_TOKEN_COST
+    return fork.gas_costs().GAS_TX_DATA_TOKEN_FLOOR
 
 
 @pytest.fixture
 def total_cost_standard_per_token(fork: Fork) -> int:
     """Standard cost per token (EIP-7623)."""
-    return fork.gas_costs().G_TX_DATA_STANDARD_TOKEN_COST
+    return fork.gas_costs().GAS_TX_DATA_TOKEN_STANDARD
 
 
 def calldata_generator(
@@ -286,21 +286,22 @@ def calldata_generator(
     # Gas cost calculation based on EIP-7683: (https://eips.ethereum.org/EIPS/eip-7683)
     #
     #   tx.gasUsed = 21000 + max(
-    #       STANDARD_TOKEN_COST * tokens_in_calldata
+    #       GAS_TX_DATA_TOKEN_STANDARD * tokens_in_calldata
     #       + execution_gas_used
     #       + isContractCreation * (32000 +
     #                                 INITCODE_WORD_COST * words(calldata)),
-    #       TOTAL_COST_FLOOR_PER_TOKEN * tokens_in_calldata)
+    #       GAS_TX_DATA_TOKEN_FLOOR * tokens_in_calldata)
     #
     # Simplified in this test case:
     # - No execution gas used (no opcodes are executed)
     # - Not a contract creation (no initcode)
     #
     # Therefore:
-    #   max_token_cost = max(STANDARD_TOKEN_COST, TOTAL_COST_FLOOR_PER_TOKEN)
+    #   max_token_cost =
+    #       max(GAS_TX_DATA_TOKEN_STANDARD, GAS_TX_DATA_TOKEN_FLOOR)
     #   tx.gasUsed = 21000 + tokens_in_calldata * max_token_cost
     #
-    # Since max(STANDARD_TOKEN_COST, TOTAL_COST_FLOOR_PER_TOKEN) = 10:
+    # Since max(GAS_TX_DATA_TOKEN_STANDARD, GAS_TX_DATA_TOKEN_FLOOR) = 10:
     #   tx.gasUsed = 21000 + tokens_in_calldata * 10
     #
     # Token accounting:
@@ -420,8 +421,8 @@ def test_block_full_access_list_and_data(
 
         # Access list gas costs from fork's gas_costs
         gas_costs = fork.gas_costs()
-        gas_per_address = gas_costs.G_ACCESS_LIST_ADDRESS
-        gas_per_storage_key = gas_costs.G_ACCESS_LIST_STORAGE
+        gas_per_address = gas_costs.GAS_TX_ACCESS_LIST_ADDRESS
+        gas_per_storage_key = gas_costs.GAS_TX_ACCESS_LIST_STORAGE_KEY
 
         # Calculate number of storage keys we can fit
         gas_after_address = gas_for_access_list - gas_per_address
@@ -593,8 +594,8 @@ def test_auth_transaction(
             total_refund += min(
                 tx_gas_used // 5,
                 (
-                    gas_costs.G_AUTHORIZATION
-                    - gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+                    gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT
+                    - gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
                 )
                 * auths_in_this_tx,
             )

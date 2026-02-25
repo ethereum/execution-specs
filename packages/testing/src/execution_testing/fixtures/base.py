@@ -4,7 +4,17 @@ import hashlib
 import json
 from enum import Enum, auto
 from functools import cached_property
-from typing import Annotated, Any, ClassVar, Dict, List, Set, Type, Union
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Protocol,
+    Set,
+    Type,
+    Union,
+)
 
 import pytest
 from pydantic import (
@@ -19,6 +29,7 @@ from pydantic import (
 from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
 from execution_testing.base_types import CamelModel, ReferenceSpec
+from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.forks import Fork
 
 
@@ -71,6 +82,7 @@ class BaseFixture(CamelModel):
     format_phases: ClassVar[Set[FixtureFillingPhase]] = {
         FixtureFillingPhase.FILL
     }
+    transition_tool_cache_key: ClassVar[str] = ""
 
     @classmethod
     def output_base_dir_name(cls) -> str:
@@ -141,13 +153,22 @@ class BaseFixture(CamelModel):
             dict_with_info["_info"].update(self.info)
         return dict_with_info
 
+    def model_post_init(self, __context: Any, /) -> None:
+        """
+        Model post-init to assert that the custom pre-allocation was
+        provided and the default was not used.
+        """
+        super().model_post_init(__context)
+        self.info["fixture-format"] = self.format_name
+
     def fill_info(
         self,
         t8n_version: str,
         test_case_description: str,
         fixture_source_url: str,
+        opcode_count: OpcodeCount | None,
         ref_spec: ReferenceSpec | None,
-        _info_metadata: Dict[str, Any],
+        _info_metadata: Dict[str, Any] | None,
     ) -> None:
         """Fill the info field for this fixture."""
         if "comment" not in self.info:
@@ -155,7 +176,8 @@ class BaseFixture(CamelModel):
         self.info["filling-transition-tool"] = t8n_version
         self.info["description"] = test_case_description
         self.info["url"] = fixture_source_url
-        self.info["fixture-format"] = self.format_name
+        if opcode_count is not None:
+            self.info["opcode_count"] = opcode_count.model_dump()
         if ref_spec is not None:
             ref_spec.write_info(self.info)
         if _info_metadata:
@@ -230,6 +252,11 @@ class LabeledFixtureFormat:
         """Get the filling format phases where it should be included."""
         return self.format.format_phases
 
+    @property
+    def transition_tool_cache_key(self) -> str:
+        """Get the transition tool cache key."""
+        return self.format.transition_tool_cache_key
+
     def __eq__(self, other: Any) -> bool:
         """
         Check if two labeled fixture formats are equal.
@@ -252,3 +279,40 @@ FixtureFormat = Annotated[
         lambda f: BaseFixture.formats[f] if f in BaseFixture.formats else f
     ),
 ]
+
+
+class PytestItemProtocol(Protocol):
+    """Protocol that resembles pytest.Item."""
+
+    @property
+    def nodeid(self) -> str:
+        """Return the nodeid of the item."""
+        ...
+
+    def get_closest_marker(self, name: str) -> pytest.Mark | None:
+        """Return the closest marker with the given name."""
+        ...
+
+
+def strip_fixture_format_from_node(
+    item: PytestItemProtocol,
+) -> str:
+    """
+    Remove fixture format suffix from a test nodeid.
+
+    Used for cache keys and xdist grouping to ensure related fixture formats
+    (e.g., blockchain_test and blockchain_test_engine) share the same key.
+
+    Example:
+        'test.py::test[fork_Osaka-state_test]' -> 'test.py::test[fork_Osaka]'
+
+    """
+    fixture_format_id_marker = item.get_closest_marker("fixture_format_id")
+    nodeid = item.nodeid
+    if fixture_format_id_marker is None:
+        return nodeid
+    assert len(fixture_format_id_marker.args) == 1
+    fixture_id = fixture_format_id_marker.args[0]
+    if fixture_id not in nodeid:
+        return nodeid
+    return nodeid.replace(fixture_id, "")

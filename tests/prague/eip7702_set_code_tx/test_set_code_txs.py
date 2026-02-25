@@ -2906,7 +2906,8 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
         authorization_list_or_count=[auth],
     )
     discount = min(
-        Spec.PER_EMPTY_ACCOUNT_COST - Spec.PER_AUTH_BASE_COST,
+        Spec.GAS_AUTH_PER_EMPTY_ACCOUNT
+        - Spec.REFUND_AUTH_PER_EXISTING_ACCOUNT,
         intrinsic_gas // 5,  # max discount EIP-3529
     )
 
@@ -3832,7 +3833,7 @@ def test_many_delegations(
         max_gas = env.gas_limit
     gas_for_delegations = max_gas - 21_000 - 20_000 - (3 * 2)
 
-    delegation_count = gas_for_delegations // Spec.PER_EMPTY_ACCOUNT_COST
+    delegation_count = gas_for_delegations // Spec.GAS_AUTH_PER_EMPTY_ACCOUNT
 
     success_slot = 1
     entry_code = Op.SSTORE(success_slot, 1) + Op.STOP

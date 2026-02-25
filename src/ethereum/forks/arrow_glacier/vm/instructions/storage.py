@@ -19,10 +19,10 @@ from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
     GAS_CALL_STIPEND,
     GAS_COLD_SLOAD,
-    GAS_STORAGE_CLEAR_REFUND,
     GAS_STORAGE_SET,
     GAS_STORAGE_UPDATE,
     GAS_WARM_ACCESS,
+    REFUND_STORAGE_CLEAR,
     charge_gas,
 )
 from ..stack import pop, push
@@ -100,11 +100,11 @@ def sstore(evm: Evm) -> None:
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
             # Storage is cleared for the first time in the transaction
-            evm.refund_counter += int(GAS_STORAGE_CLEAR_REFUND)
+            evm.refund_counter += REFUND_STORAGE_CLEAR
 
         if original_value != 0 and current_value == 0:
             # Gas refund issued earlier to be reversed
-            evm.refund_counter -= int(GAS_STORAGE_CLEAR_REFUND)
+            evm.refund_counter -= REFUND_STORAGE_CLEAR
 
         if original_value == new_value:
             # Storage slot being restored to its original value

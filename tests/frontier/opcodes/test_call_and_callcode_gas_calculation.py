@@ -94,17 +94,17 @@ def sufficient_gas(
         cost = 700  # Pre-Berlin call cost
         gas_costs = fork.gas_costs()
         if is_value_call:
-            cost += gas_costs.G_CALL_VALUE
+            cost += gas_costs.GAS_CALL_VALUE
         if callee_opcode == Op.CALL:
-            cost += gas_costs.G_NEW_ACCOUNT
+            cost += gas_costs.GAS_NEW_ACCOUNT
     elif fork == Homestead:
         cost = 40  # Homestead call cost
         cost += 1  # mandatory callee gas allowance
         gas_costs = fork.gas_costs()
         if is_value_call:
-            cost += gas_costs.G_CALL_VALUE
+            cost += gas_costs.GAS_CALL_VALUE
         if callee_opcode == Op.CALL:
-            cost += gas_costs.G_NEW_ACCOUNT
+            cost += gas_costs.GAS_NEW_ACCOUNT
     else:
         raise Exception("Only forks Homestead and >=Byzantium supported")
 
