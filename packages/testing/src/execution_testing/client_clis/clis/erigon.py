@@ -114,7 +114,5 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             r"invalid gasUsed: have \d+, gasLimit \d+"
         ),
-        BlockException.GAS_USED_OVERFLOW: (
-            r"gas limit reached"
-        ),
+        BlockException.GAS_USED_OVERFLOW: ("gas limit reached"),
     }
