@@ -1999,7 +1999,6 @@ def test_set_code_to_self_destructing_account_deployed_in_same_tx(
     )
 
 
-@pytest.mark.xdist_group(name="bigmem")
 def test_set_code_multiple_first_valid_authorization_tuples_same_signer(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2050,7 +2049,6 @@ def test_set_code_multiple_first_valid_authorization_tuples_same_signer(
     )
 
 
-@pytest.mark.xdist_group(name="bigmem")
 def test_set_code_multiple_valid_authorization_tuples_same_signer_increasing_nonce(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2102,7 +2100,6 @@ def test_set_code_multiple_valid_authorization_tuples_same_signer_increasing_non
     )
 
 
-@pytest.mark.xdist_group(name="bigmem")
 def test_set_code_multiple_valid_authorization_tuples_same_signer_increasing_nonce_self_sponsored(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2205,7 +2202,6 @@ def test_set_code_multiple_valid_authorization_tuples_first_invalid_same_signer(
     )
 
 
-@pytest.mark.xdist_group(name="bigmem")
 def test_set_code_all_invalid_authorization_tuples(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2248,7 +2244,6 @@ def test_set_code_all_invalid_authorization_tuples(
     )
 
 
-@pytest.mark.xdist_group(name="bigmem")
 def test_set_code_using_chain_specific_id(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2300,7 +2295,6 @@ SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 SECP256K1N_OVER_2 = SECP256K1N // 2
 
 
-@pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize(
     "v,r,s",
     [
@@ -2368,7 +2362,6 @@ def test_set_code_using_valid_synthetic_signatures(
     )
 
 
-@pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize(
     "v,r,s",
     [

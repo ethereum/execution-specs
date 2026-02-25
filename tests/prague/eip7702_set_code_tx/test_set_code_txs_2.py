@@ -1762,7 +1762,6 @@ class DelegationTo(Enum):
     RESET = 3
 
 
-@pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
     "first_delegation",
@@ -1862,7 +1861,6 @@ def test_double_auth(
     )
 
 
-@pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.valid_from("Prague")
 def test_pointer_resets_an_empty_code_account_with_storage(
     blockchain_test: BlockchainTestFiller,
@@ -2096,7 +2094,6 @@ def test_set_code_type_tx_pre_fork(
 
 
 @pytest.mark.valid_from("Prague")
-@pytest.mark.xdist_group(name="bigmem")
 def test_delegation_replacement_call_previous_contract(
     state_test: StateTestFiller,
     pre: Alloc,

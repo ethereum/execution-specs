@@ -35,9 +35,6 @@ from .spec import Spec, ref_spec_7934
 REFERENCE_SPEC_GIT_PATH = ref_spec_7934.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7934.version
 
-pytestmark = pytest.mark.xdist_group(name="bigmem")
-
-
 HEADER_TIMESTAMP = 123456789
 EXTRA_DATA_AT_LIMIT = b"\x00" * 15
 # Max size adjustment extra_data can absorb
@@ -629,6 +626,7 @@ def _exact_size_transactions_impl(
         ),
     ],
 )
+@pytest.mark.xdist_group(name="bigmem_block_rlp_boundary")
 @pytest.mark.valid_from("Osaka")
 def test_block_at_rlp_size_limit_boundary(
     blockchain_test: BlockchainTestFiller,
@@ -677,6 +675,7 @@ def test_block_at_rlp_size_limit_boundary(
 @EIPChecklist.BlockLevelConstraint.Test.Content.TransactionTypes()
 @pytest.mark.with_all_typed_transactions
 @pytest.mark.verify_sync
+@pytest.mark.xdist_group(name="bigmem_block_rlp_typed_txs")
 @pytest.mark.valid_from("Osaka")
 def test_block_rlp_size_at_limit_with_all_typed_transactions(
     blockchain_test: BlockchainTestFiller,
@@ -712,6 +711,7 @@ def test_block_rlp_size_at_limit_with_all_typed_transactions(
 
 @EIPChecklist.BlockLevelConstraint.Test.Content.Logs()
 @pytest.mark.verify_sync
+@pytest.mark.xdist_group(name="bigmem_block_rlp_logs")
 @pytest.mark.valid_from("Osaka")
 def test_block_at_rlp_limit_with_logs(
     blockchain_test: BlockchainTestFiller,
@@ -749,6 +749,7 @@ def test_block_at_rlp_limit_with_logs(
 
 @EIPChecklist.BlockLevelConstraint.Test.Content.Withdrawals()
 @pytest.mark.verify_sync
+@pytest.mark.xdist_group(name="bigmem_block_rlp_withdrawals")
 @pytest.mark.valid_from("Osaka")
 def test_block_at_rlp_limit_with_withdrawals(
     blockchain_test: BlockchainTestFiller,
@@ -805,6 +806,7 @@ def test_block_at_rlp_limit_with_withdrawals(
 @EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedBeforeFork()
 @EIPChecklist.BlockLevelConstraint.Test.ForkTransition.AcceptedAfterFork()
 @EIPChecklist.BlockLevelConstraint.Test.ForkTransition.RejectedAfterFork()
+@pytest.mark.xdist_group(name="bigmem_block_rlp_fork_transition")
 @pytest.mark.parametrize(
     "exceeds_limit_at_fork",
     [
