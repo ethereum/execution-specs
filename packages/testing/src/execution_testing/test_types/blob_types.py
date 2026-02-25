@@ -86,6 +86,8 @@ class Blob(CamelModel):
         )
         return (
             "blob_"
+            + fork.name()
+            + "_"
             + str(seed)
             + "_cell_proofs_"
             + str(amount_cell_proofs)
