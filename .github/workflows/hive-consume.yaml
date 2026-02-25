@@ -101,12 +101,9 @@ jobs:
 
       - name: Install uv and python
         if: matrix.mode == 'dev'
-        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+        uses: ./execution-specs/.github/actions/setup-uv
         with:
-          enable-cache: true
           cache-dependency-glob: "execution-specs/uv.lock"
-          version: ${{ vars.UV_VERSION }}
-          python-version: ${{ vars.DEFAULT_PYTHON_VERSION }}
 
       - name: Load cached Docker images
         uses: ./execution-specs/.github/actions/load-docker-images

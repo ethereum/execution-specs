@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# dependencies = ["requests"]
+# ///
 """
 Helper script to download geth for Linux.
 """
