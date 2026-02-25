@@ -17,7 +17,7 @@ from execution_testing import (
     compute_create_address,
 )
 
-from .spec import ref_spec_7708, selfdestruct_log, transfer_log
+from .spec import burn_log, ref_spec_7708, transfer_log
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7708.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7708.version
@@ -32,17 +32,17 @@ REFERENCE_SPEC_VERSION = ref_spec_7708.version
     ],
 )
 @pytest.mark.valid_at_transition_to("Amsterdam")
-def test_selfdestruct_log_at_fork_transition(
+def test_burn_log_at_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     same_tx: bool,
     to_self: bool,
 ) -> None:
     """
-    Test selfdestruct log emission across the Amsterdam fork transition.
+    Test burn log emission across the Amsterdam fork transition.
 
     same_tx_to_self: Factory CREATEs and selfdestructs to self in one tx.
-    At/after Amsterdam emits a CREATE transfer log + Selfdestruct log.
+    At/after Amsterdam emits a CREATE transfer log + Burn log.
 
     pre_existing_to_self: Pre-existing contract selfdestructs to self.
     No logs at any fork — SELFDESTRUCT to same account emits nothing.
@@ -77,11 +77,11 @@ def test_selfdestruct_log_at_fork_transition(
             [],
             [
                 transfer_log(factory, created[1], contract_balance),
-                selfdestruct_log(created[1], contract_balance),
+                burn_log(created[1], contract_balance),
             ],
             [
                 transfer_log(factory, created[2], contract_balance),
-                selfdestruct_log(created[2], contract_balance),
+                burn_log(created[2], contract_balance),
             ],
         ]
         post: dict = {
