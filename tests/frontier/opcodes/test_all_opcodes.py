@@ -55,6 +55,11 @@ def prepare_suffix(opcode: Opcode) -> Bytecode:
     """Prepare after opcode instructions."""
     if opcode == Op.JUMPI or opcode == Op.JUMP:
         return Op.JUMPDEST
+    if opcode in (Op.DUPN, Op.SWAPN):
+        # EIP-8024: The suffix byte serves as the implicit immediate.
+        # 0x80 decodes to stack index 17 via decode_single, which is
+        # within the 32 items pushed by prepare_stack.
+        return Bytecode(b"\x80", popped_stack_items=0, pushed_stack_items=0)
     return Op.STOP
 
 
