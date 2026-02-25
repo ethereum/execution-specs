@@ -292,7 +292,6 @@ markers = [
 ]
 
 [tool.coverage.run]
-core = "sysmon"
 omit = [
     "*/ethereum/*_glacier/*",
     "*/ethereum/dao_fork/*",
