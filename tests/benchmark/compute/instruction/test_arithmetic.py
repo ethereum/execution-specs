@@ -421,7 +421,8 @@ def test_mod_arithmetic(
 params = [
     (base, exp)
     for base in [3, 5, 7, 11, 13, 136279841]
-    for exp in [3, 5, 7, 11, 13, 136279841] # Mersenne prime exponent used as base and exp
+    # Mersenne prime exponent used as base and exp
+    for exp in [3, 5, 7, 11, 13, 136279841]
 ]
 @pytest.mark.parametrize("base, exp", params)
 def test_exp_bench_arithmetic(
