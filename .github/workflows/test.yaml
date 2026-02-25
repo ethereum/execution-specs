@@ -41,7 +41,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.11"
+          python-version: "3.14"
       - name: Install Tox and any other packages
         shell: bash
         run: |
@@ -72,7 +72,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.11"
+          python-version: "3.14"
       - uses: ./.github/actions/setup-env
       - name: Run py3 tests
         run: tox -e py3
@@ -114,7 +114,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.11"
+          python-version: "3.14"
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/get-changed-files
         id: get-changed-files
@@ -131,7 +131,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.11"
+          python-version: "3.14"
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
       - name: Run py3 tests
