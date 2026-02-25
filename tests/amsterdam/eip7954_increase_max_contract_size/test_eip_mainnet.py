@@ -3,7 +3,7 @@ Mainnet tests for
 [EIP-7954: Increase Maximum Contract Size](https://eips.ethereum.org/EIPS/eip-7954).
 """
 
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 from execution_testing import (
@@ -160,42 +160,24 @@ def test_max_code_with_max_initcode_mainnet(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@pytest.mark.parametrize(
-    "operation, expected",
-    [
-        pytest.param(
-            lambda addr: Op.SSTORE(0, Op.EXTCODESIZE(addr)),
-            lambda code: len(code),
-            id="EXTCODESIZE",
-        ),
-        pytest.param(
-            lambda addr: Op.SSTORE(0, Op.EXTCODEHASH(addr)),
-            lambda code: keccak256(code),
-            id="EXTCODEHASH",
-        ),
-        pytest.param(
-            lambda addr: (
-                Op.EXTCODECOPY(addr, 0, 0, Op.EXTCODESIZE(addr))
-                + Op.SSTORE(0, Op.SHA3(0, Op.EXTCODESIZE(addr)))
-            ),
-            lambda code: keccak256(code),
-            id="EXTCODECOPY",
-        ),
-    ],
-)
 def test_opcodes_on_max_size_contract_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    operation: Callable[..., Any],
-    expected: Callable[..., Any],
 ) -> None:
-    """Verify EVM opcodes works for a max-size deployed contract."""
+    """Verify EVM opcodes work for a max-size deployed contract."""
     target_code = Op.JUMPDEST * fork.max_code_size()
     target = pre.deploy_contract(code=target_code)
 
     alice = pre.fund_eoa()
-    oracle = pre.deploy_contract(code=operation(target))
+    oracle = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, Op.EXTCODESIZE(target))
+            + Op.SSTORE(1, Op.EXTCODEHASH(target))
+            + Op.EXTCODECOPY(target, 0, 0, Op.EXTCODESIZE(target))
+            + Op.SSTORE(2, Op.SHA3(0, Op.EXTCODESIZE(target)))
+        )
+    )
 
     tx = Transaction(
         sender=alice,
@@ -203,6 +185,14 @@ def test_opcodes_on_max_size_contract_mainnet(
         gas_limit=fork.transaction_gas_limit_cap(),
     )
 
-    post = {oracle: Account(storage={0: expected(target_code)})}
+    post = {
+        oracle: Account(
+            storage={
+                0: len(target_code),
+                1: keccak256(target_code),
+                2: keccak256(target_code),
+            }
+        )
+    }
 
     state_test(pre=pre, tx=tx, post=post)

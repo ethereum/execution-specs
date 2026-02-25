@@ -198,76 +198,24 @@ def test_max_code_with_max_initcode(
     state_test(pre=pre, tx=tx, post=post)
 
 
-@pytest.mark.parametrize(
-    "operation, expected, delegate",
-    [
-        pytest.param(
-            lambda addr: Op.SSTORE(0, Op.EXTCODESIZE(addr)),
-            lambda code: len(code),
-            False,
-            id="EXTCODESIZE",
-        ),
-        pytest.param(
-            lambda addr: Op.SSTORE(0, Op.EXTCODEHASH(addr)),
-            lambda code: keccak256(code),
-            False,
-            id="EXTCODEHASH",
-        ),
-        pytest.param(
-            lambda addr: (
-                Op.EXTCODECOPY(addr, 0, 0, Op.EXTCODESIZE(addr))
-                + Op.SSTORE(0, Op.SHA3(0, Op.EXTCODESIZE(addr)))
-            ),
-            lambda code: keccak256(code),
-            False,
-            id="EXTCODECOPY",
-        ),
-        pytest.param(
-            lambda _: Op.SSTORE(0, Op.CODESIZE),
-            lambda code: len(code),
-            True,
-            id="CODESIZE",
-        ),
-        pytest.param(
-            lambda _: (
-                Op.CODECOPY(0, 0, Op.CODESIZE)
-                + Op.SSTORE(0, Op.SHA3(0, Op.CODESIZE))
-            ),
-            lambda code: keccak256(code),
-            True,
-            id="CODECOPY",
-        ),
-    ],
-)
-def test_opcodes(
+def test_external_opcodes(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
-    operation: Callable[..., Any],
-    expected: Callable[..., Any],
-    delegate: bool,
 ) -> None:
-    """
-    Ensure EVM opcodes work with the new max contract size.
+    """Ensure external code opcodes work with the new max contract size."""
+    target_code = Op.JUMPDEST * fork.max_code_size()
+    target = pre.deploy_contract(code=target_code)
 
-    Self opcodes (CODESIZE, CODECOPY) are tested via DELEGATECALL
-    into a max-size contract containing the checker logic, so the
-    opcodes operate on the large contract's own code while writing
-    results to the caller's storage.
-    """
     alice = pre.fund_eoa()
-
-    if delegate:
-        logic = operation(None) + Op.STOP
-        target_code = logic + Op.JUMPDEST * (fork.max_code_size() - len(logic))
-        target = pre.deploy_contract(code=target_code)
-        oracle = pre.deploy_contract(
-            code=Op.DELEGATECALL(gas=Op.GAS, address=target)
+    oracle = pre.deploy_contract(
+        code=(
+            Op.SSTORE(0, Op.EXTCODESIZE(target))
+            + Op.SSTORE(1, Op.EXTCODEHASH(target))
+            + Op.EXTCODECOPY(target, 0, 0, Op.EXTCODESIZE(target))
+            + Op.SSTORE(2, Op.SHA3(0, Op.EXTCODESIZE(target)))
         )
-    else:
-        target_code = Op.JUMPDEST * fork.max_code_size()
-        target = pre.deploy_contract(code=target_code)
-        oracle = pre.deploy_contract(code=operation(target))
+    )
 
     tx = Transaction(
         sender=alice,
@@ -275,6 +223,58 @@ def test_opcodes(
         gas_limit=fork.transaction_gas_limit_cap(),
     )
 
-    post = {oracle: Account(storage={0: expected(target_code)})}
+    post = {
+        oracle: Account(
+            storage={
+                0: len(target_code),
+                1: keccak256(target_code),
+                2: keccak256(target_code),
+            }
+        )
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+def test_self_opcodes(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Ensure self code opcodes work with the new max contract size.
+
+    Tested via DELEGATECALL so opcodes operate on the large
+    contract's own code while writing results to the caller's
+    storage.
+    """
+    logic = (
+        Op.SSTORE(0, Op.CODESIZE)
+        + Op.CODECOPY(0, 0, Op.CODESIZE)
+        + Op.SSTORE(1, Op.SHA3(0, Op.CODESIZE))
+        + Op.STOP
+    )
+    target_code = logic + Op.JUMPDEST * (fork.max_code_size() - len(logic))
+    target = pre.deploy_contract(code=target_code)
+
+    alice = pre.fund_eoa()
+    oracle = pre.deploy_contract(
+        code=Op.DELEGATECALL(gas=Op.GAS, address=target)
+    )
+
+    tx = Transaction(
+        sender=alice,
+        to=oracle,
+        gas_limit=fork.transaction_gas_limit_cap(),
+    )
+
+    post = {
+        oracle: Account(
+            storage={
+                0: len(target_code),
+                1: keccak256(target_code),
+            }
+        )
+    }
 
     state_test(pre=pre, tx=tx, post=post)
