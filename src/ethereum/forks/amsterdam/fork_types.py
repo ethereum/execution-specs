@@ -43,7 +43,6 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
     )
 
 
-
 @slotted_freezable
 @dataclass
 class Authorization:
