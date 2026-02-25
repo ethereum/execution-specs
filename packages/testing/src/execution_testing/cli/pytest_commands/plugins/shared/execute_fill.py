@@ -332,13 +332,3 @@ def is_exception_test(request: pytest.FixtureRequest) -> bool:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Add command-line options to pytest."""
-    static_filler_group = parser.getgroup(
-        "static", "Arguments defining static filler behavior"
-    )
-    static_filler_group.addoption(
-        "--fill-static-tests",
-        action="store_true",
-        dest="fill_static_tests_enabled",
-        default=None,
-        help=("Enable reading and filling from static test files."),
-    )
