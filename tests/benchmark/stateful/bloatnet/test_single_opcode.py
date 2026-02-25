@@ -88,6 +88,7 @@ REFERENCE_SPEC_VERSION = "1.0"
 
 
 @pytest.mark.parametrize("token_name", SLOAD_TOKENS)
+@pytest.mark.parametrize("existing_slots", [False, True])
 def test_sload_empty_erc20_balanceof(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -95,6 +96,7 @@ def test_sload_empty_erc20_balanceof(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     token_name: str,
+    existing_slots: bool,
 ) -> None:
     """Benchmark SLOAD using ERC20 balanceOf on bloatnet."""
     # Stub Account
@@ -191,7 +193,10 @@ def test_sload_empty_erc20_balanceof(
     # Transaction Loops
     txs = []
     gas_remaining = gas_benchmark_value
-    slot_offset = 0
+    # Start at 1 (ERC20 bloater writes the balance of address to the slot)
+    # or start at keccak256("random") for non-existing slots
+    slot_offset = (1 if existing_slots 
+        else 0xa4896a3f93bf4bf58378e579f3cf193bb4af1022af7d2089f37d8bae7157b85f) 
 
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
