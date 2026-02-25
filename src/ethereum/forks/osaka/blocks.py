@@ -163,7 +163,7 @@ class Header:
     [EIP-1559], this is still the maximum gas limit, but the base fee per gas
     is also considered when calculating the effective gas limit. This can be
     [adjusted by a factor of 1/1024] from the previous block's gas limit, up
-    until a maximum of 120 million gas.
+    until a maximum of 60 million gas.
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     [adjusted by a factor of 1/1024]:
