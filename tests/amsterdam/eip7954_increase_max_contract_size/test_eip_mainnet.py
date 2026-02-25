@@ -27,30 +27,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7954.version
 pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
 
 
-def test_max_code_size_mainnet(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """Verify end-to-end deployment of a max-size contract on mainnet."""
-    deploy_code = Op.JUMPDEST * fork.max_code_size()
-    initcode = Initcode(deploy_code=deploy_code)
-
-    alice = pre.fund_eoa()
-    create_address = compute_create_address(address=alice, nonce=0)
-
-    tx = Transaction(
-        sender=alice,
-        to=None,
-        data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
-    )
-
-    post = {create_address: Account(code=deploy_code)}
-
-    state_test(pre=pre, tx=tx, post=post)
-
-
 def test_over_max_code_size_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -73,32 +49,6 @@ def test_over_max_code_size_mainnet(
     post: dict[Any, Account | None] = {
         create_address: Account.NONEXISTENT,
     }
-
-    state_test(pre=pre, tx=tx, post=post)
-
-
-def test_max_initcode_size_mainnet(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """Verify a CREATE transaction with max-size initcode succeeds."""
-    initcode = Initcode(
-        deploy_code=Op.STOP,
-        initcode_length=fork.max_initcode_size(),
-    )
-
-    alice = pre.fund_eoa()
-    create_address = compute_create_address(address=alice, nonce=0)
-
-    tx = Transaction(
-        sender=alice,
-        to=None,
-        data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
-    )
-
-    post = {create_address: Account(code=Op.STOP)}
 
     state_test(pre=pre, tx=tx, post=post)
 
@@ -137,56 +87,27 @@ def test_max_code_size_with_max_initcode_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    max_code_size_contract: tuple,
 ) -> None:
-    """Ensure max-size code deploys when initcode is also at max size."""
-    deploy_code = Op.JUMPDEST * fork.max_code_size()
-    initcode = Initcode(
-        deploy_code=deploy_code,
-        initcode_length=fork.max_initcode_size(),
-    )
+    """
+    Verify max-size contract works on mainnet.
+
+    Calls the deterministic max-size contract which checks EXTCODESIZE,
+    EXTCODEHASH, and EXTCODECOPY on itself. The contract bytecode is
+    the same used for deployment tests, padded to max code size.
+    """
+    target, target_code = max_code_size_contract
 
     alice = pre.fund_eoa()
-    create_address = compute_create_address(address=alice, nonce=0)
 
     tx = Transaction(
         sender=alice,
-        to=None,
-        data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
-    )
-
-    post = {create_address: Account(code=deploy_code)}
-
-    state_test(pre=pre, tx=tx, post=post)
-
-
-def test_max_code_size_opcodes_mainnet(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    fork: Fork,
-) -> None:
-    """Verify EVM opcodes work for a max-size deployed contract."""
-    target_code = Op.JUMPDEST * fork.max_code_size()
-    target = pre.deterministic_deploy_contract(deploy_code=target_code)
-
-    alice = pre.fund_eoa()
-    oracle = pre.deploy_contract(
-        code=(
-            Op.SSTORE(0, Op.EXTCODESIZE(target))
-            + Op.SSTORE(1, Op.EXTCODEHASH(target))
-            + Op.EXTCODECOPY(target, 0, 0, Op.EXTCODESIZE(target))
-            + Op.SSTORE(2, Op.SHA3(0, Op.EXTCODESIZE(target)))
-        )
-    )
-
-    tx = Transaction(
-        sender=alice,
-        to=oracle,
+        to=target,
         gas_limit=fork.transaction_gas_limit_cap(),
     )
 
     post = {
-        oracle: Account(
+        target: Account(
             storage={
                 0: len(target_code),
                 1: keccak256(bytes(target_code)),

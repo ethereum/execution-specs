@@ -202,29 +202,21 @@ def test_max_code_size_external_opcodes(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    max_code_size_contract: tuple,
 ) -> None:
     """Ensure external code opcodes work with the new max contract size."""
-    target_code = Op.JUMPDEST * fork.max_code_size()
-    target = pre.deterministic_deploy_contract(deploy_code=target_code)
+    target, target_code = max_code_size_contract
 
     alice = pre.fund_eoa()
-    oracle = pre.deploy_contract(
-        code=(
-            Op.SSTORE(0, Op.EXTCODESIZE(target))
-            + Op.SSTORE(1, Op.EXTCODEHASH(target))
-            + Op.EXTCODECOPY(target, 0, 0, Op.EXTCODESIZE(target))
-            + Op.SSTORE(2, Op.SHA3(0, Op.EXTCODESIZE(target)))
-        )
-    )
 
     tx = Transaction(
         sender=alice,
-        to=oracle,
+        to=target,
         gas_limit=fork.transaction_gas_limit_cap(),
     )
 
     post = {
-        oracle: Account(
+        target: Account(
             storage={
                 0: len(target_code),
                 1: keccak256(bytes(target_code)),
