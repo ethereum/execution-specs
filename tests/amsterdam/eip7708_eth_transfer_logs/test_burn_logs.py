@@ -1,7 +1,7 @@
 """
-Tests for EIP-7708 Selfdestruct logs.
+Tests for EIP-7708 Burn logs.
 
-Tests for the Selfdestruct(address,uint256) log emitted when:
+Tests for the Burn(address,uint256) log emitted when:
 - SELFDESTRUCT to self with nonzero balance
 - Account created and destroyed in the same transaction
 """
@@ -30,7 +30,7 @@ from execution_testing import (
     Macros as Om,
 )
 
-from .spec import ref_spec_7708, selfdestruct_log, transfer_log
+from .spec import burn_log, ref_spec_7708, transfer_log
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7708.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7708.version
@@ -47,7 +47,7 @@ def test_selfdestruct_to_self_pre_existing_no_log(
     """
     Test that selfdestruct-to-self emits NO log for pre-existing contracts.
 
-    Selfdestruct log only emitted when created and destroyed in same tx.
+    Burn log only emitted when created and destroyed in same tx.
     """
     contract_balance = 2000
 
@@ -90,7 +90,7 @@ def test_selfdestruct_to_self_same_tx(
     """
     Test selfdestruct-to-self for same-tx created contracts.
 
-    - With balance, SELFDESTRUCT log emitted (burns ETH).
+    - With balance, Burn log emitted (burns ETH).
     - No balance, no logs expected.
     """
     initcode = Op.SELFDESTRUCT(Op.ADDRESS)
@@ -116,7 +116,7 @@ def test_selfdestruct_to_self_same_tx(
         expected_logs = [
             transfer_log(sender, factory, contract_balance),
             transfer_log(factory, created_address, contract_balance),
-            selfdestruct_log(created_address, contract_balance),
+            burn_log(created_address, contract_balance),
         ]
     else:
         expected_logs = []
@@ -277,12 +277,12 @@ def test_selfdestruct_same_tx_via_call(
     if to_self:
         expected_logs = [
             transfer_log(factory, created_address, contract_balance),
-            selfdestruct_log(created_address, contract_balance),
+            burn_log(created_address, contract_balance),
         ]
         if call_twice and second_call_value > 0:
             expected_logs += [
                 transfer_log(factory, created_address, second_call_value),
-                selfdestruct_log(created_address, second_call_value),
+                burn_log(created_address, second_call_value),
             ]
         post = {}
     else:
@@ -346,7 +346,7 @@ def test_selfdestruct_same_tx_via_call(
         pytest.param(True, id="to_self"),
     ],
 )
-def test_finalization_selfdestruct_logs(
+def test_finalization_burn_logs(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
@@ -356,10 +356,10 @@ def test_finalization_selfdestruct_logs(
     to_self: bool,
 ) -> None:
     """
-    Test Selfdestruct logs at finalization for post-selfdestruct balance.
+    Test Burn logs at finalization for post-selfdestruct balance.
 
     X contracts (x1, x2, x3) selfdestruct, then receive ETH via payer contracts
-    (p1, p2, p3). At finalization, X contracts emit SELFDESTRUCT logs for their
+    (p1, p2, p3). At finalization, X contracts emit Burn logs for their
     in lexicographical address order (only if they received ETH).
 
     When to_self=True, X contracts SELFDESTRUCT to themselves (burning ETH
@@ -446,12 +446,12 @@ def test_finalization_selfdestruct_logs(
     ]
 
     if to_self:
-        # SELFDESTRUCT to self burns ETH → LOG2 Selfdestruct
+        # SELFDESTRUCT to self burns ETH → LOG2 Burn
         execution_logs.extend(
             [
-                selfdestruct_log(x1, 1000),
-                selfdestruct_log(x2, 2000),
-                selfdestruct_log(x3, 3000),
+                burn_log(x1, 1000),
+                burn_log(x2, 2000),
+                burn_log(x3, 3000),
             ]
         )
         beneficiary_balance = 0
@@ -489,7 +489,7 @@ def test_finalization_selfdestruct_logs(
         )
         # Finalization logs emitted in SORTED address order (not call order)
         finalization_logs = [
-            selfdestruct_log(addr, amounts[addr]) for addr in sorted_addrs
+            burn_log(addr, amounts[addr]) for addr in sorted_addrs
         ]
         post = {
             x1: Account.NONEXISTENT,
@@ -622,7 +622,7 @@ def test_selfdestruct_finalization_after_priority_fee(
 
     expected_logs = [
         transfer_log(factory_address, created_address, contract_balance),
-        selfdestruct_log(created_address, contract_balance),
+        burn_log(created_address, contract_balance),
     ]
 
     # if funded after selfdestruct, expect transfer log from payer
@@ -632,10 +632,8 @@ def test_selfdestruct_finalization_after_priority_fee(
             transfer_log(payer, created_address, funding_amount)
         )
 
-    # finalization selfdestruct log
-    expected_logs.append(
-        selfdestruct_log(created_address, finalization_balance)
-    )
+    # finalization burn log
+    expected_logs.append(burn_log(created_address, finalization_balance))
 
     tx = Transaction(
         sender=sender,
