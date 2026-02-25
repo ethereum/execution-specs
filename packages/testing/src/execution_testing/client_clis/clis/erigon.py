@@ -102,6 +102,12 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             r"block access list mismatch"
         ),
+        BlockException.INCORRECT_BLOCK_FORMAT: (
+            r"invalid block access list"
+        ),
+        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
+            r"invalid block access list"
+        ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"invalid block, txnIdx=\d+,.*gas limit too high"
         ),
