@@ -133,6 +133,33 @@ def test_over_max_initcode_tx_mainnet(
     state_test(pre=pre, tx=tx, post=post)
 
 
+def test_max_code_with_max_initcode_mainnet(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """Ensure max-size code deploys when initcode is also at max size."""
+    deploy_code = Op.JUMPDEST * fork.max_code_size()
+    initcode = Initcode(
+        deploy_code=deploy_code,
+        initcode_length=fork.max_initcode_size(),
+    )
+
+    alice = pre.fund_eoa()
+    create_address = compute_create_address(address=alice, nonce=0)
+
+    tx = Transaction(
+        sender=alice,
+        to=None,
+        data=initcode,
+        gas_limit=fork.transaction_gas_limit_cap(),
+    )
+
+    post = {create_address: Account(code=deploy_code)}
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
 @pytest.mark.parametrize(
     "operation, expected",
     [

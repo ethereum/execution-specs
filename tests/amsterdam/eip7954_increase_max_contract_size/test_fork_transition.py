@@ -305,6 +305,60 @@ def test_create_opcode_initcode_size_fork_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
+@pytest.mark.exception_test
+def test_max_code_with_max_initcode_fork_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """Ensure max code + max initcode activates at the fork boundary."""
+    deploy_code = Op.JUMPDEST * fork.max_code_size()
+    initcode = Initcode(
+        deploy_code=deploy_code,
+        initcode_length=fork.max_initcode_size(),
+    )
+
+    alice = pre.fund_eoa()
+    bob = pre.fund_eoa()
+
+    create_address_post = compute_create_address(address=bob, nonce=0)
+
+    initcode_too_large = TransactionException.INITCODE_SIZE_EXCEEDED
+
+    blocks = [
+        Block(
+            timestamp=14_999,
+            txs=[
+                Transaction(
+                    sender=alice,
+                    to=None,
+                    data=initcode,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                    error=initcode_too_large,
+                )
+            ],
+            exception=initcode_too_large,
+        ),
+        Block(
+            timestamp=15_000,
+            txs=[
+                Transaction(
+                    sender=bob,
+                    to=None,
+                    data=initcode,
+                    gas_limit=fork.transaction_gas_limit_cap(),
+                )
+            ],
+        ),
+    ]
+
+    post: dict[Any, Account | None] = {
+        create_address_post: Account(code=deploy_code),
+    }
+
+    blockchain_test(pre=pre, blocks=blocks, post=post)
+
+
 def test_deploy_at_parent_max_across_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
