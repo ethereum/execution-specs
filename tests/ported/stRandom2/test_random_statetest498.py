@@ -1,0 +1,183 @@
+"""
+Ported from:
+tests/static/state_tests/stRandom2/randomStatetest498Filler.json
+
+contract code:
+    push12 0xd243dbcfdc6982733e4cd626
+    iszero
+    push21 0xfc6cdec93282ff50ef24d8be05d58be29301ddb00d
+    push22 0x47f6b65997e73d232b76d6484c11eb15c87b01f89e27
+    push26 0xc427711ba193e4e163967efd1b9315187c3227f67b9282fc7524
+    push10 0x2fbf851cb370d396d53f
+    push27 0x86353aacecc5c1eadeddbb3925522f935fc5ed03568fbf40261c05
+    push11 0x124f1334cc9fa8eea2bdbf
+    push9 0xf04c10cc08b6babcbb
+    push15 0xe8d3fb88dd42d06d445b5eab34cb5d
+    push5 0x408cf652fd
+    push22 0x68acaa81b573f66fa8781e83185438e42796631ae9a9
+    swap9
+    push32 0x714d986f94fc6354921a9367bb6b9e555f24107cb814557f8bd87547ad612c3e
+    push19 0x6f9f495b0ac9e37fbe5f23014c68d8d032bfae
+    push24 0x9a5213c33778af679417d77733645f87b6042be92c553dbb
+    push14 0x85a2c56b21a53c0e612ae0a8d78d
+    push1 0xf1
+    push3 0xb52efe
+    log4
+    ... (44 more instructions)
+
+coinbase code:
+    push1 0x00
+    calldataload
+    sload
+    iszero
+    push1 0x09
+    jumpi
+    stop
+    jumpdest
+    push1 0x20
+    calldataload
+    push1 0x00
+    calldataload
+    sstore
+"""
+
+import pytest
+from execution_testing import (
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    Hash,
+    StateTestFiller,
+    Transaction,
+)
+from execution_testing.vm import Op
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stRandom2/randomStatetest498Filler.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_until("Prague")
+@pytest.mark.pre_alloc_mutable
+def test_random_statetest498(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
+    sender = Address("0x2e3d0156d2b99a6eacba540c55f423c8f5a33143")
+    contract = Address("0x1a819dd2e8cec87d7e886df4843e21775f6672a4")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=9223372036854775807,
+    )
+
+    pre[contract] = Account(
+        balance=0,
+        nonce=0,
+        code=(
+        Op.PUSH12[0xd243dbcfdc6982733e4cd626] + Op.ISZERO
+        + Op.PUSH21[0xfc6cdec93282ff50ef24d8be05d58be29301ddb00d]
+        + Op.PUSH22[0x47f6b65997e73d232b76d6484c11eb15c87b01f89e27]
+        + Op.PUSH26[0xc427711ba193e4e163967efd1b9315187c3227f67b9282fc7524]
+        + Op.PUSH10[0x2fbf851cb370d396d53f]
+        + Op.PUSH27[0x86353aacecc5c1eadeddbb3925522f935fc5ed03568fbf40261c05]
+        + Op.PUSH11[0x124f1334cc9fa8eea2bdbf] + Op.PUSH9[0xf04c10cc08b6babcbb]
+        + Op.PUSH15[0xe8d3fb88dd42d06d445b5eab34cb5d] + Op.PUSH5[0x408cf652fd]
+        + Op.PUSH22[0x68acaa81b573f66fa8781e83185438e42796631ae9a9] + Op.SWAP9
+        + Op.PUSH32[0x714d986f94fc6354921a9367bb6b9e555f24107cb814557f8bd87547ad612c3e]
+        + Op.PUSH19[0x6f9f495b0ac9e37fbe5f23014c68d8d032bfae]
+        + Op.PUSH24[0x9a5213c33778af679417d77733645f87b6042be92c553dbb]
+        + Op.PUSH14[0x85a2c56b21a53c0e612ae0a8d78d] + Op.PUSH1[0xf1]
+        + Op.PUSH3[0xb52efe] + Op.LOG4 + Op.PUSH5[0xebb0472b3e]
+        + Op.PUSH24[0x94198cdb286cd2f21f06659320130750e7aa2c83ceb28015] + Op.SSTORE
+        + Op.PUSH25[0x5c9f02455252560846587006e90cbffc955445d9ef1f55eeb0]
+        + Op.PUSH17[0x11c02cee02df12dc35b36702539873e4b7] + Op.PUSH7[0xe4ae9e829a4424]
+        + Op.PUSH1[0xdd]
+        + Op.PUSH32[0x845cd37dc08f93bef98a4d5b53ecd4cf4dd1a5c416f92116160f0fb673c30b78]
+        + Op.PUSH20[0xb85a2ff6331a5d371f3d109f5794d712e03493b1]
+        + Op.PUSH32[0xc562ac7589411127e654ce32d273f8300cc8544e7bd782aa7828b543958dadf8]
+        + Op.PUSH19[0xd7f13401a51b13835cc8a36be87cc7347cdf0f]
+        + Op.PUSH27[0xa2df420bb03e925c117d4befbc7e69472fd75f01f3f6c966de8181]
+        + Op.PUSH21[0xaba3b7a43014c3dd39414fb3d239d72e06852ae48e] + Op.PUSH3[0x3c60a]
+        + Op.PUSH31[0x844d6fd61c5b519d43780d383d103989f9bfce5ed122804cba183c188f5ce4]
+        + Op.PUSH29[0x348a96973eca904f096aed4fb77d40ca9139447527f267a028eae5e370]
+        + Op.PUSH15[0x1975fc3e38327505e81d0e8c9fab1f] + Op.PUSH1[0xec]
+        + Op.PUSH31[0xce71cc87510f308984ebdcb8ab84e1905dfdc0a19ee3c5f37e88dc3a9f2649]
+        + Op.PUSH29[0x51427da28f6d777d9585b4ec790722bacaa179b1dc5b086d945623f9d2]
+        + Op.SWAP16 + Op.PUSH1[0x13] + Op.PUSH1[0xc] + Op.PUSH1[0x9] + Op.PUSH1[0x19]
+        + Op.PUSH4[0x4f4421eb] + Op.PUSH20[0x1a819dd2e8cec87d7e886df4843e21775f6672a4]
+        + Op.PUSH4[0x1ac754fa] + Op.CALL
+        + Op.PUSH22[0x6f9cc63229e7fe309b7a2f1acf074a43aa4dd2b75bf]
+        + Op.PUSH14[0xadf21aadb9a3e239a9592f576c92] + Op.PUSH6[0xeebd2420e262]
+        + Op.PUSH14[0x2b2f1f7ee7a56725d7d4fe23da45]
+        + Op.PUSH19[0x5e8b709d2976703147ef66a8fc9a6c1225df7b]
+        + Op.PUSH26[0xeec95ddda5e91c6e19bbc55baf9d6c440cc805f0d229738d17a7]
+        + Op.PUSH16[0x95e329f94d5bc48cc5964933f9597fb5]
+        + Op.PUSH27[0x6f7290649722d68a72fa2d081c4547943b3bbca2edc5f4032c5c91]
+        + Op.PUSH15[0x585fa6abd1b209e2b6fb64498a37b9]
+        + Op.PUSH26[0x6c95da3fdb8013c13ef99ed49b29282ae55458c651fdb8598b52]
+        + Op.PUSH17[0x24d2da1e8a7015f65ee4ab0178b68ab8c8]
+        + Op.PUSH24[0xd55f3c89a7f1f7bc6c0d86bc69688cbcc252972693993bf7]
+        + Op.PUSH7[0xaac4efb2b65b21] + Op.PUSH13[0xca2e721dea3f3b3df3abbbfb7b]
+        + Op.DUP14
+    ),
+    )
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=0)
+    pre[coinbase] = Account(
+        balance=46,
+        nonce=0,
+        code=(
+        Op.PUSH1[0x0] + Op.CALLDATALOAD + Op.SLOAD + Op.ISZERO + Op.PUSH1[0x9]
+        + Op.JUMPI + Op.STOP + Op.JUMPDEST + Op.PUSH1[0x20] + Op.CALLDATALOAD
+        + Op.PUSH1[0x0] + Op.CALLDATALOAD + Op.SSTORE
+    ),
+    )
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005"
+        ),
+        to=contract,
+        data=bytes.fromhex(
+            "7349d4fb4fa5c26263087f9f9885a7033ed1f85282806175626c7aff6e85d032f987501c"
+            "7f07e672602eea9a752c14f2fea044cbadb4acbbbece186bfae0ddfa5c3a4f602e867451"
+            "6e7ead3a1b9f0c321f53474588f38a996f7512fbdf364372a2f5b5329a5866cb8867c095"
+            "26eabd04524486650cba94b9d20e8079263be537932206f67f64915b81ac1ea4b1f3723b"
+            "aa86b2d9ad667f11ff36b05f0ec27d14051ce250c5c524eaa31472f153582c9aafa7a0b3"
+            "17230863944f1b5e7444ad06685190a6f9ff72b7af0f52a4619591d022037c3bd19aa01d"
+            "358a540c4ec6e43870dc653bab5c707f953b919477ed89448472e11b10e241ad82a32be0"
+            "2adf21cd183ae47f2776bce3701b75afea9a175cd04e616f3a1913f3be49294c5e633b4d"
+            "01cf719e06325d1f498e74d5a153c41ba83f49339f6d7f4711edfa5370e2ee9c7986401c"
+            "6b27b5cb4f46435c84c8f0239876415740df4646423c790ce1917c3e178e3f0117f07b8a"
+            "e37a6353868f7ca9313379cd727ae9732fb0a56da2b8a4cb682eb38ca47df0353f6b9322"
+            "ac474740ac5b14488677765f48677e720ed20e2c76b94ca77acdd3e9e54f2230a0c2d120"
+            "3130ebbf95aeb6212d52393d33efa63f79c2feba7168b770a3cd3fa97b8b515fd38a1995"
+            "8fccde6ec198be7d2f780422a69c9047ab7474d8f1c3272b9836bca4050a856a916e9bb3"
+            "0724727d1ba26058199098d65ad54d5580e51dcb2bd077db415b0ff41457c68f61d0f86d"
+            "8c4c549388abf78a75cc9163016c7e988e60e97b95f1d253b52168cbb01407c8ebca87f9"
+            "50ca4049e12ac76cbe3e374065a3c7703bcd5f7af279a1c12425c93ef8e74a12b699f4a9"
+            "c651db15561be1d91ca95575636dad39636bea70b5309b3354a73bb1b83ba72ff63f6918"
+            "2888e8f17d3e1ec0367173eb3831614e653fc63989af65bc9b676645638915ede2603666"
+            "ccff0c03af0fda7ad7b7e846076158daad3df7ad07e1cfe8ce41757c4d77f02d65bee264"
+            "fe0a98374a61532e797167af5719a427a267234fa27697f1a3f47a1453ea150821da1c66"
+            "5de7878ac0e5e26fc78911427cc1d8d0b029ee09bf9322446635d50de718ecb79f"
+        ),
+        gas_limit=824267821,
+        gas_price=10,
+        nonce=0,
+        value=1958828689,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,0 +1,473 @@
+"""
+Ori Pomerantz qbzzt1@gmail.com
+
+Ported from:
+tests/static/state_tests/stMemoryTest/oogFiller.yml
+
+callee code:
+    push2 0x1000
+    push1 0x00
+    sha3
+    stop
+
+callee_1 code:
+    push2 0x1000
+    push1 0x00
+    dup1
+    calldatacopy
+    stop
+
+callee_2 code:
+    push2 0x1000
+    push1 0x00
+    dup1
+    codecopy
+    stop
+
+callee_3 code:
+    push2 0x1000
+    push1 0x00
+    dup1
+    address
+    extcodecopy
+    stop
+
+callee_4 code:
+    push1 0x20
+    push1 0x00
+    dup2
+    dup2
+    dup1
+    push3 0x01113e
+    gas
+    call
+    pop
+    push1 0x10
+    push1 0x00
+    push2 0x1000
+    returndatacopy
+    stop
+
+callee_5 code:
+    push2 0x1000
+    mload
+    stop
+
+callee_6 code:
+    push1 0xff
+    push2 0x1000
+    mstore
+    stop
+
+callee_7 code:
+    push1 0xff
+    push2 0x1000
+    mstore8
+    stop
+
+callee_8 code:
+    push1 0x20
+    push3 0x010000
+    log0
+    stop
+
+callee_9 code:
+    push1 0x01
+    push1 0x20
+    push3 0x010000
+    log1
+    stop
+
+callee_10 code:
+    push1 0x02
+    push1 0x01
+    push1 0x20
+    push3 0x010000
+    log2
+    stop
+
+callee_11 code:
+    push1 0x03
+    push1 0x02
+    push1 0x01
+    push1 0x20
+    push3 0x010000
+    log3
+    stop
+
+callee_12 code:
+    push1 0x04
+    push1 0x03
+    push1 0x02
+    push1 0x01
+    push1 0x20
+    push3 0x010000
+    log4
+    stop
+
+callee_13 code:
+    push1 0x20
+    push3 0x010000
+    push1 0x00
+    create
+    stop
+
+callee_14 code:
+    push1 0x00
+    dup1
+    dup1
+    push3 0x010000
+    dup2
+    push3 0x0111f1
+    gas
+    call
+    stop
+
+callee_15 code:
+    push1 0x00
+    dup1
+    dup1
+    push3 0x010000
+    dup2
+    push3 0x0111f1
+    gas
+    callcode
+    stop
+
+callee_16 code:
+    push1 0x20
+    push3 0x010000
+    return
+
+callee_17 code:
+    push1 0x00
+    dup1
+    dup1
+    push3 0x010000
+    push3 0x0111f1
+    gas
+    delegatecall
+    stop
+
+callee_18 code:
+    push2 0x5a17
+    push1 0x20
+    push3 0x010000
+    push1 0x00
+    create2
+    stop
+
+callee_19 code:
+    push1 0x00
+    dup1
+    dup1
+    push3 0x010000
+    push3 0x0111f1
+    gas
+    staticcall
+    stop
+
+callee_20 code:
+    push32 0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20
+    push1 0x00
+    mstore
+    push1 0x20
+    push1 0x00
+    return
+
+contract code:
+    push1 0x00
+    dup1
+    dup1
+    dup1
+    dup1
+    push3 0x010000
+    push1 0x04
+    calldataload
+    add
+    push1 0x24
+    calldataload
+    call
+    push1 0x00
+    sstore
+    stop
+"""
+
+import pytest
+from execution_testing import (
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    Hash,
+    StateTestFiller,
+    Transaction,
+)
+from execution_testing.vm import Op
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stMemoryTest/oogFiller.yml"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.parametrize(
+    "tx_data_hex",
+    [
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000039d0",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a100000000000000000000000000000000000000000000000000000000000039d0",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a200000000000000000000000000000000000000000000000000000000000039d0",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a300000000000000000000000000000000000000000000000000000000000039d0",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a400000000000000000000000000000000000000000000000000000000000039d0",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000007d00",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f50000000000000000000000000000000000000000000000000000000000007d00",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f300000000000000000000000000000000000000000000000000000000000036b0",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f100000000000000000000000000000000000000000000000000000000000002bc",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f200000000000000000000000000000000000000000000000000000000000002bc",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f400000000000000000000000000000000000000000000000000000000000002bc",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000fa00000000000000000000000000000000000000000000000000000000000002bc",
+        "1a8451e60000000000000000000000000000000000000000000000000000000000000037000000000000000000000000000000000000000000000000000000000000032a",
+        "1a8451e60000000000000000000000000000000000000000000000000000000000000039000000000000000000000000000000000000000000000000000000000000032a",
+        "1a8451e6000000000000000000000000000000000000000000000000000000000000003c00000000000000000000000000000000000000000000000000000000000002bc",
+        "1a8451e6000000000000000000000000000000000000000000000000000000000000003e00000000000000000000000000000000000000000000000000000000000007d0",
+        "1a8451e6000000000000000000000000000000000000000000000000000000000000003e0000000000000000000000000000000000000000000000000000000000000c01",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000510000000000000000000000000000000000000000000000000000000000000190",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000520000000000000000000000000000000000000000000000000000000000000190",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000530000000000000000000000000000000000000000000000000000000000000190",
+        "1a8451e6000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004ba",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a1000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a2000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a3000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000a4000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f5000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f3000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f1000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f2000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f4000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000fa000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e60000000000000000000000000000000000000000000000000000000000000037000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e60000000000000000000000000000000000000000000000000000000000000039000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e6000000000000000000000000000000000000000000000000000000000000003c000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e6000000000000000000000000000000000000000000000000000000000000003e000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e6000000000000000000000000000000000000000000000000000000000000003e0000000000000000000000000000000000000000000000000000000000000c02",
+        "1a8451e60000000000000000000000000000000000000000000000000000000000000051000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e60000000000000000000000000000000000000000000000000000000000000052000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e60000000000000000000000000000000000000000000000000000000000000053000000000000000000000000000000000000000000000000000000000000ffff",
+        "1a8451e60000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000ffff",
+    ],
+    ids=['case0', 'case1', 'case2', 'case3', 'case4', 'case5', 'case6', 'case7', 'case8', 'case9', 'case10', 'case11', 'case12', 'case13', 'case14', 'case15', 'case16', 'case17', 'case18', 'case19', 'case20', 'case21', 'case22', 'case23', 'case24', 'case25', 'case26', 'case27', 'case28', 'case29', 'case30', 'case31', 'case32', 'case33', 'case34', 'case35', 'case36', 'case37', 'case38', 'case39', 'case40', 'case41'],
+)
+@pytest.mark.pre_alloc_mutable
+def test_oog(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_data_hex: str,
+) -> None:
+    """Ori Pomerantz qbzzt1@gmail.com."""
+    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    sender = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    contract = Address("0xcccccccccccccccccccccccccccccccccccccccc")
+    callee = Address("0x0000000000000000000000000000000000010020")
+    callee_1 = Address("0x0000000000000000000000000000000000010037")
+    callee_2 = Address("0x0000000000000000000000000000000000010039")
+    callee_3 = Address("0x000000000000000000000000000000000001003c")
+    callee_4 = Address("0x000000000000000000000000000000000001003e")
+    callee_5 = Address("0x0000000000000000000000000000000000010051")
+    callee_6 = Address("0x0000000000000000000000000000000000010052")
+    callee_7 = Address("0x0000000000000000000000000000000000010053")
+    callee_8 = Address("0x00000000000000000000000000000000000100a0")
+    callee_9 = Address("0x00000000000000000000000000000000000100a1")
+    callee_10 = Address("0x00000000000000000000000000000000000100a2")
+    callee_11 = Address("0x00000000000000000000000000000000000100a3")
+    callee_12 = Address("0x00000000000000000000000000000000000100a4")
+    callee_13 = Address("0x00000000000000000000000000000000000100f0")
+    callee_14 = Address("0x00000000000000000000000000000000000100f1")
+    callee_15 = Address("0x00000000000000000000000000000000000100f2")
+    callee_16 = Address("0x00000000000000000000000000000000000100f3")
+    callee_17 = Address("0x00000000000000000000000000000000000100f4")
+    callee_18 = Address("0x00000000000000000000000000000000000100f5")
+    callee_19 = Address("0x00000000000000000000000000000000000100fa")
+    callee_20 = Address("0x000000000000000000000000000000000001113e")
+    callee_21 = Address("0x00000000000000000000000000000000000111f1")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=100000000,
+    )
+
+    pre[callee] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH2[0x1000] + Op.PUSH1[0x0] + Op.SHA3 + Op.STOP,
+    )
+    pre[callee_1] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH2[0x1000] + Op.PUSH1[0x0] + Op.DUP1 + Op.CALLDATACOPY + Op.STOP,
+    )
+    pre[callee_2] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH2[0x1000] + Op.PUSH1[0x0] + Op.DUP1 + Op.CODECOPY + Op.STOP,
+    )
+    pre[callee_3] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH2[0x1000] + Op.PUSH1[0x0] + Op.DUP1 + Op.ADDRESS + Op.EXTCODECOPY
+        + Op.STOP
+    ),
+    )
+    pre[callee_4] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH1[0x20] + Op.PUSH1[0x0] + Op.DUP2 + Op.DUP2 + Op.DUP1
+        + Op.PUSH3[0x1113e] + Op.GAS + Op.CALL + Op.POP + Op.PUSH1[0x10]
+        + Op.PUSH1[0x0] + Op.PUSH2[0x1000] + Op.RETURNDATACOPY + Op.STOP
+    ),
+    )
+    pre[callee_5] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH2[0x1000] + Op.MLOAD + Op.STOP,
+    )
+    pre[callee_6] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH1[0xff] + Op.PUSH2[0x1000] + Op.MSTORE + Op.STOP,
+    )
+    pre[callee_7] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH1[0xff] + Op.PUSH2[0x1000] + Op.MSTORE8 + Op.STOP,
+    )
+    pre[callee_8] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH1[0x20] + Op.PUSH3[0x10000] + Op.LOG0 + Op.STOP,
+    )
+    pre[callee_9] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH1[0x1] + Op.PUSH1[0x20] + Op.PUSH3[0x10000] + Op.LOG1 + Op.STOP,
+    )
+    pre[callee_10] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH1[0x2] + Op.PUSH1[0x1] + Op.PUSH1[0x20] + Op.PUSH3[0x10000] + Op.LOG2
+        + Op.STOP
+    ),
+    )
+    pre[callee_11] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH1[0x3] + Op.PUSH1[0x2] + Op.PUSH1[0x1] + Op.PUSH1[0x20]
+        + Op.PUSH3[0x10000] + Op.LOG3 + Op.STOP
+    ),
+    )
+    pre[callee_12] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH1[0x4] + Op.PUSH1[0x3] + Op.PUSH1[0x2] + Op.PUSH1[0x1]
+        + Op.PUSH1[0x20] + Op.PUSH3[0x10000] + Op.LOG4 + Op.STOP
+    ),
+    )
+    pre[callee_13] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH1[0x20] + Op.PUSH3[0x10000] + Op.PUSH1[0x0] + Op.CREATE + Op.STOP,
+    )
+    pre[callee_14] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH1[0x0] + Op.DUP1 + Op.DUP1 + Op.PUSH3[0x10000] + Op.DUP2
+        + Op.PUSH3[0x111f1] + Op.GAS + Op.CALL + Op.STOP
+    ),
+    )
+    pre[callee_15] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH1[0x0] + Op.DUP1 + Op.DUP1 + Op.PUSH3[0x10000] + Op.DUP2
+        + Op.PUSH3[0x111f1] + Op.GAS + Op.CALLCODE + Op.STOP
+    ),
+    )
+    pre[callee_16] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=Op.PUSH1[0x20] + Op.PUSH3[0x10000] + Op.RETURN,
+    )
+    pre[callee_17] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH1[0x0] + Op.DUP1 + Op.DUP1 + Op.PUSH3[0x10000] + Op.PUSH3[0x111f1]
+        + Op.GAS + Op.DELEGATECALL + Op.STOP
+    ),
+    )
+    pre[callee_18] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH2[0x5a17] + Op.PUSH1[0x20] + Op.PUSH3[0x10000] + Op.PUSH1[0x0]
+        + Op.CREATE2 + Op.STOP
+    ),
+    )
+    pre[callee_19] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH1[0x0] + Op.DUP1 + Op.DUP1 + Op.PUSH3[0x10000] + Op.PUSH3[0x111f1]
+        + Op.GAS + Op.STATICCALL + Op.STOP
+    ),
+    )
+    pre[callee_20] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH32[0x102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20]
+        + Op.PUSH1[0x0] + Op.MSTORE + Op.PUSH1[0x20] + Op.PUSH1[0x0] + Op.RETURN
+    ),
+    )
+    pre[callee_21] = Account(balance=0xba1a9ce0ba1a9ce, nonce=1, code=bytes.fromhex("00"))
+    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce, nonce=1)
+    pre[contract] = Account(
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        code=(
+        Op.PUSH1[0x0] + Op.DUP1 + Op.DUP1 + Op.DUP1 + Op.DUP1 + Op.PUSH3[0x10000]
+        + Op.PUSH1[0x4] + Op.CALLDATALOAD + Op.ADD + Op.PUSH1[0x24] + Op.CALLDATALOAD
+        + Op.CALL + Op.PUSH1[0x0] + Op.SSTORE + Op.STOP
+    ),
+    )
+
+    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+        ),
+        to=contract,
+        data=tx_data,
+        gas_limit=16777216,
+        gas_price=10,
+        nonce=1,
+        value=0,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)

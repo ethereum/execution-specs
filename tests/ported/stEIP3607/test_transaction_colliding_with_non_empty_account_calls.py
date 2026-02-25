@@ -1,0 +1,82 @@
+"""
+Account with non-empty code attempts to send tx to call a contract
+
+Ported from:
+tests/static/state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_callsFiller.yml
+
+sender code:
+    push1 0x00
+    push1 0x01
+    sstore
+
+contract code:
+    push1 0x00
+    push1 0x01
+    sstore
+"""
+
+import pytest
+from execution_testing import (
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    Hash,
+    StateTestFiller,
+    Transaction,
+    TransactionException,
+)
+from execution_testing.vm import Op
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_callsFiller.yml"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.exception_test
+def test_transaction_colliding_with_non_empty_account_calls(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Account with non-empty code attempts to send tx to call a contract."""
+    coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
+    sender = Address("0x2822eae5589c28b202c5ab4c9e07fb69edc8e65a")
+    contract = Address("0xd857dad5866e190fd86b79f027fb8ee8e60fbda7")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=71794957647893862,
+    )
+
+    pre[sender] = Account(
+        balance=0xde0b6b3a7640000,
+        nonce=0,
+        code=Op.PUSH1[0x0] + Op.PUSH1[0x1] + Op.SSTORE,
+    )
+    pre[contract] = Account(balance=0, nonce=0, code=Op.PUSH1[0x0] + Op.PUSH1[0x1] + Op.SSTORE)
+    pre[coinbase] = Account(balance=0, nonce=1)
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0x402790500ea083a617ec567407d9ec3bbb3a5c8b812547d9f66e8d7878b8a75d"
+        ),
+        to=contract,
+        data=b"",
+        gas_limit=400000,
+        gas_price=10,
+        nonce=0,
+        value=100000,
+        error=TransactionException.SENDER_NOT_EOA,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)

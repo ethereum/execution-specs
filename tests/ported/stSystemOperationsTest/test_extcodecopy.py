@@ -1,0 +1,146 @@
+"""
+God knows what is happening in this test
+
+Ported from:
+tests/static/state_tests/stSystemOperationsTest/extcodecopyFiller.json
+
+contract code:
+    push32 0x15688566a82f5f946c68028bf626b349e495daa43e33529a76437ac416cd1b7d
+    push15 0x7dae7454bb193b1c28e64a6a935bc3
+    push20 0xcea0c5cc171fa61277e5604a3bc8aef4de3d3882
+    mod
+    pc
+    push1 0x0b
+    dup1
+    push26 0x7ada6e82e95f6520383f95f5c7dae56b4dc13b6f22ecabfce07c
+    extcodecopy
+    selfdestruct
+    mload
+
+callee code:
+    gas
+    push1 0x10
+    push1 0x17
+    push1 0x11
+    push1 0x11
+    push1 0x18
+    push1 0x1c
+    push1 0x0f
+    push1 0x1b
+    push1 0x1d
+    push0
+    push1 0x02
+    push1 0x13
+    push1 0x0f
+    push1 0x1a
+    dup14
+    gas
+    jumpdest
+    push23 0x79177b5dd41a23db52998c4dcd14e88390dcc9f3ed5783
+    push1 0x16
+    ... (34 more instructions)
+"""
+
+import pytest
+from execution_testing import (
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    Hash,
+    StateTestFiller,
+    Transaction,
+)
+from execution_testing.vm import Op
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stSystemOperationsTest/extcodecopyFiller.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
+def test_extcodecopy(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """God knows what is happening in this test."""
+    coinbase = Address("0x4401fcaf7d64d53fb1cfc5c9045c32aa919a8c82")
+    sender = Address("0x6a3c158cfb89cd1c76fe54bc718c35f90ffe95ca")
+    contract = Address("0x0614253558ab9d138504425f7c247229db2c5baf")
+    callee = Address("0x5b400827141a956ceb3e889ad3e1707aee1a575c")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=1478962728,
+    )
+
+    pre[contract] = Account(
+        balance=0x5c81eb0,
+        nonce=254,
+        code=(
+        Op.PUSH32[0x15688566a82f5f946c68028bf626b349e495daa43e33529a76437ac416cd1b7d]
+        + Op.PUSH15[0x7dae7454bb193b1c28e64a6a935bc3]
+        + Op.PUSH20[0xcea0c5cc171fa61277e5604a3bc8aef4de3d3882] + Op.MOD + Op.PC
+        + Op.PUSH1[0xb] + Op.DUP1
+        + Op.PUSH26[0x7ada6e82e95f6520383f95f5c7dae56b4dc13b6f22ecabfce07c]
+        + Op.EXTCODECOPY + Op.SELFDESTRUCT + Op.MLOAD
+    ),
+    )
+    pre[callee] = Account(
+        balance=0x4d6769f8,
+        nonce=221,
+        code=(
+        Op.GAS + Op.PUSH1[0x10] + Op.PUSH1[0x17] + Op.PUSH1[0x11] + Op.PUSH1[0x11]
+        + Op.PUSH1[0x18] + Op.PUSH1[0x1c] + Op.PUSH1[0xf] + Op.PUSH1[0x1b]
+        + Op.PUSH1[0x1d] + Op.PUSH0 + Op.PUSH1[0x2] + Op.PUSH1[0x13] + Op.PUSH1[0xf]
+        + Op.PUSH1[0x1a] + Op.DUP14 + Op.GAS + Op.JUMPDEST
+        + Op.PUSH23[0x79177b5dd41a23db52998c4dcd14e88390dcc9f3ed5783] + Op.PUSH1[0x16]
+        + Op.PUSH1[0x14] + Op.PUSH0 + Op.PUSH1[0x13] + Op.PUSH1[0xd] + Op.PUSH1[0x1f]
+        + Op.PUSH1[0x1] + Op.PUSH1[0x11] + Op.PUSH1[0xe] + Op.PUSH1[0xc]
+        + Op.PUSH1[0xd] + Op.PUSH1[0x1f] + Op.PUSH1[0x13] + Op.DUP13
+        + Op.PUSH27[0x58f20fd882eb51408a52e569ce80e93270ab53ae9de3fec5498a5c]
+        + Op.PUSH19[0xce1fcd11bb1553736959df779a616b738c1f40]
+        + Op.PUSH29[0x12459490afe302da311a673488d09e71041d0761dee4829e3c38e0b1b1]
+        + Op.PUSH25[0x7810f2e11e2289983c1ab47cf5ebd38c12f1719232b5f3a7b2]
+        + Op.PUSH27[0x9ea8858a071c4169392ec725646311235cbd9534e5d7cd8cb5e228]
+        + Op.PUSH24[0x38a43f803384f4e62fe6629ea2e609a71759edab5c3a58b8]
+        + Op.PUSH31[0x94c95f710aa6059b0663c9f374ce6ea0a000c5d594c41252d4a74d64896a98]
+        + Op.PUSH29[0xc57c24df2ce8ffb85adcc27dce2d19f7006fbc1c5a7b79a319418fd6c2]
+        + Op.PUSH30[0xdebcf170192262d82c1053333f6115c8b258b81e2e84d723c98dbd4535de]
+        + Op.PUSH32[0x922723a15827bbcfd07f9e2c5027c7736ed68c61b332059d7ec1bae1c1fd41a3]
+        + Op.PUSH2[0xd35b] + Op.SWAP10 + Op.PUSH14[0x9740a588b6abf3293236afb92771]
+        + Op.PUSH20[0x28c014846148ce67eaf2b33d90672366dafeaae0]
+        + Op.PUSH18[0x4eb39e7fd5076a831d8eb4a3546288a3e1a0] + Op.ADDMOD
+        + Op.PUSH27[0xebe80b6bbfa4041330b05d094a697236fe7654d8a7ce630f83a832]
+        + Op.PUSH3[0x125d7] + Op.DUP2 + Op.PUSH7[0x6e898f7fdcfd00] + Op.BALANCE
+    ),
+    )
+    pre[sender] = Account(balance=0x4f6ca7b90ceb5fd4, nonce=0)
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0x7446b5f5f4c3994ba600da46b6ca0e5dbd71bce76740b040ba716507ecb75bb9"
+        ),
+        to=contract,
+        data=bytes.fromhex(
+            "6e27b0577f2549e5fa01e3db96e7b03a62e489115538620295677faf15040c1c1796bad1"
+            "30e2462a8b8d6bbe0fa35bf12087047ef4ff4e66df8772196b4401998ff7f4219c013a0d"
+            "927b22d8d3fdf625809abb182507d180e687b666f4f1e4f3b8172e87760f436c701264b8"
+            "9739f3d7c50ec524f16b1a4f91397b760a5209b9b7710544694ecf2729643b3ca545c7"
+        ),
+        gas_limit=100000,
+        gas_price=483694712,
+        nonce=0,
+        value=614700887,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)

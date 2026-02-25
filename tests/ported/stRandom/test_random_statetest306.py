@@ -1,0 +1,184 @@
+"""
+Ported from:
+tests/static/state_tests/stRandom/randomStatetest306Filler.json
+
+coinbase code:
+    push1 0x00
+    calldataload
+    sload
+    iszero
+    push1 0x09
+    jumpi
+    stop
+    jumpdest
+    push1 0x20
+    calldataload
+    push1 0x00
+    calldataload
+    sstore
+
+contract code:
+    push1 0xd3
+    push15 0x84517b3285b0867cd4144ff5f688d6
+    signextend
+    push11 0x07592395d95e37246c0673
+    push13 0x78c9fa9e4b5e5db5a4b6ac4ced
+    push14 0xd169cda4fc3c11e9a6f0b4cec2f5
+    push1 0x19
+    push2 0x7df7
+    log3
+    push4 0x788c1554
+    push20 0x412582d556f06c6d5864cf4be6a2d1318b8e40ba
+    sgt
+    push24 0x454cc8d0510823591dee680d7dddc8c149bfcc24c65c69e6
+    push13 0x2b9d3e28f05faf2587c4465094
+    sdiv
+    push22 0x9901ec0946bf3d786827225faf5da81e158cd9b2b466
+    push16 0x71a29fbe89f77c340dcbd7d67aedf852
+    sgt
+    push12 0x6c76affb38beb802e0af269e
+    push6 0xc22f52807c67
+    ... (40 more instructions)
+"""
+
+import pytest
+from execution_testing import (
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    Hash,
+    StateTestFiller,
+    Transaction,
+)
+from execution_testing.vm import Op
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stRandom/randomStatetest306Filler.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_until("Prague")
+@pytest.mark.pre_alloc_mutable
+def test_random_statetest306(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
+    sender = Address("0x2e3d0156d2b99a6eacba540c55f423c8f5a33143")
+    contract = Address("0xce8d3e84f685b2eed55366547289ac4d314de277")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=9223372036854775807,
+    )
+
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=0)
+    pre[coinbase] = Account(
+        balance=46,
+        nonce=0,
+        code=(
+        Op.PUSH1[0x0] + Op.CALLDATALOAD + Op.SLOAD + Op.ISZERO + Op.PUSH1[0x9]
+        + Op.JUMPI + Op.STOP + Op.JUMPDEST + Op.PUSH1[0x20] + Op.CALLDATALOAD
+        + Op.PUSH1[0x0] + Op.CALLDATALOAD + Op.SSTORE
+    ),
+    )
+    pre[contract] = Account(
+        balance=0,
+        nonce=0,
+        code=(
+        Op.PUSH1[0xd3] + Op.PUSH15[0x84517b3285b0867cd4144ff5f688d6] + Op.SIGNEXTEND
+        + Op.PUSH11[0x7592395d95e37246c0673] + Op.PUSH13[0x78c9fa9e4b5e5db5a4b6ac4ced]
+        + Op.PUSH14[0xd169cda4fc3c11e9a6f0b4cec2f5] + Op.PUSH1[0x19]
+        + Op.PUSH2[0x7df7] + Op.LOG3 + Op.PUSH4[0x788c1554]
+        + Op.PUSH20[0x412582d556f06c6d5864cf4be6a2d1318b8e40ba] + Op.SGT
+        + Op.PUSH24[0x454cc8d0510823591dee680d7dddc8c149bfcc24c65c69e6]
+        + Op.PUSH13[0x2b9d3e28f05faf2587c4465094] + Op.SDIV
+        + Op.PUSH22[0x9901ec0946bf3d786827225faf5da81e158cd9b2b466]
+        + Op.PUSH16[0x71a29fbe89f77c340dcbd7d67aedf852] + Op.SGT
+        + Op.PUSH12[0x6c76affb38beb802e0af269e] + Op.PUSH6[0xc22f52807c67]
+        + Op.PUSH28[0x5e2c7d8c473aff18fe912c7ed21ab60fe5d4916a76c93539332c6ab1]
+        + Op.PUSH12[0x3f81b990f4b34b0228c7f5b1] + Op.PUSH6[0x6bdd21d45871]
+        + Op.PUSH20[0x30e4be7d7bb91cc95818140eef086cd82d2d6f0d]
+        + Op.PUSH7[0xc92a7ffb27125a] + Op.PUSH3[0x5c77a8] + Op.SWAP7
+        + Op.PUSH19[0x68f212339508d6f60d9c93a9e201f2ae883cb9]
+        + Op.PUSH22[0x2460ec0dcb4ba3b84a4db899c29f08ef1b0f506b4f3c] + Op.SDIV
+        + Op.PUSH1[0x1f] + Op.PUSH1[0x1] + Op.PUSH1[0x10] + Op.PUSH1[0x11]
+        + Op.PUSH4[0x28b0eb5f] + Op.PUSH20[0xce8d3e84f685b2eed55366547289ac4d314de277]
+        + Op.PUSH4[0xa4eb375] + Op.CALL
+        + Op.PUSH30[0xf238e15d7d51240301521f173d628e7a68d01354faaf406ce541f753db89]
+        + Op.PUSH8[0x1f6aedcf261f632e] + Op.PUSH3[0x44e8c3]
+        + Op.PUSH26[0x9a2de002f15ba4681fd3c609c0f522dfd964f95def9926f81232]
+        + Op.PUSH24[0x81b2de33196cc22776e9b26d8a0d65c57bdac987d0b3e0db]
+        + Op.PUSH7[0xc0f1232c7add33] + Op.PUSH6[0xf209cc53592f]
+        + Op.PUSH20[0x502d0c5889b1bbf131f8bb6a6b5e2e067b9ef676]
+        + Op.PUSH23[0x8d48b3f5790c3304e046f0a9c8a838a0596583d6258f19]
+        + Op.PUSH14[0xcf982a9de5cec4f871470e7a6c92] + Op.DUP10 + Op.PUSH2[0x5e1e]
+        + Op.PUSH30[0x140fdc038972916223fb8012e29350295f3919cb28a36411845930d5e91b]
+        + Op.PUSH9[0x510faac5e067795346]
+        + Op.PUSH29[0xedb653f73818749e8cbaf15a5d64ba7ee5cabc98137167b924a2aac914]
+        + Op.PUSH32[0x159713d115e0225a84a54d6471dc7a01a7e4e814145305c9d04d2880c5be42fc]
+        + Op.PUSH13[0x52ced3e983d91a580a4142021b]
+        + Op.PUSH20[0xe99c3180117914b9ad03c580a8dac862be9b599a]
+        + Op.PUSH20[0xccfcfb230bcffc425c13c265f3b06b8c9f104c10]
+        + Op.PUSH22[0x2740765567374c211601a5f51501d18c48081998ff7b]
+        + Op.PUSH27[0x8bfdf0bec9eb4385b554870a996e0cab662d991d0e5f9357f2f99f]
+        + Op.SWAP9
+    ),
+    )
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005"
+        ),
+        to=contract,
+        data=bytes.fromhex(
+            "79f7441ed5bec692c84f9c7783152d38908fea76de8a06eca5ebcf7e81423a68b78d5f1a"
+            "84706bdb516f17a29dd779ee16374163c1ab2a85a2097e7b6235aecf7cc509b9d184688f"
+            "56ccfe8638c51ee70858f690e71b338261fd2b72db56f2a0923a6d1bc51dd15ff9aae183"
+            "48213d68fc8e120c307a7490f46b2d528d86e503a251fd188764646dd3b8bc3c7066a32d"
+            "caa91da430f61aed0466338f17d9703f1c8648d0b19db4fcdcd0893f0f6f21c789306b8f"
+            "8d110fbd563111fd088de367b9f001758786ced578880bb55e224855b0293f9277dc7201"
+            "e63845a8d8eae7dc8e3e642820b61315716544e2fd297f018fe1df86427052e3a85c0c77"
+            "48f6fa89b890be2a3b916794ecfff1e87a87582c991b0c61687637866981d0819020714f"
+            "baee296a9ac19ac255226d4d2cf967104b669a622e77fc4c7469aee1553e5cf5cb2a7972"
+            "6f07829adfa8a988fb07479add89c1a8947d88a9b361493025a66fd49776d7304a036894"
+            "ecda2e148f7f87270cdd52727667c09ee625c7a37ac99ab8a195cd0a97fa9e7247f9d0f1"
+            "7888132eb3f44d24d3d49c0a2e6d4850ee413c36893d04dfa9826f7236a10c77f7da3d31"
+            "db8eae3070972c9d722347d4a95604d40ba66a2f53710451be8f1994756471ba4d09257f"
+            "6abe619cc850f123d4715bacc2b9cf167be82e629cf36521b290bab47b9597664c0890a5"
+            "d6242211d344805a3d75460c21ca9ad05dec187ddecc44c9b1c0b4c0d34c66926db22974"
+            "c0bc059a6aa6354a43bf26f06e7dfa7f0e07f4f3607a8bc1227b7f0d65d660aa3c1eb773"
+            "1850729f5dc3285b398806dd4b54aecbe7cb367573a1aa8f062b33e27db1e2fdef478ac3"
+            "06ec57be3b6b0fd0fbbe558507ead60ce60a61eade67afdd8ba512300ecc686d51131057"
+            "8908f49660d163e372ddd2636dbf1c1b6d39292b97dbd48fee420c354d341365e64505ae"
+            "ffc89b6e764afc7f97200924ff8d68846e387f6bca4c4ea3f4e04ac8061efd5260577aa6"
+            "9c34a7287609d2448bb32d2687a46d54c893ba21520ec26e792c836ebb8c9c1005ab55d9"
+            "9c62150413fb7a7f8e2ec4766471e2452ee833fa10995e94d2c1cf89c64260836aab9b3c"
+            "6a1f699776b5900f48b7c1f97dba13656a85fea0cc2d4fe85aa7a9766d767cfd6a3314ac"
+            "c32eea93e15c3077fa26a3917a48af0765b5690af372219af6c2e7e5b194e6db7f76ca0b"
+            "28647c5066bfbf142ac3eb1361b77953e328106b1e817e8649a9bdf4f27834bd25279dc2"
+            "b7a6fab4d4e4830602f84d298f5d2682183a226118fc6c452c99ead827293548afcfeaf9"
+            "655e76240e57846151bb7b1c1cc5971f0ad83dc7b02c05c2bc0a3adeb65bf608eb5c0aaf"
+            "186a887a4357e31bdd83940e443289727a6e36bfc974bc20e97fa8983f18137be520500b"
+            "388fe2f63185c5c66bcc71a48c7fc9c210f73a4a73c4561f62adb5ed9d7ae9a0e4833f19"
+            "8dd3faa1af3ad59c282f3277fac135659e7eb7c9926fd5e954f6f42a9cd2cb6498da0767"
+            "958716"
+        ),
+        gas_limit=1970726856,
+        gas_price=10,
+        nonce=0,
+        value=1525687154,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)

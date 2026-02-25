@@ -1,0 +1,159 @@
+"""
+Ported from:
+tests/static/state_tests/stRandom2/randomStatetest639Filler.json
+
+coinbase code:
+    push1 0x00
+    calldataload
+    sload
+    iszero
+    push1 0x09
+    jumpi
+    stop
+    jumpdest
+    push1 0x20
+    calldataload
+    push1 0x00
+    calldataload
+    sstore
+
+contract code:
+    push15 0x993d78e80807a0d34bdbfa4e0afa9d
+    push31 0xab95e6f8772a548229700e2dcc612ac9ceeb898af8436680a2e1074df8ced0
+    sgt
+    push26 0x64d71c8fe8a10fb58f8706ea3ee1b54a0848e742ca357e3d0234
+    push1 0xc1
+    push2 0xb1f5
+    log1
+    push29 0x48da2ae1e6987c52223414746fab0e39130693d15a48d39b5130096a7c
+    iszero
+    push17 0xc4fb89343ef5d10e912decba682bf205de
+    push26 0xe84c573c9e2b0ffbd4d6117e40046b4c2d77156ada28960d9bb9
+    push32 0x56d243429aa245c32e1f800a686ebe298dd08349d864486d7a1569b5aae49577
+    push12 0xb5e71206cd09f54d1cd71396
+    push6 0x57567542184c
+    push21 0xb95cc0d8ac3d0e05d0264b8d42a3563826123fc0d9
+    push5 0x521b61b863
+    push21 0x591a821818672ef0dea05d259bc4f98c34418d9e7a
+    push8 0x7173b211649c07df
+    push23 0x70aca688053842de6157c4fb5e678adc0611fcc20a1d83
+    push15 0xc69b9370d09b83f1b0293a1b102d6d
+    ... (45 more instructions)
+"""
+
+import pytest
+from execution_testing import (
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    Hash,
+    StateTestFiller,
+    Transaction,
+)
+from execution_testing.vm import Op
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stRandom2/randomStatetest639Filler.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_until("Prague")
+@pytest.mark.pre_alloc_mutable
+def test_random_statetest639(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
+    sender = Address("0x2e3d0156d2b99a6eacba540c55f423c8f5a33143")
+    contract = Address("0x9fecb32d9ae49c08da1e2551ba9257be9a181e76")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=9223372036854775807,
+    )
+
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=0)
+    pre[coinbase] = Account(
+        balance=46,
+        nonce=0,
+        code=(
+        Op.PUSH1[0x0] + Op.CALLDATALOAD + Op.SLOAD + Op.ISZERO + Op.PUSH1[0x9]
+        + Op.JUMPI + Op.STOP + Op.JUMPDEST + Op.PUSH1[0x20] + Op.CALLDATALOAD
+        + Op.PUSH1[0x0] + Op.CALLDATALOAD + Op.SSTORE
+    ),
+    )
+    pre[contract] = Account(
+        balance=0,
+        nonce=0,
+        code=(
+        Op.PUSH15[0x993d78e80807a0d34bdbfa4e0afa9d]
+        + Op.PUSH31[0xab95e6f8772a548229700e2dcc612ac9ceeb898af8436680a2e1074df8ced0]
+        + Op.SGT + Op.PUSH26[0x64d71c8fe8a10fb58f8706ea3ee1b54a0848e742ca357e3d0234]
+        + Op.PUSH1[0xc1] + Op.PUSH2[0xb1f5] + Op.LOG1
+        + Op.PUSH29[0x48da2ae1e6987c52223414746fab0e39130693d15a48d39b5130096a7c]
+        + Op.ISZERO + Op.PUSH17[0xc4fb89343ef5d10e912decba682bf205de]
+        + Op.PUSH26[0xe84c573c9e2b0ffbd4d6117e40046b4c2d77156ada28960d9bb9]
+        + Op.PUSH32[0x56d243429aa245c32e1f800a686ebe298dd08349d864486d7a1569b5aae49577]
+        + Op.PUSH12[0xb5e71206cd09f54d1cd71396] + Op.PUSH6[0x57567542184c]
+        + Op.PUSH21[0xb95cc0d8ac3d0e05d0264b8d42a3563826123fc0d9]
+        + Op.PUSH5[0x521b61b863]
+        + Op.PUSH21[0x591a821818672ef0dea05d259bc4f98c34418d9e7a]
+        + Op.PUSH8[0x7173b211649c07df]
+        + Op.PUSH23[0x70aca688053842de6157c4fb5e678adc0611fcc20a1d83]
+        + Op.PUSH15[0xc69b9370d09b83f1b0293a1b102d6d]
+        + Op.PUSH20[0x978584b14fb2ab517001867e6545dd2dc3438f9c]
+        + Op.PUSH25[0x28f6d3c6e4da98113ce2486c1ad028dc9947b28590071b977e]
+        + Op.PUSH6[0x1d352b078cb9] + Op.PUSH12[0x27f9ff7252c9f3ce9e5151ae]
+        + Op.PUSH27[0xf1064ab8a5d92ed543b9d59c341f85bb22aa2fa7d7ee7310ac8f51]
+        + Op.SWAP15 + Op.PUSH7[0xda165b9efe3663] + Op.PUSH6[0x7b1e28f4eb3e]
+        + Op.PUSH20[0x38391339af5346d12c14bbc0863c26d7e999776c]
+        + Op.PUSH26[0x39cefac542ed69f518bbef5461c0df385004f5411c3faaa65c7b]
+        + Op.PUSH11[0xbf900ca1ef1f40bb938f72]
+        + Op.PUSH23[0x95a1ca14012ba07cc01548f3df75544b11bb52b7693bed]
+        + Op.PUSH31[0x2fc1537b2f8d63c4db4c3d8fc72b6f5f7e7b4d1ec8c1ac89230936975d1962]
+        + Op.PUSH8[0x88f03504a8c9acf6] + Op.PUSH5[0x37d6d88560]
+        + Op.PUSH24[0x78bee6fe54742ddc9a7d8373dbfe2e21aacf8816944c02ef] + Op.SWAP9
+        + Op.ORIGIN + Op.PUSH1[0x15] + Op.PUSH1[0x9] + Op.PUSH1[0x9] + Op.PUSH1[0x18]
+        + Op.PUSH4[0x29ec801e] + Op.PUSH20[0x9fecb32d9ae49c08da1e2551ba9257be9a181e76]
+        + Op.PUSH4[0x56837182] + Op.CALL
+        + Op.PUSH22[0x259fc2ea2df7d720fb0914ed44bcb12b8ff15e712ef6]
+        + Op.PUSH30[0x868fe7fba6b46fac671a45bcace82fa83b87b8744835ac63d2b6cf3d157d]
+        + Op.PUSH22[0x26909f9c4d1efbf68d780af1c0f2dabbfc53d2c71dc4] + Op.PUSH2[0xbf7f]
+        + Op.PUSH25[0x8e3a9c48cd1df8d146a7df97125985162ecd37b059204323d0]
+        + Op.PUSH7[0xcb4709a3a1715f]
+        + Op.PUSH29[0x4a9fb905c26ba87933ef2499d3447d5cd4df27a6205c8a1ce06719c3e0]
+        + Op.PUSH6[0xe66ab80222ff]
+        + Op.PUSH31[0xd1f72f533a1160330dbd8dcd0489ec2dac84d7522a4d8732c5ae9e08d9a251]
+        + Op.PUSH9[0x2fb33fa08ecc05197d] + Op.DUP10
+        + Op.PUSH27[0x1d5f28328caa78ca6cd6b86fd08a1748fa959665861d18c25a3cae]
+        + Op.PUSH26[0x732fe4fb3ad8b48c17c8efeeb5ec22be8b20ec4eae2955d65b9a]
+        + Op.PUSH13[0x1415c23047aa8f2c29aeddd787] + Op.PUSH6[0xc1bc3eda6341]
+        + Op.PUSH14[0x84cdb9b8d7942020db3b1ed861a9] + Op.PUSH7[0x475eb6ef9f9920]
+        + Op.PUSH10[0x2a879ee6bf9d0a1dd9d3] + Op.DUP7
+    ),
+    )
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005"
+        ),
+        to=contract,
+        data=b"",
+        gas_limit=1612042127,
+        gas_price=10,
+        nonce=0,
+        value=1237321880,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
