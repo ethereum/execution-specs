@@ -227,8 +227,8 @@ def test_max_code_size_external_opcodes(
         oracle: Account(
             storage={
                 0: len(target_code),
-                1: keccak256(target_code),
-                2: keccak256(target_code),
+                1: keccak256(bytes(target_code)),
+                2: keccak256(bytes(target_code)),
             }
         )
     }
@@ -272,7 +272,7 @@ def test_max_code_size_self_opcodes(
         oracle: Account(
             storage={
                 0: len(target_code),
-                1: keccak256(target_code),
+                1: keccak256(bytes(target_code)),
             }
         )
     }
