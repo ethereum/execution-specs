@@ -16,7 +16,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
-    compute_create2_address,
     compute_create_address,
 )
 
@@ -113,12 +112,12 @@ def test_create_opcode_initcode_size(
 
     factory = pre.deploy_contract(factory_code)
 
-    create_address = (
-        compute_create2_address(
-            address=factory, salt=CREATE2_SALT, initcode=initcode
-        )
-        if create_opcode == Op.CREATE2
-        else compute_create_address(address=factory, nonce=1)
+    create_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=CREATE2_SALT,
+        initcode=initcode,
+        opcode=create_opcode,
     )
 
     tx = Transaction(
@@ -263,12 +262,12 @@ def test_initcode_gas_metering_create_opcodes(
 
     factory = pre.deploy_contract(factory_code)
 
-    create_address = (
-        compute_create2_address(
-            address=factory, salt=CREATE2_SALT, initcode=initcode
-        )
-        if create_opcode == Op.CREATE2
-        else compute_create_address(address=factory, nonce=1)
+    create_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=CREATE2_SALT,
+        initcode=initcode,
+        opcode=create_opcode,
     )
 
     # Compute exact gas the factory needs

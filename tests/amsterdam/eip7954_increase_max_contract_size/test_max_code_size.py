@@ -13,7 +13,6 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
-    compute_create2_address,
     compute_create_address,
     keccak256,
 )
@@ -97,12 +96,12 @@ def test_create_opcode_deploy_size(
 
     factory = pre.deploy_contract(factory_code)
 
-    create_address = (
-        compute_create2_address(
-            address=factory, salt=CREATE2_SALT, initcode=initcode
-        )
-        if create_opcode == Op.CREATE2
-        else compute_create_address(address=factory, nonce=1)
+    create_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=CREATE2_SALT,
+        initcode=initcode,
+        opcode=create_opcode,
     )
 
     tx = Transaction(

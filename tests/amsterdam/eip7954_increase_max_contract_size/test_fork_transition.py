@@ -19,7 +19,6 @@ from execution_testing import (
     Op,
     Transaction,
     TransactionException,
-    compute_create2_address,
     compute_create_address,
 )
 
@@ -115,19 +114,19 @@ def test_create_opcode_deploy_size_fork_transition(
     factory_pre = pre.deploy_contract(factory_code)
     factory_post = pre.deploy_contract(factory_code)
 
-    create_address_pre = (
-        compute_create2_address(
-            address=factory_pre, salt=CREATE2_SALT, initcode=initcode
-        )
-        if create_opcode == Op.CREATE2
-        else compute_create_address(address=factory_pre, nonce=1)
+    create_address_pre = compute_create_address(
+        address=factory_pre,
+        nonce=1,
+        salt=CREATE2_SALT,
+        initcode=initcode,
+        opcode=create_opcode,
     )
-    create_address_post = (
-        compute_create2_address(
-            address=factory_post, salt=CREATE2_SALT, initcode=initcode
-        )
-        if create_opcode == Op.CREATE2
-        else compute_create_address(address=factory_post, nonce=1)
+    create_address_post = compute_create_address(
+        address=factory_post,
+        nonce=1,
+        salt=CREATE2_SALT,
+        initcode=initcode,
+        opcode=create_opcode,
     )
 
     blocks = [
@@ -253,19 +252,19 @@ def test_create_opcode_initcode_size_fork_transition(
     factory_pre = pre.deploy_contract(factory_code)
     factory_post = pre.deploy_contract(factory_code)
 
-    create_address_pre = (
-        compute_create2_address(
-            address=factory_pre, salt=CREATE2_SALT, initcode=initcode
-        )
-        if create_opcode == Op.CREATE2
-        else compute_create_address(address=factory_pre, nonce=1)
+    create_address_pre = compute_create_address(
+        address=factory_pre,
+        nonce=1,
+        salt=CREATE2_SALT,
+        initcode=initcode,
+        opcode=create_opcode,
     )
-    create_address_post = (
-        compute_create2_address(
-            address=factory_post, salt=CREATE2_SALT, initcode=initcode
-        )
-        if create_opcode == Op.CREATE2
-        else compute_create_address(address=factory_post, nonce=1)
+    create_address_post = compute_create_address(
+        address=factory_post,
+        nonce=1,
+        salt=CREATE2_SALT,
+        initcode=initcode,
+        opcode=create_opcode,
     )
 
     blocks = [
