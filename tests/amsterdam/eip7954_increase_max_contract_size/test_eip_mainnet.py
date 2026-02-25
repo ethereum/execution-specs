@@ -167,7 +167,7 @@ def test_max_code_size_opcodes_mainnet(
 ) -> None:
     """Verify EVM opcodes work for a max-size deployed contract."""
     target_code = Op.JUMPDEST * fork.max_code_size()
-    target = pre.deploy_contract(code=target_code)
+    target = pre.deterministic_deploy_contract(deploy_code=target_code)
 
     alice = pre.fund_eoa()
     oracle = pre.deploy_contract(

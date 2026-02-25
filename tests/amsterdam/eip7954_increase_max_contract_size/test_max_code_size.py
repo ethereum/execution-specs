@@ -205,7 +205,7 @@ def test_max_code_size_external_opcodes(
 ) -> None:
     """Ensure external code opcodes work with the new max contract size."""
     target_code = Op.JUMPDEST * fork.max_code_size()
-    target = pre.deploy_contract(code=target_code)
+    target = pre.deterministic_deploy_contract(deploy_code=target_code)
 
     alice = pre.fund_eoa()
     oracle = pre.deploy_contract(
@@ -255,7 +255,7 @@ def test_max_code_size_self_opcodes(
         + Op.STOP
     )
     target_code = logic + Op.JUMPDEST * (fork.max_code_size() - len(logic))
-    target = pre.deploy_contract(code=target_code)
+    target = pre.deterministic_deploy_contract(deploy_code=target_code)
 
     alice = pre.fund_eoa()
     oracle = pre.deploy_contract(
