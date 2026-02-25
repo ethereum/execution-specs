@@ -354,6 +354,13 @@ def test_invalid_tx_invalid_nonce_as_list(
 
 
 @pytest.mark.parametrize(
+    "oversized_type",
+    [
+        pytest.param(OversizedInt, id="oversized_int"),
+        pytest.param(OversizedZeroInt, id="oversized_zero_int"),
+    ],
+)
+@pytest.mark.parametrize(
     "delegate_address",
     [
         pytest.param(
@@ -366,6 +373,7 @@ def test_invalid_tx_invalid_nonce_encoding(
     transaction_test: TransactionTestFiller,
     pre: Alloc,
     delegate_address: Address,
+    oversized_type: type,
 ) -> None:
     """
     Test sending a transaction where the chain id field of an authorization has
@@ -373,7 +381,7 @@ def test_invalid_tx_invalid_nonce_encoding(
     """
 
     class ModifiedAuthorizationTuple(AuthorizationTuple):
-        nonce: OversizedInt  # type: ignore
+        nonce: oversized_type  # type: ignore
 
     authorization = ModifiedAuthorizationTuple(
         address=delegate_address,
