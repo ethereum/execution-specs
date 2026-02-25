@@ -2,7 +2,7 @@
 Stateless validation types.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
@@ -46,17 +46,6 @@ class ExecutionWitness:
     RLP-encoded block headers used for pre-state and ``BLOCKHASH`` correctness
     proofs. This may trend toward empty EIP-7709.
     """
-
-
-@dataclass
-class ExecutionWitnessBuilder:
-    """
-    Mutable accumulator for execution witness data during block execution.
-    """
-
-    pre_state_accounts_data: Trie[Address, Optional[Account]]
-    pre_state_storages_data: Dict[Address, Trie[Bytes32, U256]]
-    blockchain_headers: List[Bytes] = field(default_factory=list)
 
 
 def _build_pre_state_storage_mpts(
@@ -200,28 +189,28 @@ def _collect_accessed_nodes(
 
 
 def build_execution_witness(
-    builder: ExecutionWitnessBuilder,
     block_state: BlockState,
     expected_post_state_root: Root,
+    pre_state_accounts_data: Trie[Address, Optional[Account]],
+    pre_state_storages_data: Dict[Address, Trie[Bytes32, U256]],
+    blockchain_headers: Optional[List[Bytes]] = None,
 ) -> ExecutionWitness:
     """
-    Build the execution witness from the accumulated builder data.
+    Build the execution witness from block state and pre-state trie data.
 
     Sort state and codes lexicographically, headers by block number
     ascending.
     """
     ancestor_headers = get_witness_ancestors(
-        builder.blockchain_headers,
+        blockchain_headers if blockchain_headers is not None else [],
         block_state.oldest_ancestor_offset,
     )
     codes = get_witness_codes(block_state.code_reads, block_state.pre_state)
 
     # Build account and storage IncrementalMPTs from pre-state flat data.
-    incr_storage_mpts = _build_pre_state_storage_mpts(
-        builder.pre_state_storages_data
-    )
+    incr_storage_mpts = _build_pre_state_storage_mpts(pre_state_storages_data)
     incr_account_mpt = _build_pre_state_account_mpt(
-        builder.pre_state_accounts_data, incr_storage_mpts
+        pre_state_accounts_data, incr_storage_mpts
     )
 
     # 1. Traverse all accessed and dirty storage keys on the pre-state
