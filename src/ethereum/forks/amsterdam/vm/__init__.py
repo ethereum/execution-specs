@@ -32,7 +32,7 @@ from ..trie import Trie
 
 __all__ = ("Environment", "Evm", "Message")
 TRANSFER_TOPIC = keccak256(b"Transfer(address,address,uint256)")
-SELFDESTRUCT_TOPIC = keccak256(b"Selfdestruct(address,uint256)")
+BURN_TOPIC = keccak256(b"Burn(address,uint256)")
 SYSTEM_ADDRESS = Address(
     bytes.fromhex("fffffffffffffffffffffffffffffffffffffffe")
 )
@@ -243,22 +243,22 @@ def emit_transfer_log(
     evm.logs = evm.logs + (log_entry,)
 
 
-def emit_selfdestruct_log(
+def emit_burn_log(
     evm: Evm,
     account: Address,
     amount: U256,
 ) -> None:
     """
-    Emit a LOG2 for self-destruct to self (balance burn) per EIP-7708.
+    Emit a LOG2 for ETH burn per EIP-7708.
 
     Parameters
     ----------
     evm :
         The state of the ethereum virtual machine
     account :
-        The account address being selfdestructed
+        The account address whose ETH is being burned
     amount :
-        The amount of ETH being destroyed
+        The amount of ETH being burned
 
     """
     if amount == 0:
@@ -268,7 +268,7 @@ def emit_selfdestruct_log(
     log_entry = Log(
         address=SYSTEM_ADDRESS,
         topics=(
-            SELFDESTRUCT_TOPIC,
+            BURN_TOPIC,
             Hash32(padded_account),
         ),
         data=amount.to_be_bytes32(),
