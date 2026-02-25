@@ -431,11 +431,7 @@ params = [
 def test_exp_bench_arithmetic(
     benchmark_test: BenchmarkTestFiller, base: int, exp: int
 ) -> None:
-    """
-    Benchmark binary instructions (takes two args, pushes one value).
-    The execution starts with two initial values on the stack
-    The stack is balanced by the DUP2 instruction.
-    """
+    """Benchmark EXP instruction."""
     tx_data = b"".join(
         arg.to_bytes(32, byteorder="big") for arg in (base, exp)
     )
