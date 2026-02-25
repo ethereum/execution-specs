@@ -1084,7 +1084,7 @@ def process_transaction(
                 Log(
                     address=vm.SYSTEM_ADDRESS,
                     topics=(
-                        vm.SELFDESTRUCT_TOPIC,
+                        vm.BURN_TOPIC,
                         Hash32(padded_address),
                     ),
                     data=balance.to_be_bytes32(),
