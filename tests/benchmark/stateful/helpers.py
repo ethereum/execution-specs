@@ -7,6 +7,7 @@ from pathlib import Path
 BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
 APPROVE_SELECTOR = 0x095EA7B3  # approve(address,uint256)
 ALLOWANCE_SELECTOR = 0xDD62ED3E  # allowance(address,address)
+MINT_SELECTOR = 0x40C10F19  # mint(address,uint256)
 
 # Load token names from stubs_bloatnet.json for test parametrization
 _STUBS_FILE = Path(__file__).parent / "bloatnet" / "stubs_bloatnet.json"
