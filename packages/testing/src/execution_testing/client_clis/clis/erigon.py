@@ -94,6 +94,7 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.INVALID_STATE_ROOT: "invalid block: wrong trie root",
         BlockException.INVALID_RECEIPTS_ROOT: "receiptHash mismatch",
         BlockException.INVALID_LOG_BLOOM: "invalid bloom",
+        BlockException.GAS_USED_OVERFLOW: "gas limit reached",
     }
     mapping_regex = {
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
@@ -114,5 +115,4 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.INVALID_GAS_USED_ABOVE_LIMIT: (
             r"invalid gasUsed: have \d+, gasLimit \d+"
         ),
-        BlockException.GAS_USED_OVERFLOW: ("gas limit reached"),
     }
