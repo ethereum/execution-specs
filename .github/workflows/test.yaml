@@ -85,6 +85,23 @@ jobs:
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  bigmem:
+    runs-on: [self-hosted-ghr, size-xl-x64]
+    needs: static
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          submodules: recursive
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.14"
+      - uses: ./.github/actions/setup-env
+      - name: Run big-memory tests
+        run: tox -e bigmem
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
+
   pypy3:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
