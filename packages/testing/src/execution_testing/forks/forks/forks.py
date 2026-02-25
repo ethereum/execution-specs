@@ -3461,9 +3461,9 @@ class Amsterdam(BPO2):
         )
         return {
             **base_map,
-            Opcodes.SWAPN: gas_costs.G_VERY_LOW,
-            Opcodes.DUPN: gas_costs.G_VERY_LOW,
-            Opcodes.EXCHANGE: gas_costs.G_VERY_LOW,
+            Opcodes.SWAPN: gas_costs.GAS_VERY_LOW,
+            Opcodes.DUPN: gas_costs.GAS_VERY_LOW,
+            Opcodes.EXCHANGE: gas_costs.GAS_VERY_LOW,
         }
 
     @classmethod
