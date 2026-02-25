@@ -63,7 +63,7 @@ jobs:
           uvx --from actionlint-py actionlint
 
   py3:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
