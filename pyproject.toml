@@ -292,6 +292,8 @@ markers = [
 ]
 
 [tool.coverage.run]
+concurrency = ["multiprocessing", "thread"]
+parallel = true
 omit = [
     "*/ethereum/*_glacier/*",
     "*/ethereum/dao_fork/*",
