@@ -94,17 +94,15 @@ class ErigonExceptionMapper(ExceptionMapper):
         BlockException.INVALID_STATE_ROOT: "invalid block: wrong trie root",
         BlockException.INVALID_RECEIPTS_ROOT: "receiptHash mismatch",
         BlockException.INVALID_LOG_BLOOM: "invalid bloom",
+        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
+            "block access list mismatch"
+        ),
+        BlockException.INCORRECT_BLOCK_FORMAT: "invalid block access list",
+        BlockException.INVALID_BAL_EXTRA_ACCOUNT: "invalid block access list",
     }
     mapping_regex = {
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"invalid block access list|block access list mismatch"
-        ),
-        BlockException.INVALID_BAL_MISSING_ACCOUNT: (
-            r"block access list mismatch"
-        ),
-        BlockException.INCORRECT_BLOCK_FORMAT: (r"invalid block access list"),
-        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"invalid block access list"
         ),
         TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM: (
             r"invalid block, txnIdx=\d+,.*gas limit too high"
