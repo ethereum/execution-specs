@@ -4,21 +4,12 @@ inputs:
   release_name:
     description: "Name of the fixture release"
     required: true
-  uv_version:
-    description: "Version of UV to install"
-    required: true
-  python_version:
-    description: "Version of Python to install"
-    required: true
 runs:
   using: "composite"
   steps:
-    - name: Install uv ${{ inputs.uv_version }} and python ${{ inputs.python_version }}
-      uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+    - uses: ./.github/actions/setup-uv
       with:
-        enable-cache: false
-        version: ${{ inputs.uv_version }}
-        python-version: ${{ inputs.python_version }}
+        enable-cache: "false"
     - name: Install EEST
       shell: bash
       run: uv sync --no-progress
