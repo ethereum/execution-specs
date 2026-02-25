@@ -1,0 +1,350 @@
+"""
+Ported from:
+tests/static/state_tests/stPreCompiledContracts2/CALLCODESha256_0Filler.json
+
+contract code:
+    push1 0x01
+    push1 0x00
+    mstore
+    push1 0x20
+    push1 0x00
+    push1 0x20
+    push1 0x00
+    push1 0x00
+    push1 0x02
+    push1 0xff
+    callcode
+    push1 0x00
+    mload
+    push1 0x00
+    sstore
+"""
+
+import pytest
+from execution_testing import (
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    Hash,
+    StateTestFiller,
+    Transaction,
+)
+from execution_testing.vm import Op
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stPreCompiledContracts2/CALLCODESha256_0Filler.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
+def test_callcode_sha256_0(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    sender = Address("0xebaf50debf10e08302fe4280c32df010463ca297")
+    contract = Address("0xfac135cdecd64b72cda12c2b4764e9d4e474de3e")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=10000000,
+    )
+
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=0)
+    pre[contract] = Account(
+        balance=0x1312d00,
+        nonce=0,
+        code=(
+        Op.PUSH1[0x1] + Op.PUSH1[0x0] + Op.MSTORE + Op.PUSH1[0x20] + Op.PUSH1[0x0]
+        + Op.PUSH1[0x20] + Op.PUSH1[0x0] + Op.PUSH1[0x0] + Op.PUSH1[0x2]
+        + Op.PUSH1[0xff] + Op.CALLCODE + Op.PUSH1[0x0] + Op.MLOAD + Op.PUSH1[0x0]
+        + Op.SSTORE
+    ),
+    )
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869"
+        ),
+        to=contract,
+        data=b"",
+        gas_limit=365224,
+        gas_price=10,
+        nonce=0,
+        value=100000,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stPreCompiledContracts2/CALLCODESha256_1Filler.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
+def test_callcode_sha256_1(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    sender = Address("0xebaf50debf10e08302fe4280c32df010463ca297")
+    contract = Address("0xc4009bc3b312ce413bfb8734800aa7b54261856d")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=10000000,
+    )
+
+    pre[contract] = Account(
+        balance=0x1312d00,
+        nonce=0,
+        code=(
+        Op.PUSH1[0x20] + Op.PUSH1[0x0] + Op.PUSH1[0x0] + Op.PUSH1[0x0]
+        + Op.PUSH1[0x0] + Op.PUSH1[0x2] + Op.PUSH2[0x1f4] + Op.CALLCODE
+        + Op.PUSH1[0x2] + Op.SSTORE + Op.PUSH1[0x0] + Op.MLOAD + Op.PUSH1[0x0]
+        + Op.SSTORE + Op.STOP
+    ),
+    )
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=0)
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869"
+        ),
+        to=contract,
+        data=b"",
+        gas_limit=365224,
+        gas_price=10,
+        nonce=0,
+        value=100000,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stPreCompiledContracts2/CALLCODESha256_2Filler.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
+def test_callcode_sha256_2(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    sender = Address("0xebaf50debf10e08302fe4280c32df010463ca297")
+    contract = Address("0x49edfd0547a55d03ffb882894166fb4e19bce699")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=10000000,
+    )
+
+    pre[contract] = Account(
+        balance=0x1312d00,
+        nonce=0,
+        code=(
+        Op.PUSH5[0xf34578907f] + Op.PUSH1[0x5] + Op.MSTORE + Op.PUSH1[0x20]
+        + Op.PUSH1[0x0] + Op.PUSH1[0x25] + Op.PUSH1[0x0] + Op.PUSH1[0x0]
+        + Op.PUSH1[0x2] + Op.PUSH2[0x1f4] + Op.CALLCODE + Op.PUSH1[0x2] + Op.SSTORE
+        + Op.PUSH1[0x0] + Op.MLOAD + Op.PUSH1[0x0] + Op.SSTORE + Op.STOP
+    ),
+    )
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=0)
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869"
+        ),
+        to=contract,
+        data=b"",
+        gas_limit=365224,
+        gas_price=10,
+        nonce=0,
+        value=100000,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stPreCompiledContracts2/CALLCODESha256_3Filler.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
+def test_callcode_sha256_3(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    sender = Address("0xebaf50debf10e08302fe4280c32df010463ca297")
+    contract = Address("0x66add49a7d6964132dee6f9c01a7ce445976d7f1")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=10000000,
+    )
+
+    pre[contract] = Account(
+        balance=0x1312d00,
+        nonce=0,
+        code=(
+        Op.PUSH5[0xf34578907f] + Op.PUSH1[0x0] + Op.MSTORE + Op.PUSH1[0x20]
+        + Op.PUSH1[0x0] + Op.PUSH1[0x25] + Op.PUSH1[0x0] + Op.PUSH1[0x0]
+        + Op.PUSH1[0x2] + Op.PUSH2[0x1f4] + Op.CALLCODE + Op.PUSH1[0x2] + Op.SSTORE
+        + Op.PUSH1[0x0] + Op.MLOAD + Op.PUSH1[0x0] + Op.SSTORE + Op.STOP
+    ),
+    )
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=0)
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869"
+        ),
+        to=contract,
+        data=b"",
+        gas_limit=365224,
+        gas_price=10,
+        nonce=0,
+        value=100000,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stPreCompiledContracts2/CALLCODESha256_4Filler.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
+def test_callcode_sha256_4(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    sender = Address("0xebaf50debf10e08302fe4280c32df010463ca297")
+    contract = Address("0x081eb2e67904436211eeef7b37055d5a08bf76b1")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=10000000,
+    )
+
+    pre[contract] = Account(
+        balance=0x1312d00,
+        nonce=0,
+        code=(
+        Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff]
+        + Op.PUSH1[0x0] + Op.MSTORE + Op.PUSH1[0x20] + Op.PUSH1[0x0] + Op.PUSH1[0x20]
+        + Op.PUSH1[0x0] + Op.PUSH1[0x0] + Op.PUSH1[0x2] + Op.PUSH1[0x64] + Op.CALLCODE
+        + Op.PUSH1[0x2] + Op.SSTORE + Op.PUSH1[0x0] + Op.MLOAD + Op.PUSH1[0x0]
+        + Op.SSTORE + Op.STOP
+    ),
+    )
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=0)
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869"
+        ),
+        to=contract,
+        data=b"",
+        gas_limit=365224,
+        gas_price=10,
+        nonce=0,
+        value=100000,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    ["tests/static/state_tests/stPreCompiledContracts2/CALLCODESha256_5Filler.json"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
+def test_callcode_sha256_5(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    sender = Address("0xebaf50debf10e08302fe4280c32df010463ca297")
+    contract = Address("0x12d19aa9c20419bf0656fc7a93642f9cafc744f4")
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=100000000,
+    )
+
+    pre[contract] = Account(
+        balance=0x1312d00,
+        nonce=0,
+        code=(
+        Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff]
+        + Op.PUSH1[0x0] + Op.MSTORE + Op.PUSH1[0x20] + Op.PUSH1[0x0]
+        + Op.PUSH3[0xf4240] + Op.PUSH1[0x0] + Op.PUSH1[0x0] + Op.PUSH1[0x2]
+        + Op.PUSH2[0x258] + Op.CALLCODE + Op.PUSH1[0x2] + Op.SSTORE + Op.PUSH1[0x0]
+        + Op.MLOAD + Op.PUSH1[0x0] + Op.SSTORE + Op.STOP
+    ),
+    )
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=0)
+
+    tx = Transaction(
+        secret_key=Hash(
+            "0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869"
+        ),
+        to=contract,
+        data=b"",
+        gas_limit=10000000,
+        gas_price=10,
+        nonce=0,
+        value=100000,
+    )
+
+    post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
