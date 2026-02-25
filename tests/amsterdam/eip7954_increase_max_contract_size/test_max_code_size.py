@@ -13,7 +13,6 @@ from execution_testing import (
     Op,
     StateTestFiller,
     Transaction,
-    ceiling_division,
     compute_create2_address,
     compute_create_address,
     keccak256,
@@ -113,8 +112,11 @@ def test_create_opcode_deploy_size(
         gas_limit=fork.transaction_gas_limit_cap(),
     )
 
-    post: dict[Any, Account | None] = {}
-    if code_size <= fork.max_code_size():
+    created = code_size <= fork.max_code_size()
+    post: dict[Any, Account | None] = {
+        factory: Account(storage={0: create_address if created else 0}),
+    }
+    if created:
         post[create_address] = Account(code=deploy_code)
     else:
         post[create_address] = Account.NONEXISTENT
@@ -142,27 +144,10 @@ def test_deploy_gas_usage(
     alice = pre.fund_eoa()
     create_address = compute_create_address(address=alice, nonce=0)
 
-    # Use return_cost_deducted_prior_execution to get the actual gas consumed
-    # before EVM execution (excludes EIP-7623 floor data cost which would
-    # inflate the gas limit without being consumed).
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         calldata=initcode,
         contract_creation=True,
         return_cost_deducted_prior_execution=True,
-    )
-
-    # Calculate initcode execution gas precisely.
-    # The Initcode class overestimates memory costs (uses byte count instead
-    # of word count), so we compute it here.
-    gas_costs = fork.gas_costs()
-    code_words = ceiling_division(len(bytes(deploy_code)), 32)
-    initcode_execution_gas = (
-        gas_costs.GAS_VERY_LOW * 5  # PUSH2 + PUSH1 + DUP2 + PUSH1 + DUP3
-        + gas_costs.GAS_VERY_LOW  # CODECOPY base
-        + gas_costs.GAS_COPY * code_words  # CODECOPY copy cost
-        + fork.memory_expansion_gas_calculator()(
-            new_bytes=len(bytes(deploy_code))
-        )
     )
 
     tx = Transaction(
@@ -171,7 +156,7 @@ def test_deploy_gas_usage(
         data=initcode,
         gas_limit=(
             intrinsic_gas
-            + initcode_execution_gas
+            + initcode.execution_gas(fork)
             + initcode.deployment_gas(fork)
             - gas_shortfall
         ),
