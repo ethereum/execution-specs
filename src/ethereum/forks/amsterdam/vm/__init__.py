@@ -26,7 +26,7 @@ from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Authorization, VersionedHash
 from ..state_tracker import BlockState, TransactionState
-from ..stateless_types import ExecutionWitness, ExecutionWitnessBuilder
+from ..stateless_types import ExecutionWitness
 from ..transactions import LegacyTransaction
 from ..trie import Trie
 
@@ -51,7 +51,6 @@ class BlockEnvironment:
     excess_blob_gas: U64
     parent_beacon_block_root: Hash32
     block_access_list_builder: BlockAccessListBuilder
-    execution_witness: ExecutionWitnessBuilder
 
 
 @dataclass

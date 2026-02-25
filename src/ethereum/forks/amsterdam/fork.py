@@ -74,7 +74,7 @@ from .state_tracker import (
     set_account_balance,
     track_ancestor_access,
 )
-from .stateless_types import ExecutionWitnessBuilder, build_execution_witness
+from .stateless_types import build_execution_witness
 from .transactions import (
     AccessListTransaction,
     BlobTransaction,
@@ -252,13 +252,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         excess_blob_gas=block.header.excess_blob_gas,
         parent_beacon_block_root=block.header.parent_beacon_block_root,
         block_access_list_builder=BlockAccessListBuilder(),
-        execution_witness=ExecutionWitnessBuilder(
-            pre_state_accounts_data=chain.state._main_trie,
-            pre_state_storages_data=chain.state._storage_tries,
-            blockchain_headers=[
-                rlp.encode(blk.header) for blk in chain.blocks
-            ],
-        ),
     )
 
     block_output = apply_body(
@@ -273,9 +266,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         account_changes, storage_changes
     )
     block_output.execution_witness = build_execution_witness(
-        block_env.execution_witness,
         block_env.state,
         expected_post_state_root=block_state_root,
+        pre_state_accounts_data=chain.state._main_trie,
+        pre_state_storages_data=chain.state._storage_tries,
+        blockchain_headers=[rlp.encode(blk.header) for blk in chain.blocks],
     )
     apply_changes_to_state(
         chain.state, account_changes, storage_changes, code_changes
