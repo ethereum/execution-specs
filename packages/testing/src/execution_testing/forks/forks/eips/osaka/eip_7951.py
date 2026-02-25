@@ -31,8 +31,11 @@ class EIP7951(BaseFork):
         ] + super(EIP7951, cls).precompiles()
 
     @classmethod
-    def gas_costs(cls) -> GasCosts:
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """Set the P256VERIFY precompile gas cost."""
+        del block_number, timestamp
         return replace(
             super(EIP7951, cls).gas_costs(),
             PRECOMPILE_P256VERIFY=6_900,

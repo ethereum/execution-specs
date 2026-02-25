@@ -18,6 +18,7 @@ from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.trace import GasAndRefund, evm_trace
+from ethereum.utils.gas_repricing import apply_spec_repricing
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
@@ -527,3 +528,6 @@ def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
     return Uint(calculate_total_blob_gas(tx)) * calculate_blob_gas_price(
         excess_blob_gas
     )
+
+
+apply_spec_repricing("Amsterdam", globals())

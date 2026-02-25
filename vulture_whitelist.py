@@ -8,6 +8,10 @@ imports. Each bare expression tells Vulture to ignore that specific symbol.
 
 from ethereum.cancun.blocks import Withdrawal
 from ethereum_spec_tools.evm_tools.t8n.transition_tool import EELST8N
+from execution_testing.cli.eest.commands.gas_map import gas_map
+from execution_testing.forks.tests.test_gas_repricing import (
+    _clear_repricing_cache,
+)
 
 from ethereum.ethash import *
 from ethereum.fork_criteria import Unscheduled
@@ -154,6 +158,12 @@ StringReplaceCommand.transform_module_impl
 # src/ethereum_spec_tools/new_fork/codemod/comment.py
 CommentReplaceCommand
 CommentReplaceCommand.transform_module_impl
+
+# packages/testing/src/execution_testing/cli/eest/commands/gas_map.py
+gas_map  # Click entry point registered in pyproject.toml
+
+# packages/testing/src/execution_testing/forks/tests/test_gas_repricing.py
+_clear_repricing_cache  # pytest autouse fixture
 
 _children  # unused attribute (src/ethereum_spec_tools/docc.py:751)
 

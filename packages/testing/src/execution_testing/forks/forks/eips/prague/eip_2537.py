@@ -43,8 +43,11 @@ class EIP2537(BaseFork):
         ] + super(EIP2537, cls).precompiles()
 
     @classmethod
-    def gas_costs(cls) -> GasCosts:
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """Add gas costs for BLS12-381 precompiles."""
+        del block_number, timestamp
         return replace(
             super(EIP2537, cls).gas_costs(),
             PRECOMPILE_BLS_G1ADD=375,

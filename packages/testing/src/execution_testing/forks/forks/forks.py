@@ -94,10 +94,13 @@ class Frontier(
         return False
 
     @classmethod
-    def gas_costs(cls) -> GasCosts:
+    def _base_gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """
         Return dataclass with the defined gas costs constants for genesis.
         """
+        del block_number, timestamp
         return GasCosts(
             # Tiers
             BASE=BASE,

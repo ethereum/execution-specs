@@ -30,8 +30,11 @@ class EIP7702(BaseFork):
         return [4] + super(EIP7702, cls).tx_types()
 
     @classmethod
-    def gas_costs(cls) -> GasCosts:
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """Add gas costs for authorization operations."""
+        del block_number, timestamp
         return replace(
             super(EIP7702, cls).gas_costs(),
             AUTH_PER_EMPTY_ACCOUNT=25_000,

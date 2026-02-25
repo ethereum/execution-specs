@@ -30,10 +30,13 @@ class EIP7928(
         return True
 
     @classmethod
-    def gas_costs(cls) -> GasCosts:
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
         """
         The cost per block access list item is introduced in EIP-7928.
         """
+        del block_number, timestamp
         return replace(
             super(EIP7928, cls).gas_costs(),
             BLOCK_ACCESS_LIST_ITEM=2000,
