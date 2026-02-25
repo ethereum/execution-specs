@@ -16,7 +16,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
-    ceiling_division,
     compute_create2_address,
     compute_create_address,
 )
@@ -231,17 +230,33 @@ def test_initcode_gas_metering_create_opcodes(
     )
     alice = pre.fund_eoa()
 
+    initcode_len = len(initcode)
     create_call = (
         create_opcode(
-            value=0, offset=0, size=Op.CALLDATASIZE, salt=CREATE2_SALT
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            salt=CREATE2_SALT,
+            init_code_size=initcode_len,
         )
         if create_opcode == Op.CREATE2
-        else create_opcode(value=0, offset=0, size=Op.CALLDATASIZE)
+        else create_opcode(
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            init_code_size=initcode_len,
+        )
     )
 
     # Factory stores CREATE return value in slot 0
     factory_code = (
-        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        Op.CALLDATACOPY(
+            0,
+            0,
+            Op.CALLDATASIZE,
+            data_size=initcode_len,
+            new_memory_size=initcode_len,
+        )
         + Op.SSTORE(0, create_call)
         + Op.STOP
     )
@@ -257,19 +272,11 @@ def test_initcode_gas_metering_create_opcodes(
     )
 
     # Compute exact gas the factory needs
-    gas_costs = fork.gas_costs()
-    initcode_words = ceiling_division(len(initcode), 32)
-
     factory_gas = (
         factory_code.gas_cost(fork)
-        + fork.memory_expansion_gas_calculator()(new_bytes=len(initcode))
-        + gas_costs.GAS_COPY * initcode_words
-        + initcode_words * gas_costs.GAS_CODE_INIT_PER_WORD
         + initcode.execution_gas(fork)
         + initcode.deployment_gas(fork)
     )
-    if create_opcode == Op.CREATE2:
-        factory_gas += initcode_words * gas_costs.GAS_KECCAK256_PER_WORD
 
     # Caller CALLs factory with explicit gas to bypass EIP-7623 floor data
     # cost and the 63/64 rule (EIP-150).
