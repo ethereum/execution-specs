@@ -113,6 +113,7 @@ def max_zero_calldata_bytes_for_gas(
     return lo
 
 
+@lru_cache
 def calibrated_block_gas_limit(
     fork: Fork,
     block_size_limit: int,
