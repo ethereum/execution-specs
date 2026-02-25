@@ -112,7 +112,7 @@ def call_gas(fork: Fork) -> int:
     Defaults to the point evaluation precompile gas cost, but can be
     parametrized to test different amounts.
     """
-    return fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
+    return fork.gas_costs().GAS_PRECOMPILE_POINT_EVALUATION
 
 
 precompile_caller_storage_keys = count()
@@ -201,7 +201,7 @@ def tx(
         sender=sender,
         data=precompile_input,
         to=precompile_caller_address,
-        gas_limit=fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION * 100,
+        gas_limit=fork.gas_costs().GAS_PRECOMPILE_POINT_EVALUATION * 100,
     )
 
 
@@ -584,7 +584,7 @@ def test_tx_entry_point(
     # Consumed gas will only be the precompile gas if the proof is correct and
     # the call gas is sufficient.
     # Otherwise, the call gas will be consumed in full.
-    precompile_gas = fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
+    precompile_gas = fork.gas_costs().GAS_PRECOMPILE_POINT_EVALUATION
     consumed_gas = (
         precompile_gas
         if call_gas >= precompile_gas and proof_correct
@@ -708,7 +708,7 @@ def test_precompile_during_fork(
     """
     Test calling the Point Evaluation Precompile during the appropriate fork.
     """
-    precompile_gas = fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
+    precompile_gas = fork.gas_costs().GAS_PRECOMPILE_POINT_EVALUATION
     # Blocks before fork
     blocks = [
         Block(

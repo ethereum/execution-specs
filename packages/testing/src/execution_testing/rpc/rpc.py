@@ -240,6 +240,14 @@ class BaseRPC:
             id=request_id,
         )
 
+    def namespace_extra_headers(self) -> Dict[str, str]:
+        """
+        Extra headers that are included by default in this namespace.
+
+        For non-jwt namespaces, this method returns an empty dictionary.
+        """
+        return {}
+
     def post_request(
         self,
         *,
@@ -258,7 +266,7 @@ class BaseRPC:
         base_header = {
             "Content-Type": "application/json",
         }
-        headers = base_header | extra_headers
+        headers = base_header | extra_headers | self.namespace_extra_headers()
 
         logger.debug(
             f"Sending RPC request to {self.url}, "
@@ -293,7 +301,7 @@ class BaseRPC:
         base_header = {
             "Content-Type": "application/json",
         }
-        headers = base_header | extra_headers
+        headers = base_header | extra_headers | self.namespace_extra_headers()
 
         logger.debug(
             f"Sending batch RPC request to {self.url}, "
@@ -326,6 +334,40 @@ class BaseRPC:
         return results
 
 
+class BaseJwtRPC(BaseRPC):
+    """
+    Represents an RPC namespace class that uses JWT authentication.
+    """
+
+    jwt_secret: bytes
+
+    # Default secret used in hive
+    DEFAULT_JWT_SECRET: bytes = b"secretsecretsecretsecretsecretse"
+
+    def __init__(
+        self,
+        *args: Any,
+        jwt_secret: bytes = DEFAULT_JWT_SECRET,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize Engine RPC class with the given JWT secret."""
+        super().__init__(*args, **kwargs)
+        self.jwt_secret = jwt_secret
+
+    def namespace_extra_headers(self) -> Dict[str, str]:
+        """
+        Overload to include JWT authentication header field.
+        """
+        jwt_token = encode(
+            {"iat": int(time.time())},
+            self.jwt_secret,
+            algorithm="HS256",
+        )
+        return {
+            "Authorization": f"Bearer {jwt_token}",
+        }
+
+
 class EthRPC(BaseRPC):
     """
     Represents an `eth_X` RPC class for every default ethereum RPC method used
@@ -355,10 +397,7 @@ class EthRPC(BaseRPC):
         max_transactions_per_batch: int | None = None,
         **kwargs: Any,
     ) -> None:
-        """
-        Initialize EthRPC class with the given url and transaction wait
-        timeout.
-        """
+        """Initialize JWT-authenticated RPC class with the given JWT secret."""
         super().__init__(*args, **kwargs)
         self.transaction_wait_timeout = transaction_wait_timeout
 
@@ -1073,73 +1112,11 @@ class DebugRPC(EthRPC):
         ).result_or_raise()
 
 
-class EngineRPC(BaseRPC):
+class EngineRPC(BaseJwtRPC):
     """
     Represents an Engine API RPC class for every Engine API method used within
     EEST based hive simulators.
     """
-
-    jwt_secret: bytes
-
-    # Default secret used in hive
-    DEFAULT_JWT_SECRET: bytes = b"secretsecretsecretsecretsecretse"
-
-    def __init__(
-        self,
-        *args: Any,
-        jwt_secret: bytes = DEFAULT_JWT_SECRET,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize Engine RPC class with the given JWT secret."""
-        super().__init__(*args, **kwargs)
-        self.jwt_secret = jwt_secret
-
-    def _jwt_extra_headers(
-        self, extra_headers: Dict[str, str] | None = None
-    ) -> Dict[str, str]:
-        """Build extra headers with JWT authentication."""
-        if extra_headers is None:
-            extra_headers = {}
-        jwt_token = encode(
-            {"iat": int(time.time())},
-            self.jwt_secret,
-            algorithm="HS256",
-        )
-        return {
-            "Authorization": f"Bearer {jwt_token}",
-        } | extra_headers
-
-    def post_request(
-        self,
-        *,
-        request: RPCCall,
-        extra_headers: Dict[str, str] | None = None,
-        timeout: int | None = None,
-    ) -> JSONRPCResponse:
-        """
-        Send JSON-RPC POST request with Engine API JWT authentication.
-        """
-        return super().post_request(
-            request=request,
-            extra_headers=self._jwt_extra_headers(extra_headers),
-            timeout=timeout,
-        )
-
-    def post_batch_request(
-        self,
-        *,
-        calls: Sequence[RPCCall],
-        extra_headers: Dict[str, str] | None = None,
-        timeout: int | None = None,
-    ) -> List[JSONRPCResponse]:
-        """
-        Send JSON-RPC batch POST request with Engine API JWT authentication.
-        """
-        return super().post_batch_request(
-            calls=calls,
-            extra_headers=self._jwt_extra_headers(extra_headers),
-            timeout=timeout,
-        )
 
     def new_payload(self, *params: Any, version: int) -> PayloadStatus:
         """
@@ -1373,6 +1350,47 @@ class NetRPC(BaseRPC):
             return peer_count
 
         return _wait_for_peers()
+
+
+class TestingRPC(BaseRPC):
+    """
+    RPC class for the testing namespace, providing access to
+    testing-only methods like ``testing_buildBlockV1``.
+    """
+
+    def build_block(
+        self,
+        parent_block_hash: Hash,
+        payload_attributes: PayloadAttributes,
+        transactions: Sequence[TransactionProtocol] | None,
+        extra_data: Bytes | None = None,
+        *,
+        version: int = 1,
+    ) -> GetPayloadResponse:
+        """
+        Build a block on top of *parent_block_hash* using the
+        provided *payload_attributes* and *transactions*.
+
+        Calls ``testing_buildBlockVX``.
+        """
+        method = f"buildBlockV{version}"
+        params: List[Any] = [
+            str(parent_block_hash),
+            to_json(payload_attributes),
+        ]
+        if transactions is not None:
+            params.append([tx.rlp().hex() for tx in transactions])
+        else:
+            params.append(None)
+        if extra_data is not None:
+            params.append(str(extra_data))
+
+        return GetPayloadResponse.model_validate(
+            self.post_request(
+                request=RPCCall(method=method, params=params)
+            ).result_or_raise(),
+            context=self.response_validation_context,
+        )
 
 
 class AdminRPC(BaseRPC):

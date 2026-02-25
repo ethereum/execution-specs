@@ -6,6 +6,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Initcode,
     Op,
     StateTestFiller,
     Storage,
@@ -344,6 +345,198 @@ def test_extcodehash_empty_contract_creation(
         post={
             code_address: Account(storage=storage),
             created_address: Account(nonce=1, code=b""),
+        },
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/dynamicAccountOverwriteEmpty_ParisFiller.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2291"],
+)
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.parametrize(
+    "balance, nonce",
+    [
+        pytest.param(1, 0, id="balance"),
+        pytest.param(0, 1, id="nonce"),
+        pytest.param(1, 1, id="balance_and_nonce"),
+    ],
+)
+def test_extcodehash_codeless_with_storage(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    balance: int,
+    nonce: int,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE of a codeless account that has storage.
+
+    All three variants are non-empty per EIP-161 (non-zero balance or nonce),
+    so EXTCODEHASH returns keccak256("") and EXTCODESIZE returns 0.
+    Storage is not part of the EIP-161 emptiness check.
+    """
+    target_address = pre.empty_account()
+    pre[target_address] = Account(balance=balance, nonce=nonce, storage={1: 1})
+
+    storage = Storage()
+    code = Op.SSTORE(
+        storage.store_next(keccak256(b"")),
+        Op.EXTCODEHASH(target_address),
+    ) + Op.SSTORE(
+        storage.store_next(0),
+        Op.EXTCODESIZE(target_address),
+    )
+
+    code_address = pre.deploy_contract(code)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=100_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/tree/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/dynamicAccountOverwriteEmpty_ParisFiller.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2032"],
+)
+@pytest.mark.parametrize(
+    "target_exists",
+    [True, False],
+)
+def test_extcodehash_dynamic_account_overwrite(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    target_exists: bool,
+) -> None:
+    """
+    Test EXTCODEHASH of non-existent/no-code account,
+    then with code deployed at the address via CREATE2.
+
+    This verifies that the code hash cache is correctly updated during the
+    transaction when an account is overwritten by CREATE2.
+
+    The target address is computed after the caller contract code is deployed,
+    and passed as calldata to the caller contract.
+
+    The target account code sets a fixed storage slot. This code is executed
+    at the caller account via DELEGATECALL and at the target account via CALL.
+
+    Modified from original test: target account has no storage to avoid
+    EIP-7610 collision behavior.
+    """
+    target_storage_slot = 0x4A
+    caller_storage = Storage()
+    target_storage = Storage()
+
+    deploy_code = Op.SSTORE(target_storage_slot, 1)
+    create2_initcode = Initcode(deploy_code=deploy_code)
+
+    caller_code = (
+        # EXTCODEHASH of the pre-CREATE2 target account.
+        Op.SSTORE(
+            caller_storage.store_next(keccak256(b"") if target_exists else 0),
+            Op.EXTCODEHASH(Op.CALLDATALOAD(0)),
+        )
+        # EXTCODESIZE of target account.
+        + Op.SSTORE(
+            caller_storage.store_next(0), Op.EXTCODESIZE(Op.CALLDATALOAD(0))
+        )
+        # EXTCODECOPY of target account.
+        + Op.EXTCODECOPY(Op.CALLDATALOAD(0), 0, 0, 32)
+        + Op.SSTORE(caller_storage.store_next(0), Op.MLOAD(0))
+        # DELEGATECALL the target account.
+        + Op.SSTORE(
+            caller_storage.store_next(1),
+            Op.DELEGATECALL(
+                address=Op.CALLDATALOAD(0),
+                gas=0,  # Pass zero gas to ensure no execution.
+            ),
+        )
+    )
+    # Target address to be set later.
+    target_address_slot = caller_storage.store_next(0, "target_address")
+    caller_code += (
+        # CREATE2 to overwrite the account
+        Op.MSTORE(0, Op.PUSH32(bytes(create2_initcode).ljust(32, b"\0")))
+        + Op.SSTORE(
+            target_address_slot,
+            Op.CREATE2(value=0, offset=0, size=len(create2_initcode), salt=0),
+        )
+        # EXTCODEHASH of the target account.
+        + Op.SSTORE(
+            caller_storage.store_next(deploy_code.keccak256()),
+            Op.EXTCODEHASH(Op.CALLDATALOAD(0)),
+        )
+        # EXTCODESIZE of the target account.
+        + Op.SSTORE(
+            caller_storage.store_next(len(deploy_code)),
+            Op.EXTCODESIZE(Op.CALLDATALOAD(0)),
+        )
+        # EXTCODECOPY of the target account.
+        + Op.EXTCODECOPY(Op.CALLDATALOAD(0), 0, 0, 32)
+        + Op.SSTORE(
+            caller_storage.store_next(bytes(deploy_code).ljust(32, b"\0")),
+            Op.MLOAD(0),
+        )
+        # DELEGATECALL the target account.
+        + Op.SSTORE(
+            caller_storage.store_next(1),
+            Op.DELEGATECALL(
+                address=Op.CALLDATALOAD(0),
+                gas=Op.GAS,
+            ),
+        )
+        # Call the deployed contract to execute its "deploy_code".
+        + Op.SSTORE(
+            caller_storage.store_next(1),
+            Op.CALL(address=Op.CALLDATALOAD(0), gas=Op.GAS),
+        )
+    )
+
+    caller_address = pre.deploy_contract(caller_code, balance=1)
+
+    target_address = compute_create2_address(
+        address=caller_address,
+        salt=0,
+        initcode=create2_initcode,
+    )
+
+    if target_exists:
+        pre.fund_address(target_address, 1)
+
+    caller_storage[target_address_slot] = target_address
+    caller_storage[target_storage_slot] = 1
+    target_storage[target_storage_slot] = 1
+
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        to=caller_address,
+        data=bytes(target_address).rjust(32, b"\0"),
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            caller_address: Account(storage=caller_storage),
+            target_address: Account(
+                nonce=1,
+                code=deploy_code,
+                storage=target_storage,
+            ),
         },
         tx=tx,
     )

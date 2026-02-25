@@ -19,17 +19,16 @@ from ...state_tracker import (
     get_transient_storage,
     set_storage,
     set_transient_storage,
-    track_storage_read,
 )
 from .. import Evm
 from ..exceptions import WriteInStaticContext
 from ..gas import (
     GAS_CALL_STIPEND,
     GAS_COLD_SLOAD,
-    GAS_STORAGE_CLEAR_REFUND,
     GAS_STORAGE_SET,
     GAS_STORAGE_UPDATE,
     GAS_WARM_ACCESS,
+    REFUND_STORAGE_CLEAR,
     charge_gas,
     check_gas,
 )
@@ -60,7 +59,6 @@ def sload(evm: Evm) -> None:
     # OPERATION
     tx_state = evm.message.tx_env.state
     value = get_storage(tx_state, evm.message.current_target, key)
-    track_storage_read(tx_state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
@@ -100,8 +98,6 @@ def sstore(evm: Evm) -> None:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GAS_COLD_SLOAD
 
-    track_storage_read(tx_state, evm.message.current_target, key)
-
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
             gas_cost += GAS_STORAGE_SET
@@ -114,11 +110,11 @@ def sstore(evm: Evm) -> None:
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
             # Storage is cleared for the first time in the transaction
-            evm.refund_counter += int(GAS_STORAGE_CLEAR_REFUND)
+            evm.refund_counter += REFUND_STORAGE_CLEAR
 
         if original_value != 0 and current_value == 0:
             # Gas refund issued earlier to be reversed
-            evm.refund_counter -= int(GAS_STORAGE_CLEAR_REFUND)
+            evm.refund_counter -= REFUND_STORAGE_CLEAR
 
         if original_value == new_value:
             # Storage slot being restored to its original value

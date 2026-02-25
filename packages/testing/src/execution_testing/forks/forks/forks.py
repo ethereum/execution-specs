@@ -134,72 +134,72 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         del block_number, timestamp
         return GasCosts(
-            G_JUMPDEST=1,
-            G_BASE=2,
-            G_VERY_LOW=3,
-            G_LOW=5,
-            G_MID=8,
-            G_HIGH=10,
-            G_WARM_ACCOUNT_ACCESS=100,
-            G_COLD_ACCOUNT_ACCESS=2_600,
-            G_ACCESS_LIST_ADDRESS=2_400,
-            G_ACCESS_LIST_STORAGE=1_900,
-            G_WARM_SLOAD=100,
-            G_COLD_SLOAD=2_100,
-            G_STORAGE_SET=20_000,
-            G_STORAGE_UPDATE=5_000,
-            G_STORAGE_RESET=2_900,
-            R_STORAGE_CLEAR=4_800,
-            G_SELF_DESTRUCT=5_000,
-            G_CREATE=32_000,
-            G_CODE_DEPOSIT_BYTE=200,
-            G_INITCODE_WORD=2,
-            G_CALL_VALUE=9_000,
-            G_CALL_STIPEND=2_300,
-            G_NEW_ACCOUNT=25_000,
-            G_EXP=10,
-            G_EXP_BYTE=50,
-            G_MEMORY=3,
-            G_TX_DATA_ZERO=4,
-            G_TX_DATA_NON_ZERO=68,
-            G_TRANSACTION=21_000,
-            G_TRANSACTION_CREATE=32_000,
-            G_LOG=375,
-            G_LOG_DATA=8,
-            G_LOG_TOPIC=375,
-            G_KECCAK_256=30,
-            G_KECCAK_256_WORD=6,
-            G_COPY=3,
-            G_BLOCKHASH=20,
-            G_PRECOMPILE_ECRECOVER=3_000,
-            G_PRECOMPILE_SHA256_BASE=60,
-            G_PRECOMPILE_SHA256_WORD=12,
-            G_PRECOMPILE_RIPEMD160_BASE=600,
-            G_PRECOMPILE_RIPEMD160_WORD=120,
-            G_PRECOMPILE_IDENTITY_BASE=15,
-            G_PRECOMPILE_IDENTITY_WORD=3,
+            GAS_JUMPDEST=1,
+            GAS_BASE=2,
+            GAS_VERY_LOW=3,
+            GAS_LOW=5,
+            GAS_MID=8,
+            GAS_HIGH=10,
+            GAS_WARM_ACCOUNT_ACCESS=100,
+            GAS_COLD_ACCOUNT_ACCESS=2_600,
+            GAS_TX_ACCESS_LIST_ADDRESS=2_400,
+            GAS_TX_ACCESS_LIST_STORAGE_KEY=1_900,
+            GAS_WARM_SLOAD=100,
+            GAS_COLD_SLOAD=2_100,
+            GAS_STORAGE_SET=20_000,
+            GAS_STORAGE_UPDATE=5_000,
+            GAS_STORAGE_RESET=2_900,
+            REFUND_STORAGE_CLEAR=4_800,
+            GAS_SELF_DESTRUCT=5_000,
+            GAS_CREATE=32_000,
+            GAS_CODE_DEPOSIT_PER_BYTE=200,
+            GAS_CODE_INIT_PER_WORD=2,
+            GAS_CALL_VALUE=9_000,
+            GAS_CALL_STIPEND=2_300,
+            GAS_NEW_ACCOUNT=25_000,
+            GAS_EXPONENTIATION=10,
+            GAS_EXPONENTIATION_PER_BYTE=50,
+            GAS_MEMORY=3,
+            GAS_TX_DATA_PER_ZERO=4,
+            GAS_TX_DATA_PER_NON_ZERO=68,
+            GAS_TX_BASE=21_000,
+            GAS_TX_CREATE=32_000,
+            GAS_LOG=375,
+            GAS_LOG_DATA_PER_BYTE=8,
+            GAS_LOG_TOPIC=375,
+            GAS_KECCAK256=30,
+            GAS_KECCAK256_PER_WORD=6,
+            GAS_COPY=3,
+            GAS_BLOCK_HASH=20,
+            GAS_PRECOMPILE_ECRECOVER=3_000,
+            GAS_PRECOMPILE_SHA256_BASE=60,
+            GAS_PRECOMPILE_SHA256_PER_WORD=12,
+            GAS_PRECOMPILE_RIPEMD160_BASE=600,
+            GAS_PRECOMPILE_RIPEMD160_PER_WORD=120,
+            GAS_PRECOMPILE_IDENTITY_BASE=15,
+            GAS_PRECOMPILE_IDENTITY_PER_WORD=3,
             # Zero-initialized: introduced in later forks, set via
             # replace() in the fork that activates them.
-            G_TX_DATA_STANDARD_TOKEN_COST=0,
-            G_TX_DATA_FLOOR_TOKEN_COST=0,
-            G_AUTHORIZATION=0,
-            R_AUTHORIZATION_EXISTING_AUTHORITY=0,
-            G_PRECOMPILE_ECADD=0,
-            G_PRECOMPILE_ECMUL=0,
-            G_PRECOMPILE_ECPAIRING_BASE=0,
-            G_PRECOMPILE_ECPAIRING_PER_POINT=0,
-            G_PRECOMPILE_BLAKE2F_BASE=0,
-            G_PRECOMPILE_BLAKE2F_PER_ROUND=0,
-            G_PRECOMPILE_POINT_EVALUATION=0,
-            G_PRECOMPILE_BLS_G1ADD=0,
-            G_PRECOMPILE_BLS_G1MUL=0,
-            G_PRECOMPILE_BLS_G1MAP=0,
-            G_PRECOMPILE_BLS_G2ADD=0,
-            G_PRECOMPILE_BLS_G2MUL=0,
-            G_PRECOMPILE_BLS_G2MAP=0,
-            G_PRECOMPILE_BLS_PAIRING_BASE=0,
-            G_PRECOMPILE_BLS_PAIRING_PER_PAIR=0,
-            G_PRECOMPILE_P256VERIFY=0,
+            GAS_TX_DATA_TOKEN_STANDARD=0,
+            GAS_TX_DATA_TOKEN_FLOOR=0,
+            GAS_AUTH_PER_EMPTY_ACCOUNT=0,
+            REFUND_AUTH_PER_EXISTING_ACCOUNT=0,
+            GAS_PRECOMPILE_ECADD=0,
+            GAS_PRECOMPILE_ECMUL=0,
+            GAS_PRECOMPILE_ECPAIRING_BASE=0,
+            GAS_PRECOMPILE_ECPAIRING_PER_POINT=0,
+            GAS_PRECOMPILE_BLAKE2F_BASE=0,
+            GAS_PRECOMPILE_BLAKE2F_PER_ROUND=0,
+            GAS_PRECOMPILE_POINT_EVALUATION=0,
+            GAS_PRECOMPILE_BLS_G1ADD=0,
+            GAS_PRECOMPILE_BLS_G1MUL=0,
+            GAS_PRECOMPILE_BLS_G1MAP=0,
+            GAS_PRECOMPILE_BLS_G2ADD=0,
+            GAS_PRECOMPILE_BLS_G2MUL=0,
+            GAS_PRECOMPILE_BLS_G2MAP=0,
+            GAS_PRECOMPILE_BLS_PAIRING_BASE=0,
+            GAS_PRECOMPILE_BLS_PAIRING_PER_PAIR=0,
+            GAS_PRECOMPILE_P256VERIFY=0,
         )
 
     @classmethod
@@ -268,9 +268,9 @@ class Frontier(BaseFork, solc_name="homestead"):
 
             # Add account access cost based on warmth
             if opcode.metadata["address_warm"]:
-                access_cost = gas_costs.G_WARM_ACCOUNT_ACCESS
+                access_cost = gas_costs.GAS_WARM_ACCOUNT_ACCESS
             else:
-                access_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+                access_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
             return base_cost + access_cost
 
@@ -288,7 +288,7 @@ class Frontier(BaseFork, solc_name="homestead"):
         Args:
             base_gas: Either a constant gas cost (int) or a callable that
                       calculates it
-            gas_costs: The gas costs dataclass for accessing G_COPY
+            gas_costs: The gas costs dataclass for accessing GAS_COPY
 
         Returns:
             A callable that calculates base_gas + copy_cost
@@ -305,7 +305,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             # Add copy cost based on data size
             data_size = opcode.metadata["data_size"]
             word_count = (data_size + 31) // 32
-            copy_cost = gas_costs.G_COPY * word_count
+            copy_cost = gas_costs.GAS_COPY * word_count
 
             return base_cost + copy_cost
 
@@ -337,60 +337,60 @@ class Frontier(BaseFork, solc_name="homestead"):
         return {
             # Stop and arithmetic operations
             Opcodes.STOP: 0,
-            Opcodes.ADD: gas_costs.G_VERY_LOW,
-            Opcodes.MUL: gas_costs.G_LOW,
-            Opcodes.SUB: gas_costs.G_VERY_LOW,
-            Opcodes.DIV: gas_costs.G_LOW,
-            Opcodes.SDIV: gas_costs.G_LOW,
-            Opcodes.MOD: gas_costs.G_LOW,
-            Opcodes.SMOD: gas_costs.G_LOW,
-            Opcodes.ADDMOD: gas_costs.G_MID,
-            Opcodes.MULMOD: gas_costs.G_MID,
+            Opcodes.ADD: gas_costs.GAS_VERY_LOW,
+            Opcodes.MUL: gas_costs.GAS_LOW,
+            Opcodes.SUB: gas_costs.GAS_VERY_LOW,
+            Opcodes.DIV: gas_costs.GAS_LOW,
+            Opcodes.SDIV: gas_costs.GAS_LOW,
+            Opcodes.MOD: gas_costs.GAS_LOW,
+            Opcodes.SMOD: gas_costs.GAS_LOW,
+            Opcodes.ADDMOD: gas_costs.GAS_MID,
+            Opcodes.MULMOD: gas_costs.GAS_MID,
             Opcodes.EXP: lambda op: (
-                gas_costs.G_EXP
-                + gas_costs.G_EXP_BYTE
+                gas_costs.GAS_EXPONENTIATION
+                + gas_costs.GAS_EXPONENTIATION_PER_BYTE
                 * ((op.metadata["exponent"].bit_length() + 7) // 8)
             ),
-            Opcodes.SIGNEXTEND: gas_costs.G_LOW,
+            Opcodes.SIGNEXTEND: gas_costs.GAS_LOW,
             # Comparison & bitwise logic operations
-            Opcodes.LT: gas_costs.G_VERY_LOW,
-            Opcodes.GT: gas_costs.G_VERY_LOW,
-            Opcodes.SLT: gas_costs.G_VERY_LOW,
-            Opcodes.SGT: gas_costs.G_VERY_LOW,
-            Opcodes.EQ: gas_costs.G_VERY_LOW,
-            Opcodes.ISZERO: gas_costs.G_VERY_LOW,
-            Opcodes.AND: gas_costs.G_VERY_LOW,
-            Opcodes.OR: gas_costs.G_VERY_LOW,
-            Opcodes.XOR: gas_costs.G_VERY_LOW,
-            Opcodes.NOT: gas_costs.G_VERY_LOW,
-            Opcodes.BYTE: gas_costs.G_VERY_LOW,
+            Opcodes.LT: gas_costs.GAS_VERY_LOW,
+            Opcodes.GT: gas_costs.GAS_VERY_LOW,
+            Opcodes.SLT: gas_costs.GAS_VERY_LOW,
+            Opcodes.SGT: gas_costs.GAS_VERY_LOW,
+            Opcodes.EQ: gas_costs.GAS_VERY_LOW,
+            Opcodes.ISZERO: gas_costs.GAS_VERY_LOW,
+            Opcodes.AND: gas_costs.GAS_VERY_LOW,
+            Opcodes.OR: gas_costs.GAS_VERY_LOW,
+            Opcodes.XOR: gas_costs.GAS_VERY_LOW,
+            Opcodes.NOT: gas_costs.GAS_VERY_LOW,
+            Opcodes.BYTE: gas_costs.GAS_VERY_LOW,
             # SHA3
             Opcodes.SHA3: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.G_KECCAK_256
-                    + gas_costs.G_KECCAK_256_WORD
+                    gas_costs.GAS_KECCAK256
+                    + gas_costs.GAS_KECCAK256_PER_WORD
                     * ((op.metadata["data_size"] + 31) // 32)
                 ),
                 memory_expansion_calculator,
             ),
             # Environmental information
-            Opcodes.ADDRESS: gas_costs.G_BASE,
+            Opcodes.ADDRESS: gas_costs.GAS_BASE,
             Opcodes.BALANCE: cls._with_account_access(0, gas_costs),
-            Opcodes.ORIGIN: gas_costs.G_BASE,
-            Opcodes.CALLER: gas_costs.G_BASE,
-            Opcodes.CALLVALUE: gas_costs.G_BASE,
-            Opcodes.CALLDATALOAD: gas_costs.G_VERY_LOW,
-            Opcodes.CALLDATASIZE: gas_costs.G_BASE,
+            Opcodes.ORIGIN: gas_costs.GAS_BASE,
+            Opcodes.CALLER: gas_costs.GAS_BASE,
+            Opcodes.CALLVALUE: gas_costs.GAS_BASE,
+            Opcodes.CALLDATALOAD: gas_costs.GAS_VERY_LOW,
+            Opcodes.CALLDATASIZE: gas_costs.GAS_BASE,
             Opcodes.CALLDATACOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.G_VERY_LOW, gas_costs),
+                cls._with_data_copy(gas_costs.GAS_VERY_LOW, gas_costs),
                 memory_expansion_calculator,
             ),
-            Opcodes.CODESIZE: gas_costs.G_BASE,
+            Opcodes.CODESIZE: gas_costs.GAS_BASE,
             Opcodes.CODECOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.G_VERY_LOW, gas_costs),
+                cls._with_data_copy(gas_costs.GAS_VERY_LOW, gas_costs),
                 memory_expansion_calculator,
             ),
-            Opcodes.GASPRICE: gas_costs.G_BASE,
+            Opcodes.GASPRICE: gas_costs.GAS_BASE,
             Opcodes.EXTCODESIZE: cls._with_account_access(0, gas_costs),
             Opcodes.EXTCODECOPY: cls._with_memory_expansion(
                 cls._with_data_copy(
@@ -400,89 +400,94 @@ class Frontier(BaseFork, solc_name="homestead"):
                 memory_expansion_calculator,
             ),
             # Block information
-            Opcodes.BLOCKHASH: gas_costs.G_BLOCKHASH,
-            Opcodes.COINBASE: gas_costs.G_BASE,
-            Opcodes.TIMESTAMP: gas_costs.G_BASE,
-            Opcodes.NUMBER: gas_costs.G_BASE,
-            Opcodes.PREVRANDAO: gas_costs.G_BASE,
-            Opcodes.GASLIMIT: gas_costs.G_BASE,
+            Opcodes.BLOCKHASH: gas_costs.GAS_BLOCK_HASH,
+            Opcodes.COINBASE: gas_costs.GAS_BASE,
+            Opcodes.TIMESTAMP: gas_costs.GAS_BASE,
+            Opcodes.NUMBER: gas_costs.GAS_BASE,
+            Opcodes.PREVRANDAO: gas_costs.GAS_BASE,
+            Opcodes.GASLIMIT: gas_costs.GAS_BASE,
             # Stack, memory, storage and flow operations
-            Opcodes.POP: gas_costs.G_BASE,
+            Opcodes.POP: gas_costs.GAS_BASE,
             Opcodes.MLOAD: cls._with_memory_expansion(
-                gas_costs.G_VERY_LOW, memory_expansion_calculator
+                gas_costs.GAS_VERY_LOW, memory_expansion_calculator
             ),
             Opcodes.MSTORE: cls._with_memory_expansion(
-                gas_costs.G_VERY_LOW, memory_expansion_calculator
+                gas_costs.GAS_VERY_LOW, memory_expansion_calculator
             ),
             Opcodes.MSTORE8: cls._with_memory_expansion(
-                gas_costs.G_VERY_LOW, memory_expansion_calculator
+                gas_costs.GAS_VERY_LOW, memory_expansion_calculator
             ),
             Opcodes.SLOAD: lambda op: (
-                gas_costs.G_WARM_SLOAD
+                gas_costs.GAS_WARM_SLOAD
                 if op.metadata["key_warm"]
-                else gas_costs.G_COLD_SLOAD
+                else gas_costs.GAS_COLD_SLOAD
             ),
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_gas(
                 op, gas_costs
             ),
-            Opcodes.JUMP: gas_costs.G_MID,
-            Opcodes.JUMPI: gas_costs.G_HIGH,
-            Opcodes.PC: gas_costs.G_BASE,
-            Opcodes.MSIZE: gas_costs.G_BASE,
-            Opcodes.GAS: gas_costs.G_BASE,
-            Opcodes.JUMPDEST: gas_costs.G_JUMPDEST,
+            Opcodes.JUMP: gas_costs.GAS_MID,
+            Opcodes.JUMPI: gas_costs.GAS_HIGH,
+            Opcodes.PC: gas_costs.GAS_BASE,
+            Opcodes.MSIZE: gas_costs.GAS_BASE,
+            Opcodes.GAS: gas_costs.GAS_BASE,
+            Opcodes.JUMPDEST: gas_costs.GAS_JUMPDEST,
             # Push operations (PUSH1 through PUSH32)
             **{
-                getattr(Opcodes, f"PUSH{i}"): gas_costs.G_VERY_LOW
+                getattr(Opcodes, f"PUSH{i}"): gas_costs.GAS_VERY_LOW
                 for i in range(1, 33)
             },
             # Dup operations (DUP1 through DUP16)
             **{
-                getattr(Opcodes, f"DUP{i}"): gas_costs.G_VERY_LOW
+                getattr(Opcodes, f"DUP{i}"): gas_costs.GAS_VERY_LOW
                 for i in range(1, 17)
             },
             # Swap operations (SWAP1 through SWAP16)
             **{
-                getattr(Opcodes, f"SWAP{i}"): gas_costs.G_VERY_LOW
+                getattr(Opcodes, f"SWAP{i}"): gas_costs.GAS_VERY_LOW
                 for i in range(1, 17)
             },
             # Logging operations
             Opcodes.LOG0: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.G_LOG
-                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
+                    gas_costs.GAS_LOG
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG1: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.G_LOG
-                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
-                    + gas_costs.G_LOG_TOPIC
+                    gas_costs.GAS_LOG
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
+                    + gas_costs.GAS_LOG_TOPIC
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG2: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.G_LOG
-                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
-                    + gas_costs.G_LOG_TOPIC * 2
+                    gas_costs.GAS_LOG
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
+                    + gas_costs.GAS_LOG_TOPIC * 2
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG3: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.G_LOG
-                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
-                    + gas_costs.G_LOG_TOPIC * 3
+                    gas_costs.GAS_LOG
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
+                    + gas_costs.GAS_LOG_TOPIC * 3
                 ),
                 memory_expansion_calculator,
             ),
             Opcodes.LOG4: cls._with_memory_expansion(
                 lambda op: (
-                    gas_costs.G_LOG
-                    + gas_costs.G_LOG_DATA * op.metadata["data_size"]
-                    + gas_costs.G_LOG_TOPIC * 4
+                    gas_costs.GAS_LOG
+                    + gas_costs.GAS_LOG_DATA_PER_BYTE
+                    * op.metadata["data_size"]
+                    + gas_costs.GAS_LOG_TOPIC * 4
                 ),
                 memory_expansion_calculator,
             ),
@@ -605,23 +610,25 @@ class Frontier(BaseFork, solc_name="homestead"):
         if current_value != new_value:
             if original_value != 0 and current_value != 0 and new_value == 0:
                 # Storage is cleared for the first time in the transaction
-                refund += gas_costs.R_STORAGE_CLEAR
+                refund += gas_costs.REFUND_STORAGE_CLEAR
 
             if original_value != 0 and current_value == 0:
                 # Gas refund issued earlier to be reversed
-                refund -= gas_costs.R_STORAGE_CLEAR
+                refund -= gas_costs.REFUND_STORAGE_CLEAR
 
             if original_value == new_value:
                 # Storage slot being restored to its original value
                 if original_value == 0:
                     # Slot was originally empty and was SET earlier
-                    refund += gas_costs.G_STORAGE_SET - gas_costs.G_WARM_SLOAD
+                    refund += (
+                        gas_costs.GAS_STORAGE_SET - gas_costs.GAS_WARM_SLOAD
+                    )
                 else:
                     # Slot was originally non-empty and was UPDATED earlier
                     refund += (
-                        gas_costs.G_STORAGE_UPDATE
-                        - gas_costs.G_COLD_SLOAD
-                        - gas_costs.G_WARM_SLOAD
+                        gas_costs.GAS_STORAGE_UPDATE
+                        - gas_costs.GAS_COLD_SLOAD
+                        - gas_costs.GAS_WARM_SLOAD
                     )
 
         return refund
@@ -639,15 +646,17 @@ class Frontier(BaseFork, solc_name="homestead"):
             current_value = original_value
         new_value = metadata["new_value"]
 
-        gas_cost = 0 if metadata["key_warm"] else gas_costs.G_COLD_SLOAD
+        gas_cost = 0 if metadata["key_warm"] else gas_costs.GAS_COLD_SLOAD
 
         if original_value == current_value and current_value != new_value:
             if original_value == 0:
-                gas_cost += gas_costs.G_STORAGE_SET
+                gas_cost += gas_costs.GAS_STORAGE_SET
             else:
-                gas_cost += gas_costs.G_STORAGE_UPDATE - gas_costs.G_COLD_SLOAD
+                gas_cost += (
+                    gas_costs.GAS_STORAGE_UPDATE - gas_costs.GAS_COLD_SLOAD
+                )
         else:
-            gas_cost += gas_costs.G_WARM_SLOAD
+            gas_cost += gas_costs.GAS_WARM_SLOAD
 
         return gas_cost
 
@@ -662,9 +671,9 @@ class Frontier(BaseFork, solc_name="homestead"):
 
         # Base cost depends on address warmth
         if metadata["address_warm"]:
-            base_cost = gas_costs.G_WARM_ACCOUNT_ACCESS
+            base_cost = gas_costs.GAS_WARM_ACCOUNT_ACCESS
         else:
-            base_cost = gas_costs.G_COLD_ACCOUNT_ACCESS
+            base_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
         return base_cost
 
@@ -674,7 +683,7 @@ class Frontier(BaseFork, solc_name="homestead"):
     ) -> int:
         """CREATE gas is constant at Frontier."""
         del opcode
-        return gas_costs.G_CREATE
+        return gas_costs.GAS_CREATE
 
     @classmethod
     def _calculate_return_gas(
@@ -685,7 +694,7 @@ class Frontier(BaseFork, solc_name="homestead"):
 
         # Code deposit cost when returning from initcode
         code_deposit_size = metadata["code_deposit_size"]
-        return gas_costs.G_CODE_DEPOSIT_BYTE * code_deposit_size
+        return gas_costs.GAS_CODE_DEPOSIT_PER_BYTE * code_deposit_size
 
     @classmethod
     def _calculate_selfdestruct_gas(
@@ -694,15 +703,15 @@ class Frontier(BaseFork, solc_name="homestead"):
         """Calculate SELFDESTRUCT gas cost based on metadata."""
         metadata = opcode.metadata
 
-        base_cost = gas_costs.G_SELF_DESTRUCT
+        base_cost = gas_costs.GAS_SELF_DESTRUCT
 
         # Check if the beneficiary is cold
         if not metadata["address_warm"]:
-            base_cost += gas_costs.G_COLD_ACCOUNT_ACCESS
+            base_cost += gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
         # Check if creating a new account
         if metadata["account_new"]:
-            base_cost += gas_costs.G_NEW_ACCOUNT
+            base_cost += gas_costs.GAS_NEW_ACCOUNT
 
         return base_cost
 
@@ -725,7 +734,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             previous_words = ceiling_division(previous_bytes, 32)
 
             def c(w: int) -> int:
-                return (gas_costs.G_MEMORY * w) + ((w * w) // 512)
+                return (gas_costs.GAS_MEMORY * w) + ((w * w) // 512)
 
             return c(new_words) - c(previous_words)
 
@@ -749,9 +758,9 @@ class Frontier(BaseFork, solc_name="homestead"):
             cost = 0
             for b in Bytes(data):
                 if b == 0:
-                    cost += gas_costs.G_TX_DATA_ZERO
+                    cost += gas_costs.GAS_TX_DATA_PER_ZERO
                 else:
-                    cost += gas_costs.G_TX_DATA_NON_ZERO
+                    cost += gas_costs.GAS_TX_DATA_PER_NON_ZERO
             return cost
 
         return fn
@@ -844,11 +853,12 @@ class Frontier(BaseFork, solc_name="homestead"):
                 f"Authorizations are not supported in {cls.name()}"
             )
 
-            intrinsic_cost: int = gas_costs.G_TRANSACTION
+            intrinsic_cost: int = gas_costs.GAS_TX_BASE
 
             if contract_creation:
-                intrinsic_cost += gas_costs.G_INITCODE_WORD * ceiling_division(
-                    len(Bytes(calldata)), 32
+                intrinsic_cost += (
+                    gas_costs.GAS_CODE_INIT_PER_WORD
+                    * ceiling_division(len(Bytes(calldata)), 32)
                 )
 
             return intrinsic_cost + calldata_gas_calculator(data=calldata)
@@ -1548,7 +1558,7 @@ class Homestead(Frontier):
                 authorization_list_or_count=authorization_list_or_count,
             )
             if contract_creation:
-                intrinsic_cost += gas_costs.G_TRANSACTION_CREATE
+                intrinsic_cost += gas_costs.GAS_TX_CREATE
             return intrinsic_cost
 
         return fn
@@ -1585,9 +1595,9 @@ class SpuriousDragon(TangerineWhistle, ignore=True):
         metadata = opcode.metadata
         if "value_transfer" in metadata:
             if metadata["value_transfer"]:
-                base_cost += gas_costs.G_CALL_VALUE
+                base_cost += gas_costs.GAS_CALL_VALUE
                 if metadata["account_new"]:
-                    base_cost += gas_costs.G_NEW_ACCOUNT
+                    base_cost += gas_costs.GAS_NEW_ACCOUNT
             elif metadata["account_new"]:
                 raise ValueError("Account new requires value transfer")
 
@@ -1669,9 +1679,9 @@ class Byzantium(SpuriousDragon):
         )
         return {
             **base_map,
-            Opcodes.RETURNDATASIZE: gas_costs.G_BASE,
+            Opcodes.RETURNDATASIZE: gas_costs.GAS_BASE,
             Opcodes.RETURNDATACOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.G_VERY_LOW, gas_costs),
+                cls._with_data_copy(gas_costs.GAS_VERY_LOW, gas_costs),
                 memory_expansion_calculator,
             ),
             Opcodes.STATICCALL: cls._with_memory_expansion(
@@ -1707,10 +1717,10 @@ class Byzantium(SpuriousDragon):
             super(Byzantium, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
-            G_PRECOMPILE_ECADD=500,
-            G_PRECOMPILE_ECMUL=40_000,
-            G_PRECOMPILE_ECPAIRING_BASE=100_000,
-            G_PRECOMPILE_ECPAIRING_PER_POINT=80_000,
+            GAS_PRECOMPILE_ECADD=500,
+            GAS_PRECOMPILE_ECMUL=40_000,
+            GAS_PRECOMPILE_ECPAIRING_BASE=100_000,
+            GAS_PRECOMPILE_ECPAIRING_PER_POINT=80_000,
         )
 
 
@@ -1736,9 +1746,9 @@ class Constantinople(Byzantium):
         # Keccak256 hashing cost
         init_code_size = metadata["init_code_size"]
         init_code_words = (init_code_size + 31) // 32
-        hash_gas = gas_costs.G_KECCAK_256_WORD * init_code_words
+        hash_gas = gas_costs.GAS_KECCAK256_PER_WORD * init_code_words
 
-        return gas_costs.G_CREATE + hash_gas
+        return gas_costs.GAS_CREATE + hash_gas
 
     @classmethod
     def create_opcodes(
@@ -1765,9 +1775,9 @@ class Constantinople(Byzantium):
         )
         return {
             **base_map,
-            Opcodes.SHL: gas_costs.G_VERY_LOW,
-            Opcodes.SHR: gas_costs.G_VERY_LOW,
-            Opcodes.SAR: gas_costs.G_VERY_LOW,
+            Opcodes.SHL: gas_costs.GAS_VERY_LOW,
+            Opcodes.SHR: gas_costs.GAS_VERY_LOW,
+            Opcodes.SAR: gas_costs.GAS_VERY_LOW,
             Opcodes.EXTCODEHASH: cls._with_account_access(0, gas_costs),
             Opcodes.CREATE2: cls._with_memory_expansion(
                 lambda op: cls._calculate_create2_gas(op, gas_costs),
@@ -1823,8 +1833,8 @@ class Istanbul(ConstantinopleFix):
         )
         return {
             **base_map,
-            Opcodes.CHAINID: gas_costs.G_BASE,
-            Opcodes.SELFBALANCE: gas_costs.G_LOW,
+            Opcodes.CHAINID: gas_costs.GAS_BASE,
+            Opcodes.SELFBALANCE: gas_costs.GAS_LOW,
         }
 
     @classmethod
@@ -1849,13 +1859,13 @@ class Istanbul(ConstantinopleFix):
             super(Istanbul, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
-            G_TX_DATA_NON_ZERO=16,  # https://eips.ethereum.org/EIPS/eip-2028
+            GAS_TX_DATA_PER_NON_ZERO=16,  # https://eips.ethereum.org/EIPS/eip-2028
             # https://eips.ethereum.org/EIPS/eip-1108
-            G_PRECOMPILE_ECADD=150,
-            G_PRECOMPILE_ECMUL=6000,
-            G_PRECOMPILE_ECPAIRING_BASE=45_000,
-            G_PRECOMPILE_ECPAIRING_PER_POINT=34_000,
-            G_PRECOMPILE_BLAKE2F_PER_ROUND=1,
+            GAS_PRECOMPILE_ECADD=150,
+            GAS_PRECOMPILE_ECMUL=6000,
+            GAS_PRECOMPILE_ECPAIRING_BASE=45_000,
+            GAS_PRECOMPILE_ECPAIRING_PER_POINT=34_000,
+            GAS_PRECOMPILE_BLAKE2F_PER_ROUND=1,
         )
 
 
@@ -1919,9 +1929,11 @@ class Berlin(Istanbul):
             )
             if access_list is not None:
                 for access in access_list:
-                    intrinsic_cost += gas_costs.G_ACCESS_LIST_ADDRESS
+                    intrinsic_cost += gas_costs.GAS_TX_ACCESS_LIST_ADDRESS
                     for _ in access.storage_keys:
-                        intrinsic_cost += gas_costs.G_ACCESS_LIST_STORAGE
+                        intrinsic_cost += (
+                            gas_costs.GAS_TX_ACCESS_LIST_STORAGE_KEY
+                        )
             return intrinsic_cost
 
         return fn
@@ -1969,7 +1981,7 @@ class London(Berlin):
         )
         return {
             **base_map,
-            Opcodes.BASEFEE: gas_costs.G_BASE,
+            Opcodes.BASEFEE: gas_costs.GAS_BASE,
         }
 
     @classmethod
@@ -2241,7 +2253,7 @@ class Shanghai(Paris):
         # Add initcode cost (EIP-3860)
         init_code_size = metadata["init_code_size"]
         init_code_words = (init_code_size + 31) // 32
-        init_code_gas = gas_costs.G_INITCODE_WORD * init_code_words
+        init_code_gas = gas_costs.GAS_CODE_INIT_PER_WORD * init_code_words
 
         return base_cost + init_code_gas
 
@@ -2263,7 +2275,7 @@ class Shanghai(Paris):
         # Add initcode cost (EIP-3860)
         init_code_size = metadata["init_code_size"]
         init_code_words = (init_code_size + 31) // 32
-        init_code_gas = gas_costs.G_INITCODE_WORD * init_code_words
+        init_code_gas = gas_costs.GAS_CODE_INIT_PER_WORD * init_code_words
 
         return base_cost + init_code_gas
 
@@ -2280,7 +2292,7 @@ class Shanghai(Paris):
         )
         return {
             **base_map,
-            Opcodes.PUSH0: gas_costs.G_BASE,
+            Opcodes.PUSH0: gas_costs.GAS_BASE,
         }
 
     @classmethod
@@ -2382,7 +2394,7 @@ class Cancun(Shanghai):
         blob_gas_per_blob = cls.blob_gas_per_blob(
             block_number=block_number, timestamp=timestamp
         )
-        target_blob_gas_per_block = target_blobs_per_block * blob_gas_per_blob
+        blob_target_gas_per_block = target_blobs_per_block * blob_gas_per_blob
 
         def fn(
             *,
@@ -2409,14 +2421,14 @@ class Cancun(Shanghai):
                 parent_blob_gas_used = parent_blob_count * blob_gas_per_blob
             if (
                 parent_excess_blob_gas + parent_blob_gas_used
-                < target_blob_gas_per_block
+                < blob_target_gas_per_block
             ):
                 return 0
             else:
                 return (
                     parent_excess_blob_gas
                     + parent_blob_gas_used
-                    - target_blob_gas_per_block
+                    - blob_target_gas_per_block
                 )
 
         return fn
@@ -2630,7 +2642,7 @@ class Cancun(Shanghai):
             super(Cancun, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
-            G_PRECOMPILE_POINT_EVALUATION=50_000,
+            GAS_PRECOMPILE_POINT_EVALUATION=50_000,
         )
 
     @classmethod
@@ -2659,15 +2671,15 @@ class Cancun(Shanghai):
         return {
             **base_map,
             # EIP-4844: Shard Blob Transactions
-            Opcodes.BLOBHASH: gas_costs.G_VERY_LOW,
+            Opcodes.BLOBHASH: gas_costs.GAS_VERY_LOW,
             # EIP-7516: BLOBBASEFEE opcode
-            Opcodes.BLOBBASEFEE: gas_costs.G_BASE,
+            Opcodes.BLOBBASEFEE: gas_costs.GAS_BASE,
             # EIP-1153: Transient storage opcodes
-            Opcodes.TLOAD: gas_costs.G_WARM_SLOAD,
-            Opcodes.TSTORE: gas_costs.G_WARM_SLOAD,
+            Opcodes.TLOAD: gas_costs.GAS_WARM_SLOAD,
+            Opcodes.TSTORE: gas_costs.GAS_WARM_SLOAD,
             # EIP-5656: MCOPY - Memory copying instruction
             Opcodes.MCOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.G_VERY_LOW, gas_costs),
+                cls._with_data_copy(gas_costs.GAS_VERY_LOW, gas_costs),
                 memory_expansion_calculator,
             ),
         }
@@ -2696,7 +2708,7 @@ class Prague(Cancun):
         "MAX_BLOBS_PER_BLOCK": 9,  # but overwrite or add these
         "TARGET_BLOBS_PER_BLOCK": 6,
         "MAX_BLOB_GAS_PER_BLOCK": 1179648,
-        "TARGET_BLOB_GAS_PER_BLOCK": 786432,
+        "BLOB_TARGET_GAS_PER_BLOCK": 786432,
         "BLOB_BASE_FEE_UPDATE_FRACTION": 5007716,
     }
 
@@ -2748,18 +2760,18 @@ class Prague(Cancun):
             super(Prague, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
-            G_TX_DATA_STANDARD_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
-            G_TX_DATA_FLOOR_TOKEN_COST=10,
-            G_AUTHORIZATION=25_000,
-            R_AUTHORIZATION_EXISTING_AUTHORITY=12_500,
-            G_PRECOMPILE_BLS_G1ADD=375,
-            G_PRECOMPILE_BLS_G1MUL=12_000,
-            G_PRECOMPILE_BLS_G1MAP=5_500,
-            G_PRECOMPILE_BLS_G2ADD=600,
-            G_PRECOMPILE_BLS_G2MUL=22_500,
-            G_PRECOMPILE_BLS_G2MAP=23_800,
-            G_PRECOMPILE_BLS_PAIRING_BASE=37_700,
-            G_PRECOMPILE_BLS_PAIRING_PER_PAIR=32_600,
+            GAS_TX_DATA_TOKEN_STANDARD=4,  # https://eips.ethereum.org/EIPS/eip-7623
+            GAS_TX_DATA_TOKEN_FLOOR=10,
+            GAS_AUTH_PER_EMPTY_ACCOUNT=25_000,
+            REFUND_AUTH_PER_EXISTING_ACCOUNT=12_500,
+            GAS_PRECOMPILE_BLS_G1ADD=375,
+            GAS_PRECOMPILE_BLS_G1MUL=12_000,
+            GAS_PRECOMPILE_BLS_G1MAP=5_500,
+            GAS_PRECOMPILE_BLS_G2ADD=600,
+            GAS_PRECOMPILE_BLS_G2MUL=22_500,
+            GAS_PRECOMPILE_BLS_G2MAP=23_800,
+            GAS_PRECOMPILE_BLS_PAIRING_BASE=37_700,
+            GAS_PRECOMPILE_BLS_PAIRING_PER_PAIR=32_600,
         )
 
     @classmethod
@@ -2822,8 +2834,8 @@ class Prague(Cancun):
                 else:
                     tokens += 4
             if floor:
-                return tokens * gas_costs.G_TX_DATA_FLOOR_TOKEN_COST
-            return tokens * gas_costs.G_TX_DATA_STANDARD_TOKEN_COST
+                return tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+            return tokens * gas_costs.GAS_TX_DATA_TOKEN_STANDARD
 
         return fn
 
@@ -2841,9 +2853,9 @@ class Prague(Cancun):
 
         if metadata["delegated_address"] or metadata["delegated_address_warm"]:
             if metadata["delegated_address_warm"]:
-                base_cost += gas_costs.G_WARM_ACCOUNT_ACCESS
+                base_cost += gas_costs.GAS_WARM_ACCOUNT_ACCESS
             else:
-                base_cost += gas_costs.G_COLD_ACCOUNT_ACCESS
+                base_cost += gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
         return base_cost
 
@@ -2865,7 +2877,7 @@ class Prague(Cancun):
         def fn(*, data: BytesConvertible) -> int:
             return (
                 calldata_gas_calculator(data=data, floor=True)
-                + gas_costs.G_TRANSACTION
+                + gas_costs.GAS_TX_BASE
             )
 
         return fn
@@ -2910,7 +2922,8 @@ class Prague(Cancun):
                         authorization_list_or_count
                     )
                 intrinsic_cost += (
-                    authorization_list_or_count * gas_costs.G_AUTHORIZATION
+                    authorization_list_or_count
+                    * gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT
                 )
 
             if return_cost_deducted_prior_execution:
@@ -3130,7 +3143,7 @@ class Osaka(Prague, solc_name="cancun"):
         )
         return {
             **base_map,
-            Opcodes.CLZ: gas_costs.G_LOW,
+            Opcodes.CLZ: gas_costs.GAS_LOW,
         }
 
     @classmethod
@@ -3167,7 +3180,7 @@ class Osaka(Prague, solc_name="cancun"):
             super(Osaka, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
-            G_PRECOMPILE_P256VERIFY=6_900,
+            GAS_PRECOMPILE_P256VERIFY=6_900,
         )
 
     @classmethod
@@ -3183,7 +3196,7 @@ class Osaka(Prague, solc_name="cancun"):
         blob_gas_per_blob = cls.blob_gas_per_blob(
             block_number=block_number, timestamp=timestamp
         )
-        target_blob_gas_per_block = target_blobs_per_block * blob_gas_per_blob
+        blob_target_gas_per_block = target_blobs_per_block * blob_gas_per_blob
         max_blobs_per_block = cls.max_blobs_per_block(
             block_number=block_number, timestamp=timestamp
         )
@@ -3211,7 +3224,7 @@ class Osaka(Prague, solc_name="cancun"):
                 parent_blob_gas_used = parent_blob_count * blob_gas_per_blob
             if (
                 parent_excess_blob_gas + parent_blob_gas_used
-                < target_blob_gas_per_block
+                < blob_target_gas_per_block
             ):
                 return 0
 
@@ -3236,7 +3249,7 @@ class Osaka(Prague, solc_name="cancun"):
             return (
                 parent_excess_blob_gas
                 + parent_blob_gas_used
-                - target_blob_gas_per_block
+                - blob_target_gas_per_block
             )
 
         return fn

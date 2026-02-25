@@ -75,9 +75,9 @@ def test_end_to_end(template_fork: str) -> None:
             source = f.read()
 
             expected = [
-                "TARGET_BLOB_GAS_PER_BLOCK = U64(199)",
+                "BLOB_TARGET_GAS_PER_BLOCK = U64(199)",
                 "GAS_PER_BLOB = U64(1)",
-                "MIN_BLOB_GASPRICE = Uint(2)",
+                "BLOB_MIN_GASPRICE = Uint(2)",
                 "BLOB_BASE_FEE_UPDATE_FRACTION = Uint(750)",
                 "BLOB_SCHEDULE_TARGET = U64(88)",
                 "BLOB_SCHEDULE_MAX = U64(77)",

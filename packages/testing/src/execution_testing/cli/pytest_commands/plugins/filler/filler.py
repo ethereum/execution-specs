@@ -75,6 +75,10 @@ from execution_testing.tools.utility.versioning import (
 )
 
 from ..shared.execute_fill import ALL_FIXTURE_PARAMETERS
+from ..shared.fixture_output import (
+    FixtureOutput,
+    resolve_fixture_subfolder,
+)
 from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
@@ -83,7 +87,6 @@ from ..shared.helpers import (
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
-from .fixture_output import FixtureOutput
 from .pre_alloc import Alloc
 
 # Fixture output dir for keyboard interrupt cleanup (set in pytest_configure).
@@ -1770,9 +1773,14 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     _info_metadata=t8n._info_metadata,
                 )
 
+                output_subdir = resolve_fixture_subfolder(
+                    list(request.node.iter_markers("fixture_subfolder"))
+                )
+
                 fixture_path = fixture_collector.add_fixture(
                     node_to_test_info(request.node),
                     fixture,
+                    output_subdir=output_subdir,
                 )
 
                 # NOTE: Use str for compatibility with pytest-dist

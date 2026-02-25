@@ -37,16 +37,16 @@ from ..state_tracker import (
     copy_tx_state,
     destroy_storage,
     get_account,
+    get_code,
     increment_nonce,
     mark_account_created,
     move_ether,
     restore_tx_state,
     set_code,
-    track_address,
 )
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
-from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
+from ..vm.gas import GAS_CODE_DEPOSIT_PER_BYTE, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm
 from .exceptions import (
@@ -111,7 +111,6 @@ def process_message_call(message: Message) -> MessageCallOutput:
         is_collision = account_has_code_or_nonce(
             tx_state, message.current_target
         ) or account_has_storage(tx_state, message.current_target)
-        track_address(tx_state, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0),
@@ -131,9 +130,11 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if delegated_address is not None:
             message.disable_precompiles = True
             message.accessed_addresses.add(delegated_address)
-            message.code = get_account(tx_state, delegated_address).code
+            message.code = get_code(
+                tx_state,
+                get_account(tx_state, delegated_address).code_hash,
+            )
             message.code_address = delegated_address
-            track_address(tx_state, delegated_address)
 
         evm = process_message(message)
 
@@ -199,7 +200,9 @@ def process_create_message(message: Message) -> Evm:
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
-        contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
+        contract_code_gas = (
+            Uint(len(contract_code)) * GAS_CODE_DEPOSIT_PER_BYTE
+        )
         try:
             if len(contract_code) > 0:
                 if contract_code[0] == 0xEF:
@@ -262,11 +265,7 @@ def process_message(message: Message) -> Evm:
     # take snapshot of state before processing the message
     snapshot = copy_tx_state(tx_state)
 
-    track_address(tx_state, message.current_target)
-
     if message.should_transfer_value and message.value != 0:
-        track_address(tx_state, message.caller)
-
         move_ether(
             tx_state,
             message.caller,

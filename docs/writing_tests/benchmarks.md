@@ -69,6 +69,36 @@ This mode is designed for gas limit testing, and gas repricing, where it enables
 - `--gas-benchmark-values 1,2,3` runs the test with 1M, 2M, and 3M block gas limits
 - `--fixed-opcode-count 4,5` runs the test with approximately 4K and 5K opcode executions
 
+**Output layout with gas benchmark values:** When `--gas-benchmark-values` is provided and benchmark tests are filled, fixtures are written into per‑fork, per‑gas‑limit subdirectories under each format directory:
+
+```text
+<output>/
+  blockchain_tests/
+    for_osaka_at_0001M/...
+    for_osaka_at_0002M/...
+  blockchain_tests_engine/
+    for_osaka_at_0001M/...
+    for_osaka_at_0002M/...
+  blockchain_tests_engine_x/
+    pre_alloc/...
+    for_osaka_at_0001M/...
+    for_osaka_at_0002M/...
+```
+
+The subdirectory name follows the pattern `for_{fork}_at_{gas}M` (see [Fixture Output Directory Structure](../running_tests/releases.md#fixture-output-directory-structure) for details). Non-benchmark (consensus) fixtures use `for_{fork}` without the gas limit suffix.
+
+**Output layout with fixed opcode counts:** When `--fixed-opcode-count` is provided, the subdirectory name uses the opcode count instead of the gas limit (`for_{fork}_at_opcount_{N}K`):
+
+```text
+<output>/
+  blockchain_tests/
+    for_osaka_at_opcount_10K/...
+    for_osaka_at_opcount_20K/...
+  blockchain_tests_engine/
+    for_osaka_at_opcount_10K/...
+    for_osaka_at_opcount_20K/...
+```
+
 ## Developing Benchmarks
 
 Before writing benchmark-specific tests, please refer to the [general documentation](./writing_a_new_test.md) for the fundamentals of writing tests in the EELS framework.

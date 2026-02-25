@@ -484,13 +484,13 @@ class ForkBuilder:
             self._commit(package)
 
     def modify_target_blob_gas_per_block(
-        self, target_blob_gas_per_block: U64
+        self, blob_target_gas_per_block: U64
     ) -> None:
-        """Append a `CodemodArgs` that sets `TARGET_BLOB_GAS_PER_BLOCK`."""
+        """Append a `CodemodArgs` that sets `BLOB_TARGET_GAS_PER_BLOCK`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.TARGET_BLOB_GAS_PER_BLOCK",
-                repr(target_blob_gas_per_block),
+                "vm.gas.BLOB_TARGET_GAS_PER_BLOCK",
+                repr(blob_target_gas_per_block),
             )
         )
 
@@ -503,12 +503,12 @@ class ForkBuilder:
             )
         )
 
-    def modify_min_blob_gasprice(self, min_blob_gasprice: Uint) -> None:
-        """Append a `CodemodArgs` that sets `MIN_BLOB_GASPRICE`."""
+    def modify_min_blob_gasprice(self, blob_min_gasprice: Uint) -> None:
+        """Append a `CodemodArgs` that sets `BLOB_MIN_GASPRICE`."""
         self.modifiers.append(
             SetConstant(
-                "vm.gas.MIN_BLOB_GASPRICE",
-                repr(min_blob_gasprice),
+                "vm.gas.BLOB_MIN_GASPRICE",
+                repr(blob_min_gasprice),
             )
         )
 

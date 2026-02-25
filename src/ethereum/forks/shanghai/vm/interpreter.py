@@ -44,7 +44,7 @@ from ..state import (
     set_code,
 )
 from ..vm import Message
-from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
+from ..vm.gas import GAS_CODE_DEPOSIT_PER_BYTE, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm
 from .exceptions import (
@@ -175,7 +175,9 @@ def process_create_message(message: Message) -> Evm:
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
-        contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
+        contract_code_gas = (
+            Uint(len(contract_code)) * GAS_CODE_DEPOSIT_PER_BYTE
+        )
         try:
             if len(contract_code) > 0:
                 if contract_code[0] == 0xEF:

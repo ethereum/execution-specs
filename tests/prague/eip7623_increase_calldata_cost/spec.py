@@ -24,5 +24,5 @@ class Spec:
     https://eips.ethereum.org/EIPS/eip-7623.
     """
 
-    STANDARD_TOKEN_COST = 4
-    TOTAL_COST_FLOOR_PER_TOKEN = 10
+    GAS_TX_DATA_TOKEN_STANDARD = 4
+    GAS_TX_DATA_TOKEN_FLOOR = 10

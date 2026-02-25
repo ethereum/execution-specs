@@ -21,23 +21,23 @@ from ethereum.exceptions import (
 
 from .fork_types import Address
 
-TX_BASE_COST = Uint(21000)
+GAS_TX_BASE = Uint(21000)
 """
 Base cost of a transaction in gas units. This is the minimum amount of gas
 required to execute a transaction.
 """
 
-TX_DATA_COST_PER_NON_ZERO = Uint(68)
+GAS_TX_DATA_PER_NON_ZERO = Uint(68)
 """
 Gas cost per non-zero byte in the transaction data.
 """
 
-TX_DATA_COST_PER_ZERO = Uint(4)
+GAS_TX_DATA_PER_ZERO = Uint(4)
 """
 Gas cost per zero byte in the transaction data.
 """
 
-TX_CREATE_COST = Uint(32000)
+GAS_TX_CREATE = Uint(32000)
 """
 Additional gas cost for creating a new contract.
 """
@@ -143,7 +143,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     for all operations to be implemented.
 
     The intrinsic cost includes:
-    1. Base cost (`TX_BASE_COST`)
+    1. Base cost (`GAS_TX_BASE`)
     2. Cost for data (zero and non-zero bytes)
     3. Cost for contract creation (if applicable)
 
@@ -154,16 +154,16 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     for byte in tx.data:
         if byte == 0:
-            data_cost += TX_DATA_COST_PER_ZERO
+            data_cost += GAS_TX_DATA_PER_ZERO
         else:
-            data_cost += TX_DATA_COST_PER_NON_ZERO
+            data_cost += GAS_TX_DATA_PER_NON_ZERO
 
     if tx.to == Bytes0(b""):
-        create_cost = TX_CREATE_COST
+        create_cost = GAS_TX_CREATE
     else:
         create_cost = Uint(0)
 
-    return TX_BASE_COST + data_cost + create_cost
+    return GAS_TX_BASE + data_cost + create_cost
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
