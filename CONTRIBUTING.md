@@ -28,6 +28,7 @@ This specification aims to be:
 - Attempt to use descriptive English words (or _very common_ abbreviations) in documentation and identifiers.
 - Avoid using EIP numbers in identifiers, and prefer descriptive text instead (eg. `FeeMarketTransaction` instead of `Eip1559Transaction`).
 - If necessary, there is a custom dictionary `whitelist.txt`.
+- Avoid uninformative prefixes in identifiers (like `get_` or `compute_`). They don't add useful meaning and take up valuable real estate.
 
 #### Comments
 
@@ -85,11 +86,53 @@ This specification aims to be:
 
 #### Docstrings
 
-- Don't include the function's signature.
+- Write in complete sentences, providing necessary background and context for the associated code.
+- Function and method docstrings must use the imperative mood in the summary line.
+    - **Good:** Build the house using the provided lumber.
+    - **Bad:** Builds the house using the provided lumber.
+- Always start with a single-line summary. When more detail is needed, use a multi-line docstring with a blank line after the summary line.
+    - **One-line summary:**
+
+      ```python
+      """Return the pathname of the KOS root directory."""
+      ```
+
+    - **Multi-line:**
+
+      ```python
+      """
+      Add a bloom entry to the bloom filter.
+
+      The number of hash functions used is 3. They are calculated by
+      taking the least significant 11 bits from the first 3 16-bit
+      words of the `keccak_256()` hash of `bloom_entry`.
+      """
+      ```
+
 - Format using markdown.
-- Don't begin with an article ("the"/"a") or a pronoun ("it", "they", etc.).
-- Write in complete sentences, providing background and context for the associated code.
-- Link to relevant standards/EIPs.
+- Links to relevant standards and EIPs may be specified using reference-style links.
+
+  ```python
+  """
+  Minimum gas cost per byte of calldata as per [EIP-7976].
+
+  [EIP-7976]: https://eips.ethereum.org/EIPS/eip-7976
+  """
+  ```
+
+- Avoid beginning docstrings with an article ("the"/"a") or a pronoun ("it", "they", etc.).
+- Don't include the function's signature.
+
+##### Constants
+
+- Do not include constant values in docstrings, neither as literals nor as expressions. It's too easy to change a constant's value and forget to update its docstring.
+- Construct the constant's value from other constants or meaningful expressions in order to provide meaningful context.
+    - **Great:** `TARGET_BLOB_GAS_PER_BLOCK = GAS_PER_BLOB * BLOB_SCHEDULE_TARGET`
+        - Composed from named constants; the reader immediately understands what the value represents.
+    - **Acceptable:** `TX_MAX_GAS = Uint(2 ** 24)`
+        - More readable than a raw number, but still a literal expression that doesn't convey _why_ this value was chosen.
+    - **Bad:** `TX_MAX_GAS = Uint(16_777_216)`
+        - A magic number with no context.
 
 ### Changes across various Forks
 

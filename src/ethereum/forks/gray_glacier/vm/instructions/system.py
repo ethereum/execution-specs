@@ -42,7 +42,7 @@ from ..gas import (
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_CREATE,
-    GAS_KECCAK256_WORD,
+    GAS_KECCAK256_PER_WORD,
     GAS_NEW_ACCOUNT,
     GAS_SELF_DESTRUCT,
     GAS_SELF_DESTRUCT_NEW_ACCOUNT,
@@ -201,7 +201,9 @@ def create2(evm: Evm) -> None:
     call_data_words = ceil32(Uint(memory_size)) // Uint(32)
     charge_gas(
         evm,
-        GAS_CREATE + GAS_KECCAK256_WORD * call_data_words + extend_memory.cost,
+        GAS_CREATE
+        + GAS_KECCAK256_PER_WORD * call_data_words
+        + extend_memory.cost,
     )
 
     # OPERATION

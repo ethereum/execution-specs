@@ -10,6 +10,8 @@ from typing import Any, Dict, Generator, List, Type
 import pytest
 from pytest_metadata.plugin import metadata_key
 
+from execution_testing.base_types import Account
+from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.execution import BaseExecute
 from execution_testing.forks import Fork
 from execution_testing.logging import get_logger
@@ -153,6 +155,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Maximum number of transactions to send in a single batch to the "
             "RPC. Default=750. Higher values may cause RPC instability."
+        ),
+    )
+    execute_group.addoption(
+        "--use-testing-build-block",
+        action="store_true",
+        dest="use_testing_build_block",
+        default=False,
+        help=(
+            "Use testing_buildBlockV1 to build blocks with transactions "
+            "directly, instead of the standard Engine API flow. "
+            "Only for clients that implement this endpoint."
         ),
     )
 
@@ -334,6 +347,14 @@ def dry_run(request: pytest.FixtureRequest) -> bool:
 def max_transactions_per_batch(request: pytest.FixtureRequest) -> int | None:
     """Return max number of transactions per batch, or None for default."""
     return request.config.getoption("max_tx_per_batch")
+
+
+@pytest.fixture(scope="session")
+def use_testing_build_block(
+    request: pytest.FixtureRequest,
+) -> bool:
+    """Return whether to use testing_buildBlockV1 for block building."""
+    return request.config.getoption("use_testing_build_block")
 
 
 @pytest.fixture(scope="session")
@@ -625,6 +646,8 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
         max_fee_per_blob_gas: int,
         max_gas_limit_per_test: int | None,
         gas_limit_accumulator: GasInfoAccumulator,
+        is_tx_gas_heavy_test: bool,
+        is_exception_test: bool,
     ) -> Type[BaseTest]:
         """
         Fixture used to instantiate an auto-fillable BaseTest object from
@@ -648,18 +671,21 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
             )
 
         class BaseTestWrapper(cls):  # type: ignore
+            __is_base_test_wrapper__ = True
+
             def __init__(self, *args: Any, **kwargs: Any) -> None:
-                kwargs["t8n_dump_dir"] = None
                 if "pre" not in kwargs:
                     kwargs["pre"] = pre
                 elif kwargs["pre"] != pre:
                     raise ValueError(
                         "The pre-alloc object was modified by the test."
                     )
-                # Set default for expected_benchmark_gas_used
                 if "expected_benchmark_gas_used" not in kwargs:
                     kwargs["expected_benchmark_gas_used"] = gas_benchmark_value
                 kwargs["fork"] = fork
+                kwargs["operation_mode"] = request.config.op_mode
+                kwargs["is_tx_gas_heavy_test"] = is_tx_gas_heavy_test
+                kwargs["is_exception_test"] = is_exception_test
                 kwargs |= {
                     p: request.getfixturevalue(p)
                     for p in cls_fixture_parameters
@@ -669,7 +695,6 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 request.node.config.sender_address = str(pre._sender)
 
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
-                self._request = request
                 execute = self.execute(execute_format=execute_format)
 
                 # get balances of required sender accounts
@@ -712,31 +737,47 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                 # send the funds to the required sender accounts
                 pre.send_pending_transactions()
 
-                for (
-                    deployed_contract,
-                    expected_code,
-                ) in pre._deployed_contracts:
-                    actual_code = eth_rpc.get_code(deployed_contract)
-                    if actual_code != expected_code:
-                        msg = (
-                            f"Deployed test contract didn't match expected "
-                            f"code at address {deployed_contract} "
-                            f"(not enough gas_limit?).\n"
-                            f"Expected: {expected_code}\n"
-                            f"Actual: {actual_code}"
-                        )
-                        logger.error(msg)
-                        raise Exception(msg)
+                if pre._deployed_contracts:
+                    contract_alloc = BaseAlloc(
+                        root={
+                            addr: Account()
+                            for addr, _ in pre._deployed_contracts
+                        }
+                    )
+                    actual_alloc = eth_rpc.get_alloc(contract_alloc)
+                    for (
+                        deployed_contract,
+                        expected_code,
+                    ) in pre._deployed_contracts:
+                        actual_account = actual_alloc.root[deployed_contract]
+                        assert actual_account is not None
+                        actual_code = actual_account.code
+                        if actual_code != expected_code:
+                            msg = (
+                                f"Deployed test contract didn't match "
+                                f"expected code at address "
+                                f"{deployed_contract} "
+                                f"(not enough gas_limit?).\n"
+                                f"Expected: {expected_code}\n"
+                                f"Actual: {actual_code}"
+                            )
+                            logger.error(msg)
+                            raise Exception(msg)
                 request.node.config.funded_accounts = ", ".join(
                     [str(eoa) for eoa in pre._funded_eoa]
                 )
 
-                execute.execute(
+                execute_result = execute.execute(
                     fork=fork,
                     eth_rpc=eth_rpc,
                     engine_rpc=engine_rpc,
                     request=request,
                 )
+                self.validate_benchmark_gas(
+                    benchmark_gas_used=execute_result.benchmark_gas_used,
+                    gas_benchmark_value=gas_benchmark_value,
+                )
+
                 collector.collect(request.node.nodeid, execute)
 
         return BaseTestWrapper
@@ -745,7 +786,12 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
 
 
 # Dynamically generate a pytest fixture for each test spec type.
-for cls in BaseTest.spec_types.values():
+for name, cls in BaseTest.spec_types.items():
+    if getattr(cls, "__is_base_test_wrapper__", False):
+        raise RuntimeError(
+            f"Test spec type {name}: {cls.__name__} is already wrapped. "
+            f"{BaseTest.spec_types.items()}."
+        )
     # Fixture needs to be defined in the global scope so pytest can detect it.
     globals()[cls.pytest_parameter_name()] = base_test_parametrizer(cls)
 

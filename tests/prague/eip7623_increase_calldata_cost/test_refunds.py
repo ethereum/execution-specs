@@ -94,12 +94,12 @@ def max_refund(fork: Fork, refund_type: RefundType) -> int:
     """Return the max refund gas of the transaction."""
     gas_costs = fork.gas_costs()
     max_refund = (
-        gas_costs.R_STORAGE_CLEAR
+        gas_costs.REFUND_STORAGE_CLEAR
         if RefundType.STORAGE_CLEAR in refund_type
         else 0
     )
     max_refund += (
-        gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+        gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
         if RefundType.AUTHORIZATION_EXISTING_AUTHORITY in refund_type
         else 0
     )
@@ -212,7 +212,11 @@ def execution_gas_used(
         refund_test_type
         == RefundTestType.EXECUTION_GAS_MINUS_REFUND_GREATER_THAN_DATA_FLOOR
     ):
-        return execution_gas + 1
+        # Keep incrementing until we actually get gas_used > tx_floor_data_cost
+        # (adding just 1 may not be enough due to refund cap boundary effects)
+        while execution_gas_cost(execution_gas) <= tx_floor_data_cost:
+            execution_gas += 1
+        return execution_gas
     elif (
         refund_test_type
         == RefundTestType.EXECUTION_GAS_MINUS_REFUND_LESS_THAN_DATA_FLOOR

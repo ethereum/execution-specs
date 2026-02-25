@@ -1,6 +1,7 @@
 """Test the benchmarking pytest plugin for gas benchmark values."""
 
 import json
+import os
 import textwrap
 from pathlib import Path
 from typing import List
@@ -11,9 +12,14 @@ import pytest
 from execution_testing.cli.pytest_commands.plugins.shared.benchmarking import (
     OpcodeCountsConfig,
 )
+from execution_testing.cli.pytest_commands.plugins.shared.fixture_output import (  # noqa: E501
+    FORK_SUBDIR_PREFIX,
+    SUBFOLDER_LEVEL_SEPARATOR,
+    format_fork_subdir,
+)
 
-# EVM binary for tests that actually fill (not just collect)
-BENCHMARK_EVM_T8N = "evmone-t8n"
+# EVM binary for fill tests; defaults to geth evm
+BENCHMARK_EVM_T8N = os.environ.get("EVM_BIN", "evm")
 
 test_module_dummy = textwrap.dedent(
     """\
@@ -200,6 +206,163 @@ def test_benchmarking_mode_configured_with_option(
     assert any("benchmark-gas-value_10M" in line for line in result.outlines)
     assert any("benchmark-gas-value_20M" in line for line in result.outlines)
     assert any("benchmark-gas-value_30M" in line for line in result.outlines)
+
+
+def test_benchmark_gas_values_split_into_subdirs(
+    pytester: pytest.Pytester, tmp_path: Path
+) -> None:
+    """Ensure per-gas-limit outputs are written to separate directories."""
+    benchmark_marked_module = textwrap.dedent(
+        """\
+        import pytest
+        from execution_testing import (
+            BenchmarkTestFiller,
+            JumpLoopGenerator,
+            Op,
+        )
+
+        @pytest.mark.valid_at("Prague")
+        @pytest.mark.benchmark
+        def test_dummy_benchmark_test(
+            benchmark_test: BenchmarkTestFiller,
+        ) -> None:
+            benchmark_test(
+                target_opcode=Op.JUMPDEST,
+                code_generator=JumpLoopGenerator(attack_block=Op.JUMPDEST),
+            )
+        """
+    )
+    setup_test_directory_structure(
+        pytester, benchmark_marked_module, "test_dummy_benchmark.py"
+    )
+
+    output_dir = tmp_path / "fixtures"
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        "Prague",
+        "--gas-benchmark-values",
+        "1,2",
+        "-m",
+        "benchmark and blockchain_test and not derived_test",
+        "--no-html",
+        "--skip-index",
+        f"--output={output_dir}",
+        "tests/benchmark/dummy_test_module/",
+        "-q",
+    )
+
+    assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
+
+    gas_1_subdir = format_fork_subdir("Prague", "0001M")
+    gas_2_subdir = format_fork_subdir("Prague", "0002M")
+    gas_1_dir = output_dir / "blockchain_tests" / gas_1_subdir
+    gas_2_dir = output_dir / "blockchain_tests" / gas_2_subdir
+    assert gas_1_dir.exists()
+    assert gas_2_dir.exists()
+
+    gas_1_files = list(gas_1_dir.rglob("*.json"))
+    gas_2_files = list(gas_2_dir.rglob("*.json"))
+    assert gas_1_files, f"Expected fixtures under {gas_1_subdir}"
+    assert gas_2_files, f"Expected fixtures under {gas_2_subdir}"
+
+    def _assert_keys(
+        files: list[Path], expected: str, unexpected: str
+    ) -> None:
+        for file_path in files:
+            data = json.loads(file_path.read_text())
+            assert data, f"Empty fixture file: {file_path}"
+            for key in data.keys():
+                assert expected in key, (
+                    f"Expected {expected} in key {key} ({file_path})"
+                )
+                assert unexpected not in key, (
+                    f"Unexpected {unexpected} in key {key} ({file_path})"
+                )
+
+    _assert_keys(gas_1_files, "benchmark-gas-value_1M", "2M")
+    _assert_keys(gas_2_files, "benchmark-gas-value_2M", "1M")
+
+    root_json = []
+    for json_path in output_dir.rglob("*.json"):
+        rel = json_path.relative_to(output_dir)
+        if not rel.parts:
+            continue
+        if rel.parts[0] == ".meta":
+            continue
+        if rel.parts[0] in (
+            "blockchain_tests",
+            "blockchain_tests_engine",
+            "blockchain_tests_engine_x",
+        ):
+            continue
+        root_json.append(json_path)
+    assert not root_json, f"Unexpected root JSON files: {root_json}"
+
+    top_level_for_dirs = [
+        p
+        for p in output_dir.iterdir()
+        if p.is_dir() and p.name.startswith(FORK_SUBDIR_PREFIX)
+    ]
+    assert not top_level_for_dirs, (
+        f"Unexpected top-level {FORK_SUBDIR_PREFIX} dirs: {top_level_for_dirs}"
+    )
+
+
+def test_fixed_opcode_count_split_into_subdirs(
+    pytester: pytest.Pytester, tmp_path: Path
+) -> None:
+    """Ensure per-opcode-count outputs go to separate subdirectories."""
+    setup_test_directory_structure(
+        pytester, test_module_dummy, "test_dummy_benchmark.py"
+    )
+
+    output_dir = tmp_path / "fixtures"
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--fork",
+        "Prague",
+        "--fixed-opcode-count=1,2",
+        "-m",
+        "benchmark and blockchain_test and not derived_test",
+        "--no-html",
+        "--skip-index",
+        f"--output={output_dir}",
+        f"--evm-bin={BENCHMARK_EVM_T8N}",
+        "tests/benchmark/dummy_test_module/",
+        "-q",
+    )
+
+    assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
+
+    prefix = f"{FORK_SUBDIR_PREFIX}prague"
+    op1_subdir = f"{prefix}{SUBFOLDER_LEVEL_SEPARATOR}opcount_1.0K"
+    op2_subdir = f"{prefix}{SUBFOLDER_LEVEL_SEPARATOR}opcount_2.0K"
+    op1_dir = output_dir / "blockchain_tests" / op1_subdir
+    op2_dir = output_dir / "blockchain_tests" / op2_subdir
+    assert op1_dir.exists(), f"Expected {op1_subdir}/ under blockchain_tests"
+    assert op2_dir.exists(), f"Expected {op2_subdir}/ under blockchain_tests"
+
+    op1_files = list(op1_dir.rglob("*.json"))
+    op2_files = list(op2_dir.rglob("*.json"))
+    assert op1_files, f"Expected fixtures under {op1_subdir}"
+    assert op2_files, f"Expected fixtures under {op2_subdir}"
+
+    for file_path in op1_files:
+        data = json.loads(file_path.read_text())
+        for key in data:
+            assert "opcount_1.0K" in key, (
+                f"Expected opcount_1.0K in key {key} ({file_path})"
+            )
+
+    for file_path in op2_files:
+        data = json.loads(file_path.read_text())
+        for key in data:
+            assert "opcount_2.0K" in key, (
+                f"Expected opcount_2.0K in key {key} ({file_path})"
+            )
 
 
 def test_benchmarking_mode_not_configured_without_option(
@@ -764,9 +927,20 @@ def test_fixed_opcode_count_config_file_parametrized(
         )
     )
 
+    # Use subprocess mode to isolate each parametrized inner session.
+    # pytester defaults to in-process mode, which shares the Python
+    # interpreter across all inner sessions in the same test run.
+    # Pydantic's ModelMetaclass caches __init__ wrappers for dynamically
+    # created classes (like BaseTestWrapper); when a second in-process
+    # session creates a new BaseTestWrapper, the cached wrapper re-invokes
+    # __init__ re-entrantly, causing generate() to run twice per test and
+    # doubling the opcode count. This is strictly a pytester/in-process
+    # artifact — normal `fill` runs are unaffected because each fill
+    # invocation is a fresh Python process.
+    #
     # Place --fixed-opcode-count after test path to avoid argparse consuming
     # the path as the option value (nargs='?' behavior)
-    result = pytester.runpytest(
+    result = pytester.runpytest_subprocess(
         "-c",
         "pytest-fill.ini",
         "--fork",
@@ -896,7 +1070,10 @@ def test_fixed_opcode_count_per_parameter_patterns(
     config_file = pytester.path / ".fixed_opcode_counts.json"
     config_file.write_text(json.dumps({"scenario_configs": config}))
 
-    result = pytester.runpytest(
+    # Subprocess mode: avoids Pydantic metaclass cache pollution across
+    # in-process pytester sessions (see comment in
+    # test_fixed_opcode_count_config_file_parametrized).
+    result = pytester.runpytest_subprocess(
         "-c",
         "pytest-fill.ini",
         "--fork",
@@ -932,7 +1109,10 @@ def test_cli_mode_ignores_per_parameter_patterns(
         pytester, test_module_parametrized, "test_cli_mode.py"
     )
 
-    result = pytester.runpytest(
+    # Subprocess mode: avoids Pydantic metaclass cache pollution across
+    # in-process pytester sessions (see comment in
+    # test_fixed_opcode_count_config_file_parametrized).
+    result = pytester.runpytest_subprocess(
         "-c",
         "pytest-fill.ini",
         "--fork",
@@ -954,3 +1134,86 @@ def test_cli_mode_ignores_per_parameter_patterns(
         assert (
             f"{size}-opcount_5.0K" in output or f"{size}-opcount_5K" in output
         ), f"Expected {size} with opcount_5 in output"
+
+
+def test_consensus_fixtures_split_by_fork(
+    pytester: pytest.Pytester, tmp_path: Path
+) -> None:
+    """Ensure non-benchmark fixtures are split into fork subdirectories."""
+    consensus_module = textwrap.dedent(
+        """\
+        import pytest
+        from execution_testing import Transaction
+
+        @pytest.mark.valid_from("Prague")
+        def test_fork_split_example(state_test, pre) -> None:
+            tx = Transaction(to=0, gas_limit=21_000, sender=pre.fund_eoa())
+            state_test(pre=pre, post={}, tx=tx)
+        """
+    )
+    tests_dir = pytester.mkdir("tests")
+    test_dir = tests_dir / "prague" / "dummy_split"
+    test_dir.mkdir(parents=True)
+    test_file = test_dir / "test_fork_split.py"
+    test_file.write_text(consensus_module)
+
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+
+    output_dir = tmp_path / "fixtures"
+    result = pytester.runpytest(
+        "-c",
+        "pytest-fill.ini",
+        "--from=Prague",
+        "--until=Osaka",
+        "-m",
+        "not blockchain_test_engine",
+        "--no-html",
+        "--skip-index",
+        f"--output={output_dir}",
+        str(test_file),
+        "-q",
+    )
+
+    assert result.ret == 0, f"Fill command failed:\n{result.outlines}"
+
+    prague_subdir = format_fork_subdir("Prague")
+    osaka_subdir = format_fork_subdir("Osaka")
+
+    # Verify fork subdirs exist under state_tests
+    state_tests_dir = output_dir / "state_tests"
+    prague_dir = state_tests_dir / prague_subdir
+    osaka_dir = state_tests_dir / osaka_subdir
+    assert prague_dir.exists(), (
+        f"Expected {prague_subdir}/ under {state_tests_dir}"
+    )
+    assert osaka_dir.exists(), (
+        f"Expected {osaka_subdir}/ under {state_tests_dir}"
+    )
+
+    prague_files = list(prague_dir.rglob("*.json"))
+    osaka_files = list(osaka_dir.rglob("*.json"))
+    assert prague_files, f"Expected fixtures under {prague_subdir}/"
+    assert osaka_files, f"Expected fixtures under {osaka_subdir}/"
+
+    # Verify each file contains only the expected fork's fixtures
+    for file_path in prague_files:
+        data = json.loads(file_path.read_text())
+        for key in data:
+            assert "fork_Prague" in key, (
+                f"Expected fork_Prague in key {key} ({file_path})"
+            )
+            assert "fork_Osaka" not in key, (
+                f"Unexpected fork_Osaka in key {key} ({file_path})"
+            )
+
+    for file_path in osaka_files:
+        data = json.loads(file_path.read_text())
+        for key in data:
+            assert "fork_Osaka" in key, (
+                f"Expected fork_Osaka in key {key} ({file_path})"
+            )
+            assert "fork_Prague" not in key, (
+                f"Unexpected fork_Prague in key {key} ({file_path})"
+            )

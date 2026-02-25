@@ -54,10 +54,11 @@ def seed_key(
         )
     # check the nonce through the rpc client
     seed_key = EOA(key=rpc_seed_key)
-    seed_key.nonce = Number(eth_rpc.get_transaction_count(seed_key))
+    seed_account = eth_rpc.get_account(seed_key, skip_code=True)
+    seed_key.nonce = Number(seed_account.nonce)
 
     # Record the start balance of the worker key
-    start_balance = eth_rpc.get_balance(seed_key)
+    start_balance = seed_account.balance
 
     yield seed_key
 

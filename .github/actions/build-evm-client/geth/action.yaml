@@ -16,21 +16,51 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Get latest geth commit
+      id: geth-sha
+      shell: bash
+      run: |
+        SHA=$(git ls-remote https://github.com/${{ inputs.repo }}.git refs/heads/${{ inputs.ref }} | cut -f1)
+        echo "sha=$SHA" >> $GITHUB_OUTPUT
+        echo "Latest geth commit: $SHA"
+    - name: Prepare cache target dir
+      shell: bash
+      run: mkdir -p "$GITHUB_WORKSPACE/go-ethereum/cmd/evm"
+    - name: Restore build cache
+      id: cache-restore
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: |
+          ${{ github.workspace }}/go-ethereum/cmd/evm/evm
+        key: geth-evm-build-sha=${{ steps.geth-sha.outputs.sha }}
+        restore-keys: |
+          geth-evm-build-
     - name: Checkout go-ethereum
+      if: steps.cache-restore.outputs.cache-hit != 'true'
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       with:
         repository: ${{ inputs.repo }}
-        ref: ${{ inputs.ref }}
+        ref: ${{ steps.geth-sha.outputs.sha }}
         path: go-ethereum
     - name: Setup golang
+      if: steps.cache-restore.outputs.cache-hit != 'true'
       uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b
       with:
         go-version: ${{ inputs.golang }}
         cache-dependency-path: go-ethereum/go.sum
     - name: Build evm cmd
+      if: steps.cache-restore.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        mkdir -p $GITHUB_WORKSPACE/bin
         cd $GITHUB_WORKSPACE/go-ethereum/cmd/evm
         go build .
-        echo $GITHUB_WORKSPACE/go-ethereum/cmd/evm >> $GITHUB_PATH
+    - name: Add geth evm to PATH
+      shell: bash
+      run: echo $GITHUB_WORKSPACE/go-ethereum/cmd/evm >> $GITHUB_PATH
+    - name: Save build cache
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+      with:
+        path: |
+          ${{ github.workspace }}/go-ethereum/cmd/evm/evm
+        key: geth-evm-build-sha=${{ steps.geth-sha.outputs.sha }}

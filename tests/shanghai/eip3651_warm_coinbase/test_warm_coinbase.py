@@ -119,7 +119,6 @@ def test_warm_coinbase_call_out_of_gas(
         pre=pre,
         post=post,
         tx=tx,
-        tag="opcode_" + opcode,
     )
 
 
@@ -205,5 +204,4 @@ def test_warm_coinbase_gas_usage(
         pre=pre,
         post=post,
         tx=tx,
-        tag="opcode_" + opcode.lower(),
     )

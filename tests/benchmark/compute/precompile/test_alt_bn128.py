@@ -426,8 +426,8 @@ def test_bn128_pairings_amortized(
     size_per_pairing = 192
 
     gsc = fork.gas_costs()
-    base_cost = gsc.G_PRECOMPILE_ECPAIRING_BASE
-    pairing_cost = gsc.G_PRECOMPILE_ECPAIRING_PER_POINT
+    base_cost = gsc.GAS_PRECOMPILE_ECPAIRING_BASE
+    pairing_cost = gsc.GAS_PRECOMPILE_ECPAIRING_PER_POINT
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
     mem_exp_gas_calculator = fork.memory_expansion_gas_calculator()
     warm_account_access_cost = Op.STATICCALL(

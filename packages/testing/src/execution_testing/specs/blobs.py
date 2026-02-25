@@ -7,7 +7,6 @@ from execution_testing.base_types.base_types import Hash
 from execution_testing.client_clis import TransitionTool
 from execution_testing.execution import BaseExecute, BlobTransaction
 from execution_testing.fixtures import (
-    BaseFixture,
     FixtureFormat,
 )
 from execution_testing.test_types import (
@@ -15,7 +14,7 @@ from execution_testing.test_types import (
     Transaction,
 )
 
-from .base import BaseTest, ExecuteFormat, LabeledExecuteFormat
+from .base import BaseTest, ExecuteFormat, FillResult, LabeledExecuteFormat
 
 
 class BlobsTest(BaseTest):
@@ -38,7 +37,7 @@ class BlobsTest(BaseTest):
         *,
         t8n: TransitionTool,
         fixture_format: FixtureFormat,
-    ) -> BaseFixture:
+    ) -> FillResult:
         """Generate the list of test fixtures."""
         del t8n
         raise Exception(f"Unknown fixture format: {fixture_format}")

@@ -13,6 +13,7 @@ from .rpc import (
     NetRPC,
     PeerConnectionTimeoutError,
     SendTransactionExceptionError,
+    TestingRPC,
 )
 from .rpc_types import (
     BlobAndProofV1,
@@ -20,6 +21,9 @@ from .rpc_types import (
     EthConfigResponse,
     ForkConfig,
     ForkConfigBlobSchedule,
+    JSONRPCRequest,
+    JSONRPCResponse,
+    RPCCall,
     TransactionProtocol,
 )
 
@@ -36,8 +40,12 @@ __all__ = [
     "ForkConfig",
     "ForkConfigBlobSchedule",
     "ForkchoiceUpdateTimeoutError",
+    "JSONRPCRequest",
+    "JSONRPCResponse",
     "NetRPC",
+    "RPCCall",
     "PeerConnectionTimeoutError",
     "SendTransactionExceptionError",
+    "TestingRPC",
     "TransactionProtocol",
 ]

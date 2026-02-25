@@ -11,8 +11,18 @@ from execution_testing.forks import Fork
 from execution_testing.rpc import EngineRPC, EthRPC
 
 
+class ExecuteResult(CamelModel):
+    """
+    Result of the execute operation.
+    """
+
+    benchmark_gas_used: int | None = None
+
+
 class BaseExecute(CamelModel):
     """Represents a base execution format."""
+
+    benchmark_mode: bool = False
 
     # Base Execute class properties
     formats: ClassVar[Dict[str, Type["BaseExecute"]]] = {}
@@ -56,7 +66,7 @@ class BaseExecute(CamelModel):
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
         request: FixtureRequest,
-    ) -> None:
+    ) -> ExecuteResult:
         """Execute the format."""
         pass
 

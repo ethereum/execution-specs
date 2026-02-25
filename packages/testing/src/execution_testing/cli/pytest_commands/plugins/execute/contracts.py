@@ -89,7 +89,7 @@ def deploy_deterministic_factory_contract(
             tx_index=tx_index,
         )
         tx_index += 1
-        eth_rpc.send_wait_transaction(fund_tx)
+        eth_rpc.send_wait_transactions([fund_tx])
         logger.info(f"Funding transaction mined: {fund_tx.hash}")
 
     # Add deployment transaction.
@@ -102,7 +102,7 @@ def deploy_deterministic_factory_contract(
         tx_index=tx_index,
     )
     tx_index += 1
-    eth_rpc.send_wait_transaction(deploy_tx)
+    eth_rpc.send_wait_transactions([deploy_tx])
     logger.info(f"Deployment transaction mined: {deploy_tx.hash}")
     deployment_contract_code = eth_rpc.get_code(DETERMINISTIC_FACTORY_ADDRESS)
     logger.info(f"Deployment contract code: {deployment_contract_code}")

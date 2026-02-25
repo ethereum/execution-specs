@@ -66,7 +66,7 @@ def call_gas(fork: Fork) -> int:
     Defaults to the point evaluation precompile gas cost, but can be
     parametrized to test different amounts.
     """
-    return fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
+    return fork.gas_costs().GAS_PRECOMPILE_POINT_EVALUATION
 
 
 def copy_opcode_cost(fork: Fork, length: int) -> int:
@@ -157,7 +157,7 @@ def tx(
         data=precompile_input,
         to=precompile_caller_address,
         value=0,
-        gas_limit=fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION * 20,
+        gas_limit=fork.gas_costs().GAS_PRECOMPILE_POINT_EVALUATION * 20,
     )
 
 
@@ -172,7 +172,7 @@ def post(
     Prepare expected post for each test, depending on the success or failure of
     the precompile call and the gas usage.
     """
-    precompile_gas = fork.gas_costs().G_PRECOMPILE_POINT_EVALUATION
+    precompile_gas = fork.gas_costs().GAS_PRECOMPILE_POINT_EVALUATION
     if proof == "correct":
         expected_gas_usage = (
             call_gas if call_gas < precompile_gas else precompile_gas

@@ -15,9 +15,10 @@ from dataclasses import dataclass
 from typing import Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes0
-from ethereum_types.numeric import U64, U256, Uint, ulen
+from ethereum_types.numeric import U256, Uint, ulen
 
 from ethereum.exceptions import EthereumException
+from ethereum.state import Address
 from ethereum.trace import (
     EvmStop,
     OpEnd,
@@ -30,33 +31,22 @@ from ethereum.trace import (
 )
 
 from ..blocks import Log
-from ..fork_types import Address
-from ..state import (
+from ..state_tracker import (
     account_has_code_or_nonce,
     account_has_storage,
-    begin_transaction,
-    commit_transaction,
+    copy_tx_state,
     destroy_storage,
     get_account,
+    get_code,
     increment_nonce,
     mark_account_created,
     move_ether,
-    rollback_transaction,
+    restore_tx_state,
     set_code,
-)
-from ..state_tracker import (
-    capture_pre_balance,
-    capture_pre_code,
-    merge_on_failure,
-    merge_on_success,
-    track_address,
-    track_balance_change,
-    track_code_change,
-    track_nonce_change,
 )
 from ..vm import Message
 from ..vm.eoa_delegation import get_delegated_code_address, set_delegation
-from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
+from ..vm.gas import GAS_CODE_DEPOSIT_PER_BYTE, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Evm
 from .exceptions import (
@@ -115,13 +105,12 @@ def process_message_call(message: Message) -> MessageCallOutput:
         Output of the message call
 
     """
-    block_env = message.block_env
+    tx_state = message.tx_env.state
     refund_counter = U256(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
-            block_env.state, message.current_target
-        ) or account_has_storage(block_env.state, message.current_target)
-        track_address(message.tx_env.state_changes, message.current_target)
+            tx_state, message.current_target
+        ) or account_has_storage(tx_state, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0),
@@ -141,9 +130,11 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if delegated_address is not None:
             message.disable_precompiles = True
             message.accessed_addresses.add(delegated_address)
-            message.code = get_account(block_env.state, delegated_address).code
+            message.code = get_code(
+                tx_state,
+                get_account(tx_state, delegated_address).code_hash,
+            )
             message.code_address = delegated_address
-            track_address(message.block_env.state_changes, delegated_address)
 
         evm = process_message(message)
 
@@ -185,10 +176,9 @@ def process_create_message(message: Message) -> Evm:
         Items containing execution specific objects.
 
     """
-    state = message.block_env.state
-    transient_storage = message.tx_env.transient_storage
+    tx_state = message.tx_env.state
     # take snapshot of state before processing the message
-    begin_transaction(state, transient_storage)
+    snapshot = copy_tx_state(tx_state)
 
     # If the address where the account is being created has storage, it is
     # destroyed. This can only happen in the following highly unlikely
@@ -197,28 +187,22 @@ def process_create_message(message: Message) -> Evm:
     #   `CREATE` or `CREATE2` call.
     # * The first `CREATE` happened before Spurious Dragon and left empty
     #   code.
-    destroy_storage(state, message.current_target)
+    destroy_storage(tx_state, message.current_target)
 
     # In the previously mentioned edge case the preexisting storage is ignored
     # for gas refund purposes. In order to do this we must track created
     # accounts. This tracking is also needed to respect the constraints
     # added to SELFDESTRUCT by EIP-6780.
-    mark_account_created(state, message.current_target)
+    mark_account_created(tx_state, message.current_target)
 
-    increment_nonce(state, message.current_target)
-    nonce_after = get_account(state, message.current_target).nonce
-    track_nonce_change(
-        message.state_changes,
-        message.current_target,
-        U64(nonce_after),
-    )
-
-    capture_pre_code(message.tx_env.state_changes, message.current_target, b"")
+    increment_nonce(tx_state, message.current_target)
 
     evm = process_message(message)
     if not evm.error:
         contract_code = evm.output
-        contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
+        contract_code_gas = (
+            Uint(len(contract_code)) * GAS_CODE_DEPOSIT_PER_BYTE
+        )
         try:
             if len(contract_code) > 0:
                 if contract_code[0] == 0xEF:
@@ -227,25 +211,14 @@ def process_create_message(message: Message) -> Evm:
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
         except ExceptionalHalt as error:
-            rollback_transaction(state, transient_storage)
-            merge_on_failure(message.state_changes)
+            restore_tx_state(tx_state, snapshot)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
-            # Note: No need to capture pre code since it's always b"" here
-            set_code(state, message.current_target, contract_code)
-            if contract_code != b"":
-                track_code_change(
-                    message.state_changes,
-                    message.current_target,
-                    contract_code,
-                )
-            commit_transaction(state, transient_storage)
-            merge_on_success(message.state_changes)
+            set_code(tx_state, message.current_target, contract_code)
     else:
-        rollback_transaction(state, transient_storage)
-        merge_on_failure(message.state_changes)
+        restore_tx_state(tx_state, snapshot)
     return evm
 
 
@@ -264,8 +237,7 @@ def process_message(message: Message) -> Evm:
         Items containing execution specific objects
 
     """
-    state = message.block_env.state
-    transient_storage = message.tx_env.transient_storage
+    tx_state = message.tx_env.state
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
 
@@ -288,47 +260,17 @@ def process_message(message: Message) -> Evm:
         error=None,
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
-        state_changes=message.state_changes,
     )
 
     # take snapshot of state before processing the message
-    begin_transaction(state, transient_storage)
-
-    track_address(message.state_changes, message.current_target)
+    snapshot = copy_tx_state(tx_state)
 
     if message.should_transfer_value and message.value != 0:
-        # Track value transfer
-        sender_balance = get_account(state, message.caller).balance
-        recipient_balance = get_account(state, message.current_target).balance
-
-        track_address(message.state_changes, message.caller)
-        capture_pre_balance(
-            message.tx_env.state_changes, message.caller, sender_balance
-        )
-        capture_pre_balance(
-            message.tx_env.state_changes,
-            message.current_target,
-            recipient_balance,
-        )
-
         move_ether(
-            state, message.caller, message.current_target, message.value
-        )
-
-        sender_new_balance = get_account(state, message.caller).balance
-        recipient_new_balance = get_account(
-            state, message.current_target
-        ).balance
-
-        track_balance_change(
-            message.state_changes,
+            tx_state,
             message.caller,
-            U256(sender_new_balance),
-        )
-        track_balance_change(
-            message.state_changes,
             message.current_target,
-            U256(recipient_new_balance),
+            message.value,
         )
 
     try:
@@ -360,11 +302,5 @@ def process_message(message: Message) -> Evm:
         evm.error = error
 
     if evm.error:
-        rollback_transaction(state, transient_storage)
-        if not message.is_create:
-            merge_on_failure(evm.state_changes)
-    else:
-        commit_transaction(state, transient_storage)
-        if not message.is_create:
-            merge_on_success(evm.state_changes)
+        restore_tx_state(tx_state, snapshot)
     return evm

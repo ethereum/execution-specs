@@ -21,7 +21,7 @@ from execution_testing.forks import Fork, get_closest_fork
 from execution_testing.specs import BaseStaticTest, BaseTest
 from execution_testing.tools.tools_code.yul import Yul
 
-from ..forks.forks import ValidityMarker
+from ..forks.forks import ValidityMarker, fork_markers
 from ..shared.helpers import labeled_format_parameter_set
 
 
@@ -267,8 +267,8 @@ class FillerFile(pytest.File):
                             fixturenames = [
                                 spec_parameter_name,
                             ]
-                            marks: List[pytest.Mark] = [
-                                mark  # type: ignore
+                            marks: List[pytest.Mark | pytest.MarkDecorator] = [
+                                mark
                                 for mark in fixture_format_parameter_set.marks
                                 if mark.name != "parametrize"
                             ]
@@ -298,6 +298,7 @@ class FillerFile(pytest.File):
                                             if mark.name != "parametrize"
                                         ]
                                         + extra_function_marks
+                                        + fork_markers(fork=fork)
                                     )
                                     case_params = params.copy() | dict(
                                         zip(
@@ -319,6 +320,7 @@ class FillerFile(pytest.File):
                                         marks=case_marks,
                                     )
                             else:
+                                case_marks = marks[:] + fork_markers(fork=fork)
                                 yield FillerTestItem.from_parent(
                                     self,
                                     original_name=key,
@@ -328,7 +330,7 @@ class FillerFile(pytest.File):
                                     name=f"{key}[{test_id}]",
                                     fork=fork,
                                     fixture_format=fixture_format,
-                                    marks=marks,
+                                    marks=case_marks,
                                 )
             except Exception as e:
                 pytest.fail(f"Error loading file {self.path} as a test: {e}")

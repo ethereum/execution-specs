@@ -20,7 +20,7 @@ from execution_testing.test_types import (
     TransactionTestMetadata,
 )
 
-from .base import BaseExecute
+from .base import BaseExecute, ExecuteResult
 
 logger = get_logger(__name__)
 
@@ -32,13 +32,6 @@ class TransactionPost(BaseExecute):
 
     blocks: List[List[Transaction]]
     post: Alloc
-    # Gas validation fields for benchmark tests
-    expected_benchmark_gas_used: int | None = (
-        None  # Expected total gas to be consumed
-    )
-    skip_gas_used_validation: bool = (
-        False  # Skip gas validation even if expected is set
-    )
 
     format_name: ClassVar[str] = "transaction_post_test"
     description: ClassVar[str] = (
@@ -78,7 +71,7 @@ class TransactionPost(BaseExecute):
         eth_rpc: EthRPC,
         engine_rpc: EngineRPC | None,
         request: FixtureRequest,
-    ) -> None:
+    ) -> ExecuteResult:
         """Execute the format."""
         del fork
         del engine_rpc
@@ -92,7 +85,8 @@ class TransactionPost(BaseExecute):
                     )
 
         # Track transaction hashes for gas validation (benchmarking)
-        all_tx_hashes = []
+        all_tx_hashes: List[Hash] = []
+        last_block_tx_hashes: List[Hash] = []
 
         for block in self.blocks:
             signed_txs: List[Transaction] = []
@@ -117,12 +111,19 @@ class TransactionPost(BaseExecute):
                     tx_index=tx_index,
                 )
                 signed_txs.append(tx)
+            current_block_tx_hashes: List[Hash] = []
             if any(tx.error is not None for tx in signed_txs):
+                tx_queue: List[Transaction] = []
                 for transaction in signed_txs:
                     if transaction.error is None:
-                        eth_rpc.send_wait_transaction(transaction)
-                        all_tx_hashes.append(transaction.hash)
+                        tx_queue.append(transaction)
                     else:
+                        if tx_queue:
+                            eth_rpc.send_wait_transactions(tx_queue)
+                            current_block_tx_hashes.extend(
+                                tx.hash for tx in tx_queue
+                            )
+                            tx_queue = []
                         logger.info(
                             f"Sending transaction expecting rejection "
                             f"(expected error: {transaction.error})..."
@@ -135,72 +136,47 @@ class TransactionPost(BaseExecute):
                             "Transaction rejected as expected: "
                             f"{exc_info.value}"
                         )
+                if tx_queue:
+                    eth_rpc.send_wait_transactions(tx_queue)
+                    current_block_tx_hashes.extend(tx.hash for tx in tx_queue)
             else:
                 # Send transactions (batching is handled by eth_rpc internally)
                 eth_rpc.send_wait_transactions(signed_txs)
-                all_tx_hashes.extend([tx.hash for tx in signed_txs])
+                current_block_tx_hashes = [tx.hash for tx in signed_txs]
+            all_tx_hashes.extend(current_block_tx_hashes)
+            last_block_tx_hashes = current_block_tx_hashes
 
-        # Perform gas validation if required for benchmarking
-        # Ensures benchmark tests consume exactly the expected gas
-        if (
-            not self.skip_gas_used_validation
-            and self.expected_benchmark_gas_used is not None
-        ):
-            total_gas_used = 0
-            # Fetch transaction receipts to get actual gas used
-            for tx_hash in all_tx_hashes:
+        # Fetch transaction receipts to get actual gas used
+        benchmark_gas_used: int | None = None
+        if self.benchmark_mode:
+            benchmark_gas_used = 0
+            for tx_hash in last_block_tx_hashes:
                 receipt = eth_rpc.get_transaction_receipt(tx_hash)
                 assert receipt is not None, (
                     f"Failed to get receipt for transaction {tx_hash}"
                 )
                 gas_used = int(receipt["gasUsed"], 16)
-                total_gas_used += gas_used
+                benchmark_gas_used += gas_used
 
-            # Verify that the total gas consumed matches expectations
-            expected_gas = self.expected_benchmark_gas_used
-            diff = total_gas_used - expected_gas
-            assert total_gas_used == expected_gas, (
-                f"Total gas used ({total_gas_used}) does not match "
-                f"expected benchmark gas ({expected_gas}), "
-                f"difference: {diff}"
-            )
-
-        for address, account in self.post.root.items():
-            balance = eth_rpc.get_balance(address)
-            code = eth_rpc.get_code(address)
-            nonce = eth_rpc.get_transaction_count(address)
-            if account is None:
-                assert balance == 0, (
-                    f"Balance of {address} is {balance}, expected 0."
+        actual_alloc = eth_rpc.get_alloc(self.post)
+        for address, expected_account in self.post.root.items():
+            actual_account = actual_alloc.root[address]
+            assert actual_account is not None
+            if expected_account is None:
+                assert actual_account.balance == 0, (
+                    f"Balance of {address} is "
+                    f"{actual_account.balance}, expected 0."
                 )
-                assert code == b"", (
-                    f"Code of {address} is {code}, expected 0x."
+                assert actual_account.code == b"", (
+                    f"Code of {address} is {actual_account.code}, expected 0x."
                 )
-                assert nonce == 0, (
-                    f"Nonce of {address} is {nonce}, expected 0."
+                assert actual_account.nonce == 0, (
+                    f"Nonce of {address} is "
+                    f"{actual_account.nonce}, expected 0."
                 )
             else:
-                if "balance" in account.model_fields_set:
-                    assert balance == account.balance, (
-                        f"Balance of {address} is {balance}, "
-                        f"expected {account.balance}."
-                    )
-                if "code" in account.model_fields_set:
-                    assert code == account.code, (
-                        f"Code of {address} is {code}, "
-                        f"expected {account.code}."
-                    )
-                if "nonce" in account.model_fields_set:
-                    assert nonce == account.nonce, (
-                        f"Nonce of {address} is {nonce}, "
-                        f"expected {account.nonce}."
-                    )
-                if "storage" in account.model_fields_set:
-                    for key, value in account.storage.items():
-                        storage_value = eth_rpc.get_storage_at(
-                            address, Hash(key)
-                        )
-                        assert storage_value == value, (
-                            f"Storage value at {key} of {address} is "
-                            f"{storage_value}, expected {value}."
-                        )
+                expected_account.check_alloc(address, actual_account)
+
+        return ExecuteResult(
+            benchmark_gas_used=benchmark_gas_used,
+        )

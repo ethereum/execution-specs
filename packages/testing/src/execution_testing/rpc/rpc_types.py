@@ -6,7 +6,7 @@ from enum import Enum
 from hashlib import sha256
 from typing import Annotated, Any, Dict, List, Protocol, Self
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 from execution_testing.base_types import (
     Address,
@@ -55,6 +55,61 @@ class JSONRPCError(Exception):
             )
 
         return f"JSONRPCError(code={self.code}, message={self.message})"
+
+
+class RPCCall(BaseModel):
+    """Represent a JSON-RPC method call before namespace prefixing."""
+
+    method: str
+    params: List[Any] = []
+    request_id: int | str | None = None
+
+
+class JSONRPCRequest(BaseModel):
+    """Represent a JSON-RPC 2.0 request object."""
+
+    jsonrpc: str = "2.0"
+    method: str
+    params: List[Any] = []
+    id: int | str
+
+
+class JSONRPCErrorObject(BaseModel):
+    """Represent the error object in a JSON-RPC 2.0 response."""
+
+    code: int
+    message: str
+    data: str | None = None
+
+
+class JSONRPCResponse(BaseModel):
+    """Represent a JSON-RPC 2.0 response object."""
+
+    jsonrpc: str = "2.0"
+    id: int | str
+    result: Any = None
+    error: JSONRPCErrorObject | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_result_or_error(cls, data: Any) -> Any:
+        """Validate that the response contains 'result' or 'error'."""
+        if isinstance(data, dict):
+            if "result" not in data and "error" not in data:
+                raise ValueError(
+                    "RPC response must contain 'result' or 'error'"
+                )
+        return data
+
+    def result_or_raise(self) -> Any:
+        """Return the result or raise JSONRPCError."""
+        if self.error is not None:
+            raise JSONRPCError(
+                code=self.error.code,
+                message=self.error.message,
+                data=self.error.data,
+            )
+        return self.result
 
 
 class TransactionByHashResponse(Transaction):

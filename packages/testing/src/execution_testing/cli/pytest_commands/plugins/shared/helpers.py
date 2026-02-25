@@ -46,12 +46,22 @@ def labeled_format_parameter_set(
     The label will be used in the test id and also will be added as a marker to
     the generated test case when filling/executing the test.
     """
+    transition_tool_cache_key = getattr(
+        format_with_or_without_label, "transition_tool_cache_key", ""
+    )
+    if transition_tool_cache_key:
+        marks = [
+            pytest.mark.transition_tool_cache_key(transition_tool_cache_key),
+        ]
+    else:
+        marks = []
     if isinstance(
         format_with_or_without_label, LabeledExecuteFormat
     ) or isinstance(format_with_or_without_label, LabeledFixtureFormat):
+        parameter_id = format_with_or_without_label.label
         return pytest.param(
             format_with_or_without_label.format,
-            id=format_with_or_without_label.label,
+            id=parameter_id,
             marks=[
                 getattr(
                     pytest.mark,
@@ -59,20 +69,25 @@ def labeled_format_parameter_set(
                 ),
                 getattr(
                     pytest.mark,
-                    format_with_or_without_label.label.lower(),
+                    parameter_id.lower(),
                 ),
-            ],
+                pytest.mark.fixture_format_id(parameter_id),
+            ]
+            + marks,
         )
     else:
+        parameter_id = format_with_or_without_label.format_name.lower()
         return pytest.param(
             format_with_or_without_label,
-            id=format_with_or_without_label.format_name.lower(),
+            id=parameter_id,
             marks=[
                 getattr(
                     pytest.mark,
-                    format_with_or_without_label.format_name.lower(),
-                )
-            ],
+                    parameter_id,
+                ),
+                pytest.mark.fixture_format_id(parameter_id),
+            ]
+            + marks,
         )
 
 

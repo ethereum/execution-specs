@@ -16,7 +16,13 @@ from typing_extensions import override
 from ethereum import trace
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
-from ethereum.forks.amsterdam.state_tracker import StateChanges
+
+# TODO: Make this not amsterdam specific once the state tracker has
+# been added to older forks.
+from ethereum.forks.amsterdam.block_access_lists import (
+    BlockAccessIndex,
+    BlockAccessListBuilder,
+)
 from ethereum_spec_tools.forks import Hardfork, TemporaryHardfork
 
 from ..loaders.fixture_loader import Load
@@ -110,9 +116,9 @@ class ForkCache(AbstractContextManager):
         self,
         template: Hardfork,
         fork_criteria: ByBlockNumber | ByTimestamp | Unscheduled | None = None,
-        target_blob_gas_per_block: U64 | None = None,
+        blob_target_gas_per_block: U64 | None = None,
         gas_per_blob: U64 | None = None,
-        min_blob_gasprice: Uint | None = None,
+        blob_min_gasprice: Uint | None = None,
         blob_base_fee_update_fraction: Uint | None = None,
         max_blob_gas_per_block: U64 | None = None,
         blob_schedule_target: U64 | None = None,
@@ -125,9 +131,9 @@ class ForkCache(AbstractContextManager):
         cache_key = (
             template.short_name,
             fork_criteria,
-            target_blob_gas_per_block,
+            blob_target_gas_per_block,
             gas_per_blob,
-            min_blob_gasprice,
+            blob_min_gasprice,
             blob_base_fee_update_fraction,
             max_blob_gas_per_block,
             blob_schedule_target,
@@ -144,9 +150,9 @@ class ForkCache(AbstractContextManager):
         clone = Hardfork.clone(
             template=template,
             fork_criteria=fork_criteria,
-            target_blob_gas_per_block=target_blob_gas_per_block,
+            blob_target_gas_per_block=blob_target_gas_per_block,
             gas_per_blob=gas_per_blob,
-            min_blob_gasprice=min_blob_gasprice,
+            blob_min_gasprice=blob_min_gasprice,
             blob_base_fee_update_fraction=blob_base_fee_update_fraction,
             max_blob_gas_per_block=max_blob_gas_per_block,
             blob_schedule_target=blob_schedule_target,
@@ -285,10 +291,20 @@ class T8N(Load):
             "coinbase": self.env.coinbase,
             "number": self.env.block_number,
             "time": self.env.block_timestamp,
-            "state": self.alloc.state,
             "block_gas_limit": self.env.block_gas_limit,
             "chain_id": self.chain_id,
         }
+
+        if self.fork.has_block_state:
+            from ethereum.forks.amsterdam.state_tracker import (
+                BlockState,
+            )
+
+            block_state = BlockState(pre_state=self.alloc.state)
+            kw_arguments["state"] = block_state
+            self._block_state = block_state
+        else:
+            kw_arguments["state"] = self.alloc.state
 
         block_environment = self.fork.BlockEnvironment
 
@@ -306,26 +322,39 @@ class T8N(Load):
             )
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
 
-        if self.fork.has_block_access_list_hash:
-            kw_arguments["state_changes"] = StateChanges()
+        if self.fork.has_hash_block_access_list:
+            kw_arguments["block_access_list_builder"] = (
+                BlockAccessListBuilder()
+            )
 
         return block_environment(**kw_arguments)
 
     def backup_state(self) -> None:
         """Back up the state in order to restore in case of an error."""
         state = self.alloc.state
-        self.alloc.state_backup = (
-            self.fork.copy_trie(state._main_trie),
-            {
-                k: self.fork.copy_trie(t)
-                for (k, t) in state._storage_tries.items()
-            },
-        )
+        main_trie = self.fork.copy_trie(state._main_trie)
+        storage_tries = {
+            k: self.fork.copy_trie(t)
+            for (k, t) in state._storage_tries.items()
+        }
+        # TODO: backport pass amsterdam
+        if self.fork.has_block_state:
+            self.alloc.state_backup = (
+                main_trie,
+                storage_tries,
+                dict(state._code_store),
+            )
+        else:
+            self.alloc.state_backup = (main_trie, storage_tries)
 
     def restore_state(self) -> None:
         """Restore the state from the backup."""
         state = self.alloc.state
-        state._main_trie, state._storage_tries = self.alloc.state_backup
+        state._main_trie = self.alloc.state_backup[0]
+        state._storage_tries = self.alloc.state_backup[1]
+        # TODO: backport pass amsterdam
+        if self.fork.has_block_state:
+            state._code_store = self.alloc.state_backup[2]
 
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""
@@ -408,13 +437,12 @@ class T8N(Load):
                     f"Transaction {original_idx} failed: {e!r}"
                 )
 
-        # Post-execution operations use index N+1
-        if self.fork.has_block_access_list_hash:
-            from ethereum.forks.amsterdam.state_tracker import (
-                increment_block_access_index,
+        # EIP-7928: Post-execution operations use index N+1
+        num_txs = len(self.txs.transactions)
+        if self.fork.has_hash_block_access_list:
+            block_env.block_access_list_builder.block_access_index = (
+                BlockAccessIndex(Uint(num_txs) + Uint(1))
             )
-
-            increment_block_access_index(block_env.state_changes)
 
         if not self.fork.proof_of_stake:
             if self.options.state_reward is None:
@@ -432,10 +460,9 @@ class T8N(Load):
         if self.fork.has_compute_requests_hash:
             self.fork.process_general_purpose_requests(block_env, block_output)
 
-        if self.fork.has_block_access_list_hash:
-            # Build block access list from block_env.state_changes
+        if self.fork.has_hash_block_access_list:
             block_output.block_access_list = self.fork.build_block_access_list(
-                block_env.state_changes
+                block_env.block_access_list_builder, block_env.state
             )
 
     def run_blockchain_test(self) -> None:
