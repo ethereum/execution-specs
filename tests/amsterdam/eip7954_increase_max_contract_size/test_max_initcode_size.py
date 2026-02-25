@@ -44,7 +44,7 @@ TX_INITCODE_SIZE_PARAMS = [
 
 
 @pytest.mark.parametrize("initcode_size", TX_INITCODE_SIZE_PARAMS)
-def test_initcode_size(
+def test_max_initcode_size(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -79,7 +79,7 @@ def test_initcode_size(
 
 @pytest.mark.parametrize("initcode_size", INITCODE_SIZE_PARAMS)
 @pytest.mark.with_all_create_opcodes()
-def test_create_opcode_initcode_size(
+def test_max_initcode_size_via_create(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -152,7 +152,7 @@ def test_create_opcode_initcode_size(
         ),
     ],
 )
-def test_initcode_gas_metering_tx(
+def test_max_initcode_size_gas_metering(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -195,7 +195,7 @@ def test_initcode_gas_metering_tx(
     ],
 )
 @pytest.mark.with_all_create_opcodes()
-def test_initcode_gas_metering_create_opcodes(
+def test_max_initcode_size_gas_metering_via_create(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,

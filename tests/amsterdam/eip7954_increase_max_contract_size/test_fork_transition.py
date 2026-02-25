@@ -32,7 +32,7 @@ pytestmark = pytest.mark.valid_at_transition_to("Amsterdam")
 CREATE2_SALT = 0xC0FFEE
 
 
-def test_deploy_size_fork_transition(
+def test_max_code_size_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -82,7 +82,7 @@ def test_deploy_size_fork_transition(
 
 
 @pytest.mark.with_all_create_opcodes()
-def test_create_opcode_deploy_size_fork_transition(
+def test_max_code_size_via_create_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -163,7 +163,7 @@ def test_create_opcode_deploy_size_fork_transition(
 
 
 @pytest.mark.exception_test
-def test_initcode_size_fork_transition(
+def test_max_initcode_size_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -219,7 +219,7 @@ def test_initcode_size_fork_transition(
 
 
 @pytest.mark.with_all_create_opcodes()
-def test_create_opcode_initcode_size_fork_transition(
+def test_max_initcode_size_via_create_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -305,7 +305,7 @@ def test_create_opcode_initcode_size_fork_transition(
 
 
 @pytest.mark.exception_test
-def test_max_code_with_max_initcode_fork_transition(
+def test_max_code_size_with_max_initcode_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -358,7 +358,7 @@ def test_max_code_with_max_initcode_fork_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-def test_deploy_at_parent_max_across_fork(
+def test_parent_max_code_size_across_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     fork: Fork,

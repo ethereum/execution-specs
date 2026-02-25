@@ -27,7 +27,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7954.version
 pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
 
 
-def test_deploy_max_code_size_mainnet(
+def test_max_code_size_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -51,7 +51,7 @@ def test_deploy_max_code_size_mainnet(
     state_test(pre=pre, tx=tx, post=post)
 
 
-def test_deploy_over_max_code_size_mainnet(
+def test_over_max_code_size_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -77,7 +77,7 @@ def test_deploy_over_max_code_size_mainnet(
     state_test(pre=pre, tx=tx, post=post)
 
 
-def test_max_initcode_tx_mainnet(
+def test_max_initcode_size_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -104,7 +104,7 @@ def test_max_initcode_tx_mainnet(
 
 
 @pytest.mark.exception_test
-def test_over_max_initcode_tx_mainnet(
+def test_over_max_initcode_size_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -133,7 +133,7 @@ def test_over_max_initcode_tx_mainnet(
     state_test(pre=pre, tx=tx, post=post)
 
 
-def test_max_code_with_max_initcode_mainnet(
+def test_max_code_size_with_max_initcode_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -160,7 +160,7 @@ def test_max_code_with_max_initcode_mainnet(
     state_test(pre=pre, tx=tx, post=post)
 
 
-def test_opcodes_on_max_size_contract_mainnet(
+def test_max_code_size_opcodes_mainnet(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,

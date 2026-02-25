@@ -33,7 +33,7 @@ DEPLOY_CODE_SIZE_PARAMS = [
 
 
 @pytest.mark.parametrize("deploy_code_size", DEPLOY_CODE_SIZE_PARAMS)
-def test_deploy_size(
+def test_max_code_size(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -65,7 +65,7 @@ def test_deploy_size(
 
 @pytest.mark.parametrize("deploy_code_size", DEPLOY_CODE_SIZE_PARAMS)
 @pytest.mark.with_all_create_opcodes()
-def test_create_opcode_deploy_size(
+def test_max_code_size_via_create(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -130,7 +130,7 @@ def test_create_opcode_deploy_size(
         pytest.param(1, id="short_one_gas"),
     ],
 )
-def test_deploy_gas_usage(
+def test_max_code_size_deposit_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -171,7 +171,7 @@ def test_deploy_gas_usage(
     state_test(pre=pre, tx=tx, post=post)
 
 
-def test_max_code_with_max_initcode(
+def test_max_code_size_with_max_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -198,7 +198,7 @@ def test_max_code_with_max_initcode(
     state_test(pre=pre, tx=tx, post=post)
 
 
-def test_external_opcodes(
+def test_max_code_size_external_opcodes(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
@@ -236,7 +236,7 @@ def test_external_opcodes(
     state_test(pre=pre, tx=tx, post=post)
 
 
-def test_self_opcodes(
+def test_max_code_size_self_opcodes(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
