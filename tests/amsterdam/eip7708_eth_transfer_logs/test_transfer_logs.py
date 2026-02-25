@@ -1208,7 +1208,7 @@ def test_selfdestruct_to_self_cross_tx_no_log(
     Test that selfdestruct-to-self in a cross-tx context emits no log.
 
     A contract created in Tx1 is not in created_accounts during Tx2.
-    Selfdestruct-to-self in Tx2 emits no log per EIP-7708: no Selfdestruct
+    Selfdestruct-to-self in Tx2 emits no log per EIP-7708: no Burn
     log (not same-tx) and no Transfer log (not a different account).
 
     Tx1: Contract creation tx (to=None) deploying SELFDESTRUCT(ADDRESS),
