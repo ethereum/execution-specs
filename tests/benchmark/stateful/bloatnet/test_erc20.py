@@ -6,6 +6,7 @@ Tests storage operations.
 import json
 import math
 from pathlib import Path
+from execution_testing.specs.benchmark import BenchmarkTestFiller
 from execution_testing.test_types import Environment
 import pytest
 from execution_testing import (
@@ -58,7 +59,7 @@ MAX_UINT256 = (1 << 256) - 1
 @pytest.mark.parametrize("warm", [False, True])
 @pytest.mark.repricing
 def test_sstore_erc20(
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
@@ -111,6 +112,8 @@ def test_sstore_erc20(
 
     contract = pre.deploy_contract(code=code)
 
+    sender = pre.fund_eoa()
+
     blocks = []
 
     tx_cost = fork.transaction_intrinsic_cost_calculator()
@@ -127,24 +130,26 @@ def test_sstore_erc20(
                         break
                     txs.append(Transaction(
                         to=contract,
-                        gas_limit=gas_limit
+                        gas_limit=gas_limit,
+                        sender=sender
                     ))
                     remaining_gas = remaining_gas - gas_limit
                     current_slots = current_slots + gas_limit // setup_write_costs
                 blocks.append(Block(txs=txs))
 
     with TestPhaseManager.execution():
-                remaining_gas = gas_benchmark_value
-                txs = []
-                while remaining_gas > 0:
-                    gas_limit=tx_gas_limit if remaining_gas > tx_gas_limit else remaining_gas
-                    if gas_limit < tx_cost():
-                        break
-                    txs.append(Transaction(
-                        to=contract,
-                        gas_limit=gas_limit,
-                        value=1
-                    ))
-                    remaining_gas = remaining_gas - gas_limit
-                blocks.append(Block(txs=txs))
-    blockchain_test(blocks=blocks,post={})
+        remaining_gas = gas_benchmark_value
+        txs = []
+        while remaining_gas > 0:
+            gas_limit=tx_gas_limit if remaining_gas > tx_gas_limit else remaining_gas
+            if gas_limit < tx_cost():
+                break
+            txs.append(Transaction(
+                to=contract,
+                gas_limit=gas_limit,
+                value=1,
+                sender=sender
+            ))
+            remaining_gas = remaining_gas - gas_limit
+        blocks.append(Block(txs=txs))
+    benchmark_test(blocks=blocks,post={}, skip_gas_used_validation=True)
