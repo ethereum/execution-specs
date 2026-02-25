@@ -417,3 +417,35 @@ def test_mod_arithmetic(
     benchmark_test(
         tx=tx,
     )
+
+params = [
+    (base, exp)
+    for base in [3, 5, 7, 11, 13, 136279841]
+    for exp in [3, 5, 7, 11, 13, 136279841] # Mersenne prime exponent used as base and exp
+]
+@pytest.mark.parametrize("base, exp", params)
+def test_exp_bench_arithmetic(
+    benchmark_test: BenchmarkTestFiller,
+    base: int,
+    exp: int
+) -> None:
+    """
+    Benchmark binary instructions (takes two args, pushes one value).
+    The execution starts with two initial values on the stack
+    The stack is balanced by the DUP2 instruction.
+    """
+    tx_data = b"".join(
+        arg.to_bytes(32, byteorder="big") for arg in (base, exp)
+    )
+
+    setup = Op.CALLDATALOAD(0) + Op.CALLDATALOAD(32) + Op.DUP2 + Op.DUP2
+    attack_block = Op.DUP2 + Op.EXP
+    cleanup = Op.POP + Op.POP + Op.DUP2 + Op.DUP2
+    benchmark_test(
+        code_generator=JumpLoopGenerator(
+            setup=setup,
+            attack_block=attack_block,
+            cleanup=cleanup,
+            tx_kwargs={"data": tx_data},
+        ),
+    )
