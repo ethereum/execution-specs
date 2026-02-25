@@ -89,6 +89,7 @@ REFERENCE_SPEC_VERSION = "1.0"
 
 @pytest.mark.parametrize("token_name", SLOAD_TOKENS)
 @pytest.mark.parametrize("existing_slots", [False, True])
+@pytest.mark.parametrize("cached", [False, True])
 def test_sload_empty_erc20_balanceof(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -97,6 +98,7 @@ def test_sload_empty_erc20_balanceof(
     tx_gas_limit: int,
     token_name: str,
     existing_slots: bool,
+    cached: bool
 ) -> None:
     """Benchmark SLOAD using ERC20 balanceOf on bloatnet."""
     # Stub Account
@@ -125,8 +127,7 @@ def test_sload_empty_erc20_balanceof(
         + Op.CALLDATALOAD(0)  # [num_calls]
     )
 
-    loop = While(
-        body=Op.POP(
+    call_balance_of = Op.POP(
             Op.CALL(
                 address=erc20_address,
                 value=0,
@@ -138,6 +139,11 @@ def test_sload_empty_erc20_balanceof(
                 address_warm=True,
             )
         )
+
+    loop = While(
+        body=call_balance_of
+        # Do the same call again for the cached variant
+        + Bytecode() if not cached else call_balance_of
         + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
         condition=Op.PUSH1(1)  # [1, num_calls]
         + Op.SWAP1  # [num_calls, 1]
