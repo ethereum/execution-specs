@@ -20,6 +20,9 @@ runs:
         cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
         version: "0.10.4"
         python-version: ${{ inputs.python-version }}
+    - name: Prefer uv-managed Python over system Python
+      shell: bash
+      run: echo "UV_PYTHON_PREFERENCE=only-managed" >> "$GITHUB_ENV"
     - name: Install tox
       shell: bash
       run: uv tool install tox
