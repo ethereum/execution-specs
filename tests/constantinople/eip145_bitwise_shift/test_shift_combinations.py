@@ -7,11 +7,13 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
+from execution_testing.forks import Osaka
 
 from .spec import Spec, ref_spec_145
 
@@ -60,7 +62,11 @@ combinations = list(itertools.product(list_of_args, repeat=2))
     pr=["https://github.com/ethereum/execution-spec-tests/pull/1683"],
 )
 def test_combinations(
-    state_test: StateTestFiller, pre: Alloc, opcode: Op, operation: Callable
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+    operation: Callable,
 ) -> None:
     """Test bitwise shift combinations."""
     result = Storage()
@@ -79,10 +85,13 @@ def test_combinations(
         + Op.STOP,
     )
 
+    # Osaka (EIP-7825) caps transaction gas limit at 16,777,216.
+    gas_limit = 16_000_000 if fork >= Osaka else 25_000_000
+
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=address_to,
-        gas_limit=5_000_000,
+        gas_limit=gas_limit,
     )
 
     state_test(pre=pre, post={address_to: Account(storage=result)}, tx=tx)

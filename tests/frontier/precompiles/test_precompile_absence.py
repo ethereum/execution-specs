@@ -12,6 +12,7 @@ from execution_testing import (
     Storage,
     Transaction,
 )
+from execution_testing.forks import Osaka
 
 UPPER_BOUND = 0x101
 RETURNDATASIZE_OFFSET = 0x10000000000000000  # Must be greater than UPPER_BOUND
@@ -60,9 +61,12 @@ def test_precompile_absence(
         call_code, storage=storage.canary()
     )
 
+    # Osaka (EIP-7825) caps transaction gas limit at 16,777,216.
+    gas_limit = 16_000_000 if fork >= Osaka else 30_000_000
+
     tx = Transaction(
         to=entry_point_address,
-        gas_limit=10_000_000,
+        gas_limit=gas_limit,
         sender=pre.fund_eoa(),
         protected=True,
     )

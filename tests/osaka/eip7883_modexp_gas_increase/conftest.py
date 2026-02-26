@@ -15,7 +15,7 @@ from execution_testing import (
     Transaction,
     keccak256,
 )
-from execution_testing.forks import London, Osaka
+from execution_testing.forks import Amsterdam, London, Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .spec import Spec, Spec7883
@@ -61,7 +61,7 @@ def total_tx_gas_needed(
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     sstore_gas = fork.gas_costs().G_STORAGE_SET * (len(modexp_expected) // 32)
-    extra_gas = 100_000
+    extra_gas = 500_000 if fork >= Amsterdam else 100_000
 
     return (
         extra_gas
@@ -74,9 +74,19 @@ def total_tx_gas_needed(
 
 @pytest.fixture
 def exceeds_tx_gas_cap(
-    total_tx_gas_needed: int, fork: Fork, env: Environment
+    total_tx_gas_needed: int,
+    fork: Fork,
+    env: Environment,
+    precompile_gas: int,
 ) -> bool:
     """Determine if total gas requirements exceed transaction gas cap."""
+    if fork >= Amsterdam:
+        # EIP-8037: tx.gas can exceed TX_MAX_GAS_LIMIT; excess fills
+        # state_gas_reservoir. But regular gas is still capped at
+        # TX_MAX_GAS_LIMIT, so if the precompile alone needs more regular gas
+        # than the budget, the call will fail.
+        cap = fork.transaction_gas_limit_cap()
+        return cap is not None and precompile_gas > cap
     tx_gas_limit_cap = fork.transaction_gas_limit_cap() or env.gas_limit
     return total_tx_gas_needed > tx_gas_limit_cap
 
@@ -275,6 +285,9 @@ def tx_gas_limit(
     """
     Transaction gas limit used for the test (Can be overridden in the test).
     """
+    if fork >= Amsterdam:
+        # EIP-8037: tx gas limit can exceed TX_MAX_GAS_LIMIT.
+        return min(total_tx_gas_needed, env.gas_limit)
     tx_gas_limit_cap = fork.transaction_gas_limit_cap() or env.gas_limit
     return min(tx_gas_limit_cap, total_tx_gas_needed)
 

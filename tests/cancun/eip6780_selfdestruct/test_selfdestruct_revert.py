@@ -25,7 +25,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Cancun
+from execution_testing.forks import Amsterdam, Cancun
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
@@ -433,7 +433,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
     )
 
     expected_block_access_list = None
@@ -529,6 +529,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
 @pytest.mark.valid_from("Cancun")
 def test_selfdestruct_not_created_in_same_tx_with_revert(
     state_test: StateTestFiller,
+    fork: Fork,
     sender: EOA,
     env: Environment,
     entry_code_address: Address,
@@ -597,7 +598,7 @@ def test_selfdestruct_not_created_in_same_tx_with_revert(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)

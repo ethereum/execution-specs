@@ -29,6 +29,7 @@ from execution_testing import (
     TransactionException,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 
 from .spec import Spec, ref_spec_7702
 
@@ -42,6 +43,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7702.version
 def test_pointer_contract_pointer_loop(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     sender_delegated: bool,
     sender_is_auth_signer: bool,
 ) -> None:
@@ -75,7 +77,10 @@ def test_pointer_contract_pointer_loop(
     )
 
     storage_loop: Storage = Storage()
-    contract_worked = storage_loop.store_next(112, "contract_loop_worked")
+    expected_loop_count = 117 if fork >= Amsterdam else 112
+    contract_worked = storage_loop.store_next(
+        expected_loop_count, "contract_loop_worked"
+    )
     contract_loop = pre.deploy_contract(
         code=Op.SSTORE(contract_worked, Op.ADD(1, Op.SLOAD(0)))
         + Op.CALL(gas=1_000_000, address=pointer_a)
@@ -91,7 +96,7 @@ def test_pointer_contract_pointer_loop(
 
     tx = Transaction(
         to=pointer_a,
-        gas_limit=1_000_000,
+        gas_limit=3_000_000 if fork >= Amsterdam else 1_000_000,
         data=b"",
         value=0,
         sender=sender,
@@ -680,6 +685,7 @@ class AccessListTo(Enum):
     [AccessListTo.POINTER_ADDRESS, AccessListTo.CONTRACT_ADDRESS],
 )
 @pytest.mark.valid_from("Prague")
+@pytest.mark.valid_until("Osaka")
 def test_gas_diff_pointer_vs_direct_call(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -689,8 +695,24 @@ def test_gas_diff_pointer_vs_direct_call(
     access_list_to: AccessListTo,
 ) -> None:
     """
-    Check the gas difference when calling the contract directly vs as a pointer
+    Check the gas difference when calling the contract directly vs
+    as a pointer.
+
     Combine with AccessList and AuthTuple gas reductions scenarios.
+
+    Redundant from Amsterdam: EIP-8037 replaces the one-dimensional
+    SSTORE gas cost (G_STORAGE_SET) with a two-dimensional split:
+    regular gas (GAS_STORAGE_UPDATE - GAS_COLD_SLOAD) and state gas
+    (STATE_BYTES_PER_STORAGE_SET * cost_per_state_byte). In sub-calls
+    state_gas_left=0, so state gas falls to gas_left -- changing what
+    the GAS opcode reports. Auth refund
+    (STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte) goes to
+    state_gas_reservoir, further altering gas visibility between
+    frames.
+
+    TODO: Add Amsterdam-specific variant in tests/amsterdam/ that
+    verifies pointer vs direct call gas costs under EIP-8037's 2D
+    gas model with reservoir semantics.
     """
     env = Environment()
 
@@ -903,16 +925,27 @@ def test_gas_diff_pointer_vs_direct_call(
 
 
 @pytest.mark.valid_from("Prague")
+@pytest.mark.valid_until("Osaka")
 def test_pointer_call_followed_by_direct_call(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
 ) -> None:
     """
-    If we first call by pointer then direct call, will the call/sload be hot
-    The direct call will warm because pointer access marks it warm But the
-    sload is still cold because storage marked hot from pointer's account in a
-    pointer call.
+    If we first call by pointer then direct call, will the
+    call/sload be hot.
+
+    The direct call will warm because pointer access marks it warm.
+    But the sload is still cold because storage marked hot from
+    pointer's account in a pointer call.
+
+    Redundant from Amsterdam: EIP-8037 replaces one-dimensional
+    SSTORE gas costs with a 2D split (regular + state gas), changing
+    what the GAS opcode reports. See
+    test_gas_diff_pointer_vs_direct_call for details.
+
+    TODO: Add Amsterdam-specific variant in tests/amsterdam/ that
+    verifies pointer warming behavior with 2D gas cost measurements.
     """
     env = Environment()
 
@@ -1804,6 +1837,7 @@ class DelegationTo(Enum):
 def test_double_auth(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     first_delegation: DelegationTo,
     second_delegation: DelegationTo,
 ) -> None:
@@ -1837,7 +1871,7 @@ def test_double_auth(
 
     tx = Transaction(
         to=contract_main,
-        gas_limit=200_000,
+        gas_limit=500_000 if fork >= Amsterdam else 200_000,
         data=b"",
         value=0,
         sender=sender,
@@ -1896,6 +1930,7 @@ def test_double_auth(
 def test_pointer_resets_an_empty_code_account_with_storage(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     So in Block1 we create a sender with empty code, but non empty storage
@@ -1918,9 +1953,10 @@ def test_pointer_resets_an_empty_code_account_with_storage(
         + Op.SSTORE(pointer_storage.store_next(2, "slot2"), 2)
     )
 
+    gas_limit = 500_000 if fork >= Amsterdam else 200_000
     tx_set_pointer_storage = Transaction(
         to=pointer,
-        gas_limit=200_000,
+        gas_limit=gas_limit,
         data=b"",
         value=0,
         sender=sender,
@@ -1934,7 +1970,7 @@ def test_pointer_resets_an_empty_code_account_with_storage(
     )
     tx_set_sender_storage = Transaction(
         to=sender,
-        gas_limit=200_000,
+        gas_limit=gas_limit,
         data=b"",
         value=0,
         sender=sender,
@@ -1949,7 +1985,7 @@ def test_pointer_resets_an_empty_code_account_with_storage(
 
     tx_reset_code = Transaction(
         to=pointer,
-        gas_limit=200_000,
+        gas_limit=gas_limit,
         data=b"",
         value=0,
         nonce=3,

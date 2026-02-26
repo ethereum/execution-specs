@@ -127,8 +127,7 @@ def test_bal_sstore_and_oog(
     # - PUSH1 (value and slot) = G_VERY_LOW * 2
     # - SSTORE cold (to zero slot) = G_STORAGE_SET + G_COLD_SLOAD
     sload_cost = gas_costs.G_COLD_SLOAD
-    sstore_cost = gas_costs.G_STORAGE_SET
-    sstore_cold_cost = sstore_cost + sload_cost
+    sstore_cold_cost = gas_costs.G_STORAGE_SET + sload_cost
     push_cost = gas_costs.G_VERY_LOW * 2
     stipend = gas_costs.G_CALL_STIPEND
 
@@ -637,11 +636,10 @@ def test_bal_call_no_delegation_oog_after_target_access(
         access_list=access_list,
     )
 
-    # Target is always in BAL after state access but value transfer fails
-    # (no balance changes)
+    # EIP-8037: charge_state_gas for new account creation causes OOG before
+    # the child frame is created, so the target is not tracked in BAL.
     account_expectations: Dict[Address, BalAccountExpectation | None] = {
         caller: BalAccountExpectation.empty(),
-        target: BalAccountExpectation.empty(),
     }
 
     post_state = {

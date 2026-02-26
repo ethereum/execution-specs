@@ -14,12 +14,14 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
     Transaction,
     ceiling_division,
 )
+from execution_testing.forks import Amsterdam
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 
@@ -138,11 +140,11 @@ def callee_address(pre: Alloc, callee_bytecode: Bytecode) -> Address:  # noqa: D
 
 
 @pytest.fixture
-def tx(pre: Alloc, caller_address: Address) -> Transaction:  # noqa: D103
+def tx(pre: Alloc, fork: Fork, caller_address: Address) -> Transaction:  # noqa: D103
     return Transaction(
         sender=pre.fund_eoa(),
         to=caller_address,
-        gas_limit=1_000_000,
+        gas_limit=5_000_000 if fork >= Amsterdam else 1_000_000,
     )
 
 

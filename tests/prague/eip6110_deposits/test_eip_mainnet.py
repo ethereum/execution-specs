@@ -48,7 +48,10 @@ def test_eip_6110(
     pre: Alloc,
     blocks: List[Block],
 ) -> None:
-    """Test making a deposit to the beacon chain deposit contract."""
+    """
+    Test making a deposit to the beacon chain deposit contract on
+    mainnet.
+    """
     blockchain_test(
         pre=pre,
         post={},

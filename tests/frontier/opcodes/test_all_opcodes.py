@@ -20,6 +20,7 @@ from execution_testing import (
     Transaction,
     gas_test,
 )
+from execution_testing.forks import Amsterdam
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -93,7 +94,15 @@ def test_all_opcodes(
                 Op.PUSH1(opcode.int()),
                 # Limit gas to limit the gas consumed by the exceptional aborts
                 # in each subcall that uses an undefined opcode.
-                Op.CALL(35_000, opcode_address, 0, 0, 0, 0, 0),
+                Op.CALL(
+                    35_000,
+                    opcode_address,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ),
             )
             for opcode, opcode_address in code_contract.items()
         )
@@ -113,9 +122,13 @@ def test_all_opcodes(
         ),
     }
 
+    # Amsterdam (EIP-8037) needs gas_limit > TX_MAX_GAS_LIMIT (16,777,216) to
+    # provide a state_gas_reservoir for SSTORE/CREATE state gas costs.
+    gas_limit = 50_000_000 if fork >= Amsterdam else 9_000_000
+
     tx = Transaction(
         sender=pre.fund_eoa(),
-        gas_limit=9_000_000,
+        gas_limit=gas_limit,
         to=contract_address,
         protected=fork.supports_protected_txs(),
     )
@@ -180,7 +193,7 @@ def test_stack_overflow(
     )
 
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=500_000,
         to=contract,
         sender=pre.fund_eoa(),
         protected=fork.supports_protected_txs(),
@@ -246,7 +259,7 @@ def test_max_stack(
     )
 
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=500_000,
         to=contract,
         sender=pre.fund_eoa(),
         protected=fork.supports_protected_txs(),

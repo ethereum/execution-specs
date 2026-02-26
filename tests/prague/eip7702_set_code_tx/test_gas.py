@@ -845,6 +845,7 @@ def gas_test_parameter_args(
     )
 )
 @pytest.mark.slow()
+@pytest.mark.valid_until("Osaka")
 def test_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,

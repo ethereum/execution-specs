@@ -15,7 +15,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.forks import Cancun
+from execution_testing.forks import Amsterdam, Cancun
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
@@ -223,7 +223,7 @@ def test_reentrancy_selfdestruct_revert(
     tx = Transaction(
         sender=sender,
         to=executor_contract_address,
-        gas_limit=500_000,
+        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
         value=0,
     )
 

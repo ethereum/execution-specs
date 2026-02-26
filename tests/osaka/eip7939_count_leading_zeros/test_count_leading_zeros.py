@@ -20,6 +20,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import Spec, ref_spec_7939
@@ -242,7 +243,7 @@ def test_clz_stack_not_overflow(
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=6_000_000,
+        gas_limit=20_000_000 if fork >= Amsterdam else 6_000_000,
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -250,7 +251,7 @@ def test_clz_stack_not_overflow(
 
 @pytest.mark.valid_from("Osaka")
 def test_clz_push_operation_same_value(
-    state_test: StateTestFiller, pre: Alloc
+    state_test: StateTestFiller, pre: Alloc, fork: Fork
 ) -> None:
     """Test CLZ opcode returns the same value via different push operations."""
     storage = {}
@@ -270,7 +271,7 @@ def test_clz_push_operation_same_value(
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=12_000_000,
+        gas_limit=30_000_000 if fork >= Amsterdam else 12_000_000,
     )
 
     post = {
@@ -424,8 +425,9 @@ auth_account_start_balance = 0
 def test_clz_from_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
-    """Test the address opcode in a set-code transaction."""
+    """Test the CLZ opcode in a set-code transaction."""
     storage = Storage()
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
@@ -440,7 +442,7 @@ def test_clz_from_set_code(
     set_code_to_address = pre.deploy_contract(set_code)
 
     tx = Transaction(
-        gas_limit=200_000,
+        gas_limit=500_000 if fork >= Amsterdam else 200_000,
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -620,9 +622,9 @@ def test_clz_initcode_context(state_test: StateTestFiller, pre: Alloc) -> None:
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 def test_clz_initcode_create(
-    state_test: StateTestFiller, pre: Alloc, opcode: Op
+    state_test: StateTestFiller, pre: Alloc, fork: Fork, opcode: Op
 ) -> None:
-    """Test CLZ opcode behavior when creating a contract."""
+    """Test CLZ opcode behavior in initcode executed via CREATE/CREATE2."""
     bits = [0, 1, 64, 128, 255]  # expected values: [255, 254, 191, 127, 0]
 
     storage = Storage()
@@ -650,7 +652,7 @@ def test_clz_initcode_create(
 
     tx = Transaction(
         to=factory_contract_address,
-        gas_limit=200_000,
+        gas_limit=500_000 if fork >= Amsterdam else 200_000,
         data=ext_code,
         sender=sender_address,
     )
@@ -695,6 +697,7 @@ class CallingContext:
 def test_clz_call_operation(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     opcode: Op,
     context: CallingContext,
 ) -> None:
@@ -740,7 +743,7 @@ def test_clz_call_operation(
     tx = Transaction(
         to=caller_address,
         sender=pre.fund_eoa(),
-        gas_limit=200_000,
+        gas_limit=17_200_000 if fork >= Amsterdam else 200_000,
     )
 
     post = {}

@@ -273,17 +273,38 @@ class TestContractCreationGasUsage:
         )
 
     @pytest.fixture
+    def code_deposit_gas(self, fork: Fork, initcode: Initcode) -> int:
+        """
+        Calculate code deposit gas cost, accounting for Amsterdam's
+        EIP-8037 state gas for code storage.
+
+        Pre-Amsterdam: G_CODE_DEPOSIT_BYTE * code_size
+        (= initcode.deployment_gas).
+        Amsterdam+: cpsb * code_size + G_KECCAK_256_WORD *
+        ceil(code_size / 32), where the per-byte cost becomes
+        cost_per_state_byte and a code hash cost is added.
+        """
+        code_size = len(bytes(initcode.deploy_code))
+        if hasattr(fork, "cost_per_state_byte"):
+            gas_costs = fork.gas_costs()
+            cpsb = fork.cost_per_state_byte()
+            return (
+                cpsb * code_size
+                + gas_costs.G_KECCAK_256_WORD * ceiling_division(code_size, 32)
+            )
+        return initcode.deployment_gas
+
+    @pytest.fixture
     def exact_execution_gas(
-        self, exact_intrinsic_gas: int, initcode: Initcode
+        self,
+        exact_intrinsic_gas: int,
+        initcode: Initcode,
+        code_deposit_gas: int,
     ) -> int:
         """
         Calculate total execution gas cost.
         """
-        return (
-            exact_intrinsic_gas
-            + initcode.deployment_gas
-            + initcode.execution_gas
-        )
+        return exact_intrinsic_gas + code_deposit_gas + initcode.execution_gas
 
     @pytest.fixture
     def tx_error(self, gas_test_case: str) -> TransactionException | None:
@@ -545,6 +566,28 @@ class TestCreateInitcode:
             ceiling_division(len(initcode), 32) * gas_costs.G_KECCAK_256_WORD
         )
 
+    @pytest.fixture
+    def code_deposit_gas(self, fork: Fork, initcode: Initcode) -> int:
+        """
+        Calculate code deposit gas cost, accounting for Amsterdam's
+        EIP-8037 state gas for code storage.
+
+        Pre-Amsterdam: G_CODE_DEPOSIT_BYTE * code_size
+        (= initcode.deployment_gas).
+        Amsterdam+: cpsb * code_size + G_KECCAK_256_WORD *
+        ceil(code_size / 32), where the per-byte cost becomes
+        cost_per_state_byte and a code hash cost is added.
+        """
+        code_size = len(bytes(initcode.deploy_code))
+        if hasattr(fork, "cost_per_state_byte"):
+            gas_costs = fork.gas_costs()
+            cpsb = fork.cost_per_state_byte()
+            return (
+                cpsb * code_size
+                + gas_costs.G_KECCAK_256_WORD * ceiling_division(code_size, 32)
+            )
+        return initcode.deployment_gas
+
     @pytest.mark.xdist_group(name="bigmem")
     @pytest.mark.slow()
     def test_create_opcode_initcode(
@@ -561,6 +604,7 @@ class TestCreateInitcode:
         contract_creation_gas_cost: int,
         initcode_word_cost: int,
         create2_word_cost: int,
+        code_deposit_gas: int,
     ) -> None:
         """
         Test contract creation with valid and invalid initcode lengths.
@@ -592,7 +636,7 @@ class TestCreateInitcode:
             # The initcode is only executed if the length check succeeds
             expected_gas_usage += initcode.execution_gas
             # The code is only deployed if the length check succeeds
-            expected_gas_usage += initcode.deployment_gas
+            expected_gas_usage += code_deposit_gas
 
             # CREATE2 hashing cost should only be deducted if the initcode
             # does not exceed the max length
