@@ -117,7 +117,7 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
-      # - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
       - name: Run py3 tests
         run: tox -e tests_pytest_py3
