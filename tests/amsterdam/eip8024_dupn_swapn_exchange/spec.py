@@ -43,8 +43,8 @@ class Spec:
 
 def decode_pair(x: int) -> Tuple[int, int]:
     """Decode a pair with proper typing for tests."""
-    m, n = _decode_pair(U8(x))
-    return int(m), int(n)
+    n, m = _decode_pair(U8(x))
+    return int(n), int(m)
 
 
 def decode_single(x: int) -> int:
