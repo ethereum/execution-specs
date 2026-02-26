@@ -26,6 +26,8 @@ def decode_single(x: U8) -> U8:
     """
     Decode the immediate byte for DUPN/SWAPN to get the stack index.
 
+    Return n with 17 <= n <= 235.
+
     Parameters
     ----------
     x : int
@@ -34,7 +36,7 @@ def decode_single(x: U8) -> U8:
     Returns
     -------
     int
-        The stack index (17-235).
+        The stack index n, where 17 <= n <= 235.
 
     Raises
     ------
@@ -48,40 +50,40 @@ def decode_single(x: U8) -> U8:
             "Valid range: 0 <= x <= 90 or 128 <= x <= 255"
         )
 
-    if x <= U8(90):
-        return x + U8(17)
-    else:
-        return x - U8(20)
+    return U8((int(x) + 145) % 256)
 
 
 def decode_pair(x: U8) -> Tuple[U8, U8]:
     """
     Decode the immediate byte for EXCHANGE to get two stack indices.
 
+    Return (n, m) with 1 <= n <= 14 and n < m <= 30 - n.
+
     Parameters
     ----------
     x : int
-        The immediate byte value (0-79 or 128-255).
+        The immediate byte value (0-81 or 128-255).
 
     Returns
     -------
     Tuple[int, int]
-        The two stack indices (n, m).
+        The two stack indices (n, m), where
+        1 <= n <= 14 and n < m <= 30 - n.
 
     Raises
     ------
     InvalidParameter
-        If x is in the forbidden range (79 < x < 128 or x > 255).
+        If x is in the forbidden range (81 < x < 128 or x > 255).
 
     """
-    if not (U8(0) <= x <= U8(79) or U8(128) <= x <= U8(255)):
+    if not (U8(0) <= x <= U8(81) or U8(128) <= x <= U8(255)):
         raise InvalidParameter(
             f"EXCHANGE immediate byte {x} is in the forbidden "
-            "range 80 <= x <= 127\n"
-            "Valid range: 0 <= x <= 79 or 128 <= x <= 255"
+            "range 82 <= x <= 127\n"
+            "Valid range: 0 <= x <= 81 or 128 <= x <= 255"
         )
 
-    k = x if x <= U8(79) else x - U8(48)
+    k = U8(int(x) ^ 143)
     q, r = divmod(k, U8(16))
     if q < r:
         return q + U8(1), r + U8(1)
