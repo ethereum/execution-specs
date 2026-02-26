@@ -8,6 +8,7 @@ runs:
       run: |
         sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential rustup
         rustup update --no-self-update 1.89.0 && rustup default 1.89.0
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
     - name: Install build dependencies
       shell: bash
