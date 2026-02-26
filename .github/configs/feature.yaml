@@ -20,3 +20,8 @@ bal:
   evm-type: develop
   fill-params: --fork=Amsterdam --fill-static-tests
   feature_only: true
+
+zkevm:
+  evm-type: develop
+  fill-params: -m "blockchain_test" --fork=Amsterdam ./tests/
+  feature_only: true
