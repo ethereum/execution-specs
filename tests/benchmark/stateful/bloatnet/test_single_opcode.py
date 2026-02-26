@@ -134,8 +134,8 @@ def test_sload_empty_erc20_balanceof(
         Op.CALL(
             address=erc20_address,
             value=0,
-            args_offset=28,
-            args_size=36,
+            args_offset=32 - 4,
+            args_size=32 + 4,
             ret_offset=0,
             ret_size=0,
             # gas accounting
@@ -232,22 +232,30 @@ def test_sload_empty_erc20_balanceof(
 
         calldata = Hash(num_calls) + Hash(slot_offset)
 
-        tx = Transaction(
-            gas_limit=gas_available,
-            data=calldata,
-            to=attack_contract_address,
-            sender=pre.fund_eoa(),
-            access_list=access_list,
-        )
-
         if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
             with TestPhaseManager.setup():
                 # For block-level caching,
                 # we need to warm the slot in a separate transaction
-                cache_txs.append(tx)
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=gas_available,
+                        data=calldata,
+                        to=attack_contract_address,
+                        sender=pre.fund_eoa(),
+                        access_list=access_list,
+                    )
+                )
 
         with TestPhaseManager.execution():
-            txs.append(tx)
+            txs.append(
+                Transaction(
+                    gas_limit=gas_available,
+                    data=calldata,
+                    to=attack_contract_address,
+                    sender=pre.fund_eoa(),
+                    access_list=access_list,
+                )
+            )
 
         gas_remaining -= gas_available
         slot_offset += num_calls
@@ -479,8 +487,8 @@ def test_sstore_erc20_mint(
         Op.CALL(
             address=erc20_address,
             value=0,
-            args_offset=28,
-            args_size=68,
+            args_offset=32 - 4,
+            args_size=32 + 32 + 4,
             ret_offset=0,
             ret_size=0,
             # gas accounting
@@ -497,8 +505,8 @@ def test_sstore_erc20_mint(
                 Op.CALL(
                     address=erc20_address,
                     value=0,
-                    args_offset=28,
-                    args_size=36,
+                    args_offset=32 - 4,
+                    args_size=32 + 4,
                     ret_offset=0,
                     ret_size=0,
                     # gas accounting
@@ -616,21 +624,30 @@ def test_sstore_erc20_mint(
             break
 
         calldata = Hash(num_calls) + Hash(slot_offset)
-        tx = Transaction(
-            gas_limit=gas_available,
-            data=calldata,
-            to=attack_contract_address,
-            sender=pre.fund_eoa(),
-            access_list=access_list,
-        )
         if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
             with TestPhaseManager.setup():
-                cache_txs.append(tx)
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=gas_available,
+                        data=calldata,
+                        to=attack_contract_address,
+                        sender=pre.fund_eoa(),
+                        access_list=access_list,
+                    )
+                )
 
         with TestPhaseManager.execution():
             # Same here, does this create tx is execution mode?
             # And above setup mode?
-            txs.append(tx)
+            txs.append(
+                Transaction(
+                    gas_limit=gas_available,
+                    data=calldata,
+                    to=attack_contract_address,
+                    sender=pre.fund_eoa(),
+                    access_list=access_list,
+                )
+            )
 
         gas_remaining -= gas_available
         slot_offset += num_calls
