@@ -547,18 +547,18 @@ def _exchange_encoder(*args: int | bytes) -> bytes:
             )
 
         # encode_pair logic from EIP-8024
-        # n is first stack index (1-13), m is second (must be > n, up to 29)
-        if not (1 <= n <= 13 and n < m <= 29 and n + m <= 30):
+        # n is first stack index, m is second (n < m, n + m <= 30)
+        if not (1 <= n < m and n + m <= 30):
             raise ValueError(
-                f"EXCHANGE indices must satisfy: 1 <= n <= 13, "
-                f"n < m <= 29, n + m <= 30, got n={n}, m={m}"
+                f"EXCHANGE indices must satisfy: 1 <= n < m, "
+                f"n + m <= 30, got n={n}, m={m}"
             )
         if m <= 16:
             q, r = n - 1, m - 1
         else:
             q, r = 29 - m, n - 1
         k = 16 * q + r
-        imm = k if k <= 79 else k + 48
+        imm = k ^ 143
         return int.to_bytes(imm, 1, "big")
 
     raise ValueError(f"EXCHANGE requires 1 or 2 arguments, got {len(args)}")
@@ -601,10 +601,7 @@ def _dupn_swapn_encoder(*args: int | bytes) -> bytes:
             raise ValueError(
                 f"DUPN/SWAPN index must be in range [17, 235], got {arg}"
             )
-        if arg <= 107:
-            imm = arg - 17
-        else:
-            imm = arg + 20
+        imm = (arg + 111) % 256
         return int.to_bytes(imm, 1, "big")
 
     raise TypeError(
@@ -614,10 +611,8 @@ def _dupn_swapn_encoder(*args: int | bytes) -> bytes:
 
 def _swapn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
     n = int.from_bytes(data, "big")
-    if n <= 90:
-        min_stack_height = n + 17
-    elif n >= 128:
-        min_stack_height = n - 20
+    if n <= 90 or n >= 128:
+        min_stack_height = (n + 145) % 256
     else:
         # Undefined behavior
         min_stack_height = 0
@@ -631,10 +626,8 @@ def _swapn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
 
 def _dupn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
     n = int.from_bytes(data, "big")
-    if n <= 90:
-        min_stack_height = n + 17
-    elif n >= 128:
-        min_stack_height = n - 20
+    if n <= 90 or n >= 128:
+        min_stack_height = (n + 145) % 256
     else:
         # Undefined behavior
         min_stack_height = 0
@@ -650,11 +643,11 @@ def _exchange_stack_properties_modifier(
     data: bytes,
 ) -> tuple[int, int, int, int]:
     n = int.from_bytes(data, "big")
-    if n > 79 and n < 128:
+    if n > 81 and n < 128:
         # Undefined behavior
         min_stack_height = 0
     else:
-        k = n if n <= 79 else n - 48
+        k = n ^ 143
         q, r = divmod(k, 16)
         if q < r:
             min_stack_height = max(q + 1, r + 1)

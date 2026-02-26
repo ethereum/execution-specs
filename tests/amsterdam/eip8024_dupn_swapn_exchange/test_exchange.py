@@ -31,6 +31,7 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
         (1, 29),  # Swap positions 2 and 30 (n + m = 30)
         (5, 10),  # Swap positions 6 and 11
         (13, 17),  # Swap positions 14 and 18 (n + m = 30)
+        (14, 16),  # Swap positions 15 and 17 (n + m = 30)
     ],
     ids=lambda x: f"{x}",
 )
@@ -93,7 +94,7 @@ def test_exchange_basic(
 
 @pytest.mark.parametrize(
     "immediate",
-    [0, 1, 15, 78, 79, 128, 129, 200, 255],
+    [0, 1, 15, 78, 79, 80, 81, 128, 129, 200, 255],
     ids=lambda x: f"exchange_imm_{x}",
 )
 def test_exchange_valid_immediates(
@@ -101,7 +102,7 @@ def test_exchange_valid_immediates(
     pre: Alloc,
     state_test: StateTestFiller,
 ) -> None:
-    """Test EXCHANGE with valid immediate values (0-79 and 128-255)."""
+    """Test EXCHANGE with valid immediate values (0-81 and 128-255)."""
     sender = pre.fund_eoa()
 
     # Decode the immediate to get the stack indices
@@ -206,8 +207,8 @@ def test_exchange_preserves_other_items(
 
 @pytest.mark.parametrize(
     "immediate",
-    # Boundaries of both valid ranges (0x00, 0x4F, 0x80, 0xFF)
-    [0, 78, 79, 128, 129, 255],
+    # Boundaries of both valid ranges (0x00, 0x51, 0x80, 0xFF)
+    [0, 78, 79, 80, 81, 128, 129, 255],
     ids=lambda x: f"underflow_imm_{x}",
 )
 def test_exchange_stack_underflow(
@@ -249,24 +250,24 @@ def test_endofcode_behavior(
     Test EXCHANGE when the immediate byte is beyond the end of code.
 
     Per EIP-8024, code[pc + 1] evaluates to 0 if beyond the end of the code,
-    matching PUSH behavior. With immediate = 0, decode_pair(0) = (1, 29), so
-    EXCHANGE swaps positions 2 and 30.
+    matching PUSH behavior. With immediate = 0, decode_pair(0) = (9, 16), so
+    EXCHANGE swaps positions 10 and 17.
 
     This test verifies the transaction succeeds (doesn't revert) when EXCHANGE
     is the last byte of the code with no immediate byte following it.
     """
     sender = pre.fund_eoa()
 
-    # decode_pair(0) = (1, 29), which swaps positions 2 and 30
-    # We need 30 items on the stack for this to succeed
-    stack_height = 30
+    # decode_pair(0) = (9, 16), which swaps positions 10 and 17
+    # We need 17 items on the stack for this to succeed
+    stack_height = 17
     marker_value = 0x42
 
     # Build code: store marker, push enough items, then EXCHANGE (no immediate)
     code = Bytecode()
     code += Op.PUSH1(marker_value) + Op.PUSH1(0) + Op.SSTORE  # Store marker
 
-    # Push 30 items to stack so EXCHANGE with implicit imm=0 succeeds
+    # Push 17 items to stack so EXCHANGE with implicit imm=0 succeeds
     for i in range(stack_height):
         code += Op.PUSH1(i)
 
@@ -288,19 +289,23 @@ def test_endofcode_behavior(
 @pytest.mark.parametrize(
     "immediate",
     [
-        # valid immediates: skipped, not a jump target
+        # valid immediates (0-81 / 128-255): skipped during JUMPDEST
+        # analysis, not reachable as jump targets
         0x00,
-        0x4F,
-        # invalid immediates: not skipped, only 0x5B is JUMPDEST
-        0x50,  # POP
-        0x5A,  # GAS
-        0x5B,  # JUMPDEST - only one where jump succeeds
-        0x5C,  # TLOAD
-        0x60,  # PUSH1
-        0x7F,  # PUSH32
-        # valid immediates again
-        0x80,
-        0xFF,
+        0x4F,  # 79
+        0x50,  # 80 — POP (valid for EXCHANGE)
+        0x51,  # 81 — MLOAD (valid for EXCHANGE)
+        # invalid immediates (82-127): not skipped during JUMPDEST
+        # analysis, only 0x5B (91) is a JUMPDEST
+        0x52,  # 82 — MSTORE (first invalid immediate)
+        0x5A,  # 90 — GAS (invalid immediate)
+        0x5B,  # 91 — JUMPDEST, only case where jump succeeds
+        0x5C,  # 92 — TLOAD (invalid immediate)
+        0x60,  # 96 — PUSH1 (invalid immediate)
+        0x7F,  # 127 — PUSH32 (last invalid immediate)
+        # valid immediates again (128-255)
+        0x80,  # 128
+        0xFF,  # 255
     ],
     ids=lambda x: f"imm_0x{x:02x}",
 )
@@ -342,35 +347,30 @@ def test_exchange_with_push_sequence(
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test EXCHANGE swapping positions 2 and 30 with a push sequence.
+    Test EXCHANGE swapping positions 10 and 17 with a push sequence.
 
-    Stack layout: 28x PUSH1(0) PUSH1(1) PUSH1(2) EXCHANGE[0]
-    Before EXCHANGE (30 items, top to bottom):
-    [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-     0, 0, 0, 0, 0, 0, 0, 0]
-    After EXCHANGE[0] (decode_pair(0)=(1,29), swaps positions 2 and 30):
-    [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-     0, 0, 0, 0, 0, 0, 0, 1]
-    Result: 30 stack items, top=2, bottom=1, rest=0
+    Build 17 stack items with markers at positions 10 and 17.
+    EXCHANGE[0x00]: decode_pair(0) = (9, 16), swaps positions 10 and 17.
     """
     sender = pre.fund_eoa()
 
-    # Build the stack: 28x PUSH1(0), PUSH1(1), PUSH1(2)
+    # Build 17 items with markers at positions 10 and 17
     code = Bytecode()
-    for _ in range(28):
-        code += Op.PUSH1(0)
-    code += Op.PUSH1(1)  # Position 2 from top after final push
-    code += Op.PUSH1(2)  # Position 1 (top)
+    for i in range(17):
+        stack_pos = 17 - i  # Position from top (1-indexed)
+        if stack_pos == 10:
+            code += Op.PUSH2(0xAAAA)
+        elif stack_pos == 17:
+            code += Op.PUSH2(0xBBBB)
+        else:
+            code += Op.PUSH1(0)
 
-    # Stack has 30 items:
-    # [2, 1, 0, 0, ..., 0, 0] (28 zeros in the middle)
-    # EXCHANGE with immediate 0 (decode_pair(0) = (1, 29))
-    # swaps pos 2 and 30
-    # Pass as bytes (raw immediate byte for testing)
+    # EXCHANGE with immediate 0 (decode_pair(0) = (9, 16))
+    # swaps pos 10 and 17
     code += Op.EXCHANGE[b"\x00"]
 
     # Store all stack values to verify
-    for i in range(30):
+    for i in range(17):
         code += Op.PUSH1(i) + Op.SSTORE
 
     code += Op.STOP
@@ -379,18 +379,17 @@ def test_exchange_with_push_sequence(
 
     tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
 
-    # Expected: top (position 0) = 2, position 1 = 0 (swapped from 30),
-    # bottom (position 29) = 1 (swapped from position 2), rest = 0
+    # Expected: position 9 has 0xBBBB (from pos 17), position 16 has
+    # 0xAAAA (from pos 10), rest = 0
     expected_storage = {}
-    for i in range(30):
-        if i == 0:
-            expected_storage[i] = 2  # Top unchanged
-        elif i == 1:
-            expected_storage[i] = 0  # Was at bottom (pos 30), now at pos 2
-        elif i == 29:
-            expected_storage[i] = 1  # Was at pos 2, now at bottom (pos 30)
+    for i in range(17):
+        stack_pos = i + 1  # 1-indexed position from top
+        if stack_pos == 10:
+            expected_storage[i] = 0xBBBB  # Swapped from position 17
+        elif stack_pos == 17:
+            expected_storage[i] = 0xAAAA  # Swapped from position 10
         else:
-            expected_storage[i] = 0  # All other values
+            expected_storage[i] = 0
 
     post = {contract_address: Account(storage=expected_storage)}
 
@@ -399,7 +398,7 @@ def test_exchange_with_push_sequence(
 
 @pytest.mark.parametrize(
     "immediate",
-    range(80, 128),  # Forbidden range: 0x50-0x7F
+    range(82, 128),  # Forbidden range: 0x52-0x7F
     ids=lambda x: f"imm_{x}",
 )
 def test_exchange_invalid_immediate_aborts(
@@ -408,7 +407,7 @@ def test_exchange_invalid_immediate_aborts(
     state_test: StateTestFiller,
 ) -> None:
     """
-    Test EXCHANGE aborts with invalid immediates (80-127).
+    Test EXCHANGE aborts with invalid immediates (82-127).
 
     This range is forbidden because it overlaps with JUMPDEST and PUSH opcodes.
     """

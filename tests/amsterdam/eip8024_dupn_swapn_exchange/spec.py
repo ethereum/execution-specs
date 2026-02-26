@@ -19,7 +19,7 @@ class ReferenceSpec:
 
 ref_spec_8024 = ReferenceSpec(
     git_path="EIPS/eip-8024.md",
-    version="b54accd182b0e2e040ce2ba1a8a61bff6ca9fa0e",
+    version="380cb02832a6ed5310bfde51591e580ca6d1f3cd",
 )
 
 
@@ -36,15 +36,15 @@ class Spec:
 
     # EXCHANGE constraints: 1 <= n < m <= 29, n + m <= 30
     EXCHANGE_MIN_N: int = 1
-    EXCHANGE_MAX_N: int = 13
+    EXCHANGE_MAX_N: int = 14
     EXCHANGE_MAX_M: int = 29
     EXCHANGE_MAX_SUM: int = 30
 
 
 def decode_pair(x: int) -> Tuple[int, int]:
     """Decode a pair with proper typing for tests."""
-    m, n = _decode_pair(U8(x))
-    return int(m), int(n)
+    n, m = _decode_pair(U8(x))
+    return int(n), int(m)
 
 
 def decode_single(x: int) -> int:
