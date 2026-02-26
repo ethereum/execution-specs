@@ -1181,7 +1181,7 @@ wheels = [
 [[package]]
 name = "ethereum-types"
 version = "0.3.0"
-source = { git = "https://github.com/kevaundray/ethereum-types.git?rev=kw%2Fsubclass-fake#9230385143fccdbef08fcd6afbef9cf26de2f07d" }
+source = { git = "https://github.com/kevaundray/ethereum-types.git?rev=kw%2Fsubclass-fake#94cc55ad48ae146b6f98a23843dbd405d97a4a61" }
 dependencies = [
     { name = "typing-extensions" },
 ]
