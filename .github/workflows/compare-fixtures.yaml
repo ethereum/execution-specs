@@ -90,8 +90,4 @@ jobs:
           name: fixtures-head
           path: fixtures_head/
       - name: Compare fixture hashes
-        run: |
-          if ! uv run hasher compare fixtures_base fixtures_head; then
-            echo "::warning::Fixture hashes differ between base and head"
-            exit 1
-          fi
+        run: uv run hasher compare fixtures_base fixtures_head
