@@ -9,6 +9,7 @@ from execution_testing import (
     Alloc,
     Initcode,
     Op,
+    Opcodes,
     StateTestFiller,
     Storage,
     Transaction,
@@ -598,6 +599,7 @@ def test_extcodehash_precompile(
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2326"],
 )
+@pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
 @pytest.mark.parametrize(
     "deployed_code",
     [
@@ -609,12 +611,13 @@ def test_extcodehash_new_account(
     state_test: StateTestFiller,
     pre: Alloc,
     deployed_code: bytes,
+    opcode: Opcodes,
 ) -> None:
     """
     Test EXTCODEHASH/EXTCODESIZE of a contract created within the same tx.
 
-    Uses CREATE2 to deploy a contract, then verifies that EXTCODEHASH and
-    EXTCODESIZE reflect the newly deployed code.
+    Uses CREATE/CREATE2 to deploy a contract, then verifies that EXTCODEHASH
+    and EXTCODESIZE reflect the newly deployed code.
     """
     storage = Storage()
 
@@ -630,7 +633,7 @@ def test_extcodehash_new_account(
         Op.MSTORE(0, Op.PUSH32(bytes(initcode).ljust(32, b"\0")))
         + Op.SSTORE(
             created_slot,
-            Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0x10),
+            opcode(value=0, offset=0, size=len(initcode)),
         )
         + Op.SSTORE(hash_slot, Op.EXTCODEHASH(Op.SLOAD(created_slot)))
         + Op.SSTORE(size_slot, Op.EXTCODESIZE(Op.SLOAD(created_slot)))
@@ -638,10 +641,12 @@ def test_extcodehash_new_account(
     )
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
-    created_address = compute_create2_address(
+    created_address = compute_create_address(
         address=code_address,
-        salt=0x10,
+        nonce=1,
+        salt=0,
         initcode=initcode,
+        opcode=opcode,
     )
     storage[created_slot] = created_address
 
