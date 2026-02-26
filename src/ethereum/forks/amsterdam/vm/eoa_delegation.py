@@ -25,15 +25,18 @@ from ..state_tracker import (
     track_nonce_change,
 )
 from ..utils.hexadecimal import hex_to_address
-from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
+from ..vm.gas import (
+    GAS_COLD_ACCOUNT_ACCESS,
+    GAS_WARM_ACCESS,
+    STATE_BYTES_PER_NEW_ACCOUNT,
+    state_gas_per_byte,
+)
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
 EOA_DELEGATION_MARKER = b"\xef\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
-PER_EMPTY_ACCOUNT_COST = 25000
-PER_AUTH_BASE_COST = 12500
 NULL_ADDRESS = hex_to_address("0x0000000000000000000000000000000000000000")
 
 
@@ -161,23 +164,21 @@ def calculate_delegation_cost(
     return True, delegated_address, delegation_gas_cost
 
 
-def set_delegation(message: Message) -> U256:
+def set_delegation(message: Message) -> None:
     """
     Set the delegation code for the authorities in the message.
+
+    For existing accounts, adjusts intrinsic_state_gas downward since
+    no account creation is needed (only delegation code write).
 
     Parameters
     ----------
     message :
         Transaction specific items.
 
-    Returns
-    -------
-    refund_counter: `U256`
-        Refund from authority which already exists in state.
-
     """
     state = message.block_env.state
-    refund_counter = U256(0)
+    cost_per_state_byte = state_gas_per_byte(message.block_env.block_gas_limit)
     for auth in message.tx_env.authorizations:
         if auth.chain_id not in (message.block_env.chain_id, U256(0)):
             continue
@@ -203,8 +204,13 @@ def set_delegation(message: Message) -> U256:
         if authority_nonce != auth.nonce:
             continue
 
+        # For existing accounts, no account creation needed.
+        # Refund the account creation state gas to the reservoir
+        # and adjust intrinsic accounting to avoid double-counting.
         if account_exists(state, authority):
-            refund_counter += U256(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST)
+            refund = STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
+            message.tx_env.intrinsic_state_gas -= refund
+            message.state_gas_reservoir += refund
 
         if auth.address == NULL_ADDRESS:
             code_to_set = b""
@@ -229,5 +235,3 @@ def set_delegation(message: Message) -> U256:
         raise InvalidBlock("Invalid type 4 transaction: no target")
 
     message.code = get_account(state, message.code_address).code
-
-    return refund_counter
