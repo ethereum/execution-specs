@@ -247,6 +247,10 @@ def test_sload_empty_erc20_balanceof(
                 cache_txs.append(tx)
 
         with TestPhaseManager.execution():
+            # TODO: CHECK IF THIS WORKS
+            # Does this actually create the tx in execution phase mode?
+            # Or is it depends on where the tx is created?
+            # (if thats the case then all txs are in the execution phase - right?)
             txs.append(tx)
 
         gas_remaining -= gas_available
@@ -419,7 +423,7 @@ def test_sstore_erc20_approve(
 
 @pytest.mark.parametrize("token_name", SSTORE_MINT_TOKENS)
 @pytest.mark.parametrize("existing_slots", [False, True])
-@pytest.mark.parametrize("cached", [False, True])
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize("no_change", [False, True])
 def test_sstore_erc20_mint(
     benchmark_test: BenchmarkTestFiller,
@@ -429,7 +433,7 @@ def test_sstore_erc20_mint(
     tx_gas_limit: int,
     token_name: str,
     existing_slots: bool,
-    cached: bool,
+    cache_strategy: CacheStrategy,
     no_change: bool,
 ) -> None:
     """
@@ -552,7 +556,9 @@ def test_sstore_erc20_mint(
             new_memory_size=64,
         )
         + Op.DUP1
-        + Op.SLOAD.with_metadata(key_warm=cached)
+        + Op.SLOAD.with_metadata(
+            key_warm=cache_strategy == CacheStrategy.CACHE_TX
+        )
         + Op.CALLDATALOAD(36)
         + Op.ADD
         + Op.SSTORE
@@ -564,7 +570,7 @@ def test_sstore_erc20_mint(
 
     function_dispatch_cost = function_dispatch_mint.gas_cost(fork)
 
-    if cached:
+    if cache_strategy == CacheStrategy.CACHE_TX:
         # Add balanceOf dispatch cost for the warmup call
         function_dispatch_balanceof = (
             Op.PUSH4(BALANCEOF_SELECTOR)
@@ -590,6 +596,7 @@ def test_sstore_erc20_mint(
 
     # Transaction Loops
     txs = []
+    cache_txs = []
     gas_remaining = gas_benchmark_value
     # Start at 1 for existing balance slots,
     # or at keccak256("random") for non-existing slots
@@ -613,19 +620,30 @@ def test_sstore_erc20_mint(
             break
 
         calldata = Hash(num_calls) + Hash(slot_offset)
-
-        txs.append(
-            Transaction(
-                gas_limit=gas_available,
-                data=calldata,
-                to=attack_contract_address,
-                sender=pre.fund_eoa(),
-                access_list=access_list,
-            )
+        tx = Transaction(
+            gas_limit=gas_available,
+            data=calldata,
+            to=attack_contract_address,
+            sender=pre.fund_eoa(),
+            access_list=access_list,
         )
+        if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+            with TestPhaseManager.setup():
+                cache_txs.append(tx)
+
+        with TestPhaseManager.execution():
+            # Same here, does this create tx is execution mode?
+            # And above setup mode?
+            txs.append(tx)
 
         gas_remaining -= gas_available
         slot_offset += num_calls
+
+    blocks = (
+        [Block(txs=txs)]
+        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
+        else [Block(txs=cache_txs), Block(txs=txs)]
+    )
 
     benchmark_test(
         pre=pre,
