@@ -37,6 +37,7 @@ from tests.benchmark.stateful.helpers import (
     MINT_SELECTOR,
     SLOAD_TOKENS,
     SSTORE_TOKENS,
+    SSTORE_MINT_TOKENS,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -99,7 +100,7 @@ def test_sload_empty_erc20_balanceof(
     tx_gas_limit: int,
     token_name: str,
     existing_slots: bool,
-    cached: bool
+    cached: bool,
 ) -> None:
     """Benchmark SLOAD using ERC20 balanceOf on bloatnet."""
     # Stub Account
@@ -129,23 +130,24 @@ def test_sload_empty_erc20_balanceof(
     )
 
     call_balance_of = Op.POP(
-            Op.CALL(
-                address=erc20_address,
-                value=0,
-                args_offset=28,
-                args_size=36,
-                ret_offset=0,
-                ret_size=0,
-                # gas accounting
-                address_warm=True,
-            )
+        Op.CALL(
+            address=erc20_address,
+            value=0,
+            args_offset=28,
+            args_size=36,
+            ret_offset=0,
+            ret_size=0,
+            # gas accounting
+            address_warm=True,
         )
+    )
 
     loop = While(
         body=call_balance_of
         # Do the same call again for the cached variant
-        + Bytecode() if not cached else call_balance_of
-        + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        + Bytecode()
+        if not cached
+        else call_balance_of + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
         condition=Op.PUSH1(1)  # [1, num_calls]
         + Op.SWAP1  # [num_calls, 1]
         + Op.SUB  # [num_calls-1]
@@ -202,8 +204,11 @@ def test_sload_empty_erc20_balanceof(
     gas_remaining = gas_benchmark_value
     # Start at 1 (ERC20 bloater writes the balance of address to the slot)
     # or start at keccak256("random") for non-existing slots
-    slot_offset = (1 if existing_slots 
-        else 0xa4896a3f93bf4bf58378e579f3cf193bb4af1022af7d2089f37d8bae7157b85f) 
+    slot_offset = (
+        1
+        if existing_slots
+        else 0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
+    )
 
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
@@ -395,7 +400,7 @@ def test_sstore_erc20_approve(
     )
 
 
-@pytest.mark.parametrize("token_name", SSTORE_TOKENS)
+@pytest.mark.parametrize("token_name", SSTORE_MINT_TOKENS)
 @pytest.mark.parametrize("existing_slots", [False, True])
 @pytest.mark.parametrize("cached", [False, True])
 @pytest.mark.parametrize("no_change", [False, True])
@@ -410,11 +415,17 @@ def test_sstore_erc20_mint(
     cached: bool,
     no_change: bool,
 ) -> None:
-    """Benchmark SSTORE using ERC20 mint on bloatnet."""
+    """Benchmark SSTORE using ERC20 mint on bloatnet.
+    This contract calls mint() on an ERC20 contract
+    which supports the mint() function. It is intended
+    to be used with ERC20 contracts bloated via bloatStorage.
+    The mint will increase the total supply and the target account.
+
+    """
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
-        stub=f"test_sstore_erc20_approve_{token_name}",
+        stub=f"test_sstore_erc20_mint_{token_name}",
     )
 
     mint_amount = 0 if no_change else 1
@@ -470,7 +481,7 @@ def test_sstore_erc20_mint(
                     address=erc20_address,
                     value=0,
                     args_offset=28,
-                    args_size=36+32,
+                    args_size=36 + 32,
                     ret_offset=0,
                     ret_size=0,
                     # gas accounting
@@ -483,9 +494,7 @@ def test_sstore_erc20_mint(
         cache_warmup = Bytecode()
 
     loop = While(
-        body=cache_warmup
-        + call_mint
-        + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        body=cache_warmup + call_mint + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
         condition=Op.PUSH1(1)  # [1, num_calls]
         + Op.SWAP1  # [num_calls, 1]
         + Op.SUB  # [num_calls-1]
@@ -515,24 +524,24 @@ def test_sstore_erc20_mint(
         + Op.EQ
         + Op.JUMPI
         + Op.JUMPDEST
-        + Op.CALLDATALOAD(4)
-        + Op.MSTORE(0)
+        + Op.MSTORE(0, Op.CALLDATALOAD(4))
         + Op.MSTORE(32, 0)
         + Op.SHA3(
             0,
             64,
             # gas accounting
             data_size=64,
-            old_memory_size=0,
+            old_memory_size=64,
             new_memory_size=64,
         )
         + Op.DUP1
-        + Op.SLOAD.with_metadata(access_warm=cached)
+        + Op.SLOAD.with_metadata(key_warm=cached)
         + Op.CALLDATALOAD(36)
         + Op.ADD
         + Op.SSTORE
-        + Op.PUSH1(1)
-        + Op.MSTORE(0)
+        # Increase total supply
+        + Op.SSTORE(0, Op.ADD(Op.SLOAD(0), Op.CALLDATALOAD(36)))
+        + Op.MSTORE(0, 1)
         + Op.RETURN(0, 32)
     )
 
@@ -545,19 +554,19 @@ def test_sstore_erc20_mint(
             + Op.EQ
             + Op.JUMPI
             + Op.JUMPDEST
-            + Op.CALLDATALOAD(4)
-            + Op.MSTORE(0)
+            + Op.MSTORE(0, Op.CALLDATALOAD(4))
             + Op.MSTORE(32, 0)
             + Op.SHA3(
                 0,
                 64,
                 # gas accounting
                 data_size=64,
-                old_memory_size=0,
+                old_memory_size=64,
                 new_memory_size=64,
             )
             + Op.SLOAD
-            + Op.MSTORE(0)
+            + Op.PUSH0
+            + Op.MSTORE
             + Op.RETURN(0, 32)
         )
         function_dispatch_cost += function_dispatch_balanceof.gas_cost(fork)

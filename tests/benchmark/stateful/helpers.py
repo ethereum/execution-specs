@@ -25,6 +25,11 @@ SSTORE_TOKENS = [
     for k in _STUBS.keys()
     if k.startswith("test_sstore_erc20_approve_")
 ]
+SSTORE_MINT_TOKENS = [
+    k.replace("test_sstore_erc20_mint_", "")
+    for k in _STUBS.keys()
+    if k.startswith("test_sstore_erc20_mint_")
+]
 MIXED_TOKENS = [
     k.replace("test_mixed_sload_sstore_", "")
     for k in _STUBS.keys()
