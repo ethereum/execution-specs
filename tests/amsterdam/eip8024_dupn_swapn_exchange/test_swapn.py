@@ -194,14 +194,14 @@ def test_swapn_stack_underflow(
     """Test SWAPN causes transaction failure on stack underflow."""
     sender = pre.fund_eoa()
 
-    # SWAPN with immediate 0 (n=17) swaps position 1 with position 18
+    # SWAPN with immediate 0x80 (n=17) swaps position 1 with position 18
     # Need 18 items, so push only 17 to trigger underflow
     code = Bytecode()
     for i in range(17):
         code += Op.PUSH1(i)
     # Pass immediate as bytes (raw immediate byte for testing)
-    # decode_single(0) = 17, needs 18 items but only 17
-    code += Op.SWAPN[b"\x00"]
+    # decode_single(0x80) = 17, needs 18 items but only 17
+    code += Op.SWAPN[b"\x80"]
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
@@ -222,26 +222,26 @@ def test_endofcode_behavior(
     Test SWAPN when the immediate byte is beyond the end of code.
 
     Per EIP-8024, code[pc + 1] evaluates to 0 if beyond the end of the code,
-    matching PUSH behavior. With immediate = 0, decode_single(0) = 17, so
-    SWAPN swaps position 1 with position 18.
+    matching PUSH behavior. With immediate = 0, decode_single(0) = 145, so
+    SWAPN swaps position 1 with position 146.
 
     This test verifies the transaction succeeds (doesn't revert) when SWAPN
     is the last byte of the code with no immediate byte following it.
     """
     sender = pre.fund_eoa()
 
-    # decode_single(0) = 17, which swaps position 1 with position 18
-    # We need 18 items on the stack for this to succeed
-    stack_height = 18
+    # decode_single(0) = 145, which swaps position 1 with position 146
+    # We need 146 items on the stack for this to succeed
+    stack_height = 146
     marker_value = 0x42
 
     # Build code: store marker, push enough items, then SWAPN (no immediate)
     code = Bytecode()
     code += Op.PUSH1(marker_value) + Op.PUSH1(0) + Op.SSTORE  # Store marker
 
-    # Push 18 items to stack so SWAPN with implicit imm=0 succeeds
+    # Push 146 items to stack so SWAPN with implicit imm=0 succeeds
     for i in range(stack_height):
-        code += Op.PUSH1(i)
+        code += Op.PUSH1(i % 256)
 
     # Add just the SWAPN opcode without immediate byte
     # After SWAPN, pc += 2 goes beyond code, causing implicit STOP
@@ -336,9 +336,9 @@ def test_swapn_with_dup1_and_push(
     """
     Test SWAPN swapping top and bottom after building stack with DUP1.
 
-    Stack layout: PUSH1(1) PUSH1(0) DUP1*15 PUSH1(2) SWAPN[0]
+    Stack layout: PUSH1(1) PUSH1(0) DUP1*15 PUSH1(2) SWAPN[0x80]
     Before SWAPN: [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-    After SWAPN[0] (decode_single(0)=17, swaps pos 1 and 18):
+    After SWAPN[0x80] (decode_single(0x80)=17, swaps pos 1 and 18):
     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]
     Result: 18 stack items, top=1, bottom=2, rest=0
     """
@@ -353,9 +353,9 @@ def test_swapn_with_dup1_and_push(
     code += Op.PUSH1(2)  # Top of stack (position 1)
 
     # Stack: [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-    # SWAPN with immediate 0 (decode_single(0) = 17) swaps pos 1 and 18
+    # SWAPN with immediate 0x80 (decode_single(0x80)=17) swaps pos 1 and 18
     # Pass as bytes (raw immediate byte for testing)
-    code += Op.SWAPN[b"\x00"]
+    code += Op.SWAPN[b"\x80"]
 
     # Store all stack values to verify
     for i in range(18):
