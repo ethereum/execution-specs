@@ -92,7 +92,7 @@ REFERENCE_SPEC_VERSION = "1.0"
 
 @pytest.mark.parametrize("token_name", SLOAD_TOKENS)
 @pytest.mark.parametrize("existing_slots", [False, True])
-@pytest.mark.parametrize("cache_mode", list(CacheStrategy))
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 def test_sload_empty_erc20_balanceof(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
