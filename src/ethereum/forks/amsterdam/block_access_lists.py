@@ -25,7 +25,6 @@ from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
 
 from .exceptions import BlockAccessListGasLimitExceededError
 from .state_tracker import BlockState, TransactionState, get_code
-from .transactions import GAS_TX_ACCESS_LIST_STORAGE_KEY
 
 # TODO: Either remove or generalize these type aliases (#2260).
 
@@ -743,10 +742,9 @@ def validate_block_access_list_gas_limit(
     Validate that the block access list does not exceed the gas limit.
 
     The total number of items (addresses + unique storage keys) must not
-    exceed ``block_gas_limit // ITEM_COST``, where
-    ``ITEM_COST = GAS_WARM_ACCESS + TX_ACCESS_LIST_STORAGE_KEY_COST``.
+    exceed ``block_gas_limit // ITEM_COST``, where ``ITEM_COST = 2000``.
     """
-    from .vm.gas import GAS_WARM_ACCESS
+    item_cost = Uint(2000)
 
     bal_items = Uint(0)
     for account in block_access_list:
@@ -763,8 +761,6 @@ def validate_block_access_list_gas_limit(
 
         # Count each unique storage key as one item
         bal_items += Uint(len(unique_slots))
-
-    item_cost = GAS_WARM_ACCESS + GAS_TX_ACCESS_LIST_STORAGE_KEY
 
     if bal_items > block_gas_limit // item_cost:
         raise BlockAccessListGasLimitExceededError
