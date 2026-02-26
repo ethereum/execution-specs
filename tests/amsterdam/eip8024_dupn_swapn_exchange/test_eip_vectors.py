@@ -41,9 +41,11 @@ def test_eip_vector_dupn_duplicate_bottom(
 
     # Build the exact bytecode from the EIP
     code = Op.PUSH1[0x1] + Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[17]
+    assert bytes(code) == bytes.fromhex(
+        "60016000808080808080808080808080808080e680"
+    )
 
-    # After DUPN: 18 items, top=1, bottom=1
-    # Verify by storing top value at key 0
+    # Verify by storing top and bottom values
     code += Op.PUSH1(0) + Op.SSTORE  # Store top (should be 1) at key 0
 
     # Pop 16 items to get to bottom 2 items
@@ -93,9 +95,11 @@ def test_eip_vector_swapn_swap_with_bottom(
         + Op.PUSH1[0x2]
         + Op.SWAPN[17]
     )
+    assert bytes(code) == bytes.fromhex(
+        "600160008080808080808080808080808080806002e780"
+    )
 
-    # After SWAPN: 18 items, top=1, bottom=2
-    # Verify by storing top value at key 0
+    # Verify by storing top and bottom values
     code += Op.PUSH1(0) + Op.SSTORE  # Store top (should be 1) at key 0
 
     # Pop 16 items to get to bottom 1 item
@@ -139,6 +143,7 @@ def test_eip_vector_exchange_swap_positions(
 
     # Build the exact bytecode from the EIP
     code = Op.PUSH1[0x0] + Op.PUSH1[0x1] + Op.PUSH1[0x2] + Op.EXCHANGE[b"\x8e"]
+    assert bytes(code) == bytes.fromhex("600060016002e88e")
 
     # Store all 3 stack values
     code += Op.PUSH1(0) + Op.SSTORE  # Store position 1 / top (should be 2)
@@ -182,6 +187,7 @@ def test_eip_vector_swapn_invalid_immediate_reverts(
         pushed_stack_items=0,
         terminating=True,
     )
+    assert bytes(code) == bytes.fromhex("e75b")
 
     contract_address = pre.deploy_contract(code=code)
     tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
@@ -217,6 +223,7 @@ def test_eip_vector_jump_over_invalid_dupn(
         popped_stack_items=0,
         pushed_stack_items=0,
     )
+    assert bytes(code) == bytes.fromhex("600456e65b")
 
     # After jumping to JUMPDEST, mark success
     code += Op.PUSH1(1) + Op.PUSH1(0) + Op.SSTORE
@@ -250,6 +257,7 @@ def test_eip_vector_exchange_with_iszero(
 
     # Build the exact bytecode from the EIP
     code = Op.PUSH1[0x0] + Op.DUP1 + Op.DUP1 + Op.EXCHANGE[b"\x8e"] + Op.ISZERO
+    assert bytes(code) == bytes.fromhex("60008080e88e15")
 
     # Store all 3 stack values
     code += Op.PUSH1(0) + Op.SSTORE  # Store top (should be 1)
@@ -291,6 +299,9 @@ def test_eip_vector_dupn_stack_underflow(
 
     # Build the exact bytecode from the EIP
     code = Op.PUSH1[0x0] + Op.DUP1 * 15 + Op.DUPN[b"\x80"]
+    assert bytes(code) == bytes.fromhex(
+        "6000808080808080808080808080808080e680"
+    )
 
     # This should not execute due to stack underflow
     code += Op.PUSH1(1) + Op.PUSH1(0) + Op.SSTORE
@@ -670,6 +681,9 @@ def test_eip_vector_exchange_end_of_code(
         + Op.DUP1 * 8
         + Op.EXCHANGE
     )
+    assert bytes(code) == bytes.fromhex(
+        "600260008080808080600160008080808080808080e8"
+    )
     # 17 items on stack:
     # pos 1-8: 0, pos 9: 0, pos 10: 1, pos 11-16: 0, pos 17: 2
     # After EXCHANGE(9,16): swap pos 10 and 17 -> pos 10=2, pos 17=1
@@ -707,6 +721,7 @@ def test_eip_vector_exchange_30_items(
         + Op.PUSH1[0x2]
         + Op.EXCHANGE[b"\x8f"]
     )
+    assert bytes(code) == bytes.fromhex("6000" + "80" * 27 + "60016002e88f")
     # 30 items: pos 1=2, pos 2=1, rest=0
     # After EXCHANGE(1,29): swap pos 2 and 30 -> pos 2=0, pos 30=1
     # Result: top=2, bottom=1, rest=0
