@@ -1,7 +1,7 @@
 """Shared constants and helpers for stateful benchmark tests."""
 
-from enum import Enum
 import json
+from enum import Enum
 from pathlib import Path
 
 # ERC20 function selectors
@@ -39,6 +39,8 @@ MIXED_TOKENS = [
 
 
 class CacheStrategy(str, Enum):
+    """Defines cache assumptions for benchmarked state access."""
+
     # No caching strategy: target state is cold in EVM and cache
     NO_CACHE = "no_cache"
     # Caching at tx level: target state is warm in EVM and cache

@@ -40,7 +40,6 @@ from tests.benchmark.stateful.helpers import (
     SSTORE_TOKENS,
     CacheStrategy,
 )
-from tests.cancun.eip4844_blobs.test_blob_txs_full import txs
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
@@ -243,14 +242,11 @@ def test_sload_empty_erc20_balanceof(
 
         if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
             with TestPhaseManager.setup():
-                # For block-level caching, we need to warm the slot in a separate transaction
+                # For block-level caching,
+                # we need to warm the slot in a separate transaction
                 cache_txs.append(tx)
 
         with TestPhaseManager.execution():
-            # TODO: CHECK IF THIS WORKS
-            # Does this actually create the tx in execution phase mode?
-            # Or is it depends on where the tx is created?
-            # (if thats the case then all txs are in the execution phase - right?)
             txs.append(tx)
 
         gas_remaining -= gas_available
@@ -647,7 +643,7 @@ def test_sstore_erc20_mint(
 
     benchmark_test(
         pre=pre,
-        blocks=[Block(txs=txs)],
+        blocks=blocks,
     )
 
 
