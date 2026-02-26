@@ -547,11 +547,11 @@ def _exchange_encoder(*args: int | bytes) -> bytes:
             )
 
         # encode_pair logic from EIP-8024
-        # n is first stack index (1-14), m is second (must be > n, up to 29)
-        if not (1 <= n <= 14 and n < m <= 29 and n + m <= 30):
+        # n is first stack index, m is second (n < m, n + m <= 30)
+        if not (1 <= n < m and n + m <= 30):
             raise ValueError(
-                f"EXCHANGE indices must satisfy: 1 <= n <= 14, "
-                f"n < m <= 29, n + m <= 30, got n={n}, m={m}"
+                f"EXCHANGE indices must satisfy: 1 <= n < m, "
+                f"n + m <= 30, got n={n}, m={m}"
             )
         if m <= 16:
             q, r = n - 1, m - 1

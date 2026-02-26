@@ -26,6 +26,8 @@ def decode_single(x: U8) -> U8:
     """
     Decode the immediate byte for DUPN/SWAPN to get the stack index.
 
+    Return n with 17 <= n <= 235.
+
     Parameters
     ----------
     x : int
@@ -34,7 +36,7 @@ def decode_single(x: U8) -> U8:
     Returns
     -------
     int
-        The stack index (17-235).
+        The stack index n, where 17 <= n <= 235.
 
     Raises
     ------
@@ -55,6 +57,8 @@ def decode_pair(x: U8) -> Tuple[U8, U8]:
     """
     Decode the immediate byte for EXCHANGE to get two stack indices.
 
+    Return (n, m) with 1 <= n <= 14 and n < m <= 30 - n.
+
     Parameters
     ----------
     x : int
@@ -63,7 +67,8 @@ def decode_pair(x: U8) -> Tuple[U8, U8]:
     Returns
     -------
     Tuple[int, int]
-        The two stack indices (n, m).
+        The two stack indices (n, m), where
+        1 <= n <= 14 and n < m <= 30 - n.
 
     Raises
     ------
