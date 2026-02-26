@@ -100,6 +100,7 @@ class StatelessValidationResult:
 
     new_payload_request_root: Hash32
     successful_validation: bool
+    chain_config: ChainConfig
 
 
 def compute_new_payload_request_root(
@@ -140,4 +141,5 @@ def verify_stateless_new_payload(
             stateless_input
         ),
         successful_validation=True,
+        chain_config=stateless_input.chain_config,
     )
