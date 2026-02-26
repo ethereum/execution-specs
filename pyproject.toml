@@ -24,7 +24,7 @@ dependencies = [
     "coincurve>=20,<21",
     "typing_extensions>=4.4",
     "py-ecc>=8.0.0b2,<9",
-    "ethereum-types>=0.3.0,<0.4",
+    "ethereum-types @ git+https://github.com/ethereum/ethereum-types.git@42ee6c1e9da3130f287a979c1f7f9ee0fab52e2a",
     "ethereum-rlp>=0.1.5,<0.2",
     "cryptography>=45.0.1,<46",
     "platformdirs>=4.2,<5",
