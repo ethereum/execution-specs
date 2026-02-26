@@ -289,21 +289,23 @@ def test_endofcode_behavior(
 @pytest.mark.parametrize(
     "immediate",
     [
-        # valid immediates: skipped, not a jump target
+        # valid immediates (0-81 / 128-255): skipped during JUMPDEST
+        # analysis, not reachable as jump targets
         0x00,
-        0x4F,
-        0x50,  # POP (now valid for EXCHANGE)
-        0x51,  # MLOAD (now valid for EXCHANGE)
-        # invalid immediates: not skipped, only 0x5B is JUMPDEST
-        0x52,  # MSTORE
-        0x5A,  # GAS
-        0x5B,  # JUMPDEST - only one where jump succeeds
-        0x5C,  # TLOAD
-        0x60,  # PUSH1
-        0x7F,  # PUSH32
-        # valid immediates again
-        0x80,
-        0xFF,
+        0x4F,  # 79
+        0x50,  # 80 — POP (valid for EXCHANGE)
+        0x51,  # 81 — MLOAD (valid for EXCHANGE)
+        # invalid immediates (82-127): not skipped during JUMPDEST
+        # analysis, only 0x5B (91) is a JUMPDEST
+        0x52,  # 82 — MSTORE (first invalid immediate)
+        0x5A,  # 90 — GAS (invalid immediate)
+        0x5B,  # 91 — JUMPDEST, only case where jump succeeds
+        0x5C,  # 92 — TLOAD (invalid immediate)
+        0x60,  # 96 — PUSH1 (invalid immediate)
+        0x7F,  # 127 — PUSH32 (last invalid immediate)
+        # valid immediates again (128-255)
+        0x80,  # 128
+        0xFF,  # 255
     ],
     ids=lambda x: f"imm_0x{x:02x}",
 )
@@ -347,15 +349,8 @@ def test_exchange_with_push_sequence(
     """
     Test EXCHANGE swapping positions 10 and 17 with a push sequence.
 
-    Stack layout: 15x PUSH1(0) PUSH1(1) PUSH1(2) EXCHANGE[0x8f]
-    Before EXCHANGE (17 items, top to bottom):
-    [2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    After EXCHANGE[0x8f] (decode_pair(0x8f)=(1,29), swaps pos 2 and 30):
-    wait, decode_pair(0x8f) = k=0x8f^143=0, q=0, r=0 -> (1, 29).
-    Actually need 30 items for (1, 29). Use EXCHANGE[1, 2] instead.
-
-    Uses EXCHANGE to swap specific positions and verifies the result.
-    decode_pair(0) = (9, 16), swaps positions 10 and 17.
+    Build 17 stack items with markers at positions 10 and 17.
+    EXCHANGE[0x00]: decode_pair(0) = (9, 16), swaps positions 10 and 17.
     """
     sender = pre.fund_eoa()
 

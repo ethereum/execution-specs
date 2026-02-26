@@ -312,22 +312,22 @@ def test_vector_dupn_followed_by_jumpdest(
     """
     Test vector: e6805b [DUPN 17, JUMPDEST].
 
-    Verifies that DUPN with immediate 0x80 correctly consumes the immediate
-    byte. The 0x5b following the DUPN is a separate JUMPDEST instruction,
-    not part of DUPN. decode_single(0x80) = 17, so DUPN duplicates the 17th
-    stack item.
+    Verify that DUPN with immediate 0x80 (128) correctly consumes the
+    immediate byte. The 0x5b following the DUPN is a separate JUMPDEST
+    instruction, not part of DUPN. decode_single(0x80) = 17, so DUPN
+    duplicates the 17th stack item.
     """
     sender = pre.fund_eoa()
 
-    # Push 17 items so DUPN[0x00] (which duplicates position 17) succeeds
+    # Push 17 items so DUPN[17] (immediate 0x80 / 128) succeeds
     marker_value = 0xBEEF
     code = Bytecode()
     code += Op.PUSH2(marker_value)  # This will be at position 17
     for i in range(16):
         code += Op.PUSH1(i)
 
-    # DUPN with immediate 0x00 followed by JUMPDEST
-    # Hex: e6 00 5b
+    # DUPN[17] encodes to immediate 0x80 (128), followed by JUMPDEST
+    # Bytecode: e6 80 5b
     code += Op.DUPN[17] + Op.JUMPDEST
 
     # Store the duplicated value (should be marker_value)
@@ -695,7 +695,7 @@ def test_eip_vector_exchange_30_items(
     EIP test vector (30-item EXCHANGE).
 
     Bytecode: 600080...(27x DUP1)...60016002e88f.
-    decode_pair(0x8f) = (1, 29), swaps positions 2 and 30.
+    decode_pair(0x8f / 143) = (1, 29), swaps positions 2 and 30.
     Results in 30 stack items, top=2, bottom=1, rest=0.
     """
     sender = pre.fund_eoa()
