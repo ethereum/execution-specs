@@ -36,8 +36,8 @@ from tests.benchmark.stateful.helpers import (
     BALANCEOF_SELECTOR,
     MINT_SELECTOR,
     SLOAD_TOKENS,
-    SSTORE_TOKENS,
     SSTORE_MINT_TOKENS,
+    SSTORE_TOKENS,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -415,12 +415,12 @@ def test_sstore_erc20_mint(
     cached: bool,
     no_change: bool,
 ) -> None:
-    """Benchmark SSTORE using ERC20 mint on bloatnet.
+    """
+    Benchmark SSTORE using ERC20 mint on bloatnet.
     This contract calls mint() on an ERC20 contract
     which supports the mint() function. It is intended
     to be used with ERC20 contracts bloated via bloatStorage.
     The mint will increase the total supply and the target account.
-
     """
     # Stub Account
     erc20_address = pre.deploy_contract(
@@ -481,7 +481,7 @@ def test_sstore_erc20_mint(
                     address=erc20_address,
                     value=0,
                     args_offset=28,
-                    args_size=36 + 32,
+                    args_size=36,
                     ret_offset=0,
                     ret_size=0,
                     # gas accounting
