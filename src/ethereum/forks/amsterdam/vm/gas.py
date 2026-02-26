@@ -84,6 +84,8 @@ GAS_BLS_G2_ADD = Uint(600)
 GAS_BLS_G2_MUL = Uint(22500)
 GAS_BLS_G2_MAP = Uint(23800)
 
+GAS_BLOCK_ACCESS_LIST_ITEM = Uint(2000)
+
 
 @dataclass
 class ExtendMemory:

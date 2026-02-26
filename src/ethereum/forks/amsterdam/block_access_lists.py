@@ -742,9 +742,9 @@ def validate_block_access_list_gas_limit(
     Validate that the block access list does not exceed the gas limit.
 
     The total number of items (addresses + unique storage keys) must not
-    exceed ``block_gas_limit // ITEM_COST``, where ``ITEM_COST = 2000``.
+    exceed ``block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM``.
     """
-    item_cost = Uint(2000)
+    from .vm.gas import GAS_BLOCK_ACCESS_LIST_ITEM
 
     bal_items = Uint(0)
     for account in block_access_list:
@@ -762,8 +762,9 @@ def validate_block_access_list_gas_limit(
         # Count each unique storage key as one item
         bal_items += Uint(len(unique_slots))
 
-    if bal_items > block_gas_limit // item_cost:
+    if bal_items > block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM:
         raise BlockAccessListGasLimitExceededError(
-            f"Block access list exceeds gas limit, {bal_items} items is "
-            f"exceeds limit of {block_gas_limit // item_cost}."
+            f"Block access list exceeds gas limit, {bal_items} items "
+            f"exceeds limit of "
+            f"{block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM}."
         )
