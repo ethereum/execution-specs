@@ -1,5 +1,6 @@
 """Shared constants and helpers for stateful benchmark tests."""
 
+from enum import Enum
 import json
 from pathlib import Path
 
@@ -35,3 +36,13 @@ MIXED_TOKENS = [
     for k in _STUBS.keys()
     if k.startswith("test_mixed_sload_sstore_")
 ]
+
+
+class CacheStrategy(str, Enum):
+    # No caching strategy: target state is cold in EVM and cache
+    NO_CACHE = "no_cache"
+    # Caching at tx level: target state is warm in EVM and cache
+    CACHE_TX = "cache_tx"
+    # Caching at previous block:
+    # Target state is cold in EVM but (assumed) to be cached
+    CACHE_PREVIOUS_BLOCK = "cache_previous_block"

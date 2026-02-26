@@ -38,7 +38,9 @@ from tests.benchmark.stateful.helpers import (
     SLOAD_TOKENS,
     SSTORE_MINT_TOKENS,
     SSTORE_TOKENS,
+    CacheStrategy,
 )
+from tests.cancun.eip4844_blobs.test_blob_txs_full import txs
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
@@ -91,7 +93,7 @@ REFERENCE_SPEC_VERSION = "1.0"
 
 @pytest.mark.parametrize("token_name", SLOAD_TOKENS)
 @pytest.mark.parametrize("existing_slots", [False, True])
-@pytest.mark.parametrize("cached", [False, True])
+@pytest.mark.parametrize("cache_mode", list(CacheStrategy))
 def test_sload_empty_erc20_balanceof(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -100,7 +102,7 @@ def test_sload_empty_erc20_balanceof(
     tx_gas_limit: int,
     token_name: str,
     existing_slots: bool,
-    cached: bool,
+    cache_strategy: CacheStrategy,
 ) -> None:
     """Benchmark SLOAD using ERC20 balanceOf on bloatnet."""
     # Stub Account
@@ -142,12 +144,17 @@ def test_sload_empty_erc20_balanceof(
         )
     )
 
+    cache_loop = (
+        call_balance_of
+        if cache_strategy == CacheStrategy.CACHE_TX
+        else Bytecode()
+    )
+
     loop = While(
         body=call_balance_of
         # Do the same call again for the cached variant
-        + Bytecode()
-        if not cached
-        else call_balance_of + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        + cache_loop
+        + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
         condition=Op.PUSH1(1)  # [1, num_calls]
         + Op.SWAP1  # [num_calls, 1]
         + Op.SUB  # [num_calls-1]
@@ -201,6 +208,7 @@ def test_sload_empty_erc20_balanceof(
 
     # Transaction Loops
     txs = []
+    cache_txs = []
     gas_remaining = gas_benchmark_value
     # Start at 1 (ERC20 bloater writes the balance of address to the slot)
     # or start at keccak256("random") for non-existing slots
@@ -225,23 +233,32 @@ def test_sload_empty_erc20_balanceof(
 
         calldata = Hash(num_calls) + Hash(slot_offset)
 
-        txs.append(
-            Transaction(
-                gas_limit=gas_available,
-                data=calldata,
-                to=attack_contract_address,
-                sender=pre.fund_eoa(),
-                access_list=access_list,
-            )
+        tx = Transaction(
+            gas_limit=gas_available,
+            data=calldata,
+            to=attack_contract_address,
+            sender=pre.fund_eoa(),
+            access_list=access_list,
         )
+
+        if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+            with TestPhaseManager.setup():
+                # For block-level caching, we need to warm the slot in a separate transaction
+                cache_txs.append(tx)
+
+        with TestPhaseManager.execution():
+            txs.append(tx)
 
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    benchmark_test(
-        pre=pre,
-        blocks=[Block(txs=txs)],
+    blocks = (
+        [Block(txs=txs)]
+        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
+        else [Block(txs=cache_txs), Block(txs=txs)]
     )
+
+    benchmark_test(pre=pre, blocks=blocks)
 
 
 @pytest.mark.parametrize("token_name", SSTORE_TOKENS)
@@ -471,7 +488,7 @@ def test_sstore_erc20_mint(
         )
     )
 
-    if cached:
+    if cache_strategy == CacheStrategy.CACHE_TX:
         # Call balanceOf first to warm the storage slot, then restore
         # the mint selector
         cache_warmup = (
