@@ -81,9 +81,17 @@ def test_all_opcodes(
     valid_opcodes = set(fork.valid_opcodes())
     all_opcodes = set(Opcode(i) for i in range(0xFF + 1))
     for opcode in sorted(valid_opcodes | all_opcodes):
+        test_opcode: Opcode | Bytecode = opcode
+        if opcode.has_data_portion():
+            if opcode in [Op.SWAPN, Op.DUPN]:
+                test_opcode = opcode[17]
+            elif opcode == Op.EXCHANGE:
+                test_opcode = opcode[1, 2]
+            else:
+                test_opcode = opcode[0]
         code_contract[opcode] = pre.deploy_contract(
             balance=10,
-            code=prepare_stack(opcode) + opcode + prepare_suffix(opcode),
+            code=prepare_stack(opcode) + test_opcode + prepare_suffix(opcode),
             storage={},
         )
 
