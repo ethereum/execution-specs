@@ -763,4 +763,7 @@ def validate_block_access_list_gas_limit(
         bal_items += Uint(len(unique_slots))
 
     if bal_items > block_gas_limit // item_cost:
-        raise BlockAccessListGasLimitExceededError
+        raise BlockAccessListGasLimitExceededError(
+            f"Block access list exceeds gas limit, {bal_items} items is "
+            f"exceeds limit of {block_gas_limit // item_cost}."
+        )
