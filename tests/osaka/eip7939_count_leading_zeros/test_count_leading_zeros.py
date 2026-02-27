@@ -726,8 +726,11 @@ def test_clz_call_operation(
 
     callee_address = pre.deploy_contract(code=callee_code)
 
+    # Amsterdam (EIP-8037) adds state gas to SSTOREs in the callee;
+    # 3 cold zero-to-nonzero SSTOREs need ~180K (59,668 each at cpsb=1174).
+    subcall_gas = 200_000 if fork >= Amsterdam else 0xFFFF
     caller_code = opcode(
-        gas=0xFFFF,
+        gas=subcall_gas,
         address=callee_address,
         ret_offset=0,
         ret_size=len(test_cases) * 0x20,

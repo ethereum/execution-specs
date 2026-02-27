@@ -578,9 +578,10 @@ def test_bal_call_no_delegation_oog_after_target_access(
         - target is always empty - required for create cost
         - value=1 (greater than 0) - required for create cost
 
-    The create_cost (G_NEW_ACCOUNT = 25000) is charged only for value transfers
-    to empty accounts, creating the gap tested here.
-
+    Gas is set so the static check (access + transfer + memory) passes and
+    the new-account state gas (G_NEW_ACCOUNT) is covered, but the child
+    frame receives zero gas and fails immediately. The target is tracked
+    in BAL because the child message's process_message still runs.
     """
     gas_costs = fork.gas_costs()
     alice = pre.fund_eoa()
@@ -625,9 +626,14 @@ def test_bal_call_no_delegation_oog_after_target_access(
     # static gas cost (before state access): access + transfer + memory
     static_gas_cost = access_cost + transfer_cost + memory_cost
 
-    # Pass static check, fail at second check due to create cost
-    # (create_cost = G_NEW_ACCOUNT = 25000 for empty target + value > 0)
-    gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
+    # Include G_NEW_ACCOUNT so the new-account state gas charge succeeds;
+    # the child frame still gets zero gas (Op.CALL gas=0) and fails.
+    gas_limit = (
+        intrinsic_cost
+        + bytecode_cost
+        + static_gas_cost
+        + gas_costs.G_NEW_ACCOUNT
+    )
 
     tx = Transaction(
         sender=alice,
@@ -636,10 +642,11 @@ def test_bal_call_no_delegation_oog_after_target_access(
         access_list=access_list,
     )
 
-    # EIP-8037: charge_state_gas for new account creation causes OOG before
-    # the child frame is created, so the target is not tracked in BAL.
+    # Target is in BAL: the child frame is created (with 0 gas) and
+    # process_message tracks the target before the child fails.
     account_expectations: Dict[Address, BalAccountExpectation | None] = {
         caller: BalAccountExpectation.empty(),
+        target: BalAccountExpectation.empty(),
     }
 
     post_state = {

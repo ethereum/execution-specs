@@ -23,6 +23,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionException,
 )
 
 from .spec import Spec, ref_spec_8037
@@ -744,6 +745,246 @@ def test_auth_with_multiple_sstores(
     tx = Transaction(
         to=contract,
         gas_limit=Spec.TX_MAX_GAS_LIMIT + total_state_gas,
+        authorization_list=authorization_list,
+        sender=sender,
+    )
+
+    post = {contract: Account(storage=storage)}
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "gas_delta",
+    [
+        pytest.param(0, id="exact_gas"),
+        pytest.param(
+            -1,
+            id="one_short",
+            marks=pytest.mark.exception_test,
+        ),
+    ],
+)
+@pytest.mark.valid_from("Amsterdam")
+def test_authorization_exact_state_gas_boundary(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    gas_delta: int,
+) -> None:
+    """
+    Test exact state gas boundary for a single authorization.
+
+    Each authorization charges exactly (112 + 23) * cost_per_state_byte
+    of intrinsic state gas. With gas_delta=0 the transaction has exactly
+    enough and succeeds. With gas_delta=-1 the transaction is 1 gas
+    short and is rejected as intrinsic-gas-too-low.
+    """
+    cpsb = Spec.COST_PER_STATE_BYTE
+    auth_state_gas = (
+        Spec.STATE_BYTES_PER_NEW_ACCOUNT + Spec.STATE_BYTES_PER_AUTH_BASE
+    ) * cpsb
+
+    contract = pre.deploy_contract(code=Op.STOP)
+
+    signer = pre.fund_eoa()
+    authorization_list = [
+        AuthorizationTuple(
+            address=contract,
+            nonce=1,
+            signer=signer,
+        ),
+    ]
+
+    is_oog = gas_delta < 0
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        to=contract,
+        gas_limit=Spec.TX_MAX_GAS_LIMIT + auth_state_gas + gas_delta,
+        authorization_list=authorization_list,
+        sender=sender,
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW if is_oog else None,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                exception=(
+                    TransactionException.INTRINSIC_GAS_TOO_LOW
+                    if is_oog
+                    else None
+                ),
+            )
+        ],
+        post={},
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_authorization_to_precompile_address(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test authorization targeting a precompile address charges state gas.
+
+    Authorizing delegation to a precompile address (e.g., ecrecover at
+    0x01) charges the same intrinsic state gas as any other target.
+    The authorization is processed and the signer's code is set to
+    the precompile address delegation designator.
+    """
+    env = Environment()
+    cpsb = Spec.COST_PER_STATE_BYTE
+    auth_state_gas = (
+        Spec.STATE_BYTES_PER_NEW_ACCOUNT + Spec.STATE_BYTES_PER_AUTH_BASE
+    ) * cpsb
+
+    # ecrecover precompile at 0x01
+    precompile_addr = 0x01
+
+    signer = pre.fund_eoa()
+    authorization_list = [
+        AuthorizationTuple(
+            address=precompile_addr,
+            nonce=0,
+            signer=signer,
+        ),
+    ]
+
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        to=signer,
+        gas_limit=Spec.TX_MAX_GAS_LIMIT + auth_state_gas,
+        authorization_list=authorization_list,
+        sender=sender,
+    )
+
+    state_test(env=env, pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_multi_tx_block_auth_refund_and_sstore(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test multi-transaction block with auth refund and SSTORE state gas.
+
+    Two transactions in one block:
+    1. A SetCode tx authorizing an existing account (gets 112*cpsb
+       refund to reservoir). The refund reduces intrinsic_state_gas.
+    2. A regular tx performing an SSTORE (charges 32*cpsb state gas).
+
+    Verifies block-level state gas accounting correctly handles both
+    the auth refund from tx1 and the SSTORE charge from tx2.
+    """
+    cpsb = Spec.COST_PER_STATE_BYTE
+    auth_state_gas = (
+        Spec.STATE_BYTES_PER_NEW_ACCOUNT + Spec.STATE_BYTES_PER_AUTH_BASE
+    ) * cpsb
+    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+
+    contract = pre.deploy_contract(code=Op.STOP)
+
+    # TX 1: auth targeting existing account (gets refund)
+    signer = pre.fund_eoa()
+    authorization_list = [
+        AuthorizationTuple(
+            address=contract,
+            nonce=0,
+            signer=signer,
+        ),
+    ]
+    sender_1 = pre.fund_eoa()
+    tx_1 = Transaction(
+        to=contract,
+        gas_limit=Spec.TX_MAX_GAS_LIMIT + auth_state_gas,
+        authorization_list=authorization_list,
+        sender=sender_1,
+    )
+
+    # TX 2: SSTORE zero-to-nonzero (charges state gas)
+    storage = Storage()
+    sstore_contract = pre.deploy_contract(
+        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+    )
+    sender_2 = pre.fund_eoa()
+    tx_2 = Transaction(
+        to=sstore_contract,
+        gas_limit=Spec.TX_MAX_GAS_LIMIT + sstore_state_gas,
+        sender=sender_2,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[Block(txs=[tx_1, tx_2])],
+        post={sstore_contract: Account(storage=storage)},
+    )
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_auth_refund_bypasses_one_fifth_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test auth refund to reservoir bypasses the 1/5 refund cap.
+
+    The existing-account auth refund (112 * cpsb) goes directly to
+    state_gas_reservoir, NOT to refund_counter. This means it is not
+    subject to the 1/5 refund cap. The test provides just enough gas
+    for the auth intrinsic state gas and multiple SSTOREs whose state
+    gas can only be funded from the reservoir if the full auth refund
+    is available (i.e. not capped at 1/5).
+
+    If the auth refund went through refund_counter with the 1/5 cap,
+    the SSTOREs would OOG. By succeeding, this test proves the refund
+    bypasses the cap.
+    """
+    env = Environment()
+    cpsb = Spec.COST_PER_STATE_BYTE
+    auth_state_gas = (
+        Spec.STATE_BYTES_PER_NEW_ACCOUNT + Spec.STATE_BYTES_PER_AUTH_BASE
+    ) * cpsb
+    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+    # Auth refund for existing account = 112 * cpsb
+    auth_refund = Spec.STATE_BYTES_PER_NEW_ACCOUNT * cpsb
+
+    # Use 3 SSTOREs: 3 * 32 * cpsb = 96 * cpsb of state gas needed.
+    # Auth refund gives 112 * cpsb to the reservoir — enough for all 3.
+    # If it were 1/5 capped: refund would be at most
+    # (135 * cpsb) / 5 = 27 * cpsb, which can only fund 0 SSTOREs.
+    num_sstores = 3
+
+    storage = Storage()
+    code = Bytecode()
+    for _ in range(num_sstores):
+        code += Op.SSTORE(storage.store_next(1), 1)
+    code += Op.STOP
+
+    contract = pre.deploy_contract(code=code)
+
+    # Existing signer — gets auth_refund to reservoir
+    signer = pre.fund_eoa()
+    authorization_list = [
+        AuthorizationTuple(
+            address=contract,
+            nonce=0,
+            signer=signer,
+        ),
+    ]
+
+    # Provide auth intrinsic state gas + SSTORE state gas.
+    # After the auth refund (112*cpsb) returns to the reservoir,
+    # the reservoir holds auth_refund which covers 3 SSTOREs (96*cpsb).
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        to=contract,
+        gas_limit=(
+            Spec.TX_MAX_GAS_LIMIT
+            + auth_state_gas
+            + sstore_state_gas * num_sstores
+        ),
         authorization_list=authorization_list,
         sender=sender,
     )
