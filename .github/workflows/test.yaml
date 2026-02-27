@@ -63,6 +63,9 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - uses: ./.github/actions/setup-env
       - name: Run py3 tests
         run: tox -e py3
         env:
@@ -117,6 +120,7 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
+      - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
       - name: Run py3 tests
         run: tox -e tests_pytest_py3
