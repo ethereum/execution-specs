@@ -391,6 +391,9 @@ class TestContractCreationGasUsage:
             )
         return Alloc({create_contract_address: Account.NONEXISTENT})
 
+    # TODO[EIP-8037]: Code deposit and G_CREATE become state gas under Amsterdam.
+    # Gas calculations need updating for two-dimensional gas.
+    @pytest.mark.valid_until("Osaka")
     @pytest.mark.slow()
     def test_gas_usage(
         self,
@@ -588,6 +591,9 @@ class TestCreateInitcode:
             )
         return initcode.deployment_gas
 
+    # TODO[EIP-8037]: Code deposit and G_CREATE become state gas under Amsterdam.
+    # Gas calculations need updating for two-dimensional gas.
+    @pytest.mark.valid_until("Osaka")
     @pytest.mark.xdist_group(name="bigmem")
     @pytest.mark.slow()
     def test_create_opcode_initcode(

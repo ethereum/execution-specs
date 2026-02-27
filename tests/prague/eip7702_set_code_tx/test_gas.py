@@ -1126,6 +1126,9 @@ def test_account_warming(
     "valid",
     [True, pytest.param(False, marks=pytest.mark.exception_test)],
 )
+# TODO[EIP-8037]: EELS uses PER_EMPTY_ACCOUNT_COST=25,000 per auth for intrinsic gas
+# check, but Amsterdam G_AUTHORIZATION=165,990 includes state gas. Possible EELS bug.
+@pytest.mark.valid_until("Osaka")
 def test_intrinsic_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,

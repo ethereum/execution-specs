@@ -337,6 +337,8 @@ def tx_gas_limit(
         RefundType.AUTHORIZATION_EXISTING_AUTHORITY,
     ],
 )
+# TODO[EIP-8037]: Authorization state gas split affects refund calculations for Amsterdam.
+@pytest.mark.valid_until("Osaka")
 def test_gas_refunds_from_data_floor(
     state_test: StateTestFiller,
     pre: Alloc,
