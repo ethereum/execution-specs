@@ -1,0 +1,121 @@
+name: PR Labeler
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PR based on conventional commits
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const typeToLabel = {
+              'fix': 'C-bug',
+              'feat': 'C-feat',
+              'refactor': 'C-refactor',
+              'chore': 'C-chore',
+              'test': 'C-test',
+            };
+
+            const scopeToLabel = {
+              'doc': 'A-doc',
+              'docs': 'A-doc',
+              'ci': 'A-ci',
+              'deps': 'A-deps',
+              'packaging': 'A-packaging',
+              'tooling': 'A-tooling',
+              'tools': 'A-tooling',
+              'tests': 'A-tests',
+              'test': 'A-tests',
+              'test-tools': 'A-test-tools',
+              'test-benchmark': 'A-test-benchmark',
+              'test-cli': 'A-test-cli',
+              'test-commands': 'A-test-commands',
+              'test-config': 'A-test-config',
+              'test-consume': 'A-test-consume',
+              'test-eest': 'A-test-eest',
+              'test-exceptions': 'A-test-exceptions',
+              'test-execute': 'A-test-execute',
+              'test-execution': 'A-test-execution',
+              'test-fill': 'A-test-fill',
+              'test-fixtures': 'A-test-fixtures',
+              'test-forks': 'A-test-forks',
+              'test-gentest': 'A-test-gentest',
+              'test-make': 'A-test-make',
+              'test-rpc': 'A-test-rpc',
+              'test-specs': 'A-test-specs',
+              'test-tests': 'A-test-tests',
+              'test-types': 'A-test-types',
+              'test-vm': 'A-test-vm',
+              'spec-rpc': 'A-spec-rpc',
+              'spec-specs': 'A-spec-specs',
+              'spec-tests': 'A-spec-tests',
+              'spec-tool': 'A-spec-tool',
+            };
+
+            // Regex for conventional commit: type(scope): description or type: description
+            const conventionalCommitRegex = /^(\w+)(?:\(([^)]+)\))?!?:\s*.+/;
+
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
+
+            const labelsToAdd = new Set();
+
+            for (const commit of commits) {
+              const message = commit.commit.message.split('\n')[0]; // First line only
+              const match = message.match(conventionalCommitRegex);
+
+              if (match) {
+                const type = match[1].toLowerCase();
+                const scope = match[2] ? match[2].toLowerCase() : null;
+
+                // Add type label
+                if (typeToLabel[type]) {
+                  labelsToAdd.add(typeToLabel[type]);
+                }
+
+                // Add scope label
+                if (scope && scopeToLabel[scope]) {
+                  labelsToAdd.add(scopeToLabel[scope]);
+                }
+              }
+            }
+
+            if (labelsToAdd.size > 0) {
+              const labelsArray = Array.from(labelsToAdd);
+              console.log(`Adding labels: ${labelsArray.join(', ')}`);
+
+              // Get existing labels on the repo to avoid adding non-existent labels
+              const { data: repoLabels } = await github.rest.issues.listLabelsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100,
+              });
+              const existingLabelNames = new Set(repoLabels.map(l => l.name));
+
+              // Filter to only labels that exist in the repo
+              const validLabels = labelsArray.filter(label => existingLabelNames.has(label));
+
+              if (validLabels.length > 0) {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  labels: validLabels,
+                });
+                console.log(`Successfully added labels: ${validLabels.join(', ')}`);
+              } else {
+                console.log('No matching labels found in repository');
+              }
+            } else {
+              console.log('No conventional commit patterns found in PR commits');
+            }
