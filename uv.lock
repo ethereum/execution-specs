@@ -956,12 +956,12 @@ provides-extras = ["optimized"]
 
 [package.metadata.requires-dev]
 actionlint = [
-    { name = "actionlint-py", specifier = ">=1.7" },
+    { name = "actionlint-py", specifier = ">=1.7.11,<2" },
     { name = "pyflakes", specifier = ">=3.0" },
     { name = "shellcheck-py", specifier = ">=0.10" },
 ]
 dev = [
-    { name = "actionlint-py", specifier = ">=1.7" },
+    { name = "actionlint-py", specifier = ">=1.7.11,<2" },
     { name = "cairosvg", specifier = ">=2.7.0,<3" },
     { name = "codespell", specifier = "==2.4.1" },
     { name = "codespell", specifier = ">=2.4.1,<3" },
