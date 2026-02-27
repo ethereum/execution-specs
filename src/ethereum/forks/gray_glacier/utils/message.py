@@ -62,8 +62,8 @@ def prepare_message(
     elif isinstance(tx.to, Address):
         current_target = tx.to
         msg_data = tx.data
-        state = block_env.state
-        code = get_code(state, get_account(state, tx.to).code_hash)
+        account = get_account(block_env.state, tx.to)
+        code = get_code(block_env.state, account.code_hash)
 
         code_address = tx.to
     else:

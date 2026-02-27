@@ -181,6 +181,48 @@ def get_account_optional(state: State, address: Address) -> Optional[Account]:
     return account
 
 
+def get_code(state: State, code_hash: Hash32) -> Bytes:
+    """
+    Return the bytecode for a given code hash.
+
+    Parameters
+    ----------
+    state:
+        The current state.
+    code_hash:
+        The hash of the code to retrieve.
+
+    Returns
+    -------
+    code : `Bytes`
+        The bytecode for the given hash.
+
+    """
+    return state.get_code(code_hash)
+
+
+def store_code(state: State, code: Bytes) -> Hash32:
+    """
+    Store bytecode in the code store and return its hash.
+
+    Parameters
+    ----------
+    state:
+        The current state.
+    code:
+        The bytecode to store.
+
+    Returns
+    -------
+    code_hash : `Hash32`
+        The keccak256 hash of the stored bytecode.
+
+    """
+    code_hash = keccak256(code)
+    state._code_store[code_hash] = code
+    return code_hash
+
+
 def set_account(
     state: State, address: Address, account: Optional[Account]
 ) -> None:
@@ -532,48 +574,6 @@ def increment_nonce(state: State, address: Address) -> None:
         sender.nonce += Uint(1)
 
     modify_state(state, address, increase_nonce)
-
-
-def get_code(state: State, code_hash: Hash32) -> Bytes:
-    """
-    Return the bytecode for a given code hash.
-
-    Parameters
-    ----------
-    state:
-        The current state.
-    code_hash:
-        The hash of the code to retrieve.
-
-    Returns
-    -------
-    code : `Bytes`
-        The bytecode for the given hash.
-
-    """
-    return state.get_code(code_hash)
-
-
-def store_code(state: State, code: Bytes) -> Hash32:
-    """
-    Store bytecode in the code store and return its hash.
-
-    Parameters
-    ----------
-    state:
-        The current state.
-    code:
-        The bytecode to store.
-
-    Returns
-    -------
-    code_hash : `Hash32`
-        The keccak256 hash of the stored bytecode.
-
-    """
-    code_hash = keccak256(code)
-    state._code_store[code_hash] = code
-    return code_hash
 
 
 def set_code(state: State, address: Address, code: Bytes) -> None:

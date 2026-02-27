@@ -47,10 +47,10 @@ class State:
             Dict[Address, Trie[Bytes32, U256]],
         ]
     ] = field(default_factory=list)
+    created_accounts: Set[Address] = field(default_factory=set)
     _code_store: Dict[Hash32, Bytes] = field(
         default_factory=dict, compare=False
     )
-    created_accounts: Set[Address] = field(default_factory=set)
 
 
 def close_state(state: State) -> None:
@@ -61,8 +61,8 @@ def close_state(state: State) -> None:
     del state._main_trie
     del state._storage_tries
     del state._snapshots
-    del state._code_store
     del state.created_accounts
+    del state._code_store
 
 
 def begin_transaction(state: State) -> None:
@@ -178,7 +178,7 @@ def get_code(state: State, code_hash: Hash32) -> Bytes:
 
 def store_code(state: State, code: Bytes) -> Hash32:
     """
-    Store bytecode in a ``State``.
+    Store bytecode in ``State``.
     """
     code_hash = keccak256(code)
     if code_hash != EMPTY_CODE_HASH:

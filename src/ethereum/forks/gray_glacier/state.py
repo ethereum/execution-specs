@@ -24,14 +24,8 @@ from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.state import (
-    EMPTY_ACCOUNT,
-    EMPTY_CODE_HASH,
-    Account,
-    Address,
-    Root,
-)
 
+from .fork_types import EMPTY_ACCOUNT, EMPTY_CODE_HASH, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 
@@ -57,12 +51,6 @@ class State:
     _code_store: Dict[Hash32, Bytes] = field(
         default_factory=dict, compare=False
     )
-
-    def get_code(self, code_hash: Hash32) -> Bytes:
-        """
-        Return the code corresponding to `code_hash`.
-        """
-        return self._code_store.get(code_hash, b"")
 
 
 def close_state(state: State) -> None:
@@ -177,6 +165,25 @@ def get_account_optional(state: State, address: Address) -> Optional[Account]:
     """
     account = trie_get(state._main_trie, address)
     return account
+
+
+def get_code(state: State, code_hash: Hash32) -> Bytes:
+    """
+    Get the bytecode for a given code hash.
+    """
+    if code_hash == EMPTY_CODE_HASH:
+        return b""
+    return state._code_store[code_hash]
+
+
+def store_code(state: State, code: Bytes) -> Hash32:
+    """
+    Store bytecode in ``State``.
+    """
+    code_hash = keccak256(code)
+    if code_hash != EMPTY_CODE_HASH:
+        state._code_store[code_hash] = code
+    return code_hash
 
 
 def set_account(
@@ -565,48 +572,6 @@ def increment_nonce(state: State, address: Address) -> None:
     modify_state(state, address, increase_nonce)
 
 
-def get_code(state: State, code_hash: Hash32) -> Bytes:
-    """
-    Return the code corresponding to `code_hash` from the state's code store.
-
-    Parameters
-    ----------
-    state:
-        The current state.
-    code_hash:
-        The hash of the code to retrieve.
-
-    Returns
-    -------
-    code : `Bytes`
-        The bytecode, or empty bytes if not found.
-
-    """
-    return state._code_store.get(code_hash, b"")
-
-
-def store_code(state: State, code: Bytes) -> Hash32:
-    """
-    Store code in the state's code store and return its hash.
-
-    Parameters
-    ----------
-    state:
-        The current state.
-    code:
-        The bytecode to store.
-
-    Returns
-    -------
-    code_hash : `Hash32`
-        The keccak256 hash of the stored code.
-
-    """
-    code_hash = keccak256(code)
-    state._code_store[code_hash] = code
-    return code_hash
-
-
 def set_code(state: State, address: Address, code: Bytes) -> None:
     """
     Sets Account code.
@@ -623,7 +588,9 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
         The bytecode that needs to be set.
 
     """
-    code_hash = store_code(state, code)
+    code_hash = keccak256(code)
+    if code_hash != EMPTY_CODE_HASH:
+        state._code_store[code_hash] = code
 
     def write_code(sender: Account) -> None:
         sender.code_hash = code_hash

@@ -13,9 +13,9 @@ Implementations of the EVM environment related instructions.
 
 from ethereum_types.numeric import U256, Uint, ulen
 
-from ethereum.state import EMPTY_ACCOUNT
 from ethereum.utils.numeric import ceil32
 
+from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account, get_code
 from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
@@ -346,8 +346,8 @@ def extcodesize(evm: Evm) -> None:
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    state = evm.message.block_env.state
-    code = get_code(state, get_account(state, address).code_hash)
+    account = get_account(evm.message.block_env.state, address)
+    code = get_code(evm.message.block_env.state, account.code_hash)
 
     codesize = U256(len(code))
     push(evm.stack, codesize)
@@ -389,8 +389,8 @@ def extcodecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    state = evm.message.block_env.state
-    code = get_code(state, get_account(state, address).code_hash)
+    account = get_account(evm.message.block_env.state, address)
+    code = get_code(evm.message.block_env.state, account.code_hash)
 
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)

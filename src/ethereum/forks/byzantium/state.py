@@ -172,7 +172,7 @@ def get_code(state: State, code_hash: Hash32) -> Bytes:
 
 def store_code(state: State, code: Bytes) -> Hash32:
     """
-    Store bytecode in a ``State``.
+    Store bytecode in ``State``.
     """
     code_hash = keccak256(code)
     if code_hash != EMPTY_CODE_HASH:

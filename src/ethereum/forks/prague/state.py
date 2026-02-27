@@ -53,10 +53,10 @@ class State:
             Dict[Address, Trie[Bytes32, U256]],
         ]
     ] = field(default_factory=list)
+    created_accounts: Set[Address] = field(default_factory=set)
     _code_store: Dict[Hash32, Bytes] = field(
         default_factory=dict, compare=False
     )
-    created_accounts: Set[Address] = field(default_factory=set)
 
     def get_code(self, code_hash: Hash32) -> Bytes:
         """
@@ -90,8 +90,8 @@ def close_state(state: State) -> None:
     del state._main_trie
     del state._storage_tries
     del state._snapshots
-    del state._code_store
     del state.created_accounts
+    del state._code_store
 
 
 def begin_transaction(
@@ -213,6 +213,27 @@ def get_account_optional(state: State, address: Address) -> Optional[Account]:
     """
     account = trie_get(state._main_trie, address)
     return account
+
+
+def get_code(state: State, code_hash: Hash32) -> Bytes:
+    """
+    Get the bytecode for a given code hash.
+
+    Return ``b""`` for ``EMPTY_CODE_HASH``.
+    """
+    if code_hash == EMPTY_CODE_HASH:
+        return b""
+    return state._code_store[code_hash]
+
+
+def store_code(state: State, code: Bytes) -> Hash32:
+    """
+    Store bytecode in ``State`` and return its hash.
+    """
+    code_hash = keccak256(code)
+    if code_hash != EMPTY_CODE_HASH:
+        state._code_store[code_hash] = code
+    return code_hash
 
 
 def set_account(
@@ -567,27 +588,6 @@ def increment_nonce(state: State, address: Address) -> None:
         sender.nonce += Uint(1)
 
     modify_state(state, address, increase_nonce)
-
-
-def get_code(state: State, code_hash: Hash32) -> Bytes:
-    """
-    Get the bytecode for a given code hash.
-
-    Return ``b""`` for ``EMPTY_CODE_HASH``.
-    """
-    if code_hash == EMPTY_CODE_HASH:
-        return b""
-    return state._code_store[code_hash]
-
-
-def store_code(state: State, code: Bytes) -> Hash32:
-    """
-    Store bytecode in a ``State`` and return its hash.
-    """
-    code_hash = keccak256(code)
-    if code_hash != EMPTY_CODE_HASH:
-        state._code_store[code_hash] = code
-    return code_hash
 
 
 def set_code(state: State, address: Address, code: Bytes) -> None:

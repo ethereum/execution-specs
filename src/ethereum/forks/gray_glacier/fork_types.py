@@ -11,17 +11,40 @@ Introduction
 Types reused throughout the specification, which are specific to Ethereum.
 """
 
-from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes256
+from dataclasses import dataclass
 
-from ethereum.state import (  # noqa: F401
-    EMPTY_ACCOUNT,
-    Account,
-    Address,
-    Root,  # noqa: F401
-)
+from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes, Bytes20, Bytes256
+from ethereum_types.frozen import slotted_freezable
+from ethereum_types.numeric import U256, Uint
+
+from ethereum.crypto.hash import Hash32, keccak256
+
+Address = Bytes20
+Root = Hash32
 
 Bloom = Bytes256
+
+EMPTY_CODE_HASH = keccak256(b"")
+
+
+@slotted_freezable
+@dataclass
+class Account:
+    """
+    State associated with an address.
+    """
+
+    nonce: Uint
+    balance: U256
+    code_hash: Hash32
+
+
+EMPTY_ACCOUNT = Account(
+    nonce=Uint(0),
+    balance=U256(0),
+    code_hash=EMPTY_CODE_HASH,
+)
 
 
 def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:

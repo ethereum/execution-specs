@@ -285,8 +285,8 @@ def generic_call(
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
     )
-    account = get_account(evm.message.block_env.state, code_address)
-    code = get_code(evm.message.block_env.state, account.code_hash)
+    code_account = get_account(evm.message.block_env.state, code_address)
+    code = get_code(evm.message.block_env.state, code_account.code_hash)
     child_message = Message(
         block_env=evm.message.block_env,
         tx_env=evm.message.tx_env,
