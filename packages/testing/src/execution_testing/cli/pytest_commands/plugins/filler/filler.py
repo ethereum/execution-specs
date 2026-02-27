@@ -1932,7 +1932,7 @@ def pytest_collection_modifyitems(
             reporter.write_line("")
             reporter.write_sep(
                 "=",
-                "NOTICE: Tests skipped (no fixture formats)",
+                "NOTICE: Tests ignored (as expected; no fixture formats)",
                 yellow=True,
                 bold=True,
             )

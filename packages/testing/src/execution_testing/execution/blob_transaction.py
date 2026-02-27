@@ -168,7 +168,7 @@ class BlobTransaction(BaseExecute):
         # if non-existing blob hashes were requested, behavior depends on
         # engine_getBlobsV* version:
         # - V1/V2: entire response must be 'null' (all-or-nothing)
-        # - V3+: partial responses allowed (null only for missing blobs)
+        # - V3: partial responses allowed (null only for missing blobs)
         if self.nonexisting_blob_hashes is not None:
             if version <= 2:
                 # V1/V2 behavior: entire response is null if any blob missing
@@ -188,8 +188,8 @@ class BlobTransaction(BaseExecute):
                     return ExecuteResult(
                         benchmark_gas_used=None,
                     )
-            else:
-                # V3+ behavior: partial responses with null for missing blobs
+            elif version == 3:
+                # V3 behavior: partial responses with null for missing blobs
                 if blob_response is None:
                     raise ValueError(
                         "Non-existing blob hashes were requested and the "
@@ -231,6 +231,11 @@ class BlobTransaction(BaseExecute):
                 eth_rpc.wait_for_transactions(sent_txs)
                 return ExecuteResult(
                     benchmark_gas_used=None,
+                )
+            else:
+                raise NotImplementedError(
+                    "Non-existing blob hash handling is not implemented for "
+                    f"getBlobsV{version}. Supported versions: V1, V2, V3."
                 )
 
         assert blob_response is not None
