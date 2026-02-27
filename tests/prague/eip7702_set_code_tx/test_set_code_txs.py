@@ -255,7 +255,7 @@ def test_set_code_to_non_empty_storage_non_zero_nonce(
         tx=tx,
         post={
             set_code_to_address: Account(
-                storage={},
+                storage=Storage.EMPTY,
             ),
             auth_signer: Account(
                 storage={0: 2},
@@ -608,7 +608,7 @@ def test_creating_tx_to_contract_creator(
         pre=pre,
         tx=tx,
         post={
-            creator_code_address: Account(storage={}),
+            creator_code_address: Account(storage=Storage.EMPTY),
             auth_signer: Account(
                 nonce=3,
                 code=Spec.delegation_designation(creator_code_address),
@@ -693,7 +693,7 @@ def test_delegated_eoa_can_send_creating_tx(
             auth_signer: Account(
                 nonce=2,
                 code=Spec.delegation_designation(delegation_address),
-                storage={},
+                storage=Storage.EMPTY,
             ),
             deployed_address: Account(code=test_bytes, storage=storage),
         },
@@ -751,7 +751,7 @@ def test_set_code_to_contract_creator(
         pre=pre,
         tx=tx,
         post={
-            creator_code_address: Account(storage={}),
+            creator_code_address: Account(storage=Storage.EMPTY),
             auth_signer: Account(
                 nonce=2,
                 code=Spec.delegation_designation(creator_code_address),
@@ -759,7 +759,7 @@ def test_set_code_to_contract_creator(
             ),
             deployed_contract_address: Account(
                 code=deployed_code,
-                storage={},
+                storage=Storage.EMPTY,
             ),
         },
     )
@@ -824,7 +824,7 @@ def test_set_code_to_self_caller(
         pre=pre,
         tx=tx,
         post={
-            set_code_to_address: Account(storage={}),
+            set_code_to_address: Account(storage=Storage.EMPTY),
             auth_signer: Account(
                 nonce=1,
                 code=Spec.delegation_designation(set_code_to_address),
@@ -889,7 +889,7 @@ def test_set_code_max_depth_call_stack(
         pre=pre,
         tx=tx,
         post={
-            set_code_to_address: Account(storage={}),
+            set_code_to_address: Account(storage=Storage.EMPTY),
             auth_signer: Account(
                 nonce=1,
                 code=Spec.delegation_designation(set_code_to_address),
@@ -1028,7 +1028,7 @@ def test_address_from_set_code(
         pre=pre,
         tx=tx,
         post={
-            set_code_to_address: Account(storage={}),
+            set_code_to_address: Account(storage=Storage.EMPTY),
             auth_signer: Account(
                 nonce=1,
                 code=Spec.delegation_designation(set_code_to_address),
@@ -1389,7 +1389,7 @@ def test_ext_code_on_set_code(
             set_code_to_address: (
                 Account.NONEXISTENT
                 if set_code_type == AddressType.EMPTY_ACCOUNT
-                else Account(storage={})
+                else Account(storage=Storage.EMPTY)
             ),
             auth_signer: Account(
                 nonce=1,
@@ -1920,7 +1920,7 @@ def test_self_code_on_set_code(
         pre=pre,
         tx=tx,
         post={
-            set_code_to_address: Account(storage={}),
+            set_code_to_address: Account(storage=Storage.EMPTY),
             auth_signer: Account(
                 nonce=1,
                 code=Spec.delegation_designation(set_code_to_address),
@@ -3741,7 +3741,7 @@ def test_delegation_clearing(
             auth_signer: Account(
                 nonce=auth_signer.nonce + 1,
                 code=b"",
-                storage={},
+                storage=Storage.EMPTY,
             ),
             entry_address: Account(
                 storage={
@@ -4001,7 +4001,7 @@ def test_delegation_clearing_tx_to(
             auth_signer: Account(
                 nonce=auth_signer.nonce + 1,
                 code=b"",
-                storage={},
+                storage=Storage.EMPTY,
             ),
         },
     )
@@ -4121,7 +4121,7 @@ def test_delegation_clearing_failing_tx(
             auth_signer: Account(
                 nonce=auth_signer.nonce + 1,
                 code=b"",
-                storage={},
+                storage=Storage.EMPTY,
             ),
         },
     )
@@ -4516,7 +4516,7 @@ def test_set_code_from_account_with_non_delegating_code(
             set_code_to_address: (
                 Account.NONEXISTENT
                 if set_code_type == AddressType.EMPTY_ACCOUNT
-                else Account(storage={})
+                else Account(storage=Storage.EMPTY)
             ),
             random_address: Account.NONEXISTENT,
             sender: Account(nonce=1),

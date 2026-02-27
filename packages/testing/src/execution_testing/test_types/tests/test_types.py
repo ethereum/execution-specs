@@ -152,6 +152,12 @@ def test_transaction_receipt_keeps_status_when_root_is_empty() -> None:
         ),
         pytest.param(
             Account(
+                storage=Storage.EMPTY,
+            ),
+            id="storage_empty_sentinel",
+        ),
+        pytest.param(
+            Account(
                 nonce=0,
                 balance=0,
                 code="",
