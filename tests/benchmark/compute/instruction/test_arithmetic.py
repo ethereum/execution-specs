@@ -187,6 +187,7 @@ def test_arithmetic(
 
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
 @pytest.mark.parametrize("opcode", [Op.MOD, Op.SMOD])
+@pytest.mark.repricing
 def test_mod(
     benchmark_test: BenchmarkTestFiller,
     mod_bits: int,
