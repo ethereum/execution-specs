@@ -10,6 +10,9 @@ runs:
     - uses: ./.github/actions/setup-uv
       with:
         enable-cache: "false"
+    - name: Install system dependencies for coincurve
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y pkg-config libsecp256k1-dev
     - name: Install EEST
       shell: bash
       run: uv sync --no-progress
