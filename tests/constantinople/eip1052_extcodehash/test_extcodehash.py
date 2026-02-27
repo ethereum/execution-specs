@@ -664,3 +664,67 @@ def test_extcodehash_new_account(
         },
         tx=tx,
     )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashCALLFiller.json",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashCALLCODEFiller.json",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDELEGATECALLFiller.json",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSTATICCALLFiller.json",  # noqa: E501
+    ],
+    pr=[],
+)
+@pytest.mark.parametrize(
+    "opcode",
+    [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL],
+)
+def test_extcodehash_via_call(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Opcodes,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE queried via different call types.
+
+    A helper contract computes EXTCODEHASH and EXTCODESIZE of a target
+    and returns them. The caller invokes the helper using the
+    parametrized call type and stores the results.
+    """
+    storage = Storage()
+    target_code = b"\x12\x34"
+    target_address = pre.deploy_contract(target_code)
+
+    helper_code = (
+        Op.MSTORE(0, Op.EXTCODEHASH(target_address))
+        + Op.MSTORE(32, Op.EXTCODESIZE(target_address))
+        + Op.RETURN(0, 64)
+    )
+    helper_address = pre.deploy_contract(helper_code)
+
+    code = (
+        opcode(address=helper_address, gas=150_000)
+        + Op.RETURNDATACOPY(0, 0, 64)
+        + Op.SSTORE(
+            storage.store_next(keccak256(target_code)),
+            Op.MLOAD(0),
+        )
+        + Op.SSTORE(
+            storage.store_next(len(target_code)),
+            Op.MLOAD(32),
+        )
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
