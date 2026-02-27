@@ -15,7 +15,8 @@ specification.
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import Uint
 
-from ..fork_types import Address
+from ethereum.state import Address
+
 from ..state import get_account, get_code
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment

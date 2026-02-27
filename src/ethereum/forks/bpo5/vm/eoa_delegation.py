@@ -11,8 +11,9 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock, InvalidSignatureError
+from ethereum.state import Address
 
-from ..fork_types import Address, Authorization
+from ..fork_types import Authorization
 from ..state import (
     account_exists,
     get_account,
