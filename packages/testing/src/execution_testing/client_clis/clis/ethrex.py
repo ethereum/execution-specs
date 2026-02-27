@@ -42,14 +42,14 @@ class EthrexExceptionMapper(ExceptionMapper):
             "the header after executing"
         ),
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            "Block access list accounts not in strictly ascending order"
+            "not in strictly ascending order"
         ),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             "Block access list hash does not match the one in "
             "the header after executing"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
-            "Block access list accounts not in strictly ascending order"
+            "not in strictly ascending order"
         ),
         BlockException.INVALID_GAS_USED: (
             "Gas used doesn't match value in header"
@@ -170,7 +170,7 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"Block access list contains index \d+ "
             r"exceeding max valid index \d+|"
             r"Failed to RLP decode BAL|"
-            r"Block access list accounts not in strictly ascending order.*"
+            r"Block access list .+ not in strictly ascending order.*"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"Block access list hash does not match "
