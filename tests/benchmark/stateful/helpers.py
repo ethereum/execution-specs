@@ -4,18 +4,16 @@ import json
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from execution_testing import (
+    AccessList,
     Address,
     Alloc,
+    Fork,
     Hash,
     Op,
     Transaction,
 )
-
-if TYPE_CHECKING:
-    from execution_testing import AccessList, Fork
 
 # ERC20 function selectors
 BALANCEOF_SELECTOR = 0x70A08231  # balanceOf(address)
@@ -86,14 +84,14 @@ class CacheStrategy(str, Enum):
 def build_benchmark_txs(
     *,
     pre: Alloc,
-    fork: "Fork",
+    fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
     attack_contract_address: Address,
     setup_cost: int,
     iteration_cost: int,
     calldata_builder: Callable[[int, int], bytes] | None = None,
-    access_list: "list[AccessList] | None" = None,
+    access_list: list[AccessList] | None = None,
 ) -> tuple[list[Transaction], int]:
     """
     Build benchmark transactions filling gas_benchmark_value.
