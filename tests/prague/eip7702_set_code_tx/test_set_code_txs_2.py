@@ -79,7 +79,7 @@ def test_pointer_contract_pointer_loop(
     )
 
     storage_loop: Storage = Storage()
-    expected_loop_count = 117 if fork >= Amsterdam else 112
+    expected_loop_count = 117 if fork >= Amsterdam else 112  # TODO: auto gas limit will remove this
     contract_worked = storage_loop.store_next(
         expected_loop_count, "contract_loop_worked"
     )
@@ -98,7 +98,7 @@ def test_pointer_contract_pointer_loop(
 
     tx = Transaction(
         to=pointer_a,
-        gas_limit=3_000_000 if fork >= Amsterdam else 1_000_000,
+        gas_limit=3_000_000,  # TODO: auto gas limit will remove this
         data=b"",
         value=0,
         sender=sender,
@@ -1873,7 +1873,7 @@ def test_double_auth(
 
     tx = Transaction(
         to=contract_main,
-        gas_limit=500_000 if fork >= Amsterdam else 200_000,
+        gas_limit=500_000,  # TODO: auto gas limit will remove this
         data=b"",
         value=0,
         sender=sender,
@@ -1955,7 +1955,7 @@ def test_pointer_resets_an_empty_code_account_with_storage(
         + Op.SSTORE(pointer_storage.store_next(2, "slot2"), 2)
     )
 
-    gas_limit = 500_000 if fork >= Amsterdam else 200_000
+    gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx_set_pointer_storage = Transaction(
         to=pointer,
         gas_limit=gas_limit,

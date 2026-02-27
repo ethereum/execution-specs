@@ -26,7 +26,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Amsterdam, Cancun
+from execution_testing.forks import Cancun
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
@@ -337,7 +337,7 @@ def test_create_selfdestruct_same_tx(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
     )
 
     entry_code_address = tx.created_contract
@@ -470,7 +470,7 @@ def test_self_destructing_initcode(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
     )
 
     entry_code_address = tx.created_contract
@@ -515,7 +515,7 @@ def test_self_destructing_initcode_create_tx(
         value=tx_value,
         data=selfdestruct_code,
         to=None,
-        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
     )
     selfdestruct_contract_address = tx.created_contract
     pre.fund_address(
@@ -644,7 +644,7 @@ def test_recreate_self_destructed_contract_different_txs(
                 data=Hash(i),
                 sender=sender,
                 to=entry_code_address,
-                gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+                gas_limit=5_000_000,  # TODO: auto gas limit will remove this
             )
         )
         entry_code_storage[i] = selfdestruct_contract_address
@@ -833,7 +833,7 @@ def test_selfdestruct_pre_existing(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
     )
 
     entry_code_address = tx.created_contract
@@ -955,14 +955,14 @@ def test_selfdestruct_created_same_block_different_tx(
             data=selfdestruct_contract_initcode,
             sender=sender,
             to=None,
-            gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+            gas_limit=5_000_000,  # TODO: auto gas limit will remove this
         ),
         Transaction(
             value=entry_code_balance,
             data=entry_code,
             sender=sender,
             to=None,
-            gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+            gas_limit=5_000_000,  # TODO: auto gas limit will remove this
         ),
     ]
 
@@ -1107,7 +1107,7 @@ def test_calling_from_new_contract_to_pre_existing_contract(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -1242,7 +1242,7 @@ def test_calling_from_pre_existing_contract_to_new_contract(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
     )
 
     entry_code_address = tx.created_contract
@@ -1426,7 +1426,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=5_000_000 if fork >= Amsterdam else 1_000_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
     )
 
     entry_code_address = tx.created_contract

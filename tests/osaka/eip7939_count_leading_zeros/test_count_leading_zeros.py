@@ -243,7 +243,7 @@ def test_clz_stack_not_overflow(
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=20_000_000 if fork >= Amsterdam else 6_000_000,
+        gas_limit=20_000_000 if fork >= Amsterdam else 6_000_000,  # TODO: auto gas limit will remove this
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -271,7 +271,7 @@ def test_clz_push_operation_same_value(
     tx = Transaction(
         to=code_address,
         sender=pre.fund_eoa(),
-        gas_limit=30_000_000 if fork >= Amsterdam else 12_000_000,
+        gas_limit=30_000_000 if fork >= Amsterdam else 12_000_000,  # TODO: auto gas limit will remove this
     )
 
     post = {
@@ -442,7 +442,7 @@ def test_clz_from_set_code(
     set_code_to_address = pre.deploy_contract(set_code)
 
     tx = Transaction(
-        gas_limit=500_000 if fork >= Amsterdam else 200_000,
+        gas_limit=500_000,  # TODO: auto gas limit will remove this
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -652,7 +652,7 @@ def test_clz_initcode_create(
 
     tx = Transaction(
         to=factory_contract_address,
-        gas_limit=500_000 if fork >= Amsterdam else 200_000,
+        gas_limit=500_000,  # TODO: auto gas limit will remove this
         data=ext_code,
         sender=sender_address,
     )
@@ -728,7 +728,7 @@ def test_clz_call_operation(
 
     # Amsterdam (EIP-8037) adds state gas to SSTOREs in the callee;
     # 3 cold zero-to-nonzero SSTOREs need ~180K (59,668 each at cpsb=1174).
-    subcall_gas = 200_000 if fork >= Amsterdam else 0xFFFF
+    subcall_gas = 200_000 if fork >= Amsterdam else 0xFFFF  # TODO: auto gas limit will remove this
     caller_code = opcode(
         gas=subcall_gas,
         address=callee_address,
@@ -746,7 +746,7 @@ def test_clz_call_operation(
     tx = Transaction(
         to=caller_address,
         sender=pre.fund_eoa(),
-        gas_limit=17_200_000 if fork >= Amsterdam else 200_000,
+        gas_limit=500_000,  # TODO: auto gas limit will remove this
     )
 
     post = {}

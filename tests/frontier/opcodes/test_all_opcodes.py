@@ -124,7 +124,7 @@ def test_all_opcodes(
 
     # Amsterdam (EIP-8037) needs gas_limit > TX_MAX_GAS_LIMIT (16,777,216) to
     # provide a state_gas_reservoir for SSTORE/CREATE state gas costs.
-    gas_limit = 50_000_000 if fork >= Amsterdam else 9_000_000
+    gas_limit = 50_000_000 if fork >= Amsterdam else 9_000_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
         sender=pre.fund_eoa(),

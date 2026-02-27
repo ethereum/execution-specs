@@ -37,7 +37,7 @@ from execution_testing import (
     Transaction,
     add_kzg_version,
 )
-from execution_testing.forks import Amsterdam
+
 
 from .spec import Spec, ref_spec_4844
 
@@ -278,7 +278,7 @@ def test_blobhash_scenarios(
                         sender=sender,
                         to=address,
                         data=Hash(0),
-                        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+                        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
                         access_list=[],
                         max_fee_per_blob_gas=(
                             fork.min_base_fee_per_blob_gas() * 10
@@ -342,7 +342,7 @@ def test_blobhash_invalid_blob_index(
                         ty=Spec.BLOB_TX_TYPE,
                         sender=sender,
                         to=address,
-                        gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+                        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
                         data=Hash(0),
                         access_list=[],
                         max_fee_per_blob_gas=(
@@ -396,7 +396,7 @@ def test_blobhash_multiple_txs_in_block(
             sender=sender,
             to=address,
             data=Hash(0),
-            gas_limit=5_000_000 if fork >= Amsterdam else 500_000,
+            gas_limit=5_000_000,  # TODO: auto gas limit will remove this
             access_list=[] if tx_type >= 1 else None,
             max_fee_per_blob_gas=(fork.min_base_fee_per_blob_gas() * 10)
             if tx_type >= 3

@@ -64,7 +64,7 @@ def test_precompile_absence(
     # Osaka (EIP-7825) caps tx gas at 16,777,216. Amsterdam (EIP-8037)
     # lifts the cap and increases SSTORE state gas, needing 30M for
     # ~498 cold zero-to-nonzero SSTOREs (~21.2M at cpsb=1174).
-    gas_limit = 16_000_000 if fork == Osaka else 30_000_000
+    gas_limit = 16_000_000 if fork == Osaka else 30_000_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
         to=entry_point_address,

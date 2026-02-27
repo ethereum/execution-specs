@@ -61,7 +61,7 @@ def total_tx_gas_needed(
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     sstore_gas = fork.gas_costs().G_STORAGE_SET * (len(modexp_expected) // 32)
-    extra_gas = 500_000 if fork >= Amsterdam else 100_000
+    extra_gas = 500_000  # TODO: auto gas limit will remove this
 
     return (
         extra_gas

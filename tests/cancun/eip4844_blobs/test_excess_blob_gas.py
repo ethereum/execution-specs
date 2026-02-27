@@ -46,7 +46,7 @@ from execution_testing import (
     Transaction,
     add_kzg_version,
 )
-from execution_testing.forks import Amsterdam
+
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 
@@ -108,7 +108,7 @@ def tx_blob_data_cost(
 
 @pytest.fixture
 def tx_gas_limit(fork: Fork) -> int:  # noqa: D103
-    return 500_000 if fork >= Amsterdam else 45000
+    return 500_000  # TODO: auto gas limit will remove this
 
 
 @pytest.fixture

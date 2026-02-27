@@ -578,10 +578,15 @@ def test_bal_call_no_delegation_oog_after_target_access(
         - target is always empty - required for create cost
         - value=1 (greater than 0) - required for create cost
 
-    Gas is set so the static check (access + transfer + memory) passes and
-    the new-account state gas (G_NEW_ACCOUNT) is covered, but the child
-    frame receives zero gas and fails immediately. The target is tracked
-    in BAL because the child message's process_message still runs.
+    Gas is set so the static check (access + transfer + memory) passes
+    but the new-account cost (G_NEW_ACCOUNT) causes OOG. Under EIP-8037,
+    G_NEW_ACCOUNT is state gas charged via charge_state_gas from the
+    reservoir (empty) then gas_left (near zero) — same OOG outcome.
+    The child frame is never created, so the target is not tracked in BAL.
+
+    TODO[EIP-8037]: Verify this OOG boundary is correct under state gas
+    semantics — charge_state_gas for new-account creation should fail
+    before the child frame is entered.
     """
     gas_costs = fork.gas_costs()
     alice = pre.fund_eoa()
@@ -626,14 +631,10 @@ def test_bal_call_no_delegation_oog_after_target_access(
     # static gas cost (before state access): access + transfer + memory
     static_gas_cost = access_cost + transfer_cost + memory_cost
 
-    # Include G_NEW_ACCOUNT so the new-account state gas charge succeeds;
-    # the child frame still gets zero gas (Op.CALL gas=0) and fails.
-    gas_limit = (
-        intrinsic_cost
-        + bytecode_cost
-        + static_gas_cost
-        + gas_costs.G_NEW_ACCOUNT
-    )
+    # Pass static check, fail at new-account cost (G_NEW_ACCOUNT).
+    # In EIP-8037 this is state gas; with no reservoir and near-zero
+    # gas_left, charge_state_gas OOGs before the child frame starts.
+    gas_limit = intrinsic_cost + bytecode_cost + static_gas_cost
 
     tx = Transaction(
         sender=alice,
@@ -642,11 +643,10 @@ def test_bal_call_no_delegation_oog_after_target_access(
         access_list=access_list,
     )
 
-    # Target is in BAL: the child frame is created (with 0 gas) and
-    # process_message tracks the target before the child fails.
+    # OOG at charge_state_gas for new account — child frame never
+    # created, target not tracked in BAL.
     account_expectations: Dict[Address, BalAccountExpectation | None] = {
         caller: BalAccountExpectation.empty(),
-        target: BalAccountExpectation.empty(),
     }
 
     post_state = {

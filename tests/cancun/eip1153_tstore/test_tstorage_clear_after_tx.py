@@ -12,7 +12,7 @@ from execution_testing import (
     Op,
     Transaction,
 )
-from execution_testing.forks import Amsterdam
+
 
 from .spec import ref_spec_1153
 
@@ -42,7 +42,7 @@ def test_tstore_clear_after_deployment_tx(
     sender = pre.fund_eoa()
 
     deployment_tx = Transaction(
-        gas_limit=500_000 if fork >= Amsterdam else 100000,
+        gas_limit=500_000,  # TODO: auto gas limit will remove this
         data=code,
         to=None,
         sender=sender,
@@ -51,7 +51,7 @@ def test_tstore_clear_after_deployment_tx(
     address = deployment_tx.created_contract
 
     invoke_contract_tx = Transaction(
-        gas_limit=500_000 if fork >= Amsterdam else 100000,
+        gas_limit=500_000,  # TODO: auto gas limit will remove this
         to=address,
         sender=sender,
     )

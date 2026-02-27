@@ -88,7 +88,7 @@ def test_combinations(
     # Osaka (EIP-7825) caps tx gas at 16,777,216. Amsterdam (EIP-8037)
     # lifts the cap and increases SSTORE state gas, needing 25M for
     # 401 cold zero-to-nonzero SSTOREs (~17.1M at cpsb=1174).
-    gas_limit = 16_000_000 if fork == Osaka else 25_000_000
+    gas_limit = 16_000_000 if fork == Osaka else 25_000_000  # TODO: auto gas limit will remove this
 
     tx = Transaction(
         sender=pre.fund_eoa(),

@@ -21,7 +21,7 @@ from execution_testing import (
     Transaction,
     ceiling_division,
 )
-from execution_testing.forks import Amsterdam
+
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 
@@ -144,7 +144,7 @@ def tx(pre: Alloc, fork: Fork, caller_address: Address) -> Transaction:  # noqa:
     return Transaction(
         sender=pre.fund_eoa(),
         to=caller_address,
-        gas_limit=5_000_000 if fork >= Amsterdam else 1_000_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
     )
 
 

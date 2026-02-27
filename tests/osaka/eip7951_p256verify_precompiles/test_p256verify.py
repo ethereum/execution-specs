@@ -15,7 +15,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import Amsterdam
+
 
 from .helpers import vectors_from_file
 from .spec import H, R, S, Spec, X, Y, ref_spec_7951
@@ -1342,7 +1342,7 @@ def test_contract_initcode(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=1_000_000 if fork >= Amsterdam else 200_000,
+        gas_limit=1_000_000,  # TODO: auto gas limit will remove this
         to=factory_contract_address,
         value=0,
         data=call_256verify_bytecode + input_data,

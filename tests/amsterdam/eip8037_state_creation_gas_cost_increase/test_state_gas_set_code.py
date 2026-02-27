@@ -19,6 +19,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Bytecode,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
@@ -768,37 +769,38 @@ def test_auth_with_multiple_sstores(
 def test_authorization_exact_state_gas_boundary(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     gas_delta: int,
 ) -> None:
     """
-    Test exact state gas boundary for a single authorization.
+    Test exact intrinsic gas boundary including auth state gas.
 
-    Each authorization charges exactly (112 + 23) * cost_per_state_byte
-    of intrinsic state gas. With gas_delta=0 the transaction has exactly
-    enough and succeeds. With gas_delta=-1 the transaction is 1 gas
-    short and is rejected as intrinsic-gas-too-low.
+    The intrinsic cost includes regular gas (G_TRANSACTION + G_AUTHORIZATION
+    per auth) and state gas ((112 + 23) * cpsb per auth). With gas_delta=0
+    the tx has exactly enough and succeeds. With gas_delta=-1 the tx is
+    1 gas short and is rejected as intrinsic-gas-too-low.
     """
-    cpsb = Spec.COST_PER_STATE_BYTE
-    auth_state_gas = (
-        Spec.STATE_BYTES_PER_NEW_ACCOUNT + Spec.STATE_BYTES_PER_AUTH_BASE
-    ) * cpsb
-
     contract = pre.deploy_contract(code=Op.STOP)
 
     signer = pre.fund_eoa()
     authorization_list = [
         AuthorizationTuple(
             address=contract,
-            nonce=1,
+            nonce=0,
             signer=signer,
         ),
     ]
+
+    intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    intrinsic_cost = intrinsic_cost_calculator(
+        authorization_list_or_count=authorization_list,
+    )
 
     is_oog = gas_delta < 0
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + auth_state_gas + gas_delta,
+        gas_limit=intrinsic_cost + gas_delta,
         authorization_list=authorization_list,
         sender=sender,
         error=TransactionException.INTRINSIC_GAS_TOO_LOW if is_oog else None,

@@ -21,7 +21,7 @@ from execution_testing import (
     Transaction,
     compute_create2_address,
 )
-from execution_testing.forks import Amsterdam, Cancun
+from execution_testing.forks import Cancun
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
 REFERENCE_SPEC_VERSION = "1b6a0e94cc47e859b9866e570391cf37dc55059a"
@@ -90,7 +90,7 @@ def test_dynamic_create2_selfdestruct_collision(
     # Constants
     address_zero = Address(0x00)
     create2_salt = 1
-    subcall_gas = 500_000 if fork >= Amsterdam else 100000
+    subcall_gas = 500_000  # TODO: auto gas limit will remove this
 
     # Create EOA for sendall destination (receives selfdestruct funds)
     sendall_destination = pre.fund_eoa(0)  # Will be funded by selfdestruct
@@ -318,7 +318,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     # Constants
     address_zero = Address(0x00)
     create2_salt = 1
-    subcall_gas = 500_000 if fork >= Amsterdam else 100000
+    subcall_gas = 500_000  # TODO: auto gas limit will remove this
 
     # Create EOA for sendall destination (receives selfdestruct funds)
     sendall_destination = pre.fund_eoa(0)  # Will be funded by selfdestruct
@@ -593,7 +593,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
 
     # Constants
     create2_salt = 1
-    subcall_gas = 500_000 if fork >= Amsterdam else 100000
+    subcall_gas = 500_000  # TODO: auto gas limit will remove this
 
     # Create EOA for sendall destination (receives selfdestruct funds)
     sendall_destination = pre.fund_eoa(0)  # Will be funded by selfdestruct
