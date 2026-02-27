@@ -1,0 +1,28 @@
+name: Setup uv and tox
+description: Install uv, Python, and tox for CI jobs
+inputs:
+  python-version:
+    description: Python version to install (e.g. "3.14", "pypy3.11")
+    default: "3.14"
+  enable-cache:
+    description: Enable uv dependency cache
+    default: "true"
+  cache-dependency-glob:
+    description: Glob for cache invalidation
+    default: "uv.lock"
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv and python ${{ inputs.python-version }}
+      uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b  # v7.3.0
+      with:
+        enable-cache: ${{ inputs.enable-cache }}
+        cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
+        version: "0.10.4"
+        python-version: ${{ inputs.python-version }}
+    - name: Prefer uv-managed Python over system Python
+      shell: bash
+      run: echo "UV_PYTHON_PREFERENCE=only-managed" >> "$GITHUB_ENV"
+    - name: Install tox
+      shell: bash
+      run: uv tool install tox

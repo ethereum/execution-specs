@@ -27,7 +27,7 @@ GAS_BASE = Uint(2)
 GAS_VERY_LOW = Uint(3)
 GAS_STORAGE_SET = Uint(20000)
 GAS_STORAGE_UPDATE = Uint(5000)
-GAS_STORAGE_CLEAR_REFUND = Uint(4800)
+REFUND_STORAGE_CLEAR = 4800
 GAS_LOW = Uint(5)
 GAS_MID = Uint(8)
 GAS_HIGH = Uint(10)
@@ -35,14 +35,14 @@ GAS_EXPONENTIATION = Uint(10)
 GAS_EXPONENTIATION_PER_BYTE = Uint(50)
 GAS_MEMORY = Uint(3)
 GAS_KECCAK256 = Uint(30)
-GAS_KECCAK256_WORD = Uint(6)
+GAS_KECCAK256_PER_WORD = Uint(6)
 GAS_COPY = Uint(3)
 GAS_BLOCK_HASH = Uint(20)
 GAS_LOG = Uint(375)
-GAS_LOG_DATA = Uint(8)
+GAS_LOG_DATA_PER_BYTE = Uint(8)
 GAS_LOG_TOPIC = Uint(375)
 GAS_CREATE = Uint(32000)
-GAS_CODE_DEPOSIT = Uint(200)
+GAS_CODE_DEPOSIT_PER_BYTE = Uint(200)
 GAS_ZERO = Uint(0)
 GAS_NEW_ACCOUNT = Uint(25000)
 GAS_CALL_VALUE = Uint(9000)
@@ -62,7 +62,7 @@ GAS_BLAKE2_PER_ROUND = Uint(1)
 GAS_COLD_SLOAD = Uint(2100)
 GAS_COLD_ACCOUNT_ACCESS = Uint(2600)
 GAS_WARM_ACCESS = Uint(100)
-GAS_INIT_CODE_WORD_COST = Uint(2)
+GAS_CODE_INIT_PER_WORD = Uint(2)
 
 
 @dataclass
@@ -263,4 +263,4 @@ def init_code_cost(init_code_length: Uint) -> Uint:
         The gas to be charged for the init code.
 
     """
-    return GAS_INIT_CODE_WORD_COST * ceil32(init_code_length) // Uint(32)
+    return GAS_CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)

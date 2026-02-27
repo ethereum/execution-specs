@@ -289,7 +289,7 @@ def non_zero_blob_gas_used_genesis_block(
     have any blob txs.
 
     For the intermediate block to align with default genesis values, we must
-    add TARGET_BLOB_GAS_PER_BLOCK to the excessBlobGas of the genesis value,
+    add BLOB_TARGET_GAS_PER_BLOCK to the excessBlobGas of the genesis value,
     expecting an appropriate drop to the intermediate block. Similarly, we must
     add parent_blobs to the intermediate block within a blob tx such that an
     equivalent blobGasUsed field is wrote.

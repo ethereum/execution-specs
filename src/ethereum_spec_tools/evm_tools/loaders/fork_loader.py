@@ -123,24 +123,22 @@ class ForkLoad:
 
     @property
     def build_block_access_list(self) -> Any:
-        """Build function of the fork."""
+        """build_block_access_list function of the fork."""
         return self._module("block_access_lists").build_block_access_list
 
     @property
-    def compute_block_access_list_hash(self) -> Any:
-        """compute_block_access_list_hash function of the fork."""
-        return self._module(
-            "block_access_lists"
-        ).compute_block_access_list_hash
+    def hash_block_access_list(self) -> Any:
+        """hash_block_access_list function of the fork."""
+        return self._module("block_access_lists").hash_block_access_list
 
     @property
-    def has_block_access_list_hash(self) -> bool:
-        """Check if the fork has a `block_access_list_hash` function."""
+    def has_hash_block_access_list(self) -> bool:
+        """Check if the fork has a `hash_block_access_list` function."""
         try:
             module = self._module("block_access_lists")
         except ModuleNotFoundError:
             return False
-        return hasattr(module, "compute_block_access_list_hash")
+        return hasattr(module, "hash_block_access_list")
 
     @property
     def signing_hash_2930(self) -> Any:
@@ -299,6 +297,15 @@ class ForkLoad:
     def set_account(self) -> Any:
         """set_account function of the fork."""
         return self._module("state").set_account
+
+    @property
+    def set_code(self) -> Any:
+        """set_code function of the fork."""
+        # TODO: Remove once we backport it
+        # pass amsterdam fork
+        if self.has_block_state:
+            return self._module("state").set_code
+        return None
 
     @property
     def set_storage(self) -> Any:

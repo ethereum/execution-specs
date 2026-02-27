@@ -15,10 +15,12 @@ from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
 
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 
 Address = Bytes20
 Root = Hash32
+
+EMPTY_CODE_HASH = keccak256(b"")
 
 
 @slotted_freezable
@@ -30,13 +32,13 @@ class Account:
 
     nonce: Uint
     balance: U256
-    code: Bytes
+    code_hash: Hash32
 
 
 EMPTY_ACCOUNT = Account(
     nonce=Uint(0),
     balance=U256(0),
-    code=b"",
+    code_hash=EMPTY_CODE_HASH,
 )
 
 
@@ -111,6 +113,14 @@ class PreState(Protocol):
         Get a storage value.
 
         Return ``U256(0)`` if the key has not been set.
+        """
+        ...
+
+    def get_code(self, code_hash: Hash32) -> Bytes:
+        """
+        Get the bytecode for a given code hash.
+
+        Return ``b""`` for ``EMPTY_CODE_HASH``.
         """
         ...
 

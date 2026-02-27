@@ -146,7 +146,7 @@ def test_call_memory_expands_on_early_revert(
             account_new=True,
             new_memory_size=ret_size,
         ).gas_cost(fork)
-        - gsc.G_CALL_STIPEND
+        - gsc.GAS_CALL_STIPEND
     )
 
     # mstore cost: base cost. No memory expansion cost needed, it was expanded

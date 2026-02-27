@@ -19,10 +19,17 @@ There is a distinction between an account that does not exist and
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from ethereum_types.bytes import Bytes32
+from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256
 
-from ethereum.state import Account, Address, InternalNode, Root
+from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.state import (
+    EMPTY_CODE_HASH,
+    Account,
+    Address,
+    InternalNode,
+    Root,
+)
 
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
@@ -39,6 +46,19 @@ class State:
     _storage_tries: Dict[Address, Trie[Bytes32, U256]] = field(
         default_factory=dict
     )
+    _code_store: Dict[Hash32, Bytes] = field(
+        default_factory=dict, compare=False
+    )
+
+    def get_code(self, code_hash: Hash32) -> Bytes:
+        """
+        Get the bytecode for a given code hash.
+
+        Return ``b""`` for ``EMPTY_CODE_HASH``.
+        """
+        if code_hash == EMPTY_CODE_HASH:
+            return b""
+        return self._code_store[code_hash]
 
     def get_account_optional(self, address: Address) -> Optional[Account]:
         """
@@ -117,12 +137,14 @@ def close_state(state: State) -> None:
     """
     del state._main_trie
     del state._storage_tries
+    del state._code_store
 
 
 def apply_changes_to_state(
     state: State,
     account_changes: Dict[Address, Optional[Account]],
     storage_changes: Dict[Address, Dict[Bytes32, U256]],
+    code_changes: Dict[Hash32, Bytes],
 ) -> None:
     """
     Apply block-level diffs to the ``State`` for the next block.
@@ -135,6 +157,8 @@ def apply_changes_to_state(
         Account changes to apply.
     storage_changes :
         Storage changes to apply.
+    code_changes :
+        Code changes to apply.
 
     """
     for address, account in account_changes.items():
@@ -149,6 +173,8 @@ def apply_changes_to_state(
             trie_set(trie, key, value)
         if trie._data == {}:
             del state._storage_tries[address]
+
+    state._code_store.update(code_changes)
 
 
 def set_account(
@@ -192,3 +218,13 @@ def state_root(state: State) -> Root:
     """
     root_value, _ = state.compute_state_root_and_trie_changes({}, {})
     return root_value
+
+
+def set_code(state: State, code: Bytes) -> Hash32:
+    """
+    Store bytecode in a ``State``.
+    """
+    code_hash = keccak256(code)
+    if code_hash != EMPTY_CODE_HASH:
+        state._code_store[code_hash] = code
+    return code_hash

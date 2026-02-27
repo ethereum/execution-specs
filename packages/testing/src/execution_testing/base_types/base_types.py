@@ -375,12 +375,13 @@ class FixedSizeBytes(Bytes):
         if other is None:
             return False
         if not isinstance(other, FixedSizeBytes):
-            assert (
+            if not (
                 isinstance(other, str)
                 or isinstance(other, int)
                 or isinstance(other, bytes)
                 or isinstance(other, SupportsBytes)
-            )
+            ):
+                return False
             other = self._sized_(other)
         return super().__eq__(other)
 

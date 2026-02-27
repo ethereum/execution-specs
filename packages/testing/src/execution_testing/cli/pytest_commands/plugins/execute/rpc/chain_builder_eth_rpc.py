@@ -6,18 +6,25 @@ submitted.
 import time
 from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Sequence
 
 from filelock import FileLock
 
-from execution_testing.base_types import Address, Hash, HexNumber
+from execution_testing.base_types import (
+    Address,
+    Bytes,
+    Hash,
+    HexNumber,
+)
 from execution_testing.forks import Fork
-from execution_testing.rpc import EngineRPC
+from execution_testing.rpc import EngineRPC, TestingRPC
 from execution_testing.rpc import EthRPC as BaseEthRPC
 from execution_testing.rpc.rpc_types import (
     ForkchoiceState,
+    GetPayloadResponse,
     PayloadAttributes,
     PayloadStatusEnum,
+    TransactionProtocol,
 )
 
 
@@ -32,6 +39,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
     engine_rpc: EngineRPC
     get_payload_wait_time: float
     block_building_lock: FileLock
+    testing_rpc: TestingRPC | None
 
     def __init__(
         self,
@@ -44,6 +52,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         initial_forkchoice_update_retries: int = 5,
         transaction_wait_timeout: int = 60,
         max_transactions_per_batch: int | None = None,
+        testing_rpc: TestingRPC | None = None,
     ):
         """Initialize the Ethereum RPC client for the hive simulator."""
         super().__init__(
@@ -57,6 +66,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             session_temp_folder / "chain_builder_fcu.lock"
         )
         self.get_payload_wait_time = get_payload_wait_time
+        self.testing_rpc = testing_rpc
 
         # Send initial forkchoice updated only if we are the first worker
         base_name = "eth_rpc_forkchoice_updated"
@@ -111,15 +121,8 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         """
         return self.block_building_lock
 
-    def generate_block(self: "ChainBuilderEthRPC") -> None:
-        """Generate a block using the Engine API."""
-        # Get the head block hash
-        head_block = self.get_block_by_number("latest")
-        assert head_block is not None
-
-        forkchoice_state = ForkchoiceState(
-            head_block_hash=head_block["hash"],
-        )
+    def _payload_attributes(self, head_block: dict) -> PayloadAttributes:
+        """Build payload attributes from the current head block."""
         parent_beacon_block_root = (
             Hash(0)
             if self.fork.header_beacon_root_required(
@@ -127,7 +130,7 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             )
             else None
         )
-        payload_attributes = PayloadAttributes(
+        return PayloadAttributes(
             timestamp=HexNumber(head_block["timestamp"]) + 1,
             prev_randao=Hash(0),
             suggested_fee_recipient=Address(0),
@@ -150,6 +153,63 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 else None
             ),
         )
+
+    def _finalize_payload(
+        self,
+        payload: GetPayloadResponse,
+        parent_beacon_block_root: Hash | None,
+    ) -> None:
+        """
+        Execute *payload* via ``engine_newPayload`` and set it as
+        the canonical head via ``engine_forkchoiceUpdated``.
+        """
+        new_payload_args: List[Any] = [
+            payload.execution_payload,
+        ]
+        if payload.blobs_bundle is not None:
+            new_payload_args.append(
+                payload.blobs_bundle.blob_versioned_hashes()
+            )
+        if parent_beacon_block_root is not None:
+            new_payload_args.append(parent_beacon_block_root)
+        if payload.execution_requests is not None:
+            new_payload_args.append(payload.execution_requests)
+        new_payload_version = self.fork.engine_new_payload_version()
+        assert new_payload_version is not None, (
+            "Fork does not support engine new_payload"
+        )
+        new_payload_response = self.engine_rpc.new_payload(
+            *new_payload_args, version=new_payload_version
+        )
+        assert new_payload_response.status == PayloadStatusEnum.VALID, (
+            "Payload was invalid"
+        )
+
+        fcu_version = self.fork.engine_forkchoice_updated_version()
+        assert fcu_version is not None, (
+            "Fork does not support engine forkchoice_updated"
+        )
+        new_forkchoice_state = ForkchoiceState(
+            head_block_hash=(payload.execution_payload.block_hash),
+        )
+        response = self.engine_rpc.forkchoice_updated(
+            new_forkchoice_state,
+            None,
+            version=fcu_version,
+        )
+        assert response.payload_status.status == PayloadStatusEnum.VALID, (
+            "Payload was invalid"
+        )
+
+    def generate_block(self: "ChainBuilderEthRPC") -> None:
+        """Generate a block using the Engine API."""
+        head_block = self.get_block_by_number("latest")
+        assert head_block is not None
+
+        forkchoice_state = ForkchoiceState(
+            head_block_hash=head_block["hash"],
+        )
+        payload_attributes = self._payload_attributes(head_block)
         forkchoice_updated_version = (
             self.fork.engine_forkchoice_updated_version()
         )
@@ -176,43 +236,51 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
             response.payload_id,
             version=get_payload_version,
         )
-        new_payload_args: List[Any] = [new_payload.execution_payload]
-        if new_payload.blobs_bundle is not None:
-            new_payload_args.append(
-                new_payload.blobs_bundle.blob_versioned_hashes()
-            )
-        if parent_beacon_block_root is not None:
-            new_payload_args.append(parent_beacon_block_root)
-        if new_payload.execution_requests is not None:
-            new_payload_args.append(new_payload.execution_requests)
-        new_payload_version = self.fork.engine_new_payload_version()
-        assert new_payload_version is not None, (
-            "Fork does not support engine new_payload"
-        )
-        new_payload_response = self.engine_rpc.new_payload(
-            *new_payload_args, version=new_payload_version
-        )
-        assert new_payload_response.status == PayloadStatusEnum.VALID, (
-            "Payload was invalid"
-        )
-
-        new_forkchoice_state = ForkchoiceState(
-            head_block_hash=new_payload.execution_payload.block_hash,
-        )
-        response = self.engine_rpc.forkchoice_updated(
-            new_forkchoice_state,
-            None,
-            version=forkchoice_updated_version,
-        )
-        assert response.payload_status.status == PayloadStatusEnum.VALID, (
-            "Payload was invalid"
+        self._finalize_payload(
+            new_payload,
+            payload_attributes.parent_beacon_block_root,
         )
 
     def pending_transactions_handler(self) -> None:
         """
         Called inside the transaction inclusion wait-loop.
 
-        This class triggers the block building process if it's still waiting
-        for transactions to be included.
+        This class triggers the block building process if it's still
+        waiting for transactions to be included.
         """
         self.generate_block()
+
+    def send_transactions(
+        self,
+        transactions: Sequence[TransactionProtocol],
+    ) -> List[Hash]:
+        """
+        Send transactions to the execution client.
+
+        When ``testing_rpc`` is configured, build and finalize a
+        block containing *transactions* via
+        ``testing_buildBlockV1`` instead of sending them to the
+        mempool with ``eth_sendRawTransaction``.
+        """
+        if self.testing_rpc is None:
+            return super().send_transactions(transactions)
+        if not transactions:
+            return []
+
+        with self.block_building_lock:
+            head_block = self.get_block_by_number("latest")
+            assert head_block is not None
+
+            payload_attributes = self._payload_attributes(head_block)
+            new_payload = self.testing_rpc.build_block(
+                parent_block_hash=Hash(head_block["hash"]),
+                payload_attributes=payload_attributes,
+                transactions=transactions,
+                extra_data=Bytes(b""),  # TODO: This is marked as optional
+            )
+            self._finalize_payload(
+                new_payload,
+                payload_attributes.parent_beacon_block_root,
+            )
+
+        return [tx.hash for tx in transactions]

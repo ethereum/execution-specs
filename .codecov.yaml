@@ -1,0 +1,16 @@
+# The project check compares overall repo coverage against the base branch.
+# When the base branch moves ahead (new merges), the comparison becomes stale
+# and causes false failures on PRs — this is why we've been seeing codecov/project
+# failures across multiple PRs despite all modified lines being fully covered.
+#
+# Tradeoff: making project informational means we won't block on indirect coverage
+# loss (e.g. control flow changes that make existing covered lines unreachable).
+# The patch check still enforces that all new/modified lines are covered.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        target: auto

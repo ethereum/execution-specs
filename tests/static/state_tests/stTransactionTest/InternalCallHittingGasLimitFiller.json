@@ -3,7 +3,7 @@
         "env" : {
             "currentCoinbase" : "2adf5374fce5edbc8e2a8697c15331677e6ebf0b",
             "currentDifficulty" : "0x020000",
-            "currentGasLimit" : "22000",
+            "currentGasLimit" : "100000",
             "currentNumber" : "1",
             "currentTimestamp" : "1000"
         },

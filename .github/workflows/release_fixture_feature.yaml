@@ -61,8 +61,6 @@ jobs:
       - uses: ./.github/actions/build-fixtures
         with:
           release_name: ${{ matrix.feature }}
-          uv_version: ${{ vars.UV_VERSION }}
-          python_version: ${{ vars.DEFAULT_PYTHON_VERSION }}
 
   release:
     runs-on: ubuntu-latest

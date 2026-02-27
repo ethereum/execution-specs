@@ -17,7 +17,7 @@ from ethereum_types.numeric import Uint
 
 from ethereum.state import Address
 
-from ..state_tracker import get_account
+from ..state_tracker import get_account, get_code
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -63,7 +63,9 @@ def prepare_message(
     elif isinstance(tx.to, Address):
         current_target = tx.to
         msg_data = tx.data
-        code = get_account(tx_env.state, tx.to).code
+        code = get_code(
+            tx_env.state, get_account(tx_env.state, tx.to).code_hash
+        )
         code_address = tx.to
     else:
         raise AssertionError("Target must be address or empty bytes")

@@ -12,6 +12,71 @@
 | [Transaction Tests](./test_formats/transaction_test.md)             | - using a new simulator coming soon                                                                                                                                                                                                                                                       | None; executed directly from Python source,</br>using a release tag |
 | Blob Transaction Tests                                               | - using the [eels/execute-blobs Simulator](./execute/hive.md#the-eelsexecute-blobs-simulator) and                                                                                                                                                                                                                         | None; executed directly from Python source,</br>using a release tag |
 
+## Fixture Output Directory Structure
+
+Inside each format directory, fixtures are grouped by **target fork**.
+
+The top-level subdirectory identifies the fork **under test**. Below it,
+fixtures mirror the `./tests/` source layout: each directory corresponds
+to the fork where the functionality was originally introduced. Because
+tests declare `valid_from`, a single target fork directory contains
+fixtures from every prior fork whose tests are still valid at that fork.
+
+### Consensus fixture layout
+
+```text
+fixtures/
+└── blockchain_tests/
+    ├── for_prague/                   # filled targeting Prague
+    │   ├── istanbul/                 # tests introduced in Istanbul
+    │   │   └── eip1344_chainid/...
+    │   ├── cancun/                   # tests introduced in Cancun
+    │   │   └── eip4844_blobs/...
+    │   └── prague/                   # tests introduced in Prague
+    │       └── eip7702_set_code_tx/...
+    └── for_osaka/                    # filled targeting Osaka
+        ├── istanbul/
+        │   └── eip1344_chainid/...
+        ├── cancun/
+        │   └── eip4844_blobs/...
+        ├── prague/
+        │   └── eip7702_set_code_tx/...
+        └── osaka/                    # tests introduced in Osaka
+            └── eip7692_eof_v1/...
+```
+
+Other format directories (`state_tests/`, `blockchain_tests_engine/`)
+follow the same layout.
+
+### Benchmark fixture layout
+
+When filling with `--gas-benchmark-values`, benchmark tests additionally
+include the gas limit in the subdirectory name (`for_{fork}_at_{gas}M`,
+where `{gas}` is in millions, zero-padded to four digits), with one
+subdirectory per gas value:
+
+```text
+fixtures/
+└── blockchain_tests/
+    ├── for_osaka_at_0001M/           # 1M gas benchmark
+    │   └── benchmark/compute/...
+    └── for_osaka_at_0002M/           # 2M gas benchmark
+        └── benchmark/compute/...
+```
+
+When filling with `--fixed-opcode-count`, the opcode count replaces the
+gas limit in the subdirectory name (`for_{fork}_at_opcount_{N}K`, where
+`{N}` is in thousands and may include decimals):
+
+```text
+fixtures/
+└── blockchain_tests/
+    ├── for_osaka_at_opcount_10K/     # 10K opcodes
+    │   └── benchmark/compute/...
+    └── for_osaka_at_opcount_20K/     # 20K opcodes
+        └── benchmark/compute/...
+```
+
 ## Release URLs and Tarballs
 
 ### Versioning Scheme

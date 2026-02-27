@@ -34,11 +34,9 @@ jobs:
         with:
           submodules: true
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+      - uses: ./.github/actions/setup-uv
         with:
-          enable-cache: false
-          version: ${{ vars.UV_VERSION }}
+          enable-cache: "false"
 
       - uses: ./.github/actions/build-evm-base
         id: evm-builder
@@ -46,7 +44,7 @@ jobs:
           type: benchmark
 
       - name: Run benchmark unit tests
-        run: uvx tox -e tests_benchmark_pytest_py3
+        run: tox -e tests_benchmark_pytest_py3
         env:
           EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
@@ -69,11 +67,9 @@ jobs:
         with:
           submodules: true
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@0c5e2b8115b80b4c7c5ddf6ffdd634974642d182
+      - uses: ./.github/actions/setup-uv
         with:
-          enable-cache: false
-          version: ${{ vars.UV_VERSION }}
+          enable-cache: "false"
 
       - uses: ./.github/actions/build-evm-base
         id: evm-builder
@@ -81,7 +77,7 @@ jobs:
           type: benchmark
 
       - name: Run ${{ matrix.name }}
-        run: uvx tox -e ${{ matrix.tox-env }}
+        run: tox -e ${{ matrix.tox-env }}
         env:
           EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
@@ -102,5 +98,3 @@ jobs:
       - uses: ./.github/actions/build-fixtures
         with:
           release_name: benchmark_fast
-          uv_version: ${{ vars.UV_VERSION }}
-          python_version: ${{ vars.DEFAULT_PYTHON_VERSION }}

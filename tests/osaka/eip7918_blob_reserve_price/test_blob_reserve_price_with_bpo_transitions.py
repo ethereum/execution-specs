@@ -26,7 +26,7 @@ from .spec import Spec, ref_spec_7918
 REFERENCE_SPEC_GIT_PATH = ref_spec_7918.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7918.version
 
-MIN_BLOB_GASPRICE = 1
+BLOB_MIN_GASPRICE = 1
 
 
 @pytest.fixture
@@ -388,7 +388,7 @@ class BlobSchedule:
         return None
 
     @property
-    def target_blob_gas_per_block(self) -> int:
+    def blob_target_gas_per_block(self) -> int:
         """Return the target blob gas per block."""
         return self.target * self.blob_gas_per_blob
 

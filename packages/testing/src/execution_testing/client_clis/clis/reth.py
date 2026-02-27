@@ -96,6 +96,7 @@ class RethExceptionMapper(ExceptionMapper):
         ),
         BlockException.INVALID_GASLIMIT: (
             r"child gas_limit \d+ max .* is .*|"
+            r"child gas_limit \d+ is below the max allowed decrease .*|"
             r"child gas limit \d+ is below the minimum allowed limit"
         ),
         BlockException.INVALID_BLOCK_TIMESTAMP_OLDER_THAN_PARENT: (
@@ -105,21 +106,22 @@ class RethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_NUMBER: (
             r"block number \d+ does not match parent block number \d+"
         ),
+        BlockException.GAS_USED_OVERFLOW: (
+            r"transaction gas limit \w+ is more than blocks available gas \w+"
+        ),
         # BAL Exceptions: TODO - review once all clients completed.
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            r"Block BAL contains an account change "
-            r"that is not present in the computed BAL."
+            r"block access list hash mismatch"
         ),
-        BlockException.INVALID_BAL_HASH: (r"Block's access list is invalid."),
+        BlockException.INVALID_BAL_HASH: (r"block access list hash mismatch"),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
-            r"Block BAL is missing an account change "
-            r"that is present in the computed BAL."
+            r"block access list hash mismatch"
         ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
-            r"Block's access list is invalid."
+            r"block access list hash mismatch"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
-            r"Block's access list is invalid."
+            r"block access list hash mismatch"
         ),
         # Reth does not validate the sizes or offsets of the deposit
         # contract logs. As a workaround we have set

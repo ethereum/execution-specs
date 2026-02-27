@@ -285,7 +285,7 @@ class StateTest(BaseTest):
             # context (block header) where the transaction is executed. In a
             # blockchain test, we need to indirectly set the excess blob gas by
             # setting the excess blob gas of the genesis block to the expected
-            # value plus the TARGET_BLOB_GAS_PER_BLOCK, which is the value that
+            # value plus the BLOB_TARGET_GAS_PER_BLOCK, which is the value that
             # will be subtracted from the excess blob gas when the first block
             # is mined.
             kwargs["excess_blob_gas"] = self.env.excess_blob_gas + (
