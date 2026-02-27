@@ -187,8 +187,8 @@ def test_sload_erc20_balanceof(
         # Function body
         + Op.JUMPDEST
         + Op.CALLDATALOAD(4)
-        + Op.MSTORE(0)
-        + Op.MSTORE(32, 0)
+        + Op.MSTORE(0, 0)
+        + Op.MSTORE(32, Op.CALLDATALOAD(4))
         + Op.SHA3(
             0,
             64,
@@ -199,7 +199,8 @@ def test_sload_erc20_balanceof(
         )
         + Op.SLOAD
         # Return value
-        + Op.MSTORE(0)
+        + Op.PUSH0
+        + Op.MSTORE
         + Op.RETURN(0, 32)
     )
 
