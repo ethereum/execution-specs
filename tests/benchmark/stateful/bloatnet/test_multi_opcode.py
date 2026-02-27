@@ -141,29 +141,35 @@ def test_bloatnet_balance_opcode(
         other_op = Op.POP(Op.EXTCODEHASH)
     elif second_opcode == Op.STATICCALL:
         # gas=1: forces account/code loading, then fails
-        other_op = Op.POP(
-            Op.STATICCALL(
-                gas=1,
-                address=Op.DUP5,
-                args_offset=0,
-                args_size=0,
-                ret_offset=0,
-                ret_size=0,
+        other_op = (
+            Op.POP(
+                Op.STATICCALL(
+                    gas=1,
+                    address=Op.DUP5,
+                    args_offset=0,
+                    args_size=0,
+                    ret_offset=0,
+                    ret_size=0,
+                )
             )
-        ) + Op.POP
+            + Op.POP
+        )
     elif second_opcode == Op.CALL:
         # gas=1: forces account/code loading, then fails
-        other_op = Op.POP(
-            Op.CALL(
-                gas=1,
-                address=Op.DUP6,
-                value=0,
-                args_offset=0,
-                args_size=0,
-                ret_offset=0,
-                ret_size=0,
+        other_op = (
+            Op.POP(
+                Op.CALL(
+                    gas=1,
+                    address=Op.DUP6,
+                    value=0,
+                    args_offset=0,
+                    args_size=0,
+                    ret_offset=0,
+                    ret_size=0,
+                )
             )
-        ) + Op.POP
+            + Op.POP
+        )
     else:
         raise ValueError(f"Unsupported opcode: {second_opcode}")
 

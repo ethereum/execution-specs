@@ -161,9 +161,7 @@ def test_create2_immediate_access(
         condition=DECREMENT_COUNTER_CONDITION,
     )
 
-    subcall_cost = (
-        initcode.execution_gas(fork) + initcode.deployment_gas(fork)
-    )
+    subcall_cost = initcode.execution_gas(fork) + initcode.deployment_gas(fork)
 
     code = IteratingBytecode(
         setup=setup,
@@ -172,9 +170,7 @@ def test_create2_immediate_access(
     )
     attack_contract_address = pre.deploy_contract(code=code)
 
-    def calldata_builder(
-        iteration_count: int, start_iteration: int
-    ) -> bytes:
+    def calldata_builder(iteration_count: int, start_iteration: int) -> bytes:
         return bytes(Hash(iteration_count) + Hash(start_iteration))
 
     txs = list(
