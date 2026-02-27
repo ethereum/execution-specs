@@ -12,10 +12,10 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes32
+from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
@@ -28,7 +28,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
-from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
+from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff, PreState
 
 from . import vm
 from .block_access_lists import (
@@ -67,7 +67,7 @@ from .state_tracker import (
     TransactionState,
     account_exists_and_is_empty,
     destroy_account,
-    extract_block_diffs,
+    extract_block_diff,
     get_account,
     get_code,
     incorporate_tx_into_block,
@@ -252,13 +252,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         parent_header=chain.blocks[-1].header,
     )
 
-    account_changes, storage_changes, code_changes = execute_block(
-        block, chain.state, chain_context
-    )
+    block_diff = execute_block(block, chain.state, chain_context)
 
-    apply_changes_to_state(
-        chain.state, account_changes, storage_changes, code_changes
-    )
+    apply_changes_to_state(chain.state, block_diff)
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
         # Real clients have to store more blocks to deal with reorgs, but the
@@ -270,11 +266,7 @@ def execute_block(
     block: Block,
     pre_state: PreState,
     chain_context: ChainContext,
-) -> Tuple[
-    Dict[Address, Optional[Account]],
-    Dict[Address, Dict[Bytes32, U256]],
-    Dict[Hash32, Bytes],
-]:
+) -> BlockDiff:
     """
     Execute a block and validate the resulting roots against the header.
 
@@ -291,12 +283,8 @@ def execute_block(
 
     Returns
     -------
-    account_changes :
-        Per-address account diffs produced by execution.
-    storage_changes :
-        Per-address storage diffs produced by execution.
-    code_changes :
-        New bytecodes (keyed by code hash) introduced by execution.
+    block_diff : `BlockDiff`
+        Account, storage, and code changes produced by block execution.
 
     """
     if len(rlp.encode(block)) > MAX_RLP_BLOCK_SIZE:
@@ -330,11 +318,9 @@ def execute_block(
         transactions=block.transactions,
         withdrawals=block.withdrawals,
     )
-    account_changes, storage_changes, code_changes = extract_block_diffs(
-        block_state
-    )
+    block_diff = extract_block_diff(block_state)
     block_state_root, _ = pre_state.compute_state_root_and_trie_changes(
-        account_changes, storage_changes
+        block_diff.account_changes, block_diff.storage_changes
     )
     transactions_root = root(block_output.transactions_trie)
     receipt_root = root(block_output.receipts_trie)
@@ -366,7 +352,7 @@ def execute_block(
     if computed_block_access_list_hash != block.header.block_access_list_hash:
         raise InvalidBlock("Invalid block access list hash")
 
-    return account_changes, storage_changes, code_changes
+    return block_diff
 
 
 def calculate_base_fee_per_gas(
