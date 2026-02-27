@@ -237,7 +237,7 @@ class TestContractCreationGasUsage:
         """
         return [
             AccessList(address=Address(i), storage_keys=[])
-            for i in range(1, 478)
+            for i in range(1, 642)
         ]
 
     @pytest.fixture
