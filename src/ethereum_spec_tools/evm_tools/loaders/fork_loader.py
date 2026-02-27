@@ -202,9 +202,7 @@ class ForkLoad:
     @property
     def EMPTY_ACCOUNT(self) -> Any:
         """EMPTY_ACCOUNT of the fork."""
-        if self.has_block_state:
-            return EMPTY_ACCOUNT
-        return self._module("fork_types").EMPTY_ACCOUNT
+        return EMPTY_ACCOUNT
 
     @property
     def Header(self) -> Any:
