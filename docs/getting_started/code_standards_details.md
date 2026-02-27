@@ -179,5 +179,4 @@ hasher compare fixtures/ fixtures_new/
 | `--files` / `-f`    | Show differences at file level.                           |
 | `--tests` / `-t`    | Show differences at individual test level.                |
 | `--root` / `-r`     | Show only the root-level hash difference.                 |
-| `--ignore-missing`  | Hide entries that exist in only one directory.            |
-```
+| `--ignore-missing`  | Hide entries that exist in only one directory.             |
