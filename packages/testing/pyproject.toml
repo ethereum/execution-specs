@@ -39,7 +39,7 @@ dependencies = [
     "pydantic>=2.12.3,<3",
     "rich>=13.7.0,<15",
     "filelock>=3.15.1,<4",
-    "ethereum-types @ git+https://github.com/ethereum/ethereum-types.git@42ee6c1e9da3130f287a979c1f7f9ee0fab52e2a",
+    "ethereum-types @ git+https://github.com/kevaundray/ethereum-types.git@kw/subclass-fake",
     "pyyaml>=6.0.2,<7",
     "types-pyyaml>=6.0.12.20240917,<7",
     "pytest-json-report>=1.5.0,<2",
