@@ -3,6 +3,7 @@
   "test_sload_empty_erc20_balanceof_XEN": "0x06450dEe7FD2Fb8E39061434BAbCFC05599a6Fb8",
   "test_sload_empty_erc20_balanceof_USDC": "0xA0b86991C6218B36c1d19D4a2E9Eb0CE3606EB48",
   "test_sload_empty_erc20_balanceof_IMT": "0x13119e34e140097a507b07a5564bde1bc375d9e6",
+  "test_sstore_erc20_mint_30GB_ERC20": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C",
   "test_sstore_erc20_approve_30GB_ERC20": "0x19fc17d87D946BBA47ca276f7b06Ee5737c4679C",
   "test_sstore_erc20_approve_XEN": "0x06450dEe7FD2Fb8E39061434BAbCFC05599a6Fb8",
   "test_sstore_erc20_approve_USDC": "0xA0b86991C6218B36c1d19D4a2E9Eb0CE3606EB48",

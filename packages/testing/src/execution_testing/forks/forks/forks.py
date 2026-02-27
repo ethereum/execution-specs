@@ -200,6 +200,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_PRECOMPILE_BLS_PAIRING_BASE=0,
             GAS_PRECOMPILE_BLS_PAIRING_PER_PAIR=0,
             GAS_PRECOMPILE_P256VERIFY=0,
+            GAS_BLOCK_ACCESS_LIST_ITEM=0,
         )
 
     @classmethod
@@ -1010,6 +1011,14 @@ class Frontier(BaseFork, solc_name="homestead"):
         """At genesis, header must not contain block access list hash."""
         del block_number, timestamp
         return False
+
+    @classmethod
+    def empty_block_bal_item_count(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """Pre-Amsterdam forks have no block access list."""
+        del block_number, timestamp
+        return 0
 
     @classmethod
     def engine_new_payload_version(
@@ -3430,6 +3439,37 @@ class Amsterdam(BPO2):
         """
         del block_number, timestamp
         return True
+
+    @classmethod
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
+        """
+        On Amsterdam, the cost per block access list item is introduced
+        in EIP-7928.
+        """
+        return replace(
+            super(Amsterdam, cls).gas_costs(
+                block_number=block_number, timestamp=timestamp
+            ),
+            GAS_BLOCK_ACCESS_LIST_ITEM=2000,
+        )
+
+    @classmethod
+    def empty_block_bal_item_count(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """
+        Return the BAL item count for an empty Amsterdam block.
+
+        Four system contracts produce 15 items:
+          EIP-4788 beacon roots:           1 address + 1 write + 1 read = 3
+          EIP-2935 history storage:        1 address + 1 write          = 2
+          EIP-7002 withdrawal requests:    1 address + 4 reads          = 5
+          EIP-7251 consolidation requests: 1 address + 4 reads          = 5
+        """
+        del block_number, timestamp
+        return 15
 
     @classmethod
     def is_deployed(cls) -> bool:
