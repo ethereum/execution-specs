@@ -90,11 +90,11 @@ jobs:
               | head -n 1 \
             || true
           )
-          NOTES_ARGS=""
+          NOTES_ARGS=()
           if [ -n "$PREV_TAG" ]; then
-            NOTES_ARGS="--notes-start-tag $PREV_TAG"
+            NOTES_ARGS=(--notes-start-tag "$PREV_TAG")
           fi
-          gh release create "$TAG_NAME" --draft --prerelease --generate-notes $NOTES_ARGS ./artifacts/**/*
+          gh release create "$TAG_NAME" --draft --prerelease --generate-notes "${NOTES_ARGS[@]}" ./artifacts/**/*
         env:
           TAG_NAME: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
