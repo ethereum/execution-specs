@@ -145,7 +145,7 @@ def test_create2_immediate_access(
             address_warm=True,
             data_size=1,
             old_memory_size=counter_offset + 32,
-            new_memory_size=counter_offset + 64,
+            new_memory_size=counter_offset + 33,
         )
     else:
         raise ValueError(f"Unsupported opcode: {access_opcode}")
