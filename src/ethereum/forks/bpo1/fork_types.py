@@ -19,7 +19,7 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U8, U64, U256
 
 from ethereum.crypto.hash import Hash32
-from ethereum.state import EMPTY_ACCOUNT, Account, Address  # noqa: F401
+from ethereum.state import Account, Address
 
 VersionedHash = Hash32
 

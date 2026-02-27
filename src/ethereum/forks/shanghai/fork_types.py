@@ -14,7 +14,7 @@ Types reused throughout the specification, which are specific to Ethereum.
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes256
 
-from ethereum.state import EMPTY_ACCOUNT, Account, Address  # noqa: F401
+from ethereum.state import Account
 
 Bloom = Bytes256
 

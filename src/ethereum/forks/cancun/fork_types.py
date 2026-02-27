@@ -15,7 +15,7 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes256
 
 from ethereum.crypto.hash import Hash32
-from ethereum.state import EMPTY_ACCOUNT, Account, Address  # noqa: F401
+from ethereum.state import Account
 
 VersionedHash = Hash32
 

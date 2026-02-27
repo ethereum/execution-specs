@@ -19,9 +19,10 @@ from ethereum.exceptions import (
     InvalidSignatureError,
     NonceOverflowError,
 )
+from ethereum.state import Address
 
 from .exceptions import InitCodeTooLargeError, TransactionTypeError
-from .fork_types import Address, Authorization, VersionedHash
+from .fork_types import Authorization, VersionedHash
 
 GAS_TX_BASE = Uint(21000)
 """
