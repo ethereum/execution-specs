@@ -235,6 +235,7 @@ def store_code(state: State, code: Bytes) -> Hash32:
         state._code_store[code_hash] = code
     return code_hash
 
+
 def set_account(
     state: State, address: Address, account: Optional[Account]
 ) -> None:

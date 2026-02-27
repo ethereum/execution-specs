@@ -64,7 +64,7 @@ class State:
         """
         if code_hash == EMPTY_CODE_HASH:
             return b""
-        return self._code_store.get(code_hash, b"")
+        return self._code_store[code_hash]
 
 
 def close_state(state: State) -> None:
@@ -219,7 +219,8 @@ def store_code(state: State, code: Bytes) -> Hash32:
 
     """
     code_hash = keccak256(code)
-    state._code_store[code_hash] = code
+    if code_hash != EMPTY_CODE_HASH:
+        state._code_store[code_hash] = code
     return code_hash
 
 
