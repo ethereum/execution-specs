@@ -103,6 +103,7 @@ jobs:
         with:
           python-version: "3.11"
       - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-geth
       - uses: ./.github/actions/get-changed-files
         id: get-changed-files
       - name: Run json infra tests
