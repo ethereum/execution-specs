@@ -3449,7 +3449,7 @@ class Amsterdam(BPO2):
         in EIP-7928.
         """
         return replace(
-            super(Osaka, cls).gas_costs(
+            super(Amsterdam, cls).gas_costs(
                 block_number=block_number, timestamp=timestamp
             ),
             GAS_BLOCK_ACCESS_LIST_ITEM=2000,
