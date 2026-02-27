@@ -13,5 +13,5 @@ static:
   targets: ["evmone-t8n"]
 benchmark:
   impl: geth
-  repo: ethereum/go-ethereum
-  ref: master
+  repo: fselmo/go-ethereum
+  ref: feat/opcode-count-t8n-bals
