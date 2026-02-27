@@ -23,6 +23,7 @@ from ethereum_types.numeric import U16, U64, U256, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.state import EMPTY_CODE_HASH, Account, Address, PreState
 
+from .exceptions import BlockAccessListGasLimitExceededError
 from .state_tracker import BlockState, TransactionState, get_code
 
 # TODO: Either remove or generalize these type aliases (#2260).
@@ -558,6 +559,9 @@ def _build_from_builder(
        - Storage slots (lexicographically)
        - Transaction indices (numerically) for each change type
 
+    Addresses, storage slots, and block access indices are unique.
+    Storage reads that also appear in storage changes are excluded.
+
     [`BlockAccessList`]: ref:ethereum.forks.amsterdam.block_access_lists.BlockAccessList
     """  # noqa: E501
     block_access_list: BlockAccessList = []
@@ -728,3 +732,39 @@ def hash_block_access_list(
     Compute the hash of a Block Access List.
     """
     return keccak256(rlp.encode(block_access_list))
+
+
+def validate_block_access_list_gas_limit(
+    block_access_list: BlockAccessList,
+    block_gas_limit: Uint,
+) -> None:
+    """
+    Validate that the block access list does not exceed the gas limit.
+
+    The total number of items (addresses + unique storage keys) must not
+    exceed ``block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM``.
+    """
+    from .vm.gas import GAS_BLOCK_ACCESS_LIST_ITEM
+
+    bal_items = Uint(0)
+    for account in block_access_list:
+        # Count each address as one item
+        bal_items += Uint(1)
+
+        # Collect unique storage keys across both
+        # reads and writes
+        unique_slots: Set[U256] = set()
+        for slot_change in account.storage_changes:
+            unique_slots.add(slot_change.slot)
+        for slot in account.storage_reads:
+            unique_slots.add(slot)
+
+        # Count each unique storage key as one item
+        bal_items += Uint(len(unique_slots))
+
+    if bal_items > block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM:
+        raise BlockAccessListGasLimitExceededError(
+            f"Block access list exceeds gas limit, {bal_items} items "
+            f"exceeds limit of "
+            f"{block_gas_limit // GAS_BLOCK_ACCESS_LIST_ITEM}."
+        )

@@ -9,6 +9,7 @@ from execution_testing import (
     Alloc,
     Initcode,
     Op,
+    Opcodes,
     StateTestFiller,
     Storage,
     Transaction,
@@ -587,5 +588,79 @@ def test_extcodehash_precompile(
     state_test(
         pre=pre,
         post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashNewAccountFiller.json",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/createEmptyThenExtcodehashFiller.json",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2326"],
+)
+@pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2])
+@pytest.mark.parametrize(
+    "deployed_code",
+    [
+        pytest.param((0x1234).to_bytes(32, "big"), id="non-empty"),
+        pytest.param(b"", id="empty"),
+    ],
+)
+def test_extcodehash_new_account(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    deployed_code: bytes,
+    opcode: Opcodes,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE of a contract created within the same tx.
+
+    Uses CREATE/CREATE2 to deploy a contract, then verifies that EXTCODEHASH
+    and EXTCODESIZE reflect the newly deployed code.
+    """
+    storage = Storage()
+
+    initcode = Op.MSTORE(
+        0, int.from_bytes(deployed_code.ljust(32, b"\0"), "big")
+    ) + Op.RETURN(0, len(deployed_code))
+
+    created_slot = storage.store_next(0)
+    hash_slot = storage.store_next(keccak256(deployed_code))
+    size_slot = storage.store_next(len(deployed_code))
+
+    code = (
+        Op.MSTORE(0, Op.PUSH32(bytes(initcode).ljust(32, b"\0")))
+        + Op.SSTORE(
+            created_slot,
+            opcode(value=0, offset=0, size=len(initcode)),
+        )
+        + Op.SSTORE(hash_slot, Op.EXTCODEHASH(Op.SLOAD(created_slot)))
+        + Op.SSTORE(size_slot, Op.EXTCODESIZE(Op.SLOAD(created_slot)))
+        + Op.STOP
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+    created_address = compute_create_address(
+        address=code_address,
+        nonce=1,
+        salt=0,
+        initcode=initcode,
+        opcode=opcode,
+    )
+    storage[created_slot] = created_address
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            code_address: Account(storage=storage),
+            created_address: Account(nonce=1, code=deployed_code),
+        },
         tx=tx,
     )

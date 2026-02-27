@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Final
 
 from ethereum_types.numeric import Uint
 
-from ethereum.exceptions import InvalidTransaction
+from ethereum.exceptions import InvalidBlock, InvalidTransaction
 
 if TYPE_CHECKING:
     from .transactions import Transaction
@@ -128,4 +128,14 @@ class TransactionGasLimitExceededError(InvalidTransaction):
 
     Note that this is _not_ the exception thrown when bytecode execution runs
     out of gas.
+    """
+
+
+class BlockAccessListGasLimitExceededError(InvalidBlock):
+    """
+    The block access list exceeds the gas limit constraint.
+
+    Introduced in [EIP-7928].
+
+    [EIP-7928]: https://eips.ethereum.org/EIPS/eip-7928
     """

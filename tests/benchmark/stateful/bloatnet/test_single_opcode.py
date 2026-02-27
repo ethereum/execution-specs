@@ -34,8 +34,11 @@ from execution_testing import (
 from tests.benchmark.stateful.helpers import (
     APPROVE_SELECTOR,
     BALANCEOF_SELECTOR,
+    MINT_SELECTOR,
     SLOAD_TOKENS,
+    SSTORE_MINT_TOKENS,
     SSTORE_TOKENS,
+    CacheStrategy,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -88,13 +91,17 @@ REFERENCE_SPEC_VERSION = "1.0"
 
 
 @pytest.mark.parametrize("token_name", SLOAD_TOKENS)
-def test_sload_empty_erc20_balanceof(
+@pytest.mark.parametrize("existing_slots", [False, True])
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
+def test_sload_erc20_balanceof(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
     token_name: str,
+    existing_slots: bool,
+    cache_strategy: CacheStrategy,
 ) -> None:
     """Benchmark SLOAD using ERC20 balanceOf on bloatnet."""
     # Stub Account
@@ -123,19 +130,29 @@ def test_sload_empty_erc20_balanceof(
         + Op.CALLDATALOAD(0)  # [num_calls]
     )
 
-    loop = While(
-        body=Op.POP(
-            Op.CALL(
-                address=erc20_address,
-                value=0,
-                args_offset=28,
-                args_size=36,
-                ret_offset=0,
-                ret_size=0,
-                # gas accounting
-                address_warm=True,
-            )
+    call_balance_of = Op.POP(
+        Op.CALL(
+            address=erc20_address,
+            value=0,
+            args_offset=32 - 4,
+            args_size=32 + 4,
+            ret_offset=0,
+            ret_size=0,
+            # gas accounting
+            address_warm=True,
         )
+    )
+
+    cache_loop = (
+        call_balance_of
+        if cache_strategy == CacheStrategy.CACHE_TX
+        else Bytecode()
+    )
+
+    loop = While(
+        body=call_balance_of
+        # Do the same call again for the cached variant
+        + cache_loop
         + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
         condition=Op.PUSH1(1)  # [1, num_calls]
         + Op.SWAP1  # [num_calls, 1]
@@ -170,8 +187,8 @@ def test_sload_empty_erc20_balanceof(
         # Function body
         + Op.JUMPDEST
         + Op.CALLDATALOAD(4)
-        + Op.MSTORE(0)
-        + Op.MSTORE(32, 0)
+        + Op.MSTORE(0, 0)
+        + Op.MSTORE(32, Op.CALLDATALOAD(4))
         + Op.SHA3(
             0,
             64,
@@ -182,7 +199,8 @@ def test_sload_empty_erc20_balanceof(
         )
         + Op.SLOAD
         # Return value
-        + Op.MSTORE(0)
+        + Op.PUSH0
+        + Op.MSTORE
         + Op.RETURN(0, 32)
     )
 
@@ -190,8 +208,15 @@ def test_sload_empty_erc20_balanceof(
 
     # Transaction Loops
     txs = []
+    cache_txs = []
     gas_remaining = gas_benchmark_value
-    slot_offset = 0
+    # Start at 1 (ERC20 bloater writes the balance of address to the slot)
+    # or start at keccak256("random") for non-existing slots
+    slot_offset = (
+        1
+        if existing_slots
+        else 0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
+    )
 
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
@@ -208,23 +233,41 @@ def test_sload_empty_erc20_balanceof(
 
         calldata = Hash(num_calls) + Hash(slot_offset)
 
-        txs.append(
-            Transaction(
-                gas_limit=gas_available,
-                data=calldata,
-                to=attack_contract_address,
-                sender=pre.fund_eoa(),
-                access_list=access_list,
+        if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+            with TestPhaseManager.setup():
+                # For block-level caching,
+                # we need to warm the slot in a separate transaction
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=gas_available,
+                        data=calldata,
+                        to=attack_contract_address,
+                        sender=pre.fund_eoa(),
+                        access_list=access_list,
+                    )
+                )
+
+        with TestPhaseManager.execution():
+            txs.append(
+                Transaction(
+                    gas_limit=gas_available,
+                    data=calldata,
+                    to=attack_contract_address,
+                    sender=pre.fund_eoa(),
+                    access_list=access_list,
+                )
             )
-        )
 
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    benchmark_test(
-        pre=pre,
-        blocks=[Block(txs=txs)],
+    blocks = (
+        [Block(txs=txs)]
+        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
+        else [Block(txs=cache_txs), Block(txs=txs)]
     )
+
+    benchmark_test(pre=pre, blocks=blocks)
 
 
 @pytest.mark.parametrize("token_name", SSTORE_TOKENS)
@@ -380,6 +423,245 @@ def test_sstore_erc20_approve(
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],
+    )
+
+
+@pytest.mark.parametrize("token_name", SSTORE_MINT_TOKENS)
+@pytest.mark.parametrize("existing_slots", [False, True])
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
+@pytest.mark.parametrize("no_change", [False, True])
+def test_sstore_erc20_mint(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
+    token_name: str,
+    existing_slots: bool,
+    cache_strategy: CacheStrategy,
+    no_change: bool,
+) -> None:
+    """
+    Benchmark SSTORE using ERC20 mint on bloatnet.
+    This contract calls mint() on an ERC20 contract
+    which supports the mint() function. It is intended
+    to be used with ERC20 contracts bloated via bloatStorage.
+    The mint will increase the total supply and the target account.
+    """
+    # Stub Account
+    erc20_address = pre.deploy_contract(
+        code=Bytecode(),
+        stub=f"test_sstore_erc20_mint_{token_name}",
+    )
+
+    mint_amount = 0 if no_change else 1
+
+    # MEM[0] = function selector
+    # MEM[32] = target address
+    # MEM[64] = mint amount
+    setup = (
+        Op.MSTORE(
+            0,
+            MINT_SELECTOR,
+            # gas accounting
+            old_memory_size=0,
+            new_memory_size=32,
+        )
+        + Op.MSTORE(
+            32,
+            Op.CALLDATALOAD(32),  # Address Offset
+            # gas accounting
+            old_memory_size=32,
+            new_memory_size=64,
+        )
+        + Op.MSTORE(
+            64,
+            mint_amount,
+            # gas accounting
+            old_memory_size=64,
+            new_memory_size=96,
+        )
+        + Op.CALLDATALOAD(0)  # [num_calls]
+    )
+
+    call_mint = Op.POP(
+        Op.CALL(
+            address=erc20_address,
+            value=0,
+            args_offset=32 - 4,
+            args_size=32 + 32 + 4,
+            ret_offset=0,
+            ret_size=0,
+            # gas accounting
+            address_warm=True,
+        )
+    )
+
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        # Call balanceOf first to warm the storage slot, then restore
+        # the mint selector
+        cache_warmup = (
+            Op.MSTORE(0, BALANCEOF_SELECTOR)
+            + Op.POP(
+                Op.CALL(
+                    address=erc20_address,
+                    value=0,
+                    args_offset=32 - 4,
+                    args_size=32 + 4,
+                    ret_offset=0,
+                    ret_size=0,
+                    # gas accounting
+                    address_warm=True,
+                )
+            )
+            + Op.MSTORE(0, MINT_SELECTOR)
+        )
+    else:
+        cache_warmup = Bytecode()
+
+    loop = While(
+        body=cache_warmup + call_mint + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        condition=Op.PUSH1(1)  # [1, num_calls]
+        + Op.SWAP1  # [num_calls, 1]
+        + Op.SUB  # [num_calls-1]
+        + Op.DUP1  # [num_calls-1, num_calls-1]
+        + Op.ISZERO  # [num_calls-1==0, num_calls-1]
+        + Op.ISZERO,  # [num_calls-1!=0, num_calls-1]
+    )
+
+    # Contract Deployment
+    code = setup + loop
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    # Gas Accounting
+    setup_cost = setup.gas_cost(fork)
+    loop_cost = loop.gas_cost(fork)
+    access_list = [AccessList(address=erc20_address, storage_keys=[])]
+    intrinsic_gas_with_access_list = (
+        fork.transaction_intrinsic_cost_calculator()(
+            access_list=access_list,
+            calldata=b"\xff" * 64,
+        )
+    )
+
+    # Mint function dispatch: hash balance slot, SLOAD, ADD, SSTORE
+    function_dispatch_mint = (
+        Op.PUSH4(MINT_SELECTOR)
+        + Op.EQ
+        + Op.JUMPI
+        + Op.JUMPDEST
+        + Op.MSTORE(0, Op.CALLDATALOAD(4))
+        + Op.MSTORE(32, 0)
+        + Op.SHA3(
+            0,
+            64,
+            # gas accounting
+            data_size=64,
+            old_memory_size=64,
+            new_memory_size=64,
+        )
+        + Op.DUP1
+        + Op.SLOAD.with_metadata(
+            key_warm=cache_strategy == CacheStrategy.CACHE_TX
+        )
+        + Op.CALLDATALOAD(36)
+        + Op.ADD
+        + Op.SSTORE
+        # Increase total supply
+        + Op.SSTORE(0, Op.ADD(Op.SLOAD(0), Op.CALLDATALOAD(36)))
+        + Op.MSTORE(0, 1)
+        + Op.RETURN(0, 32)
+    )
+
+    function_dispatch_cost = function_dispatch_mint.gas_cost(fork)
+
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        # Add balanceOf dispatch cost for the warmup call
+        function_dispatch_balanceof = (
+            Op.PUSH4(BALANCEOF_SELECTOR)
+            + Op.EQ
+            + Op.JUMPI
+            + Op.JUMPDEST
+            + Op.MSTORE(0, Op.CALLDATALOAD(4))
+            + Op.MSTORE(32, 0)
+            + Op.SHA3(
+                0,
+                64,
+                # gas accounting
+                data_size=64,
+                old_memory_size=64,
+                new_memory_size=64,
+            )
+            + Op.SLOAD
+            + Op.PUSH0
+            + Op.MSTORE
+            + Op.RETURN(0, 32)
+        )
+        function_dispatch_cost += function_dispatch_balanceof.gas_cost(fork)
+
+    # Transaction Loops
+    txs = []
+    cache_txs = []
+    gas_remaining = gas_benchmark_value
+    # Start at 1 for existing balance slots,
+    # or at keccak256("random") for non-existing slots
+    slot_offset = (
+        1
+        if existing_slots
+        else 0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
+    )
+
+    while gas_remaining > intrinsic_gas_with_access_list:
+        gas_available = min(gas_remaining, tx_gas_limit)
+
+        if gas_available < intrinsic_gas_with_access_list + setup_cost:
+            break
+
+        num_calls = (
+            gas_available - intrinsic_gas_with_access_list - setup_cost
+        ) // (function_dispatch_cost + loop_cost)
+
+        if num_calls == 0:
+            break
+
+        calldata = Hash(num_calls) + Hash(slot_offset)
+        if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+            with TestPhaseManager.setup():
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=gas_available,
+                        data=calldata,
+                        to=attack_contract_address,
+                        sender=pre.fund_eoa(),
+                        access_list=access_list,
+                    )
+                )
+
+        with TestPhaseManager.execution():
+            # Same here, does this create tx is execution mode?
+            # And above setup mode?
+            txs.append(
+                Transaction(
+                    gas_limit=gas_available,
+                    data=calldata,
+                    to=attack_contract_address,
+                    sender=pre.fund_eoa(),
+                    access_list=access_list,
+                )
+            )
+
+        gas_remaining -= gas_available
+        slot_offset += num_calls
+
+    blocks = (
+        [Block(txs=txs)]
+        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
+        else [Block(txs=cache_txs), Block(txs=txs)]
+    )
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
     )
 
 

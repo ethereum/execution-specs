@@ -35,6 +35,7 @@ from .block_access_lists import (
     BlockAccessListBuilder,
     build_block_access_list,
     hash_block_access_list,
+    validate_block_access_list_gas_limit,
 )
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
@@ -812,6 +813,12 @@ def apply_body(
 
     block_output.block_access_list = build_block_access_list(
         block_env.block_access_list_builder, block_env.state
+    )
+
+    # Validate block access list gas limit constraint (EIP-7928)
+    validate_block_access_list_gas_limit(
+        block_access_list=block_output.block_access_list,
+        block_gas_limit=block_env.block_gas_limit,
     )
 
     return block_output
