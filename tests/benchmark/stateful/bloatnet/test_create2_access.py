@@ -14,14 +14,15 @@ from execution_testing import (
     Block,
     Bytecode,
     Fork,
+    Hash,
     Initcode,
+    IteratingBytecode,
     Op,
     While,
 )
 
 from tests.benchmark.stateful.helpers import (
     DECREMENT_COUNTER_CONDITION,
-    build_benchmark_txs,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -67,7 +68,6 @@ def test_create2_immediate_access(
     pre: Alloc,
     fork: Fork,
     gas_benchmark_value: int,
-    tx_gas_limit: int,
     code_size: int,
     access_opcode: Op,
 ) -> None:
@@ -161,30 +161,34 @@ def test_create2_immediate_access(
         condition=DECREMENT_COUNTER_CONDITION,
     )
 
-    code = setup + loop
-    attack_contract_address = pre.deploy_contract(code=code)
-
-    # Gas Accounting — CREATE2 subcall costs (init execution + code
-    # deposit) are not captured by loop.gas_cost(), so add them.
-    full_iteration_cost = (
-        loop.gas_cost(fork)
-        + initcode.execution_gas(fork)
-        + initcode.deployment_gas(fork)
+    subcall_cost = (
+        initcode.execution_gas(fork) + initcode.deployment_gas(fork)
     )
 
-    txs, total_gas_consumed = build_benchmark_txs(
-        pre=pre,
-        fork=fork,
-        gas_benchmark_value=gas_benchmark_value,
-        tx_gas_limit=tx_gas_limit,
-        attack_contract_address=attack_contract_address,
-        setup_cost=setup.gas_cost(fork),
-        iteration_cost=full_iteration_cost,
+    code = IteratingBytecode(
+        setup=setup,
+        iterating=loop,
+        iterating_subcall=subcall_cost,
+    )
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    def calldata_builder(
+        iteration_count: int, start_iteration: int
+    ) -> bytes:
+        return bytes(Hash(iteration_count) + Hash(start_iteration))
+
+    txs = list(
+        code.transactions_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_benchmark_value,
+            sender=pre.fund_eoa(),
+            to=attack_contract_address,
+            calldata=calldata_builder,
+        )
     )
 
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],
-        expected_benchmark_gas_used=total_gas_consumed,
         skip_gas_used_validation=True,
     )
