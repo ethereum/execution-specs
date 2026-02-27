@@ -843,6 +843,7 @@ class Sync(ForkTracking):
                 hex_to_address=self.active_fork.module(
                     "utils.hexadecimal"
                 ).hex_to_address,
+                store_code=self.active_fork.module("state").store_code,
             )
             genesis.add_genesis_block(
                 description,

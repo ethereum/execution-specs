@@ -144,7 +144,7 @@ class GenesisFork(
     """
 
     Address: Type[FixedBytes]
-    Account: Callable[[Uint, U256, Bytes], AccountT]
+    Account: Callable[[Uint, U256, Hash32], AccountT]
     Trie: Callable[[bool, object], TrieT]
     Bloom: Type[FixedBytes]
     Header: Type[HeaderT]
@@ -154,6 +154,7 @@ class GenesisFork(
     set_storage: Callable[[StateT, AddressT, Bytes32, U256], object]
     state_root: Callable[[StateT], Hash32]
     root: Callable[[TrieT], object]
+    store_code: Callable[[StateT, Bytes], Hash32]
 
 
 def add_genesis_block(
@@ -205,13 +206,15 @@ def add_genesis_block(
 
     for hex_address, account in genesis.initial_accounts.items():
         address = hardfork.hex_to_address(hex_address)
+        code = hex_to_bytes(account.get("code", "0x"))
+        code_hash = hardfork.store_code(chain.state, code)
         hardfork.set_account(
             chain.state,
             address,
             hardfork.Account(
                 Uint(int(account.get("nonce", "0"))),
                 hex_or_base_10_str_to_u256(account.get("balance", 0)),
-                hex_to_bytes(account.get("code", "0x")),
+                code_hash,
             ),
         )
         for key, value in account.get("storage", {}).items():
