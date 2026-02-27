@@ -1037,6 +1037,14 @@ class Frontier(BaseFork, solc_name="homestead"):
         return False
 
     @classmethod
+    def header_slot_number_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """At genesis, header must not contain slot number (EIP-7843)."""
+        del block_number, timestamp
+        return False
+
+    @classmethod
     def engine_new_payload_blob_hashes(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:
@@ -1096,6 +1104,16 @@ class Frontier(BaseFork, solc_name="homestead"):
     ) -> bool:
         """
         At genesis, payload attributes do not include the max blobs per block.
+        """
+        del block_number, timestamp
+        return False
+
+    @classmethod
+    def engine_payload_attribute_slot_number(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        At genesis, payload attributes do not include the slot number.
         """
         del block_number, timestamp
         return False
@@ -3481,12 +3499,14 @@ class Amsterdam(BPO2):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Opcodes]:
         """Return list of Opcodes that are valid to work on this fork."""
-        del block_number, timestamp
         return [
             Opcodes.SWAPN,
             Opcodes.DUPN,
             Opcodes.EXCHANGE,
-        ] + super(Amsterdam, cls).valid_opcodes()
+            Opcodes.SLOTNUM,
+        ] + super(Amsterdam, cls).valid_opcodes(
+            block_number=block_number, timestamp=timestamp
+        )
 
     @classmethod
     def opcode_gas_map(
@@ -3504,6 +3524,7 @@ class Amsterdam(BPO2):
             Opcodes.SWAPN: gas_costs.GAS_VERY_LOW,
             Opcodes.DUPN: gas_costs.GAS_VERY_LOW,
             Opcodes.EXCHANGE: gas_costs.GAS_VERY_LOW,
+            Opcodes.SLOTNUM: gas_costs.GAS_BASE,
         }
 
     @classmethod
@@ -3538,5 +3559,29 @@ class Amsterdam(BPO2):
         From Amsterdam, engine execution payload includes `block_access_list`
         as a parameter.
         """
+        del block_number, timestamp
+        return True
+
+    @classmethod
+    def header_slot_number_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """Slot number in header required from Amsterdam (EIP-7843)."""
+        del block_number, timestamp
+        return True
+
+    @classmethod
+    def engine_forkchoice_updated_version(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """From Amsterdam, forkchoice updated calls must use version 4."""
+        del block_number, timestamp
+        return 4
+
+    @classmethod
+    def engine_payload_attribute_slot_number(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """From Amsterdam, payload attributes include the slot number."""
         del block_number, timestamp
         return True

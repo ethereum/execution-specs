@@ -30,6 +30,7 @@ from execution_testing.base_types import (
     HeaderNonce,
     HexNumber,
     Number,
+    ZeroPaddedHexNumber,
 )
 from execution_testing.client_clis import (
     BlockExceptionWithMessage,
@@ -163,6 +164,7 @@ class Header(CamelModel):
     parent_beacon_block_root: Removable | Hash | None = None
     requests_hash: Removable | Hash | None = None
     bal_hash: Removable | Hash | None = None
+    slot_number: Removable | HexNumber | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -339,6 +341,8 @@ class Block(Header):
             and self.block_access_list is not None
         ):
             new_env_values["block_access_list"] = self.block_access_list
+        if not isinstance(self.slot_number, Removable):
+            new_env_values["slot_number"] = self.slot_number
         """
         These values are required, but they depend on the previous environment,
         so they can be calculated here.
@@ -658,21 +662,40 @@ class BlockchainTest(BaseTest):
         ) > 0:
             blob_gas_used = blob_gas_per_blob * count_blobs(txs)
 
+        # Prepare slot_number for header initialization
+        slot_number_value: ZeroPaddedHexNumber | None = None
+        if self.fork.header_slot_number_required(
+            block_number=int(env.number), timestamp=int(env.timestamp)
+        ):
+            slot_number_value = ZeroPaddedHexNumber(
+                int(env.slot_number) if env.slot_number is not None else 0
+            )
+
         header = FixtureHeader(
             **(
                 transition_tool_output.result.model_dump(
                     exclude_none=True,
                     exclude={"blob_gas_used", "transactions_trie"},
                 )
-                | env.model_dump(exclude_none=True, exclude={"blob_gas_used"})
+                | env.model_dump(
+                    exclude_none=True,
+                    exclude={"blob_gas_used", "slot_number"},
+                )
             ),
             blob_gas_used=blob_gas_used,
             transactions_trie=Transaction.list_root(txs),
             extra_data=block.extra_data
             if block.extra_data is not None
             else b"",
+            slot_number=slot_number_value,
             fork=self.fork,
         )
+
+        # Clear block_access_list_hash if the fork doesn't require it
+        if not self.fork.header_bal_hash_required(
+            block_number=int(env.number), timestamp=int(env.timestamp)
+        ):
+            header.block_access_list_hash = None
 
         if block.header_verify is not None:
             # Verify the header after transition tool processing.
@@ -755,8 +778,11 @@ class BlockchainTest(BaseTest):
             bal = block.expected_block_access_list.modify_if_invalid_test(
                 t8n_bal
             )
-            if bal != t8n_bal:
-                # If the BAL was modified, update the header hash
+            if bal != t8n_bal and self.fork.header_bal_hash_required(
+                block_number=int(env.number), timestamp=int(env.timestamp)
+            ):
+                # If the BAL was modified and the fork requires it,
+                # update the header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
         built_block = BuiltBlock(

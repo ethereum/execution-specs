@@ -53,6 +53,7 @@ class Env:
     parent_excess_blob_gas: Optional[U64]
     parent_blob_gas_used: Optional[U64]
     excess_blob_gas: Optional[U64]
+    slot_number: Optional[U64]
     requests: Any
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
@@ -85,6 +86,8 @@ class Env:
                     else None
                 )
             self.read_excess_blob_gas(data, t8n)
+
+        self.read_slot_number(data, t8n)
 
     def read_excess_blob_gas(self, data: Any, t8n: "T8N") -> None:
         """
@@ -147,6 +150,8 @@ class Env:
 
         if t8n.fork.has_hash_block_access_list:
             arguments["block_access_list_hash"] = Hash32(b"\0" * 32)
+        if t8n.fork.has_slot_number:
+            arguments["slot_number"] = U64(0)
 
         parent_header = t8n.fork.Header(**arguments)
 
@@ -221,6 +226,16 @@ class Env:
             self.prev_randao = Bytes32(
                 left_pad_zero_bytes(hex_to_bytes(current_random), 32)
             )
+
+    def read_slot_number(self, data: Any, t8n: "T8N") -> None:
+        """
+        Read the slot number from the data.
+        The slot number is provided by the consensus layer.
+        """
+        self.slot_number = None
+        if t8n.fork.has_slot_number:
+            if "slotNumber" in data:
+                self.slot_number = parse_hex_or_int(data["slotNumber"], U64)
 
     def read_withdrawals(self, data: Any, t8n: "T8N") -> None:
         """

@@ -374,6 +374,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def header_slot_number_required(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """Return true if the header must contain slot number (EIP-7843)."""
+        pass
+
     # Gas related abstract methods
 
     @classmethod
@@ -801,6 +809,16 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     ) -> bool:
         """
         Return true if the payload attributes include the max blobs per block.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def engine_payload_attribute_slot_number(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        Return true if the payload attributes include the slot number.
         """
         pass
 
