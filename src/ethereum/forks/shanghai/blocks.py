@@ -18,8 +18,9 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
+from ethereum.state import Address, Root
 
-from .fork_types import Address, Bloom, Root
+from .fork_types import Bloom
 from .transactions import (
     AccessListTransaction,
     FeeMarketTransaction,

@@ -38,6 +38,7 @@ from ..state import (
     commit_transaction,
     destroy_storage,
     get_account,
+    get_code,
     increment_nonce,
     mark_account_created,
     move_ether,
@@ -130,7 +131,10 @@ def process_message_call(message: Message) -> MessageCallOutput:
         if delegated_address is not None:
             message.disable_precompiles = True
             message.accessed_addresses.add(delegated_address)
-            message.code = get_account(block_env.state, delegated_address).code
+            message.code = get_code(
+                block_env.state,
+                get_account(block_env.state, delegated_address).code_hash,
+            )
             message.code_address = delegated_address
 
         evm = process_message(message)

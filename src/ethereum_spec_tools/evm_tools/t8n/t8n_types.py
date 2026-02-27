@@ -11,6 +11,7 @@ from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.state import EMPTY_CODE_HASH
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTxError
@@ -64,15 +65,9 @@ class Alloc:
             if account.nonce:
                 account_data["nonce"] = hex(account.nonce)
 
-            # TODO: backport to forks before amsterdam
-            if hasattr(account, "code_hash"):
-                from ethereum.state import EMPTY_CODE_HASH
-
-                if account.code_hash != EMPTY_CODE_HASH:
-                    code = self.state.get_code(account.code_hash)
-                    account_data["code"] = "0x" + code.hex()
-            elif account.code:
-                account_data["code"] = "0x" + account.code.hex()
+            if account.code_hash != EMPTY_CODE_HASH:
+                code = self.state._code_store[account.code_hash]
+                account_data["code"] = "0x" + code.hex()
 
             if address in self.state._storage_tries:
                 account_data["storage"] = {

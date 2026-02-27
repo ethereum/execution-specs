@@ -32,7 +32,7 @@ from ethereum.exceptions import (
 from . import vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
 from .bloom import logs_bloom
-from .fork_types import Address
+from .fork_types import EMPTY_CODE_HASH, Address
 from .state import (
     State,
     account_exists_and_is_empty,
@@ -396,7 +396,7 @@ def check_transaction(
         raise NonceMismatchError("nonce too high")
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    if sender_account.code:
+    if sender_account.code_hash != EMPTY_CODE_HASH:
         raise InvalidSenderError("not EOA")
 
     return sender_address

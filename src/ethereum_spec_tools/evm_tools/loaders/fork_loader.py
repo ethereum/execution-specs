@@ -299,13 +299,9 @@ class ForkLoad:
         return self._module("state").set_account
 
     @property
-    def set_code(self) -> Any:
-        """set_code function of the fork."""
-        # TODO: Remove once we backport it
-        # pass amsterdam fork
-        if self.has_block_state:
-            return self._module("state").set_code
-        return None
+    def store_code(self) -> Any:
+        """store_code function of the fork."""
+        return getattr(self._module("state"), "store_code", None)
 
     @property
     def set_storage(self) -> Any:

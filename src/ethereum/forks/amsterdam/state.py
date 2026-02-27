@@ -220,7 +220,7 @@ def state_root(state: State) -> Root:
     return root_value
 
 
-def set_code(state: State, code: Bytes) -> Hash32:
+def store_code(state: State, code: Bytes) -> Hash32:
     """
     Store bytecode in a ``State``.
     """

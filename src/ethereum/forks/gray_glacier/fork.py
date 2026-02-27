@@ -28,6 +28,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
+from ethereum.state import EMPTY_CODE_HASH
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, encode_receipt
@@ -503,7 +504,7 @@ def check_transaction(
         raise NonceMismatchError("nonce too high")
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    if sender_account.code:
+    if sender_account.code_hash != EMPTY_CODE_HASH:
         raise InvalidSenderError("not EOA")
 
     return sender_address, effective_gas_price

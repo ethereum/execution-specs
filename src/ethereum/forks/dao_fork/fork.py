@@ -35,7 +35,7 @@ from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
 from .dao import apply_dao
-from .fork_types import Address
+from .fork_types import EMPTY_CODE_HASH, Address
 from .state import (
     State,
     create_ether,
@@ -406,7 +406,7 @@ def check_transaction(
         raise NonceMismatchError("nonce too high")
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    if sender_account.code:
+    if sender_account.code_hash != EMPTY_CODE_HASH:
         raise InvalidSenderError("not EOA")
 
     return sender_address

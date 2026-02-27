@@ -13,11 +13,10 @@ Implementations of the EVM environment related instructions.
 
 from ethereum_types.numeric import U256, Uint, ulen
 
-from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import EMPTY_ACCOUNT
-from ...state import get_account
+from ...state import get_account, get_code
 from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
@@ -337,7 +336,8 @@ def extcodesize(evm: Evm) -> None:
     charge_gas(evm, GAS_EXTERNAL)
 
     # OPERATION
-    code = get_account(evm.message.block_env.state, address).code
+    account = get_account(evm.message.block_env.state, address)
+    code = get_code(evm.message.block_env.state, account.code_hash)
 
     codesize = U256(len(code))
     push(evm.stack, codesize)
@@ -372,7 +372,8 @@ def extcodecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    code = get_account(evm.message.block_env.state, address).code
+    account = get_account(evm.message.block_env.state, address)
+    code = get_code(evm.message.block_env.state, account.code_hash)
 
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -461,8 +462,7 @@ def extcodehash(evm: Evm) -> None:
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
     else:
-        code = account.code
-        codehash = U256.from_be_bytes(keccak256(code))
+        codehash = U256.from_be_bytes(account.code_hash)
 
     push(evm.stack, codehash)
 
