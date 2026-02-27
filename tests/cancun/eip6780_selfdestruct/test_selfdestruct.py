@@ -1514,7 +1514,6 @@ def test_create_and_destroy_multiple_contracts_same_tx(
     for i in range(num_contracts):
         addr = compute_create_address(
             address=entry_code_address,
-            nonce=1,
             salt=i,
             initcode=selfdestruct_initcode,
             opcode=Op.CREATE2,
@@ -1773,13 +1772,6 @@ def test_parent_creates_child_selfdestruct_one(
     # Parent contract: creates child, then either self-destructs or calls child
     # to self-destruct based on calldata[0]: 1 = destroy parent, 0 = destroy
     # child
-    parent_code = (
-        # Store that we were called
-        Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
-        # Store child initcode in memory
-        + Op.CODECOPY(0, len(Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))), 100)
-    )
-
     # For simplicity, use pre-deployed child initcode
     child_initcode_address = pre.deploy_contract(child_initcode)
 
