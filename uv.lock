@@ -1112,7 +1112,7 @@ requires-dist = [
     { name = "ethereum-execution", editable = "." },
     { name = "ethereum-hive", specifier = ">=0.1.0a1,<1.0.0" },
     { name = "ethereum-rlp", specifier = ">=0.1.5,<0.2" },
-    { name = "ethereum-types", specifier = ">=0.3.0,<0.4" },
+    { name = "ethereum-types", git = "https://github.com/ethereum/ethereum-types.git?rev=42ee6c1e9da3130f287a979c1f7f9ee0fab52e2a" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
     { name = "gitpython", specifier = ">=3.1.31,<4" },
     { name = "jinja2", specifier = ">=3,<4" },
