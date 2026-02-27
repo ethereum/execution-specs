@@ -10,16 +10,20 @@ from .exceptions import (
     BlockException,
     BlockExceptionInstanceOrList,
     ExceptionBase,
+    ExceptionBoundTypeVar,
     ExceptionInstanceOrList,
     TransactionException,
     TransactionExceptionInstanceOrList,
     UndefinedException,
+    from_pipe_str,
+    to_pipe_str,
 )
 
 __all__ = [
     "BlockException",
     "BlockExceptionInstanceOrList",
     "ExceptionBase",
+    "ExceptionBoundTypeVar",
     "EngineAPIError",
     "ExceptionMapper",
     "ExceptionInstanceOrList",
@@ -28,4 +32,6 @@ __all__ = [
     "TransactionException",
     "UndefinedException",
     "TransactionExceptionInstanceOrList",
+    "from_pipe_str",
+    "to_pipe_str",
 ]
