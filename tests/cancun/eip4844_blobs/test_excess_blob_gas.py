@@ -542,9 +542,9 @@ def test_invalid_excess_blob_gas_above_target_change(
     """
     Test rejection of blocks where the `excessBlobGas`.
 
-    - decreases more than `TARGET_BLOB_GAS_PER_BLOCK` in a single block
+    - decreases more than `BLOB_TARGET_GAS_PER_BLOCK` in a single block
         with zero blobs.
-    - increases more than `TARGET_BLOB_GAS_PER_BLOCK` in a single block
+    - increases more than `BLOB_TARGET_GAS_PER_BLOCK` in a single block
         with max blobs.
     """
     if header_excess_blob_gas is None:

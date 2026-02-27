@@ -157,6 +157,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "RPC. Default=750. Higher values may cause RPC instability."
         ),
     )
+    execute_group.addoption(
+        "--use-testing-build-block",
+        action="store_true",
+        dest="use_testing_build_block",
+        default=False,
+        help=(
+            "Use testing_buildBlockV1 to build blocks with transactions "
+            "directly, instead of the standard Engine API flow. "
+            "Only for clients that implement this endpoint."
+        ),
+    )
 
     report_group = parser.getgroup(
         "tests", "Arguments defining html report behavior"
@@ -336,6 +347,14 @@ def dry_run(request: pytest.FixtureRequest) -> bool:
 def max_transactions_per_batch(request: pytest.FixtureRequest) -> int | None:
     """Return max number of transactions per batch, or None for default."""
     return request.config.getoption("max_tx_per_batch")
+
+
+@pytest.fixture(scope="session")
+def use_testing_build_block(
+    request: pytest.FixtureRequest,
+) -> bool:
+    """Return whether to use testing_buildBlockV1 for block building."""
+    return request.config.getoption("use_testing_build_block")
 
 
 @pytest.fixture(scope="session")

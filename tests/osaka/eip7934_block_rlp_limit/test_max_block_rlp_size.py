@@ -68,7 +68,21 @@ def block_errors() -> List[BlockException]:
     return [BlockException.RLP_BLOCK_LIMIT_EXCEEDED]
 
 
+@lru_cache(maxsize=128)
 def max_zero_calldata_bytes_for_gas(
+    fork: Fork,
+    gas_limit: int,
+    *,
+    max_len_hint: int,
+) -> int:
+    """Return the largest zero-calldata length whose intrinsic gas fits."""
+    calculator = fork.transaction_intrinsic_cost_calculator()
+    return _max_zero_calldata_bytes_for_gas(
+        calculator, gas_limit, max_len_hint=max_len_hint
+    )
+
+
+def _max_zero_calldata_bytes_for_gas(
     calculator: Callable[..., int],
     gas_limit: int,
     *,
@@ -116,6 +130,7 @@ def max_zero_calldata_bytes_for_gas(
     return lo
 
 
+@lru_cache(maxsize=128)
 def calibrated_block_gas_limit(
     fork: Fork,
     block_size_limit: int,
@@ -134,7 +149,7 @@ def calibrated_block_gas_limit(
 
     if tx_gas_limit_cap is not None:
         max_bytes_per_tx = max_zero_calldata_bytes_for_gas(
-            calculator,
+            fork,
             tx_gas_limit_cap,
             max_len_hint=estimated_calldata_bytes,
         )
@@ -431,7 +446,7 @@ def _exact_size_transactions_impl(
             authorization_count = len(
                 special_tx_dict.get("authorization_list", [])
             )
-            max_special_data_len = max_zero_calldata_bytes_for_gas(
+            max_special_data_len = _max_zero_calldata_bytes_for_gas(
                 calculator,
                 per_tx_gas_budget,
                 max_len_hint=200_000,
@@ -575,7 +590,7 @@ def _exact_size_transactions_impl(
         estimated_calldata = max(0, calldata_bytes_needed - 5)
 
         max_topoff_calldata = max_zero_calldata_bytes_for_gas(
-            calculator,
+            fork,
             topoff_gas_budget,
             max_len_hint=max(estimated_calldata, 1),
         )

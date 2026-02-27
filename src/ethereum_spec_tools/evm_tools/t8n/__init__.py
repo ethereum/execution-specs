@@ -22,6 +22,7 @@ from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, Unscheduled
 from ethereum.forks.amsterdam.block_access_lists import (
     BlockAccessIndex,
     BlockAccessListBuilder,
+    validate_block_access_list_gas_limit,
 )
 from ethereum_spec_tools.forks import Hardfork, TemporaryHardfork
 
@@ -116,9 +117,9 @@ class ForkCache(AbstractContextManager):
         self,
         template: Hardfork,
         fork_criteria: ByBlockNumber | ByTimestamp | Unscheduled | None = None,
-        target_blob_gas_per_block: U64 | None = None,
+        blob_target_gas_per_block: U64 | None = None,
         gas_per_blob: U64 | None = None,
-        min_blob_gasprice: Uint | None = None,
+        blob_min_gasprice: Uint | None = None,
         blob_base_fee_update_fraction: Uint | None = None,
         max_blob_gas_per_block: U64 | None = None,
         blob_schedule_target: U64 | None = None,
@@ -131,9 +132,9 @@ class ForkCache(AbstractContextManager):
         cache_key = (
             template.short_name,
             fork_criteria,
-            target_blob_gas_per_block,
+            blob_target_gas_per_block,
             gas_per_blob,
-            min_blob_gasprice,
+            blob_min_gasprice,
             blob_base_fee_update_fraction,
             max_blob_gas_per_block,
             blob_schedule_target,
@@ -150,9 +151,9 @@ class ForkCache(AbstractContextManager):
         clone = Hardfork.clone(
             template=template,
             fork_criteria=fork_criteria,
-            target_blob_gas_per_block=target_blob_gas_per_block,
+            blob_target_gas_per_block=blob_target_gas_per_block,
             gas_per_blob=gas_per_blob,
-            min_blob_gasprice=min_blob_gasprice,
+            blob_min_gasprice=blob_min_gasprice,
             blob_base_fee_update_fraction=blob_base_fee_update_fraction,
             max_blob_gas_per_block=max_blob_gas_per_block,
             blob_schedule_target=blob_schedule_target,
@@ -469,6 +470,11 @@ class T8N(Load):
             block_output.block_access_list = self.fork.build_block_access_list(
                 block_env.block_access_list_builder, block_env.state
             )
+            # Validate block access list gas limit constraint (EIP-7928)
+            validate_block_access_list_gas_limit(
+                block_access_list=block_output.block_access_list,
+                block_gas_limit=block_env.block_gas_limit,
+            )
 
         if self.fork.has_execution_witness:
             assert self.fork.has_block_state
@@ -492,7 +498,7 @@ class T8N(Load):
                 pre_state_accounts_data=self.alloc.state._main_trie,
                 pre_state_storages_data=self.alloc.state._storage_tries,
                 blockchain_headers=self.env.block_headers,
-            )
+           ) 
 
     def run_blockchain_test(self) -> None:
         """

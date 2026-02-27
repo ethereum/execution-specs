@@ -20,6 +20,9 @@ from typing import (
 )
 
 from execution_testing.base_types import to_json
+from execution_testing.cli.pytest_commands.plugins.shared.fixture_output import (  # noqa: E501
+    SUBFOLDER_LEVEL_SEPARATOR,
+)
 
 from .base import BaseFixture
 from .consume import FixtureConsumer
@@ -249,14 +252,30 @@ class FixtureCollector:
             self._worker_id_cached = True
         return self.worker_id
 
-    def add_fixture(self, info: TestInfo, fixture: BaseFixture) -> Path:
+    def add_fixture(
+        self,
+        info: TestInfo,
+        fixture: BaseFixture,
+        output_subdir: Path | None = None,
+    ) -> Path:
         """Add fixture and immediately stream to partial JSONL file."""
         fixture_basename = self.get_fixture_basename(info)
+        if (
+            output_subdir is not None
+            and SUBFOLDER_LEVEL_SEPARATOR in output_subdir.name
+        ):
+            parts = fixture_basename.parts
+            if parts and parts[0] == "benchmark":
+                # Strip the "benchmark/" prefix from the fixture path so
+                # files land directly under the gas-limit subdirectory.
+                fixture_basename = Path(*parts[1:])
 
-        fixture_path = (
-            self.output_dir
-            / fixture.output_base_dir_name()
-            / fixture_basename.with_suffix(fixture.output_file_extension)
+        format_output_dir = self.output_dir / fixture.output_base_dir_name()
+        if output_subdir is not None and self.output_dir.name != "stdout":
+            format_output_dir = format_output_dir / output_subdir
+
+        fixture_path = format_output_dir / fixture_basename.with_suffix(
+            fixture.output_file_extension
         )
 
         # Stream fixture directly to partial JSONL (no memory accumulation)

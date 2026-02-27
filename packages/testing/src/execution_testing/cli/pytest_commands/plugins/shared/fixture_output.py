@@ -9,10 +9,6 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, Field
 
-from execution_testing.fixtures.blockchain import (
-    BlockchainEngineXFixture,
-)
-
 
 class FixtureOutput(BaseModel):
     """Represents the output destination for generated test fixtures."""
@@ -70,15 +66,13 @@ class FixtureOutput(BaseModel):
     @property
     def pre_alloc_groups_folder_path(self) -> Path:
         """Return the path for pre-allocation groups folder."""
+        # Local import: fixtures.collector imports from this module.
+        from execution_testing.fixtures.blockchain import (
+            BlockchainEngineXFixture,
+        )
+
         engine_x_dir = BlockchainEngineXFixture.output_base_dir_name()
         return self.directory / engine_x_dir / "pre_alloc"
-
-    @property
-    def should_auto_enable_all_formats(self) -> bool:
-        """
-        Check if all formats should be auto-enabled due to tarball output.
-        """
-        return self.is_tarball
 
     @staticmethod
     def strip_tarball_suffix(path: Path) -> Path:
@@ -314,3 +308,49 @@ class FixtureOutput(BaseModel):
             use_pre_alloc_groups=config.getoption("use_pre_alloc_groups"),
             should_generate_all_formats=should_generate_all_formats,
         )
+
+
+FORK_SUBDIR_PREFIX = "for_"
+SUBFOLDER_LEVEL_SEPARATOR = "_at_"
+
+
+def format_gas_limit_prefix(
+    gas_value_millions: int, all_values_millions: list[int]
+) -> str:
+    """Return a stable, sortable gas-limit prefix for a fixture subfolder."""
+    max_value = max(all_values_millions) if all_values_millions else 0
+    width = max(4, len(str(max_value)))
+    return f"{gas_value_millions:0{width}d}M"
+
+
+def format_fork_subdir(
+    fork_name: str,
+    gas_limit_subdir: str | None = None,
+) -> str:
+    """
+    Return the fork-based output subdirectory name.
+
+    Without *gas_limit_subdir*: ``for_prague``
+    With *gas_limit_subdir*:    ``for_prague_at_0002M``
+    """
+    base = f"{FORK_SUBDIR_PREFIX}{fork_name.lower()}"
+    if gas_limit_subdir is not None:
+        return f"{base}{SUBFOLDER_LEVEL_SEPARATOR}{gas_limit_subdir}"
+    return base
+
+
+def resolve_fixture_subfolder(
+    markers: list[pytest.Mark],
+) -> Path | None:
+    """
+    Build the output subdirectory from ``fixture_subfolder`` markers.
+
+    Markers are sorted by *level* and their *prefix* values are joined with
+    ``_at_`` to form a single directory name.  Returns ``None`` when no
+    markers are present.
+    """
+    if not markers:
+        return None
+    ordered = sorted(markers, key=lambda m: m.kwargs.get("level", 0))
+    prefixes = [m.kwargs["prefix"] for m in ordered]
+    return Path(SUBFOLDER_LEVEL_SEPARATOR.join(prefixes))

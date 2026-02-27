@@ -94,12 +94,12 @@ def max_refund(fork: Fork, refund_type: RefundType) -> int:
     """Return the max refund gas of the transaction."""
     gas_costs = fork.gas_costs()
     max_refund = (
-        gas_costs.R_STORAGE_CLEAR
+        gas_costs.REFUND_STORAGE_CLEAR
         if RefundType.STORAGE_CLEAR in refund_type
         else 0
     )
     max_refund += (
-        gas_costs.R_AUTHORIZATION_EXISTING_AUTHORITY
+        gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
         if RefundType.AUTHORIZATION_EXISTING_AUTHORITY in refund_type
         else 0
     )

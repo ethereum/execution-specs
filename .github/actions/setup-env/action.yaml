@@ -9,11 +9,9 @@ runs:
         sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential rustup
         rustup update --no-self-update 1.89.0 && rustup default 1.89.0
 
-    - name: Install Tox and any other packages
+    - name: Install build dependencies
       shell: bash
-      run: |
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
-        pip install 'tox>=4.11,<5' requests
+      run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
 
     - name: Download Geth and add to $PATH
       shell: bash

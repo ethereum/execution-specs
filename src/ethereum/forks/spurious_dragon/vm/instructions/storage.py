@@ -17,9 +17,9 @@ from ...state import get_storage, set_storage
 from .. import Evm
 from ..gas import (
     GAS_SLOAD,
-    GAS_STORAGE_CLEAR_REFUND,
     GAS_STORAGE_SET,
     GAS_STORAGE_UPDATE,
+    REFUND_STORAGE_CLEAR,
     charge_gas,
 )
 from ..stack import pop, push
@@ -76,7 +76,7 @@ def sstore(evm: Evm) -> None:
         gas_cost = GAS_STORAGE_UPDATE
 
     if new_value == 0 and current_value != 0:
-        evm.refund_counter += int(GAS_STORAGE_CLEAR_REFUND)
+        evm.refund_counter += REFUND_STORAGE_CLEAR
 
     charge_gas(evm, gas_cost)
 

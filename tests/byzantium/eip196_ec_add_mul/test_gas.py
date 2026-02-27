@@ -38,9 +38,9 @@ def test_gas_costs(
     """
     gas_costs = fork.gas_costs()
     gas = (
-        gas_costs.G_PRECOMPILE_ECADD
+        gas_costs.GAS_PRECOMPILE_ECADD
         if address == Spec.ECADD
-        else gas_costs.G_PRECOMPILE_ECMUL
+        else gas_costs.GAS_PRECOMPILE_ECMUL
     )
     if not enough_gas:
         gas -= 1

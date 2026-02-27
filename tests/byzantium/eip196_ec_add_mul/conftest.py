@@ -27,9 +27,9 @@ def precompile_gas(precompile_address: Address, fork: Fork) -> int:
     gas_costs = fork.gas_costs()
     match precompile_address:
         case Spec.ECADD:
-            return gas_costs.G_PRECOMPILE_ECADD
+            return gas_costs.GAS_PRECOMPILE_ECADD
         case Spec.ECMUL:
-            return gas_costs.G_PRECOMPILE_ECMUL
+            return gas_costs.GAS_PRECOMPILE_ECMUL
         case _:
             raise ValueError(
                 f"Unexpected precompile address: {precompile_address}"

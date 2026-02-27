@@ -225,7 +225,7 @@ actionlint = [
     "shellcheck-py>=0.10",
 ]
 doc = [
-    "docc>=0.3.0,<0.4.0",
+    "docc>=0.4.0,<0.5.0",
     "fladrif>=0.2.0,<0.3.0",
     "mistletoe>=1.5.0,<2",
 ]
