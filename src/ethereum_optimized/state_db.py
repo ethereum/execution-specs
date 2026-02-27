@@ -16,6 +16,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from importlib import import_module
+from types import SimpleNamespace
 from typing import Any, ClassVar, Dict, List, Optional, Set, cast
 
 try:
@@ -30,7 +31,8 @@ except ImportError as e:
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.numeric import U256, Uint
 
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.state import EMPTY_CODE_HASH
 
 from .utils import add_item
 
@@ -84,6 +86,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         tx_restore_points: List[int]
         journal: List[Any]
         created_accounts: Set[Address]
+        _code_store: Dict[Hash32, Bytes]
 
         def __init__(self, path: Optional[str] = None) -> None:
             logging.info("using optimized state db at %s", path)
@@ -98,6 +101,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             self.tx_restore_points = []
             self.journal = []
             self.created_accounts = set()
+            self._code_store = {}
             self.db.begin_mutable()
 
         def __eq__(self, other: object) -> bool:
@@ -126,6 +130,23 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         del state.destroyed_accounts
         del state.journal
         del state.created_accounts
+        del state._code_store
+
+    @add_item(patches)
+    def store_code(state: State, code: Bytes) -> Hash32:
+        """Store bytecode and return its hash."""
+        if not code:
+            return EMPTY_CODE_HASH
+        code_hash = keccak256(code)
+        state._code_store[code_hash] = code
+        return code_hash
+
+    @add_item(patches)
+    def get_code(state: State, code_hash: Hash32) -> Bytes:
+        """Return the bytecode for a given code hash."""
+        if code_hash == EMPTY_CODE_HASH:
+            return b""
+        return state._code_store.get(code_hash, b"")
 
     @add_item(patches)
     def get_metadata(state: State, key: Bytes) -> Optional[Bytes]:
@@ -191,7 +212,18 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             if count:
                 state.db.destroy_storage(address)
         for address, account in state.dirty_accounts.items():
-            state.db.set_account(address, account)
+            if account is None:
+                state.db.set_account(address, None)
+            else:
+                code = state._code_store.get(account.code_hash, b"")
+                state.db.set_account(
+                    address,
+                    SimpleNamespace(
+                        nonce=account.nonce,
+                        balance=account.balance,
+                        code=code,
+                    ),
+                )
         for address, storage in state.dirty_storage.items():
             for key, value in storage.items():
                 state.db.set_storage(address, key, value)
@@ -393,7 +425,13 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             return state.dirty_accounts[address]
         account = state.db.get_account_optional(address)
         if account is not None:
-            return Account(Uint(account[0]), U256(account[1]), account[2])
+            code = account[2]
+            if code:
+                code_hash = keccak256(code)
+                state._code_store[code_hash] = code
+            else:
+                code_hash = EMPTY_CODE_HASH
+            return Account(Uint(account[0]), U256(account[1]), code_hash)
         else:
             return None
 

@@ -12,10 +12,12 @@ Types reused throughout the specification, which are specific to Ethereum.
 """
 
 from ethereum_rlp import rlp
-from ethereum_types.bytes import Bytes, Bytes256
+from ethereum_types.bytes import Bytes, Bytes20, Bytes256
 
 from ethereum.crypto.hash import Hash32
 from ethereum.state import Account
+
+Address = Bytes20
 
 VersionedHash = Hash32
 
