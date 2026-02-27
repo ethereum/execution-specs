@@ -12,6 +12,7 @@ from execution_testing import (
     Alloc,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
     keccak256,
 )
@@ -79,7 +80,7 @@ def test_create2_return_data(
         code=Op.MSTORE(0, call_return_data_value)
         + Op.MSTORE(32, 0xFFFFFFFF)
         + return_type(0, call_return_size),
-        storage={},
+        storage=Storage.EMPTY,
     )
     address_to = pre.deploy_contract(
         balance=100_000_000,

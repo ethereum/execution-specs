@@ -2089,7 +2089,7 @@ def test_set_code_type_tx_pre_fork(
             sender: Account(
                 nonce=0,
                 code="",
-                storage={},
+                storage=Storage.EMPTY,
             ),
         },
     )

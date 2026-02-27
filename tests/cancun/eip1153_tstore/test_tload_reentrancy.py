@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     Op,
     StateTestFiller,
+    Storage,
     Switch,
     Transaction,
 )
@@ -84,7 +85,7 @@ def test_tload_reentrancy(
     address_code = pre.deploy_contract(
         balance=0,
         code=subcall_code,
-        storage={},
+        storage=Storage.EMPTY,
     )
     if call_dest_type == CallDestType.EXTERNAL_CALL:
         call_dest_address = address_code

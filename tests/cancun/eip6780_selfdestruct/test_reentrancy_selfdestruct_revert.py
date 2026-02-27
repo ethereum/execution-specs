@@ -13,6 +13,7 @@ from execution_testing import (
     Fork,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
 )
 from execution_testing.forks import Cancun
@@ -167,7 +168,7 @@ def test_reentrancy_selfdestruct_revert(
     post = {
         # Second caller unchanged as call gets reverted
         revert_contract_address: Account(
-            balance=revert_contract_init_balance, storage={}
+            balance=revert_contract_init_balance, storage=Storage.EMPTY
         ),
     }
 
@@ -189,7 +190,7 @@ def test_reentrancy_selfdestruct_revert(
 
         # Original suicide account remains in state
         post[selfdestruct_contract_address] = Account(
-            balance=selfdestruct_contract_init_balance, storage={}
+            balance=selfdestruct_contract_init_balance, storage=Storage.EMPTY
         )
         # Suicide destination
         post[selfdestruct_recipient_address] = Account(
@@ -210,7 +211,9 @@ def test_reentrancy_selfdestruct_revert(
             # On Cancun suicide does not remove the account, just sends the
             # balance
             post[selfdestruct_contract_address] = Account(
-                balance=0, code=selfdestruct_contract_bytecode, storage={}
+                balance=0,
+                code=selfdestruct_contract_bytecode,
+                storage=Storage.EMPTY,
             )
         else:
             post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore

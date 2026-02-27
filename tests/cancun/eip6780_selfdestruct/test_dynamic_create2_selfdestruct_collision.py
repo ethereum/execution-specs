@@ -18,6 +18,7 @@ from execution_testing import (
     Initcode,
     Op,
     StateTestFiller,
+    Storage,
     Transaction,
     compute_create2_address,
 )
@@ -194,7 +195,7 @@ def test_dynamic_create2_selfdestruct_collision(
             balance=pre_existing_create2_balance,
             nonce=1,
             code=deploy_code,
-            storage={},
+            storage=Storage.EMPTY,
         )
 
     post: Dict[Address, Union[Account, object]] = {}
@@ -422,7 +423,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
             balance=pre_existing_create2_balance,
             nonce=1,
             code=deploy_code,
-            storage={},
+            storage=Storage.EMPTY,
         )
 
     post: Dict[Address, Union[Account, object]] = {}

@@ -126,6 +126,12 @@ def test_storage() -> None:
         ),
         pytest.param(
             Account(
+                storage=Storage.EMPTY,
+            ),
+            id="storage_empty_sentinel",
+        ),
+        pytest.param(
+            Account(
                 nonce=0,
                 balance=0,
                 code="",

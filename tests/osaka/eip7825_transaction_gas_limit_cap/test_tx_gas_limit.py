@@ -143,7 +143,7 @@ def test_transaction_gas_limit_cap(
 
     tx = Transaction(**tx_kwargs)
     post = {
-        contract_address: Account(storage=storage if error is None else {})
+        contract_address: Account(storage=storage if error is None else Storage.EMPTY)
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

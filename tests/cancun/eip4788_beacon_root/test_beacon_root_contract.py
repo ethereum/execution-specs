@@ -886,7 +886,7 @@ def test_beacon_root_contract_deploy(
         balance=int(2e9),
     )
     post[Spec.SYSTEM_ADDRESS] = Account(
-        storage={},
+        storage=Storage.EMPTY,
         code=b"",
         nonce=0,
         balance=int(2e9),
