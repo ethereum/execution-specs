@@ -5,7 +5,7 @@ from typing import ClassVar, Dict, List
 import pytest
 from pytest import FixtureRequest
 
-from execution_testing.base_types import Address, Alloc, Hash
+from execution_testing.base_types import Address, Alloc, Hash, Storage
 from execution_testing.forks import Fork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import (
@@ -176,6 +176,20 @@ class TransactionPost(BaseExecute):
                 )
             else:
                 expected_account.check_alloc(address, actual_account)
+                if (
+                    "storage" in expected_account.model_fields_set
+                    and expected_account.storage is None
+                ):
+                    EMPTY_STORAGE_ROOT = (
+                        "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+                    )
+                    proof = eth_rpc.get_proof(address)
+                    storage_hash = proof.get("storageHash", "")
+                    assert storage_hash == EMPTY_STORAGE_ROOT, (
+                        f"Storage of {address} is not empty. "
+                        f"Expected storage root {EMPTY_STORAGE_ROOT}, "
+                        f"got {storage_hash}"
+                    )
 
         return ExecuteResult(
             benchmark_gas_used=benchmark_gas_used,
