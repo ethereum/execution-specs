@@ -81,11 +81,12 @@ def deserialize_stateless_input(data: Bytes) -> StatelessInput:
     return rlp.decode_to(StatelessInput, data)
 
 
-# TODO: We could just have this be a method that takes in bytes and
-# returns bytes
 def entrypoint() -> Bytes:
     """
     Guest program entry point.
+    TODO: Maybe we remove this and keep run_stateless_guest
+    The nice thing about this is that we can define the read_input
+    semantics.
     """
     input_data = read_input_bytes()
     stateless_input = deserialize_stateless_input(input_data)
@@ -94,3 +95,14 @@ def entrypoint() -> Bytes:
 
     output_data = serialize_stateless_output(stateless_output)
     return output_data
+
+
+def run_stateless_guest(input_bytes: Bytes) -> Bytes:
+    """
+    Run the stateless guest with serialized input, return serialized output.
+    """
+    stateless_input = deserialize_stateless_input(input_bytes)
+    stateless_output = verify_stateless_new_payload(stateless_input)
+
+    output_bytes = serialize_stateless_output(stateless_output)
+    return output_bytes
