@@ -10,6 +10,7 @@ runs:
     - uses: ./.github/actions/setup-uv
       with:
         enable-cache: "false"
+    - uses: ./.github/actions/setup-env
     - name: Install EEST
       shell: bash
       run: uv sync --no-progress
