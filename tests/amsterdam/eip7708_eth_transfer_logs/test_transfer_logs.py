@@ -153,7 +153,7 @@ def test_contract_creation_tx(
         sender=sender,
         to=None,
         value=tx_value,
-        gas_limit=100_000,
+        gas_limit=500_000,
         data=bytes(initcode),
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
@@ -303,7 +303,7 @@ def test_create_opcode_emits_log(
         sender=sender,
         to=contract,
         value=1,
-        gas_limit=200_000,
+        gas_limit=500_000,
         expected_receipt=TransactionReceipt(logs=expected_logs),
     )
 
@@ -503,8 +503,8 @@ def test_create_insufficient_balance_no_log(
             id="invalid_opcode",
         ),
         pytest.param(
-            # OOG during code deposit payment (200 gas/byte for returned code)
-            # Returns 1000 bytes which costs 200,000 gas for code deposit
+            # OOG during code deposit payment
+            # Returns 1000 bytes, exceeding available gas for deposit
             Op.RETURN(0, 1000),
             id="create_out_of_gas_code_deposit",
         ),
@@ -519,7 +519,7 @@ def test_create_out_of_gas_no_log(
 ) -> None:
     """Test that CREATE running out of gas does NOT emit transfer log."""
     tx_value = 1000
-    gas_limit = 100_000
+    gas_limit = 300_000
     create_value = 500
     contract_code = Op.CALLDATACOPY(
         dest_offset=0,
@@ -657,7 +657,7 @@ def test_selfdestruct_with_value_emits_log(
         sender=sender,
         to=contract,
         value=0,
-        gas_limit=100_000,
+        gas_limit=300_000,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(contract, beneficiary, contract_balance)]
         ),
@@ -685,7 +685,7 @@ def test_selfdestruct_to_system_address(
         sender=sender,
         to=contract,
         value=0,
-        gas_limit=100_000,
+        gas_limit=300_000,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(contract, Spec.SYSTEM_ADDRESS, 1)]
         ),
@@ -1169,7 +1169,7 @@ def test_selfdestruct_then_transfer_same_block(
                     sender=sender,
                     nonce=0,
                     value=0,
-                    gas_limit=100_000,
+                    gas_limit=300_000,
                     expected_receipt=TransactionReceipt(
                         logs=[transfer_log(contract, beneficiary, 500)]
                     ),
@@ -1179,7 +1179,7 @@ def test_selfdestruct_then_transfer_same_block(
                     sender=sender,
                     nonce=1,
                     value=100,
-                    gas_limit=100_000,
+                    gas_limit=300_000,
                     expected_receipt=TransactionReceipt(
                         logs=[
                             transfer_log(sender, contract, 100),
