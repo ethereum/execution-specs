@@ -7,6 +7,7 @@ Stateless guest interfaces.
 import io
 import threading
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 
 from .stateless import (
@@ -42,16 +43,27 @@ def read_input(n: int) -> Bytes:
 
 def serialize_stateless_output(output: StatelessValidationResult) -> Bytes:
     """
-    Serialize a ``StatelessValidationResult`` to raw bytes.
+    Serialize a ``StatelessValidationResult`` to RLP-encoded bytes.
+    TODO: change to ssz, rlp was easier to get working with codebase.
     """
-    raise NotImplementedError
+    return Bytes(rlp.encode(output))
+
+
+# TODO: This method is for the host
+def serialize_stateless_input(stateless_input: StatelessInput) -> Bytes:
+    """
+    Serialize a ``StatelessInput`` to RLP-encoded bytes.
+    TODO: change to ssz, rlp was easier to get working with codebase.
+    """
+    return Bytes(rlp.encode(stateless_input))
 
 
 def deserialize_stateless_input(data: Bytes) -> StatelessInput:
     """
-    Deserialize a ``StatelessInput`` from raw bytes.
+    Deserialize a ``StatelessInput`` from RLP-encoded bytes.
+    TODO: change to ssz, rlp was easier to get working with codebase.
     """
-    raise NotImplementedError
+    return rlp.decode_to(StatelessInput, data)
 
 
 def entrypoint() -> Bytes:
