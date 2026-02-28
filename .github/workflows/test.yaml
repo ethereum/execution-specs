@@ -64,7 +64,7 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
         with:
-          python-version: "3.14"
+          python-version: "3.14t"
       - uses: ./.github/actions/setup-env
       - name: Run py3 tests
         run: tox -e py3
