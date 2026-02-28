@@ -373,7 +373,7 @@ class Result:
                 block_output.block_access_list
             )
 
-        if t8n.fork.has_execution_witness:
+        if self.execution_witness is not None:
             withdrawals = (
                 tuple(t8n.env.withdrawals) if t8n.env.withdrawals else ()
             )
