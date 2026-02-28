@@ -156,6 +156,10 @@ def test_transaction_validity_type_0(
     "ty",
     [pytest.param(1, id="type_1"), pytest.param(2, id="type_2")],
 )
+# TODO[EIP-8037]: Contract creation state gas
+# (G_TRANSACTION_CREATE) split affects intrinsic gas
+# calculation for Amsterdam.
+@pytest.mark.valid_until("Osaka")
 def test_transaction_validity_type_1_type_2(
     state_test: StateTestFiller,
     pre: Alloc,

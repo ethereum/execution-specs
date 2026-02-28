@@ -223,7 +223,7 @@ def test_reentrancy_selfdestruct_revert(
     tx = Transaction(
         sender=sender,
         to=executor_contract_address,
-        gas_limit=500_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
         value=0,
     )
 
