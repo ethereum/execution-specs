@@ -7,6 +7,7 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    Bytecode,
     Initcode,
     Op,
     Opcodes,
@@ -16,6 +17,8 @@ from execution_testing import (
     compute_create2_address,
     compute_create_address,
 )
+from execution_testing.forks import Cancun
+from execution_testing.forks.helpers import Fork
 
 from ethereum.crypto.hash import keccak256
 
@@ -673,7 +676,7 @@ def test_extcodehash_new_account(
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDELEGATECALLFiller.json",  # noqa: E501
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSTATICCALLFiller.json",  # noqa: E501
     ],
-    pr=[],
+    pr=["https://github.com/ethereum/execution-specs/pull/2348"],
 )
 @pytest.mark.parametrize(
     "opcode",
@@ -728,3 +731,117 @@ def test_extcodehash_via_call(
         post={code_address: Account(storage=storage)},
         tx=tx,
     )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDeletedAccountFiller.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDeletedAccount1Filler.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDeletedAccount2Filler.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDeletedAccountCancunFiller.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDeletedAccount1CancunFiller.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDeletedAccount2CancunFiller.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDeletedAccount3Filler.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDeletedAccount4Filler.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2366"],
+)
+@pytest.mark.parametrize(
+    "create_opcode",
+    [
+        pytest.param(None, id="pre_existing"),
+        pytest.param(Op.CREATE, id="create"),
+        pytest.param(Op.CREATE2, id="create2"),
+    ],
+)
+def test_extcodehash_after_selfdestruct(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    create_opcode: Opcodes | None,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE/EXTCODECOPY before and after SELFDESTRUCT.
+
+    Verifies that code hash, size, and copied code remain unchanged
+    within the transaction after SELFDESTRUCT is triggered.
+    Pre-Cancun, all selfdestructed accounts are deleted. From Cancun
+    (EIP-6780), only accounts created in the same transaction are
+    deleted; pre-existing accounts persist with balance drained.
+    """
+    storage = Storage()
+    target_runtime = Op.SELFDESTRUCT(Op.ORIGIN)
+    expected_hash = keccak256(bytes(target_runtime))
+    expected_size = len(target_runtime)
+    expected_code = bytes(target_runtime).ljust(32, b"\0")
+
+    code = Bytecode()
+    if create_opcode is None:
+        target_address = pre.deploy_contract(target_runtime, balance=1)
+        target: Address | Bytecode = target_address
+    else:
+        initcode = Initcode(deploy_code=target_runtime)
+        created_slot = storage.store_next(0)
+        target = Op.SLOAD(created_slot)
+        code += Op.MSTORE(
+            0,
+            Op.PUSH32(bytes(initcode).ljust(32, b"\0")),
+        ) + Op.SSTORE(
+            created_slot,
+            create_opcode(value=0, offset=0, size=len(initcode)),
+        )
+
+    def extcode_checks() -> Bytecode:
+        return (
+            Op.SSTORE(
+                storage.store_next(expected_hash),
+                Op.EXTCODEHASH(target),
+            )
+            + Op.SSTORE(
+                storage.store_next(expected_size),
+                Op.EXTCODESIZE(target),
+            )
+            + Op.MSTORE(0, 0)
+            + Op.EXTCODECOPY(target, 0, 0, len(target_runtime))
+            + Op.SSTORE(
+                storage.store_next(expected_code),
+                Op.MLOAD(0),
+            )
+        )
+
+    code += extcode_checks()
+    code += Op.CALL(address=target, gas=100_000) + Op.POP
+    code += extcode_checks()
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    if create_opcode is not None:
+        target_address = compute_create_address(
+            address=code_address,
+            nonce=1,
+            salt=0,
+            initcode=initcode,
+            opcode=create_opcode,
+        )
+        storage[created_slot] = target_address
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    post: dict[Address, Account | None] = {
+        code_address: Account(storage=storage),
+    }
+    if create_opcode is None:
+        if fork >= Cancun:
+            # EIP-6780: pre-existing account persists after SELFDESTRUCT.
+            post[target_address] = Account(balance=0, code=target_runtime)
+        else:
+            # Pre-Cancun: SELFDESTRUCT deletes the account.
+            post[target_address] = Account.NONEXISTENT
+    else:
+        post[target_address] = Account.NONEXISTENT
+
+    state_test(pre=pre, post=post, tx=tx)
