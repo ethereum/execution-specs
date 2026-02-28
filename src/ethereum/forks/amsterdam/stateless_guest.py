@@ -26,19 +26,34 @@ def _get_buffer() -> io.BytesIO:
 
 
 # TODO: This method is for the host
-def write_input(data: Bytes) -> None:
+def write_input_bytes(data: Bytes) -> None:
     """
-    Write bytes as input for the guest to read.
+    Write bytes as input for the guest to read, prefixed with a 4-byte
+    big-endian length.
     """
+    _get_buffer().write(len(data).to_bytes(4, "big"))
     _get_buffer().write(data)
 
 
+# TODO: This method is for the host
+def rewind_input() -> None:
+    """
+    Seek the input buffer back to the start so the guest can read it.
+
+    Call this after all ``write_input_bytes`` calls and before ``entrypoint``.
+    """
+    _get_buffer().seek(0)
+
+
 # This is a method for the guest
-def read_input(n: int) -> Bytes:
+def read_input_bytes() -> Bytes:
     """
-    Read ``n`` bytes written by ``write_input``.
+    Read the input written by ``write_input``.
+
+    Reads the 4-byte big-endian length prefix, then returns that many bytes.
     """
-    return Bytes(_get_buffer().read(n))
+    length = int.from_bytes(_get_buffer().read(4), "big")
+    return Bytes(_get_buffer().read(length))
 
 
 def serialize_stateless_output(output: StatelessValidationResult) -> Bytes:
@@ -66,12 +81,13 @@ def deserialize_stateless_input(data: Bytes) -> StatelessInput:
     return rlp.decode_to(StatelessInput, data)
 
 
+# TODO: We could just have this be a method that takes in bytes and
+# returns bytes
 def entrypoint() -> Bytes:
     """
     Guest program entry point.
     """
-    length = int.from_bytes(read_input(4), "big")
-    input_data = read_input(length)
+    input_data = read_input_bytes()
     stateless_input = deserialize_stateless_input(input_data)
 
     stateless_output = verify_stateless_new_payload(stateless_input)

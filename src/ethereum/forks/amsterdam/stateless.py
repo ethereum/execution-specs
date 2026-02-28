@@ -116,12 +116,13 @@ def compute_new_payload_request_root(
     """
     Compute the request root for a stateless input.
 
-    TODO: Replace this with ``new_payload_request.tree_hash_root``.
+    TODO: Replace with ``new_payload_request.tree_hash_root`` (SSZ).
 
     # For readability, we can convert to NewPayloadRequestHeader and
     # then the payload request root.
+    # Using rlp for now since its available
     """
-    raise NotImplementedError
+    return keccak256(rlp.encode(stateless_input.new_payload_request))
 
 
 def new_payload_request_to_block(
