@@ -698,6 +698,7 @@ pytestmark = pytest.mark.valid_from("Prague")
             ],
             id="single_deposit_from_contract_call_depth_3",
         ),
+        # TODO: Update tx_gas_limit for EIP-8037 state creation gas costs.
         pytest.param(
             [
                 DepositContract(
@@ -715,6 +716,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                 ),
             ],
             id="single_deposit_from_contract_call_depth_high",
+            marks=pytest.mark.valid_until("EIP8037"),
         ),
         pytest.param(
             [

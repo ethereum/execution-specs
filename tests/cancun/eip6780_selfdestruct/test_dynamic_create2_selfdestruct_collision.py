@@ -88,6 +88,9 @@ def test_dynamic_create2_selfdestruct_collision(
     # Constants
     address_zero = Address(0x00)
     create2_salt = 1
+    subcall_gas = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        subcall_gas = 500_000
 
     # Create EOA for sendall destination (receives selfdestruct funds)
     sendall_destination = pre.fund_eoa(0)  # Will be funded by selfdestruct
@@ -141,7 +144,7 @@ def test_dynamic_create2_selfdestruct_collision(
         # Make a subcall that do CREATE2 and returns its the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            100000,
+            subcall_gas,
             address_code,
             first_create2_value,
             0,
@@ -154,16 +157,16 @@ def test_dynamic_create2_selfdestruct_collision(
             Op.MLOAD(0),
         )
         # In case the create2 didn't work, flush account balance
-        + Op.CALL(100000, address_code, 0, 0, 0, 0, 0)
+        + Op.CALL(subcall_gas, address_code, 0, 0, 0, 0, 0)
         # Call to the created account to trigger selfdestruct
         + Op.CALL(
-            100000, call_address_in_between, first_call_value, 0, 0, 0, 0
+            subcall_gas, call_address_in_between, first_call_value, 0, 0, 0, 0
         )
         # Make a subcall that do CREATE2 collision and returns its address as
         # the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            100000,
+            subcall_gas,
             address_code,
             second_create2_value,
             0,
@@ -177,7 +180,7 @@ def test_dynamic_create2_selfdestruct_collision(
         )
         # Call to the created account to trigger selfdestruct
         + Op.CALL(
-            100000, call_address_in_the_end, second_call_value, 0, 0, 0, 0
+            subcall_gas, call_address_in_the_end, second_call_value, 0, 0, 0, 0
         )
         + Op.SSTORE(code_worked, 1),
         balance=100000000,
@@ -313,6 +316,9 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     # Constants
     address_zero = Address(0x00)
     create2_salt = 1
+    subcall_gas = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        subcall_gas = 500_000
 
     # Create EOA for sendall destination (receives selfdestruct funds)
     sendall_destination = pre.fund_eoa(0)  # Will be funded by selfdestruct
@@ -363,7 +369,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         # Make a subcall that do CREATE2 and returns its the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            100000,
+            subcall_gas,
             address_code,
             first_create2_value,
             0,
@@ -376,9 +382,9 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
             Op.MLOAD(0),
         )
         # In case the create2 didn't work, flush account balance
-        + Op.CALL(100000, address_code, 0, 0, 0, 0, 0)
+        + Op.CALL(subcall_gas, address_code, 0, 0, 0, 0, 0)
         # Call to the created account to trigger selfdestruct
-        + Op.CALL(100000, create2_address, first_call_value, 0, 0, 0, 0)
+        + Op.CALL(subcall_gas, create2_address, first_call_value, 0, 0, 0, 0)
         + Op.SSTORE(code_worked, 1),
         balance=100000000,
         storage={first_create2_result: 0xFF},
@@ -391,7 +397,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         # the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            100000,
+            subcall_gas,
             address_code,
             second_create2_value,
             0,
@@ -587,6 +593,9 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
 
     # Constants
     create2_salt = 1
+    subcall_gas = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        subcall_gas = 500_000
 
     # Create EOA for sendall destination (receives selfdestruct funds)
     sendall_destination = pre.fund_eoa(0)  # Will be funded by selfdestruct
@@ -636,7 +645,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
         # Make a subcall that do CREATE2 and returns its the result
         + Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
         + Op.CALL(
-            100000,
+            subcall_gas,
             address_code,
             first_create2_value,
             0,
@@ -653,12 +662,12 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     if selfdestruct_on_first_tx:
         first_tx_code += (
             # Call to the created account to trigger selfdestruct
-            Op.CALL(100000, create2_address, first_call_value, 0, 0, 0, 0)
+            Op.CALL(subcall_gas, create2_address, first_call_value, 0, 0, 0, 0)
         )
     else:
         second_tx_code += (
             # Call to the created account to trigger selfdestruct
-            Op.CALL(100000, create2_address, first_call_value, 0, 0, 0, 0)
+            Op.CALL(subcall_gas, create2_address, first_call_value, 0, 0, 0, 0)
         )
 
     if recreate_on_first_tx:
@@ -667,7 +676,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
             # as the result
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
             + Op.CALL(
-                100000,
+                subcall_gas,
                 address_code,
                 second_create2_value,
                 0,
@@ -687,7 +696,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
             # as the result
             Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
             + Op.CALL(
-                100000,
+                subcall_gas,
                 address_code,
                 second_create2_value,
                 0,
@@ -703,7 +712,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
 
     # Second tx code always calls the create2 contract at the end
     second_tx_code += Op.CALL(
-        100000, create2_address, second_call_value, 0, 0, 0, 0
+        subcall_gas, create2_address, second_call_value, 0, 0, 0, 0
     )
 
     first_tx_code += Op.SSTORE(part_1_worked, 1)

@@ -14,6 +14,7 @@ from execution_testing import (
     Bytecode,
     CodeGasMeasure,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Transaction,
@@ -153,10 +154,15 @@ class TestPush0CallContext:
         post: Alloc,
         sender: EOA,
         push0_contract_caller: Address,
+        fork: Fork,
     ) -> None:
         """Test PUSH0 during various call contexts."""
+        gas_limit = 100_000
+        if fork.is_eip_enabled(eip_number=8037):
+            gas_limit = 500_000
+
         tx = Transaction(
-            to=push0_contract_caller, gas_limit=100_000, sender=sender
+            to=push0_contract_caller, gas_limit=gas_limit, sender=sender
         )
         post[push0_contract_caller] = Account(storage={0x00: 0x01, 0x01: 0xFF})
         state_test(env=env, pre=pre, post=post, tx=tx)

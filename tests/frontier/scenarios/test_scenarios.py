@@ -221,11 +221,12 @@ def test_scenarios(
             1, hint=f"runner result {scenario.name}"
         )
 
-        tx_max_gas = (
-            7_000_000
-            if test_program.id == ProgramInvalidOpcode().id
-            else 1_000_000
-        )
+        tx_max_gas = 7_000_000
+        if test_program.id == ProgramInvalidOpcode().id:
+            if fork.is_eip_enabled(eip_number=8037):
+                tx_max_gas = 5_000_000
+            else:
+                tx_max_gas = 1_000_000
         if scenario.category == "double_call_combinations":
             tx_max_gas *= 2
 

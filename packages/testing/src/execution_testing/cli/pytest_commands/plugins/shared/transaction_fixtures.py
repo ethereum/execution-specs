@@ -106,7 +106,7 @@ def type_4_default_transaction(sender: EOA, pre: Alloc) -> Transaction:
         sender=sender,
         max_fee_per_gas=10**10,
         max_priority_fee_per_gas=10**9,
-        gas_limit=150_000,
+        gas_limit=500_000,
         data=b"\x00" * 200,
         access_list=[
             AccessList(address=0x4567, storage_keys=[1000, 2000, 3000]),
