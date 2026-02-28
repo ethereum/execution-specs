@@ -7,11 +7,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Environment,
+    Fork,
     Initcode,
     Op,
     Transaction,
 )
-from execution_testing.forks.helpers import Fork
 
 from .spec import ref_spec_1153
 
@@ -22,8 +22,8 @@ REFERENCE_SPEC_VERSION = ref_spec_1153.version
 @pytest.mark.valid_from("Cancun")
 def test_tstore_clear_after_deployment_tx(
     blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
     fork: Fork,
+    pre: Alloc,
 ) -> None:
     """
     First creates a contract, which TSTOREs a value 1 in slot 1. After creating
@@ -41,7 +41,7 @@ def test_tstore_clear_after_deployment_tx(
     sender = pre.fund_eoa()
 
     deployment_tx = Transaction(
-        gas_limit=100000,
+        gas_limit=500_000,  # TODO: auto gas limit will remove this
         data=code,
         to=None,
         sender=sender,
@@ -50,7 +50,9 @@ def test_tstore_clear_after_deployment_tx(
     address = deployment_tx.created_contract
 
     invoke_contract_tx = Transaction(
-        gas_limit=100000, to=address, sender=sender
+        gas_limit=500_000,  # TODO: auto gas limit will remove this
+        to=address,
+        sender=sender,
     )
 
     txs = [deployment_tx, invoke_contract_tx]

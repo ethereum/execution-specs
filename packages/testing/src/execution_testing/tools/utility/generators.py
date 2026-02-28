@@ -613,7 +613,7 @@ def gas_test(
         )
 
     if tx_gas is None:
-        tx_gas = gas_single_gas_run + cold_gas + 500_000
+        tx_gas = gas_single_gas_run + cold_gas + 1_000_000
     tx = Transaction(
         to=address_legacy_harness, gas_limit=tx_gas, sender=sender
     )

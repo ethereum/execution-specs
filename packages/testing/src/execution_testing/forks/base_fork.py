@@ -489,6 +489,16 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         pass
 
     @classmethod
+    def transaction_intrinsic_state_gas(
+        cls,
+        *,
+        contract_creation: bool = False,  # noqa: ARG003
+        authorization_count: int = 0,  # noqa: ARG003
+    ) -> int:
+        """Return intrinsic state gas (zero pre-Amsterdam)."""
+        return 0
+
+    @classmethod
     @abstractmethod
     def blob_gas_price_calculator(
         cls, *, block_number: int = 0, timestamp: int = 0

@@ -69,7 +69,7 @@ def test_dup(
     tx = Transaction(
         ty=0x0,
         to=account,
-        gas_limit=500000,
+        gas_limit=1_000_000,
         gas_price=10,
         protected=fork.supports_protected_txs(),
         data="",
