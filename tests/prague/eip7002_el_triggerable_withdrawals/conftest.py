@@ -13,7 +13,11 @@ from execution_testing import (
     TransitionFork,
 )
 
-from .helpers import WithdrawalRequest, WithdrawalRequestInteractionBase
+from .helpers import (
+    WithdrawalRequest,
+    WithdrawalRequestContract,
+    WithdrawalRequestInteractionBase,
+)
 from .spec import Spec
 
 
@@ -100,11 +104,21 @@ def blocks(
         included_requests,
         fillvalue=[],
     ):
-        header_verify: Header | None = None
-        if fork.fork_at(
+        block_fork = fork.fork_at(
             block_number=len(blocks) + 1,
             timestamp=timestamp,
-        ).header_requests_required():
+        )
+        if block_fork.is_eip_enabled(eip_number=8037):
+            gas_costs = block_fork.gas_costs()
+            for r in block_requests:
+                if isinstance(r, WithdrawalRequestContract):
+                    # Each withdrawal request writes 3 new storage slots
+                    # in the system contract queue (source, pubkey, amount).
+                    r.tx_gas_limit += (
+                        len(r.requests) * 3 * gas_costs.GAS_STORAGE_SET
+                    )
+        header_verify: Header | None = None
+        if block_fork.header_requests_required():
             header_verify = Header(
                 requests_hash=Requests(
                     *block_included_requests,

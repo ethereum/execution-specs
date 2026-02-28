@@ -428,12 +428,15 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         )
         post[selfdestruct_recipient_address] = Account.NONEXISTENT  # type: ignore
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     expected_block_access_list = None
@@ -529,6 +532,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
 @pytest.mark.valid_from("Cancun")
 def test_selfdestruct_not_created_in_same_tx_with_revert(
     state_test: StateTestFiller,
+    fork: Fork,
     sender: EOA,
     env: Environment,
     entry_code_address: Address,
@@ -592,12 +596,15 @@ def test_selfdestruct_not_created_in_same_tx_with_revert(
         )
         post[selfdestruct_recipient_address] = Account.NONEXISTENT  # type: ignore
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)

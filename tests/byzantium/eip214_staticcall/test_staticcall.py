@@ -143,10 +143,14 @@ def test_staticcall_reentrant_call_to_precompile(
     target = pre.deploy_contract(code=target_code, balance=target_balance)
 
     tx_value = 100
+    gas_limit = 1_000_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 2_000_000
+
     tx = Transaction(
         sender=alice,
         to=target,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
         value=tx_value,
         protected=True,
     )

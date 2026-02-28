@@ -601,6 +601,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def cost_per_state_byte(cls, gas_limit: int = 0) -> int:
+        """
+        Calculate the state gas cost per byte based on the block gas limit.
+        """
+        pass
+
     # Fee helpers
     @classmethod
     @abstractmethod
@@ -642,6 +650,16 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         for the fork.
         """
         pass
+
+    @classmethod
+    def transaction_intrinsic_state_gas(
+        cls,
+        *,
+        contract_creation: bool = False,  # noqa: ARG003
+        authorization_count: int = 0,  # noqa: ARG003
+    ) -> int:
+        """Return intrinsic state gas (zero pre-Amsterdam)."""
+        return 0
 
     @classmethod
     @abstractmethod

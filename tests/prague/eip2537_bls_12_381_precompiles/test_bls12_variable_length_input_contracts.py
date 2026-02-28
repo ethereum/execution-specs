@@ -173,6 +173,11 @@ def tx_gas_limit_calculator(
     )
     memory_expansion_gas_calculator = fork.memory_expansion_gas_calculator()
     extra_gas = 22_500 * len(precompile_gas_list)
+    sstore_state_gas = 0
+    if fork.is_eip_enabled(eip_number=8037):
+        sstore_state_gas = (
+            32 * fork.cost_per_state_byte() * len(precompile_gas_list)
+        )
     return (
         extra_gas
         + intrinsic_gas_cost_calculator()
@@ -180,6 +185,7 @@ def tx_gas_limit_calculator(
             new_bytes=max_precompile_input_length
         )
         + sum(precompile_gas_list)
+        + sstore_state_gas
     )
 
 
@@ -253,9 +259,10 @@ def get_split_discount_table_by_fork(
                     new_range = (current_min, current_max)
                     g1_msm_discount_table_ranges.append(new_range)
                     current_min = current_max
-                elif current_max == discount_table_length:
-                    new_range = (current_min, current_max + 1)
-                    g1_msm_discount_table_ranges.append(new_range)
+            if current_min <= discount_table_length:
+                g1_msm_discount_table_ranges.append(
+                    (current_min, discount_table_length + 1)
+                )
 
             g1_msm_discount_table_splits = [
                 [
