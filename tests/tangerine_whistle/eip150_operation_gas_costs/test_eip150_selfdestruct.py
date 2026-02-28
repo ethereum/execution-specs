@@ -3,6 +3,11 @@ Tests for EIP-150 SELFDESTRUCT operation gas costs.
 
 EIP-150 introduced G_SELF_DESTRUCT for SELFDESTRUCT and precise gas
 boundaries for state access during the operation.
+
+TODO[EIP-8037]: Fix selfdestruct gas tests for Amsterdam. Under EIP-8037,
+G_NEW_ACCOUNT becomes state gas (charged separately from regular gas), which
+changes the gas boundaries and BAL expectations. Tests are marked --until Osaka
+until the fixes are applied.
 """
 
 from typing import Dict
@@ -324,6 +329,7 @@ def build_post_state(
     [0, 1],
     ids=["dead_beneficiary", "alive_beneficiary"],
 )
+@pytest.mark.valid_until("Osaka")  # TODO[EIP-8037]: Fix for Amsterdam
 def test_selfdestruct_to_account(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
@@ -577,6 +583,7 @@ def test_selfdestruct_state_access_boundary(
     ],
 )
 @pytest.mark.valid_from("TangerineWhistle")
+@pytest.mark.valid_until("Osaka")  # TODO[EIP-8037]: Fix for Amsterdam
 def test_selfdestruct_to_precompile(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

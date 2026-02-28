@@ -27,7 +27,7 @@ def test_eip_7702(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """Test the executing a simple SSTORE in a set-code transaction."""
+    """Test executing a simple SSTORE in a set-code transaction on mainnet."""
     storage = Storage()
     sender = pre.fund_eoa()
     auth_signer = sender

@@ -150,8 +150,8 @@ def test_extra_consolidations(
 )
 def test_system_contract_errors() -> None:
     """
-    Test system contract raising different errors when called by the system
-    account at the end of the block execution.
+    Test consolidation system contract raising different errors when called by
+    the system account at the end of the block execution.
 
     To see the list of generated tests, please refer to the
     `generate_system_contract_error_test` decorator definition.
