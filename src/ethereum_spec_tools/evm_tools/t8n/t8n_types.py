@@ -320,25 +320,18 @@ class Result:
             # to the older forks
             from ethereum.forks.amsterdam.state import apply_changes_to_state
             from ethereum.forks.amsterdam.state_tracker import (
-                extract_block_diffs,
+                extract_block_diff,
             )
 
-            account_changes, storage_changes, code_changes = (
-                extract_block_diffs(t8n._block_state)
-            )
+            block_diff = extract_block_diff(t8n._block_state)
             state_root_value, _ = (
                 t8n.alloc.state.compute_state_root_and_trie_changes(
-                    account_changes, storage_changes
+                    block_diff.account_changes, block_diff.storage_changes
                 )
             )
             self.state_root = state_root_value
             # Apply diffs to pre-state for alloc output
-            apply_changes_to_state(
-                t8n.alloc.state,
-                account_changes,
-                storage_changes,
-                code_changes,
-            )
+            apply_changes_to_state(t8n.alloc.state, block_diff)
         else:
             self.state_root = t8n.fork.state_root(block_env.state)
         self.receipts = self.get_receipts_from_output(t8n, block_output)

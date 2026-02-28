@@ -78,8 +78,19 @@ class MutableBranchNode:
     _dirty: bool = False
 
 
+@dataclass
+class HashedNode:
+    """Placeholder for a trie subtree known only by its hash."""
+
+    _hash: Bytes
+
+
 MutableNode = Union[
-    MutableLeafNode, MutableExtensionNode, MutableBranchNode, None
+    MutableLeafNode,
+    MutableExtensionNode,
+    MutableBranchNode,
+    HashedNode,
+    None,
 ]
 
 
@@ -213,9 +224,10 @@ def build_mpt(
 
 def _invalidate_hash(node: MutableNode) -> None:
     """Invalidate the cached hash of a node."""
-    if node is not None:
-        node._hash = None
-        node._rlp = None
+    if node is None or isinstance(node, HashedNode):
+        return
+    node._hash = None
+    node._rlp = None
 
 
 def _record_witness(
@@ -223,7 +235,7 @@ def _record_witness(
     node: MutableNode,
 ) -> None:
     """Record a node access in the witness."""
-    if node is None:
+    if node is None or isinstance(node, HashedNode):
         return
 
     if node._dirty:
@@ -242,6 +254,8 @@ def _encode_mutable_node(node: MutableNode) -> Extended:
     """
     if node is None:
         return b""
+    elif isinstance(node, HashedNode):
+        raise AssertionError("HashedNode cannot be inline-encoded")
     elif isinstance(node, MutableLeafNode):
         return (
             nibble_list_to_compact(node.rest_of_key, True),
@@ -274,6 +288,12 @@ def _encode_mutable_node_to_extended(
     if node is None:
         return b""
 
+    if isinstance(node, HashedNode):
+        return node._hash
+
+    if not node._dirty and node._hash is not None:
+        return node._hash
+
     unencoded = _encode_mutable_node(node)
     encoded = rlp.encode(unencoded)
 
@@ -293,6 +313,9 @@ def _compute_node_hash_and_rlp(
     """
     if node is None:
         return None, b""
+
+    if isinstance(node, HashedNode):
+        return node._hash, b""
 
     if node._rlp is not None:
         if node._hash is not None:
@@ -351,7 +374,7 @@ def _mpt_traverse_for_witness(
     level: Uint,
 ) -> None:
     """Traverse the tree recording nodes in the witness."""
-    if node is None:
+    if node is None or isinstance(node, HashedNode):
         return
 
     _record_witness(mpt.witness, node)
@@ -450,6 +473,9 @@ def _mpt_insert_node(
         return MutableLeafNode(
             rest_of_key=key[level:], value=value, _dirty=True
         )
+
+    if isinstance(node, HashedNode):
+        raise AssertionError("Incomplete witness: insert into hashed node")
 
     _invalidate_hash(node)
 
@@ -655,6 +681,9 @@ def _mpt_delete_node(
     if node is None:
         return None
 
+    if isinstance(node, HashedNode):
+        raise AssertionError("Incomplete witness: delete from hashed node")
+
     _invalidate_hash(node)
 
     if isinstance(node, MutableLeafNode):
@@ -705,7 +734,9 @@ def _delete_from_extension(
         )
 
     child_changed = new_child is not old_child or (
-        new_child is not None and new_child._dirty
+        new_child is not None
+        and not isinstance(new_child, HashedNode)
+        and new_child._dirty
     )
     if not child_changed:
         return node
@@ -738,7 +769,9 @@ def _delete_from_branch(
             level + Uint(1),
         )
         child_changed = new_child is not old_child or (
-            new_child is not None and new_child._dirty
+            new_child is not None
+            and not isinstance(new_child, HashedNode)
+            and new_child._dirty
         )
         if not child_changed:
             return node
@@ -816,3 +849,177 @@ def mpt_root(mpt: IncrementalMPT) -> Root:
         return Root(root_encoded)
     else:
         return keccak256(rlp.encode(root_encoded))
+
+
+def compact_to_nibbles(compact: Bytes) -> Tuple[Bytes, bool]:
+    """
+    Decode hex-prefix (compact) encoding into nibbles and leaf flag.
+
+    Inverse of ``nibble_list_to_compact``.
+
+    Parameters
+    ----------
+    compact :
+        Compact-encoded key bytes.
+
+    Returns
+    -------
+    nibbles :
+        The decoded nibble sequence.
+    is_leaf :
+        ``True`` if the compact encoding indicates a leaf node.
+
+    """
+    first_nibble = compact[0] >> 4
+    is_leaf = (first_nibble & 0x02) != 0
+    odd = (first_nibble & 0x01) != 0
+
+    nibbles = bytearray()
+    if odd:
+        nibbles.append(compact[0] & 0x0F)
+    for byte in compact[1:]:
+        nibbles.append(byte >> 4)
+        nibbles.append(byte & 0x0F)
+
+    return Bytes(nibbles), is_leaf
+
+
+def _resolve_child_ref(
+    node_db: Dict[Bytes, Bytes],
+    child_ref: Extended,
+) -> MutableNode:
+    """
+    Resolve a child reference from an RLP-decoded trie node.
+
+    Handle three cases: empty string (no child), 32-byte hash
+    (look up in node_db or create a ``HashedNode``), and inline RLP list
+    (decode directly).
+    """
+    if isinstance(child_ref, (bytes, bytearray)):
+        ref_bytes = Bytes(child_ref)
+        if len(ref_bytes) == 0:
+            return None
+        if len(ref_bytes) == 32:
+            if ref_bytes in node_db:
+                return _decode_witness_node(node_db, node_db[ref_bytes])
+            return HashedNode(_hash=ref_bytes)
+        return _decode_witness_node(node_db, rlp.encode(ref_bytes))
+    else:
+        return _decode_witness_node(node_db, rlp.encode(child_ref))
+
+
+def _decode_witness_node(
+    node_db: Dict[Bytes, Bytes],
+    rlp_bytes: Bytes,
+) -> MutableNode:
+    """
+    Decode an RLP-encoded trie node into a ``MutableNode``.
+
+    Parameters
+    ----------
+    node_db :
+        Mapping from node hash to RLP-encoded node data.
+    rlp_bytes :
+        The RLP-encoded node to decode.
+
+    """
+    node_hash: Optional[Bytes] = None
+    if len(rlp_bytes) >= 32:
+        node_hash = keccak256(rlp_bytes)
+
+    decoded = rlp.decode(rlp_bytes)
+
+    if isinstance(decoded, (bytes, bytearray)):
+        return None
+
+    assert isinstance(decoded, list)
+
+    if len(decoded) == 2:
+        path_bytes = decoded[0]
+        assert isinstance(path_bytes, (bytes, bytearray))
+        nibbles, is_leaf = compact_to_nibbles(Bytes(path_bytes))
+
+        if is_leaf:
+            value = decoded[1]
+            assert isinstance(value, (bytes, bytearray))
+            return MutableLeafNode(
+                rest_of_key=nibbles,
+                value=Bytes(value),
+                _hash=node_hash,
+                _rlp=rlp_bytes,
+            )
+        else:
+            child = _resolve_child_ref(node_db, decoded[1])
+            return MutableExtensionNode(
+                key_segment=nibbles,
+                child=child,
+                _hash=node_hash,
+                _rlp=rlp_bytes,
+            )
+
+    elif len(decoded) == 17:
+        children: List[Optional[MutableNode]] = []
+        for i in range(16):
+            children.append(_resolve_child_ref(node_db, decoded[i]))
+        value_raw = decoded[16]
+        if isinstance(value_raw, (bytes, bytearray)):
+            value = Bytes(value_raw)
+        else:
+            value = b""
+        return MutableBranchNode(
+            children=children,
+            value=value,
+            _hash=node_hash,
+            _rlp=rlp_bytes,
+        )
+    else:
+        raise AssertionError(f"Invalid RLP node length: {len(decoded)}")
+
+
+def decode_witness_to_mpt(
+    node_db: Dict[Bytes, Bytes],
+    root_hash: Root,
+    secured: bool,
+    default: V,
+) -> IncrementalMPT[K, V]:
+    """
+    Build an ``IncrementalMPT`` from a witness node database.
+
+    Decode the trie starting at ``root_hash``, resolving child
+    references from ``node_db``. Unknown children become
+    ``HashedNode`` placeholders.
+
+    Parameters
+    ----------
+    node_db :
+        Mapping from node hash to RLP-encoded node data.
+    root_hash :
+        Root hash of the trie to decode.
+    secured :
+        Whether keys are hashed before insertion.
+    default :
+        Default value for missing keys.
+
+    Returns
+    -------
+    mpt : `IncrementalMPT[K, V]`
+        The decoded incremental MPT.
+
+    """
+    if root_hash == EMPTY_TRIE_ROOT:
+        return IncrementalMPT(
+            secured=secured,
+            default=default,
+            root_node=None,
+            _data={},
+        )
+
+    root_rlp = node_db[root_hash]
+    root_node = _decode_witness_node(node_db, root_rlp)
+
+    return IncrementalMPT(
+        secured=secured,
+        default=default,
+        root_node=root_node,
+        _data={},
+    )

@@ -31,6 +31,7 @@ from ethereum.state import (
     EMPTY_CODE_HASH,
     Account,
     Address,
+    BlockDiff,
     PreState,
 )
 
@@ -763,15 +764,9 @@ def incorporate_tx_into_block(
     tx_state.code_reads = set()
 
 
-def extract_block_diffs(
-    block_state: BlockState,
-) -> Tuple[
-    Dict[Address, Optional[Account]],
-    Dict[Address, Dict[Bytes32, U256]],
-    Dict[Hash32, Bytes],
-]:
+def extract_block_diff(block_state: BlockState) -> BlockDiff:
     """
-    Extract account, storage, and code diffs from the block state.
+    Extract account, storage, and code diff from the block state.
 
     Parameters
     ----------
@@ -780,18 +775,14 @@ def extract_block_diffs(
 
     Returns
     -------
-    account_diffs :
-        Account changes to apply.
-    storage_diffs :
-        Storage changes to apply.
-    code_diffs :
-        Code changes to apply.
+    diff : `BlockDiff`
+        Account, storage, and code changes accumulated during block execution.
 
     """
-    return (
-        block_state.account_writes,
-        block_state.storage_writes,
-        block_state.code_writes,
+    return BlockDiff(
+        account_changes=block_state.account_writes,
+        storage_changes=block_state.storage_writes,
+        code_changes=block_state.code_writes,
     )
 
 

@@ -14,7 +14,6 @@ from ethereum.state import Root
 from ..blocks import Block, Header
 from ..fork import EMPTY_OMMER_HASH
 from ..requests import compute_requests_hash
-from ..transactions import LegacyTransaction
 from ..trie import Trie, root, trie_set
 from .types import ExecutionPayload
 
@@ -27,7 +26,7 @@ def _payload_header(
     """
     Build the execution header implied by a payload request.
     """
-    transactions_trie: Trie[Bytes, Optional[LegacyTransaction | Bytes]] = Trie(
+    transactions_trie: Trie[Bytes, Optional[Bytes]] = Trie(
         secured=False, default=None
     )
     for i, encoded_tx in enumerate(execution_payload.transactions):
