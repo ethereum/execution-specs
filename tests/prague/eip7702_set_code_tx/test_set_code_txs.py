@@ -275,6 +275,7 @@ def test_set_code_to_non_empty_storage_non_zero_nonce(
 def test_set_code_to_sstore_then_sload(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
     access_list_in_tx: str | None,
 ) -> None:
     """
@@ -296,8 +297,11 @@ def test_set_code_to_sstore_then_sload(
     )
     set_code_2_address = pre.deploy_contract(set_code_2)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx_1 = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -323,7 +327,7 @@ def test_set_code_to_sstore_then_sload(
         else []
     )
     tx_2 = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -368,6 +372,7 @@ def test_set_code_to_sstore_then_sload(
 def test_set_code_to_tstore_reentry(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     call_opcode: Op,
     return_opcode: Op,
 ) -> None:
@@ -388,8 +393,11 @@ def test_set_code_to_tstore_reentry(
     )
     set_code_to_address = pre.deploy_contract(set_code)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -430,6 +438,7 @@ def test_set_code_to_tstore_reentry(
 def test_set_code_to_tstore_available_at_correct_address(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     call_opcode: Op,
     call_eoa_first: bool,
 ) -> None:
@@ -461,8 +470,11 @@ def test_set_code_to_tstore_available_at_correct_address(
 
     target_call_chain_address = pre.deploy_contract(chain_code)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=target_call_chain_address,
         value=0,
         authorization_list=[
@@ -682,9 +694,12 @@ def test_delegated_eoa_can_send_creating_tx(
     )
     assert initcode_len == len(initcode)
 
+    gas_limit = 200_000 + (Op.SSTORE(key_warm=False) * 7).gas_cost(fork)
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 10_000_000
     tx = Transaction(
         ty=tx_type,
-        gas_limit=200_000 + (Op.SSTORE(key_warm=False) * 7).gas_cost(fork),
+        gas_limit=gas_limit,
         to=None,
         value=0,
         data=initcode,
@@ -2340,6 +2355,7 @@ def test_set_code_all_invalid_authorization_tuples(
 def test_set_code_using_chain_specific_id(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     chain_config: ChainConfig,
 ) -> None:
     """
@@ -2353,8 +2369,11 @@ def test_set_code_using_chain_specific_id(
     set_code = Op.SSTORE(success_slot, 1) + Op.STOP
     set_code_to_address = pre.deploy_contract(set_code)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -2407,6 +2426,7 @@ SECP256K1N_OVER_2 = SECP256K1N // 2
 def test_set_code_using_valid_synthetic_signatures(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     chain_config: ChainConfig,
     v: int,
     r: int,
@@ -2432,8 +2452,11 @@ def test_set_code_using_valid_synthetic_signatures(
 
     auth_signer = authorization_tuple.signer
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=auth_signer,
         value=0,
         authorization_list=[authorization_tuple],
@@ -2497,6 +2520,7 @@ def test_set_code_using_valid_synthetic_signatures(
 def test_valid_tx_invalid_auth_signature(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     chain_config: ChainConfig,
     v: int,
     r: int,
@@ -2521,8 +2545,12 @@ def test_valid_tx_invalid_auth_signature(
         s=s,
     )
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=callee_address,
         value=0,
         authorization_list=[authorization_tuple],
@@ -2544,6 +2572,7 @@ def test_valid_tx_invalid_auth_signature(
 def test_signature_s_out_of_range(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     chain_config: ChainConfig,
     fork: Fork,
 ) -> None:
@@ -2573,8 +2602,12 @@ def test_signature_s_out_of_range(
     entry_code = Op.SSTORE(success_slot, 1) + Op.STOP
     entry_address = pre.deploy_contract(entry_code)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=entry_address,
         value=0,
         authorization_list=[authorization_tuple],
@@ -2649,6 +2682,7 @@ class InvalidChainID(StrEnum):
 def test_valid_tx_invalid_chain_id(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     chain_config: ChainConfig,
     invalid_chain_id_case: InvalidChainID,
 ) -> None:
@@ -2689,8 +2723,12 @@ def test_valid_tx_invalid_chain_id(
     )
     entry_address = pre.deploy_contract(entry_code)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=entry_address,
         value=0,
         authorization_list=[authorization],
@@ -2743,6 +2781,7 @@ def test_valid_tx_invalid_chain_id(
 def test_nonce_validity(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     account_nonce: int,
     authorization_nonce: int,
     fork: Fork,
@@ -2779,8 +2818,12 @@ def test_nonce_validity(
     )
     entry_address = pre.deploy_contract(entry_code)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=entry_address,
         value=0,
         authorization_list=[authorization],
@@ -2895,6 +2938,7 @@ def test_nonce_validity(
 def test_nonce_overflow_after_first_authorization(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test sending a transaction with two authorization where the first one bumps
@@ -2931,8 +2975,12 @@ def test_nonce_overflow_after_first_authorization(
     )
     entry_address = pre.deploy_contract(entry_code)
 
+    gas_limit = 200_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
-        gas_limit=200_000,
+        gas_limit=gas_limit,
         to=entry_address,
         value=0,
         authorization_list=authorization_list,
@@ -3114,6 +3162,7 @@ def test_set_code_to_precompile(
 
 
 @pytest.mark.with_all_precompiles
+@pytest.mark.valid_until("EIP8037")
 def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -3123,6 +3172,18 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
     """
     Test set code to precompile and making direct call in same transaction with
     intrinsic gas only, no extra gas for precompile execution.
+
+    Redundant from EIP-8037: EIP-8037 replaces the one-dimensional
+    gas model this test verifies. Auth intrinsic cost becomes
+    (STATE_BYTES_PER_AUTH_BASE + STATE_BYTES_PER_NEW_ACCOUNT) *
+    cost_per_state_byte per auth (state gas), plus
+    PER_AUTH_BASE_COST (regular gas). Auth refund for existing
+    accounts goes to state_gas_reservoir instead of refund_counter,
+    making the discount calculation (PER_EMPTY_ACCOUNT_COST -
+    PER_AUTH_BASE_COST) and receipt gas expectation invalid.
+
+    TODO: Add EIP-8037-specific variant in tests/amsterdam/ that
+    verifies receipt gas and auth refund under EIP-8037's 2D model.
     """
     auth_signer = pre.fund_eoa(amount=1)
     auth = AuthorizationTuple(
@@ -3132,8 +3193,13 @@ def test_set_code_to_precompile_not_enough_gas_for_precompile_execution(
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         authorization_list_or_count=[auth],
     )
+    gas_costs = fork.gas_costs()
+    per_auth_discount = (
+        gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT
+        - gas_costs.REFUND_AUTH_PER_EXISTING_ACCOUNT
+    )
     discount = min(
-        Spec.AUTH_PER_EMPTY_ACCOUNT - Spec.REFUND_AUTH_PER_EXISTING_ACCOUNT,
+        per_auth_discount,
         intrinsic_gas // 5,  # max discount EIP-3529
     )
 
@@ -3575,6 +3641,7 @@ def test_reset_code(
 def test_contract_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test sending type-4 tx as a create transaction."""
     authorization_tuple = AuthorizationTuple(
@@ -3582,8 +3649,11 @@ def test_contract_create(
         nonce=0,
         signer=pre.fund_eoa(),
     )
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=None,
         value=0,
         authorization_list=[authorization_tuple],
@@ -3640,6 +3710,7 @@ def test_empty_authorization_list(
 def test_delegation_clearing(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     pre_set_delegation_code: Bytecode | None,
     self_sponsored: bool,
 ) -> None:
@@ -3687,8 +3758,12 @@ def test_delegation_clearing(
         signer=auth_signer,
     )
 
+    gas_limit = 200_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
-        gas_limit=200_000,
+        gas_limit=gas_limit,
         to=entry_address,
         value=0,
         authorization_list=[authorization],
@@ -3798,6 +3873,7 @@ def test_delegation_clearing_tx_to(
 def test_delegation_clearing_and_set(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     pre_set_delegation_code: Bytecode | None,
 ) -> None:
     """
@@ -3823,8 +3899,12 @@ def test_delegation_clearing_and_set(
 
     sender = pre.fund_eoa()
 
+    gas_limit = 200_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
-        gas_limit=200_000,
+        gas_limit=gas_limit,
         to=auth_signer,
         value=0,
         authorization_list=[
@@ -3869,6 +3949,7 @@ def test_delegation_clearing_and_set(
 def test_delegation_clearing_failing_tx(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     entry_code: Bytecode,
 ) -> None:
     """
@@ -3888,8 +3969,12 @@ def test_delegation_clearing_failing_tx(
         signer=auth_signer,
     )
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=entry_address,
         value=0,
         authorization_list=[authorization],
@@ -3920,6 +4005,7 @@ def test_delegation_clearing_failing_tx(
 def test_deploying_delegation_designation_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     initcode_is_delegation_designation: bool,
 ) -> None:
     """
@@ -3939,10 +4025,14 @@ def test_deploying_delegation_designation_contract(
             deploy_code=Spec.delegation_designation(set_to_address)
         )
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
         sender=sender,
         to=None,
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         data=initcode,
     )
 
@@ -4061,7 +4151,10 @@ def test_many_delegations(
         max_gas = env.gas_limit
     gas_for_delegations = max_gas - 21_000 - 20_000 - (3 * 2)
 
-    delegation_count = gas_for_delegations // Spec.AUTH_PER_EMPTY_ACCOUNT
+    gas_costs = fork.gas_costs()
+    delegation_count = (
+        gas_for_delegations // gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT
+    )
 
     success_slot = 1
     entry_code = Op.SSTORE(success_slot, 1) + Op.STOP
@@ -4213,6 +4306,7 @@ def test_authorization_reusing_nonce(
 def test_set_code_from_account_with_non_delegating_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     set_code_type: AddressType,
     self_sponsored: bool,
 ) -> None:
@@ -4244,8 +4338,12 @@ def test_set_code_from_account_with_non_delegating_code(
             raise ValueError(f"Unsupported set code type: {set_code_type}")
     callee_address = pre.deploy_contract(Op.SSTORE(0, 1) + Op.STOP)
 
+    gas_limit = 100_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 500_000  # TODO: auto gas limit will remove this
+
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=callee_address,
         authorization_list=[
             AuthorizationTuple(

@@ -324,8 +324,8 @@ def test_invalid_tx_invalid_nonce_as_list(
     delegate_address: Address,
 ) -> None:
     """
-    Test sending a transaction where the nonce field of an authorization
-    overflows the maximum value.
+    Test sending a transaction where the nonce field of an authorization is
+    encoded as a list instead of a scalar.
     """
     auth_signer = pre.fund_eoa()
 
@@ -368,7 +368,7 @@ def test_invalid_tx_invalid_nonce_encoding(
     delegate_address: Address,
 ) -> None:
     """
-    Test sending a transaction where the chain id field of an authorization has
+    Test sending a transaction where the nonce field of an authorization has
     an incorrect encoding.
     """
 

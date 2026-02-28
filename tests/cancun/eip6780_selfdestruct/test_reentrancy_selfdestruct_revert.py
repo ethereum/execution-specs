@@ -258,10 +258,13 @@ def test_reentrancy_selfdestruct_revert(
             )
         expected_receipt = TransactionReceipt(logs=expected_logs)
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         sender=sender,
         to=executor_contract_address,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
         value=0,
         expected_receipt=expected_receipt,
     )

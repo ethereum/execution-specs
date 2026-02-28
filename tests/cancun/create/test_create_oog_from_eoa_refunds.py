@@ -262,7 +262,11 @@ def test_create_oog_from_eoa_refunds(
            the CREATE failed and all state changes were reverted
     """
     helpers = deploy_helper_contracts(pre)
-    sender = pre.fund_eoa(amount=4_000_000)
+    extra_gas = (
+        fork.is_eip_enabled(eip_number=8037)
+        and oog_scenario == OogScenario.NO_OOG
+    )
+    sender = pre.fund_eoa(amount=500_000_000 if extra_gas else 4_000_000)
     init_code = build_init_code(refund_type, oog_scenario, helpers)
     created_address = compute_create_address(address=sender, nonce=0)
 
@@ -270,7 +274,9 @@ def test_create_oog_from_eoa_refunds(
         sender=sender,
         to=None,
         data=init_code,
-        gas_limit=400_000,
+        gas_limit=5_000_000
+        if extra_gas and oog_scenario == OogScenario.NO_OOG
+        else 400_000,
     )
 
     post: Dict[Address, Account | None] = {

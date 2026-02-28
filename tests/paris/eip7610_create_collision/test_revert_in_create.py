@@ -7,6 +7,7 @@ from execution_testing import (
     Account,
     Alloc,
     Bytecode,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -107,6 +108,7 @@ def test_create2_collision_storage(
     state_test: StateTestFiller,
     pre: Alloc,
     create2_initcode: Bytecode,
+    fork: Fork,
 ) -> None:
     """
     Test that CREATE2 fails when targeting an address with pre-existing
@@ -127,12 +129,16 @@ def test_create2_collision_storage(
     )
 
     sender = pre.fund_eoa()
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
+
     tx = Transaction(
         sender=sender,
         to=None,
         data=deployer_code,
         value=1,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     deployer_address = tx.created_contract
