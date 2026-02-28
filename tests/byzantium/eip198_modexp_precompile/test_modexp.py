@@ -504,7 +504,7 @@ def test_modexp(
         ty=0x0,
         to=account,
         data=mod_exp_input,
-        gas_limit=500_000,
+        gas_limit=1_000_000,
         protected=True,
         sender=sender,
     )

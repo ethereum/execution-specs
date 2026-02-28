@@ -540,7 +540,7 @@ def test_extcodehash_dynamic_account_overwrite(
         sender=sender,
         to=caller_address,
         data=bytes(target_address).rjust(32, b"\0"),
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     state_test(

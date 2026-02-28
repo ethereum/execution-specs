@@ -3,6 +3,10 @@ Transaction gas limit cap tests.
 
 Tests for transaction gas limit cap in [EIP-7825: Transaction Gas Limit
 Cap](https://eips.ethereum.org/EIPS/eip-7825).
+
+Note: Most tests are limited to Osaka (valid_at/valid_until) because EIP-8037
+(Amsterdam) allows tx.gas_limit > TX_MAX_GAS_LIMIT with excess going to
+state_gas_reservoir, changing the expected validation behavior.
 """
 
 from typing import Callable, List
@@ -86,6 +90,7 @@ def tx_gas_limit_cap_tests(fork: Fork) -> List[ParameterSet]:
 @pytest.mark.parametrize_by_fork("tx_gas_limit,error", tx_gas_limit_cap_tests)
 @pytest.mark.with_all_tx_types
 @pytest.mark.valid_from("Prague")
+@pytest.mark.valid_until("Osaka")
 def test_transaction_gas_limit_cap(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -94,9 +99,7 @@ def test_transaction_gas_limit_cap(
     error: TransactionException | None,
     tx_type: int,
 ) -> None:
-    """
-    Test the transaction gas limit cap behavior for all transaction types.
-    """
+    """Test the transaction gas limit cap for all transaction types."""
     env = Environment()
 
     sender = pre.fund_eoa()
@@ -475,7 +478,7 @@ def test_tx_gas_limit_cap_contract_creation(
         pytest.param(False, True),
     ],
 )
-@pytest.mark.valid_from("Osaka")
+@pytest.mark.valid_at("Osaka")
 def test_tx_gas_limit_cap_access_list_with_diff_keys(
     state_test: StateTestFiller,
     exceed_tx_gas_limit: bool,
@@ -561,7 +564,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_keys(
         pytest.param(False, True),
     ],
 )
-@pytest.mark.valid_from("Osaka")
+@pytest.mark.valid_at("Osaka")
 def test_tx_gas_limit_cap_access_list_with_diff_addr(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -641,7 +644,7 @@ def test_tx_gas_limit_cap_access_list_with_diff_addr(
         pytest.param(False, True),
     ],
 )
-@pytest.mark.valid_from("Osaka")
+@pytest.mark.valid_at("Osaka")
 def test_tx_gas_limit_cap_authorized_tx(
     state_test: StateTestFiller,
     pre: Alloc,

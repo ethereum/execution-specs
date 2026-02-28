@@ -314,11 +314,11 @@ def test_bal_callcode_nested_value_transfer(
     bob = pre.fund_eoa(amount=0)
 
     # TargetContract sends 100 wei to bob
-    target_code = Op.CALL(0, bob, 100, 0, 0, 0, 0)
+    target_code = Op.CALL(500_000, bob, 100, 0, 0, 0, 0)
     target_contract = pre.deploy_contract(code=target_code)
 
     # Oracle contract that uses CALLCODE to execute TargetContract's code
-    oracle_code = Op.CALLCODE(50_000, target_contract, 100, 0, 0, 0, 0)
+    oracle_code = Op.CALLCODE(500_000, target_contract, 100, 0, 0, 0, 0)
     oracle_contract = pre.deploy_contract(code=oracle_code, balance=200)
 
     tx = Transaction(
@@ -709,7 +709,7 @@ def test_bal_2930_slot_listed_and_unlisted_writes(
             contract_creation=False,
             access_list=[access_list],
         )
-        + 50000
+        + 500_000
     )  # intrinsic + buffer for storage writes
 
     tx = Transaction(
@@ -2085,7 +2085,7 @@ def test_bal_create_transaction_empty_code(
         sender=alice,
         to=None,
         data=b"",
-        gas_limit=100_000,
+        gas_limit=500_000,
     )
 
     account_expectations = {
@@ -2335,7 +2335,7 @@ def test_bal_all_transaction_types(
         ty=0,
         sender=sender_0,
         to=contract_0,
-        gas_limit=100_000,
+        gas_limit=500_000,
         gas_price=10,
         data=Hash(0x01),  # Value to store
     )
@@ -2345,7 +2345,7 @@ def test_bal_all_transaction_types(
         ty=1,
         sender=sender_1,
         to=contract_1,
-        gas_limit=100_000,
+        gas_limit=500_000,
         gas_price=10,
         data=Hash(0x02),
         access_list=[
@@ -2361,7 +2361,7 @@ def test_bal_all_transaction_types(
         ty=2,
         sender=sender_2,
         to=contract_2,
-        gas_limit=100_000,
+        gas_limit=500_000,
         max_fee_per_gas=50,
         max_priority_fee_per_gas=5,
         data=Hash(0x03),
@@ -2374,7 +2374,7 @@ def test_bal_all_transaction_types(
         ty=3,
         sender=sender_3,
         to=contract_3,
-        gas_limit=100_000,
+        gas_limit=500_000,
         max_fee_per_gas=50,
         max_priority_fee_per_gas=5,
         max_fee_per_blob_gas=10,
@@ -2387,7 +2387,7 @@ def test_bal_all_transaction_types(
         ty=4,
         sender=sender_4,
         to=alice,
-        gas_limit=100_000,
+        gas_limit=500_000,
         max_fee_per_gas=50,
         max_priority_fee_per_gas=5,
         authorization_list=[
