@@ -373,7 +373,9 @@ class Result:
                 block_output.block_access_list
             )
 
-        if self.execution_witness is not None:
+        # State tests lack the parent header needed for stateless
+        # verification, so skip the stateless roundtrip.
+        if self.execution_witness is not None and not t8n.options.state_test:
             withdrawals = (
                 tuple(t8n.env.withdrawals) if t8n.env.withdrawals else ()
             )
