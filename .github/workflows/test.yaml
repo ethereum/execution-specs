@@ -63,6 +63,9 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
+        with:
+          python-version: "3.14"
+      - uses: ./.github/actions/setup-env
       - name: Run py3 tests
         run: tox -e py3
         env:
@@ -84,6 +87,7 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
+      - uses: ./.github/actions/setup-env
       - name: Run pypy3 tests
         run: tox -e pypy3
         env:
@@ -102,6 +106,7 @@ jobs:
         with:
           python-version: "3.11"
       - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-geth
       - uses: ./.github/actions/get-changed-files
         id: get-changed-files
       - name: Run json infra tests
@@ -115,6 +120,7 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
+      - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
       - name: Run py3 tests
         run: tox -e tests_pytest_py3
@@ -131,6 +137,7 @@ jobs:
       - uses: ./.github/actions/setup-uv
         with:
           python-version: "pypy3.11"
+      - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
       - name: Run pypy3 tests
         run: tox -e tests_pytest_pypy3
