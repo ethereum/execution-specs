@@ -21,11 +21,9 @@ from ethereum.forks.amsterdam.stateless import (
     StatelessInput,
     StatelessValidationResult,
 )
-from ethereum.forks.amsterdam.stateless_guest import (
-    entrypoint,
-    rewind_input,
+from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
+from ethereum.forks.amsterdam.stateless_host import (
     serialize_stateless_input,
-    write_input_bytes,
 )
 from ethereum.forks.amsterdam.stateless_types import ExecutionWitness
 from ethereum.forks.amsterdam.trie import EMPTY_TRIE_ROOT
@@ -146,14 +144,11 @@ def _make_stateless_input() -> StatelessInput:
 
 
 def test_entrypoint_produces_output() -> None:
-    """entrypoint() returns serialized StatelessValidationResult."""
+    """run_stateless_guest returns serialized StatelessValidationResult."""
     stateless_input = _make_stateless_input()
     input_data = serialize_stateless_input(stateless_input)
 
-    write_input_bytes(input_data)
-    rewind_input()
-
-    output_data = entrypoint()
+    output_data = run_stateless_guest(input_data)
 
     result = rlp.decode_to(StatelessValidationResult, output_data)
     assert result.chain_config == stateless_input.chain_config

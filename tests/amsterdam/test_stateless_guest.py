@@ -20,8 +20,10 @@ from ethereum.forks.amsterdam.stateless import (
 )
 from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
-    serialize_stateless_input,
     serialize_stateless_output,
+)
+from ethereum.forks.amsterdam.stateless_host import (
+    serialize_stateless_input,
 )
 from ethereum.forks.amsterdam.stateless_types import ExecutionWitness
 from ethereum.state import Address, Root
