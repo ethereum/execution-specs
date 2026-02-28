@@ -76,6 +76,7 @@ from .state_tracker import (
     set_account_balance,
 )
 from .transactions import (
+    TX_MAX_GAS_LIMIT,
     AccessListTransaction,
     BlobTransaction,
     FeeMarketTransaction,
@@ -278,10 +279,12 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block_output.block_access_list
     )
 
-    if block_output.block_gas_used != block.header.gas_used:
-        raise InvalidBlock(
-            f"{block_output.block_gas_used} != {block.header.gas_used}"
-        )
+    block_gas_used = max(
+        block_output.block_gas_used,
+        block_output.block_state_gas_used,
+    )
+    if block_gas_used != block.header.gas_used:
+        raise InvalidBlock(f"{block_gas_used} != {block.header.gas_used}")
     if transactions_root != block.header.transactions_root:
         raise InvalidBlock
     if block_state_root != block.header.state_root:
@@ -492,11 +495,26 @@ def check_transaction(
         is empty.
 
     """
-    gas_available = block_env.block_gas_limit - block_output.block_gas_used
+    # Both regular gas and state gas have their own limits
+    regular_gas_available = (
+        block_env.block_gas_limit - block_output.block_gas_used
+    )
+    state_gas_available = (
+        block_env.block_gas_limit - block_output.block_state_gas_used
+    )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    if tx.gas > gas_available:
-        raise GasUsedExceedsLimitError("gas used exceeds limit")
+    # Regular gas is capped at TX_MAX_GAS_LIMIT; state gas can use all
+    # of tx.gas (gas_left can be drawn for state gas when reservoir is
+    # empty)
+    if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
+        raise GasUsedExceedsLimitError(
+            "regular gas used exceeds limit"
+        )
+    if tx.gas > state_gas_available:
+        raise GasUsedExceedsLimitError(
+            "state gas used exceeds limit"
+        )
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
@@ -715,6 +733,7 @@ def process_unchecked_system_transaction(
         origin=SYSTEM_ADDRESS,
         gas_price=block_env.base_fee_per_gas,
         gas=SYSTEM_TRANSACTION_GAS,
+        state_gas_reservoir=Uint(0),
         access_list_addresses=set(),
         access_list_storage_keys=set(),
         state=system_tx_state,
@@ -722,6 +741,8 @@ def process_unchecked_system_transaction(
         authorizations=(),
         index_in_block=None,
         tx_hash=None,
+        intrinsic_regular_gas=Uint(0),
+        intrinsic_state_gas=Uint(0),
     )
 
     system_tx_message = Message(
@@ -730,6 +751,7 @@ def process_unchecked_system_transaction(
         caller=SYSTEM_ADDRESS,
         target=target_address,
         gas=SYSTEM_TRANSACTION_GAS,
+        state_gas_reservoir=Uint(0),
         value=U256(0),
         data=data,
         code=system_contract_code,
@@ -912,7 +934,7 @@ def process_transaction(
         encode_transaction(tx),
     )
 
-    intrinsic_gas, calldata_floor_gas_cost = validate_transaction(tx)
+    intrinsic = validate_transaction(tx, block_env.block_gas_limit)
 
     (
         sender,
@@ -935,7 +957,13 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * effective_gas_price
 
-    gas = tx.gas - intrinsic_gas
+    # EIP-8037: Two-dimensional gas splitting
+    intrinsic_gas = intrinsic.regular + intrinsic.state
+    calldata_floor_gas_cost = intrinsic.calldata_floor
+    execution_gas = tx.gas - intrinsic_gas
+    regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
+    gas = min(regular_gas_budget, execution_gas)
+    state_gas_reservoir = Uint(execution_gas - gas)
 
     increment_nonce(tx_state, sender)
 
@@ -969,6 +997,7 @@ def process_transaction(
         origin=sender,
         gas_price=effective_gas_price,
         gas=gas,
+        state_gas_reservoir=state_gas_reservoir,
         access_list_addresses=access_list_addresses,
         access_list_storage_keys=access_list_storage_keys,
         state=tx_state,
@@ -976,6 +1005,8 @@ def process_transaction(
         authorizations=authorizations,
         index_in_block=index,
         tx_hash=get_transaction_hash(encode_transaction(tx)),
+        intrinsic_regular_gas=intrinsic.regular,
+        intrinsic_state_gas=intrinsic.state,
     )
 
     message = prepare_message(
@@ -986,9 +1017,10 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
-    # For EIP-7623 we first calculate the execution_gas_used, which includes
-    # the execution gas refund.
-    tx_gas_used_before_refund = tx.gas - tx_output.gas_left
+    # EIP-8037: Two-dimensional gas accounting
+    tx_gas_used_before_refund = (
+        tx.gas - tx_output.gas_left - tx_output.state_gas_left
+    )
     tx_gas_refund = min(
         tx_gas_used_before_refund // Uint(5), Uint(tx_output.refund_counter)
     )
@@ -997,12 +1029,15 @@ def process_transaction(
     # Transactions with less execution_gas_used than the floor pay at the
     # floor cost.
     tx_gas_used = max(tx_gas_used_after_refund, calldata_floor_gas_cost)
-    block_gas_used_in_tx = max(
-        tx_gas_used_before_refund, calldata_floor_gas_cost
-    )
 
     tx_gas_left = tx.gas - tx_gas_used
     gas_refund_amount = tx_gas_left * effective_gas_price
+
+    # Separate regular and state gas for block-level tracking.
+    # Use tx_env values (not local intrinsic) because set_delegation
+    # adjusts intrinsic_state_gas for existing authorities.
+    tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
+    tx_state_gas = tx_env.intrinsic_state_gas + tx_output.state_gas_used
 
     # For non-1559 transactions effective_gas_price == tx.gas_price
     priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
@@ -1048,9 +1083,13 @@ def process_transaction(
     ):
         destroy_account(tx_state, block_env.coinbase)
 
-    block_output.cumulative_gas_used += tx_gas_used
-    block_output.block_gas_used += block_gas_used_in_tx
+    block_output.block_gas_used += max(
+        tx_regular_gas, calldata_floor_gas_cost
+    )
+    block_output.block_state_gas_used += tx_state_gas
     block_output.blob_gas_used += tx_blob_gas_used
+
+    block_output.cumulative_gas_used += tx_gas_used
 
     receipt = make_receipt(
         tx,

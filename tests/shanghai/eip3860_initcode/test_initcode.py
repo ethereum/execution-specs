@@ -117,12 +117,8 @@ SINGLE_BYTE_INITCODE.opcode_list = _single_bytecode.opcode_list
     [
         INITCODE_ZEROS_MAX_LIMIT,
         INITCODE_ONES_MAX_LIMIT,
-        pytest.param(
-            INITCODE_ZEROS_OVER_LIMIT, marks=pytest.mark.exception_test
-        ),
-        pytest.param(
-            INITCODE_ONES_OVER_LIMIT, marks=pytest.mark.exception_test
-        ),
+        INITCODE_ZEROS_OVER_LIMIT,
+        INITCODE_ONES_OVER_LIMIT,
     ],
     ids=get_initcode_name,
 )
@@ -132,6 +128,8 @@ def test_contract_creating_tx(
     pre: Alloc,
     post: Alloc,
     sender: EOA,
+    fork: Fork,
+    request: pytest.FixtureRequest,
     initcode: Initcode,
 ) -> None:
     """
@@ -151,9 +149,10 @@ def test_contract_creating_tx(
         sender=sender,
     )
 
-    if len(initcode) > Spec.MAX_INITCODE_SIZE:
+    if len(initcode) > fork.max_initcode_size():
         # Initcode is above the max size, tx inclusion in the block makes
         # it invalid.
+        request.node.add_marker(pytest.mark.exception_test)
         post[create_contract_address] = Account.NONEXISTENT
         tx.error = TransactionException.INITCODE_SIZE_EXCEEDED
     else:

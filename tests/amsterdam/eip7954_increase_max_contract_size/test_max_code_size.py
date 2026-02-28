@@ -47,11 +47,13 @@ def test_max_code_size(
     initcode = Initcode(deploy_code=deploy_code)
     create_address = compute_create_address(address=alice, nonce=0)
 
+    # TODO: Remove gas_limit once auto gas limit supports EIP-8037
+    # state gas for code deposit.
     tx = Transaction(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=100_000_000,
     )
 
     post: dict[Any, Account | None] = {}
@@ -104,11 +106,13 @@ def test_max_code_size_via_create(
         opcode=create_opcode,
     )
 
+    # TODO: Remove gas_limit once auto gas limit supports EIP-8037
+    # state gas for code deposit.
     tx = Transaction(
         sender=alice,
         to=factory,
         data=initcode_bytes,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=100_000_000,
     )
 
     created = code_size <= fork.max_code_size()
@@ -186,11 +190,13 @@ def test_max_code_size_with_max_initcode(
     alice = pre.fund_eoa()
     create_address = compute_create_address(address=alice, nonce=0)
 
+    # TODO: Remove gas_limit once auto gas limit supports EIP-8037
+    # state gas for code deposit.
     tx = Transaction(
         sender=alice,
         to=None,
         data=initcode,
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=100_000_000,
     )
 
     post = {create_address: Account(code=deploy_code)}

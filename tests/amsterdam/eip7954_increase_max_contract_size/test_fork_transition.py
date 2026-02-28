@@ -67,7 +67,8 @@ def test_max_code_size_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    # TODO: auto gas limit for EIP-8037 state gas
+                    gas_limit=100_000_000,
                 )
             ],
         ),
@@ -148,7 +149,8 @@ def test_max_code_size_via_create_fork_transition(
                     sender=bob,
                     to=factory_post,
                     data=initcode_bytes,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    # TODO: auto gas limit for EIP-8037 state gas
+                    gas_limit=100_000_000,
                 )
             ],
         ),
@@ -345,7 +347,8 @@ def test_max_code_size_with_max_initcode_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    # TODO: auto gas limit for EIP-8037 state gas
+                    gas_limit=100_000_000,
                 )
             ],
         ),
@@ -396,7 +399,8 @@ def test_parent_max_code_size_across_fork(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    # TODO: auto gas limit for EIP-8037 state gas
+                    gas_limit=100_000_000,
                 )
             ],
         ),

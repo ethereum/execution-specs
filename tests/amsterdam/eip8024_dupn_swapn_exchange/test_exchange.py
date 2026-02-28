@@ -72,7 +72,7 @@ def test_exchange_basic(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=5_000_000)
 
     # Build expected storage
     expected_storage = {}
@@ -134,7 +134,7 @@ def test_exchange_valid_immediates(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=5_000_000)
 
     # Build expected storage
     expected_storage = {}
@@ -187,7 +187,7 @@ def test_exchange_preserves_other_items(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=5_000_000)
 
     post = {
         contract_address: Account(
@@ -234,7 +234,7 @@ def test_exchange_stack_underflow(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=5_000_000)
 
     # Transaction should fail, contract storage unchanged
     post = {contract_address: Account(storage={})}
@@ -277,7 +277,7 @@ def test_endofcode_behavior(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=5_000_000)
 
     # If tx succeeds, storage[0] = marker_value
     # Bad implementation would revert and have empty storage
@@ -332,7 +332,7 @@ def test_exchange_jump_to_immediate_byte(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=5_000_000)
 
     if immediate == 0x5B:  # JUMPDEST - only case where jump succeeds
         post = {contract_address: Account(storage={0: 0x42})}
@@ -377,7 +377,7 @@ def test_exchange_with_push_sequence(
 
     contract_address = pre.deploy_contract(code=code)
 
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=5_000_000)
 
     # Expected: position 9 has 0xBBBB (from pos 17), position 16 has
     # 0xAAAA (from pos 10), rest = 0
@@ -425,7 +425,7 @@ def test_exchange_invalid_immediate_aborts(
     code += Op.STOP
 
     contract_address = pre.deploy_contract(code=code)
-    tx = Transaction(to=contract_address, sender=sender, gas_limit=1_000_000)
+    tx = Transaction(to=contract_address, sender=sender, gas_limit=5_000_000)
 
     # Execution aborted, transaction reverts
     post = {contract_address: Account(storage={})}

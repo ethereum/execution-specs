@@ -553,7 +553,6 @@ def test_selfdestruct_finalization_after_priority_fee(
     initcode = Initcode(deploy_code=runtime_code)
     initcode_len = len(initcode)
 
-    gas_costs = fork.gas_costs()
     mem_after_mstore = ((initcode_len + 31) // 32) * 32
 
     # The base factory code: CREATE + CALL to trigger selfdestruct
@@ -602,7 +601,9 @@ def test_selfdestruct_finalization_after_priority_fee(
     )
     factory_gas = factory_code.gas_cost(fork)
     initcode_exec_gas = initcode.execution_gas(fork)
-    code_deposit_gas = len(runtime_code) * gas_costs.GAS_CODE_DEPOSIT_PER_BYTE
+    code_deposit_gas = Op.RETURN(code_deposit_size=len(runtime_code)).gas_cost(
+        fork
+    )
     inner_runtime_gas = Op.SELFDESTRUCT(
         Op.ADDRESS, address_warm=True, account_new=False
     ).gas_cost(fork)
