@@ -43,12 +43,12 @@ def _build_witness(
     """Build a (state_root, node_db) witness from account and storage data."""
     storage_mpts: dict[Address, IncrementalMPT[Bytes32, U256]] = {}
     for addr, slots in storage.items():
-        smpt: IncrementalMPT[Bytes32, U256] = build_mpt(
+        storage_mpt: IncrementalMPT[Bytes32, U256] = build_mpt(
             slots, secured=True, default=U256(0)
         )
         for key in slots:
-            mpt_get(smpt, key)
-        storage_mpts[addr] = smpt
+            mpt_get(storage_mpt, key)
+        storage_mpts[addr] = storage_mpt
 
     def get_storage_root(addr: Address) -> Root:
         if addr in storage_mpts:
@@ -63,8 +63,8 @@ def _build_witness(
 
     state_root = mpt_root(account_mpt)
     node_db: dict[Bytes, Bytes] = dict(account_mpt.witness.accessed_nodes)
-    for smpt in storage_mpts.values():
-        node_db.update(smpt.witness.accessed_nodes)
+    for storage_mpt in storage_mpts.values():
+        node_db.update(storage_mpt.witness.accessed_nodes)
 
     return state_root, node_db
 
@@ -127,8 +127,8 @@ class TestGetAccountOptional:
 
     def test_existing_account(self) -> None:
         """Returns the account stored in the trie."""
-        ws = _make_ws({_ADDR1: _acct(balance=1000, nonce=5)})
-        result = ws.get_account_optional(_ADDR1)
+        witness_state = _make_ws({_ADDR1: _acct(balance=1000, nonce=5)})
+        result = witness_state.get_account_optional(_ADDR1)
         assert result is not None
         assert result.nonce == Uint(5)
         assert result.balance == U256(1000)
@@ -136,14 +136,16 @@ class TestGetAccountOptional:
 
     def test_missing_account(self) -> None:
         """Returns None for an address not in the trie."""
-        ws = _make_ws({_ADDR1: _acct()})
-        assert ws.get_account_optional(_ADDR2) is None
+        witness_state = _make_ws({_ADDR1: _acct()})
+        assert witness_state.get_account_optional(_ADDR2) is None
 
     def test_multiple_accounts(self) -> None:
         """Correctly distinguishes between multiple accounts."""
-        ws = _make_ws({_ADDR1: _acct(balance=100), _ADDR2: _acct(balance=200)})
-        r1 = ws.get_account_optional(_ADDR1)
-        r2 = ws.get_account_optional(_ADDR2)
+        witness_state = _make_ws(
+            {_ADDR1: _acct(balance=100), _ADDR2: _acct(balance=200)}
+        )
+        r1 = witness_state.get_account_optional(_ADDR1)
+        r2 = witness_state.get_account_optional(_ADDR2)
         assert r1 is not None and r1.balance == U256(100)
         assert r2 is not None and r2.balance == U256(200)
 
@@ -153,26 +155,30 @@ class TestGetStorage:
 
     def test_existing_slot(self) -> None:
         """Returns the storage value for a known slot."""
-        ws = _make_ws({_ADDR1: _acct()}, {_ADDR1: {_SLOT1: U256(42)}})
-        assert ws.get_storage(_ADDR1, _SLOT1) == U256(42)
+        witness_state = _make_ws(
+            {_ADDR1: _acct()}, {_ADDR1: {_SLOT1: U256(42)}}
+        )
+        assert witness_state.get_storage(_ADDR1, _SLOT1) == U256(42)
 
     def test_missing_slot(self) -> None:
         """Returns U256(0) for a slot not in the trie."""
-        ws = _make_ws({_ADDR1: _acct()}, {_ADDR1: {_SLOT1: U256(42)}})
-        assert ws.get_storage(_ADDR1, _SLOT2) == U256(0)
+        witness_state = _make_ws(
+            {_ADDR1: _acct()}, {_ADDR1: {_SLOT1: U256(42)}}
+        )
+        assert witness_state.get_storage(_ADDR1, _SLOT2) == U256(0)
 
     def test_no_storage_account(self) -> None:
         """Returns U256(0) for an account with no storage."""
-        ws = _make_ws({_ADDR1: _acct(balance=100)})
-        assert ws.get_storage(_ADDR1, _SLOT1) == U256(0)
+        witness_state = _make_ws({_ADDR1: _acct(balance=100)})
+        assert witness_state.get_storage(_ADDR1, _SLOT1) == U256(0)
 
     def test_multiple_slots(self) -> None:
         """Correctly distinguishes between multiple storage slots."""
-        ws = _make_ws(
+        witness_state = _make_ws(
             {_ADDR1: _acct()}, {_ADDR1: {_SLOT1: U256(10), _SLOT2: U256(20)}}
         )
-        assert ws.get_storage(_ADDR1, _SLOT1) == U256(10)
-        assert ws.get_storage(_ADDR1, _SLOT2) == U256(20)
+        assert witness_state.get_storage(_ADDR1, _SLOT1) == U256(10)
+        assert witness_state.get_storage(_ADDR1, _SLOT2) == U256(20)
 
 
 class TestGetCode:
@@ -180,13 +186,13 @@ class TestGetCode:
 
     def test_empty_code_hash(self) -> None:
         """EMPTY_CODE_HASH always returns b'' without a lookup."""
-        ws = _make_ws({})
-        assert ws.get_code(EMPTY_CODE_HASH) == b""
+        witness_state = _make_ws({})
+        assert witness_state.get_code(EMPTY_CODE_HASH) == b""
 
     def test_known_code(self) -> None:
         """Returns the bytecode for a known code hash."""
-        ws = _make_ws({}, code_db=build_code_db((_CODE,)))
-        assert ws.get_code(_CODE_HASH) == _CODE
+        witness_state = _make_ws({}, code_db=build_code_db((_CODE,)))
+        assert witness_state.get_code(_CODE_HASH) == _CODE
 
 
 class TestAccountHasStorage:
@@ -194,13 +200,15 @@ class TestAccountHasStorage:
 
     def test_with_storage(self) -> None:
         """Returns True for an account that has a non-empty storage trie."""
-        ws = _make_ws({_ADDR1: _acct()}, {_ADDR1: {_SLOT1: U256(1)}})
-        assert ws.account_has_storage(_ADDR1) is True
+        witness_state = _make_ws(
+            {_ADDR1: _acct()}, {_ADDR1: {_SLOT1: U256(1)}}
+        )
+        assert witness_state.account_has_storage(_ADDR1) is True
 
     def test_without_storage(self) -> None:
         """Returns False for an account with an empty storage trie."""
-        ws = _make_ws({_ADDR1: _acct(balance=100)})
-        assert ws.account_has_storage(_ADDR1) is False
+        witness_state = _make_ws({_ADDR1: _acct(balance=100)})
+        assert witness_state.account_has_storage(_ADDR1) is False
 
 
 class TestComputeStateRoot:
@@ -208,9 +216,9 @@ class TestComputeStateRoot:
 
     def test_account_balance_change(self) -> None:
         """Changing an account balance produces the correct new state root."""
-        ws = _make_ws({_ADDR1: _acct(balance=100)})
+        witness_state = _make_ws({_ADDR1: _acct(balance=100)})
         new_acct = _acct(balance=200)
-        new_root, _ = ws.compute_state_root_and_trie_changes(
+        new_root, _ = witness_state.compute_state_root_and_trie_changes(
             {_ADDR1: new_acct}, {}
         )
         expected_root, _ = _build_witness({_ADDR1: new_acct}, {})
@@ -219,8 +227,8 @@ class TestComputeStateRoot:
     def test_storage_slot_change(self) -> None:
         """Changing a storage slot produces the correct new state root."""
         acct = _acct()
-        ws = _make_ws({_ADDR1: acct}, {_ADDR1: {_SLOT1: U256(10)}})
-        new_root, _ = ws.compute_state_root_and_trie_changes(
+        witness_state = _make_ws({_ADDR1: acct}, {_ADDR1: {_SLOT1: U256(10)}})
+        new_root, _ = witness_state.compute_state_root_and_trie_changes(
             {}, {_ADDR1: {_SLOT1: U256(99)}}
         )
         expected_root, _ = _build_witness(
@@ -231,8 +239,8 @@ class TestComputeStateRoot:
     def test_no_changes_preserves_root(self) -> None:
         """Empty diffs leave the state root unchanged."""
         state_root, node_db = _build_witness({_ADDR1: _acct(balance=100)}, {})
-        ws = WitnessState(
+        witness_state = WitnessState(
             _node_db=node_db, _state_root=state_root, _code_db={}
         )
-        new_root, _ = ws.compute_state_root_and_trie_changes({}, {})
+        new_root, _ = witness_state.compute_state_root_and_trie_changes({}, {})
         assert new_root == state_root
