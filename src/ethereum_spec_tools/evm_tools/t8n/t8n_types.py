@@ -307,7 +307,13 @@ class Result:
         """
         Update the result after processing the inputs.
         """
-        self.gas_used = block_output.block_gas_used
+        if hasattr(block_output, "block_state_gas_used"):
+            self.gas_used = max(
+                block_output.block_gas_used,
+                block_output.block_state_gas_used,
+            )
+        else:
+            self.gas_used = block_output.block_gas_used
         self.tx_root = t8n.fork.root(block_output.transactions_trie)
         self.receipt_root = t8n.fork.root(block_output.receipts_trie)
         self.bloom = t8n.fork.logs_bloom(block_output.block_logs)

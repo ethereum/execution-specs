@@ -106,7 +106,9 @@ def tx_blob_data_cost(
 
 
 @pytest.fixture
-def tx_gas_limit() -> int:  # noqa: D103
+def tx_gas_limit(fork: Fork) -> int:  # noqa: D103
+    if fork.is_eip_enabled(eip_number=8037):
+        return 500_000
     return 45000
 
 

@@ -66,10 +66,14 @@ def test_dup(
 
     account = pre.deploy_contract(account_code)
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
+
     tx = Transaction(
         ty=0x0,
         to=account,
-        gas_limit=500000,
+        gas_limit=gas_limit,
         gas_price=10,
         protected=fork.supports_protected_txs(),
         data="",
