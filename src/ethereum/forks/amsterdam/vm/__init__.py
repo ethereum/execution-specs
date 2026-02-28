@@ -26,7 +26,6 @@ from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
 from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Authorization, VersionedHash
 from ..state_tracker import BlockState, TransactionState
-from ..stateless_types import ExecutionWitness
 from ..transactions import LegacyTransaction
 from ..trie import Trie
 
@@ -79,8 +78,6 @@ class BlockOutput:
         Hash of all the requests in the block.
     block_access_list: `BlockAccessList`
         The block access list for the block.
-    execution_witness : `ExecutionWitness`
-        Execution witness data for stateless validation.
     """
 
     block_gas_used: Uint = Uint(0)
@@ -98,7 +95,6 @@ class BlockOutput:
     blob_gas_used: U64 = U64(0)
     requests: List[Bytes] = field(default_factory=list)
     block_access_list: BlockAccessList = field(default_factory=list)
-    execution_witness: Optional[ExecutionWitness] = None
 
 
 @dataclass

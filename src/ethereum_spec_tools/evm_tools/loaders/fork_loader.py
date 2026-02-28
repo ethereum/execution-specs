@@ -155,6 +155,21 @@ class ForkLoad:
         return self._module("stateless_types").build_execution_witness
 
     @property
+    def build_stateless_input(self) -> Any:
+        """build_stateless_input function of the fork."""
+        return self._module("stateless_host").build_stateless_input
+
+    @property
+    def serialize_stateless_input(self) -> Any:
+        """serialize_stateless_input function of the fork."""
+        return self._module("stateless_host").serialize_stateless_input
+
+    @property
+    def run_stateless_guest(self) -> Any:
+        """run_stateless_guest function of the fork."""
+        return self._module("stateless_guest").run_stateless_guest
+
+    @property
     def signing_hash_2930(self) -> Any:
         """signing_hash_2930 function of the fork."""
         return self._module("transactions").signing_hash_2930

@@ -278,6 +278,8 @@ class Result:
     block_access_list: Optional[Any] = None
     block_access_list_hash: Optional[Hash32] = None
     execution_witness: Optional[Any] = None
+    stateless_input_bytes: Optional[bytes] = None
+    stateless_output_bytes: Optional[bytes] = None
 
     def get_receipts_from_output(
         self,
@@ -330,6 +332,20 @@ class Result:
                 )
             )
             self.state_root = state_root_value
+
+            # Build witness between state root and apply_changes_to_state:
+            # the witness reads pre-state tries that apply_changes mutates.
+            # This is safe because compute_state_root_and_trie_changes
+            # does not mutate state (it makes transient copies of MPTs).
+            if t8n.fork.has_execution_witness:
+                self.execution_witness = t8n.fork.build_execution_witness(
+                    block_env.state,
+                    expected_post_state_root=state_root_value,
+                    pre_state_accounts_data=(t8n.alloc.state._main_trie),
+                    pre_state_storages_data=(t8n.alloc.state._storage_tries),
+                    blockchain_headers=t8n.env.block_headers,
+                )
+
             # Apply diffs to pre-state for alloc output
             apply_changes_to_state(t8n.alloc.state, block_diff)
         else:
@@ -357,8 +373,33 @@ class Result:
                 block_output.block_access_list
             )
 
-        if hasattr(block_output, "execution_witness"):
-            self.execution_witness = block_output.execution_witness
+        if t8n.fork.has_execution_witness:
+            withdrawals = (
+                tuple(t8n.env.withdrawals) if t8n.env.withdrawals else ()
+            )
+            stateless_input = t8n.fork.build_stateless_input(
+                block_output,
+                block_env,
+                state_root=self.state_root,
+                transactions_root=self.tx_root,
+                receipt_root=self.receipt_root,
+                bloom=self.bloom,
+                gas_used=self.gas_used,
+                withdrawals_root=self.withdrawals_root,
+                requests_hash=self.requests_hash,
+                block_access_list_hash=self.block_access_list_hash,
+                withdrawals=withdrawals,
+                block_headers=tuple(t8n.env.block_headers),
+                execution_witness=self.execution_witness,
+            )
+            stateless_input_bytes = t8n.fork.serialize_stateless_input(
+                stateless_input
+            )
+            stateless_output_bytes = t8n.fork.run_stateless_guest(
+                stateless_input_bytes
+            )
+            self.stateless_input_bytes = bytes(stateless_input_bytes)
+            self.stateless_output_bytes = bytes(stateless_output_bytes)
 
     @staticmethod
     def _block_access_list_to_json(account_changes: Any) -> Any:
@@ -524,5 +565,15 @@ class Result:
                 "codes": ["0x" + c.hex() for c in ew.codes],
                 "headers": ["0x" + h.hex() for h in ew.headers],
             }
+
+        if self.stateless_input_bytes is not None:
+            data["statelessInputBytes"] = (
+                "0x" + self.stateless_input_bytes.hex()
+            )
+
+        if self.stateless_output_bytes is not None:
+            data["statelessOutputBytes"] = (
+                "0x" + self.stateless_output_bytes.hex()
+            )
 
         return data
