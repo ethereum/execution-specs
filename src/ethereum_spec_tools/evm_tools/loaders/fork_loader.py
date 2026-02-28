@@ -144,7 +144,7 @@ class ForkLoad:
     def has_execution_witness(self) -> bool:
         """Check if the fork has an `ExecutionWitness` type."""
         try:
-            module = self._module("stateless_types")
+            module = self._module("stateless")
         except ModuleNotFoundError:
             return False
         return hasattr(module, "ExecutionWitness")

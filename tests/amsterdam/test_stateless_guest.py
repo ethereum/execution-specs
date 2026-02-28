@@ -15,6 +15,7 @@ from ethereum.forks.amsterdam.execution_engine.types import (
 from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.stateless import (
     ChainConfig,
+    ExecutionWitness,
     StatelessInput,
     StatelessValidationResult,
 )
@@ -25,7 +26,6 @@ from ethereum.forks.amsterdam.stateless_guest import (
 from ethereum.forks.amsterdam.stateless_host import (
     serialize_stateless_input,
 )
-from ethereum.forks.amsterdam.stateless_types import ExecutionWitness
 from ethereum.state import Address, Root
 
 _RNG = random.Random(0xDEADBEEF)

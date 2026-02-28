@@ -18,6 +18,7 @@ from ethereum.forks.amsterdam.fork_types import Bloom
 from ethereum.forks.amsterdam.requests import compute_requests_hash
 from ethereum.forks.amsterdam.stateless import (
     ChainConfig,
+    ExecutionWitness,
     StatelessInput,
     StatelessValidationResult,
 )
@@ -25,7 +26,6 @@ from ethereum.forks.amsterdam.stateless_guest import run_stateless_guest
 from ethereum.forks.amsterdam.stateless_host import (
     serialize_stateless_input,
 )
-from ethereum.forks.amsterdam.stateless_types import ExecutionWitness
 from ethereum.forks.amsterdam.trie import EMPTY_TRIE_ROOT
 from ethereum.state import Address, Root
 

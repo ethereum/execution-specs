@@ -18,8 +18,33 @@ from .execution_engine.new_payload import execute_new_payload_request
 from .execution_engine.types import NewPayloadRequest
 from .fork import ChainContext
 from .fork_types import VersionedHash
-from .stateless_types import ExecutionWitness
 from .witness_state import WitnessState, build_code_db, build_node_db
+
+
+@slotted_freezable
+@dataclass
+class ExecutionWitness:
+    """
+    Execution witness data for stateless validation.
+    """
+
+    state: Tuple[Bytes, ...]
+    """
+    Hashed trie-node preimages needed during execution and state-root
+    recomputation.
+    """
+
+    codes: Tuple[Bytes, ...]
+    """
+    Contract-code preimages (created or accessed) needed during execution.
+    """
+
+    headers: Tuple[Bytes, ...]
+    """
+    RLP-encoded block headers used for pre-state and ``BLOCKHASH`` correctness
+    proofs. This may trend toward empty EIP-7709.
+    """
+
 
 # Amsterdam currently carries execution requests as raw bytes in order.
 ExecutionRequests = Tuple[Bytes, ...]

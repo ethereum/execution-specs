@@ -15,8 +15,7 @@ from .blocks import Header, Withdrawal
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork import EMPTY_OMMER_HASH
 from .fork_types import Bloom, VersionedHash
-from .stateless import ChainConfig, StatelessInput
-from .stateless_types import ExecutionWitness
+from .stateless import ChainConfig, ExecutionWitness, StatelessInput
 from .transactions import BlobTransaction, decode_transaction
 from .trie import trie_get
 from .vm import BlockEnvironment, BlockOutput
