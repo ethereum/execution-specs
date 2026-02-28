@@ -152,7 +152,8 @@ class ForkLoad:
     @property
     def build_execution_witness(self) -> Any:
         """Build function of the fork."""
-        return self._module("stateless_types").build_execution_witness
+        mod = self._module("stateless_host_exec_witness")
+        return mod.build_execution_witness
 
     @property
     def build_stateless_input(self) -> Any:
