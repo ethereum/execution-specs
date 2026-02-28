@@ -199,21 +199,19 @@ class FillCommand(PytestCommand):
 
     def _should_use_two_phase_execution(self, args: List[str]) -> bool:
         """Determine if two-phase execution is needed."""
+        # TODO: temporarily disabled tarball auto-trigger; re-enable
+        # once engine_x post-state validation issues are resolved.
         return (
             "--generate-pre-alloc-groups" in args
             or "--generate-all-formats" in args
-            or self._is_tarball_output(args)
         )
 
     def _ensure_generate_all_formats_for_tarball(
         self, args: List[str]
     ) -> List[str]:
         """Auto-add --generate-all-formats for tarball output."""
-        if (
-            self._is_tarball_output(args)
-            and "--generate-all-formats" not in args
-        ):
-            return args + ["--generate-all-formats"]
+        # TODO: temporarily disabled to unblock release; re-enable once
+        # engine_x post-state validation issues are resolved.
         return args
 
     def _is_tarball_output(self, args: List[str]) -> bool:
