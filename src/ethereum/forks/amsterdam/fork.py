@@ -558,11 +558,16 @@ def check_transaction(
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
     # Regular gas is capped at TX_MAX_GAS_LIMIT; state gas can use all
-    # of tx.gas (gas_left can be drawn for state gas when reservoir is empty)
+    # of tx.gas (gas_left can be drawn for state gas when reservoir is
+    # empty)
     if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
-        raise GasUsedExceedsLimitError("regular gas used exceeds limit")
+        raise GasUsedExceedsLimitError(
+            "regular gas used exceeds limit"
+        )
     if tx.gas > state_gas_available:
-        raise GasUsedExceedsLimitError("state gas used exceeds limit")
+        raise GasUsedExceedsLimitError(
+            "state gas used exceeds limit"
+        )
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
@@ -984,8 +989,6 @@ def process_transaction(
 
     intrinsic = validate_transaction(tx, block_env.block_gas_limit)
 
-    intrinsic_gas = intrinsic.regular + intrinsic.state
-
     (
         sender,
         effective_gas_price,
@@ -1007,8 +1010,8 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * effective_gas_price
 
-    # Split execution gas into gas_left (capped by remaining regular gas
-    # budget) and state_gas_reservoir.
+    # EIP-8037: Two-dimensional gas splitting
+    intrinsic_gas = intrinsic.regular + intrinsic.state
     execution_gas = tx.gas - intrinsic_gas
     regular_gas_budget = TX_MAX_GAS_LIMIT - intrinsic.regular
     gas = min(regular_gas_budget, execution_gas)
@@ -1066,6 +1069,7 @@ def process_transaction(
 
     tx_output = process_message_call(message)
 
+    # EIP-8037: Two-dimensional gas accounting
     tx_gas_used_before_refund = (
         tx.gas - tx_output.gas_left - tx_output.state_gas_left
     )
@@ -1083,6 +1087,12 @@ def process_transaction(
 
     tx_gas_left = tx.gas - tx_gas_used
     gas_refund_amount = tx_gas_left * effective_gas_price
+
+    # Separate regular and state gas for block-level tracking.
+    # Use tx_env values (not local intrinsic) because set_delegation
+    # adjusts intrinsic_state_gas for existing authorities.
+    tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
+    tx_state_gas = tx_env.intrinsic_state_gas + tx_output.state_gas_used
 
     # For non-1559 transactions effective_gas_price == tx.gas_price
     priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
@@ -1128,8 +1138,6 @@ def process_transaction(
     ):
         destroy_account(tx_state, block_env.coinbase)
 
-    tx_regular_gas = tx_env.intrinsic_regular_gas + tx_output.regular_gas_used
-    tx_state_gas = tx_env.intrinsic_state_gas + tx_output.state_gas_used
     block_output.block_gas_used += max(
         tx_regular_gas, intrinsic.calldata_floor
     )
@@ -1137,6 +1145,7 @@ def process_transaction(
     block_output.blob_gas_used += tx_blob_gas_used
 
     block_output.cumulative_gas_used += tx_gas_used
+
     receipt = make_receipt(
         tx,
         tx_output.error,

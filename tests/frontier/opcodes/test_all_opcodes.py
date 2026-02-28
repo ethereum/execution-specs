@@ -261,8 +261,13 @@ def test_max_stack(
         storage={slot_code_worked: value_code_failed},
     )
 
+    # Amsterdam (EIP-8037) needs gas_limit > TX_MAX_GAS_LIMIT
+    # (16,777,216) for a state_gas_reservoir for SSTORE/CREATE.
+    # TODO: auto gas limit will remove this
+    gas_limit = 50_000_000 if fork >= Amsterdam else 100_000
+
     tx = Transaction(
-        gas_limit=100_000,
+        gas_limit=gas_limit,
         to=contract,
         sender=pre.fund_eoa(),
         protected=fork.supports_protected_txs(),

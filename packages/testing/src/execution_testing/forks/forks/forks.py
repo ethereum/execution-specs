@@ -3478,6 +3478,209 @@ class Amsterdam(BPO2):
         del block_number, timestamp
         return True
 
+    # TODO: return the computed value once non-default block gas
+    # limits are supported in the test framework.
+    _COST_PER_STATE_BYTE = 1174  # at 100M-120M gas limit
+
+    @classmethod
+    def cost_per_state_byte(
+        cls, gas_limit: int = 0
+    ) -> int:
+        """
+        Calculate the state gas cost per byte based on block gas limit.
+
+        Mirror the EELS `state_gas_per_byte()` function with binary
+        floating-point quantization (EIP-8037).
+
+        At a gas limit of 100,000,000 this returns 1174.
+        """
+        return cls._COST_PER_STATE_BYTE
+
+    @classmethod
+    def gas_costs(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> GasCosts:
+        """
+        On Amsterdam, gas costs are updated for EIP-8037 two-dimensional
+        gas metering and EIP-7928 block access lists.
+        """
+        cpsb = cls.cost_per_state_byte()
+        parent = super(Amsterdam, cls).gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
+        # EIP-8037 state byte sizes (EELS amsterdam/vm/gas.py)
+        STATE_BYTES_PER_STORAGE_SET = 32  # noqa: N806
+        STATE_BYTES_PER_NEW_ACCOUNT = 112  # noqa: N806
+        STATE_BYTES_PER_AUTH_BASE = 23  # noqa: N806
+        # EIP-8037 regular gas base costs
+        PER_AUTH_BASE_COST = 7_500  # noqa: N806
+        REGULAR_GAS_CREATE = 9_000  # noqa: N806
+        new_acct = STATE_BYTES_PER_NEW_ACCOUNT * cpsb
+        return replace(
+            parent,
+            GAS_STORAGE_SET=(
+                parent.GAS_STORAGE_UPDATE
+                - parent.GAS_COLD_SLOAD
+                + STATE_BYTES_PER_STORAGE_SET * cpsb
+            ),
+            GAS_NEW_ACCOUNT=new_acct,
+            GAS_CREATE=REGULAR_GAS_CREATE + new_acct,
+            GAS_TX_CREATE=(REGULAR_GAS_CREATE + new_acct),
+            GAS_AUTH_PER_EMPTY_ACCOUNT=(
+                PER_AUTH_BASE_COST
+                + (
+                    STATE_BYTES_PER_NEW_ACCOUNT
+                    + STATE_BYTES_PER_AUTH_BASE
+                )
+                * cpsb
+            ),
+            REFUND_AUTH_PER_EXISTING_ACCOUNT=new_acct,
+            GAS_BLOCK_ACCESS_LIST_ITEM=2000,
+        )
+
+    @classmethod
+    def transaction_intrinsic_state_gas(
+        cls,
+        *,
+        contract_creation: bool = False,
+        authorization_count: int = 0,
+    ) -> int:
+        """
+        Return the intrinsic state gas for a transaction (EIP-8037).
+
+        State gas sources:
+        - Creation: STATE_BYTES_PER_NEW_ACCOUNT * cpsb
+        - Auth: (NEW_ACCOUNT + AUTH_BASE) * cpsb
+        """
+        cpsb = cls.cost_per_state_byte()
+        STATE_BYTES_PER_NEW_ACCOUNT = 112  # noqa: N806
+        STATE_BYTES_PER_AUTH_BASE = 23  # noqa: N806
+        state_gas = 0
+        if contract_creation:
+            state_gas += STATE_BYTES_PER_NEW_ACCOUNT * cpsb
+        state_gas += (
+            (STATE_BYTES_PER_NEW_ACCOUNT + STATE_BYTES_PER_AUTH_BASE)
+            * cpsb
+            * authorization_count
+        )
+        return state_gas
+
+    @classmethod
+    def _calculate_sstore_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate SSTORE gas cost for Amsterdam (EIP-8037).
+
+        For 0->nonzero: regular (UPDATE - COLD_SLOAD) + state
+        (32 * cpsb).
+        For nonzero->different nonzero: regular
+        (UPDATE - COLD_SLOAD).
+        Otherwise: WARM_SLOAD.
+        """
+        metadata = opcode.metadata
+        cpsb = cls.cost_per_state_byte()
+
+        original_value = metadata["original_value"]
+        current_value = metadata["current_value"]
+        if current_value is None:
+            current_value = original_value
+        new_value = metadata["new_value"]
+
+        gas_cost = (
+            0 if metadata["key_warm"] else gas_costs.GAS_COLD_SLOAD
+        )
+
+        if (
+            original_value == current_value
+            and current_value != new_value
+        ):
+            if original_value == 0:
+                # EIP-8037: regular portion + state gas
+                gas_cost += (
+                    gas_costs.GAS_STORAGE_UPDATE
+                    - gas_costs.GAS_COLD_SLOAD
+                ) + (32 * cpsb)
+            else:
+                gas_cost += (
+                    gas_costs.GAS_STORAGE_UPDATE
+                    - gas_costs.GAS_COLD_SLOAD
+                )
+        else:
+            gas_cost += gas_costs.GAS_WARM_SLOAD
+
+        return gas_cost
+
+    @classmethod
+    def _calculate_sstore_refund(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate SSTORE gas refund for Amsterdam (EIP-8037).
+
+        When restoring a slot originally empty back to zero, the
+        refund includes the state gas for storage set.
+        """
+        metadata = opcode.metadata
+        cpsb = cls.cost_per_state_byte()
+        state_gas_storage_set = 32 * cpsb
+
+        original_value = metadata["original_value"]
+        current_value = metadata["current_value"]
+        if current_value is None:
+            current_value = original_value
+        new_value = metadata["new_value"]
+
+        refund = 0
+        if current_value != new_value:
+            if (
+                original_value != 0
+                and current_value != 0
+                and new_value == 0
+            ):
+                refund += gas_costs.REFUND_STORAGE_CLEAR
+
+            if original_value != 0 and current_value == 0:
+                refund -= gas_costs.REFUND_STORAGE_CLEAR
+
+            if original_value == new_value:
+                if original_value == 0:
+                    refund += (
+                        state_gas_storage_set
+                        + gas_costs.GAS_STORAGE_UPDATE
+                        - gas_costs.GAS_COLD_SLOAD
+                        - gas_costs.GAS_WARM_SLOAD
+                    )
+                else:
+                    refund += (
+                        gas_costs.GAS_STORAGE_UPDATE
+                        - gas_costs.GAS_COLD_SLOAD
+                        - gas_costs.GAS_WARM_SLOAD
+                    )
+
+        return refund
+
+    @classmethod
+    def _calculate_return_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate RETURN gas cost for Amsterdam (EIP-8037).
+
+        Replace GAS_CODE_DEPOSIT_PER_BYTE with cpsb per byte for
+        code deposit, and add code hash gas (keccak256 of deployed
+        bytecode).
+        """
+        metadata = opcode.metadata
+        code_deposit_size = metadata["code_deposit_size"]
+        if code_deposit_size > 0:
+            cpsb = cls.cost_per_state_byte()
+            state_gas = code_deposit_size * cpsb
+            code_words = (code_deposit_size + 31) // 32
+            hash_gas = gas_costs.GAS_KECCAK256_PER_WORD * code_words
+            return state_gas + hash_gas
+        return 0
+
     @classmethod
     def empty_block_bal_item_count(
         cls, *, block_number: int = 0, timestamp: int = 0

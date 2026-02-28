@@ -1,6 +1,8 @@
 """
 Mainnet marked execute checklist tests for
 [EIP-7708: ETH transfers emit a log](https://eips.ethereum.org/EIPS/eip-7708).
+
+TODO: Framework should prevent filling of mainnet-only tests (execute-only).
 """
 
 import pytest
@@ -86,7 +88,7 @@ def test_selfdestruct_mainnet(
         sender=sender,
         to=contract,
         value=0,
-        gas_limit=100_000,
+        gas_limit=200_000,
         expected_receipt=TransactionReceipt(
             logs=[transfer_log(contract, beneficiary, 500)]
         ),
