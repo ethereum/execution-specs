@@ -154,6 +154,7 @@ from execution_testing import (
         "sec",
     ],
 )
+@pytest.mark.json_infra
 def test_calldatacopy(
     state_test: StateTestFiller,
     code: Bytecode,

@@ -32,6 +32,7 @@ from execution_testing.forks import London
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.with_all_create_opcodes
+@pytest.mark.json_infra
 def test_create_one_byte(
     state_test: StateTestFiller,
     fork: Fork,

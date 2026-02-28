@@ -470,6 +470,7 @@ def test_gas(
         ),
     ],
 )
+@pytest.mark.json_infra
 def test_call_types(
     state_test: StateTestFiller,
     pre: Alloc,

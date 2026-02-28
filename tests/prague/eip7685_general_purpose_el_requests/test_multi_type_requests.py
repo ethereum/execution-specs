@@ -336,6 +336,7 @@ def get_contract_permutations(
         ),
     ],
 )
+@pytest.mark.json_infra
 def test_valid_multi_type_requests(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

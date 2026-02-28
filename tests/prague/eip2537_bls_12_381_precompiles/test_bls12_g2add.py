@@ -218,6 +218,7 @@ pytestmark = [
         ),
     ],
 )
+@pytest.mark.json_infra
 def test_valid(
     state_test: StateTestFiller,
     pre: Alloc,

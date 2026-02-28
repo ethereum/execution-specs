@@ -368,6 +368,7 @@ def post(  # noqa: D103
 
 
 @CallContextTestCases.parametrize()
+@pytest.mark.json_infra
 def test_subcall(
     state_test: StateTestFiller,
     env: Environment,

@@ -122,6 +122,7 @@ def initcode(fork: Fork, initcode_name: str) -> Initcode:
         pytest.param("over_limit_ones", marks=pytest.mark.exception_test),
     ],
 )
+@pytest.mark.json_infra
 def test_contract_creating_tx(
     state_test: StateTestFiller,
     env: Environment,

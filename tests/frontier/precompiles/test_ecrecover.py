@@ -343,6 +343,7 @@ from execution_testing.vm import Opcodes as Op
         ),
     ],
 )
+@pytest.mark.json_infra
 def test_precompiles(
     state_test: StateTestFiller,
     pre: Alloc,
