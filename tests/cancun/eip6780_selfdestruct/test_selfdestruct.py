@@ -195,6 +195,7 @@ def selfdestruct_code(
 @pytest.mark.valid_from("Shanghai")
 def test_create_selfdestruct_same_tx(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -334,12 +335,15 @@ def test_create_selfdestruct_same_tx(
     # retain the stored values for verification.
     entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     entry_code_address = tx.created_contract
@@ -368,6 +372,7 @@ def test_create_selfdestruct_same_tx(
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -469,12 +474,15 @@ def test_self_destructing_initcode(
             selfdestruct_contract_initial_balance,
         )
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     entry_code_address = tx.created_contract
@@ -500,6 +508,7 @@ def test_self_destructing_initcode(
 @pytest.mark.valid_from("Shanghai")
 def test_self_destructing_initcode_create_tx(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
     sender: EOA,
     tx_value: int,
@@ -516,12 +525,15 @@ def test_self_destructing_initcode_create_tx(
       - Different initial balances for the self-destructing contract
       - Different transaction value amounts
     """
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         sender=sender,
         value=tx_value,
         data=selfdestruct_code,
         to=None,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
     selfdestruct_contract_address = tx.created_contract
     if selfdestruct_contract_initial_balance > 0:
@@ -569,6 +581,7 @@ def test_self_destructing_initcode_create_tx(
 @pytest.mark.valid_from("Shanghai")
 def test_recreate_self_destructed_contract_different_txs(
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -649,6 +662,9 @@ def test_recreate_self_destructed_contract_different_txs(
         if sendall_recipient_addresses[i] == SELF_ADDRESS:
             sendall_recipient_addresses[i] = selfdestruct_contract_address
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     txs: List[Transaction] = []
     for i in range(recreate_times + 1):
         txs.append(
@@ -656,7 +672,7 @@ def test_recreate_self_destructed_contract_different_txs(
                 data=Hash(i),
                 sender=sender,
                 to=entry_code_address,
-                gas_limit=500_000,
+                gas_limit=gas_limit,
             )
         )
         entry_code_storage[i] = selfdestruct_contract_address
@@ -734,6 +750,7 @@ def test_recreate_self_destructed_contract_different_txs(
 @pytest.mark.valid_from("Shanghai")
 def test_selfdestruct_pre_existing(
     state_test: StateTestFiller,
+    fork: Fork,
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
@@ -839,12 +856,15 @@ def test_selfdestruct_pre_existing(
     # retain the stored values for verification.
     entry_code += Op.RETURN(32, 1)
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     entry_code_address = tx.created_contract
@@ -877,6 +897,7 @@ def test_selfdestruct_pre_existing(
 @pytest.mark.valid_from("Shanghai")
 def test_selfdestruct_created_same_block_different_tx(
     blockchain_test: BlockchainTestFiller,
+    fork: Fork,
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
@@ -959,20 +980,23 @@ def test_selfdestruct_created_same_block_different_tx(
     else:
         post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     txs = [
         Transaction(
             value=selfdestruct_contract_initial_balance,
             data=selfdestruct_contract_initcode,
             sender=sender,
             to=None,
-            gas_limit=500_000,
+            gas_limit=gas_limit,
         ),
         Transaction(
             value=entry_code_balance,
             data=entry_code,
             sender=sender,
             to=None,
-            gas_limit=500_000,
+            gas_limit=gas_limit,
         ),
     ]
 
@@ -986,6 +1010,7 @@ def test_selfdestruct_created_same_block_different_tx(
 @pytest.mark.valid_from("Shanghai")
 def test_calling_from_new_contract_to_pre_existing_contract(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
     sender: EOA,
     sendall_recipient_addresses: List[Address],
@@ -1113,12 +1138,15 @@ def test_calling_from_new_contract_to_pre_existing_contract(
         ),
     }
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     state_test(pre=pre, post=post, tx=tx)
@@ -1132,6 +1160,7 @@ def test_calling_from_new_contract_to_pre_existing_contract(
 @pytest.mark.valid_from("Shanghai")
 def test_calling_from_pre_existing_contract_to_new_contract(
     state_test: StateTestFiller,
+    fork: Fork,
     eip_enabled: bool,
     pre: Alloc,
     sender: EOA,
@@ -1247,12 +1276,15 @@ def test_calling_from_pre_existing_contract_to_new_contract(
     # retain the stored values for verification.
     entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     entry_code_address = tx.created_contract
@@ -1295,6 +1327,7 @@ def test_calling_from_pre_existing_contract_to_new_contract(
 @pytest.mark.valid_from("Shanghai")
 def test_create_selfdestruct_same_tx_increased_nonce(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
     sender: EOA,
     selfdestruct_code: Bytecode,
@@ -1430,12 +1463,15 @@ def test_create_selfdestruct_same_tx_increased_nonce(
     # retain the stored values for verification.
     entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
+    gas_limit = 1_000_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         value=entry_code_balance,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
     )
 
     entry_code_address = tx.created_contract
@@ -1476,6 +1512,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
 @pytest.mark.valid_from("Shanghai")
 def test_create_and_destroy_multiple_contracts_same_tx(
     state_test: StateTestFiller,
+    fork: Fork,
     pre: Alloc,
     sender: EOA,
     num_contracts: int,
@@ -1566,12 +1603,15 @@ def test_create_and_destroy_multiple_contracts_same_tx(
 
     entry_code += Op.RETURN(32, 1)
 
+    gas_limit = 1_000_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 5_000_000
     tx = Transaction(
         value=0,
         data=entry_code,
         sender=sender,
         to=None,
-        gas_limit=1_000_000,
+        gas_limit=gas_limit,
     )
 
     post: Dict[Address, Account] = {
