@@ -432,6 +432,7 @@ def test_extcodehash_dynamic_account_overwrite(
     state_test: StateTestFiller,
     pre: Alloc,
     target_exists: bool,
+    fork: Fork,
 ) -> None:
     """
     Test EXTCODEHASH of non-existent/no-code account,
@@ -536,11 +537,15 @@ def test_extcodehash_dynamic_account_overwrite(
     target_storage[target_storage_slot] = 1
 
     sender = pre.fund_eoa()
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
+
     tx = Transaction(
         sender=sender,
         to=caller_address,
         data=bytes(target_address).rjust(32, b"\0"),
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(

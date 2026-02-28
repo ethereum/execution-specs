@@ -792,6 +792,14 @@ class Frontier(
         )
 
     @classmethod
+    def cost_per_state_byte(cls, gas_limit: int = 0) -> int:
+        """
+        Calculate the state gas cost per byte based on the block gas limit.
+        """
+        del gas_limit
+        return 0
+
+    @classmethod
     def base_fee_max_change_denominator(cls) -> int:
         """Return the base fee max change denominator at a given fork."""
         raise NotImplementedError(

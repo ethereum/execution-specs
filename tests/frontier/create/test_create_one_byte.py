@@ -17,7 +17,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
-from execution_testing.forks import London
+from execution_testing.forks import London, Osaka
 
 
 @pytest.mark.ported_from(
@@ -48,6 +48,10 @@ def test_create_one_byte(
     sender = pre.fund_eoa()
     expect_post = Storage()
 
+    call_gas = 50_000
+    if fork.is_eip_enabled(eip_number=8037):
+        call_gas = 200_000
+
     # make a subcontract that deploys code, because deploy 0xef eats ALL gas
     create_contract = pre.deploy_contract(
         code=Op.MSTORE(0, Op.CALLDATALOAD(0))
@@ -64,7 +68,7 @@ def test_create_one_byte(
             [
                 Op.MSTORE8(23, opcode)  # correct the deploy byte
                 + Op.CALL(
-                    gas=50_000,
+                    gas=call_gas,
                     address=create_contract,
                     args_size=32,
                     ret_offset=32,
@@ -95,8 +99,17 @@ def test_create_one_byte(
             expect_post[opcode] = created_accounts[opcode]
     expect_post[256] = 1
 
+    # Osaka (EIP-7825) caps transaction gas limit at 16,777,216.
+    # Amsterdam (EIP-8037) adds state gas for CREATEs and SSTOREs.
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 60_000_000
+    elif fork >= Osaka:
+        gas_limit = 16_000_000
+    else:
+        gas_limit = 50_000_000
+
     tx = Transaction(
-        gas_limit=14_000_000,
+        gas_limit=gas_limit,
         to=code,
         data=b"",
         nonce=0,

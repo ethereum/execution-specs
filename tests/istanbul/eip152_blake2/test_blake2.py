@@ -564,7 +564,15 @@ def max_tx_gas_limit(fork: Fork) -> int:
 
 def tx_gas_limits(fork: Fork) -> List[int]:
     """List of tx gas limits."""
-    return [max_tx_gas_limit(fork), 90_000, 110_000, 200_000]
+    limits = [max_tx_gas_limit(fork), 90_000, 110_000, 200_000]
+    if fork.is_eip_enabled(eip_number=8037):
+        limits = [
+            max_tx_gas_limit(fork),
+            200_000,
+            300_000,
+            500_000,
+        ]
+    return limits
 
 
 @pytest.mark.valid_from("Istanbul")
