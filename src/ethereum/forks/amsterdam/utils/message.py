@@ -78,6 +78,7 @@ def prepare_message(
         caller=tx_env.origin,
         target=tx.to,
         gas=tx_env.gas,
+        state_gas_reservoir=tx_env.state_gas_reservoir,
         value=tx.value,
         data=msg_data,
         code=code,

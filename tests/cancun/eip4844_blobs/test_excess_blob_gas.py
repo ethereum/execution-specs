@@ -106,8 +106,8 @@ def tx_blob_data_cost(
 
 
 @pytest.fixture
-def tx_gas_limit() -> int:  # noqa: D103
-    return 45000
+def tx_gas_limit(fork: Fork) -> int:  # noqa: D103
+    return 500_000  # TODO: auto gas limit will remove this
 
 
 @pytest.fixture

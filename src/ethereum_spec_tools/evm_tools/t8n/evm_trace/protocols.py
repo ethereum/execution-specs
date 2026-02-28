@@ -52,3 +52,12 @@ class EvmWithReturnData(Evm, Protocol):
     """
 
     return_data: Bytes
+
+
+@runtime_checkable
+class EvmWithStateGas(EvmWithReturnData, Protocol):
+    """
+    The class describes the EVM interface for forks with state gas (EIP-8037).
+    """
+
+    state_gas_left: Uint

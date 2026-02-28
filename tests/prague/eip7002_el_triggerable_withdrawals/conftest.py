@@ -5,8 +5,13 @@ from typing import List
 
 import pytest
 from execution_testing import Alloc, Block, Fork, Header, Requests
+from execution_testing.forks import Amsterdam
 
-from .helpers import WithdrawalRequest, WithdrawalRequestInteractionBase
+from .helpers import (
+    WithdrawalRequest,
+    WithdrawalRequestContract,
+    WithdrawalRequestInteractionBase,
+)
 from .spec import Spec
 
 
@@ -86,6 +91,17 @@ def blocks(
     timestamp: int,
 ) -> List[Block]:
     """Return the list of blocks that should be included in the test."""
+    if fork >= Amsterdam:
+        gas_costs = fork.gas_costs()
+        for block_requests in blocks_withdrawal_requests:
+            for r in block_requests:
+                if isinstance(r, WithdrawalRequestContract):
+                    # Each withdrawal request writes 3 new storage slots
+                    # in the system contract queue (source, pubkey, amount).
+                    r.tx_gas_limit += (
+                        len(r.requests) * 3 * gas_costs.GAS_STORAGE_SET
+                    )
+
     blocks: List[Block] = []
 
     for block_requests, block_included_requests in zip_longest(  # type: ignore
