@@ -11,6 +11,7 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
 from ethereum.state import Root
 
 from .blocks import Block, Header
@@ -159,15 +160,27 @@ def new_payload_request_to_block(
     raise NotImplementedError
 
 
+def _decode_header(header_bytes: Bytes) -> Header | PreviousForkHeader:
+    """
+    Decode an RLP-encoded header, trying the current fork first and
+    falling back to the previous fork for transition-period headers.
+    """
+    try:
+        return rlp.decode_to(Header, header_bytes)
+    except rlp.DecodingError:
+        return rlp.decode_to(PreviousForkHeader, header_bytes)
+
+
 def validate_headers(
-    headers: List[Header],
+    headers: List[Header | PreviousForkHeader],
     encoded_headers: Tuple[Bytes, ...],
 ) -> List[Hash32]:
     """
     Validate that a sequence of encoded headers forms a contiguous chain.
 
     Each header's ``parent_hash`` must match the hash of the preceding
-    header. Return the list of block hashes.
+    header. Return the list of block hashes. Headers may come from
+    different forks during fork transitions.
     """
     block_hashes: List[Hash32] = [
         keccak256(header_bytes) for header_bytes in encoded_headers
@@ -187,9 +200,9 @@ def verify_stateless_new_payload(
     witness = stateless_input.witness
 
     # Validate the headers are contiguous and compute their
-    # blockhashes
+    # blockhashes.
     decoded_headers = [
-        rlp.decode_to(Header, header_bytes) for header_bytes in witness.headers
+        _decode_header(header_bytes) for header_bytes in witness.headers
     ]
     block_hashes = validate_headers(decoded_headers, witness.headers)
     parent_header = decoded_headers[-1]
