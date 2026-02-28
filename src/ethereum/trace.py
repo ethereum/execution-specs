@@ -151,6 +151,18 @@ class GasAndRefund:
     """
 
 
+@dataclass
+class StateGasAndRefund:
+    """
+    Trace event that is triggered when state gas is deducted.
+    """
+
+    state_gas_cost: int
+    """
+    Amount of state gas charged.
+    """
+
+
 TraceEvent = (
     TransactionStart
     | TransactionEnd
@@ -161,6 +173,7 @@ TraceEvent = (
     | OpException
     | EvmStop
     | GasAndRefund
+    | StateGasAndRefund
 )
 """
 All possible types of events that an [`EvmTracer`] is expected to handle.
