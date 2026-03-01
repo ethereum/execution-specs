@@ -15,9 +15,9 @@ from typing import (
     Tuple,
 )
 
-from coincurve.keys import PrivateKey
 from ethereum_types.bytes import Bytes20
 from ethereum_types.numeric import U256, Bytes32, Uint
+from spec256k1 import PrivateKey
 
 from execution_testing.base_types import (
     Account,

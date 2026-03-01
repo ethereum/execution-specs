@@ -18,7 +18,7 @@ from typing import (
     Union,
 )
 
-import coincurve
+import spec256k1
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
@@ -172,8 +172,8 @@ def secp256k1_sign(msg_hash: Hash32, secret_key: int) -> Tuple[U256, ...]:
     """
     Returns the signature of a message hash given the secret key.
     """
-    private_key = coincurve.PrivateKey.from_int(secret_key)
-    signature = private_key.sign_recoverable(msg_hash, hasher=None)
+    private_key = spec256k1.PrivateKey(secret_key.to_bytes(32, "big"))
+    signature = private_key.sign_recoverable(msg_hash)
 
     return (
         U256.from_be_bytes(signature[0:32]),
