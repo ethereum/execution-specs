@@ -7,7 +7,7 @@ import fnmatch
 import json
 import os
 from contextlib import AbstractContextManager
-from typing import Any, Final, TextIO, Tuple, Type, TypeVar
+from typing import Any, Final, Optional, TextIO, Tuple, Type, TypeVar
 
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U64, U256, Uint
@@ -171,16 +171,19 @@ class T8N(Load):
     def __init__(
         self,
         options: Any,
-        out_file: TextIO,
-        in_file: TextIO,
+        out_file: Optional[TextIO],
+        in_file: Optional[TextIO],
         cache: ForkCache,
+        stdin_dict: Optional[dict] = None,
     ) -> None:
         self.out_file = out_file
         self.in_file = in_file
         self.options = options
         forks = Hardfork.discover()
 
-        if "stdin" in (
+        if stdin_dict is not None:
+            stdin = stdin_dict
+        elif "stdin" in (
             options.input_env,
             options.input_alloc,
             options.input_txs,
@@ -571,7 +574,8 @@ class T8N(Load):
                 json.dump(opcode_count_results, f, indent=4)
             self.logger.info(f"Wrote opcode counts to {result_output_path}")
 
-        if json_output:
+        self.output_dict = json_output
+        if json_output and self.out_file is not None:
             json.dump(json_output, self.out_file, indent=4)
 
         return 0
