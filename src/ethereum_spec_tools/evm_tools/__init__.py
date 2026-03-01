@@ -64,10 +64,17 @@ def create_parser() -> argparse.ArgumentParser:
     return new_parser
 
 
+_cached_git_commit_hash: Optional[str] = None
+
+
 def get_git_commit_hash() -> str:
     """
     Run the 'git rev-parse HEAD' command to get the commit hash.
     """
+    global _cached_git_commit_hash
+    if _cached_git_commit_hash is not None:
+        return _cached_git_commit_hash
+
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -78,8 +85,8 @@ def get_git_commit_hash() -> str:
         )
 
         # Extract and return the commit hash
-        commit_hash = result.stdout.strip()
-        return commit_hash
+        _cached_git_commit_hash = result.stdout.strip()
+        return _cached_git_commit_hash
     # Handle errors (e.g., Git not found, not in a Git repository)
     except FileNotFoundError as e:
         return str(e)
