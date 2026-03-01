@@ -3,7 +3,7 @@ description: Install uv, Python, and tox for CI jobs
 inputs:
   python-version:
     description: Python version to install (e.g. "3.14", "pypy3.11")
-    default: "3.14"
+    default: "3.13"
   enable-cache:
     description: Enable uv dependency cache
     default: "true"
