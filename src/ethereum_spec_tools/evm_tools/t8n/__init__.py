@@ -189,6 +189,7 @@ class T8N(Load):
             options.input_txs,
             options.blob_parameters,
         ):
+            assert in_file is not None
             stdin = json.load(in_file)
         else:
             stdin = None

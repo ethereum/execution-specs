@@ -116,7 +116,10 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         t8n_options = parser.parse_args(t8n_args)
 
         t8n = T8N(
-            t8n_options, None, None, self.fork_cache,
+            t8n_options,
+            None,
+            None,
+            self.fork_cache,
             stdin_dict=request_data_json["input"],
         )
         t8n.run()

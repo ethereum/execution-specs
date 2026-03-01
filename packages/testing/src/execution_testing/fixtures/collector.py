@@ -7,7 +7,6 @@ import json
 import os
 import re
 import sys
-
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
@@ -31,7 +30,7 @@ from .file import Fixtures
 
 
 def _write_indented(out_f: "IO[str]", value: str) -> None:
-    """
+    r"""
     Write a JSON value with 4-space indentation after each newline.
 
     Equivalent to ``out_f.write(value.replace("\\n", "\\n    "))`` but
@@ -356,7 +355,8 @@ class FixtureCollector:
         fixture_id: str,
         fixture: BaseFixture,
     ) -> None:
-        """Stream a single fixture to its partial JSONL file.
+        """
+        Stream a single fixture to its partial JSONL file.
 
         Format: a JSON header with the key and byte length of the
         value, followed by a newline, the raw JSON value, and another
