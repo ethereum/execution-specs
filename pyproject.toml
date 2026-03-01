@@ -26,7 +26,7 @@ dependencies = [
     "py-ecc>=8.0.0b2,<9",
     "ethereum-types>=0.3.0,<0.4",
     "ethereum-rlp>=0.1.5,<0.2",
-    "cryptography>=45.0.1,<46",
+    "cryptography>=45.0.1,<47",
     "platformdirs>=4.2,<5",
     "libcst>=1.8,<2",
 ]
