@@ -151,7 +151,6 @@ Running the tests necessary to merge into the repository requires:
 
 - [`uv`](https://docs.astral.sh/uv/) package manager,
 - Python 3.11.x,
-- [PyPy](https://www.pypy.org/) [7.3.19](https://downloads.python.org/pypy/) or later.
 - `geth` installed and present in `$PATH`.
 
 `execution-specs` depends on a submodule that contains common tests that are run across all clients, so we need to clone the repo with the --recursive flag. Example:

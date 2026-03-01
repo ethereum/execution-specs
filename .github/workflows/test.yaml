@@ -77,23 +77,6 @@ jobs:
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  pypy3:
-    runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: static
-    steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/setup-uv
-        with:
-          python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
-      - name: Run pypy3 tests
-        run: tox -e pypy3
-        env:
-          PYPY_GC_MAX: "2G"
-          PYPY_GC_MIN: "1G"
-
   json_infra:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
@@ -127,20 +110,3 @@ jobs:
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
-  tests_pytest_pypy3:
-    runs-on: [self-hosted-ghr, size-xl-x64]
-    needs: static
-    steps:
-      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/setup-uv
-        with:
-          python-version: "pypy3.11"
-      - uses: ./.github/actions/setup-env
-      - uses: ./.github/actions/build-evmone
-      - name: Run pypy3 tests
-        run: tox -e tests_pytest_pypy3
-        env:
-          PYPY_GC_MAX: "2G"
-          PYPY_GC_MIN: "1G"

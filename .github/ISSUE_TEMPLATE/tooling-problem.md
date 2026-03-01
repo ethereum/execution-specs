@@ -9,7 +9,7 @@ assignees: ''
 
 ### Metadata
 
- * Python: <!-- Something like: CPython 3.7 or PyPy 7.3 -->
+ * Python: <!-- Something like: CPython 3.11 -->
  * Operating System: <!-- osx/linux/win/... -->
 
 #### `pip freeze`
