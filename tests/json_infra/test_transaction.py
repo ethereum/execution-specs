@@ -1,5 +1,6 @@
 """Run the transaction tests from json fixtures."""
 
+from pathlib import Path
 from typing import Callable
 
 import pytest
@@ -19,6 +20,13 @@ from .helpers.load_transaction_tests import (
 )
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+
+if not Path(ETHEREUM_TESTS_PATH).exists():
+    pytest.skip(
+        "ethereum_tests fixture set not available; "
+        "run with --fixture-source=download to populate it",
+        allow_module_level=True,
+    )
 
 test_dir = f"{ETHEREUM_TESTS_PATH}/TransactionTests"
 

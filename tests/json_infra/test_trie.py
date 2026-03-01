@@ -2,6 +2,7 @@
 
 import importlib
 import json
+from pathlib import Path
 from typing import Any, Optional
 
 import pytest
@@ -13,6 +14,13 @@ from . import FORKS, TEST_FIXTURES
 from .stash_keys import desired_forks_key
 
 FIXTURE_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+
+if not Path(FIXTURE_PATH).exists():
+    pytest.skip(
+        "ethereum_tests fixture set not available; "
+        "run with --fixture-source=download to populate it",
+        allow_module_level=True,
+    )
 
 forks = FORKS.keys()
 

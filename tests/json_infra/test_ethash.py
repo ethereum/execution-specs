@@ -3,6 +3,7 @@
 import importlib
 import json
 import pkgutil
+from pathlib import Path
 from typing import Any, Dict, List, cast
 
 import pytest
@@ -29,6 +30,13 @@ from .helpers.load_blockchain_tests import Load
 from .stash_keys import desired_forks_key
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+
+if not Path(ETHEREUM_TESTS_PATH).exists():
+    pytest.skip(
+        "ethereum_tests fixture set not available; "
+        "run with --fixture-source=download to populate it",
+        allow_module_level=True,
+    )
 
 POW_FORKS = [
     "Frontier",

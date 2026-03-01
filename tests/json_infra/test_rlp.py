@@ -2,6 +2,7 @@
 
 import json
 import os
+from pathlib import Path
 from typing import List, Sequence, Tuple
 
 import pytest
@@ -13,6 +14,13 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 from . import TEST_FIXTURES
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+
+if not Path(ETHEREUM_TESTS_PATH).exists():
+    pytest.skip(
+        "ethereum_tests fixture set not available; "
+        "run with --fixture-source=download to populate it",
+        allow_module_level=True,
+    )
 
 
 #

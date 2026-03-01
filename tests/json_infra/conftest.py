@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import subprocess
 import tarfile
 from glob import glob
 from pathlib import Path
@@ -116,6 +117,21 @@ def pytest_addoption(parser: Parser) -> None:
         dest="tests_path",
         type=Path,
         help="Path to a file containing test ids, one per line",
+    )
+
+    parser.addoption(
+        "--fixture-source",
+        dest="fixture_source",
+        default="fill",
+        choices=["fill", "download", "local"],
+        help=(
+            "Controls how test fixtures are obtained before running. "
+            "'fill' (default): fill the json_infra-marked tests and consume "
+            "the generated fixtures. "
+            "'download': download external fixture sets (legacy behaviour). "
+            "'local': run against whatever fixtures are already present in "
+            "tests/json_infra/fixtures without any setup."
+        ),
     )
 
 
@@ -333,32 +349,70 @@ def pytest_sessionstart(session: Session) -> None:
     assert fixture_lock not in stash
     stash[fixture_lock] = lock_file
 
-    with _FixturesDownloader(session.config.rootpath) as downloader:
-        for _, props in TEST_FIXTURES.items():
-            fixture_path = props["fixture_path"]
+    fixtures_dir = session.config.rootpath / "tests/json_infra/fixtures"
+    fixture_source = session.config.getoption("fixture_source")
 
-            os.makedirs(os.path.dirname(fixture_path), exist_ok=True)
+    if fixture_source == "fill":
+        shutil.rmtree(fixtures_dir, ignore_errors=True)
+        output_dir = fixtures_dir / "locally_filled"
+        subprocess.run(
+            [
+                "fill",
+                "-m",
+                "json_infra and not slow and not benchmark"
+                " and not derived_test",
+                "-n",
+                str(os.cpu_count() or 6),
+                "--dist=loadgroup",
+                "--skip-index",
+                "--clean",
+                "--until",
+                "Amsterdam",
+                f"--output={output_dir}",
+                "tests",
+            ],
+            check=True,
+            cwd=session.config.rootpath,
+        )
+    elif fixture_source == "download":
+        shutil.rmtree(fixtures_dir, ignore_errors=True)
+        with _FixturesDownloader(session.config.rootpath) as downloader:
+            for _, props in TEST_FIXTURES.items():
+                fixture_path = props["fixture_path"]
 
-            if "commit_hash" in props:
-                downloader.fetch_git(
-                    props["url"], fixture_path, props["commit_hash"]
-                )
-            else:
-                downloader.fetch_http(
-                    props["url"],
-                    fixture_path,
-                )
+                os.makedirs(os.path.dirname(fixture_path), exist_ok=True)
 
-            # Remove any python files in the downloaded files to avoid
-            # importing them.
-            for python_file in glob(
-                os.path.join(fixture_path, "**/*.py"), recursive=True
-            ):
-                try:
-                    os.unlink(python_file)
-                except FileNotFoundError:
-                    # Not breaking error, another process deleted it first
-                    pass
+                if "commit_hash" in props:
+                    downloader.fetch_git(
+                        props["url"], fixture_path, props["commit_hash"]
+                    )
+                else:
+                    downloader.fetch_http(
+                        props["url"],
+                        fixture_path,
+                    )
+
+                # Remove any python files in the downloaded files to avoid
+                # importing them.
+                for python_file in glob(
+                    os.path.join(fixture_path, "**/*.py"), recursive=True
+                ):
+                    try:
+                        os.unlink(python_file)
+                    except FileNotFoundError:
+                        # Not breaking error, another process deleted it first
+                        pass
+    else:
+        # fixture_source == "local": use whatever fixtures are already present.
+        # If the directory doesn't exist there are no fixtures to run against;
+        # warn clearly so the user knows to run fill or download first.
+        if not fixtures_dir.exists() or not any(fixtures_dir.rglob("*.json")):
+            print(
+                "WARNING: --fixture-source=local selected but no JSON"
+                f" fixtures found under {fixtures_dir}. Run without"
+                " --fixture-source (fill mode) or with"
+                " --fixture-source=download to populate fixtures first."
+            )
 
 
 def pytest_sessionfinish(session: Session, exitstatus: int) -> None:
