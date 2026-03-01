@@ -197,6 +197,13 @@ class Bytes(bytes, ToStringSchema):
 
     def hex(self, *args: Any, **kwargs: Any) -> str:
         """Return the hexadecimal representation of the bytes."""
+        if not args and not kwargs:
+            try:
+                return self._hex_cache
+            except AttributeError:
+                h = "0x" + super().hex()
+                self._hex_cache = h
+                return h
         return "0x" + super().hex(*args, **kwargs)
 
     def keccak256(self) -> "Hash":
