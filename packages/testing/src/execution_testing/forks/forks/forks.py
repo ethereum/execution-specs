@@ -756,13 +756,12 @@ class Frontier(BaseFork, solc_name="homestead"):
         def fn(*, data: BytesConvertible, floor: bool = False) -> int:
             del floor
 
-            cost = 0
-            for b in Bytes(data):
-                if b == 0:
-                    cost += gas_costs.GAS_TX_DATA_PER_ZERO
-                else:
-                    cost += gas_costs.GAS_TX_DATA_PER_NON_ZERO
-            return cost
+            raw = bytes(Bytes(data))
+            zeros = raw.count(0)
+            return (
+                zeros * gas_costs.GAS_TX_DATA_PER_ZERO
+                + (len(raw) - zeros) * gas_costs.GAS_TX_DATA_PER_NON_ZERO
+            )
 
         return fn
 
@@ -2836,12 +2835,9 @@ class Prague(Cancun):
         )
 
         def fn(*, data: BytesConvertible, floor: bool = False) -> int:
-            tokens = 0
-            for b in Bytes(data):
-                if b == 0:
-                    tokens += 1
-                else:
-                    tokens += 4
+            raw = bytes(Bytes(data))
+            zeros = raw.count(0)
+            tokens = zeros + (len(raw) - zeros) * 4
             if floor:
                 return tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
             return tokens * gas_costs.GAS_TX_DATA_TOKEN_STANDARD
