@@ -3,6 +3,7 @@ The state trie is the structure responsible for storing Ethereum state.
 """
 
 import copy
+import hashlib
 from dataclasses import dataclass, field
 from typing import (
     Callable,
@@ -18,7 +19,6 @@ from typing import (
     cast,
 )
 
-import hashlib
 from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable

@@ -1,5 +1,6 @@
 """Basic type primitives used to define other types."""
 
+import hashlib
 from abc import ABCMeta
 from hashlib import sha256
 from re import sub
@@ -13,7 +14,6 @@ from typing import (
     TypeVar,
 )
 
-import hashlib
 from pydantic import GetCoreSchemaHandler, StringConstraints
 from pydantic_core.core_schema import (
     PlainValidatorFunctionSchema,
@@ -180,6 +180,8 @@ NumberBoundTypeVar = TypeVar(
 
 class Bytes(bytes, ToStringSchema):
     """Class that helps represent bytes of variable length in tests."""
+
+    _hex_cache: str
 
     def __new__(cls, input_bytes: BytesConvertible = b"") -> Self:
         """Create a new Bytes object."""
