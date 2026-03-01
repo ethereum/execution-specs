@@ -29,6 +29,24 @@ from .consume import FixtureConsumer
 from .file import Fixtures
 
 
+def _write_indented(out_f: "IO[str]", value: str) -> None:
+    """
+    Write a JSON value with 4-space indentation after each newline.
+
+    Equivalent to ``out_f.write(value.replace("\\n", "\\n    "))`` but
+    streams line-by-line to avoid allocating a full copy of the string.
+    """
+    start = 0
+    while True:
+        nl = value.find("\n", start)
+        if nl == -1:
+            out_f.write(value[start:])
+            return
+        out_f.write(value[start : nl + 1])
+        out_f.write("    ")
+        start = nl + 1
+
+
 def merge_partial_fixture_files(output_dir: Path) -> None:
     """
     Merge all partial fixture JSONL files into final JSON fixture files.
@@ -62,25 +80,35 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
 
     # Merge each group into its target file
     for target_path, partials in partials_by_target.items():
-        # Read partials sequentially into dict (one at a time)
+        # Read partials sequentially into dict (one at a time).
+        # Format: each entry is a JSON header line {"k": key, "n": nbytes}
+        # followed by exactly *nbytes* characters of raw JSON value,
+        # then a trailing newline.
         entries: Dict[str, str] = {}
         for partial in partials:
             with open(partial) as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        entry = json.loads(line)
-                        entries[entry["k"]] = entry["v"]
+                for header_line in f:
+                    if len(header_line) <= 1:
+                        continue
+                    header = json.loads(header_line)
+                    value = f.read(header["n"])
+                    f.readline()  # consume trailing newline
+                    entries[header["k"]] = value
 
-        # Write sorted entries to output file
+        # Write sorted entries to output file, popping each value
+        # to free memory as we go instead of holding everything
+        # until the end.
         with open(target_path, "w") as out_f:
             out_f.write("{\n")
             sorted_keys = sorted(entries.keys())
             last_idx = len(sorted_keys) - 1
             for i, key in enumerate(sorted_keys):
-                key_json = json.dumps(key)
-                value_indented = entries[key].replace("\n", "\n    ")
-                out_f.write(f"    {key_json}: {value_indented}")
+                value = entries.pop(key)
+                out_f.write("    ")
+                out_f.write(json.dumps(key))
+                out_f.write(": ")
+                _write_indented(out_f, value)
+                del value
                 out_f.write(",\n" if i < last_idx else "\n")
             out_f.write("}")
 
@@ -329,12 +357,21 @@ class FixtureCollector:
         fixture_id: str,
         fixture: BaseFixture,
     ) -> None:
-        """Stream a single fixture to its partial JSONL file."""
+        """Stream a single fixture to its partial JSONL file.
+
+        Format: a JSON header with the key and byte length of the
+        value, followed by a newline, the raw JSON value, and another
+        newline.  This avoids embedding the value inside a JSON
+        string (which escapes every quote and newline, roughly
+        doublng the size).
+        """
         value = json.dumps(fixture.json_dict_with_info(), indent=4)
-        line = json.dumps({"k": fixture_id, "v": value}) + "\n"
 
         f = self._get_partial_fixture_file(fixture_path)
-        f.write(line)
+        f.write(json.dumps({"k": fixture_id, "n": len(value)}))
+        f.write("\n")
+        f.write(value)
+        f.write("\n")
         f.flush()  # Ensure data is written immediately
 
     def _get_partial_index_file(self) -> "IO[str]":
