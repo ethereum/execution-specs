@@ -24,6 +24,7 @@ dependencies = [
     "coincurve>=20,<21",
     "typing_extensions>=4.4",
     "py-ecc>=8.0.0b2,<9",
+    "py-arkworks-bls12381>=0.4.0,<0.5",
     "ethereum-types>=0.3.0,<0.4",
     "ethereum-rlp>=0.1.5,<0.2",
     "cryptography>=45.0.1,<46",
