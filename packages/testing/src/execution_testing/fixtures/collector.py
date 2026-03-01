@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
@@ -81,16 +82,14 @@ def merge_partial_fixture_files(output_dir: Path) -> None:
     # Merge each group into its target file
     for target_path, partials in partials_by_target.items():
         # Read partials sequentially into dict (one at a time).
-        # Format: each entry is a JSON header line {"k": key, "n": nbytes}
-        # followed by exactly *nbytes* characters of raw JSON value,
-        # then a trailing newline.
+        # Format: each entry is a JSON header {"k": key, "n": length}
+        # on one line, followed by exactly `n` characters of raw JSON
+        # value, then a newline.
         entries: Dict[str, str] = {}
         for partial in partials:
             with open(partial) as f:
-                for header_line in f:
-                    if len(header_line) <= 1:
-                        continue
-                    header = json.loads(header_line)
+                for line in f:
+                    header = json.loads(line)
                     value = f.read(header["n"])
                     f.readline()  # consume trailing newline
                     entries[header["k"]] = value
