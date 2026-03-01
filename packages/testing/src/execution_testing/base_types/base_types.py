@@ -13,7 +13,7 @@ from typing import (
     TypeVar,
 )
 
-from Crypto.Hash import keccak
+import hashlib
 from pydantic import GetCoreSchemaHandler, StringConstraints
 from pydantic_core.core_schema import (
     PlainValidatorFunctionSchema,
@@ -208,8 +208,7 @@ class Bytes(bytes, ToStringSchema):
 
     def keccak256(self) -> "Hash":
         """Return the keccak256 hash of the opcode byte representation."""
-        k = keccak.new(digest_bits=256)
-        return Hash(k.update(bytes(self)).digest())
+        return Hash(hashlib.new("keccak-256", bytes(self)).digest())
 
     def sha256(self) -> "Hash":
         """Return the sha256 hash of the opcode byte representation."""

@@ -18,7 +18,7 @@ from typing import (
     cast,
 )
 
-from Crypto.Hash import keccak
+import hashlib
 from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
@@ -38,8 +38,7 @@ class FrontierAccount:
 
 def keccak256(buffer: Bytes) -> Bytes32:
     """Compute the keccak256 hash of the input `buffer`."""
-    k = keccak.new(digest_bits=256)
-    return Bytes32(k.update(buffer).digest())
+    return Bytes32(hashlib.new("keccak-256", buffer).digest())
 
 
 def encode_account(
