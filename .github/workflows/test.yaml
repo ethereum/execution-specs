@@ -87,7 +87,7 @@ jobs:
           fetch-depth: 0  # Fetch full history for commit comparison
       - uses: ./.github/actions/setup-uv
         with:
-          python-version: "3.13"
+          python-version: "3.11"
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/setup-geth
       - uses: ./.github/actions/get-changed-files
