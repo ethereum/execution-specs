@@ -172,23 +172,26 @@ def _decode_header(header_bytes: Bytes) -> Header | PreviousForkHeader:
 
 
 def validate_headers(
-    headers: List[Header | PreviousForkHeader],
     encoded_headers: Tuple[Bytes, ...],
-) -> List[Hash32]:
+) -> Tuple[List[Header | PreviousForkHeader], List[Hash32]]:
     """
     Validate that a sequence of encoded headers forms a contiguous chain.
 
     Each header's ``parent_hash`` must match the hash of the preceding
-    header. Return the list of block hashes. Headers may come from
-    different forks during fork transitions.
+    header. Return the decoded headers and block hashes. Headers may
+    come from different forks during fork transitions.
     """
+    assert len(encoded_headers) <= 256, "Too many headers in witness"
+    headers = [
+        _decode_header(header_bytes) for header_bytes in encoded_headers
+    ]
     block_hashes: List[Hash32] = [
         keccak256(header_bytes) for header_bytes in encoded_headers
     ]
     for i in range(1, len(headers)):
         if headers[i].parent_hash != block_hashes[i - 1]:
             raise Exception("Witness headers are not contiguous")
-    return block_hashes
+    return headers, block_hashes
 
 
 def verify_stateless_new_payload(
@@ -201,10 +204,7 @@ def verify_stateless_new_payload(
 
     # Validate the headers are contiguous and compute their
     # blockhashes.
-    decoded_headers = [
-        _decode_header(header_bytes) for header_bytes in witness.headers
-    ]
-    block_hashes = validate_headers(decoded_headers, witness.headers)
+    decoded_headers, block_hashes = validate_headers(witness.headers)
     parent_header = decoded_headers[-1]
 
     chain_context = ChainContext(
