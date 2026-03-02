@@ -834,13 +834,9 @@ def test_extcodehash_after_selfdestruct(
     post: dict[Address, Account | None] = {
         code_address: Account(storage=storage),
     }
-    if create_opcode is None:
-        if fork >= Cancun:
-            # EIP-6780: pre-existing account persists after SELFDESTRUCT.
-            post[target_address] = Account(balance=0, code=target_runtime)
-        else:
-            # Pre-Cancun: SELFDESTRUCT deletes the account.
-            post[target_address] = Account.NONEXISTENT
+    if create_opcode is None and fork >= Cancun:
+        # EIP-6780: pre-existing account persists after SELFDESTRUCT.
+        post[target_address] = Account(balance=0, code=target_runtime)
     else:
         post[target_address] = Account.NONEXISTENT
 
