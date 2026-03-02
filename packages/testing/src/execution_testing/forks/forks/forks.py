@@ -2836,7 +2836,7 @@ class Prague(Cancun):
         )
 
         def fn(*, data: BytesConvertible, floor: bool = False) -> int:
-            raw = bytes(Bytes(data))
+            raw = Bytes(data)
             num_zeros = raw.count(0)
             num_non_zeros = len(raw) - num_zeros
             tokens = num_zeros + num_non_zeros * 4
