@@ -847,6 +847,7 @@ def test_extcodehash_after_selfdestruct(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDynamicArgumentFiller.json",  # noqa: E501
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2379"],
 )
 @pytest.mark.parametrize(
     "target_type",
@@ -880,7 +881,7 @@ def test_extcodehash_dynamic_argument(
         expected_size = 0
     elif target_type == "precompile_with_balance":
         target_address = Address(2)
-        pre.fund_address(target_address, 10)
+        pre.fund_address(target_address, 1)
         expected_hash = keccak256(b"")
         expected_size = 0
     elif target_type == "contract":
@@ -888,11 +889,11 @@ def test_extcodehash_dynamic_argument(
         expected_hash = keccak256(target_code)
         expected_size = len(target_code)
     elif target_type == "eoa":
-        target_address = pre.fund_eoa()
+        target_address = pre.fund_eoa(amount=1)
         expected_hash = keccak256(b"")
         expected_size = 0
     else:  # nonexistent
-        target_address = Address(0xDEAD)
+        target_address = pre.fund_eoa(amount=0)
         expected_hash = 0
         expected_size = 0
 
