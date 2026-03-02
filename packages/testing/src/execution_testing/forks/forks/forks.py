@@ -140,7 +140,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_LOW=5,
             GAS_MID=8,
             GAS_HIGH=10,
-            GAS_WARM_ACCOUNT_ACCESS=100,
+            GAS_WARM_ACCESS=100,
             GAS_COLD_ACCOUNT_ACCESS=2_600,
             GAS_TX_ACCESS_LIST_ADDRESS=2_400,
             GAS_TX_ACCESS_LIST_STORAGE_KEY=1_900,
@@ -269,7 +269,7 @@ class Frontier(BaseFork, solc_name="homestead"):
 
             # Add account access cost based on warmth
             if opcode.metadata["address_warm"]:
-                access_cost = gas_costs.GAS_WARM_ACCOUNT_ACCESS
+                access_cost = gas_costs.GAS_WARM_ACCESS
             else:
                 access_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
@@ -672,7 +672,7 @@ class Frontier(BaseFork, solc_name="homestead"):
 
         # Base cost depends on address warmth
         if metadata["address_warm"]:
-            base_cost = gas_costs.GAS_WARM_ACCOUNT_ACCESS
+            base_cost = gas_costs.GAS_WARM_ACCESS
         else:
             base_cost = gas_costs.GAS_COLD_ACCOUNT_ACCESS
 
@@ -2860,7 +2860,7 @@ class Prague(Cancun):
 
         if metadata["delegated_address"] or metadata["delegated_address_warm"]:
             if metadata["delegated_address_warm"]:
-                base_cost += gas_costs.GAS_WARM_ACCOUNT_ACCESS
+                base_cost += gas_costs.GAS_WARM_ACCESS
             else:
                 base_cost += gas_costs.GAS_COLD_ACCOUNT_ACCESS
 

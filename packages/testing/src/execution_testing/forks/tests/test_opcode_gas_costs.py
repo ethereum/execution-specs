@@ -77,7 +77,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.BALANCE(address_warm=True),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS,
+            Osaka.gas_costs().GAS_WARM_ACCESS,
             id="balance_warm_address",
         ),
         # CALLDATACOPY tests
@@ -120,7 +120,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.EXTCODESIZE(address_warm=True),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS,
+            Osaka.gas_costs().GAS_WARM_ACCESS,
             id="extcodesize_warm",
         ),
         # EXTCODECOPY tests
@@ -129,7 +129,7 @@ from ..helpers import Fork
             Op.EXTCODECOPY(
                 address_warm=True, data_size=32, new_memory_size=32
             ),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.gas_costs().GAS_COPY * 1
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="extcodecopy_warm",
@@ -154,7 +154,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.EXTCODEHASH(address_warm=True),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS,
+            Osaka.gas_costs().GAS_WARM_ACCESS,
             id="extcodehash_warm",
         ),
         # RETURNDATACOPY tests
@@ -289,7 +289,7 @@ from ..helpers import Fork
             Op.CALL(
                 address_warm=True, value_transfer=False, new_memory_size=64
             ),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.memory_expansion_gas_calculator()(new_bytes=64),
             id="call_warm_no_value",
         ),
@@ -308,7 +308,7 @@ from ..helpers import Fork
                 delegated_address_warm=True,
             ),
             Osaka.gas_costs().GAS_COLD_ACCOUNT_ACCESS
-            + Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS,
+            + Osaka.gas_costs().GAS_WARM_ACCESS,
             id="call_warm_delegated_address",
         ),
         pytest.param(
@@ -358,7 +358,7 @@ from ..helpers import Fork
             Op.CALLCODE(
                 address_warm=True, value_transfer=False, new_memory_size=32
             ),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="callcode_warm",
         ),
@@ -366,7 +366,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.DELEGATECALL(address_warm=True, new_memory_size=32),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="delegatecall_warm",
         ),
@@ -381,7 +381,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.STATICCALL(address_warm=True, new_memory_size=32),
-            Osaka.gas_costs().GAS_WARM_ACCOUNT_ACCESS
+            Osaka.gas_costs().GAS_WARM_ACCESS
             + Osaka.memory_expansion_gas_calculator()(new_bytes=32),
             id="staticcall_warm",
         ),

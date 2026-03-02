@@ -22,7 +22,7 @@ from ethereum.crypto.kzg import (
 
 from ...vm import Evm
 from ...vm.exceptions import KZGProofError
-from ...vm.gas import GAS_POINT_EVALUATION, charge_gas
+from ...vm.gas import GAS_PRECOMPILE_POINT_EVALUATION, charge_gas
 
 FIELD_ELEMENTS_PER_BLOB = 4096
 BLS_MODULUS = 52435875175126190479447740508185965837690552500527637822603658699938581184513  # noqa: E501
@@ -51,7 +51,7 @@ def point_evaluation(evm: Evm) -> None:
     proof = Bytes48(data[144:192])
 
     # GAS
-    charge_gas(evm, GAS_POINT_EVALUATION)
+    charge_gas(evm, GAS_PRECOMPILE_POINT_EVALUATION)
     if kzg_commitment_to_versioned_hash(commitment) != versioned_hash:
         raise KZGProofError
 
