@@ -462,3 +462,30 @@ def test_get_blobs_nonexisting_getblobsv3(
         nonexisting_blob_hashes=nonexisting_blob_hashes,
         get_blobs_version=3,
     )
+
+
+# disable real blobs for this test (fixture is autouse so overwrite with empty)
+@pytest.mark.parametrize("txs_blobs", [[]], ids=["no_blobs"])
+@pytest.mark.exception_test
+@pytest.mark.valid_from("Osaka")
+def test_get_blobs_only_nonexisting_getblobsv3(
+    blobs_test: BlobsTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that getBlobsV3 returns an array of null entries (one per requested
+    hash) when all requested blobs are non-existing, rather than returning a
+    single null for the entire response.
+    """
+    nonexisting_blob_hashes = [
+        Hash(sha256(str(i).encode()).digest()) for i in range(5)
+    ]
+    print("Testing getBlobsV3 (only non-existing blobs)")
+    for i, nh in enumerate(nonexisting_blob_hashes):
+        print(f"  non-existing {i}: {nh.hex()}")
+    blobs_test(
+        pre=pre,
+        txs=[],
+        nonexisting_blob_hashes=nonexisting_blob_hashes,
+        get_blobs_version=3,
+    )
