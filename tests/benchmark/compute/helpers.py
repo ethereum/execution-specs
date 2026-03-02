@@ -67,6 +67,14 @@ class CallDataOrigin:
     CALL = auto()
 
 
+class AccountQueryMode(Enum):
+    """Address generation strategy for account query benchmarks."""
+
+    CREATE2_FACTORY = auto()
+    CREATE_FACTORY = auto()
+    SEQUENTIAL = auto()
+
+
 def neg(x: int) -> int:
     """Negate the given integer in the two's complement 256-bit range."""
     assert 0 <= x < 2**256

@@ -9,15 +9,20 @@ abstract: BloatNet bench cases extracted from https://hackmd.io/9icZeLN7R0Sk5mIj
 import pytest
 from execution_testing import (
     AccessList,
+    Address,
     Alloc,
     BenchmarkTestFiller,
     Block,
     Bytecode,
     Conditional,
     Create2PreimageLayout,
+    CreatePreimageLayout,
     Fork,
     Hash,
+    IteratingBytecode,
     Op,
+    SequentialAddressLayout,
+    TestPhaseManager,
     Transaction,
     While,
 )
@@ -29,6 +34,7 @@ from tests.benchmark.stateful.helpers import (
     FACTORY_STUBS,
     MIXED_TOKENS,
     build_benchmark_txs,
+    CacheStrategy,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -651,4 +657,184 @@ def test_mixed_sload_sstore(
         blocks=[Block(txs=txs)],
         expected_benchmark_gas_used=total_gas_consumed,
         skip_gas_used_validation=True,
+    )
+
+
+def account_access_params() -> list:
+    """
+    Generate (opcode, value_sent) pairs.
+    """
+    params = []
+    for op in [Op.CALL, Op.CALLCODE]:
+        params.append(pytest.param(op, 0))
+        params.append(pytest.param(op, 1))
+
+    for op in [
+        Op.BALANCE,
+        Op.EXTCODECOPY,
+        Op.EXTCODESIZE,
+        Op.STATICCALL,
+        Op.DELEGATECALL,
+    ]:
+        params.append(pytest.param(op, 0))
+
+    return params
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
+@pytest.mark.parametrize(
+    "existing_account",
+    [True, False],
+)
+@pytest.mark.parametrize("opcode,value_sent", account_access_params())
+def test_account_access(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+    value_sent: int,
+    gas_benchmark_value: int,
+    fixed_opcode_count: int | None,
+    existing_account: bool,
+    cache_strategy: CacheStrategy,
+) -> None:
+    """Benchmark account access with caching strategies."""
+    address_retriever: Bytecode
+    if existing_account:
+        # Use ENS registry as target
+        target_address = Address(0x6090A6E47849629B7245DFA1CA21D94CD15878EF)
+        address_retriever = CreatePreimageLayout(
+            sender_address=target_address,
+            nonce=1,
+        )
+        increment_op = address_retriever.increment_nonce_op()
+    else:
+        address_retriever = SequentialAddressLayout()
+        increment_op = address_retriever.increment_address_op()
+
+    setup_code: Bytecode = address_retriever
+
+    cache_op = (
+        Op.POP(
+            Op.BALANCE(
+                address=address_retriever.address_op(),
+                # Gas accounting
+                address_warm=False,
+            )
+        )
+        if cache_strategy == CacheStrategy.CACHE_TX
+        else Bytecode()
+    )
+
+    access_warm = cache_strategy == CacheStrategy.CACHE_TX
+
+    if opcode == Op.EXTCODECOPY:
+        attack_call = opcode(
+            address=address_retriever.address_op(),
+            size=1024,
+            # Gas accounting
+            address_warm=access_warm,
+        )
+    if opcode in (Op.CALL, Op.CALLCODE):
+        attack_call = Op.POP(
+            opcode(
+                address=address_retriever.address_op(),
+                gas=1,
+                value=value_sent,
+                # Gas accounting
+                address_warm=access_warm,
+            )
+        )
+    elif opcode in (Op.STATICCALL, Op.DELEGATECALL):
+        attack_call = Op.POP(
+            opcode(
+                address=address_retriever.address_op(),
+                gas=1,
+                args_size=1024,
+                # Gas accounting
+                address_warm=access_warm,
+            )
+        )
+    else:
+        # BALANCE, EXTCODESIZE, EXTCODEHASH
+        attack_call = Op.POP(
+            opcode(
+                address=address_retriever.address_op(),
+                # Gas accounting
+                address_warm=access_warm,
+            )
+        )
+
+    loop_code = While(
+        body=cache_op + attack_call + increment_op,
+    )
+
+    attack_code = IteratingBytecode(
+        setup=setup_code,
+        iterating=loop_code,
+        # Since the target contract is guaranteed to have a STOP as the first
+        # instruction, we can use a STOP as the iterating subcall code.
+        iterating_subcall=Op.STOP,
+    )
+
+    # Calldata generator for each transaction of the iterating bytecode.
+    def calldata(iteration_count: int, start_iteration: int) -> bytes:
+        del iteration_count
+        return Hash(start_iteration)
+
+    attack_address = pre.deploy_contract(code=attack_code, balance=10**21)
+
+    post: dict = {}
+    cache_txs = []
+
+    with TestPhaseManager.execution():
+        attack_sender = pre.fund_eoa()
+        if fixed_opcode_count is not None:
+            attack_txs = list(
+                attack_code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=int(fixed_opcode_count * 1000),
+                    sender=attack_sender,
+                    to=attack_address,
+                    calldata=calldata,
+                )
+            )
+        else:
+            attack_txs = list(
+                attack_code.transactions_by_gas_limit(
+                    fork=fork,
+                    gas_limit=gas_benchmark_value,
+                    sender=attack_sender,
+                    to=attack_address,
+                    calldata=calldata,
+                )
+            )
+        total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
+
+    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+        with TestPhaseManager.setup():
+            cache_sender = pre.fund_eoa()
+            for tx in attack_txs:
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=tx.gas_limit,
+                        data=tx.data,
+                        to=attack_address,
+                        sender=cache_sender,
+                    )
+                )
+
+    blocks = (
+        [Block(txs=attack_txs)]
+        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
+        else [Block(txs=cache_txs), Block(txs=attack_txs)]
+    )
+
+    benchmark_test(
+        pre=pre,
+        post=post,
+        blocks=blocks,
+        target_opcode=opcode,
+        expected_benchmark_gas_used=total_gas_cost,
     )
