@@ -31,6 +31,81 @@ from .base import BaseExecute, ExecuteResult
 logger = get_logger(__name__)
 
 
+def _validate_blob_and_proof(
+    expected_blob: BlobAndProofV1 | BlobAndProofV2 | None,
+    received_blob: BlobAndProofV1 | BlobAndProofV2 | None,
+    index: int,
+) -> None:
+    """
+    Validate that a received blob and proof match the expected values.
+
+    When expected is None (non-existing blob hash), the received blob must
+    also be None. When expected is not None, the received blob must match.
+    Raise ValueError with a detailed message on mismatch.
+    """
+    if expected_blob is None:
+        if received_blob is None:
+            logger.info(
+                f"Blob at index {index} correctly returned null "
+                "(non-existing blob hash)"
+            )
+            return
+        raise ValueError(
+            f"Blob at index {index} should not exist but "
+            f"client returned: {received_blob}"
+        )
+    if received_blob is None:
+        raise ValueError(f"Received blob at index {index} is empty.")
+    if isinstance(expected_blob, BlobAndProofV1):
+        if not isinstance(received_blob, BlobAndProofV1):
+            raise ValueError(
+                f"Received blob at index {index} is not a BlobAndProofV1."
+            )
+        if expected_blob.blob != received_blob.blob:
+            raise ValueError(f"Blob mismatch at index {index}.")
+        if expected_blob.proof != received_blob.proof:
+            raise ValueError(f"Proof mismatch at index {index}.")
+    elif isinstance(expected_blob, BlobAndProofV2):
+        if not isinstance(received_blob, BlobAndProofV2):
+            raise ValueError(
+                f"Received blob at index {index} is not a BlobAndProofV2."
+            )
+        if expected_blob.blob != received_blob.blob:
+            raise ValueError(f"Blob mismatch at index {index}.")
+        if expected_blob.proofs != received_blob.proofs:
+            error_message = f"Proofs mismatch at index {index}."
+            expected_len = len(expected_blob.proofs)
+            received_len = len(received_blob.proofs)
+            error_message += f"len(expected_blob.proofs) = {expected_len}, "
+            error_message += f"len(received_blob.proofs) = {received_len}\n"
+            if expected_len == received_len:
+                for j, (expected_proof, received_proof) in enumerate(
+                    zip(
+                        expected_blob.proofs,
+                        received_blob.proofs,
+                        strict=False,
+                    )
+                ):
+                    if len(expected_proof) != len(received_proof):
+                        exp_len = len(expected_proof)
+                        rcv_len = len(received_proof)
+                        error_message += f"Proof length mismatch. index = {j},"
+                        error_message += f"expected_proof length = {exp_len}, "
+                        error_message += f"received_proof length = {rcv_len}\n"
+                        continue
+                    if expected_proof != received_proof:
+                        exp_hash = sha256(expected_proof).hexdigest()
+                        rcv_hash = sha256(received_proof).hexdigest()
+                        error_message += f"Proof mismatch. index = {j},"
+                        error_message += f"expected_proof hash = {exp_hash}, "
+                        error_message += f"received_proof hash = {rcv_hash}\n"
+            raise ValueError(error_message)
+    else:
+        raise ValueError(
+            f"Unexpected blob type at index {index}: {type(expected_blob)}"
+        )
+
+
 def versioned_hashes_with_blobs_and_proofs(
     tx: NetworkWrappedTransaction,
 ) -> Dict[Hash, BlobAndProofV1 | BlobAndProofV2]:
@@ -205,24 +280,22 @@ class BlobTransaction(BaseExecute):
                         f"Expected {expected_count} blob responses, "
                         f"got {len(blob_response)}."
                     )
-                # Verify existing blobs are returned and non-existing are null
+                # Build expected list: real blobs then None for non-existing
+                expected_blobs_and_proofs: List[
+                    BlobAndProofV1 | BlobAndProofV2 | None
+                ] = list(versioned_hashes.values()) + [None] * len(
+                    self.nonexisting_blob_hashes
+                )
+                for i, (expected_blob, received_blob) in enumerate(
+                    zip(
+                        expected_blobs_and_proofs,
+                        blob_response.root,
+                        strict=True,
+                    )
+                ):
+                    _validate_blob_and_proof(expected_blob, received_blob, i)
                 existing_count = len(versioned_hashes)
                 nonexisting_count = len(self.nonexisting_blob_hashes)
-                for i, received_blob in enumerate(blob_response.root):
-                    if i < existing_count:
-                        # This should be an existing blob
-                        if received_blob is None:
-                            raise ValueError(
-                                f"Blob at index {i} should exist but client "
-                                "returned null."
-                            )
-                    else:
-                        # This should be a non-existing blob (null)
-                        if received_blob is not None:
-                            raise ValueError(
-                                f"Blob at index {i} should not exist but "
-                                f"client returned: {received_blob}"
-                            )
                 logger.info(
                     f"Test passed: getBlobsV{version} correctly returned "
                     f"partial response with {existing_count} existing blobs "
@@ -245,73 +318,14 @@ class BlobTransaction(BaseExecute):
             f"got {len(blob_response)}."
         )
 
-        for expected_blob, received_blob in zip(
-            local_blobs_and_proofs, blob_response.root, strict=True
+        for i, (expected_blob, received_blob) in enumerate(
+            zip(
+                local_blobs_and_proofs,
+                blob_response.root,
+                strict=True,
+            )
         ):
-            if received_blob is None:
-                raise ValueError("Received blob is empty.")
-            if isinstance(expected_blob, BlobAndProofV1):
-                if not isinstance(received_blob, BlobAndProofV1):
-                    raise ValueError("Received blob is not a BlobAndProofV1.")
-                if expected_blob.blob != received_blob.blob:
-                    raise ValueError("Blob mismatch.")
-                if expected_blob.proof != received_blob.proof:
-                    raise ValueError("Proof mismatch.")
-            elif isinstance(expected_blob, BlobAndProofV2):
-                if not isinstance(received_blob, BlobAndProofV2):
-                    raise ValueError("Received blob is not a BlobAndProofV2.")
-                if expected_blob.blob != received_blob.blob:
-                    raise ValueError("Blob mismatch.")
-                if expected_blob.proofs != received_blob.proofs:
-                    error_message = "Proofs mismatch."
-                    expected_len = len(expected_blob.proofs)
-                    received_len = len(received_blob.proofs)
-                    error_message += (
-                        f"len(expected_blob.proofs) = {expected_len}, "
-                    )
-                    error_message += (
-                        f"len(received_blob.proofs) = {received_len}\n"
-                    )
-                    if len(expected_blob.proofs) == len(received_blob.proofs):
-                        index = 0
-
-                        for expected_proof, received_proof in zip(
-                            expected_blob.proofs,
-                            received_blob.proofs,
-                            strict=False,
-                        ):
-                            if len(expected_proof) != len(received_proof):
-                                error_message += (
-                                    f"Proof length mismatch. index = {index},"
-                                )
-                                exp_len = len(expected_proof)
-                                rcv_len = len(received_proof)
-                                error_message += (
-                                    f"expected_proof length = {exp_len}, "
-                                )
-                                error_message += (
-                                    f"received_proof length = {rcv_len}\n"
-                                )
-                                index += 1
-                                continue
-                            if expected_proof != received_proof:
-                                error_message += (
-                                    f"Proof mismatch. index = {index},"
-                                )
-                                exp_hash = sha256(expected_proof).hexdigest()
-                                rcv_hash = sha256(received_proof).hexdigest()
-                                error_message += (
-                                    f"expected_proof hash = {exp_hash}, "
-                                )
-                                error_message += (
-                                    f"received_proof hash = {rcv_hash}\n"
-                                )
-                            index += 1
-                    raise ValueError(error_message)
-            else:
-                raise ValueError(
-                    f"Unexpected blob type: {type(expected_blob)}"
-                )
+            _validate_blob_and_proof(expected_blob, received_blob, i)
 
         eth_rpc.wait_for_transactions(sent_txs)
         return ExecuteResult(
