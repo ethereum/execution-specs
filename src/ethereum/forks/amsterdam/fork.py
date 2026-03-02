@@ -30,7 +30,13 @@ from ethereum.exceptions import (
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.merkle_patricia_trie import root, trie_set
-from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff, PreState
+from ethereum.state import (
+    EMPTY_CODE_HASH,
+    Address,
+    BlockDiff,
+    State,
+    apply_changes_to_state,
+)
 
 from . import vm
 from .block_access_lists import (
@@ -60,10 +66,6 @@ from .requests import (
     WITHDRAWAL_REQUEST_TYPE,
     compute_requests_hash,
     parse_deposit_requests,
-)
-from .state import (
-    State,
-    apply_changes_to_state,
 )
 from .state_tracker import (
     BlockState,
@@ -266,7 +268,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
 def execute_block(
     block: Block,
-    pre_state: PreState,
+    pre_state: State,
     chain_context: ChainContext,
 ) -> BlockDiff:
     """

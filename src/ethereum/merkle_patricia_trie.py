@@ -35,7 +35,7 @@ from ethereum_types.numeric import Uint
 from typing_extensions import assert_type
 
 from ethereum.crypto.hash import keccak256
-from ethereum.state import Account, Address, Root
+from ethereum.types import Account, Address, Root
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 # note: an empty trie (regardless of whether it is secured) has root:
