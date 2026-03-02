@@ -476,9 +476,6 @@ def _mpt_insert_node(
             rest_of_key=key[level:], value=value, _dirty=True
         )
 
-    if isinstance(node, HashedNode):
-        raise AssertionError("Incomplete witness: insert into hashed node")
-
     _invalidate_hash(node)
 
     if isinstance(node, MutableLeafNode):
@@ -682,9 +679,6 @@ def _mpt_delete_node(
     """
     if node is None:
         return None
-
-    if isinstance(node, HashedNode):
-        raise AssertionError("Incomplete witness: delete from hashed node")
 
     _invalidate_hash(node)
 
