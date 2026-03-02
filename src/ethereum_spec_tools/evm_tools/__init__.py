@@ -6,7 +6,7 @@ import argparse
 import subprocess
 import sys
 from contextlib import ExitStack
-from functools import lru_cache
+from functools import cache
 from typing import Optional, Sequence, Text, TextIO
 
 from ethereum import __version__
@@ -65,7 +65,7 @@ def create_parser() -> argparse.ArgumentParser:
     return new_parser
 
 
-@lru_cache(maxsize=1)
+@cache
 def get_git_commit_hash() -> str:
     """
     Run the 'git rev-parse HEAD' command to get the commit hash.
