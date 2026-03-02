@@ -855,7 +855,6 @@ def apply_body(
         target_address=HISTORY_STORAGE_ADDRESS,
         data=block_env.block_hashes[-1],  # The parent hash
     )
-    # TODO: can we remove this?
     track_ancestor_access(
         block_env.state,
         Uint(1),
