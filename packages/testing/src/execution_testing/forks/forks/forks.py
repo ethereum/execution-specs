@@ -756,7 +756,7 @@ class Frontier(BaseFork, solc_name="homestead"):
         def fn(*, data: BytesConvertible, floor: bool = False) -> int:
             del floor
 
-            raw = bytes(Bytes(data))
+            raw = Bytes(data)
             num_zeros = raw.count(0)
             num_non_zeros = len(raw) - num_zeros
             return (
