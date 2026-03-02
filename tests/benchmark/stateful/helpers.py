@@ -154,4 +154,3 @@ def build_benchmark_txs(
 
     assert txs, "Gas loop produced zero transactions"
     return txs, total_gas_consumed
->>>>>>> 26ccf8cc4 (refactor(test-benchmark): extract shared helpers for benchmark tests)
