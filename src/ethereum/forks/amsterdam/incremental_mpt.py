@@ -224,7 +224,8 @@ def build_mpt(
 
 def _invalidate_hash(node: MutableNode) -> None:
     """Invalidate the cached hash of a node."""
-    if node is None or isinstance(node, HashedNode):
+    assert not isinstance(node, HashedNode), "HashedNode cannot be invalidated"
+    if node is None:
         return
     node._hash = None
     node._rlp = None
@@ -235,7 +236,8 @@ def _record_witness(
     node: MutableNode,
 ) -> None:
     """Record a node access in the witness."""
-    if node is None or isinstance(node, HashedNode):
+    assert not isinstance(node, HashedNode), "HashedNode cannot be witnessed"
+    if node is None:
         return
 
     if node._dirty:
@@ -374,7 +376,7 @@ def _mpt_traverse_for_witness(
     level: Uint,
 ) -> None:
     """Traverse the tree recording nodes in the witness."""
-    if node is None or isinstance(node, HashedNode):
+    if node is None:
         return
 
     _record_witness(mpt.witness, node)
