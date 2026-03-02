@@ -413,14 +413,14 @@ def test_get_blobs_nonexisting_getblobsv2(
     nonexisting_blob_hashes = [
         Hash(sha256(str(i).encode()).digest()) for i in range(5)
     ]
-    logger.info("Testing getBlobsV2 (all-or-nothing behavior)")
+    print("Testing getBlobsV2 (all-or-nothing behavior)")
     for tx_idx, tx_hashes in enumerate(txs_versioned_hashes):
         for blob_idx, vh in enumerate(tx_hashes):
-            logger.info(
+            print(
                 f"  tx {tx_idx}, blob {blob_idx}: {Hash(vh).hex()} (existing)"
             )
     for i, nh in enumerate(nonexisting_blob_hashes):
-        logger.info(f"  non-existing {i}: {nh.hex()}")
+        print(f"  non-existing {i}: {nh.hex()}")
     blobs_test(
         pre=pre,
         txs=txs,
@@ -448,14 +448,14 @@ def test_get_blobs_nonexisting_getblobsv3(
     nonexisting_blob_hashes = [
         Hash(sha256(str(i).encode()).digest()) for i in range(5)
     ]
-    logger.info("Testing getBlobsV3 (partial response behavior)")
+    print("Testing getBlobsV3 (partial response behavior)")
     for tx_idx, tx_hashes in enumerate(txs_versioned_hashes):
         for blob_idx, vh in enumerate(tx_hashes):
-            logger.info(
+            print(
                 f"  tx {tx_idx}, blob {blob_idx}: {Hash(vh).hex()} (existing)"
             )
     for i, nh in enumerate(nonexisting_blob_hashes):
-        logger.info(f"  non-existing {i}: {nh.hex()}")
+        print(f"  non-existing {i}: {nh.hex()}")
     blobs_test(
         pre=pre,
         txs=txs,
