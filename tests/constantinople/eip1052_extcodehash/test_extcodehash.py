@@ -841,3 +841,80 @@ def test_extcodehash_after_selfdestruct(
         post[target_address] = Account.NONEXISTENT
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDynamicArgumentFiller.json",  # noqa: E501
+    ],
+)
+@pytest.mark.parametrize(
+    "target_type",
+    [
+        "precompile",
+        "precompile_with_balance",
+        "contract",
+        "eoa",
+        "nonexistent",
+    ],
+)
+def test_extcodehash_dynamic_argument(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    target_type: str,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE with address loaded dynamically from calldata.
+
+    The target address is not hardcoded in bytecode but read via
+    CALLDATALOAD at runtime. Five target types are tested: a precompile
+    with no state, a precompile with balance, a contract with code,
+    an EOA with balance, and a non-existent address.
+    """
+    storage = Storage()
+    target_code = b"\x12\x34"
+
+    if target_type == "precompile":
+        target_address = Address(1)
+        expected_hash: int | bytes = 0
+        expected_size = 0
+    elif target_type == "precompile_with_balance":
+        target_address = Address(2)
+        pre.fund_address(target_address, 10)
+        expected_hash = keccak256(b"")
+        expected_size = 0
+    elif target_type == "contract":
+        target_address = pre.deploy_contract(target_code)
+        expected_hash = keccak256(target_code)
+        expected_size = len(target_code)
+    elif target_type == "eoa":
+        target_address = pre.fund_eoa()
+        expected_hash = keccak256(b"")
+        expected_size = 0
+    else:  # nonexistent
+        target_address = Address(0xDEAD)
+        expected_hash = 0
+        expected_size = 0
+
+    code = Op.SSTORE(
+        storage.store_next(expected_hash),
+        Op.EXTCODEHASH(Op.CALLDATALOAD(0)),
+    ) + Op.SSTORE(
+        storage.store_next(expected_size),
+        Op.EXTCODESIZE(Op.CALLDATALOAD(0)),
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        data=bytes(target_address).rjust(32, b"\0"),
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
