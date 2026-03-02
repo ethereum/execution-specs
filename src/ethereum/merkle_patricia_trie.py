@@ -30,26 +30,13 @@ from typing import (
 
 from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes
-from ethereum_types.numeric import U256, Uint
+from ethereum_types.frozen import slotted_freezable
+from ethereum_types.numeric import Uint
 from typing_extensions import assert_type
 
 from ethereum.crypto.hash import keccak256
-from ethereum.forks.bpo5 import trie as previous_trie
-from ethereum.state import (
-    Account,
-    Address,
-    BranchNode,
-    BranchSubnodes,
-    ExtensionNode,
-    InternalNode,
-    LeafNode,
-    Root,
-)
+from ethereum.state import Account, Address, Root
 from ethereum.utils.hexadecimal import hex_to_bytes
-
-from .blocks import Receipt, Withdrawal
-from .fork_types import encode_account
-from .transactions import LegacyTransaction
 
 # note: an empty trie (regardless of whether it is secured) has root:
 #
@@ -70,19 +57,76 @@ EMPTY_TRIE_ROOT = Root(
     )
 )
 
-Node = Account | Bytes | LegacyTransaction | Receipt | Uint | U256 | Withdrawal
+
+@slotted_freezable
+@dataclass
+class LeafNode:
+    """Leaf node in the Merkle Trie."""
+
+    rest_of_key: Bytes
+    value: Extended
+
+
+@slotted_freezable
+@dataclass
+class ExtensionNode:
+    """Extension node in the Merkle Trie."""
+
+    key_segment: Bytes
+    subnode: Extended
+
+
+BranchSubnodes = Tuple[
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+]
+
+
+@slotted_freezable
+@dataclass
+class BranchNode:
+    """Branch node in the Merkle Trie."""
+
+    subnodes: BranchSubnodes
+    value: Extended
+
+
+InternalNode = LeafNode | ExtensionNode | BranchNode
+
+
 K = TypeVar("K", bound=Bytes)
-V = TypeVar(
-    "V",
-    Optional[Account],
-    Optional[Bytes],
-    Bytes,
-    Optional[LegacyTransaction | Bytes],
-    Optional[Receipt | Bytes],
-    Optional[Withdrawal | Bytes],
-    Uint,
-    U256,
-)
+V = TypeVar("V", bound=Extended | None)
+
+
+def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
+    """
+    Encode `Account` dataclass.
+
+    Storage is not stored in the `Account` dataclass, so `Accounts` cannot be
+    encoded without providing a storage root.
+    """
+    return rlp.encode(
+        (
+            raw_account_data.nonce,
+            raw_account_data.balance,
+            storage_root,
+            raw_account_data.code_hash,
+        )
+    )
 
 
 def encode_internal_node(node: Optional[InternalNode]) -> Extended:
@@ -130,21 +174,20 @@ def encode_internal_node(node: Optional[InternalNode]) -> Extended:
         return keccak256(encoded)
 
 
-def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
+def encode_node(
+    node: Extended | None, storage_root: Optional[Bytes] = None
+) -> Bytes:
     """
     Encode a Node for storage in the Merkle Trie.
     """
     if isinstance(node, Account):
         assert storage_root is not None
         return encode_account(node, storage_root)
-    elif isinstance(
-        node, (LegacyTransaction, Receipt, Withdrawal, U256, Uint)
-    ):
-        return rlp.encode(node)
     elif isinstance(node, Bytes):
         return node
     else:
-        return previous_trie.encode_node(node, storage_root)
+        assert node is not None
+        return rlp.encode(node)
 
 
 @dataclass
@@ -443,9 +486,6 @@ def patricialize(
     value = b""
     for key in obj:
         if len(key) == level:
-            # shouldn't ever have an account or receipt in an internal node
-            if isinstance(obj[key], (Account, Receipt, Uint)):
-                raise AssertionError
             value = obj[key]
         else:
             branches[key[level]][key] = obj[key]

@@ -7,15 +7,19 @@ provider must support, allowing multiple backing implementations (in-memory
 `dict`, on-disk database, witness, etc.).
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Protocol, Tuple
+from __future__ import annotations
 
-from ethereum_rlp import Extended
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Tuple
+
 from ethereum_types.bytes import Bytes, Bytes20, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
+
+if TYPE_CHECKING:
+    from ethereum.merkle_patricia_trie import InternalNode
 
 Address = Bytes20
 Root = Hash32
@@ -40,56 +44,6 @@ EMPTY_ACCOUNT = Account(
     balance=U256(0),
     code_hash=EMPTY_CODE_HASH,
 )
-
-
-@slotted_freezable
-@dataclass
-class LeafNode:
-    """Leaf node in the Merkle Trie."""
-
-    rest_of_key: Bytes
-    value: Extended
-
-
-@slotted_freezable
-@dataclass
-class ExtensionNode:
-    """Extension node in the Merkle Trie."""
-
-    key_segment: Bytes
-    subnode: Extended
-
-
-BranchSubnodes = Tuple[
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-    Extended,
-]
-
-
-@slotted_freezable
-@dataclass
-class BranchNode:
-    """Branch node in the Merkle Trie."""
-
-    subnodes: BranchSubnodes
-    value: Extended
-
-
-InternalNode = LeafNode | ExtensionNode | BranchNode
 
 
 @dataclass

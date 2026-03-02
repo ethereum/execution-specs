@@ -23,16 +23,22 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U256
 
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.merkle_patricia_trie import (
+    EMPTY_TRIE_ROOT,
+    InternalNode,
+    Trie,
+    copy_trie,
+    root,
+    trie_get,
+    trie_set,
+)
 from ethereum.state import (
     EMPTY_CODE_HASH,
     Account,
     Address,
     BlockDiff,
-    InternalNode,
     Root,
 )
-
-from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 
 @dataclass

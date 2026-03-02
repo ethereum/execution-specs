@@ -20,6 +20,7 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
+from ethereum.merkle_patricia_trie import Trie
 from ethereum.state import Address
 
 from ..block_access_lists import BlockAccessList, BlockAccessListBuilder
@@ -27,7 +28,6 @@ from ..blocks import Log, Receipt, Withdrawal
 from ..fork_types import Authorization, VersionedHash
 from ..state_tracker import BlockState, TransactionState
 from ..transactions import LegacyTransaction
-from ..trie import Trie
 
 __all__ = ("Environment", "Evm", "Message")
 

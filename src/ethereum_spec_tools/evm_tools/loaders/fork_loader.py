@@ -342,17 +342,32 @@ class ForkLoad:
     @property
     def root(self) -> Any:
         """Root function of the fork."""
-        return self._module("trie").root
+        try:
+            return self._module("trie").root
+        except ModuleNotFoundError:
+            from ethereum.merkle_patricia_trie import root
+
+            return root
 
     @property
     def copy_trie(self) -> Any:
         """copy_trie function of the fork."""
-        return self._module("trie").copy_trie
+        try:
+            return self._module("trie").copy_trie
+        except ModuleNotFoundError:
+            from ethereum.merkle_patricia_trie import copy_trie
+
+            return copy_trie
 
     @property
     def trie_get(self) -> Any:
         """trie_get function of the fork."""
-        return self._module("trie").trie_get
+        try:
+            return self._module("trie").trie_get
+        except ModuleNotFoundError:
+            from ethereum.merkle_patricia_trie import trie_get
+
+            return trie_get
 
     @property
     def hex_to_address(self) -> Any:

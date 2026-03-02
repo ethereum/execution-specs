@@ -29,6 +29,7 @@ from ethereum.exceptions import (
     NonceMismatchError,
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
+from ethereum.merkle_patricia_trie import root, trie_set
 from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff, PreState
 
 from . import vm
@@ -89,7 +90,6 @@ from .transactions import (
     recover_sender,
     validate_transaction,
 )
-from .trie import root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
