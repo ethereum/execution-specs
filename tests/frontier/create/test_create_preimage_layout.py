@@ -22,39 +22,26 @@ from execution_testing import (
     "nonce",
     [1, 2, 127, 128, 255, 256, 3515, 65535, 16777215],
 )
-@pytest.mark.parametrize(
-    "dynamic",
-    [
-        pytest.param(False, id="static"),
-        pytest.param(
-            # Starts from Osaka as the helper uses CLZ opcode
-            True,
-            id="dynamic",
-            marks=pytest.mark.valid_from("Osaka"),
-        ),
-    ],
-)
+@pytest.mark.valid_from("Osaka")
 def test_create_preimage_layout_address(
     state_test: StateTestFiller,
     fork: Fork,
     pre: Alloc,
     nonce: int,
-    dynamic: bool,
 ) -> None:
     """
     Test `CreatePreimageLayout` by executing the bytecode in the EVM
     and verifying the computed address matches `compute_create_address`.
 
-    When dynamic is False, the nonce is a static int (RLP encoded at
-    generation time).  When True, the nonce is passed via calldata and
-    RLP-encoded at EVM runtime using the CLZ-based branch-free path.
+    The nonce is passed via calldata and RLP-encoded at EVM runtime
+    using the CLZ-based branch-free path.
     """
     sender = pre.fund_eoa()
     sender_int = int.from_bytes(sender, "big")
 
     layout = CreatePreimageLayout(
         sender_address=sender_int,
-        nonce=Op.CALLDATALOAD(0) if dynamic else nonce,
+        nonce=Op.CALLDATALOAD(0),
     )
 
     code = layout + Op.SSTORE(0, layout.address_op())
@@ -63,7 +50,7 @@ def test_create_preimage_layout_address(
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=nonce.to_bytes(32, "big") if dynamic else b"",
+        data=nonce.to_bytes(32, "big"),
         gas_limit=1_000_000,
         protected=fork.supports_protected_txs(),
     )

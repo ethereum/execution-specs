@@ -489,16 +489,6 @@ class Create2PreimageLayout(Bytecode):
         )
 
 
-def _rlp_encode_nonce(nonce: int) -> bytes:
-    """RLP-encode a nonce value for CREATE address computation."""
-    if nonce == 0:
-        return b"\x80"
-    if nonce <= 0x7F:
-        return bytes([nonce])
-    byte_len = (nonce.bit_length() + 7) // 8
-    return bytes([0x80 + byte_len]) + nonce.to_bytes(byte_len, "big")
-
-
 def _dynamic_nonce_encode_bytecode(
     nonce: int | bytes | Bytecode,
     offset: int,
@@ -620,21 +610,17 @@ class CreatePreimageLayout(Bytecode):
     - MEM[offset + 11] = 0x94 (RLP prefix for 20-byte string)
     - MEM[offset + 12: offset + 32] = sender_address (20 bytes)
     - MEM[offset + 32:] = RLP-encoded nonce bytes
-
-    When nonce is a Bytecode expression (dynamic), additional
-    scratch memory is used:
     - MEM[offset + 64: offset + 96] = preimage_size
     - MEM[offset + 96: offset + 128] = raw nonce (scratch)
 
-    Supported dynamic nonce range: 1 to 2^64 - 1.
+    Supported nonce range: 1 to 2^64 - 1. Requires Osaka
+    (CLZ opcode).
 
     To compute the CREATE address, use `.address_op()`.
     The resulting hash's lower 20 bytes form the address.
     """
 
     offset: int = 0
-    preimage_size: int = 0
-    _dynamic: bool = False
     _preimage_size_offset: int = 0
     _nonce_scratch_offset: int = 0
 
@@ -653,42 +639,6 @@ class CreatePreimageLayout(Bytecode):
         if isinstance(nonce, bytes):
             nonce = int.from_bytes(nonce, "big")
 
-        if isinstance(nonce, int):
-            # Static nonce: direct MSTORE8 approach
-            nonce_rlp = _rlp_encode_nonce(nonce)
-            payload_length = 21 + len(nonce_rlp)
-            list_prefix = 0xC0 + payload_length
-            preimage_size = 1 + payload_length
-
-            required_size = offset + 64
-            new_memory_size = max(old_memory_size, required_size)
-
-            bytecode = Op.MSTORE(offset=offset, value=sender_address)
-            bytecode += Op.MSTORE8(offset=offset + 10, value=list_prefix)
-            bytecode += Op.MSTORE8(offset=offset + 11, value=0x94)
-            for i, byte_val in enumerate(nonce_rlp):
-                if i == len(nonce_rlp) - 1:
-                    bytecode += Op.MSTORE8(
-                        offset=offset + 32 + i,
-                        value=byte_val,
-                        old_memory_size=old_memory_size,
-                        new_memory_size=new_memory_size,
-                    )
-                else:
-                    bytecode += Op.MSTORE8(
-                        offset=offset + 32 + i,
-                        value=byte_val,
-                    )
-
-            instance = super().__new__(cls, bytecode)
-            instance.offset = offset
-            instance.preimage_size = preimage_size
-            instance._dynamic = False
-            instance._preimage_size_offset = offset + 64
-            instance._nonce_scratch_offset = offset + 96
-            return instance
-
-        # Dynamic nonce (Bytecode): branch-free encoding
         required_size = offset + 128
         new_memory_size = max(old_memory_size, required_size)
 
@@ -703,8 +653,6 @@ class CreatePreimageLayout(Bytecode):
 
         instance = super().__new__(cls, bytecode)
         instance.offset = offset
-        instance.preimage_size = 0
-        instance._dynamic = True
         instance._preimage_size_offset = offset + 64
         instance._nonce_scratch_offset = offset + 96
         return instance
@@ -717,21 +665,12 @@ class CreatePreimageLayout(Bytecode):
     def address_op(self) -> Bytecode:
         """Return bytecode that computes the CREATE address."""
         address_mask = (1 << 160) - 1
-        if self._dynamic:
-            return Op.AND(
-                address_mask,
-                Op.SHA3(
-                    offset=self.offset + 10,
-                    size=Op.MLOAD(self._preimage_size_offset),
-                    data_size=25,
-                ),
-            )
         return Op.AND(
             address_mask,
             Op.SHA3(
                 offset=self.offset + 10,
-                size=self.preimage_size,
-                data_size=self.preimage_size,
+                size=Op.MLOAD(self._preimage_size_offset),
+                data_size=25,
             ),
         )
 
@@ -743,7 +682,6 @@ class CreatePreimageLayout(Bytecode):
         preimage_size in memory. The sender address and 0x94
         prefix are unchanged.
         """
-        self._dynamic = True
         return _dynamic_nonce_encode_bytecode(nonce, self.offset)
 
     def increment_nonce_op(self, increment: int = 1) -> Bytecode:
@@ -753,7 +691,6 @@ class CreatePreimageLayout(Bytecode):
         Read the raw nonce from scratch memory, add the
         increment, and re-encode.
         """
-        self._dynamic = True
         new_nonce = Op.ADD(Op.MLOAD(self._nonce_scratch_offset), increment)
         return _dynamic_nonce_encode_bytecode(new_nonce, self.offset)
 
