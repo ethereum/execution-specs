@@ -12,13 +12,13 @@ Implementation of the BLS12 381 pairing pre-compile.
 """
 
 from ethereum_types.numeric import Uint
-from py_ecc.optimized_bls12_381 import FQ12, curve_order, is_inf, pairing
-from py_ecc.optimized_bls12_381 import multiply as bls12_multiply
+
+from ethereum.crypto.bls12_381 import pairing_check
 
 from ....vm import Evm
 from ....vm.gas import charge_gas
 from ...exceptions import InvalidParameter
-from . import bytes_to_g1, bytes_to_g2
+from . import _unpad_g1, _unpad_g2
 
 
 def bls12_pairing(evm: Evm) -> None:
@@ -33,7 +33,8 @@ def bls12_pairing(evm: Evm) -> None:
     Raises
     ------
     InvalidParameter
-        If the input length is invalid or if the subgroup check fails.
+        If the input length is invalid or if the subgroup check
+        fails.
 
     """
     data = evm.message.data
@@ -46,24 +47,21 @@ def bls12_pairing(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
 
     # OPERATION
-    result = FQ12.one()
+    g1_points = []
+    g2_points = []
     for i in range(k):
-        g1_start = Uint(384 * i)
-        g2_start = Uint(384 * i + 128)
+        g1_start = 384 * i
+        g2_start = 384 * i + 128
 
-        g1_slice = data[g1_start : g1_start + Uint(128)]
-        g1_point = bytes_to_g1(bytes(g1_slice))
-        if not is_inf(bls12_multiply(g1_point, curve_order)):
-            raise InvalidParameter("Subgroup check failed for G1 point.")
+        g1_points.append(_unpad_g1(data[g1_start : g1_start + 128]))
+        g2_points.append(_unpad_g2(data[g2_start : g2_start + 256]))
 
-        g2_slice = data[g2_start : g2_start + Uint(256)]
-        g2_point = bytes_to_g2(bytes(g2_slice))
-        if not is_inf(bls12_multiply(g2_point, curve_order)):
-            raise InvalidParameter("Subgroup check failed for G2 point.")
+    try:
+        result = pairing_check(g1_points, g2_points)
+    except ValueError as e:
+        raise InvalidParameter(str(e)) from e
 
-        result *= pairing(g2_point, g1_point)
-
-    if result == FQ12.one():
+    if result:
         evm.output = b"\x00" * 31 + b"\x01"
     else:
         evm.output = b"\x00" * 32

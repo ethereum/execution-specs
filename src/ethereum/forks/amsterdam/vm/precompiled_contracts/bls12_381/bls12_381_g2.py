@@ -12,12 +12,8 @@ Implementation of pre-compiles in G2 (curve over base prime field).
 """
 
 from ethereum_types.numeric import U256, Uint
-from py_ecc.bls.hash_to_curve import clear_cofactor_G2, map_to_curve_G2
-from py_ecc.optimized_bls12_381.optimized_curve import FQ2
-from py_ecc.optimized_bls12_381.optimized_curve import add as bls12_add
-from py_ecc.optimized_bls12_381.optimized_curve import (
-    multiply as bls12_multiply,
-)
+
+from ethereum.crypto.bls12_381 import g2_add, g2_msm, map_fp2_to_g2
 
 from ....vm import Evm
 from ....vm.gas import (
@@ -32,10 +28,9 @@ from . import (
     G2_K_DISCOUNT,
     G2_MAX_DISCOUNT,
     MULTIPLIER,
-    bytes_to_fq2,
-    bytes_to_g2,
-    decode_g2_scalar_pair,
-    g2_to_bytes,
+    _pad_g2,
+    _unpad_fp,
+    _unpad_g2,
 )
 
 LENGTH_PER_PAIR = 288
@@ -64,12 +59,15 @@ def bls12_g2_add(evm: Evm) -> None:
     charge_gas(evm, Uint(GAS_BLS_G2_ADD))
 
     # OPERATION
-    p1 = bytes_to_g2(buffer_read(data, U256(0), U256(256)))
-    p2 = bytes_to_g2(buffer_read(data, U256(256), U256(256)))
+    p1 = _unpad_g2(data[:256])
+    p2 = _unpad_g2(data[256:512])
 
-    result = bls12_add(p1, p2)
+    try:
+        raw = g2_add(p1, p2)
+    except ValueError as e:
+        raise InvalidParameter(str(e)) from e
 
-    evm.output = g2_to_bytes(result)
+    evm.output = _pad_g2(raw)
 
 
 def bls12_g2_msm(evm: Evm) -> None:
@@ -106,19 +104,19 @@ def bls12_g2_msm(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
 
     # OPERATION
+    points = []
+    scalars = []
     for i in range(k):
-        start_index = i * LENGTH_PER_PAIR
-        end_index = start_index + LENGTH_PER_PAIR
+        start = i * LENGTH_PER_PAIR
+        points.append(_unpad_g2(data[start : start + 256]))
+        scalars.append(bytes(buffer_read(data, U256(start + 256), U256(32))))
 
-        p, m = decode_g2_scalar_pair(data[start_index:end_index])
-        product = bls12_multiply(p, m)
+    try:
+        raw = g2_msm(points, scalars)
+    except ValueError as e:
+        raise InvalidParameter(str(e)) from e
 
-        if i == 0:
-            result = product
-        else:
-            result = bls12_add(result, product)
-
-    evm.output = g2_to_bytes(result)
+    evm.output = _pad_g2(raw)
 
 
 def bls12_map_fp2_to_g2(evm: Evm) -> None:
@@ -144,10 +142,11 @@ def bls12_map_fp2_to_g2(evm: Evm) -> None:
     charge_gas(evm, Uint(GAS_BLS_G2_MAP))
 
     # OPERATION
-    field_element = bytes_to_fq2(data)
-    assert isinstance(field_element, FQ2)
+    fp2 = bytes(_unpad_fp(data[:64]) + _unpad_fp(data[64:]))
 
-    fp2 = bytes_to_fq2(data)
-    g2_3d = clear_cofactor_G2(map_to_curve_G2(fp2))
+    try:
+        raw = map_fp2_to_g2(fp2)
+    except ValueError as e:
+        raise InvalidParameter(str(e)) from e
 
-    evm.output = g2_to_bytes(g2_3d)
+    evm.output = _pad_g2(raw)
