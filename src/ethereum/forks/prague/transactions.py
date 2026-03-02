@@ -589,12 +589,11 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
     from .vm.gas import init_code_cost
 
-    zero_bytes = 0
-    for byte in tx.data:
-        if byte == 0:
-            zero_bytes += 1
+    raw = bytes(tx.data)
+    zero_bytes = raw.count(0)
+    num_non_zeros = len(raw) - zero_bytes
 
-    tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
+    tokens_in_calldata = Uint(zero_bytes + num_non_zeros * 4)
     # EIP-7623 floor price (note: no EVM costs)
     calldata_floor_gas_cost = (
         tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE

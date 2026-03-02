@@ -150,13 +150,13 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction.
     """
-    data_cost = Uint(0)
-
-    for byte in tx.data:
-        if byte == 0:
-            data_cost += GAS_TX_DATA_PER_ZERO
-        else:
-            data_cost += GAS_TX_DATA_PER_NON_ZERO
+    raw = bytes(tx.data)
+    num_zeros = Uint(raw.count(0))
+    num_non_zeros = Uint(len(raw)) - num_zeros
+    data_cost = (
+        num_zeros * GAS_TX_DATA_PER_ZERO
+        + num_non_zeros * GAS_TX_DATA_PER_NON_ZERO
+    )
 
     if tx.to == Bytes0(b""):
         create_cost = GAS_TX_CREATE
