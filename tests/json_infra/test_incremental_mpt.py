@@ -131,7 +131,7 @@ class TestHashedNode:
             root_node=hashed_node,
             _data={},
         )
-        with pytest.raises(AssertionError, match="Incomplete"):
+        with pytest.raises(AssertionError, match="cannot be invalidated"):
             mpt_set(mpt, b"\x01", b"value")
 
     def test_delete_from_hashed_node_raises(self) -> None:
@@ -143,11 +143,11 @@ class TestHashedNode:
             root_node=hashed_node,
             _data={},
         )
-        with pytest.raises(AssertionError, match="Incomplete"):
+        with pytest.raises(AssertionError, match="cannot be invalidated"):
             mpt_set(mpt, b"\x01", b"")
 
-    def test_witness_traversal_skips_hashed_node(self) -> None:
-        """Witness traversal does not record hashed nodes."""
+    def test_witness_traversal_on_hashed_node_raises(self) -> None:
+        """Witness traversal on a HashedNode raises AssertionError."""
         hashed_node = HashedNode(_hash=b"\x00" * 32)
         mpt: IncrementalMPT[Bytes, Bytes] = IncrementalMPT(
             secured=False,
@@ -155,10 +155,8 @@ class TestHashedNode:
             root_node=hashed_node,
             _data={},
         )
-        # mpt_get traverses for witness but should not crash
-        result = mpt_get(mpt, b"\x01")
-        assert result == b""
-        assert len(mpt.witness.accessed_nodes) == 0
+        with pytest.raises(AssertionError, match="cannot be witnessed"):
+            mpt_get(mpt, b"\x01")
 
 
 def _build_trie_and_collect_nodes(
@@ -443,7 +441,7 @@ class TestPartialWitness:
         )
 
         # Try to insert into the hashed node subtree
-        with pytest.raises(AssertionError, match="Incomplete"):
+        with pytest.raises(AssertionError, match="cannot be invalidated"):
             mpt_set(decoded_mpt, b"ba", b"new_c")
 
 
