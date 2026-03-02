@@ -729,10 +729,9 @@ def _delete_from_extension(
             _dirty=True,
         )
 
+    assert not isinstance(new_child, HashedNode)
     child_changed = new_child is not old_child or (
-        new_child is not None
-        and not isinstance(new_child, HashedNode)
-        and new_child._dirty
+        new_child is not None and new_child._dirty
     )
     if not child_changed:
         return node
@@ -764,10 +763,9 @@ def _delete_from_branch(
             key,
             level + Uint(1),
         )
+        assert not isinstance(new_child, HashedNode)
         child_changed = new_child is not old_child or (
-            new_child is not None
-            and not isinstance(new_child, HashedNode)
-            and new_child._dirty
+            new_child is not None and new_child._dirty
         )
         if not child_changed:
             return node
@@ -926,6 +924,7 @@ def _decode_witness_node(
     decoded = rlp.decode(rlp_bytes)
 
     if isinstance(decoded, (bytes, bytearray)):
+        assert len(decoded) == 0, "Expected empty node"
         return None
 
     assert isinstance(decoded, list)
@@ -946,6 +945,9 @@ def _decode_witness_node(
             )
         else:
             child = _resolve_child_ref(node_db, decoded[1])
+            assert isinstance(child, (MutableBranchNode, HashedNode)), (
+                "ExtensionNode child must be a BranchNode"
+            )
             return MutableExtensionNode(
                 key_segment=nibbles,
                 child=child,
@@ -962,6 +964,9 @@ def _decode_witness_node(
             value = Bytes(value_raw)
         else:
             value = b""
+        # TODO: value is always empty in practice; refactor
+        occupied = 16 - children.count(None) + (value != b"")
+        assert occupied >= 2, "BranchNode must have at least 2 children"
         return MutableBranchNode(
             children=children,
             value=value,
