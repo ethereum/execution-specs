@@ -580,7 +580,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--chain-id",
         action="store",
         dest="chain_id",
-        type=str,
+        type=int,
         default=None,
         help=("Specify the chain ID for the test filling."),
     )
@@ -939,10 +939,10 @@ def pytest_configure(config: pytest.Config) -> None:
     chain_id = config.getoption("chain_id")
 
     if chain_id is None:
-        # Try to get the chain ID from the environment variable
-        chain_id = os.environ.get("CHAIN_ID")
+        env_chain_id = os.environ.get("CHAIN_ID")
+        if env_chain_id is not None:
+            chain_id = int(env_chain_id)
 
-    # write to config
     if chain_id is not None:
         ChainConfigDefaults.chain_id = chain_id
 
