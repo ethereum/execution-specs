@@ -259,9 +259,7 @@ def test_sload_erc20_balanceof(
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = build_cache_strategy_blocks(
-        cache_strategy, txs, cache_txs
-    )
+    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
 
     benchmark_test(pre=pre, blocks=blocks)
 
@@ -304,19 +302,16 @@ def test_sstore_erc20_approve(
         + Op.CALLDATALOAD(0)  # [num_calls]
     )
 
-    call_approve = (
-        Op.MSTORE(64, Op.MLOAD(32))
-        + Op.POP(
-            Op.CALL(
-                address=erc20_address,
-                value=0,
-                args_offset=28,
-                args_size=68,
-                ret_offset=0,
-                ret_size=0,
-                # gas accounting
-                address_warm=True,
-            )
+    call_approve = Op.MSTORE(64, Op.MLOAD(32)) + Op.POP(
+        Op.CALL(
+            address=erc20_address,
+            value=0,
+            args_offset=28,
+            args_size=68,
+            ret_offset=0,
+            ret_size=0,
+            # gas accounting
+            address_warm=True,
         )
     )
 
@@ -447,9 +442,7 @@ def test_sstore_erc20_approve(
             + Op.MSTORE
             + Op.RETURN(0, 32)
         )
-        function_dispatch_cost += (
-            function_dispatch_allowance.gas_cost(fork)
-        )
+        function_dispatch_cost += function_dispatch_allowance.gas_cost(fork)
 
     # Transaction Loops
     txs = []
@@ -498,9 +491,7 @@ def test_sstore_erc20_approve(
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = build_cache_strategy_blocks(
-        cache_strategy, txs, cache_txs
-    )
+    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
 
     benchmark_test(pre=pre, blocks=blocks)
 
@@ -732,9 +723,7 @@ def test_sstore_erc20_mint(
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = build_cache_strategy_blocks(
-        cache_strategy, txs, cache_txs
-    )
+    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
 
     benchmark_test(
         pre=pre,
