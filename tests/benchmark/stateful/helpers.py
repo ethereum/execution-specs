@@ -9,6 +9,7 @@ from execution_testing import (
     AccessList,
     Address,
     Alloc,
+    Block,
     Fork,
     Hash,
     Op,
@@ -154,3 +155,20 @@ def build_benchmark_txs(
 
     assert txs, "Gas loop produced zero transactions"
     return txs, total_gas_consumed
+
+
+def build_cache_strategy_blocks(
+    cache_strategy: CacheStrategy,
+    txs: list[Transaction],
+    cache_txs: list[Transaction],
+) -> list[Block]:
+    """
+    Assemble benchmark blocks based on cache strategy.
+
+    For CACHE_PREVIOUS_BLOCK, prepend a warmup block before the
+    execution block so that client caches are hot but EVM state is
+    cold.  Otherwise return a single execution block.
+    """
+    if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK:
+        return [Block(txs=txs)]
+    return [Block(txs=cache_txs), Block(txs=txs)]

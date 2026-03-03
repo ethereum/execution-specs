@@ -41,6 +41,7 @@ from tests.benchmark.stateful.helpers import (
     SLOAD_TOKENS,
     SSTORE_MINT_TOKENS,
     SSTORE_TOKENS,
+    build_cache_strategy_blocks,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -258,10 +259,8 @@ def test_sload_erc20_balanceof(
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = (
-        [Block(txs=txs)]
-        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
-        else [Block(txs=cache_txs), Block(txs=txs)]
+    blocks = build_cache_strategy_blocks(
+        cache_strategy, txs, cache_txs
     )
 
     benchmark_test(pre=pre, blocks=blocks)
@@ -499,10 +498,8 @@ def test_sstore_erc20_approve(
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = (
-        [Block(txs=txs)]
-        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
-        else [Block(txs=cache_txs), Block(txs=txs)]
+    blocks = build_cache_strategy_blocks(
+        cache_strategy, txs, cache_txs
     )
 
     benchmark_test(pre=pre, blocks=blocks)
@@ -735,10 +732,8 @@ def test_sstore_erc20_mint(
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = (
-        [Block(txs=txs)]
-        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
-        else [Block(txs=cache_txs), Block(txs=txs)]
+    blocks = build_cache_strategy_blocks(
+        cache_strategy, txs, cache_txs
     )
 
     benchmark_test(
