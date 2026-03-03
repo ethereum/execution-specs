@@ -35,12 +35,12 @@ from tests.benchmark.stateful.helpers import (
     ALLOWANCE_SELECTOR,
     APPROVE_SELECTOR,
     BALANCEOF_SELECTOR,
-    CacheStrategy,
     DECREMENT_COUNTER_CONDITION,
     MINT_SELECTOR,
     SLOAD_TOKENS,
     SSTORE_MINT_TOKENS,
     SSTORE_TOKENS,
+    CacheStrategy,
     build_cache_strategy_blocks,
 )
 
