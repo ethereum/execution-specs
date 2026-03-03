@@ -32,6 +32,7 @@ from execution_testing import (
 )
 
 from tests.benchmark.stateful.helpers import (
+    ALLOWANCE_SELECTOR,
     APPROVE_SELECTOR,
     BALANCEOF_SELECTOR,
     CacheStrategy,
@@ -321,16 +322,20 @@ def test_sstore_erc20_approve(
     )
 
     if cache_strategy == CacheStrategy.CACHE_TX:
-        # Call balanceOf first to warm the storage slot, then
-        # restore the approve selector
+        # Call allowance(ADDRESS, spender) to warm the allowance
+        # storage slot that approve will later write to.
+        # Memory: save spender→[64], put ADDRESS→[32],
+        # set allowance selector, call, then restore.
         cache_warmup = (
-            Op.MSTORE(0, BALANCEOF_SELECTOR)
+            Op.MSTORE(64, Op.MLOAD(32))
+            + Op.MSTORE(32, Op.ADDRESS)
+            + Op.MSTORE(0, ALLOWANCE_SELECTOR)
             + Op.POP(
                 Op.CALL(
                     address=erc20_address,
                     value=0,
                     args_offset=28,
-                    args_size=36,
+                    args_size=68,
                     ret_offset=0,
                     ret_size=0,
                     # gas accounting
@@ -338,6 +343,7 @@ def test_sstore_erc20_approve(
                 )
             )
             + Op.MSTORE(0, APPROVE_SELECTOR)
+            + Op.MSTORE(32, Op.MLOAD(64))
         )
     else:
         cache_warmup = Bytecode()
@@ -407,6 +413,44 @@ def test_sstore_erc20_approve(
     )
 
     function_dispatch_cost = function_dispatch.gas_cost(fork)
+
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        # Add allowance dispatch cost for the warmup call.
+        # allowance(owner, spender) computes the same double-
+        # keccak slot as approve but does SLOAD + RETURN.
+        function_dispatch_allowance = (
+            Op.PUSH4(ALLOWANCE_SELECTOR)
+            + Op.EQ
+            + Op.JUMPI
+            + Op.JUMPDEST
+            + Op.CALLDATALOAD(4)
+            + Op.CALLDATALOAD(36)
+            + Op.MSTORE(0, Op.CALLDATALOAD(4))
+            + Op.MSTORE(32, 1)
+            + Op.SHA3(
+                0,
+                64,
+                # gas accounting
+                data_size=64,
+                old_memory_size=0,
+                new_memory_size=64,
+            )
+            + Op.MSTORE(32)
+            + Op.MSTORE(0, Op.CALLDATALOAD(36))
+            + Op.SHA3(
+                0,
+                64,
+                # gas accounting
+                data_size=64,
+            )
+            + Op.SLOAD
+            + Op.PUSH0
+            + Op.MSTORE
+            + Op.RETURN(0, 32)
+        )
+        function_dispatch_cost += (
+            function_dispatch_allowance.gas_cost(fork)
+        )
 
     # Transaction Loops
     txs = []
