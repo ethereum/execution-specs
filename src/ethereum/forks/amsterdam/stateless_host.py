@@ -15,7 +15,11 @@ from .blocks import Block
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import VersionedHash
 from .stateless import ChainConfig, ExecutionWitness, StatelessInput
-from .transactions import BlobTransaction, LegacyTransaction, decode_transaction
+from .transactions import (
+    BlobTransaction,
+    LegacyTransaction,
+    decode_transaction,
+)
 
 
 def serialize_stateless_input(stateless_input: StatelessInput) -> Bytes:
