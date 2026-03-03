@@ -14,7 +14,12 @@ from .block_access_lists import BlockAccessList
 from .blocks import Block
 from .execution_engine.types import ExecutionPayload, NewPayloadRequest
 from .fork_types import VersionedHash
-from .stateless import ChainConfig, ExecutionWitness, StatelessInput
+from .stateless import (
+    ChainConfig,
+    ExecutionWitness,
+    StatelessInput,
+    StatelessValidationResult,
+)
 from .transactions import (
     BlobTransaction,
     LegacyTransaction,
@@ -29,6 +34,11 @@ def serialize_stateless_input(stateless_input: StatelessInput) -> Bytes:
     TODO: change to ssz, rlp was easier to get working with codebase.
     """
     return Bytes(rlp.encode(stateless_input))
+
+
+def deserialize_stateless_output(data: Bytes) -> StatelessValidationResult:
+    """Deserialize a StatelessValidationResult from RLP bytes."""
+    return rlp.decode_to(StatelessValidationResult, data)
 
 
 def build_stateless_input(

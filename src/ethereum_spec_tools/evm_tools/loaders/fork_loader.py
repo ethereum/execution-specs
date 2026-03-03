@@ -166,6 +166,11 @@ class ForkLoad:
         return self._module("stateless_host").serialize_stateless_input
 
     @property
+    def deserialize_stateless_output(self) -> Any:
+        """deserialize_stateless_output function of the fork."""
+        return self._module("stateless_host").deserialize_stateless_output
+
+    @property
     def run_stateless_guest(self) -> Any:
         """run_stateless_guest function of the fork."""
         return self._module("stateless_guest").run_stateless_guest
