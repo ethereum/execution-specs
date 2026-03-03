@@ -91,3 +91,44 @@ class GasCosts:
     REFUND_AUTH_PER_EXISTING_ACCOUNT: int
 
     GAS_BLOCK_ACCESS_LIST_ITEM: int
+
+    # Opcode specific gas constants for repricing
+    GAS_OPCODE_ADD: int
+    GAS_OPCODE_SUB: int
+    GAS_OPCODE_MUL: int
+    GAS_OPCODE_DIV: int
+    GAS_OPCODE_SDIV: int
+    GAS_OPCODE_MOD: int
+    GAS_OPCODE_SMOD: int
+    GAS_OPCODE_ADDMOD: int
+    GAS_OPCODE_MULMOD: int
+    GAS_OPCODE_SIGNEXTEND: int
+    GAS_OPCODE_LT: int
+    GAS_OPCODE_GT: int
+    GAS_OPCODE_SLT: int
+    GAS_OPCODE_SGT: int
+    GAS_OPCODE_EQ: int
+    GAS_OPCODE_ISZERO: int
+    GAS_OPCODE_AND: int
+    GAS_OPCODE_OR: int
+    GAS_OPCODE_XOR: int
+    GAS_OPCODE_NOT: int
+    GAS_OPCODE_BYTE: int
+    GAS_OPCODE_SHL: int
+    GAS_OPCODE_SHR: int
+    GAS_OPCODE_SAR: int
+    GAS_OPCODE_CLZ: int
+    GAS_OPCODE_BLOBHASH: int
+    GAS_OPCODE_JUMP: int
+    GAS_OPCODE_JUMPI: int
+    GAS_OPCODE_CALLDATALOAD: int
+    GAS_OPCODE_CALLDATACOPY: int
+    GAS_OPCODE_CODECOPY: int
+    GAS_OPCODE_RETURNDATACOPY: int
+    GAS_OPCODE_MLOAD: int
+    GAS_OPCODE_MSTORE: int
+    GAS_OPCODE_MSTORE8: int
+    GAS_OPCODE_MCOPY: int
+    GAS_OPCODE_PUSH_N: int
+    GAS_OPCODE_DUP_N: int
+    GAS_OPCODE_SWAP_N: int
