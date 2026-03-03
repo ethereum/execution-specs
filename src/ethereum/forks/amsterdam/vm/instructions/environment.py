@@ -24,7 +24,7 @@ from .. import Evm
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
     GAS_BASE,
-    GAS_BLOBHASH_OPCODE,
+    GAS_BLOBHASH,
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_COPY,
     GAS_FAST_STEP,
@@ -583,7 +583,7 @@ def blob_hash(evm: Evm) -> None:
     index = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_BLOBHASH_OPCODE)
+    charge_gas(evm, GAS_BLOBHASH)
 
     # OPERATION
     if int(index) < len(evm.message.tx_env.blob_versioned_hashes):
