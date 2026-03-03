@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.frozen import slotted_freezable
-from ethereum_types.numeric import U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint, ulen
 
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
@@ -144,11 +144,11 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     This function takes a transaction as a parameter and returns the intrinsic
     gas cost of the transaction.
     """
-    num_zeros = tx.data.count(0)
-    num_non_zeros = len(tx.data) - num_zeros
+    num_zeros = Uint(tx.data.count(0))
+    num_non_zeros = ulen(tx.data) - num_zeros
     data_cost = (
-        Uint(num_zeros) * GAS_TX_DATA_PER_ZERO
-        + Uint(num_non_zeros) * GAS_TX_DATA_PER_NON_ZERO
+        num_zeros * GAS_TX_DATA_PER_ZERO
+        + num_non_zeros * GAS_TX_DATA_PER_NON_ZERO
     )
 
     return GAS_TX_BASE + data_cost

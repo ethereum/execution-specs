@@ -390,11 +390,11 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     """
     from .vm.gas import init_code_cost
 
-    num_zeros = tx.data.count(0)
-    num_non_zeros = len(tx.data) - num_zeros
+    num_zeros = Uint(tx.data.count(0))
+    num_non_zeros = ulen(tx.data) - num_zeros
     data_cost = (
-        Uint(num_zeros) * GAS_TX_DATA_PER_ZERO
-        + Uint(num_non_zeros) * GAS_TX_DATA_PER_NON_ZERO
+        num_zeros * GAS_TX_DATA_PER_ZERO
+        + num_non_zeros * GAS_TX_DATA_PER_NON_ZERO
     )
 
     if tx.to == Bytes0(b""):
