@@ -845,6 +845,75 @@ def test_extcodehash_after_selfdestruct(
 
 @pytest.mark.ported_from(
     [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashChangedAccountFiller.json",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2394"],
+)
+def test_extcodehash_changed_account(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE before and after changing account state.
+
+    A secondary contract has its nonce incremented (via CREATE), balance
+    increased (via CALL value), and storage modified (via SSTORE) when
+    called. The caller verifies that EXTCODEHASH and EXTCODESIZE return
+    the same values before and after these mutations.
+    """
+    storage = Storage()
+
+    # CREATE bumps nonce, receives value, sets storage.
+    secondary_code = Op.CREATE(value=0, offset=0, size=0) + Op.SSTORE(
+        0, 0x1234
+    )
+    secondary = pre.deploy_contract(secondary_code)
+
+    expected_hash = keccak256(bytes(secondary_code))
+    expected_size = len(secondary_code)
+
+    def extcode_checks() -> Bytecode:
+        return Op.SSTORE(
+            storage.store_next(expected_hash),
+            Op.EXTCODEHASH(secondary),
+        ) + Op.SSTORE(
+            storage.store_next(expected_size),
+            Op.EXTCODESIZE(secondary),
+        )
+
+    code = (
+        extcode_checks()
+        + Op.CALL(gas=Op.GAS, address=secondary, value=1)
+        + Op.POP
+        + extcode_checks()
+    )
+
+    code_address = pre.deploy_contract(
+        code, balance=1, storage=storage.canary()
+    )
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            code_address: Account(storage=storage),
+            secondary: Account(
+                nonce=2,
+                balance=1,
+                storage={0: 0x1234},
+            ),
+        },
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDynamicArgumentFiller.json",  # noqa: E501
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2379"],
