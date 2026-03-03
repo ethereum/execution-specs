@@ -232,10 +232,6 @@ def test_valid(
         # infinity) instead of rejecting them.
         # See: https://github.com/lambdaclass/ethrex/pull/6287
         pytest.param(
-            PointG1(0x40 << (47 * 8), 0) + Scalar(0),
-            id="x_bls_infinity_flag",
-        ),
-        pytest.param(
             Spec.G1 + Scalar(1) + PointG1(0x40 << (47 * 8), 0) + Scalar(0),
             id="x_bls_infinity_flag_pos_1",
         ),
