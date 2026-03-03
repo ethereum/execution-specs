@@ -20,7 +20,10 @@ from .. import Evm
 from ..gas import (
     GAS_BASE,
     GAS_COPY,
-    GAS_VERY_LOW,
+    GAS_OPCODE_MCOPY,
+    GAS_OPCODE_MLOAD,
+    GAS_OPCODE_MSTORE,
+    GAS_OPCODE_MSTORE8,
     calculate_gas_extend_memory,
     charge_gas,
 )
@@ -49,7 +52,7 @@ def mstore(evm: Evm) -> None:
         evm.memory, [(start_position, U256(len(value)))]
     )
 
-    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
+    charge_gas(evm, GAS_OPCODE_MSTORE + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -80,7 +83,7 @@ def mstore8(evm: Evm) -> None:
         evm.memory, [(start_position, U256(1))]
     )
 
-    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
+    charge_gas(evm, GAS_OPCODE_MSTORE8 + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -108,7 +111,7 @@ def mload(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(start_position, U256(32))]
     )
-    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
+    charge_gas(evm, GAS_OPCODE_MLOAD + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -166,7 +169,10 @@ def mcopy(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(source, length), (destination, length)]
     )
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
+    charge_gas(
+        evm,
+        GAS_OPCODE_MCOPY + copy_gas_cost + extend_memory.cost,
+    )
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by

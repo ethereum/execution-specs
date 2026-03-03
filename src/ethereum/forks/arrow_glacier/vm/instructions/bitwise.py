@@ -14,7 +14,17 @@ Implementations of the EVM bitwise instructions.
 from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
-from ..gas import GAS_VERY_LOW, charge_gas
+from ..gas import (
+    GAS_OPCODE_AND,
+    GAS_OPCODE_BYTE,
+    GAS_OPCODE_NOT,
+    GAS_OPCODE_OR,
+    GAS_OPCODE_SAR,
+    GAS_OPCODE_SHL,
+    GAS_OPCODE_SHR,
+    GAS_OPCODE_XOR,
+    charge_gas,
+)
 from ..stack import pop, push
 
 
@@ -34,7 +44,7 @@ def bitwise_and(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GAS_OPCODE_AND)
 
     # OPERATION
     push(evm.stack, x & y)
@@ -59,7 +69,7 @@ def bitwise_or(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GAS_OPCODE_OR)
 
     # OPERATION
     push(evm.stack, x | y)
@@ -84,7 +94,7 @@ def bitwise_xor(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GAS_OPCODE_XOR)
 
     # OPERATION
     push(evm.stack, x ^ y)
@@ -108,7 +118,7 @@ def bitwise_not(evm: Evm) -> None:
     x = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GAS_OPCODE_NOT)
 
     # OPERATION
     push(evm.stack, ~x)
@@ -134,7 +144,7 @@ def get_byte(evm: Evm) -> None:
     word = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GAS_OPCODE_BYTE)
 
     # OPERATION
     if byte_index >= U256(32):
@@ -169,7 +179,7 @@ def bitwise_shl(evm: Evm) -> None:
     value = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GAS_OPCODE_SHL)
 
     # OPERATION
     if shift < Uint(256):
@@ -199,7 +209,7 @@ def bitwise_shr(evm: Evm) -> None:
     value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GAS_OPCODE_SHR)
 
     # OPERATION
     if shift < U256(256):
@@ -229,7 +239,7 @@ def bitwise_sar(evm: Evm) -> None:
     signed_value = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    charge_gas(evm, GAS_OPCODE_SAR)
 
     # OPERATION
     if shift < 256:
