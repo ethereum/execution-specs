@@ -20,7 +20,7 @@ class GasCosts:
     GAS_WARM_SLOAD: int
     GAS_COLD_SLOAD: int
     GAS_STORAGE_SET: int
-    GAS_STORAGE_UPDATE: int
+    GAS_COLD_STORAGE_WRITE: int
     GAS_STORAGE_RESET: int
 
     GAS_SELF_DESTRUCT: int

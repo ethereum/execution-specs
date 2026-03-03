@@ -147,7 +147,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_WARM_SLOAD=100,
             GAS_COLD_SLOAD=2_100,
             GAS_STORAGE_SET=20_000,
-            GAS_STORAGE_UPDATE=5_000,
+            GAS_COLD_STORAGE_WRITE=5_000,
             GAS_STORAGE_RESET=2_900,
             REFUND_STORAGE_CLEAR=4_800,
             GAS_SELF_DESTRUCT=5_000,
@@ -627,7 +627,7 @@ class Frontier(BaseFork, solc_name="homestead"):
                 else:
                     # Slot was originally non-empty and was UPDATED earlier
                     refund += (
-                        gas_costs.GAS_STORAGE_UPDATE
+                        gas_costs.GAS_COLD_STORAGE_WRITE
                         - gas_costs.GAS_COLD_SLOAD
                         - gas_costs.GAS_WARM_SLOAD
                     )
@@ -654,7 +654,7 @@ class Frontier(BaseFork, solc_name="homestead"):
                 gas_cost += gas_costs.GAS_STORAGE_SET
             else:
                 gas_cost += (
-                    gas_costs.GAS_STORAGE_UPDATE - gas_costs.GAS_COLD_SLOAD
+                    gas_costs.GAS_COLD_STORAGE_WRITE - gas_costs.GAS_COLD_SLOAD
                 )
         else:
             gas_cost += gas_costs.GAS_WARM_SLOAD
