@@ -530,7 +530,7 @@ class Account(CamelModel):
             sort_keys=True,
             separators=(",", ":"),
         )
-        return Hash128(xxhash.xxh128(blob).digest())
+        return Hash128(xxhash.xxh128_digest(blob))
 
     @classmethod
     def with_code(cls: Type, code: BytesConvertible) -> "Account":
