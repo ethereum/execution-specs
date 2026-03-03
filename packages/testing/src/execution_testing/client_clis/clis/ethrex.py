@@ -42,7 +42,8 @@ class EthrexExceptionMapper(ExceptionMapper):
             "the header after executing"
         ),
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
-            "not in strictly ascending order"
+            "Block access list hash does not match the one in "
+            "the header after executing"
         ),
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             "Block access list hash does not match the one in "
@@ -50,6 +51,9 @@ class EthrexExceptionMapper(ExceptionMapper):
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             "not in strictly ascending order"
+        ),
+        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
+            "Block access list exceeds gas limit"
         ),
         BlockException.INVALID_GAS_USED: (
             "Gas used doesn't match value in header"
