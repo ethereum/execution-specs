@@ -34,12 +34,12 @@ from execution_testing import (
 from tests.benchmark.stateful.helpers import (
     APPROVE_SELECTOR,
     BALANCEOF_SELECTOR,
+    CacheStrategy,
     DECREMENT_COUNTER_CONDITION,
     MINT_SELECTOR,
     SLOAD_TOKENS,
     SSTORE_MINT_TOKENS,
     SSTORE_TOKENS,
-    CacheStrategy,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -266,6 +266,7 @@ def test_sload_erc20_balanceof(
     benchmark_test(pre=pre, blocks=blocks)
 
 
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize("token_name", SSTORE_TOKENS)
 def test_sstore_erc20_approve(
     benchmark_test: BenchmarkTestFiller,
@@ -274,6 +275,7 @@ def test_sstore_erc20_approve(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     token_name: str,
+    cache_strategy: CacheStrategy,
 ) -> None:
     """Benchmark SSTORE using ERC20 approve on bloatnet."""
     # Stub Account
@@ -302,23 +304,48 @@ def test_sstore_erc20_approve(
         + Op.CALLDATALOAD(0)  # [num_calls]
     )
 
-    loop = While(
-        body=(
-            Op.MSTORE(64, Op.MLOAD(32))
+    call_approve = (
+        Op.MSTORE(64, Op.MLOAD(32))
+        + Op.POP(
+            Op.CALL(
+                address=erc20_address,
+                value=0,
+                args_offset=28,
+                args_size=68,
+                ret_offset=0,
+                ret_size=0,
+                # gas accounting
+                address_warm=True,
+            )
+        )
+    )
+
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        # Call balanceOf first to warm the storage slot, then
+        # restore the approve selector
+        cache_warmup = (
+            Op.MSTORE(0, BALANCEOF_SELECTOR)
             + Op.POP(
                 Op.CALL(
                     address=erc20_address,
                     value=0,
                     args_offset=28,
-                    args_size=68,
+                    args_size=36,
                     ret_offset=0,
                     ret_size=0,
                     # gas accounting
                     address_warm=True,
                 )
             )
-            + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
-        ),
+            + Op.MSTORE(0, APPROVE_SELECTOR)
+        )
+    else:
+        cache_warmup = Bytecode()
+
+    loop = While(
+        body=cache_warmup
+        + call_approve
+        + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
         condition=DECREMENT_COUNTER_CONDITION,
     )
 
@@ -366,10 +393,14 @@ def test_sstore_erc20_approve(
             # gas accounting
             data_size=64,
         )
-        + Op.DUP1
-        + Op.SLOAD.with_metadata(key_warm=False)
-        + Op.POP
-        + Op.SSTORE
+        + (
+            Op.DUP1
+            + Op.SLOAD.with_metadata(key_warm=False)
+            + Op.POP
+            + Op.SSTORE.with_metadata(key_warm=True)
+            if cache_strategy == CacheStrategy.CACHE_TX
+            else Op.SSTORE.with_metadata(key_warm=False)
+        )
         # Return true
         + Op.MSTORE(0, 1)
         + Op.RETURN(0, 32)
@@ -379,6 +410,7 @@ def test_sstore_erc20_approve(
 
     # Transaction Loops
     txs = []
+    cache_txs = []
     gas_remaining = gas_benchmark_value
     slot_offset = 0
 
@@ -397,23 +429,39 @@ def test_sstore_erc20_approve(
 
         calldata = Hash(num_calls) + Hash(slot_offset)
 
-        txs.append(
-            Transaction(
-                gas_limit=gas_available,
-                data=calldata,
-                to=attack_contract_address,
-                sender=pre.fund_eoa(),
-                access_list=access_list,
+        if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+            with TestPhaseManager.setup():
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=gas_available,
+                        data=calldata,
+                        to=attack_contract_address,
+                        sender=pre.fund_eoa(),
+                        access_list=access_list,
+                    )
+                )
+
+        with TestPhaseManager.execution():
+            txs.append(
+                Transaction(
+                    gas_limit=gas_available,
+                    data=calldata,
+                    to=attack_contract_address,
+                    sender=pre.fund_eoa(),
+                    access_list=access_list,
+                )
             )
-        )
 
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    benchmark_test(
-        pre=pre,
-        blocks=[Block(txs=txs)],
+    blocks = (
+        [Block(txs=txs)]
+        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
+        else [Block(txs=cache_txs), Block(txs=txs)]
     )
+
+    benchmark_test(pre=pre, blocks=blocks)
 
 
 @pytest.mark.parametrize("token_name", SSTORE_MINT_TOKENS)
