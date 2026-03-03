@@ -411,9 +411,7 @@ class Result:
             # TODO: perhaps change this for t8n.all_txs minus rejected_txs?
             included_txs = []
             for key in block_output.receipt_keys:
-                tx = t8n.fork.trie_get(
-                    block_output.transactions_trie, key
-                )
+                tx = t8n.fork.trie_get(block_output.transactions_trie, key)
                 assert tx is not None
                 included_txs.append(tx)
 
@@ -440,9 +438,7 @@ class Result:
             result = t8n.fork.deserialize_stateless_output(
                 stateless_output_bytes
             )
-            assert result.successful_validation, (
-                "Stateless validation failed"
-            )
+            assert result.successful_validation, "Stateless validation failed"
             self.stateless_input_bytes = bytes(stateless_input_bytes)
             self.stateless_output_bytes = bytes(stateless_output_bytes)
 

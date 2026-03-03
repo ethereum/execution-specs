@@ -808,9 +808,7 @@ def _collapse_branch(
                 _dirty=True,
             )
         else:
-            raise AssertionError(
-                f"Unexpected node type {type(child)}"
-            )
+            raise AssertionError(f"Unexpected node type {type(child)}")
 
     if len(non_empty) == 0 and node.value != b"":
         return MutableLeafNode(
