@@ -316,8 +316,9 @@ def _compute_node_hash_and_rlp(
     if node is None:
         return None, b""
 
-    if isinstance(node, HashedNode):
-        return node._hash, b""
+    assert not isinstance(node, HashedNode), (
+        "HashedNode cannot appear in _compute_node_hash_and_rlp"
+    )
 
     if node._rlp is not None:
         if node._hash is not None:
@@ -800,11 +801,15 @@ def _collapse_branch(
                 child=child.child,
                 _dirty=True,
             )
-        else:
+        elif isinstance(child, MutableBranchNode):
             return MutableExtensionNode(
                 key_segment=nibble,
                 child=child,
                 _dirty=True,
+            )
+        else:
+            raise AssertionError(
+                f"Unexpected node type {type(child)}"
             )
 
     if len(non_empty) == 0 and node.value != b"":
@@ -893,11 +898,12 @@ def _resolve_child_ref(
         ref_bytes = Bytes(child_ref)
         if len(ref_bytes) == 0:
             return None
-        if len(ref_bytes) == 32:
-            if ref_bytes in node_db:
-                return _decode_witness_node(node_db, node_db[ref_bytes])
-            return HashedNode(_hash=ref_bytes)
-        return _decode_witness_node(node_db, rlp.encode(ref_bytes))
+        assert len(ref_bytes) == 32, (
+            f"Unexpected child ref length: {len(ref_bytes)}"
+        )
+        if ref_bytes in node_db:
+            return _decode_witness_node(node_db, node_db[ref_bytes])
+        return HashedNode(_hash=ref_bytes)
     else:
         return _decode_witness_node(node_db, rlp.encode(child_ref))
 
