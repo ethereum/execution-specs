@@ -963,6 +963,91 @@ def test_extcodehash_max_code_size(
 
 @pytest.mark.ported_from(
     [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashInInitCodeFiller.json",  # noqa: E501
+    ],
+)
+@pytest.mark.parametrize(
+    "create_opcode",
+    [pytest.param(None, id="create_tx"), Op.CREATE, Op.CREATE2],
+)
+def test_extcodehash_in_init_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    create_opcode: Opcodes | None,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE of an external account during init code.
+
+    The init code queries EXTCODEHASH and EXTCODESIZE of a pre-existing
+    contract and stores the results. With a create transaction the checks
+    run in the top-level init code; with CREATE/CREATE2 they run in a
+    contract-initiated creation.
+    """
+    storage = Storage()
+    target_code = b"\x11\x22\x33\x44"
+    target = pre.deploy_contract(target_code)
+
+    expected_hash = keccak256(target_code)
+    expected_size = len(target_code)
+
+    # Init code: execute EXTCODEHASH/EXTCODESIZE checks, then deploy.
+    checks = Op.SSTORE(
+        storage.store_next(expected_hash),
+        Op.EXTCODEHASH(target),
+    ) + Op.SSTORE(
+        storage.store_next(expected_size),
+        Op.EXTCODESIZE(target),
+    )
+    initcode = checks + Op.RETURN(0, 0)
+
+    if create_opcode is None:
+        # Transaction-level creation: init code runs directly.
+        sender = pre.fund_eoa()
+        tx = Transaction(
+            sender=sender,
+            to=None,
+            data=initcode,
+            gas_limit=400_000,
+        )
+        created = compute_create_address(
+            address=sender,
+            nonce=0,
+        )
+    else:
+        # Contract-initiated CREATE/CREATE2: copy initcode from calldata.
+        factory_code = (
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + create_opcode(
+                value=0,
+                offset=0,
+                size=Op.CALLDATASIZE,
+            )
+            + Op.STOP
+        )
+        factory = pre.deploy_contract(factory_code)
+        tx = Transaction(
+            sender=pre.fund_eoa(),
+            to=factory,
+            data=initcode,
+            gas_limit=400_000,
+        )
+        created = compute_create_address(
+            address=factory,
+            nonce=1,
+            salt=0,
+            initcode=initcode,
+            opcode=create_opcode,
+        )
+
+    state_test(
+        pre=pre,
+        post={created: Account(storage=storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDynamicArgumentFiller.json",  # noqa: E501
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2379"],
