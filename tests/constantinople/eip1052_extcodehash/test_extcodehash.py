@@ -914,6 +914,55 @@ def test_extcodehash_changed_account(
 
 @pytest.mark.ported_from(
     [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashMaxCodeSizeFiller.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2397"],
+)
+@pytest.mark.parametrize("code_byte", [0x00, 0xFE], ids=["stop", "invalid"])
+@pytest.mark.parametrize("size_delta", [0, 1], ids=["max", "max_minus_1"])
+def test_extcodehash_max_code_size(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    code_byte: int,
+    size_delta: int,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE of a contract near max code size.
+
+    Deploy a contract with MAXCODESIZE or MAXCODESIZE-1 bytes of code
+    filled with a single byte pattern and verify that EXTCODEHASH and
+    EXTCODESIZE return the correct values.
+    """
+    storage = Storage()
+    target_code = bytes([code_byte] * (fork.max_code_size() - size_delta))
+    target = pre.deploy_contract(target_code)
+
+    code = Op.SSTORE(
+        storage.store_next(keccak256(target_code)),
+        Op.EXTCODEHASH(target),
+    ) + Op.SSTORE(
+        storage.store_next(len(target_code)),
+        Op.EXTCODESIZE(target),
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDynamicArgumentFiller.json",  # noqa: E501
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2379"],
