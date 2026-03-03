@@ -22,7 +22,7 @@ from ..helpers import Fork
             Osaka,
             Op.SSTORE,
             Osaka.gas_costs().GAS_STORAGE_SET
-            + Osaka.gas_costs().GAS_COLD_SLOAD,
+            + Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS,
             id="sstore_defaults",
         ),
         pytest.param(
@@ -186,7 +186,7 @@ from ..helpers import Fork
         pytest.param(
             Osaka,
             Op.SLOAD(key_warm=False),
-            Osaka.gas_costs().GAS_COLD_SLOAD,
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS,
             id="sload_cold",
         ),
         pytest.param(
@@ -546,7 +546,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, original_value=0, new_value=0),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_WARM_SLOAD,
             id="sstore_noop_zero_cold",  # 0 → 0
         ),
@@ -559,7 +559,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, original_value=5, new_value=5),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_WARM_SLOAD,
             id="sstore_noop_nonzero_cold",  # 5 → 5
         ),
@@ -573,7 +573,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, new_value=5),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_STORAGE_SET,
             id="sstore_create_cold",  # 0 → 5
         ),
@@ -587,7 +587,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, original_value=5, new_value=7),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_STORAGE_RESET,
             id="sstore_modify_cold",  # 5 → 7
         ),
@@ -601,7 +601,7 @@ def test_bytecode_refunds(  # noqa: D103
         pytest.param(
             Osaka,
             Op.SSTORE(key_warm=False, original_value=5, new_value=0),
-            Osaka.gas_costs().GAS_COLD_SLOAD
+            Osaka.gas_costs().GAS_COLD_STORAGE_ACCESS
             + Osaka.gas_costs().GAS_STORAGE_RESET,
             id="sstore_clear_cold",  # 5 → 0
         ),

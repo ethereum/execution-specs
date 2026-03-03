@@ -123,7 +123,7 @@ def test_bal_sstore_and_oog(
 
     intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
 
-    # Full cost: PUSHes + SSTORE (GAS_COLD_SLOAD + GAS_STORAGE_SET)
+    # Full cost: PUSHes + SSTORE (GAS_COLD_STORAGE_ACCESS + GAS_STORAGE_SET)
     full_cost = storage_contract_code.gas_cost(fork)
 
     # Push cost for stipend boundary calculations

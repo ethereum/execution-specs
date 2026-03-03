@@ -145,7 +145,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             GAS_TX_ACCESS_LIST_ADDRESS=2_400,
             GAS_TX_ACCESS_LIST_STORAGE_KEY=1_900,
             GAS_WARM_SLOAD=100,
-            GAS_COLD_SLOAD=2_100,
+            GAS_COLD_STORAGE_ACCESS=2_100,
             GAS_STORAGE_SET=20_000,
             GAS_COLD_STORAGE_WRITE=5_000,
             GAS_STORAGE_RESET=2_900,
@@ -421,7 +421,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             Opcodes.SLOAD: lambda op: (
                 gas_costs.GAS_WARM_SLOAD
                 if op.metadata["key_warm"]
-                else gas_costs.GAS_COLD_SLOAD
+                else gas_costs.GAS_COLD_STORAGE_ACCESS
             ),
             Opcodes.SSTORE: lambda op: cls._calculate_sstore_gas(
                 op, gas_costs
@@ -628,7 +628,7 @@ class Frontier(BaseFork, solc_name="homestead"):
                     # Slot was originally non-empty and was UPDATED earlier
                     refund += (
                         gas_costs.GAS_COLD_STORAGE_WRITE
-                        - gas_costs.GAS_COLD_SLOAD
+                        - gas_costs.GAS_COLD_STORAGE_ACCESS
                         - gas_costs.GAS_WARM_SLOAD
                     )
 
@@ -647,14 +647,17 @@ class Frontier(BaseFork, solc_name="homestead"):
             current_value = original_value
         new_value = metadata["new_value"]
 
-        gas_cost = 0 if metadata["key_warm"] else gas_costs.GAS_COLD_SLOAD
+        gas_cost = (
+            0 if metadata["key_warm"] else gas_costs.GAS_COLD_STORAGE_ACCESS
+        )
 
         if original_value == current_value and current_value != new_value:
             if original_value == 0:
                 gas_cost += gas_costs.GAS_STORAGE_SET
             else:
                 gas_cost += (
-                    gas_costs.GAS_COLD_STORAGE_WRITE - gas_costs.GAS_COLD_SLOAD
+                    gas_costs.GAS_COLD_STORAGE_WRITE
+                    - gas_costs.GAS_COLD_STORAGE_ACCESS
                 )
         else:
             gas_cost += gas_costs.GAS_WARM_SLOAD

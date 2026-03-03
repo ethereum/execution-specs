@@ -347,7 +347,7 @@ def generate_system_contract_error_test(
                 # executed in a subsequent block, it will consume less gas.
                 gas_used_per_storage = (
                     gas_costs.GAS_STORAGE_SET
-                    + gas_costs.GAS_COLD_SLOAD
+                    + gas_costs.GAS_COLD_STORAGE_ACCESS
                     + (gas_costs.GAS_VERY_LOW * 2)
                 )
                 modified_system_contract_code += sum(
