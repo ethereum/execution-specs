@@ -13,11 +13,12 @@ from execution_testing.test_types import (
     EOA,
     Alloc,
     Transaction,
+    compute_create2_address,
     compute_create_address,
 )
 from execution_testing.vm import Bytecode, Op
 
-from ..tools_code.generators import CreatePreimageLayout
+from ..tools_code.generators import Create2PreimageLayout, CreatePreimageLayout
 
 
 @pytest.mark.parametrize(
@@ -149,6 +150,92 @@ def test_create_preimage(
         tx=tx,
         fork=fork,
     )
-    default_t8n.trace = True
-    default_t8n.traces = []
+    state_test.generate(t8n=default_t8n, fixture_format=StateFixture)
+
+
+@pytest.mark.parametrize(
+    "offset,factory_address",
+    [
+        pytest.param(0, None, id="zero-offset"),
+        pytest.param(1, None, id="one-offset"),
+        pytest.param(32, None, id="32-offset"),
+        pytest.param(0, 0x2000, id="different-factory-address"),
+    ],
+)
+def test_create2_preimage(
+    default_t8n: TransitionTool,
+    offset: int,
+    factory_address: int | None,
+) -> None:
+    """Test `Create2PreimageLayout` by running its result in the EVM."""
+    sender = EOA(key=1)
+
+    contract_address = 0x1000
+    factory_address = (
+        contract_address if factory_address is None else factory_address
+    )
+    initcode = Op.STOP
+    init_code_hash = initcode.keccak256()
+    salt = 1
+    address_mask = (1 << 160) - 1
+
+    create2_preimage = Create2PreimageLayout(
+        factory_address=Op.ADDRESS
+        if factory_address == contract_address
+        else factory_address,
+        salt=salt,
+        init_code_hash=init_code_hash,
+        offset=offset,
+    )
+    contract: Bytecode = (
+        create2_preimage
+        + Op.SSTORE(1, Op.AND(address_mask, create2_preimage.address_op()))
+        + create2_preimage.increment_salt_op()
+        + Op.SSTORE(2, Op.AND(address_mask, create2_preimage.address_op()))
+        + create2_preimage.increment_salt_op()
+        + Op.SSTORE(3, Op.AND(address_mask, create2_preimage.address_op()))
+    )
+
+    pre = Alloc(
+        {
+            sender: Account(balance=(10**18)),
+            Address(contract_address): Account(code=contract),
+        }
+    )
+    post = Alloc(
+        {
+            Address(contract_address): Account(
+                storage={
+                    1: compute_create2_address(
+                        address=factory_address,
+                        salt=salt,
+                        initcode=initcode,
+                    ),
+                    2: compute_create2_address(
+                        address=factory_address,
+                        salt=salt + 1,
+                        initcode=initcode,
+                    ),
+                    3: compute_create2_address(
+                        address=factory_address,
+                        salt=salt + 2,
+                        initcode=initcode,
+                    ),
+                }
+            ),
+        }
+    )
+    tx = Transaction(
+        sender=sender,
+        to=contract_address,
+        gas_limit=500_000,
+    )
+    fork = get_deployed_forks()[-1]
+
+    state_test = StateTest(
+        pre=pre,
+        post=post,
+        tx=tx,
+        fork=fork,
+    )
     state_test.generate(t8n=default_t8n, fixture_format=StateFixture)
