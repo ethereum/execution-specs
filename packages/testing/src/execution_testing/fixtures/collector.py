@@ -306,7 +306,7 @@ class FixtureCollector:
                 "format": fixture.format_name,
             }
             if (pre_hash := getattr(fixture, "pre_hash", None)) is not None:
-                index_entry["pre_hash"] = pre_hash
+                index_entry["pre_hash"] = str(pre_hash)
             self._stream_index_entry_to_partial(index_entry)
 
         return fixture_path

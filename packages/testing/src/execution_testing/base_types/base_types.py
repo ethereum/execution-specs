@@ -438,8 +438,14 @@ class Address(FixedSizeBytes[20]):  # type: ignore
         return instance
 
 
+class Hash128(FixedSizeBytes[16]):  # type: ignore
+    """Class that helps represent 128-bit hashes."""
+
+    pass
+
+
 class Hash(FixedSizeBytes[32]):  # type: ignore
-    """Class that helps represent hashes in tests."""
+    """Class that helps represent 256-bit hashes."""
 
     pass
 

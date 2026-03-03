@@ -38,6 +38,7 @@ from execution_testing.base_types import (
     EmptyOmmersRoot,
     EmptyTrieRoot,
     Hash,
+    Hash128,
     HeaderNonce,
     HexNumber,
     Number,
@@ -801,7 +802,7 @@ class BlockchainEngineXFixture(BlockchainEngineFixtureCommon):
     }
     transition_tool_cache_key: ClassVar[str] = ""
 
-    pre_hash: str
+    pre_hash: Hash128
     """Hash of the pre-allocation group this test belongs to."""
 
     post_state_diff: Alloc | None = None

@@ -20,7 +20,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import Self
 
-from execution_testing.base_types import to_hex
+from execution_testing.base_types import Hash128, to_hex
 from execution_testing.client_clis import Result, TransitionTool
 from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.execution import (
@@ -43,8 +43,8 @@ class HashMismatchExceptionError(Exception):
 
     def __init__(
         self,
-        expected_hash: str,
-        actual_hash: str,
+        expected_hash: Hash128,
+        actual_hash: Hash128 | str | None,
         message: str = "Hashes do not match",
     ) -> None:
         """Initialize the exception with the expected and actual hashes."""

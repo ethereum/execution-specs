@@ -1,15 +1,15 @@
 """Account structure of ethereum/tests fillers."""
 
-import hashlib
 import json
 from typing import Any, Dict, List, Mapping, Set, Tuple
 
+import xxhash
 from pydantic import BaseModel, ConfigDict
 
 from execution_testing.base_types import (
     Account,
     EthereumTestRootModel,
-    Hash,
+    Hash128,
     HexNumber,
 )
 from execution_testing.test_types import (
@@ -93,17 +93,17 @@ class AccountInFiller(BaseModel, TagDependentData):
                 account_properties["storage"] = resolved_storage
         return account_properties
 
-    def hash(self) -> Hash:
+    def hash(self) -> Hash128:
         """Return a hash of the account as it is in the filler."""
         dumped = self.model_dump(mode="json", exclude_none=True)
-        return Hash(
-            hashlib.sha256(
+        return Hash128(
+            xxhash.xxh128_digest(
                 json.dumps(
                     dumped,
                     sort_keys=True,
                     separators=(",", ":"),
-                ).encode("utf-8")
-            ).digest()
+                )
+            )
         )
 
 
@@ -193,7 +193,7 @@ class PreInFiller(EthereumTestRootModel):
 
         # Step 4: Pre-deploy all contract tags and pre-fund EOAs to get
         # addresses
-        account_salts: Dict[Hash, int] = {}
+        account_salts: Dict[Hash128, int] = {}
         for tag_name in resolution_order:
             if tag_name in tag_to_address:
                 tag = tag_to_address[tag_name]

@@ -5,7 +5,7 @@ from typing import List, SupportsBytes
 import ethereum_rlp as eth_rlp
 from pydantic import BaseModel, ConfigDict
 
-from execution_testing.base_types.base_types import Address, Bytes, Hash
+from execution_testing.base_types import Address, Bytes, Hash, Hash128
 from execution_testing.base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
@@ -147,26 +147,28 @@ def add_kzg_version(
     return kzg_versioned_hashes
 
 
-def contract_address_from_hash(account_hash: Hash, salt: int) -> Address:
+def contract_address_from_hash(account_hash: Hash128, salt: int) -> Address:
     """
     Calculate an address from a given (account) hash plus a salt.
 
     Useful to not duplicate accounts in the pre-allocation when grouping
     many tests.
+
+    Not cryptographically safe, do not use in execute command.
     """
-    return Address(
-        Bytes(account_hash + salt.to_bytes(64, "big")).sha256()[12:]
-    )
+    return Address(account_hash + salt.to_bytes(4, "big"))
 
 
-def eoa_from_hash(account_hash: Hash, salt: int) -> EOA:
+def eoa_from_hash(account_hash: Hash128, salt: int) -> EOA:
     """
     Calculate an EOA from a given (account) hash plus a salt.
 
     Useful to not duplicate accounts in the pre-allocation when grouping
     many tests.
+
+    Not cryptographically safe, do not use in execute command.
     """
-    return EOA(key=Bytes(account_hash + salt.to_bytes(64, "big")).sha256())
+    return EOA(key=account_hash + salt.to_bytes(16, "big"))
 
 
 class TestParameterGroup(BaseModel):

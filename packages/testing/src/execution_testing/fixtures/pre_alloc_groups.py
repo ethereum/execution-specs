@@ -23,6 +23,7 @@ from execution_testing.base_types import (
     CamelModel,
     EthereumTestRootModel,
     Hash,
+    Hash128,
 )
 from execution_testing.forks import Fork
 from execution_testing.test_types import Alloc, Environment
@@ -187,7 +188,7 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
     Iterating will fail if lazy_load is True.
     """
 
-    root: Dict[str, PreAllocGroupBuilder]
+    root: Dict[Hash128, PreAllocGroupBuilder]
 
     def to_folder(self, folder: Path, worker_id: Optional[str] = None) -> None:
         """
@@ -203,7 +204,7 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
     def add_test_pre(
         self,
         *,
-        pre_alloc_hash: str,
+        pre_alloc_hash: Hash128,
         test_id: str,
         fork: Fork,
         environment: Environment,
@@ -363,11 +364,11 @@ class PreAllocGroups(EthereumTestRootModel):
     Iterating will fail if lazy_load is True.
     """
 
-    root: Dict[str, PreAllocGroup | None]
+    root: Dict[Hash128, PreAllocGroup | None]
 
     _folder_source: Path | None = PrivateAttr(None)
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: Hash128, value: Any) -> None:
         """Set item in root dict."""
         assert self._folder_source is None, (
             "Cannot set item in root dict after folder source is set"
@@ -382,18 +383,24 @@ class PreAllocGroups(EthereumTestRootModel):
             with open(fail_file) as f:
                 raise Alloc.CollisionError.from_json(json.loads(f.read()))
 
-        data: Dict[str, PreAllocGroup | None] = {}
+        data: Dict[Hash128, PreAllocGroup | None] = {}
         for file in folder.glob("*.json"):
-            if lazy_load:
-                data[file.stem] = None
-            else:
-                data[file.stem] = PreAllocGroup.from_file(file)
+            hash_key: Hash128 | None = None
+            try:
+                hash_key = Hash128(file.stem)
+            except Exception:
+                pass
+            if hash_key is not None:
+                if lazy_load:
+                    data[hash_key] = None
+                else:
+                    data[hash_key] = PreAllocGroup.from_file(file)
         instance = cls(root=data)
         if lazy_load:
             instance._folder_source = folder
         return instance
 
-    def __getitem__(self, item: str) -> PreAllocGroup:
+    def __getitem__(self, item: Hash128) -> PreAllocGroup:
         """Get item from root dict."""
         if self._folder_source is None:
             value = self.root[item]
@@ -408,11 +415,11 @@ class PreAllocGroups(EthereumTestRootModel):
             assert result is not None
             return result
 
-    def __iter__(self) -> Iterator[str]:  # type: ignore [override]
+    def __iter__(self) -> Iterator[Hash128]:  # type: ignore [override]
         """Iterate over root dict."""
         return iter(self.root)
 
-    def __contains__(self, item: str) -> bool:
+    def __contains__(self, item: Hash128) -> bool:
         """Check if item in root dict."""
         return item in self.root
 
@@ -420,7 +427,7 @@ class PreAllocGroups(EthereumTestRootModel):
         """Get length of root dict."""
         return len(self.root)
 
-    def keys(self) -> KeysView[str]:
+    def keys(self) -> KeysView[Hash128]:
         """Get keys from root dict."""
         return self.root.keys()
 
@@ -430,7 +437,7 @@ class PreAllocGroups(EthereumTestRootModel):
             assert value is not None, "Value is None"
             yield value
 
-    def items(self) -> Generator[Tuple[str, PreAllocGroup], None, None]:
+    def items(self) -> Generator[Tuple[Hash128, PreAllocGroup], None, None]:
         """Get items from root dict."""
         for key, value in self.root.items():
             assert value is not None, f"Value for key {key} is None"

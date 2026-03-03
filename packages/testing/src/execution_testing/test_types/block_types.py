@@ -1,11 +1,11 @@
 """Block-related types for Ethereum tests."""
 
-import hashlib
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Dict, Generic, List, Sequence
 
 import ethereum_rlp as eth_rlp
+import xxhash
 from ethereum_types.numeric import Uint
 from pydantic import Field, computed_field, model_validator
 from trie import HexaryTrie
@@ -16,6 +16,7 @@ from execution_testing.base_types import (
     CamelModel,
     EmptyOmmersRoot,
     Hash,
+    Hash128,
     HexNumber,
     NumberBoundTypeVar,
     ZeroPaddedHexNumber,
@@ -225,15 +226,13 @@ class Environment(EnvironmentGeneric[ZeroPaddedHexNumber]):
 
         return self.copy(**updated_values)
 
-    def __hash__(self) -> int:
+    def hash(self) -> Hash128:
         """Hashes the environment object."""
         hash_dict = self.model_dump(exclude_none=True, by_alias=True)
 
         sorted_items = sorted(hash_dict.items())
         hash_string = str(sorted_items)
-
-        digest = hashlib.sha256(hash_string.encode("utf-8")).digest()
-        return int.from_bytes(digest[:8], byteorder="big")
+        return Hash128(xxhash.xxh128_digest(hash_string))
 
     def __eq__(self, other: object) -> bool:
         """Check if two environment objects are equal."""

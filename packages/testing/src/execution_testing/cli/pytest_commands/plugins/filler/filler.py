@@ -31,6 +31,7 @@ from pytest_metadata.plugin import metadata_key
 from execution_testing.base_types import (
     Account,
     Address,
+    Hash128,
     ReferenceSpec,
 )
 from execution_testing.base_types import Alloc as BaseAlloc
@@ -361,7 +362,7 @@ class FillingSession:
         """
         return self.format_selector.should_generate(fixture_format)
 
-    def get_pre_alloc_group(self, hash_key: str) -> PreAllocGroup:
+    def get_pre_alloc_group(self, hash_key: Hash128) -> PreAllocGroup:
         """
         Get a pre-allocation group by hash.
 
@@ -380,7 +381,8 @@ class FillingSession:
 
         if hash_key not in self.pre_alloc_groups:
             pre_alloc_path = (
-                self.fixture_output.pre_alloc_groups_folder_path / hash_key
+                self.fixture_output.pre_alloc_groups_folder_path
+                / f"{hash_key}"
             )
             raise ValueError(
                 f"Pre-allocation hash {hash_key} not found in "
@@ -392,7 +394,7 @@ class FillingSession:
         return self.pre_alloc_groups[hash_key]
 
     def update_pre_alloc_group_builder(
-        self, hash_key: str, group_builder: PreAllocGroupBuilder
+        self, hash_key: Hash128, group_builder: PreAllocGroupBuilder
     ) -> None:
         """
         Update or add a pre-allocation group.
@@ -1675,7 +1677,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                             request.node.nodeid
                         )
 
-                pre_alloc_hash: str | None = None
+                pre_alloc_hash: Hash128 | None = None
                 # Phase 1: Generate pre-allocation groups
                 if session.phase_manager.is_pre_alloc_generation:
                     # Use the original update_pre_alloc_groups method which

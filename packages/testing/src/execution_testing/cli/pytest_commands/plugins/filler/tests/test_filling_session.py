@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from execution_testing.base_types import Alloc
+from execution_testing.base_types import Alloc, Hash128
 from execution_testing.fixtures import (
     FixtureFillingPhase,
     PreAllocGroupBuilder,
@@ -90,7 +90,7 @@ class TestFillingSession:
             fork=Prague.name(),
         )
         test_group = test_group_builder.build()
-        mock_groups = PreAllocGroups(root={"test_hash": test_group})
+        mock_groups = PreAllocGroups(root={Hash128(1): test_group})
 
         with patch(
             "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
@@ -175,7 +175,7 @@ class TestFillingSession:
             fork=Prague.name(),
         )
         test_group = test_group_builder.build()
-        mock_groups = PreAllocGroups(root={"test_hash": test_group})
+        mock_groups = PreAllocGroups(root={Hash128(1): test_group})
 
         with patch(
             "execution_testing.cli.pytest_commands.plugins.filler.filler.FixtureOutput",
@@ -187,7 +187,7 @@ class TestFillingSession:
                 ):
                     session = FillingSession.from_config(config)  # type: ignore[arg-type]
 
-        assert session.get_pre_alloc_group("test_hash") is test_group
+        assert session.get_pre_alloc_group(Hash128(1)) is test_group
 
     def test_get_pre_alloc_group_not_found(self) -> None:
         """Test getting a non-existent pre-alloc group."""
@@ -208,7 +208,7 @@ class TestFillingSession:
         with pytest.raises(
             ValueError, match="Pre-allocation hash .* not found"
         ):
-            session.get_pre_alloc_group("missing_hash")
+            session.get_pre_alloc_group(Hash128(2))
 
     def test_get_pre_alloc_group_not_initialized(self) -> None:
         """Test getting pre-alloc group when not initialized."""
@@ -223,7 +223,7 @@ class TestFillingSession:
         with pytest.raises(
             ValueError, match="Pre-allocation groups not initialized"
         ):
-            session.get_pre_alloc_group("any_hash")
+            session.get_pre_alloc_group(Hash128(0))
 
     def test_update_pre_alloc_group(self) -> None:
         """Test updating a pre-alloc group."""
@@ -242,12 +242,12 @@ class TestFillingSession:
             .model_dump(mode="json", exclude={"parent_hash"}),
             fork=Prague.name(),
         )
-        session.update_pre_alloc_group_builder("test_hash", test_group_builder)
+        session.update_pre_alloc_group_builder(Hash128(1), test_group_builder)
 
         assert session.pre_alloc_group_builders is not None
-        assert "test_hash" in session.pre_alloc_group_builders.root
+        assert Hash128(1) in session.pre_alloc_group_builders.root
         assert (
-            session.pre_alloc_group_builders.root["test_hash"]
+            session.pre_alloc_group_builders.root[Hash128(1)]
             is test_group_builder
         )
 
@@ -273,7 +273,7 @@ class TestFillingSession:
             match="Can only update pre-alloc groups in generation phase",
         ):
             session.update_pre_alloc_group_builder(
-                "test_hash", test_group_builder
+                Hash128(1), test_group_builder
             )
 
     def test_save_pre_alloc_groups(self) -> None:
@@ -294,7 +294,7 @@ class TestFillingSession:
             .model_dump(mode="json", exclude={"parent_hash"}),
             fork=Prague.name(),
         )
-        session.update_pre_alloc_group_builder("test_hash", test_group_builder)
+        session.update_pre_alloc_group_builder(Hash128(1), test_group_builder)
 
         # Mock file operations
         with patch.object(Path, "mkdir") as mock_mkdir:

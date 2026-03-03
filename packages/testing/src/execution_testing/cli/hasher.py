@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 from dataclasses import dataclass, field
@@ -11,8 +10,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
 
 import click
+import xxhash
 from rich.console import Console
 from rich.markup import escape as rich_escape
+
+from execution_testing.base_types import Hash128
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.consume import TestCaseIndexFile
@@ -35,10 +37,10 @@ class HashableItem:
 
     type: HashableItemType
     parents: List[str] = field(default_factory=list)
-    root: Optional[bytes] = None
+    root: Optional[Hash128] = None
     items: Optional[Dict[str, "HashableItem"]] = None
 
-    def hash(self) -> bytes:
+    def hash(self) -> Hash128:
         """Return the hash of the item."""
         if self.root is not None:
             return self.root
@@ -46,7 +48,7 @@ class HashableItem:
             raise ValueError("No items to hash")
         # Use list + join instead of += to avoid O(n²) byte concatenation
         hash_parts = [item.hash() for _, item in sorted(self.items.items())]
-        return hashlib.sha256(b"".join(hash_parts)).digest()
+        return Hash128(xxhash.xxh128_digest(b"".join(hash_parts)))
 
     def format_lines(
         self,
@@ -117,7 +119,7 @@ class HashableItem:
                     f"got {type(hash_value)}"
                 )
 
-            item_hash_bytes = bytes.fromhex(hash_value[2:])
+            item_hash_bytes = Hash128(hash_value)
             items[key] = cls(
                 type=HashableItemType.TEST,
                 root=item_hash_bytes,
@@ -213,7 +215,8 @@ class HashableItem:
                 current[file_name] = []
 
             # Convert hex string to 32-byte hash
-            hash_bytes = int(fixture_hash, 16).to_bytes(32, "big")
+            assert isinstance(fixture_hash, str)
+            hash_bytes = Hash128(fixture_hash)
             current[file_name].append((entry["id"], hash_bytes))
 
         # Convert trie to HashableItem tree (single recursive pass)

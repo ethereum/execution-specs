@@ -27,6 +27,7 @@ from execution_testing.base_types import (
     Bytes,
     CamelModel,
     Hash,
+    Hash128,
     HeaderNonce,
     HexNumber,
     Number,
@@ -1018,7 +1019,7 @@ class BlockchainTest(BaseTest):
                     "post_state": alloc
                     if self.include_full_post_state_in_output
                     else None,
-                    "pre_hash": "",  # Will be set by BaseTestWrapper
+                    "pre_hash": Hash128(0),  # Will be set by BaseTestWrapper
                 }
             )
             fixture = BlockchainEngineXFixture(**fixture_data)

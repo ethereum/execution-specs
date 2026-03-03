@@ -19,7 +19,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from execution_testing.base_types import HexNumber
+from execution_testing.base_types import Hash128
 from execution_testing.fixtures.consume import (
     IndexFile,
     TestCaseIndexFile,
@@ -113,16 +113,14 @@ def generate_fixtures_index(
     try:
         root_hash = HashableItem.from_folder(folder_path=input_path).hash()
     except (KeyError, TypeError):
-        root_hash = b""  # just regenerate a new index file
+        root_hash = Hash128(0)  # just regenerate a new index file
 
     if not force_flag and output_file.exists():
         index_data: IndexFile
         try:
             with open(output_file, "r") as f:
                 index_data = IndexFile(**json.load(f))
-            if index_data.root_hash and index_data.root_hash == HexNumber(
-                root_hash
-            ):
+            if index_data.root_hash and index_data.root_hash == root_hash:
                 if not quiet_mode:
                     rich.print(
                         f"Index file [bold cyan]{output_file}[/] "
@@ -360,7 +358,7 @@ def _trie_to_hash(root_trie: dict) -> bytes:
 
     Mirrors HashableItem.from_raw_entries logic but works on pre-built trie.
     """
-    import hashlib
+    import xxhash
 
     def hash_node(node: dict) -> bytes:
         """Recursively hash a trie node."""
@@ -372,13 +370,13 @@ def _trie_to_hash(root_trie: dict) -> bytes:
                 # File node: child is list of (test_id, hash_bytes)
                 # Hash = sha256(sorted test hashes concatenated)
                 test_hashes = [h for _, h in sorted(child, key=lambda x: x[0])]
-                file_hash = hashlib.sha256(b"".join(test_hashes)).digest()
+                file_hash = xxhash.xxh128(b"".join(test_hashes)).digest()
                 hash_parts.append(file_hash)
             else:
                 # Folder node: recurse
                 hash_parts.append(hash_node(child))
 
-        return hashlib.sha256(b"".join(hash_parts)).digest()
+        return xxhash.xxh128(b"".join(hash_parts)).digest()
 
     return hash_node(root_trie)
 

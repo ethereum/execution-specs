@@ -1,6 +1,5 @@
 """Base composite types for Ethereum test cases."""
 
-import hashlib
 import json
 from dataclasses import dataclass
 from typing import (
@@ -15,12 +14,14 @@ from typing import (
     TypeAlias,
 )
 
+import xxhash
 from pydantic import Field, PrivateAttr, TypeAdapter
 
 from .base_types import (
     Address,
     Bytes,
     Hash,
+    Hash128,
     HashInt,
     HexNumber,
     ZeroPaddedHexNumber,
@@ -521,15 +522,15 @@ class Account(CamelModel):
         """Return True on a non-empty account."""
         return any((self.nonce, self.balance, self.code, self.storage))
 
-    def hash(self) -> Hash:
+    def hash(self) -> Hash128:
         """Return the hash of the account given its properties."""
         data = self.model_dump(mode="json")
         blob = json.dumps(
             data,
             sort_keys=True,
             separators=(",", ":"),
-        ).encode("utf-8")
-        return Hash(hashlib.sha256(blob).digest())
+        )
+        return Hash128(xxhash.xxh128(blob).digest())
 
     @classmethod
     def with_code(cls: Type, code: BytesConvertible) -> "Account":

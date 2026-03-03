@@ -8,21 +8,21 @@ from typing import Generator, List
 import pytest
 from click.testing import CliRunner
 
-from execution_testing.base_types import HexNumber
+from execution_testing.base_types import Hash128
 from execution_testing.cli.gen_index import merge_partial_indexes
 from execution_testing.cli.hasher import HashableItem, hasher
 from execution_testing.fixtures.consume import IndexFile, TestCaseIndexFile
 
-HASH_1 = 0x1111111111111111111111111111111111111111111111111111111111111111
-HASH_2 = 0x2222222222222222222222222222222222222222222222222222222222222222
-HASH_3 = 0x3333333333333333333333333333333333333333333333333333333333333333
-HASH_4 = 0x4444444444444444444444444444444444444444444444444444444444444444
-HASH_9 = 0x9999999999999999999999999999999999999999999999999999999999999999
+HASH_1 = 0x11111111111111111111111111111111
+HASH_2 = 0x22222222222222222222222222222222
+HASH_3 = 0x33333333333333333333333333333333
+HASH_4 = 0x44444444444444444444444444444444
+HASH_9 = 0x99999999999999999999999999999999
 
 
 def _hex_str(h: int) -> str:
     """Convert an integer hash to its 0x-prefixed hex string."""
-    return f"0x{h:064x}"
+    return f"{Hash128(h)}"
 
 
 def _make_entry(
@@ -36,7 +36,7 @@ def _make_entry(
     return TestCaseIndexFile(
         id=test_id,
         json_path=Path(json_path),
-        fixture_hash=HexNumber(fixture_hash),
+        fixture_hash=Hash128(fixture_hash),
         fork=fork,
         format=fmt,
     )
@@ -54,10 +54,12 @@ def _make_json_fixture(test_names_and_hashes: dict[str, int]) -> str:
     return json.dumps(data)
 
 
-def create_fixture(path: Path, test_name: str, hash_value: str) -> None:
+def create_fixture(path: Path, test_name: str, hash_value: int) -> None:
     """Create a test fixture JSON file."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({test_name: {"_info": {"hash": hash_value}}}))
+    path.write_text(
+        json.dumps({test_name: {"_info": {"hash": f"{Hash128(hash_value)}"}}})
+    )
 
 
 class TestCompareIdenticalDirectories:
@@ -67,8 +69,8 @@ class TestCompareIdenticalDirectories:
         """Same content in both dirs should exit 0 with no output."""
         dir_a = tmp_path / "dir_a" / "state_tests"
         dir_b = tmp_path / "dir_b" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
-        create_fixture(dir_b / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
+        create_fixture(dir_b / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(
@@ -85,8 +87,8 @@ class TestCompareDifferentDirectories:
         """Different hashes should exit 1 with diff in stdout."""
         dir_a = tmp_path / "dir_a" / "state_tests"
         dir_b = tmp_path / "dir_b" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
-        create_fixture(dir_b / "test.json", "test1", "0xdef456")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
+        create_fixture(dir_b / "test.json", "test1", 0xDEF456)
 
         runner = CliRunner()
         result = runner.invoke(
@@ -96,8 +98,8 @@ class TestCompareDifferentDirectories:
         assert "Fixture Hash Differences" in result.output
         # Verify the new format shows the path and both hashes
         assert "test1" in result.output
-        assert "0xabc123" in result.output
-        assert "0xdef456" in result.output
+        assert f"{Hash128(0xABC123)}" in result.output
+        assert f"{Hash128(0xDEF456)}" in result.output
 
 
 class TestCompareMissingDirectory:
@@ -106,7 +108,7 @@ class TestCompareMissingDirectory:
     def test_compare_missing_directory(self, tmp_path: Path) -> None:
         """One path doesn't exist should exit 2 with error in stderr."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(
@@ -122,7 +124,7 @@ class TestCompareFlagParity:
     def test_compare_flag_parity_files(self, tmp_path: Path) -> None:
         """Hasher -f X vs hasher compare -f X X should exit 0."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Compare same directory with -f flag
@@ -134,7 +136,7 @@ class TestCompareFlagParity:
     def test_compare_flag_parity_tests(self, tmp_path: Path) -> None:
         """Hasher -t X vs hasher compare -t X X should exit 0."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Compare same directory with -t flag
@@ -146,7 +148,7 @@ class TestCompareFlagParity:
     def test_compare_flag_parity_root(self, tmp_path: Path) -> None:
         """Hasher -r X vs hasher compare -r X X should exit 0."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Compare same directory with -r flag
@@ -162,7 +164,7 @@ class TestBackwardsCompatibility:
     def test_backwards_compat(self, tmp_path: Path) -> None:
         """Hasher FOLDER without subcommand should work as before."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Old syntax without subcommand
@@ -173,7 +175,7 @@ class TestBackwardsCompatibility:
     def test_explicit_hash_subcommand(self, tmp_path: Path) -> None:
         """Hasher hash FOLDER should work."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Explicit hash subcommand
@@ -186,7 +188,7 @@ class TestBackwardsCompatibility:
     ) -> None:
         """Both syntaxes should produce identical output."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         # Old syntax
@@ -234,7 +236,7 @@ class TestHashCommandFlags:
     def test_hash_with_files_flag(self, tmp_path: Path) -> None:
         """Hasher hash -f FOLDER should work."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(hasher, ["hash", "-f", str(dir_a.parent)])
@@ -244,7 +246,7 @@ class TestHashCommandFlags:
     def test_hash_with_tests_flag(self, tmp_path: Path) -> None:
         """Hasher hash -t FOLDER should work."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(hasher, ["hash", "-t", str(dir_a.parent)])
@@ -254,7 +256,7 @@ class TestHashCommandFlags:
     def test_hash_with_root_flag(self, tmp_path: Path) -> None:
         """Hasher hash -r FOLDER should only print root hash."""
         dir_a = tmp_path / "dir_a" / "state_tests"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
 
         runner = CliRunner()
         result = runner.invoke(hasher, ["hash", "-r", str(dir_a.parent)])
@@ -272,8 +274,8 @@ class TestCompareDepthFlag:
         """--depth should limit how deep the comparison goes."""
         dir_a = tmp_path / "dir_a" / "folder" / "subfolder"
         dir_b = tmp_path / "dir_b" / "folder" / "subfolder"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
-        create_fixture(dir_b / "test.json", "test1", "0xdef456")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
+        create_fixture(dir_b / "test.json", "test1", 0xDEF456)
 
         runner = CliRunner()
 
@@ -296,8 +298,8 @@ class TestCompareDepthFlag:
         """--depth 2 should show subfolders."""
         dir_a = tmp_path / "dir_a" / "folder" / "subfolder"
         dir_b = tmp_path / "dir_b" / "folder" / "subfolder"
-        create_fixture(dir_a / "test.json", "test1", "0xabc123")
-        create_fixture(dir_b / "test.json", "test1", "0xdef456")
+        create_fixture(dir_a / "test.json", "test1", 0xABC123)
+        create_fixture(dir_b / "test.json", "test1", 0xDEF456)
 
         runner = CliRunner()
 
@@ -327,22 +329,22 @@ class TestCompareHierarchy:
         create_fixture(
             dir_a / "blockchain_tests" / "shanghai" / "test.json",
             "test1",
-            "0xaaa111",
+            0xAAA111,
         )
         create_fixture(
             dir_a / "state_tests" / "shanghai" / "test.json",
             "test1",
-            "0xbbb222",
+            0xBBB222,
         )
         create_fixture(
             dir_b / "blockchain_tests" / "shanghai" / "test.json",
             "test1",
-            "0xccc333",
+            0xCCC333,
         )
         create_fixture(
             dir_b / "state_tests" / "shanghai" / "test.json",
             "test1",
-            "0xddd444",
+            0xDDD444,
         )
 
         runner = CliRunner()
@@ -456,7 +458,7 @@ class TestHashableItemFromIndexEntries:
         """Verify empty entries produces a valid hash."""
         result = HashableItem.from_index_entries([]).hash()
         assert result is not None
-        assert len(result) == 32
+        assert len(result) == 16
 
     def test_multiple_files_in_same_folder(self) -> None:
         """Verify hash with multiple JSON files in the same folder."""

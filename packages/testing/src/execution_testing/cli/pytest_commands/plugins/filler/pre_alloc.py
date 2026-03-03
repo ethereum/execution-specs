@@ -1,12 +1,11 @@
 """Pre-alloc specifically conditioned for test filling."""
 
-import hashlib
 import inspect
 from functools import cache
-from hashlib import sha256
 from typing import Any, Dict, List, Literal
 
 import pytest
+import xxhash
 from pydantic import PrivateAttr
 
 from execution_testing.base_types import (
@@ -14,6 +13,7 @@ from execution_testing.base_types import (
     Address,
     Bytes,
     Hash,
+    Hash128,
     Number,
     Storage,
     StorageRootType,
@@ -61,7 +61,7 @@ class Alloc(SharedAlloc):
     """Allocation of accounts in the state, pre and post test execution."""
 
     _eoa_fund_amount_default: int = PrivateAttr(10**21)
-    _account_salt: Dict[Hash, int] = PrivateAttr(default_factory=dict)
+    _account_salt: Dict[Hash128, int] = PrivateAttr(default_factory=dict)
 
     def __init__(
         self, *args: Any, fork: Fork, flags: AllocFlags, **kwargs: Any
@@ -69,7 +69,7 @@ class Alloc(SharedAlloc):
         """Initialize the pre-alloc."""
         super().__init__(*args, fork=fork, flags=flags, **kwargs)
 
-    def get_next_account_salt(self, account_hash: Hash) -> int:
+    def get_next_account_salt(self, account_hash: Hash128) -> int:
         """Retrieve the next salt for this account."""
         salt = self._account_salt.get(account_hash, 0)
         self._account_salt[account_hash] = salt + 1
@@ -79,7 +79,7 @@ class Alloc(SharedAlloc):
         """Pre-processes the code before setting it."""
         return code
 
-    def modified_accounts_salt(self) -> int:
+    def modified_accounts_hash(self) -> Hash128:
         """
         Return a salt if this pre-allocation was affected by setting addresses
         to hard-coded accounts or has pre-funded addresses.
@@ -93,7 +93,7 @@ class Alloc(SharedAlloc):
             and not self._hardcoded_addresses_deployed_to
             and not self._deleted_addresses
         ):
-            return 0
+            return Hash128(0)
 
         # Build a hashable buffer from the modified accounts.
         buffer = b""
@@ -114,9 +114,7 @@ class Alloc(SharedAlloc):
             for deleted_address in sorted(self._deleted_addresses):
                 buffer += deleted_address
 
-        return int.from_bytes(
-            hashlib.sha256(buffer).digest()[:8], byteorder="big"
-        )
+        return Hash128(xxhash.xxh128_digest(buffer))
 
     def compute_pre_alloc_group_hash(
         self,
@@ -124,24 +122,24 @@ class Alloc(SharedAlloc):
         fork: Fork,
         genesis_environment: Environment,
         group_salt: str | None,
-    ) -> str:
+    ) -> Hash128:
         """Hash (fork, env) in order to group tests by genesis config."""
-        fork_digest = hashlib.sha256(fork.name().encode("utf-8")).digest()
-        fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")
-        combined_hash = (
-            fork_hash
-            ^ hash(genesis_environment)
-            ^ self.modified_accounts_salt()
-        )
+        fork_hash = xxhash.xxh128_digest(fork.name())
+        genesis_hash = genesis_environment.hash()
+        modified_accounts_salt = self.modified_accounts_hash()
 
         # Check if this pre-allocation has a group salt
         if group_salt:
             # Add custom salt to hash
-            salt_hash = hashlib.sha256(group_salt.encode("utf-8")).digest()
-            salt_int = int.from_bytes(salt_hash[:8], byteorder="big")
-            combined_hash = combined_hash ^ salt_int
+            salt_hash = Hash128(xxhash.xxh128_digest(group_salt))
+        else:
+            salt_hash = Hash128(0)
 
-        return f"0x{combined_hash:016x}"
+        return Hash128(
+            xxhash.xxh128_digest(
+                fork_hash + genesis_hash + modified_accounts_salt + salt_hash
+            )
+        )
 
     def _deterministic_deploy_contract(
         self,
@@ -382,11 +380,6 @@ class Alloc(SharedAlloc):
         """
         salt = self.get_next_account_salt(EMPTY_ACCOUNT_HASH)
         return Address(eoa_from_hash(EMPTY_ACCOUNT_HASH, salt))
-
-
-def sha256_from_string(s: str) -> int:
-    """Return SHA-256 hash of a string."""
-    return int.from_bytes(sha256(s.encode("utf-8")).digest(), "big")
 
 
 ALL_FIXTURE_FORMAT_NAMES: List[str] = []

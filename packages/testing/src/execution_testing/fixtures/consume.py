@@ -7,7 +7,7 @@ from typing import Iterator, List, Optional, TextIO
 
 from pydantic import BaseModel, RootModel
 
-from execution_testing.base_types import HexNumber
+from execution_testing.base_types import Hash128, HexNumber
 from execution_testing.forks import Fork
 
 from .base import BaseFixture, FixtureFormat
@@ -47,7 +47,7 @@ class TestCaseBase(BaseModel):
     """Base model for a test case used in EEST consume commands."""
 
     id: str
-    fixture_hash: HexNumber | None = None
+    fixture_hash: Hash128 | None = None
     fork: Fork | None = None
     format: FixtureFormat
     pre_hash: str | None = None

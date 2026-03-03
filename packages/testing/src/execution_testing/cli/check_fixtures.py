@@ -62,12 +62,10 @@ def check_json(json_file_path: Path) -> None:
             )
         if "hash" in fixture.info and fixture.info["hash"] != original_hash:
             info_hash = fixture.info["hash"]
-            info_hash_str = (
-                str(info_hash) if not isinstance(info_hash, str) else info_hash
-            )
+            assert isinstance(info_hash, str)
             raise HashMismatchExceptionError(
                 original_hash,
-                info_hash_str,
+                info_hash,
                 message=(
                     f"Fixture info['hash'] does not match calculated "
                     f"hash for {fixture_name}: '{info_hash}' != "

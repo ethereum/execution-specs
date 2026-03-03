@@ -1,6 +1,5 @@
 """Base fixture definitions used to define all fixture types."""
 
-import hashlib
 import json
 from enum import Enum, auto
 from functools import cached_property
@@ -17,6 +16,7 @@ from typing import (
 )
 
 import pytest
+import xxhash
 from pydantic import (
     Discriminator,
     Field,
@@ -28,7 +28,7 @@ from pydantic import (
 )
 from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
-from execution_testing.base_types import CamelModel, ReferenceSpec
+from execution_testing.base_types import CamelModel, Hash128, ReferenceSpec
 from execution_testing.client_clis.cli_types import OpcodeCount
 from execution_testing.forks import Fork
 
@@ -137,18 +137,17 @@ class BaseFixture(CamelModel):
         )
 
     @cached_property
-    def hash(self) -> str:
+    def hash(self) -> Hash128:
         """Returns the hash of the fixture."""
         json_str = json.dumps(
             self.json_dict, sort_keys=True, separators=(",", ":")
         )
-        h = hashlib.sha256(json_str.encode("utf-8")).hexdigest()
-        return f"0x{h}"
+        return Hash128(xxhash.xxh128_digest(json_str))
 
     def json_dict_with_info(self, hash_only: bool = False) -> Dict[str, Any]:
         """Return JSON representation of the fixture with the info field."""
         dict_with_info = self.json_dict.copy()
-        dict_with_info["_info"] = {"hash": self.hash}
+        dict_with_info["_info"] = {"hash": f"{self.hash}"}
         if not hash_only:
             dict_with_info["_info"].update(self.info)
         return dict_with_info
