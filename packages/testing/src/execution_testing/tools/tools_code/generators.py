@@ -584,13 +584,10 @@ def _dynamic_nonce_encode_bytecode(
         ),
     )
 
-    def _ps() -> Bytecode:
-        return Op.MLOAD(preimage_size_offset)
-
     # List prefix = 0xBF + preimage_size
     bytecode += Op.MSTORE8(
         offset + 10,
-        Op.ADD(0xBF, _ps()),
+        Op.ADD(0xBF, Op.MLOAD(preimage_size_offset)),
         old_memory_size=old_memory_size,
         new_memory_size=new_memory_size,
     )
@@ -636,9 +633,6 @@ class CreatePreimageLayout(Bytecode):
         Assemble the bytecode that sets up the memory layout for
         CREATE address computation.
         """
-        if isinstance(nonce, bytes):
-            nonce = int.from_bytes(nonce, "big")
-
         required_size = offset + 128
         new_memory_size = max(old_memory_size, required_size)
 
