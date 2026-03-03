@@ -12,9 +12,12 @@ The state trie is the structure responsible for storing
 `.fork_types.Account` objects.
 """
 
+from __future__ import annotations
+
 import copy
 from dataclasses import dataclass, field
 from typing import (
+    TYPE_CHECKING,
     Callable,
     Dict,
     Generic,
@@ -34,9 +37,11 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import Uint
 from typing_extensions import assert_type
 
-from ethereum.crypto.hash import keccak256
-from ethereum.types import Account, Address, Root
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes
+
+if TYPE_CHECKING:
+    from ethereum.state import Account, Address, Root
 
 # note: an empty trie (regardless of whether it is secured) has root:
 #
@@ -51,7 +56,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 #   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501
 #
 # which is the sha3Uncles hash in block header with no uncles
-EMPTY_TRIE_ROOT = Root(
+EMPTY_TRIE_ROOT = Hash32(
     hex_to_bytes(
         "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
     )
@@ -180,6 +185,8 @@ def encode_node(
     """
     Encode a Node for storage in the Merkle Trie.
     """
+    from ethereum.state import Account
+
     if isinstance(node, Account):
         assert storage_root is not None
         return encode_account(node, storage_root)
@@ -369,6 +376,8 @@ def _prepare_trie(
         Object with keys mapped to nibble-byte form.
 
     """
+    from ethereum.state import Account, Address
+
     mapped: MutableMapping[Bytes, Bytes] = {}
 
     for preimage, value in trie._data.items():
@@ -411,10 +420,12 @@ def root(
 
     Returns
     -------
-    root : `.fork_types.Root`
+    root : `.state.Root`
         MPT root of the underlying key-value pairs.
 
     """
+    from ethereum.state import Root
+
     obj = _prepare_trie(trie, get_storage_root)
 
     root_node = encode_internal_node(patricialize(obj, Uint(0)))
