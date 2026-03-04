@@ -311,6 +311,7 @@ def display_diff(
     *,
     left_label: str,
     right_label: str,
+    ignore_missing: bool = False,
 ) -> None:
     """Render diff showing only changed hashes."""
     differences: List[tuple[str, str, str]] = []
@@ -318,10 +319,14 @@ def display_diff(
     for path in left:
         right_hash = right.get(path, "<missing>")
         if left[path] != right_hash:
+            if ignore_missing and right_hash == "<missing>":
+                continue
             differences.append((path, left[path], right_hash))
 
     for path in right:
         if path not in left:
+            if ignore_missing:
+                continue
             differences.append((path, "<missing>", right[path]))
 
     if not differences:
@@ -433,6 +438,12 @@ def hash_cmd(
     default=None,
     help="Limit to N levels (0=root, 1=folders, 2=files, 3=tests).",
 )
+@click.option(
+    "--ignore-missing",
+    is_flag=True,
+    default=False,
+    help="Hide entries that exist in only one directory.",
+)
 @hash_options
 def compare_cmd(
     left_folder: str,
@@ -441,6 +452,7 @@ def compare_cmd(
     tests: bool,
     root: bool,
     depth: Optional[int],
+    ignore_missing: bool,
 ) -> None:
     """Compare two fixture directories and show differences."""
     try:
@@ -474,6 +486,7 @@ def compare_cmd(
             right_hashes,
             left_label=left_folder,
             right_label=right_folder,
+            ignore_missing=ignore_missing,
         )
         sys.exit(1)
     except PermissionError as e:

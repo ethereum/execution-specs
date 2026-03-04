@@ -184,6 +184,13 @@ def test_valid(
             PointG1(Spec.P + 1, 0) + Scalar(0),
             id="x_above_modulus_times_0",
         ),
+        # BLS serialization flag byte in coordinate: values >= p whose first
+        # coordinate byte has BLS flag bits set.
+        # See: https://github.com/lambdaclass/ethrex/pull/6287
+        pytest.param(
+            PointG1(0x40 << (47 * 8), 0) + Scalar(0),
+            id="x_bls_infinity_flag_times_0",
+        ),
         pytest.param(
             PointG1(Spec.P1.y, Spec.P1.x) + Scalar(0),
             id="swapped_coordinates_times_0",

@@ -32,15 +32,7 @@ class EthrexExceptionMapper(ExceptionMapper):
             "World State Root does not match the one in "
             "the header after executing"
         ),
-        BlockException.INVALID_GAS_USED: (
-            "Gas used doesn't match value in header"
-        ),
-        BlockException.INCORRECT_BLOB_GAS_USED: (
-            "Blob gas used doesn't match value in header"
-        ),
-        BlockException.INVALID_BASEFEE_PER_GAS: (
-            "Base fee per gas is incorrect"
-        ),
+        BlockException.GAS_USED_OVERFLOW: "Block gas used overflow",
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             "Block access list hash does not match the one in "
             "the header after executing"
@@ -56,6 +48,21 @@ class EthrexExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BAL_MISSING_ACCOUNT: (
             "Block access list hash does not match the one in "
             "the header after executing"
+        ),
+        BlockException.INCORRECT_BLOCK_FORMAT: (
+            "not in strictly ascending order"
+        ),
+        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
+            "Block access list exceeds gas limit"
+        ),
+        BlockException.INVALID_GAS_USED: (
+            "Gas used doesn't match value in header"
+        ),
+        BlockException.INCORRECT_BLOB_GAS_USED: (
+            "Blob gas used doesn't match value in header"
+        ),
+        BlockException.INVALID_BASEFEE_PER_GAS: (
+            "Base fee per gas is incorrect"
         ),
     }
     mapping_regex = {
@@ -90,8 +97,6 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"blob versioned hashes not supported|"
             r"Type 3 transactions are not supported before the Cancun fork"
         ),
-        # A type 4 Transaction without a recipient won't even reach the EVM, we
-        # can't decode it.
         TransactionException.TYPE_4_TX_CONTRACT_CREATION: (
             r"unexpected length|Contract creation in type 4 transaction|"
             r"Error decoding field 'to' of type primitive_types::H160: "
@@ -168,7 +173,8 @@ class EthrexExceptionMapper(ExceptionMapper):
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"Block access list contains index \d+ "
             r"exceeding max valid index \d+|"
-            r"Failed to RLP decode BAL"
+            r"Failed to RLP decode BAL|"
+            r"Block access list .+ not in strictly ascending order.*"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"Block access list hash does not match "

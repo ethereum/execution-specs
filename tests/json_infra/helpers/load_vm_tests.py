@@ -61,6 +61,7 @@ class VmTestLoader:
         self.set_account = self.state.set_account
         self.set_storage = self.state.set_storage
         self.storage_root = self.state.storage_root
+        self.store_code = self.state.store_code
 
         self.fork_types = self._module("fork_types")
         self.Account = self.fork_types.Account
@@ -200,10 +201,12 @@ class VmTestLoader:
         state = self.State()
         for addr_hex, acc_state in raw.items():
             addr = self.hex_to_address(addr_hex)
+            code = hex_to_bytes(acc_state.get("code", ""))
+            code_hash = self.store_code(state, code)
             account = self.Account(
                 nonce=hex_to_uint(acc_state.get("nonce", "0x0")),
                 balance=U256(hex_to_uint(acc_state.get("balance", "0x0"))),
-                code=hex_to_bytes(acc_state.get("code", "")),
+                code_hash=code_hash,
             )
             self.set_account(state, addr, account)
 

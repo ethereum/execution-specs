@@ -489,6 +489,206 @@ class Create2PreimageLayout(Bytecode):
         )
 
 
+def _dynamic_nonce_encode_bytecode(
+    nonce: int | bytes | Bytecode,
+    offset: int,
+    old_memory_size: int = 0,
+    new_memory_size: int = 0,
+) -> Bytecode:
+    """
+    Generate branch-free bytecode to RLP-encode a nonce to memory.
+
+    Support nonce range 1 to 2^64 - 1.  Nonce 0 is not handled
+    because EIP-161 guarantees contract nonces start at 1.
+
+    Use CLZ to derive the nonce byte length, then compute the
+    RLP encoding and preimage size from it.
+
+    Write RLP list prefix at offset+10, encoded nonce at offset+32,
+    preimage_size at offset+64, and raw nonce at offset+96.
+    """
+    nonce_scratch = offset + 96
+    byte_length_offset = offset + 64
+
+    get_nonce = Op.MLOAD(nonce_scratch)
+    stored_byte_length = Op.MLOAD(byte_length_offset)
+
+    # Store raw nonce in scratch memory
+    bytecode = Op.MSTORE(nonce_scratch, nonce)
+
+    # byte_length = DIV(SUB(263, CLZ(n)), 8)
+    # CLZ(1..255)=248..255 → 1, CLZ(256..65535)=240..247 → 2,
+    # ... CLZ(2^56..2^64-1)=192..199 → 8
+    bytecode += Op.MSTORE(
+        byte_length_offset,
+        Op.DIV(Op.SUB(263, Op.CLZ(get_nonce)), 8),
+    )
+
+    # Branch-free nonce RLP encoding (nonce >= 1) using
+    # CLZ-derived byte_length:
+    #
+    # has_prefix     = GT(n, 127)
+    # not_has_prefix = ISZERO(GT(n, 127))
+    #
+    # case_short = not_has_prefix * n        (nonce 1..127)
+    # case_long  = has_prefix                (nonce 128+)
+    #   * ((0x80 + byte_length) * 256^byte_length + n)
+    # encoded    = case_short + case_long
+    #
+    # rlp_len = byte_length + ISZERO(byte_length)
+    #         + GT(n, 127)
+    #
+    # Left-align in 32-byte MSTORE word:
+    # mstore_value = encoded * 256^(32 - rlp_len)
+
+    has_prefix = Op.GT(get_nonce, 127)
+    not_has_prefix = Op.ISZERO(Op.GT(get_nonce, 127))
+
+    case_short = Op.MUL(not_has_prefix, get_nonce)
+
+    case_long = Op.MUL(
+        has_prefix,
+        Op.ADD(
+            Op.MUL(
+                Op.ADD(0x80, stored_byte_length),
+                Op.EXP(256, stored_byte_length),
+            ),
+            get_nonce,
+        ),
+    )
+
+    encoded = Op.ADD(case_short, case_long)
+
+    rlp_len = Op.ADD(
+        Op.ADD(stored_byte_length, Op.ISZERO(stored_byte_length)),
+        Op.GT(get_nonce, 127),
+    )
+    mstore_value = Op.MUL(encoded, Op.EXP(256, Op.SUB(32, rlp_len)))
+
+    # Store encoded nonce left-aligned (reads byte_length
+    # from offset+64 before it is overwritten below)
+    bytecode += Op.MSTORE(offset + 32, mstore_value)
+
+    # Overwrite byte_length with preimage_size = 22 + rlp_len
+    # EVM evaluates the MLOAD(offset+64) in the expression
+    # before the MSTORE writes to the same address.
+    preimage_size_offset = byte_length_offset
+    bytecode += Op.MSTORE(
+        preimage_size_offset,
+        Op.ADD(
+            22,
+            Op.ADD(
+                Op.ADD(stored_byte_length, Op.ISZERO(stored_byte_length)),
+                Op.GT(get_nonce, 127),
+            ),
+        ),
+    )
+
+    # List prefix = 0xBF + preimage_size
+    bytecode += Op.MSTORE8(
+        offset + 10,
+        Op.ADD(0xBF, Op.MLOAD(preimage_size_offset)),
+        old_memory_size=old_memory_size,
+        new_memory_size=new_memory_size,
+    )
+
+    return bytecode
+
+
+class CreatePreimageLayout(Bytecode):
+    """
+    Set up the preimage in memory for CREATE address computation.
+
+    Create the standard memory layout required to compute a CREATE
+    address using keccak256(rlp.encode([sender_address, nonce])).
+
+    Memory layout after execution:
+    - MEM[offset + 10] = RLP list prefix byte
+    - MEM[offset + 11] = 0x94 (RLP prefix for 20-byte string)
+    - MEM[offset + 12: offset + 32] = sender_address (20 bytes)
+    - MEM[offset + 32:] = RLP-encoded nonce bytes
+    - MEM[offset + 64: offset + 96] = preimage_size
+    - MEM[offset + 96: offset + 128] = raw nonce (scratch)
+
+    Supported nonce range: 1 to 2^64 - 1. Requires Osaka
+    (CLZ opcode).
+
+    To compute the CREATE address, use `.address_op()`.
+    The resulting hash's lower 20 bytes form the address.
+    """
+
+    offset: int = 0
+    _preimage_size_offset: int = 0
+    _nonce_scratch_offset: int = 0
+
+    def __new__(
+        cls,
+        *,
+        sender_address: int | bytes | Bytecode,
+        nonce: int | bytes | Bytecode,
+        offset: int = 0,
+        old_memory_size: int = 0,
+    ) -> Self:
+        """
+        Assemble the bytecode that sets up the memory layout for
+        CREATE address computation.
+        """
+        required_size = offset + 128
+        new_memory_size = max(old_memory_size, required_size)
+
+        bytecode = Op.MSTORE(offset=offset, value=sender_address)
+        bytecode += Op.MSTORE8(offset=offset + 11, value=0x94)
+        bytecode += _dynamic_nonce_encode_bytecode(
+            nonce,
+            offset,
+            old_memory_size=old_memory_size,
+            new_memory_size=new_memory_size,
+        )
+
+        instance = super().__new__(cls, bytecode)
+        instance.offset = offset
+        instance._preimage_size_offset = offset + 64
+        instance._nonce_scratch_offset = offset + 96
+        return instance
+
+    @property
+    def nonce_offset(self) -> int:
+        """Return the nonce memory offset of the preimage."""
+        return self.offset + 32
+
+    def address_op(self) -> Bytecode:
+        """Return bytecode that computes the CREATE address."""
+        address_mask = (1 << 160) - 1
+        return Op.AND(
+            address_mask,
+            Op.SHA3(
+                offset=self.offset + 10,
+                size=Op.MLOAD(self._preimage_size_offset),
+                data_size=25,
+            ),
+        )
+
+    def set_nonce_op(self, nonce: int | Bytecode) -> Bytecode:
+        """
+        Re-encode a nonce and update the memory layout.
+
+        Update the RLP list prefix, encoded nonce, and
+        preimage_size in memory. The sender address and 0x94
+        prefix are unchanged.
+        """
+        return _dynamic_nonce_encode_bytecode(nonce, self.offset)
+
+    def increment_nonce_op(self, increment: int = 1) -> Bytecode:
+        """
+        Increment the nonce, re-encode, and update memory.
+
+        Read the raw nonce from scratch memory, add the
+        increment, and re-encode.
+        """
+        new_nonce = Op.ADD(Op.MLOAD(self._nonce_scratch_offset), increment)
+        return _dynamic_nonce_encode_bytecode(new_nonce, self.offset)
+
+
 class TransactionWithCost(Transaction):
     """Transaction object that can include the expected gas to be consumed."""
 

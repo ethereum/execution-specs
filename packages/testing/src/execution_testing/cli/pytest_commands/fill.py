@@ -3,6 +3,7 @@
 from typing import Any, List
 
 import click
+import pytest
 
 from .base import PytestCommand, PytestExecution, common_pytest_options
 from .processors import (
@@ -80,6 +81,10 @@ class FillCommand(PytestCommand):
                 config_file=self.config_path,
                 args=phase1_args,
                 description="generating pre-allocation groups",
+                allowed_exit_codes=[
+                    pytest.ExitCode.OK,
+                    pytest.ExitCode.NO_TESTS_COLLECTED,
+                ],
             ),
             PytestExecution(
                 config_file=self.config_path,

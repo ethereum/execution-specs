@@ -14,13 +14,14 @@ Implementations of the EVM system related instructions.
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import U256, Uint
 
+from ethereum.state import Address
 from ethereum.utils.numeric import ceil32
 
-from ...fork_types import Address
 from ...state import (
     account_has_code_or_nonce,
     account_has_storage,
     get_account,
+    get_code,
     increment_nonce,
     is_account_alive,
     move_ether,
@@ -302,7 +303,8 @@ def generic_call(
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
     )
-    code = get_account(evm.message.block_env.state, code_address).code
+    state = evm.message.block_env.state
+    code = get_code(state, get_account(state, code_address).code_hash)
     child_message = Message(
         block_env=evm.message.block_env,
         tx_env=evm.message.tx_env,

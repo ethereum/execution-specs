@@ -92,6 +92,22 @@ class BranchNode:
 InternalNode = LeafNode | ExtensionNode | BranchNode
 
 
+@dataclass
+class BlockDiff:
+    """
+    State changes produced by executing a block.
+    """
+
+    account_changes: Dict[Address, Optional[Account]]
+    """Per-address account diffs produced by execution."""
+
+    storage_changes: Dict[Address, Dict[Bytes32, U256]]
+    """Per-address storage diffs produced by execution."""
+
+    code_changes: Dict[Hash32, Bytes]
+    """New bytecodes (keyed by code hash) introduced by execution."""
+
+
 class PreState(Protocol):
     """
     Protocol for providing pre-execution state.

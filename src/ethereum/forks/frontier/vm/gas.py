@@ -16,10 +16,10 @@ from typing import List, Tuple
 
 from ethereum_types.numeric import U256, Uint
 
+from ethereum.state import Address
 from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32
 
-from ..fork_types import Address
 from ..state import State, account_exists
 from . import Evm
 from .exceptions import OutOfGasError

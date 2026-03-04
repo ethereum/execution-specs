@@ -15,8 +15,9 @@ specification.
 from ethereum_types.bytes import Bytes, Bytes0
 from ethereum_types.numeric import Uint
 
-from ..fork_types import Address
-from ..state import get_account
+from ethereum.state import Address
+
+from ..state import get_account, get_code
 from ..transactions import Transaction
 from ..vm import BlockEnvironment, Message, TransactionEnvironment
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -62,7 +63,8 @@ def prepare_message(
     elif isinstance(tx.to, Address):
         current_target = tx.to
         msg_data = tx.data
-        code = get_account(block_env.state, tx.to).code
+        state = block_env.state
+        code = get_code(state, get_account(state, tx.to).code_hash)
 
         code_address = tx.to
     else:

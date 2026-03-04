@@ -756,13 +756,13 @@ class Frontier(BaseFork, solc_name="homestead"):
         def fn(*, data: BytesConvertible, floor: bool = False) -> int:
             del floor
 
-            cost = 0
-            for b in Bytes(data):
-                if b == 0:
-                    cost += gas_costs.GAS_TX_DATA_PER_ZERO
-                else:
-                    cost += gas_costs.GAS_TX_DATA_PER_NON_ZERO
-            return cost
+            raw = Bytes(data)
+            num_zeros = raw.count(0)
+            num_non_zeros = len(raw) - num_zeros
+            return (
+                num_zeros * gas_costs.GAS_TX_DATA_PER_ZERO
+                + num_non_zeros * gas_costs.GAS_TX_DATA_PER_NON_ZERO
+            )
 
         return fn
 
@@ -2836,12 +2836,10 @@ class Prague(Cancun):
         )
 
         def fn(*, data: BytesConvertible, floor: bool = False) -> int:
-            tokens = 0
-            for b in Bytes(data):
-                if b == 0:
-                    tokens += 1
-                else:
-                    tokens += 4
+            raw = Bytes(data)
+            num_zeros = raw.count(0)
+            num_non_zeros = len(raw) - num_zeros
+            tokens = num_zeros + num_non_zeros * 4
             if floor:
                 return tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
             return tokens * gas_costs.GAS_TX_DATA_TOKEN_STANDARD
@@ -3483,6 +3481,14 @@ class Amsterdam(BPO2):
         """From Amsterdam, new payload calls must use version 5."""
         del block_number, timestamp
         return 5
+
+    @classmethod
+    def engine_get_payload_version(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """From Amsterdam, get payload calls must use version 6."""
+        del block_number, timestamp
+        return 6
 
     @classmethod
     def engine_execution_payload_block_access_list(

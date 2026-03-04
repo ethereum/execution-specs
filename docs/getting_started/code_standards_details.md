@@ -163,3 +163,20 @@ For a granular comparison:
 ```console
 diff <(hasher --tests fixtures/) <(hasher --tests fixtures_new/)
 ```
+
+#### The `compare` Subcommand
+
+The `hasher compare` subcommand directly compares two fixture directories
+and shows only the differences:
+
+```console
+hasher compare fixtures/ fixtures_new/
+```
+
+| Flag                | Description                                               |
+| ------------------- | --------------------------------------------------------- |
+| `--depth N` / `-d`  | Limit to N levels (0=root, 1=folders, 2=files, 3=tests).  |
+| `--files` / `-f`    | Show differences at file level.                           |
+| `--tests` / `-t`    | Show differences at individual test level.                |
+| `--root` / `-r`     | Show only the root-level hash difference.                 |
+| `--ignore-missing`  | Hide entries that exist in only one directory.             |

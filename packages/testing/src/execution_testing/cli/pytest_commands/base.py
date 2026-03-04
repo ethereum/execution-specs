@@ -35,6 +35,11 @@ class PytestExecution:
     description: Optional[str] = None
     """Optional description for this execution phase."""
 
+    allowed_exit_codes: List[pytest.ExitCode] = field(
+        default_factory=lambda: [pytest.ExitCode.OK]
+    )
+    """Exit codes treated as successful for this execution."""
+
 
 class ArgumentProcessor(ABC):
     """Base class for processing command-line arguments."""
@@ -99,7 +104,7 @@ class PytestRunner:
                 sys.stderr.flush()
 
             result = self.run_single(execution)
-            if result != 0:
+            if result not in execution.allowed_exit_codes:
                 return result
 
         return 0

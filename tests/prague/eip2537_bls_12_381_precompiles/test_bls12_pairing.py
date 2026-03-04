@@ -346,6 +346,13 @@ def test_valid_multi_inf(
             + PointG2(Spec.P2.x, (Spec.P2.y[0], Spec.P2.y[1] + Spec.P)),
             id="inf_g1_with_g2_y_c1_above_p",
         ),
+        # BLS serialization flag byte in coordinate: values >= p whose first
+        # coordinate byte has BLS flag bits set.
+        # See: https://github.com/lambdaclass/ethrex/pull/6287
+        pytest.param(
+            PointG1(0x40 << (47 * 8), 0) + Spec.INF_G2,
+            id="g1_x_bls_infinity_flag",
+        ),
         # Non-zero byte 16 boundary violation test cases.
         pytest.param(
             PointG1(Spec.G1.x | Spec.MAX_FP_BIT_SET, Spec.G1.y) + Spec.INF_G2,

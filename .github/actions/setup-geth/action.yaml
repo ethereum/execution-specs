@@ -1,0 +1,11 @@
+name: Setup Geth
+description: Download Geth and add to $PATH
+runs:
+  using: "composite"
+  steps:
+    - name: Download Geth and add to $PATH
+      shell: bash
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/bin
+        $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
+        echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH

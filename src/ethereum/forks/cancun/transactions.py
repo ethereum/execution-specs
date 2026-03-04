@@ -19,9 +19,10 @@ from ethereum.exceptions import (
     InvalidSignatureError,
     NonceOverflowError,
 )
+from ethereum.state import Address
 
 from .exceptions import InitCodeTooLargeError, TransactionTypeError
-from .fork_types import Address, VersionedHash
+from .fork_types import VersionedHash
 
 GAS_TX_BASE = Uint(21000)
 """
@@ -489,13 +490,12 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     """
     from .vm.gas import init_code_cost
 
-    data_cost = Uint(0)
-
-    for byte in tx.data:
-        if byte == 0:
-            data_cost += GAS_TX_DATA_PER_ZERO
-        else:
-            data_cost += GAS_TX_DATA_PER_NON_ZERO
+    num_zeros = Uint(tx.data.count(0))
+    num_non_zeros = ulen(tx.data) - num_zeros
+    data_cost = (
+        num_zeros * GAS_TX_DATA_PER_ZERO
+        + num_non_zeros * GAS_TX_DATA_PER_NON_ZERO
+    )
 
     if tx.to == Bytes0(b""):
         create_cost = GAS_TX_CREATE + init_code_cost(ulen(tx.data))

@@ -128,6 +128,7 @@ class GethExceptionMapper(ExceptionMapper):
         BlockException.INVALID_RECEIPTS_ROOT: "invalid receipt root hash",
         BlockException.INVALID_LOG_BLOOM: "invalid bloom",
         BlockException.INVALID_STATE_ROOT: "invalid merkle root",
+        BlockException.GAS_USED_OVERFLOW: "bal validation failure",
     }
     mapping_regex: ClassVar[Dict[ExceptionBase, str]] = {
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED: (

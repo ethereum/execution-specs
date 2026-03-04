@@ -278,11 +278,18 @@ def generate_valid_blob_tests(
             [
                 [
                     Blob.from_fork(fork, s)
-                    for s in range(target_blobs_per_block // 2)
+                    for s in range(
+                        min(target_blobs_per_block // 2, max_blobs_per_tx)
+                    )
                 ],
                 [
-                    Blob.from_fork(fork, s + target_blobs_per_block // 2)
-                    for s in range(target_blobs_per_block // 2)
+                    Blob.from_fork(
+                        fork,
+                        s + min(target_blobs_per_block // 2, max_blobs_per_tx),
+                    )
+                    for s in range(
+                        min(target_blobs_per_block // 2, max_blobs_per_tx)
+                    )
                 ],
             ],
             id="two_tx_equal_blobs",
@@ -292,15 +299,29 @@ def generate_valid_blob_tests(
             [
                 [
                     Blob.from_fork(fork, s)
-                    for s in range(target_blobs_per_block // 3)
+                    for s in range(
+                        min(target_blobs_per_block // 3, max_blobs_per_tx)
+                    )
                 ],
                 [
-                    Blob.from_fork(fork, s + target_blobs_per_block // 3)
-                    for s in range(target_blobs_per_block // 3)
+                    Blob.from_fork(
+                        fork,
+                        s + min(target_blobs_per_block // 3, max_blobs_per_tx),
+                    )
+                    for s in range(
+                        min(target_blobs_per_block // 3, max_blobs_per_tx)
+                    )
                 ],
                 [
-                    Blob.from_fork(fork, s + 2 * (target_blobs_per_block // 3))
-                    for s in range(target_blobs_per_block // 3)
+                    Blob.from_fork(
+                        fork,
+                        s
+                        + 2
+                        * min(target_blobs_per_block // 3, max_blobs_per_tx),
+                    )
+                    for s in range(
+                        min(target_blobs_per_block // 3, max_blobs_per_tx)
+                    )
                 ],
             ],
             id="three_tx_equal_blobs",
@@ -352,18 +373,119 @@ def test_get_blobs(
 )
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
-def test_get_blobs_nonexisting(
+@pytest.mark.valid_until("Prague")
+def test_get_blobs_nonexisting_getblobsv1(
     blobs_test: BlobsTestFiller,
     pre: Alloc,
     txs: List[NetworkWrappedTransaction | Transaction],
 ) -> None:
     """
     Test that ensures clients respond with 'null' when at least one requested
-    blob is not available.
+    blob is not available (getBlobsV1 behavior: all-or-nothing response).
     """
     nonexisting_blob_hashes = [
         Hash(sha256(str(i).encode()).digest()) for i in range(5)
     ]
     blobs_test(
-        pre=pre, txs=txs, nonexisting_blob_hashes=nonexisting_blob_hashes
+        pre=pre,
+        txs=txs,
+        nonexisting_blob_hashes=nonexisting_blob_hashes,
+        get_blobs_version=1,
+    )
+
+
+@pytest.mark.parametrize_by_fork(
+    "txs_blobs",
+    generate_valid_blob_tests,
+)
+@pytest.mark.exception_test
+@pytest.mark.valid_from("Osaka")
+def test_get_blobs_nonexisting_getblobsv2(
+    blobs_test: BlobsTestFiller,
+    pre: Alloc,
+    txs: List[NetworkWrappedTransaction | Transaction],
+    txs_versioned_hashes: List[List[bytes]],
+) -> None:
+    """
+    Test that ensures clients respond with 'null' when at least one requested
+    blob is not available (getBlobsV2 behavior: all-or-nothing response).
+    """
+    nonexisting_blob_hashes = [
+        Hash(sha256(str(i).encode()).digest()) for i in range(5)
+    ]
+    print("Testing getBlobsV2 (all-or-nothing behavior)")
+    for tx_idx, tx_hashes in enumerate(txs_versioned_hashes):
+        for blob_idx, vh in enumerate(tx_hashes):
+            print(
+                f"  tx {tx_idx}, blob {blob_idx}: {Hash(vh).hex()} (existing)"
+            )
+    for i, nh in enumerate(nonexisting_blob_hashes):
+        print(f"  non-existing {i}: {nh.hex()}")
+    blobs_test(
+        pre=pre,
+        txs=txs,
+        nonexisting_blob_hashes=nonexisting_blob_hashes,
+        get_blobs_version=2,
+    )
+
+
+@pytest.mark.parametrize_by_fork(
+    "txs_blobs",
+    generate_valid_blob_tests,
+)
+@pytest.mark.exception_test
+@pytest.mark.valid_from("Osaka")
+def test_get_blobs_nonexisting_getblobsv3(
+    blobs_test: BlobsTestFiller,
+    pre: Alloc,
+    txs: List[NetworkWrappedTransaction | Transaction],
+    txs_versioned_hashes: List[List[bytes]],
+) -> None:
+    """
+    Test that ensures clients respond with partial results when some requested
+    blobs are not available (getBlobsV3 behavior: null only for missing blobs).
+    """
+    nonexisting_blob_hashes = [
+        Hash(sha256(str(i).encode()).digest()) for i in range(5)
+    ]
+    print("Testing getBlobsV3 (partial response behavior)")
+    for tx_idx, tx_hashes in enumerate(txs_versioned_hashes):
+        for blob_idx, vh in enumerate(tx_hashes):
+            print(
+                f"  tx {tx_idx}, blob {blob_idx}: {Hash(vh).hex()} (existing)"
+            )
+    for i, nh in enumerate(nonexisting_blob_hashes):
+        print(f"  non-existing {i}: {nh.hex()}")
+    blobs_test(
+        pre=pre,
+        txs=txs,
+        nonexisting_blob_hashes=nonexisting_blob_hashes,
+        get_blobs_version=3,
+    )
+
+
+# disable real blobs for this test (fixture is autouse so overwrite with empty)
+@pytest.mark.parametrize("txs_blobs", [[]], ids=["no_blobs"])
+@pytest.mark.exception_test
+@pytest.mark.valid_from("Osaka")
+def test_get_blobs_only_nonexisting_getblobsv3(
+    blobs_test: BlobsTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test that getBlobsV3 returns an array of null entries (one per requested
+    hash) when all requested blobs are non-existing, rather than returning a
+    single null for the entire response.
+    """
+    nonexisting_blob_hashes = [
+        Hash(sha256(str(i).encode()).digest()) for i in range(5)
+    ]
+    print("Testing getBlobsV3 (only non-existing blobs)")
+    for i, nh in enumerate(nonexisting_blob_hashes):
+        print(f"  non-existing {i}: {nh.hex()}")
+    blobs_test(
+        pre=pre,
+        txs=[],
+        nonexisting_blob_hashes=nonexisting_blob_hashes,
+        get_blobs_version=3,
     )

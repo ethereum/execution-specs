@@ -508,8 +508,12 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
     Decode a transaction from its RLP or typed transaction format.
     Needed because non-legacy transactions aren't RLP.
 
-    Legacy transactions are returned as-is, while other transaction types
-    are decoded based on their type identifier prefix.
+    Accept a ``LegacyTransaction`` object (returned as-is) or raw
+    bytes.
+
+    EIP-2718 states that the first byte distinguishes the format:
+    [0x00, 0x7f] is a typed transaction, [0xc0, 0xfe] is a legacy
+    transaction (RLP list prefix).
     """
     if isinstance(tx, Bytes):
         if tx[0] == 1:
@@ -520,6 +524,9 @@ def decode_transaction(tx: LegacyTransaction | Bytes) -> Transaction:
             return rlp.decode_to(BlobTransaction, tx[1:])
         elif tx[0] == 4:
             return rlp.decode_to(SetCodeTransaction, tx[1:])
+        elif tx[0] >= 0xC0:
+            assert tx[0] <= 0xFE
+            return rlp.decode_to(LegacyTransaction, tx)
         else:
             raise TransactionTypeError(tx[0])
     else:
@@ -598,12 +605,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
     from .vm.gas import init_code_cost
 
-    zero_bytes = 0
-    for byte in tx.data:
-        if byte == 0:
-            zero_bytes += 1
+    num_zeros = Uint(tx.data.count(0))
+    num_non_zeros = ulen(tx.data) - num_zeros
 
-    tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
+    tokens_in_calldata = num_zeros + num_non_zeros * Uint(4)
     # EIP-7623 floor price (note: no EVM costs)
     calldata_floor_gas_cost = (
         tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE

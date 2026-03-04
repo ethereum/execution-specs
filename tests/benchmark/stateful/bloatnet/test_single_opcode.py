@@ -32,13 +32,16 @@ from execution_testing import (
 )
 
 from tests.benchmark.stateful.helpers import (
+    ALLOWANCE_SELECTOR,
     APPROVE_SELECTOR,
     BALANCEOF_SELECTOR,
+    DECREMENT_COUNTER_CONDITION,
     MINT_SELECTOR,
     SLOAD_TOKENS,
     SSTORE_MINT_TOKENS,
     SSTORE_TOKENS,
     CacheStrategy,
+    build_cache_strategy_blocks,
 )
 
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
@@ -154,12 +157,7 @@ def test_sload_erc20_balanceof(
         # Do the same call again for the cached variant
         + cache_loop
         + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
-        condition=Op.PUSH1(1)  # [1, num_calls]
-        + Op.SWAP1  # [num_calls, 1]
-        + Op.SUB  # [num_calls-1]
-        + Op.DUP1  # [num_calls-1, num_calls-1]
-        + Op.ISZERO  # [num_calls-1==0, num_calls-1]
-        + Op.ISZERO,  # [num_calls-1!=0, num_calls-1]
+        condition=DECREMENT_COUNTER_CONDITION,
     )
 
     # Contract Deployment
@@ -186,21 +184,21 @@ def test_sload_erc20_balanceof(
         + Op.JUMPI
         # Function body
         + Op.JUMPDEST
-        + Op.CALLDATALOAD(4)
-        + Op.MSTORE(0, 0)
-        + Op.MSTORE(32, Op.CALLDATALOAD(4))
-        + Op.SHA3(
+        + Op.MSTORE(0, Op.CALLDATALOAD(4))
+        + Op.MSTORE(32, 0)
+        + Op.MSTORE(
             0,
-            64,
-            # gas accounting
-            data_size=64,
-            old_memory_size=0,
-            new_memory_size=64,
+            Op.SLOAD(
+                Op.SHA3(
+                    0,
+                    64,
+                    # gas accounting
+                    data_size=64,
+                    old_memory_size=0,
+                    new_memory_size=64,
+                )
+            ),
         )
-        + Op.SLOAD
-        # Return value
-        + Op.PUSH0
-        + Op.MSTORE
         + Op.RETURN(0, 32)
     )
 
@@ -261,15 +259,12 @@ def test_sload_erc20_balanceof(
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = (
-        [Block(txs=txs)]
-        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
-        else [Block(txs=cache_txs), Block(txs=txs)]
-    )
+    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
 
     benchmark_test(pre=pre, blocks=blocks)
 
 
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize("token_name", SSTORE_TOKENS)
 def test_sstore_erc20_approve(
     benchmark_test: BenchmarkTestFiller,
@@ -278,6 +273,7 @@ def test_sstore_erc20_approve(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     token_name: str,
+    cache_strategy: CacheStrategy,
 ) -> None:
     """Benchmark SSTORE using ERC20 approve on bloatnet."""
     # Stub Account
@@ -306,9 +302,28 @@ def test_sstore_erc20_approve(
         + Op.CALLDATALOAD(0)  # [num_calls]
     )
 
-    loop = While(
-        body=(
+    call_approve = Op.MSTORE(64, Op.MLOAD(32)) + Op.POP(
+        Op.CALL(
+            address=erc20_address,
+            value=0,
+            args_offset=28,
+            args_size=68,
+            ret_offset=0,
+            ret_size=0,
+            # gas accounting
+            address_warm=True,
+        )
+    )
+
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        # Call allowance(ADDRESS, spender) to warm the allowance
+        # storage slot that approve will later write to.
+        # Memory: save spender→[64], put ADDRESS→[32],
+        # set allowance selector, call, then restore.
+        cache_warmup = (
             Op.MSTORE(64, Op.MLOAD(32))
+            + Op.MSTORE(32, Op.ADDRESS)
+            + Op.MSTORE(0, ALLOWANCE_SELECTOR)
             + Op.POP(
                 Op.CALL(
                     address=erc20_address,
@@ -321,14 +336,17 @@ def test_sstore_erc20_approve(
                     address_warm=True,
                 )
             )
-            + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
-        ),
-        condition=Op.PUSH1(1)  # [1, num_calls]
-        + Op.SWAP1  # [num_calls, 1]
-        + Op.SUB  # [num_calls-1]
-        + Op.DUP1  # [num_calls-1, num_calls-1]
-        + Op.ISZERO  # [num_calls-1==0, num_calls-1]
-        + Op.ISZERO,  # [num_calls-1!=0, num_calls-1]
+            + Op.MSTORE(0, APPROVE_SELECTOR)
+            + Op.MSTORE(32, Op.MLOAD(64))
+        )
+    else:
+        cache_warmup = Bytecode()
+
+    loop = While(
+        body=cache_warmup
+        + call_approve
+        + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        condition=DECREMENT_COUNTER_CONDITION,
     )
 
     # Contract Deployment
@@ -357,15 +375,17 @@ def test_sstore_erc20_approve(
         + Op.CALLDATALOAD(36)
         + Op.MSTORE(0, Op.CALLER)
         + Op.MSTORE(32, 1)
-        + Op.SHA3(
-            0,
-            64,
-            # gas accounting
-            data_size=64,
-            old_memory_size=0,
-            new_memory_size=64,
+        + Op.MSTORE(
+            32,
+            Op.SHA3(
+                0,
+                64,
+                # gas accounting
+                data_size=64,
+                old_memory_size=0,
+                new_memory_size=64,
+            ),
         )
-        + Op.MSTORE(32)
         + Op.MSTORE(0, Op.CALLDATALOAD(4))
         + Op.SHA3(
             0,
@@ -373,22 +393,60 @@ def test_sstore_erc20_approve(
             # gas accounting
             data_size=64,
         )
-        + Op.DUP1
-        + Op.SLOAD.with_metadata(access_warm=False)
-        + Op.POP
-        + Op.SSTORE
+        + (
+            Op.DUP1
+            + Op.SLOAD.with_metadata(key_warm=False)
+            + Op.POP
+            + Op.SSTORE.with_metadata(key_warm=True)
+            if cache_strategy == CacheStrategy.CACHE_TX
+            else Op.SSTORE.with_metadata(key_warm=False)
+        )
         # Return true
-        + Op.PUSH1(1)
-        + Op.MSTORE(0)
-        + Op.PUSH1(32)
-        + Op.PUSH1(0)
+        + Op.MSTORE(0, 1)
         + Op.RETURN(0, 32)
     )
 
     function_dispatch_cost = function_dispatch.gas_cost(fork)
 
+    if cache_strategy == CacheStrategy.CACHE_TX:
+        # Add allowance dispatch cost for the warmup call.
+        # allowance(owner, spender) computes the same double-
+        # keccak slot as approve but does SLOAD + RETURN.
+        function_dispatch_allowance = (
+            Op.PUSH4(ALLOWANCE_SELECTOR)
+            + Op.EQ
+            + Op.JUMPI
+            + Op.JUMPDEST
+            + Op.CALLDATALOAD(4)
+            + Op.CALLDATALOAD(36)
+            + Op.MSTORE(0, Op.CALLDATALOAD(4))
+            + Op.MSTORE(32, 1)
+            + Op.SHA3(
+                0,
+                64,
+                # gas accounting
+                data_size=64,
+                old_memory_size=0,
+                new_memory_size=64,
+            )
+            + Op.MSTORE(32)
+            + Op.MSTORE(0, Op.CALLDATALOAD(36))
+            + Op.SHA3(
+                0,
+                64,
+                # gas accounting
+                data_size=64,
+            )
+            + Op.SLOAD
+            + Op.PUSH0
+            + Op.MSTORE
+            + Op.RETURN(0, 32)
+        )
+        function_dispatch_cost += function_dispatch_allowance.gas_cost(fork)
+
     # Transaction Loops
     txs = []
+    cache_txs = []
     gas_remaining = gas_benchmark_value
     slot_offset = 0
 
@@ -407,23 +465,35 @@ def test_sstore_erc20_approve(
 
         calldata = Hash(num_calls) + Hash(slot_offset)
 
-        txs.append(
-            Transaction(
-                gas_limit=gas_available,
-                data=calldata,
-                to=attack_contract_address,
-                sender=pre.fund_eoa(),
-                access_list=access_list,
+        if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+            with TestPhaseManager.setup():
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=gas_available,
+                        data=calldata,
+                        to=attack_contract_address,
+                        sender=pre.fund_eoa(),
+                        access_list=access_list,
+                    )
+                )
+
+        with TestPhaseManager.execution():
+            txs.append(
+                Transaction(
+                    gas_limit=gas_available,
+                    data=calldata,
+                    to=attack_contract_address,
+                    sender=pre.fund_eoa(),
+                    access_list=access_list,
+                )
             )
-        )
 
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    benchmark_test(
-        pre=pre,
-        blocks=[Block(txs=txs)],
-    )
+    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
+
+    benchmark_test(pre=pre, blocks=blocks)
 
 
 @pytest.mark.parametrize("token_name", SSTORE_MINT_TOKENS)
@@ -653,11 +723,7 @@ def test_sstore_erc20_mint(
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = (
-        [Block(txs=txs)]
-        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
-        else [Block(txs=cache_txs), Block(txs=txs)]
-    )
+    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
 
     benchmark_test(
         pre=pre,
@@ -772,6 +838,65 @@ def create_sstore_executor(
     loop += Op.PUSH1(len(setup))
     loop += Op.JUMPI
     # [counter + 1, value, end_slot]
+
+    cleanup = Bytecode()
+    cleanup += Op.STOP
+
+    return IteratingBytecode(setup=setup, iterating=loop, cleanup=cleanup)
+
+
+def create_sstore_dirty_executor(
+    write_values: List[int],
+    key_warm: bool,
+    initial_value: int,
+) -> IteratingBytecode:
+    """
+    Create executor that writes multiple values to each slot.
+
+    Exercise dirty state transitions by performing a sequence of SSTOREs
+    to the same slot within a single loop iteration. After the first
+    SSTORE, the slot is warm and subsequent writes hit the dirty
+    (100 gas) path when original != current.
+
+    - CALLDATA[0..32] start slot (index)
+    - CALLDATA[32..64] ending slot (end_slot)
+
+    Return an IteratingBytecode for the dirty-write benchmark executor.
+    """
+    setup = (
+        Op.CALLDATALOAD(32)  # end_slot
+        + Op.CALLDATALOAD(0)  # start_slot = counter
+    )
+    # Stack: [counter, end_slot]
+
+    loop = Bytecode()
+    loop += Op.JUMPDEST
+
+    for i, val in enumerate(write_values):
+        is_first = i == 0
+        current_val = initial_value if is_first else write_values[i - 1]
+        # DUP2 reaches counter through the pushed value
+        loop += Op.SSTORE(
+            Op.DUP2,
+            val,
+            key_warm=key_warm if is_first else True,
+            original_value=initial_value,
+            current_value=current_val,
+            new_value=val,
+        )
+    # Stack after all writes: [counter, end_slot]
+
+    # Increment counter
+    loop += Op.PUSH1(1)
+    loop += Op.ADD
+    # [counter + 1, end_slot]
+
+    # Loop while counter + 1 < end_slot
+    loop += Op.DUP2
+    loop += Op.DUP2
+    loop += Op.LT
+    loop += Op.PUSH1(len(setup))
+    loop += Op.JUMPI
 
     cleanup = Bytecode()
     cleanup += Op.STOP
@@ -1059,6 +1184,159 @@ def test_sstore_variants(
         pre=pre,
         blocks=blocks,
         expected_benchmark_gas_used=expected_gas_used,
+    )
+
+
+# SSTORE DIRTY TRANSITIONS BENCHMARK ARCHITECTURE:
+#
+#   [Authority EOA]
+#       │
+#       │ Phase 1: Delegate to StorageInitializer
+#       │   ──► SSTORE(slot, initial_value) for N slots
+#       │
+#       │ Phase 2: Delegate to DirtyExecutor
+#       │   ──► For each slot:
+#       │         SSTORE(slot, v1) → SSTORE(slot, v2) → ...
+#       │
+# WHY IT STRESSES CLIENTS:
+#   - Multiple writes per slot exercise EIP-2200/EIP-3529 refund
+#     branching: clean (original==current) vs dirty (original!=current)
+#   - Oscillation causes refund counter to swing up/down each write
+#   - Refund cap (gas_used/5) saturates with enough iterations
+#   - Tests correct tracking of original vs current vs new values
+
+
+@pytest.mark.parametrize("access_warm", [True, False])
+@pytest.mark.parametrize(
+    "initial_value,write_values",
+    [
+        pytest.param(
+            0xDEADBEEF,
+            [0, 0xDEADBEEF, 0, 0xDEADBEEF],
+            id="oscillation_4x",
+        ),
+        pytest.param(
+            0xDEADBEEF,
+            [0, 0xDEADBEEF, 0, 0xDEADBEEF, 0, 0xDEADBEEF],
+            id="oscillation_6x",
+        ),
+        pytest.param(
+            0xDEADBEEF,
+            [0xBEEFBEEF, 0xCAFECAFE, 0xDEADBEEF],
+            id="triple_write_restore",
+        ),
+        pytest.param(
+            0xDEADBEEF,
+            [0],
+            id="mass_clear",
+        ),
+        pytest.param(
+            0,
+            [1, 0, 1, 0],
+            id="oscillation_4x_from_zero",
+        ),
+        pytest.param(
+            0,
+            [1],
+            id="mass_set_from_zero",
+        ),
+    ],
+)
+def test_sstore_dirty_transitions(
+    benchmark_test: BenchmarkTestFiller,
+    fork: Fork,
+    pre: Alloc,
+    tx_gas_limit: int,
+    gas_benchmark_value: int,
+    access_warm: bool,
+    initial_value: int,
+    write_values: List[int],
+) -> None:
+    """
+    Benchmark SSTORE dirty state transitions.
+
+    Exercise EIP-2200/EIP-3529 refund logic by writing the same slot
+    multiple times per iteration. Uses EIP-7702 delegation: authority
+    EOA delegates to initializer then to dirty-write executor.
+
+    Variants:
+    - oscillation: X→0→X→0, alternates clean (2900) and dirty (100)
+    - triple_write_restore: X→B→C→X, all SSTORE branches
+    - mass_clear: X→0, maximum per-slot refund generation
+    """
+    # Initial Storage Construction
+    initializer_code = create_sstore_initializer(initial_value)
+    initializer_addr = pre.deploy_contract(code=initializer_code)
+
+    # Benchmark Executor — multi-write per slot
+    executor_code = create_sstore_dirty_executor(
+        write_values=write_values,
+        key_warm=access_warm,
+        initial_value=initial_value,
+    )
+    executor_addr = pre.deploy_contract(code=executor_code)
+
+    authority = pre.fund_eoa(amount=0)
+    authority_nonce = 0
+
+    delegation_sender = pre.fund_eoa()
+
+    calldata_gen = partial(executor_calldata_generator)
+    access_list_gen = partial(
+        access_list_generator,
+        access_warm=access_warm,
+        authority=authority,
+    )
+
+    # Number of slots processable in execution phase
+    num_target_slots = sum(
+        executor_code.tx_iterations_by_gas_limit(
+            fork=fork,
+            gas_limit=gas_benchmark_value,
+            calldata=calldata_gen,
+            access_list=access_list_gen,
+            start_iteration=1,
+        )
+    )
+
+    # Setup phase: initialize all slots to initial_value
+    with TestPhaseManager.setup():
+        blocks = build_delegated_storage_setup(
+            pre=pre,
+            fork=fork,
+            tx_gas_limit=tx_gas_limit,
+            needs_init=initial_value != 0,
+            num_target_slots=num_target_slots,
+            initializer_code=initializer_code,
+            initializer_addr=initializer_addr,
+            executor_addr=executor_addr,
+            authority=authority,
+            authority_nonce=authority_nonce,
+            delegation_sender=delegation_sender,
+            initializer_calldata_generator=(initializer_calldata_generator),
+        )
+
+    # Execution phase — no expected_benchmark_gas_used because
+    # refund cap (gas_used/5) makes actual consumption non-trivial
+    with TestPhaseManager.execution():
+        exec_txs = list(
+            executor_code.transactions_by_gas_limit(
+                fork=fork,
+                gas_limit=gas_benchmark_value,
+                sender=pre.fund_eoa(),
+                to=authority,
+                calldata=calldata_gen,
+                start_iteration=1,
+                access_list=access_list_gen,
+            )
+        )
+
+    blocks.append(Block(txs=exec_txs))
+
+    benchmark_test(
+        pre=pre,
+        blocks=blocks,
+        skip_gas_used_validation=True,
     )
 
 

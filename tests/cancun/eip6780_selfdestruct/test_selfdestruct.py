@@ -1469,3 +1469,557 @@ def test_create_selfdestruct_same_tx_increased_nonce(
     post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("num_contracts", [2, 3])
+@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
+@pytest.mark.valid_from("Shanghai")
+def test_create_and_destroy_multiple_contracts_same_tx(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender: EOA,
+    num_contracts: int,
+    selfdestruct_contract_initial_balance: int,
+) -> None:
+    """
+    Test creating multiple distinct contracts and self-destructing all of them
+    in the same transaction.
+
+    Each contract is created via CREATE2 with different salts and then called
+    to trigger self-destruction. All contracts should be deleted because they
+    are destroyed in the same transaction they were created.
+    """
+    entry_code_storage = Storage()
+
+    # Pre-deploy a recipient contract that will receive the self-destruct funds
+    sendall_recipient = pre.deploy_contract(
+        code=Op.SSTORE(0, 0),
+        storage={0: 1},
+    )
+
+    # Each self-destructing contract code: increment storage, then selfdestruct
+    selfdestruct_code = (
+        Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
+        + Op.SELFDESTRUCT(sendall_recipient)
+        + Op.STOP
+    )
+    selfdestruct_initcode = Initcode(deploy_code=selfdestruct_code)
+    initcode_copy_from_address = pre.deploy_contract(selfdestruct_initcode)
+
+    # Entry point address (will be created by the transaction)
+    entry_code_address = compute_create_address(address=sender, nonce=0)
+
+    # Compute addresses for each contract to be created
+    contract_addresses: List[Address] = []
+    for i in range(num_contracts):
+        addr = compute_create_address(
+            address=entry_code_address,
+            salt=i,
+            initcode=selfdestruct_initcode,
+            opcode=Op.CREATE2,
+        )
+        contract_addresses.append(addr)
+        if selfdestruct_contract_initial_balance > 0:
+            pre.fund_address(addr, selfdestruct_contract_initial_balance)
+
+    # Build entry code that creates all contracts then calls each to
+    # self-destruct
+    entry_code = Op.EXTCODECOPY(
+        initcode_copy_from_address,
+        0,
+        0,
+        len(selfdestruct_initcode),
+    )
+
+    # Create each contract with a different salt
+    for i in range(num_contracts):
+        entry_code += Op.SSTORE(
+            entry_code_storage.store_next(contract_addresses[i]),
+            Op.CREATE2(
+                value=0,
+                offset=0,
+                size=len(selfdestruct_initcode),
+                salt=i,
+            ),
+        )
+
+    # Call each contract to trigger self-destruction
+    total_sendall = selfdestruct_contract_initial_balance * num_contracts
+    for i in range(num_contracts):
+        entry_code += Op.SSTORE(
+            entry_code_storage.store_next(1),
+            Op.CALL(
+                Op.GASLIMIT,
+                contract_addresses[i],
+                0,
+                0,
+                0,
+                0,
+                0,
+            ),
+        )
+        # After each self-destruct, balance should be zero
+        entry_code += Op.SSTORE(
+            entry_code_storage.store_next(0),
+            Op.BALANCE(contract_addresses[i]),
+        )
+
+    entry_code += Op.RETURN(32, 1)
+
+    tx = Transaction(
+        value=0,
+        data=entry_code,
+        sender=sender,
+        to=None,
+        gas_limit=1_000_000,
+    )
+
+    post: Dict[Address, Account] = {
+        entry_code_address: Account(storage=entry_code_storage),
+        sendall_recipient: Account(balance=total_sendall, storage={0: 1}),
+    }
+
+    # All created contracts should be non-existent
+    for addr in contract_addresses:
+        post[addr] = Account.NONEXISTENT  # type: ignore
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
+@pytest.mark.valid_from("Shanghai")
+def test_create_multiple_contracts_destroy_one_then_destroy_other_next_tx(
+    blockchain_test: BlockchainTestFiller,
+    eip_enabled: bool,
+    pre: Alloc,
+    sender: EOA,
+    selfdestruct_contract_initial_balance: int,
+) -> None:
+    """
+    Test creating multiple contracts in one transaction, destroying only one
+    of them, then attempting to destroy the other in a subsequent transaction.
+
+    Contract A: Self-destructs in the same transaction as creation (deleted)
+    Contract B: Does NOT self-destruct in creation tx, attempted destruction
+                in subsequent tx (persists after EIP-6780)
+    """
+    # Pre-deploy a recipient contract
+    sendall_recipient = pre.deploy_contract(
+        code=Op.SSTORE(0, 0),
+        storage={0: 1},
+    )
+
+    # Self-destructing contract code: selfdestruct based on calldata
+    # If calldata[0] == 1, self-destruct; otherwise just increment storage
+    selfdestruct_code = Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)) + Conditional(
+        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+        if_true=Op.SELFDESTRUCT(sendall_recipient),
+        if_false=Op.STOP,
+    )
+    selfdestruct_initcode = Initcode(deploy_code=selfdestruct_code)
+    initcode_copy_from_address = pre.deploy_contract(selfdestruct_initcode)
+
+    # Deploy entry contract
+    entry_code_storage = Storage()
+
+    # Entry code: create both contracts, call A with selfdestruct flag,
+    # call B without
+    entry_code = Op.EXTCODECOPY(
+        initcode_copy_from_address,
+        0,
+        0,
+        len(selfdestruct_initcode),
+    )
+
+    # Create contract A with salt=0
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(0),  # Replaced with actual address
+        Op.CREATE2(value=0, offset=0, size=len(selfdestruct_initcode), salt=0),
+    )
+
+    # Create contract B with salt=1
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(0),  # Replaced with actual address
+        Op.CREATE2(value=0, offset=0, size=len(selfdestruct_initcode), salt=1),
+    )
+
+    # Call contract A (slot 0) with flag=1 to self-destruct
+    entry_code += Op.MSTORE(0, 1)
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(1),
+        Op.CALL(Op.GASLIMIT, Op.SLOAD(0), 0, 0, 32, 0, 0),
+    )
+
+    # Call contract B (slot 1) with flag=0 to NOT self-destruct
+    entry_code += Op.MSTORE(0, 0)
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(1),
+        Op.CALL(Op.GASLIMIT, Op.SLOAD(1), 0, 0, 32, 0, 0),
+    )
+
+    entry_code += Op.STOP
+
+    entry_code_address = pre.deploy_contract(entry_code)
+
+    # Calculate contract addresses
+    contract_a_address = compute_create_address(
+        address=entry_code_address,
+        salt=0,
+        initcode=selfdestruct_initcode,
+        opcode=Op.CREATE2,
+    )
+    contract_b_address = compute_create_address(
+        address=entry_code_address,
+        salt=1,
+        initcode=selfdestruct_initcode,
+        opcode=Op.CREATE2,
+    )
+
+    # Update expected storage
+    entry_code_storage[0] = contract_a_address
+    entry_code_storage[1] = contract_b_address
+
+    if selfdestruct_contract_initial_balance > 0:
+        pre.fund_address(
+            contract_a_address, selfdestruct_contract_initial_balance
+        )
+        pre.fund_address(
+            contract_b_address, selfdestruct_contract_initial_balance
+        )
+
+    # Second transaction: try to self-destruct contract B
+    tx2_caller = pre.deploy_contract(
+        Op.MSTORE(0, 1)
+        + Op.CALL(Op.GASLIMIT, contract_b_address, 0, 0, 32, 0, 0)
+        + Op.STOP
+    )
+
+    txs = [
+        Transaction(
+            sender=sender,
+            to=entry_code_address,
+            gas_limit=1_000_000,
+        ),
+        Transaction(
+            sender=sender,
+            to=tx2_caller,
+            gas_limit=500_000,
+        ),
+    ]
+
+    post: Dict[Address, Account] = {
+        entry_code_address: Account(storage=entry_code_storage),
+        # Contract A is always destroyed (created and destroyed same tx)
+        contract_a_address: Account.NONEXISTENT,  # type: ignore
+    }
+
+    if eip_enabled:
+        # After EIP-6780: Contract B persists (not destroyed in same tx)
+        # Storage shows 2 calls (one in tx1, one in tx2)
+        post[contract_b_address] = Account(
+            storage={0: 2},
+            balance=0,  # Balance sent but contract persists
+        )
+        post[sendall_recipient] = Account(
+            balance=selfdestruct_contract_initial_balance * 2,
+            storage={0: 1},
+        )
+    else:
+        # Before EIP-6780: Contract B is destroyed in tx2
+        post[contract_b_address] = Account.NONEXISTENT  # type: ignore
+        post[sendall_recipient] = Account(
+            balance=selfdestruct_contract_initial_balance * 2,
+            storage={0: 1},
+        )
+
+    blockchain_test(pre=pre, post=post, blocks=[Block(txs=txs)])
+
+
+@pytest.mark.parametrize("destroy_parent", [True, False])
+@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
+@pytest.mark.valid_from("Shanghai")
+def test_parent_creates_child_selfdestruct_one(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender: EOA,
+    destroy_parent: bool,
+    selfdestruct_contract_initial_balance: int,
+) -> None:
+    """
+    Test a parent contract that creates a child contract, then only one
+    of them self-destructs (either parent or child, based on parameter).
+
+    Both contracts are created in the same transaction:
+    - If destroy_parent=True: Parent self-destructs, child survives
+    - If destroy_parent=False: Child self-destructs, parent survives
+
+    Since both are created in the same tx, whichever self-destructs should be
+    deleted.
+    """
+    entry_code_storage = Storage()
+
+    sendall_recipient = pre.deploy_contract(
+        code=Op.SSTORE(0, 0),
+        storage={0: 1},
+    )
+
+    # Child contract: just has code, self-destructs when called
+    child_code = Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)) + Op.SELFDESTRUCT(
+        sendall_recipient
+    )
+    child_initcode = Initcode(deploy_code=child_code)
+
+    # Parent contract: creates child, then either self-destructs or calls child
+    # to self-destruct based on calldata[0]: 1 = destroy parent, 0 = destroy
+    # child
+    # For simplicity, use pre-deployed child initcode
+    child_initcode_address = pre.deploy_contract(child_initcode)
+
+    parent_code = (
+        Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
+        + Op.EXTCODECOPY(child_initcode_address, 0, 0, len(child_initcode))
+        + Op.SSTORE(1, Op.CREATE(value=0, offset=0, size=len(child_initcode)))
+        + Conditional(
+            condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+            if_true=Op.SELFDESTRUCT(sendall_recipient),
+            if_false=Op.CALL(Op.GASLIMIT, Op.SLOAD(1), 0, 0, 0, 0, 0),
+        )
+        + Op.STOP
+    )
+    parent_initcode = Initcode(deploy_code=parent_code)
+    parent_initcode_address = pre.deploy_contract(parent_initcode)
+
+    entry_code_address = compute_create_address(address=sender, nonce=0)
+    parent_address = compute_create_address(
+        address=entry_code_address,
+        nonce=1,
+        initcode=parent_initcode,
+        opcode=Op.CREATE,
+    )
+    child_address = compute_create_address(address=parent_address, nonce=1)
+
+    if selfdestruct_contract_initial_balance > 0:
+        pre.fund_address(parent_address, selfdestruct_contract_initial_balance)
+        pre.fund_address(child_address, selfdestruct_contract_initial_balance)
+
+    # Entry code: create parent and call it with appropriate flag
+    entry_code = Op.EXTCODECOPY(
+        parent_initcode_address,
+        0,
+        0,
+        len(parent_initcode),
+    )
+
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(parent_address),
+        Op.CREATE(value=0, offset=0, size=len(parent_initcode)),
+    )
+
+    flag = 1 if destroy_parent else 0
+    entry_code += Op.MSTORE(0, flag)
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(1),
+        Op.CALL(Op.GASLIMIT, parent_address, 0, 0, 32, 0, 0),
+    )
+
+    entry_code += Op.RETURN(32, 1)
+
+    tx = Transaction(
+        value=0,
+        data=entry_code,
+        sender=sender,
+        to=None,
+        gas_limit=1_000_000,
+    )
+
+    post: Dict[Address, Account] = {
+        entry_code_address: Account(storage=entry_code_storage),
+    }
+
+    if destroy_parent:
+        post[parent_address] = Account.NONEXISTENT  # type: ignore
+        post[child_address] = Account(
+            storage={0: 0},
+            balance=selfdestruct_contract_initial_balance,
+        )
+        post[sendall_recipient] = Account(
+            balance=selfdestruct_contract_initial_balance,
+            storage={0: 1},
+        )
+    else:
+        post[child_address] = Account.NONEXISTENT  # type: ignore
+        post[parent_address] = Account(
+            storage={0: 1, 1: child_address},
+            balance=selfdestruct_contract_initial_balance,
+        )
+        post[sendall_recipient] = Account(
+            balance=selfdestruct_contract_initial_balance,
+            storage={0: 1},
+        )
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize("recursion_depth", [2, 3])
+@pytest.mark.parametrize("selfdestruct_on_unwind", [True, False])
+@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
+@pytest.mark.valid_from("Shanghai")
+def test_recursive_contract_creation_and_selfdestruct(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    sender: EOA,
+    recursion_depth: int,
+    selfdestruct_on_unwind: bool,
+    selfdestruct_contract_initial_balance: int,
+) -> None:
+    """
+    Test recursive contract creation with self-destruct.
+
+    Each contract creates another, forming a chain. Then self-destruct is
+    triggered either:
+    - selfdestruct_on_unwind=True: Each contract self-destructs as the call
+      stack unwinds
+    - selfdestruct_on_unwind=False: Only the deepest contract self-destructs
+
+    All contracts are created in the same transaction, so any that
+    self-destruct should be deleted.
+    """
+    entry_code_storage = Storage()
+
+    sendall_recipient = pre.deploy_contract(
+        code=Op.SSTORE(0, 0),
+        storage={0: 1},
+    )
+
+    # We'll create a chain of contracts where each creates the next one
+    # using CREATE. Each contract's code will:
+    # 1. Check depth (from calldata)
+    # 2. If depth > 0: copy child initcode, create child, call child with
+    #    depth-1
+    # 3. If selfdestruct_on_unwind: selfdestruct after child call returns
+    # 4. If depth == 0: selfdestruct immediately
+
+    # To make this work, we pre-deploy initcodes for each level
+    # Level 0 (deepest): just selfdestructs
+    level_initcodes: List[Bytecode] = []
+    level_codes: List[Bytecode] = []
+
+    # Build from deepest to shallowest
+    # Level 0 (deepest): always self-destructs
+    level_0_code = Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)) + Op.SELFDESTRUCT(
+        sendall_recipient
+    )
+    level_codes.append(level_0_code)
+    level_initcodes.append(Initcode(deploy_code=level_0_code))
+
+    # Higher levels: create child, call it, optionally self-destruct
+    for level in range(1, recursion_depth):
+        child_initcode = level_initcodes[level - 1]
+        child_initcode_deployed = pre.deploy_contract(child_initcode)
+
+        child_len = len(child_initcode)
+        if selfdestruct_on_unwind:
+            level_code = (
+                Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
+                + Op.EXTCODECOPY(child_initcode_deployed, 0, 0, child_len)
+                + Op.SSTORE(1, Op.CREATE(value=0, offset=0, size=child_len))
+                + Op.CALL(Op.GASLIMIT, Op.SLOAD(1), 0, 0, 0, 0, 0)
+                + Op.SELFDESTRUCT(sendall_recipient)
+            )
+        else:
+            level_code = (
+                Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
+                + Op.EXTCODECOPY(child_initcode_deployed, 0, 0, child_len)
+                + Op.SSTORE(1, Op.CREATE(value=0, offset=0, size=child_len))
+                + Op.CALL(Op.GASLIMIT, Op.SLOAD(1), 0, 0, 0, 0, 0)
+                + Op.STOP
+            )
+        level_codes.append(level_code)
+        level_initcodes.append(Initcode(deploy_code=level_code))
+
+    # Top level initcode (the one we'll create from entry code)
+    top_initcode = level_initcodes[-1]
+    top_initcode_address = pre.deploy_contract(top_initcode)
+
+    entry_code_address = compute_create_address(address=sender, nonce=0)
+
+    # Calculate all contract addresses
+    contract_addresses: List[Address] = []
+    for level in range(recursion_depth - 1, -1, -1):
+        if level == recursion_depth - 1:
+            addr = compute_create_address(
+                address=entry_code_address,
+                nonce=1,
+                initcode=level_initcodes[level],
+                opcode=Op.CREATE,
+            )
+        else:
+            addr = compute_create_address(
+                address=contract_addresses[-1],
+                nonce=1,
+                initcode=level_initcodes[level],
+                opcode=Op.CREATE,
+            )
+        contract_addresses.append(addr)
+        if selfdestruct_contract_initial_balance > 0:
+            pre.fund_address(addr, selfdestruct_contract_initial_balance)
+
+    # Entry code
+    entry_code = Op.EXTCODECOPY(
+        top_initcode_address,
+        0,
+        0,
+        len(top_initcode),
+    )
+
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(contract_addresses[0]),
+        Op.CREATE(value=0, offset=0, size=len(top_initcode)),
+    )
+
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(1),
+        Op.CALL(Op.GASLIMIT, contract_addresses[0], 0, 0, 0, 0, 0),
+    )
+
+    entry_code += Op.RETURN(32, 1)
+
+    tx = Transaction(
+        value=0,
+        data=entry_code,
+        sender=sender,
+        to=None,
+        gas_limit=2_000_000,
+    )
+
+    post: Dict[Address, Account] = {
+        entry_code_address: Account(storage=entry_code_storage),
+    }
+
+    if selfdestruct_on_unwind:
+        # All contracts self-destruct
+        total_sendall = selfdestruct_contract_initial_balance * recursion_depth
+        for addr in contract_addresses:
+            post[addr] = Account.NONEXISTENT  # type: ignore
+    else:
+        # Only the deepest contract (last in list) self-destructs
+        total_sendall = selfdestruct_contract_initial_balance
+        for i, addr in enumerate(contract_addresses):
+            if i == len(contract_addresses) - 1:
+                # Deepest - destroyed
+                post[addr] = Account.NONEXISTENT  # type: ignore
+            else:
+                # Survives with storage: slot 0 = call count, slot 1 = child
+                # Retains its initial balance since it didn't self-destruct
+                child_addr = contract_addresses[i + 1]
+                post[addr] = Account(
+                    storage={0: 1, 1: child_addr},
+                    balance=selfdestruct_contract_initial_balance,
+                )
+
+    post[sendall_recipient] = Account(
+        balance=total_sendall,
+        storage={0: 1},
+    )
+
+    state_test(pre=pre, post=post, tx=tx)

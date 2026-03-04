@@ -109,6 +109,8 @@ def base_pre(
     return Alloc(
         {
             seed_key: Account(balance=seed_key_initial_balance),
+            # Pre-deploy the deterministic factory to avoid needing unprotected
+            # transactions (geth rejects unprotected txs by default)
             DETERMINISTIC_FACTORY_ADDRESS: Account(
                 nonce=1, code=DETERMINISTIC_FACTORY_BYTECODE
             ),
@@ -167,6 +169,11 @@ def base_pre_genesis(
         parent_beacon_block_root=env.parent_beacon_block_root,
         requests_hash=Requests()
         if session_fork.header_requests_required(
+            block_number=block_number, timestamp=timestamp
+        )
+        else None,
+        block_access_list_hash=Hash(EmptyTrieRoot)
+        if session_fork.header_bal_hash_required(
             block_number=block_number, timestamp=timestamp
         )
         else None,
