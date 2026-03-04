@@ -444,7 +444,12 @@ class Result:
             result = t8n.fork.deserialize_stateless_output(
                 stateless_output_bytes
             )
-            assert result.successful_validation, "Stateless validation failed"
+            if t8n.txs.rejected_txs:
+                assert not result.successful_validation
+            else:
+                assert result.successful_validation, (
+                    "Stateless validation failed"
+                )
             self.stateless_input_bytes = bytes(stateless_input_bytes)
             self.stateless_output_bytes = bytes(stateless_output_bytes)
 
