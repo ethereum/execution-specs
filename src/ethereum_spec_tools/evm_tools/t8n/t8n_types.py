@@ -337,7 +337,14 @@ class Result:
             # the witness reads pre-state tries that apply_changes mutates.
             # This is safe because compute_state_root_and_trie_changes
             # does not mutate state (it makes transient copies of MPTs).
-            if t8n.fork.has_execution_witness:
+            if (
+                t8n.fork.has_execution_witness
+                # state tests have no headers
+                and not t8n.options.state_test
+                # When we make a blockchain test from state test
+                # it has no headers
+                and t8n.env.block_headers
+            ):
                 self.execution_witness = t8n.fork.build_execution_witness(
                     block_env.state,
                     expected_post_state_root=state_root_value,
@@ -373,9 +380,7 @@ class Result:
                 block_output.block_access_list
             )
 
-        # State tests lack the parent header needed for stateless
-        # verification, so skip the stateless roundtrip.
-        if self.execution_witness is not None and not t8n.options.state_test:
+        if self.execution_witness is not None:
             withdrawals = (
                 tuple(t8n.env.withdrawals) if t8n.env.withdrawals else ()
             )
@@ -422,6 +427,7 @@ class Result:
                 withdrawals=withdrawals,
             )
 
+            assert self.requests is not None
             stateless_input = t8n.fork.build_stateless_input(
                 block,
                 execution_witness=self.execution_witness,
