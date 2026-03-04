@@ -582,7 +582,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="chain_id",
         type=int,
         default=None,
-        help=("Specify the chain ID for the test filling."),
+        help=(
+            "Specify the chain ID for the test filling. "
+            f"Default: {ChainConfigDefaults.chain_id}."
+        ),
     )
     evm_group.addoption(
         "--traces",
