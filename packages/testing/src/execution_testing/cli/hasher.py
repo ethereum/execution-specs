@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
+
+import xxhash
 import sys
 from dataclasses import dataclass, field
 from enum import IntEnum, auto
@@ -46,7 +47,7 @@ class HashableItem:
             raise ValueError("No items to hash")
         # Use list + join instead of += to avoid O(n²) byte concatenation
         hash_parts = [item.hash() for _, item in sorted(self.items.items())]
-        return hashlib.sha256(b"".join(hash_parts)).digest()
+        return xxhash.xxh3_128_digest(b"".join(hash_parts))
 
     def format_lines(
         self,

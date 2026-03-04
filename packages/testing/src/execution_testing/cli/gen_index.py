@@ -360,7 +360,7 @@ def _trie_to_hash(root_trie: dict) -> bytes:
 
     Mirrors HashableItem.from_raw_entries logic but works on pre-built trie.
     """
-    import hashlib
+    import xxhash
 
     def hash_node(node: dict) -> bytes:
         """Recursively hash a trie node."""
@@ -372,13 +372,13 @@ def _trie_to_hash(root_trie: dict) -> bytes:
                 # File node: child is list of (test_id, hash_bytes)
                 # Hash = sha256(sorted test hashes concatenated)
                 test_hashes = [h for _, h in sorted(child, key=lambda x: x[0])]
-                file_hash = hashlib.sha256(b"".join(test_hashes)).digest()
+                file_hash = xxhash.xxh3_128_digest(b"".join(test_hashes))
                 hash_parts.append(file_hash)
             else:
                 # Folder node: recurse
                 hash_parts.append(hash_node(child))
 
-        return hashlib.sha256(b"".join(hash_parts)).digest()
+        return xxhash.xxh3_128_digest(b"".join(hash_parts))
 
     return hash_node(root_trie)
 

@@ -1,9 +1,9 @@
 """Pre-alloc specifically conditioned for test filling."""
 
-import hashlib
 import inspect
 from functools import cache
-from hashlib import sha256
+
+import xxhash
 from typing import Any, Dict, List, Literal
 
 import pytest
@@ -115,7 +115,7 @@ class Alloc(SharedAlloc):
                 buffer += deleted_address
 
         return int.from_bytes(
-            hashlib.sha256(buffer).digest()[:8], byteorder="big"
+            xxhash.xxh3_64_digest(buffer), byteorder="big"
         )
 
     def compute_pre_alloc_group_hash(
@@ -126,8 +126,8 @@ class Alloc(SharedAlloc):
         group_salt: str | None,
     ) -> str:
         """Hash (fork, env) in order to group tests by genesis config."""
-        fork_digest = hashlib.sha256(fork.name().encode("utf-8")).digest()
-        fork_hash = int.from_bytes(fork_digest[:8], byteorder="big")
+        fork_digest = xxhash.xxh3_64_digest(fork.name().encode("utf-8"))
+        fork_hash = int.from_bytes(fork_digest, byteorder="big")
         combined_hash = (
             fork_hash
             ^ hash(genesis_environment)
@@ -137,8 +137,8 @@ class Alloc(SharedAlloc):
         # Check if this pre-allocation has a group salt
         if group_salt:
             # Add custom salt to hash
-            salt_hash = hashlib.sha256(group_salt.encode("utf-8")).digest()
-            salt_int = int.from_bytes(salt_hash[:8], byteorder="big")
+            salt_hash = xxhash.xxh3_64_digest(group_salt.encode("utf-8"))
+            salt_int = int.from_bytes(salt_hash, byteorder="big")
             combined_hash = combined_hash ^ salt_int
 
         return f"0x{combined_hash:016x}"
@@ -384,9 +384,9 @@ class Alloc(SharedAlloc):
         return Address(eoa_from_hash(EMPTY_ACCOUNT_HASH, salt))
 
 
-def sha256_from_string(s: str) -> int:
-    """Return SHA-256 hash of a string."""
-    return int.from_bytes(sha256(s.encode("utf-8")).digest(), "big")
+def hash_from_string(s: str) -> int:
+    """Return xxh3_128 hash of a string."""
+    return int.from_bytes(xxhash.xxh3_128_digest(s.encode("utf-8")), "big")
 
 
 ALL_FIXTURE_FORMAT_NAMES: List[str] = []

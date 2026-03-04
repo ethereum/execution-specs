@@ -456,7 +456,7 @@ class TestHashableItemFromIndexEntries:
         """Verify empty entries produces a valid hash."""
         result = HashableItem.from_index_entries([]).hash()
         assert result is not None
-        assert len(result) == 32
+        assert len(result) == 16  # xxh3_128 produces 16-byte hash
 
     def test_multiple_files_in_same_folder(self) -> None:
         """Verify hash with multiple JSON files in the same folder."""
