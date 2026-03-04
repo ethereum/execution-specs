@@ -1048,6 +1048,85 @@ def test_extcodehash_in_init_code(
 
 @pytest.mark.ported_from(
     [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSelfInInitFiller.json",  # noqa: E501
+    ],
+)
+@pytest.mark.parametrize(
+    "create_opcode",
+    [pytest.param(None, id="create_tx"), Op.CREATE, Op.CREATE2],
+)
+def test_extcodehash_self_in_init(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    create_opcode: Opcodes | None,
+) -> None:
+    """
+    Test EXTCODEHASH/EXTCODESIZE of self during init code.
+
+    During init code execution the account exists but has no code yet,
+    so EXTCODEHASH(ADDRESS) returns keccak256("") and
+    EXTCODESIZE(ADDRESS) returns 0.
+    """
+    storage = Storage()
+
+    expected_hash = keccak256(b"")
+    expected_size = 0
+
+    checks = Op.SSTORE(
+        storage.store_next(expected_hash),
+        Op.EXTCODEHASH(Op.ADDRESS),
+    ) + Op.SSTORE(
+        storage.store_next(expected_size),
+        Op.EXTCODESIZE(Op.ADDRESS),
+    )
+    initcode = checks + Op.RETURN(0, 0)
+
+    if create_opcode is None:
+        sender = pre.fund_eoa()
+        tx = Transaction(
+            sender=sender,
+            to=None,
+            data=initcode,
+            gas_limit=400_000,
+        )
+        created = compute_create_address(
+            address=sender,
+            nonce=0,
+        )
+    else:
+        factory_code = (
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + create_opcode(
+                value=0,
+                offset=0,
+                size=Op.CALLDATASIZE,
+            )
+            + Op.STOP
+        )
+        factory = pre.deploy_contract(factory_code)
+        tx = Transaction(
+            sender=pre.fund_eoa(),
+            to=factory,
+            data=initcode,
+            gas_limit=400_000,
+        )
+        created = compute_create_address(
+            address=factory,
+            nonce=1,
+            salt=0,
+            initcode=initcode,
+            opcode=create_opcode,
+        )
+
+    state_test(
+        pre=pre,
+        post={created: Account(storage=storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDynamicArgumentFiller.json",  # noqa: E501
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2379"],
