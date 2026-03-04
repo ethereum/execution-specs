@@ -10,7 +10,7 @@ This repository contains the specifications related to the Ethereum execution cl
 
 ### Ethereum Protocol Releases
 
-| Version and Code Name | Block No. | Released | Incl EIPs | Specs | Blog |
+| Version and Code Name | Block No. | Released | Incl EIPs | Fork Specifications | Blog |
 |-----------------------|-----------|----------|-----------|-------|-------|
 | Osaka | 23935694 | 2025-12-03 | [EIP-7594] <br> [EIP-7642] <br> [EIP-7823] <br> [EIP-7825] <br> [EIP-7883] <br> [EIP-7892] <br> [EIP-7910] <br> [EIP-7917] <br> [EIP-7918] <br> [EIP-7934] <br> [EIP-7935] <br> [EIP-7939] <br> [EIP-7951] | [Hardfork Meta EIP-7607](https://eips.ethereum.org/EIPS/eip-7607) <br/> [Fork Manifest](/src/ethereum/forks/osaka/__init__.py) | [Blog](https://blog.ethereum.org/2025/11/06/fusaka-mainnet-announcement) |
 | Prague | 22431084 | 2025-05-07 | [EIP-2537] <br> [EIP-2935] <br> [EIP-6110] <br> [EIP-7002] <br> [EIP-7251] <br> [EIP-7549] <br> [EIP-7623] <br> [EIP-7685] <br> [EIP-7691] <br> [EIP-7702] | [Hardfork Meta EIP-7600](https://eips.ethereum.org/EIPS/eip-7600) <br/> [Fork Manifest](/src/ethereum/forks/prague/__init__.py)| [Blog](https://blog.ethereum.org/2025/04/23/pectra-mainnet) |
