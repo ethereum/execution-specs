@@ -1245,3 +1245,65 @@ def test_extcodehash_call_to_nonexistent(
         post={code_address: Account(storage=storage)},
         tx=tx,
     )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/callToSuicideThenExtcodehashFiller.json",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2412"],
+)
+@pytest.mark.with_all_call_opcodes
+def test_extcodehash_call_to_selfdestruct(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    call_opcode: Opcodes,
+) -> None:
+    """
+    Test EXTCODEHASH after calling a contract that selfdestructs.
+
+    Call a contract containing SELFDESTRUCT using each call type, then
+    check EXTCODEHASH. The hash is always returned because the check
+    happens within the same transaction. STATICCALL fails because
+    SELFDESTRUCT modifies state. Pre-Cancun, CALLCODE/DELEGATECALL
+    execute SELFDESTRUCT in the caller's context, destroying the test
+    contract at end of transaction.
+    """
+    storage = Storage()
+    beneficiary = pre.empty_account()
+    target_code = Op.SELFDESTRUCT(beneficiary)
+    target = pre.deploy_contract(target_code, balance=5_555_555_555)
+
+    call_succeeds = call_opcode != Op.STATICCALL
+
+    code = Op.SSTORE(
+        storage.store_next(int(call_succeeds)),
+        call_opcode(address=target, gas=165_000),
+    ) + Op.SSTORE(
+        storage.store_next(target_code.keccak256()),
+        Op.EXTCODEHASH(target),
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    # Pre-Cancun, CALLCODE/DELEGATECALL execute SELFDESTRUCT in the
+    # caller's context, destroying the test contract at end of tx.
+    caller_destroyed = fork < Cancun and call_opcode in (
+        Op.CALLCODE,
+        Op.DELEGATECALL,
+    )
+
+    post: dict[Address, Account | None] = {}
+    if caller_destroyed:
+        post[code_address] = Account.NONEXISTENT
+    else:
+        post[code_address] = Account(storage=storage)
+
+    state_test(pre=pre, post=post, tx=tx)
