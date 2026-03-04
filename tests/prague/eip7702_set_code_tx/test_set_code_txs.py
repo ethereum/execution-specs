@@ -2376,6 +2376,8 @@ def test_set_code_using_valid_synthetic_signatures(
         pytest.param(2, 1, 1, id="v=2"),
         pytest.param(27, 1, 1, id="v=27"),  # Type-0 transaction valid value
         pytest.param(28, 1, 1, id="v=28"),  # Type-0 transaction valid value
+        pytest.param(29, 1, 1, id="v=29"),  # Type-0 replay-protected
+        # transaction valid value (chain_id=2)
         pytest.param(35, 1, 1, id="v=35"),  # Type-0 replay-protected
         # transaction valid value
         pytest.param(36, 1, 1, id="v=36"),  # Type-0 replay-protected
