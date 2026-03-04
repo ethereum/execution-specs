@@ -21,20 +21,18 @@ from execution_testing import (
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    CreatePreimageLayout,
     Fork,
     Hash,
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
+    SequentialAddressLayout,
     Storage,
     TestPhaseManager,
     Transaction,
     While,
     keccak256,
-)
-from execution_testing.tools.tools_code.generators import (
-    CreatePreimageLayout,
-    SequentialAddressLayout,
 )
 
 from tests.benchmark.stateful.helpers import (
