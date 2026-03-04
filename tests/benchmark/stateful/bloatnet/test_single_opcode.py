@@ -1508,23 +1508,23 @@ def test_storage_sload_same_key_benchmark(
 
 
 def account_access_params() -> list:
-    """
-    Generate (opcode, value_sent) pairs.
-    """
+    """Generate (opcode, value_sent, account_mode) triples."""
     params = []
-    for op in [Op.CALL, Op.CALLCODE]:
-        params.append(pytest.param(op, 0))
-        params.append(pytest.param(op, 1))
 
-    for op in [
-        Op.BALANCE,
-        Op.EXTCODECOPY,
-        Op.EXTCODESIZE,
-        Op.EXTCODEHASH,
-        Op.STATICCALL,
-        Op.DELEGATECALL,
-    ]:
-        params.append(pytest.param(op, 0))
+    for mode in AccountMode:
+        for op in [Op.CALL, Op.CALLCODE]:
+            params.append(pytest.param(op, 0, mode))
+            params.append(pytest.param(op, 1, mode))
+
+        for op in [Op.BALANCE, Op.STATICCALL, Op.DELEGATECALL]:
+            params.append(pytest.param(op, 0, mode))
+
+    for op in [Op.EXTCODECOPY, Op.EXTCODESIZE, Op.EXTCODEHASH]:
+        for mode in [
+            AccountMode.EXISTING_CONTRACT,
+            AccountMode.NON_EXISTING_ACCOUNT,
+        ]:
+            params.append(pytest.param(op, 0, mode))
 
     return params
 
@@ -1540,16 +1540,8 @@ class AccountMode(Enum):
 @pytest.mark.repricing
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize(
-    "account_mode",
-    [
-        pytest.param(AccountMode.EXISTING_CONTRACT, id="existing contract"),
-        pytest.param(AccountMode.EXISTING_EOA, id="existing eoa"),
-        pytest.param(
-            AccountMode.NON_EXISTING_ACCOUNT, id="non existing account"
-        ),
-    ],
+    "opcode,value_sent,account_mode", account_access_params()
 )
-@pytest.mark.parametrize("opcode,value_sent", account_access_params())
 def test_account_access(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
