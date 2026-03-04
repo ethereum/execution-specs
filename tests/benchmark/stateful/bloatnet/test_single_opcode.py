@@ -671,9 +671,11 @@ def test_sstore_erc20_mint(
     gas_remaining = gas_benchmark_value
     intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()()
     while gas_remaining >= intrinsic_gas_cost + gas_threshold:
-        gas_limits.append(min(gas_remaining, tx_gas_limit))
-        gas_remaining -= gas_limits[-1]
+        gas_limit = min(gas_remaining, tx_gas_limit)
+        gas_limits.append(gas_limit)
+        gas_remaining -= gas_limit
 
+    cache_txs: List[Transaction] = []
     if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
         with TestPhaseManager.setup():
             cache_txs = [
