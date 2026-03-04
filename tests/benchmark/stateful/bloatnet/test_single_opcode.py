@@ -1555,7 +1555,12 @@ def test_account_access(
         )
         increment_op = address_retriever.increment_nonce_op()
     else:
-        address_retriever = SequentialAddressLayout()
+        # Spamoor EOA creator (https://github.com/CPerezz/spamoor/pull/12)
+        # created these accounts on bloatnet with these values (are also the
+        # defaults of SequentialAddressLayout)
+        address_retriever = SequentialAddressLayout(
+            starting_address=0x1000, increment=1
+        )
         increment_op = address_retriever.increment_address_op()
 
     setup_code: Bytecode = address_retriever
