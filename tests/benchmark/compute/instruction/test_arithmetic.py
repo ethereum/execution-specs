@@ -190,6 +190,7 @@ def test_arithmetic(
 @pytest.mark.repricing
 def test_mod(
     benchmark_test: BenchmarkTestFiller,
+    fixed_opcode_count: int,
     mod_bits: int,
     opcode: Op,
 ) -> None:
@@ -212,6 +213,8 @@ def test_mod(
     # just the SMOD implementation will have to additionally handle the
     # sign bits.
     # The result stays negative.
+    if fixed_opcode_count is not None:
+        pytest.skip("fixed-opcode-count not supported in test_mode")
     should_negate = opcode == Op.SMOD
 
     num_numerators = 15
