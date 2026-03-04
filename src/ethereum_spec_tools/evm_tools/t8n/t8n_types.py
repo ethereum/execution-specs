@@ -444,7 +444,7 @@ class Result:
             result = t8n.fork.deserialize_stateless_output(
                 stateless_output_bytes
             )
-            if t8n.txs.rejected_txs:
+            if t8n.txs.rejected_txs or self.block_exception:
                 assert not result.successful_validation
             else:
                 assert result.successful_validation, (
