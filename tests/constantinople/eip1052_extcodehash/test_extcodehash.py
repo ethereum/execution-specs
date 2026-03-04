@@ -1201,3 +1201,47 @@ def test_extcodehash_dynamic_argument(
         post={code_address: Account(storage=storage)},
         tx=tx,
     )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/callToNonExistentFiller.json",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2410"],
+)
+@pytest.mark.with_all_call_opcodes
+def test_extcodehash_call_to_nonexistent(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_opcode: Opcodes,
+) -> None:
+    """
+    Test EXTCODEHASH after calling a non-existent account.
+
+    Call a non-existent address using each call type, then check
+    EXTCODEHASH — it returns 0 because the account does not exist.
+    """
+    storage = Storage()
+    nonexistent = pre.empty_account()
+
+    code = Op.SSTORE(
+        storage.store_next(1),
+        call_opcode(address=nonexistent, gas=25_000),
+    ) + Op.SSTORE(
+        storage.store_next(0),
+        Op.EXTCODEHASH(nonexistent),
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
