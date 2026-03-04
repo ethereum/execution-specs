@@ -7,13 +7,10 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
    to benchmark specific state-handling bottlenecks.
 """
 
+from enum import Enum, auto
 from functools import partial
 from typing import Callable, List
 
-from execution_testing.tools.tools_code.generators import (
-    CreatePreimageLayout,
-    SequentialAddressLayout,
-)
 import pytest
 from execution_testing import (
     EOA,
@@ -33,6 +30,11 @@ from execution_testing import (
     TestPhaseManager,
     Transaction,
     While,
+    keccak256,
+)
+from execution_testing.tools.tools_code.generators import (
+    CreatePreimageLayout,
+    SequentialAddressLayout,
 )
 
 from tests.benchmark.stateful.helpers import (
@@ -1518,6 +1520,7 @@ def account_access_params() -> list:
         Op.BALANCE,
         Op.EXTCODECOPY,
         Op.EXTCODESIZE,
+        Op.EXTCODEHASH,
         Op.STATICCALL,
         Op.DELEGATECALL,
     ]:
@@ -1526,11 +1529,25 @@ def account_access_params() -> list:
     return params
 
 
+class AccountMode(Enum):
+    """Target Account Mode."""
+
+    EXISTING_CONTRACT = auto()
+    EXISTING_EOA = auto()
+    NON_EXISTING_ACCOUNT = auto()
+
+
 @pytest.mark.repricing
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize(
-    "existing_account",
-    [True, False],
+    "account_mode",
+    [
+        pytest.param(AccountMode.EXISTING_CONTRACT, id="existing contract"),
+        pytest.param(AccountMode.EXISTING_EOA, id="existing eoa"),
+        pytest.param(
+            AccountMode.NON_EXISTING_ACCOUNT, id="non existing account"
+        ),
+    ],
 )
 @pytest.mark.parametrize("opcode,value_sent", account_access_params())
 def test_account_access(
@@ -1541,12 +1558,12 @@ def test_account_access(
     value_sent: int,
     gas_benchmark_value: int,
     fixed_opcode_count: int | None,
-    existing_account: bool,
+    account_mode: AccountMode,
     cache_strategy: CacheStrategy,
 ) -> None:
     """Benchmark account access with caching strategies."""
     address_retriever: Bytecode
-    if existing_account:
+    if account_mode == AccountMode.EXISTING_CONTRACT:
         # Use ENS registry as target
         target_address = Address(0x6090A6E47849629B7245DFA1CA21D94CD15878EF)
         address_retriever = CreatePreimageLayout(
@@ -1554,12 +1571,17 @@ def test_account_access(
             nonce=1,
         )
         increment_op = address_retriever.increment_nonce_op()
-    else:
+    elif account_mode == AccountMode.EXISTING_EOA:
         # Spamoor EOA creator (https://github.com/CPerezz/spamoor/pull/12)
         # created these accounts on bloatnet with these values (are also the
         # defaults of SequentialAddressLayout)
         address_retriever = SequentialAddressLayout(
             starting_address=0x1000, increment=1
+        )
+        increment_op = address_retriever.increment_address_op()
+    else:
+        address_retriever = SequentialAddressLayout(
+            starting_address=keccak256(b"random"), increment=1
         )
         increment_op = address_retriever.increment_address_op()
 
@@ -1586,7 +1608,7 @@ def test_account_access(
             # Gas accounting
             address_warm=access_warm,
         )
-    if opcode in (Op.CALL, Op.CALLCODE):
+    elif opcode in (Op.CALL, Op.CALLCODE):
         attack_call = Op.POP(
             opcode(
                 address=address_retriever.address_op(),
