@@ -689,6 +689,61 @@ class CreatePreimageLayout(Bytecode):
         return _dynamic_nonce_encode_bytecode(new_nonce, self.offset)
 
 
+class SequentialAddressLayout(Bytecode):
+    """
+    Set up sequential address iteration in memory.
+
+    Store a starting address in a single memory word and provide methods
+    to read the current address and advance to the next one.
+
+    Memory layout after execution:
+    - MEM[offset: offset + 32] = current address
+
+    To obtain the address, use `.address_op()` which returns
+    `Op.MLOAD(offset)`.
+    """
+
+    offset: int = 0
+    _increment: int = 1
+
+    def __new__(
+        cls,
+        *,
+        starting_address: int | bytes | Bytecode = 0x1000,
+        offset: int = 0,
+        old_memory_size: int = 0,
+        increment: int = 1,
+    ) -> Self:
+        """
+        Assemble the bytecode that stores the starting address in memory.
+        """
+        required_size = offset + 32
+        new_memory_size = max(old_memory_size, required_size)
+        bytecode = Op.MSTORE(
+            offset=offset,
+            value=starting_address,
+            # Gas accounting
+            old_memory_size=old_memory_size,
+            new_memory_size=new_memory_size,
+        )
+        instance = super().__new__(cls, bytecode)
+        instance.offset = offset
+        instance._increment = increment
+        return instance
+
+    def address_op(self) -> Bytecode:
+        """Return bytecode that loads the current address from memory."""
+        return Op.MLOAD(self.offset)
+
+    def increment_address_op(self, increment: int | None = None) -> Bytecode:
+        """Return bytecode that advances to the next address."""
+        inc = increment if increment is not None else self._increment
+        return Op.MSTORE(
+            self.offset,
+            Op.ADD(Op.MLOAD(self.offset), inc),
+        )
+
+
 class TransactionWithCost(Transaction):
     """Transaction object that can include the expected gas to be consumed."""
 

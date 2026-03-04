@@ -422,7 +422,7 @@ def worker_key(
             session_worker_key, block_number="pending", skip_code=True
         )
     rpc_nonce = Number(session_worker_account.nonce)
-    if rpc_nonce > session_worker_key.nonce:
+    if rpc_nonce != session_worker_key.nonce:
         wk_nonce = session_worker_key.nonce
         logger.info(f"Worker key nonce mismatch: {wk_nonce} != {rpc_nonce}")
         logger.info(f"Updating worker key nonce to {rpc_nonce}")

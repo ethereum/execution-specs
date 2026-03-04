@@ -7,6 +7,7 @@ abstract: BloatNet single-opcode benchmark cases for state-related operations.
    to benchmark specific state-handling bottlenecks.
 """
 
+from enum import Enum, auto
 from functools import partial
 from typing import Callable, List
 
@@ -20,15 +21,18 @@ from execution_testing import (
     BenchmarkTestFiller,
     Block,
     Bytecode,
+    CreatePreimageLayout,
     Fork,
     Hash,
     IteratingBytecode,
     JumpLoopGenerator,
     Op,
+    SequentialAddressLayout,
     Storage,
     TestPhaseManager,
     Transaction,
     While,
+    keccak256,
 )
 
 from tests.benchmark.stateful.helpers import (
@@ -1498,4 +1502,201 @@ def test_storage_sload_same_key_benchmark(
             attack_block=Op.SLOAD,
             contract_storage=contract_storage,
         ),
+    )
+
+
+def account_access_params() -> list:
+    """Generate (opcode, value_sent, account_mode) triples."""
+    params = []
+
+    for mode in AccountMode:
+        for op in [Op.CALL, Op.CALLCODE]:
+            params.append(pytest.param(op, 0, mode))
+            params.append(pytest.param(op, 1, mode))
+
+        for op in [Op.BALANCE, Op.STATICCALL, Op.DELEGATECALL]:
+            params.append(pytest.param(op, 0, mode))
+
+    for op in [Op.EXTCODECOPY, Op.EXTCODESIZE, Op.EXTCODEHASH]:
+        for mode in [
+            AccountMode.EXISTING_CONTRACT,
+            AccountMode.NON_EXISTING_ACCOUNT,
+        ]:
+            params.append(pytest.param(op, 0, mode))
+
+    return params
+
+
+class AccountMode(Enum):
+    """Target Account Mode."""
+
+    EXISTING_CONTRACT = auto()
+    EXISTING_EOA = auto()
+    NON_EXISTING_ACCOUNT = auto()
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
+@pytest.mark.parametrize(
+    "opcode,value_sent,account_mode", account_access_params()
+)
+def test_account_access(
+    benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    opcode: Op,
+    value_sent: int,
+    gas_benchmark_value: int,
+    fixed_opcode_count: int | None,
+    account_mode: AccountMode,
+    cache_strategy: CacheStrategy,
+) -> None:
+    """Benchmark account access with caching strategies."""
+    address_retriever: Bytecode
+    if account_mode == AccountMode.EXISTING_CONTRACT:
+        # Use ENS registry as target
+        target_address = Address(0x6090A6E47849629B7245DFA1CA21D94CD15878EF)
+        address_retriever = CreatePreimageLayout(
+            sender_address=target_address,
+            nonce=1,
+        )
+        increment_op = address_retriever.increment_nonce_op()
+    elif account_mode == AccountMode.EXISTING_EOA:
+        # Spamoor EOA creator (https://github.com/CPerezz/spamoor/pull/12)
+        # created these accounts on bloatnet with these values (are also the
+        # defaults of SequentialAddressLayout)
+        address_retriever = SequentialAddressLayout(
+            starting_address=0x1000, increment=1
+        )
+        increment_op = address_retriever.increment_address_op()
+    else:
+        address_retriever = SequentialAddressLayout(
+            starting_address=keccak256(b"random"), increment=1
+        )
+        increment_op = address_retriever.increment_address_op()
+
+    setup_code: Bytecode = address_retriever
+
+    cache_op = (
+        Op.POP(
+            Op.BALANCE(
+                address=address_retriever.address_op(),
+                # Gas accounting
+                address_warm=False,
+            )
+        )
+        if cache_strategy == CacheStrategy.CACHE_TX
+        else Bytecode()
+    )
+
+    access_warm = cache_strategy == CacheStrategy.CACHE_TX
+
+    if opcode == Op.EXTCODECOPY:
+        attack_call = opcode(
+            address=address_retriever.address_op(),
+            size=1024,
+            # Gas accounting
+            address_warm=access_warm,
+        )
+    elif opcode in (Op.CALL, Op.CALLCODE):
+        attack_call = Op.POP(
+            opcode(
+                address=address_retriever.address_op(),
+                gas=1,
+                value=value_sent,
+                # Gas accounting
+                address_warm=access_warm,
+            )
+        )
+    elif opcode in (Op.STATICCALL, Op.DELEGATECALL):
+        attack_call = Op.POP(
+            opcode(
+                address=address_retriever.address_op(),
+                gas=1,
+                args_size=1024,
+                # Gas accounting
+                address_warm=access_warm,
+            )
+        )
+    else:
+        # BALANCE, EXTCODESIZE, EXTCODEHASH
+        attack_call = Op.POP(
+            opcode(
+                address=address_retriever.address_op(),
+                # Gas accounting
+                address_warm=access_warm,
+            )
+        )
+
+    loop_code = While(
+        body=cache_op + attack_call + increment_op,
+    )
+
+    attack_code = IteratingBytecode(
+        setup=setup_code,
+        iterating=loop_code,
+        # Since the target contract is guaranteed to have a STOP as the first
+        # instruction, we can use a STOP as the iterating subcall code.
+        iterating_subcall=Op.STOP,
+    )
+
+    # Calldata generator for each transaction of the iterating bytecode.
+    def calldata(iteration_count: int, start_iteration: int) -> bytes:
+        del iteration_count
+        return Hash(start_iteration)
+
+    attack_address = pre.deploy_contract(code=attack_code, balance=10**21)
+
+    post: dict = {}
+    cache_txs = []
+
+    with TestPhaseManager.execution():
+        attack_sender = pre.fund_eoa()
+        if fixed_opcode_count is not None:
+            attack_txs = list(
+                attack_code.transactions_by_total_iteration_count(
+                    fork=fork,
+                    total_iterations=int(fixed_opcode_count * 1000),
+                    sender=attack_sender,
+                    to=attack_address,
+                    calldata=calldata,
+                )
+            )
+        else:
+            attack_txs = list(
+                attack_code.transactions_by_gas_limit(
+                    fork=fork,
+                    gas_limit=gas_benchmark_value,
+                    sender=attack_sender,
+                    to=attack_address,
+                    calldata=calldata,
+                )
+            )
+        total_gas_cost = sum(tx.gas_cost for tx in attack_txs)
+
+    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+        with TestPhaseManager.setup():
+            cache_sender = pre.fund_eoa()
+            for tx in attack_txs:
+                cache_txs.append(
+                    Transaction(
+                        gas_limit=tx.gas_limit,
+                        data=tx.data,
+                        to=attack_address,
+                        sender=cache_sender,
+                    )
+                )
+
+    blocks = (
+        [Block(txs=attack_txs)]
+        if cache_strategy != CacheStrategy.CACHE_PREVIOUS_BLOCK
+        else [Block(txs=cache_txs), Block(txs=attack_txs)]
+    )
+
+    benchmark_test(
+        pre=pre,
+        post=post,
+        blocks=blocks,
+        target_opcode=opcode,
+        expected_benchmark_gas_used=total_gas_cost,
     )
