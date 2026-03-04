@@ -9,7 +9,7 @@ import pytest
 from filelock import FileLock
 from pytest_metadata.plugin import metadata_key
 
-from execution_testing.base_types import Address, Number, Wei
+from execution_testing.base_types import Account, Address, Number, Wei
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.rpc.rpc_types import JSONRPCError
@@ -406,12 +406,16 @@ def session_worker_key(
     logger.info(f"Refund transaction confirmed: {refund_tx.hash}")
 
 
-@pytest.fixture(scope="function")
-def worker_key(
-    eth_rpc: EthRPC, session_worker_key: EOA
-) -> Generator[EOA, None, None]:
-    """Prepare the worker key for the current test."""
-    logger.debug(f"Preparing worker key {session_worker_key} for test")
+def sync_worker_key_nonce(eth_rpc: EthRPC, session_worker_key: EOA) -> Account:
+    """
+    Synchronize the worker key nonce with the on-chain nonce.
+
+    Fetch the account state and update the local nonce if it differs
+    from the RPC nonce. This handles both nonce increases (normal
+    progression) and decreases (chain reverts).
+
+    Return the fetched account for further use.
+    """
     try:
         session_worker_account = eth_rpc.get_account(
             session_worker_key, block_number="latest", skip_code=True
@@ -427,6 +431,16 @@ def worker_key(
         logger.info(f"Worker key nonce mismatch: {wk_nonce} != {rpc_nonce}")
         logger.info(f"Updating worker key nonce to {rpc_nonce}")
         session_worker_key.nonce = rpc_nonce
+    return session_worker_account
+
+
+@pytest.fixture(scope="function")
+def worker_key(
+    eth_rpc: EthRPC, session_worker_key: EOA
+) -> Generator[EOA, None, None]:
+    """Prepare the worker key for the current test."""
+    logger.debug(f"Preparing worker key {session_worker_key} for test")
+    session_worker_account = sync_worker_key_nonce(eth_rpc, session_worker_key)
 
     # Record the start balance of the worker key
     worker_key_start_balance = session_worker_account.balance
