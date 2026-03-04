@@ -518,6 +518,27 @@ def test_sstore_erc20_mint(
     to be used with ERC20 contracts bloated via bloatStorage.
     The mint will increase the total supply and the target account.
     """
+    # The gas threshold is the minimum amount necessary
+    # of gas to re-enter the While loop.
+    # This must be high enough to ensure the tx
+    # does not go out-of-gas.
+    # This can be improved to an actual value by calculating
+    # the gas used of the second call to the unknown ERC20 contract
+    # and then adding the gas used for the code after the loop
+    # (this can be calculated) as extra.
+    gas_threshold = 100_000
+
+    # Storage key to read and write address pointer to
+    address_pointer_slot = 0
+
+    # Start at 1 for existing balance slots,
+    # or at keccak256("random") for non-existing slots
+    start_address = (
+        1
+        if existing_slots
+        else 0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
+    )
+
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
@@ -529,7 +550,7 @@ def test_sstore_erc20_mint(
     # MEM[0] = function selector
     # MEM[32] = target address
     # MEM[64] = mint amount
-    setup = (
+    setup_attack = (
         Op.MSTORE(
             0,
             MINT_SELECTOR,
@@ -539,7 +560,7 @@ def test_sstore_erc20_mint(
         )
         + Op.MSTORE(
             32,
-            Op.CALLDATALOAD(32),  # Address Offset
+            Op.SLOAD(address_pointer_slot),  # Address Offset
             # gas accounting
             old_memory_size=32,
             new_memory_size=64,
@@ -551,7 +572,20 @@ def test_sstore_erc20_mint(
             old_memory_size=64,
             new_memory_size=96,
         )
-        + Op.CALLDATALOAD(0)  # [num_calls]
+    )
+
+    setup_prev_block_cache_warmer = Op.MSTORE(
+        0,
+        BALANCEOF_SELECTOR,
+        # gas accounting
+        old_memory_size=0,
+        new_memory_size=32,
+    ) + Op.MSTORE(
+        32,
+        Op.SLOAD(address_pointer_slot),  # Address Offset
+        # gas accounting
+        old_memory_size=32,
+        new_memory_size=64,
     )
 
     call_mint = Op.POP(
@@ -567,161 +601,104 @@ def test_sstore_erc20_mint(
         )
     )
 
+    call_balanceof = Op.POP(
+        Op.CALL(
+            address=erc20_address,
+            value=0,
+            args_offset=32 - 4,
+            args_size=32 + 4,
+            ret_offset=0,
+            ret_size=0,
+            # gas accounting
+            address_warm=True,
+        )
+    )
+
     if cache_strategy == CacheStrategy.CACHE_TX:
         # Call balanceOf first to warm the storage slot, then restore
         # the mint selector
         cache_warmup = (
             Op.MSTORE(0, BALANCEOF_SELECTOR)
-            + Op.POP(
-                Op.CALL(
-                    address=erc20_address,
-                    value=0,
-                    args_offset=32 - 4,
-                    args_size=32 + 4,
-                    ret_offset=0,
-                    ret_size=0,
-                    # gas accounting
-                    address_warm=True,
-                )
-            )
+            + call_balanceof
             + Op.MSTORE(0, MINT_SELECTOR)
         )
     else:
         cache_warmup = Bytecode()
 
-    loop = While(
+    loop_attack = While(
         body=cache_warmup + call_mint + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
-        condition=Op.PUSH1(1)  # [1, num_calls]
-        + Op.SWAP1  # [num_calls, 1]
-        + Op.SUB  # [num_calls-1]
-        + Op.DUP1  # [num_calls-1, num_calls-1]
-        + Op.ISZERO  # [num_calls-1==0, num_calls-1]
-        + Op.ISZERO,  # [num_calls-1!=0, num_calls-1]
+        condition=Op.GT(Op.GAS, gas_threshold),
     )
+    loop_prev_block_cache_warmer = While(
+        body=call_balanceof + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
+        condition=Op.GT(Op.GAS, gas_threshold),
+    )
+
+    # Part after loop (for both previous block cache warmer and attack)
+    # Stores the current address pointer (would be next address to
+    # mint() to) to the start slot of next tx
+    cleanup = Op.SSTORE(address_pointer_slot, Op.MLOAD(32))
 
     # Contract Deployment
-    code = setup + loop
-    attack_contract_address = pre.deploy_contract(code=code)
-
-    # Gas Accounting
-    setup_cost = setup.gas_cost(fork)
-    loop_cost = loop.gas_cost(fork)
-    access_list = [AccessList(address=erc20_address, storage_keys=[])]
-    intrinsic_gas_with_access_list = (
-        fork.transaction_intrinsic_cost_calculator()(
-            access_list=access_list,
-            calldata=b"\xff" * 64,
-        )
+    attack_code = setup_attack + loop_attack + cleanup
+    attack_contract_address = pre.deploy_contract(
+        code=attack_code,
+        storage=Storage({[address_pointer_slot]: start_address}),
     )
 
-    # Mint function dispatch: hash balance slot, SLOAD, ADD, SSTORE
-    function_dispatch_mint = (
-        Op.PUSH4(MINT_SELECTOR)
-        + Op.EQ
-        + Op.JUMPI
-        + Op.JUMPDEST
-        + Op.MSTORE(0, Op.CALLDATALOAD(4))
-        + Op.MSTORE(32, 0)
-        + Op.SHA3(
-            0,
-            64,
-            # gas accounting
-            data_size=64,
-            old_memory_size=64,
-            new_memory_size=64,
+    prewarm_contract_address = Address()
+    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+        # TODO: calls balanceOf in previous block because
+        # mint will change the balance of the account
+        # This will SLOAD it in previous block and should
+        # put this into cache.
+        # Alternatively could also call mint(addr,0)
+        # on that. Not sure which is better.
+        # Call mint(addr, 0) because a nonzero value would
+        # edit the value, and would also create a slot
+        # if it was non-existent before. In attack block
+        # in non-existent test it would then suddenly
+        # be existent which is not the target scenario there.
+        prev_block_cache_block_code = (
+            setup_prev_block_cache_warmer
+            + loop_prev_block_cache_warmer
+            + cleanup
         )
-        + Op.DUP1
-        + Op.SLOAD.with_metadata(
-            key_warm=cache_strategy == CacheStrategy.CACHE_TX
+        prewarm_contract_address = pre.deploy_contract(
+            code=prev_block_cache_block_code,
+            storage=Storage({[address_pointer_slot]: start_address}),
         )
-        + Op.CALLDATALOAD(36)
-        + Op.ADD
-        + Op.SSTORE
-        # Increase total supply
-        + Op.SSTORE(0, Op.ADD(Op.SLOAD(0), Op.CALLDATALOAD(36)))
-        + Op.MSTORE(0, 1)
-        + Op.RETURN(0, 32)
-    )
-
-    function_dispatch_cost = function_dispatch_mint.gas_cost(fork)
-
-    if cache_strategy == CacheStrategy.CACHE_TX:
-        # Add balanceOf dispatch cost for the warmup call
-        function_dispatch_balanceof = (
-            Op.PUSH4(BALANCEOF_SELECTOR)
-            + Op.EQ
-            + Op.JUMPI
-            + Op.JUMPDEST
-            + Op.MSTORE(0, Op.CALLDATALOAD(4))
-            + Op.MSTORE(32, 0)
-            + Op.SHA3(
-                0,
-                64,
-                # gas accounting
-                data_size=64,
-                old_memory_size=64,
-                new_memory_size=64,
-            )
-            + Op.SLOAD
-            + Op.PUSH0
-            + Op.MSTORE
-            + Op.RETURN(0, 32)
-        )
-        function_dispatch_cost += function_dispatch_balanceof.gas_cost(fork)
 
     # Transaction Loops
     txs = []
     cache_txs = []
     gas_remaining = gas_benchmark_value
-    # Start at 1 for existing balance slots,
-    # or at keccak256("random") for non-existing slots
-    slot_offset = (
-        1
-        if existing_slots
-        else 0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
-    )
 
-    while gas_remaining > intrinsic_gas_with_access_list:
+    intrinsic_gas_cost_calc = fork.transaction_intrinsic_cost_calculator()
+
+    while gas_remaining >= intrinsic_gas_cost_calc:
         gas_available = min(gas_remaining, tx_gas_limit)
 
-        if gas_available < intrinsic_gas_with_access_list + setup_cost:
-            break
-
-        num_calls = (
-            gas_available - intrinsic_gas_with_access_list - setup_cost
-        ) // (function_dispatch_cost + loop_cost)
-
-        if num_calls == 0:
-            break
-
-        calldata = Hash(num_calls) + Hash(slot_offset)
         if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
             with TestPhaseManager.setup():
                 cache_txs.append(
                     Transaction(
                         gas_limit=gas_available,
-                        data=calldata,
-                        to=attack_contract_address,
+                        to=prewarm_contract_address,
                         sender=pre.fund_eoa(),
-                        access_list=access_list,
                     )
                 )
 
         with TestPhaseManager.execution():
-            # Same here, does this create tx is execution mode?
-            # And above setup mode?
             txs.append(
                 Transaction(
                     gas_limit=gas_available,
-                    data=calldata,
                     to=attack_contract_address,
                     sender=pre.fund_eoa(),
-                    access_list=access_list,
                 )
             )
 
         gas_remaining -= gas_available
-        slot_offset += num_calls
 
     blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
 
