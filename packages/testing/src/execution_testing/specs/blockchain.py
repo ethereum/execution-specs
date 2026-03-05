@@ -387,8 +387,9 @@ class BuiltBlock(CamelModel):
     fork: Fork
     block_access_list: BlockAccessList | None
     execution_witness: ExecutionWitness | None = None
-    stateless_input_bytes: Bytes | None = None
-    stateless_output_bytes: Bytes | None = None
+    # TODO: Re-enable, compare fixtures will fail
+    # stateless_input_bytes: Bytes | None = None
+    # stateless_output_bytes: Bytes | None = None
 
     def get_fixture_block(
         self, *, include_receipts: bool = True
@@ -421,12 +422,13 @@ class BuiltBlock(CamelModel):
             execution_witness=self.execution_witness
             if self.execution_witness
             else None,
-            stateless_input_bytes=self.stateless_input_bytes
-            if self.stateless_input_bytes
-            else None,
-            stateless_output_bytes=self.stateless_output_bytes
-            if self.stateless_output_bytes
-            else None,
+            # TODO: Re-enable once SSZ encoding is finalized
+            # stateless_input_bytes=self.stateless_input_bytes
+            # if self.stateless_input_bytes
+            # else None,
+            # stateless_output_bytes=self.stateless_output_bytes
+            # if self.stateless_output_bytes
+            # else None,
             fork=self.fork,
         ).with_rlp(txs=self.txs)
 
@@ -793,12 +795,13 @@ class BlockchainTest(BaseTest):
             execution_witness=(
                 transition_tool_output.result.execution_witness
             ),
-            stateless_input_bytes=(
-                transition_tool_output.result.stateless_input_bytes
-            ),
-            stateless_output_bytes=(
-                transition_tool_output.result.stateless_output_bytes
-            ),
+            # TODO: Re-enable, compare fixtures will fail
+            # stateless_input_bytes=(
+            #     transition_tool_output.result.stateless_input_bytes
+            # ),
+            # stateless_output_bytes=(
+            #     transition_tool_output.result.stateless_output_bytes
+            # ),
         )
 
         try:
