@@ -23,6 +23,17 @@ class FP(BytesConcatenation):
 
 
 @dataclass(frozen=True)
+class Scalar(BytesConcatenation):
+    """Dataclass that defines a scalar for EC multiplication."""
+
+    x: int = 0
+
+    def __bytes__(self) -> bytes:
+        """Convert scalar to bytes."""
+        return self.x.to_bytes(32, byteorder="big")
+
+
+@dataclass(frozen=True)
 class PointG1(BytesConcatenation):
     """Dataclass that defines an affine point in the BN254 E(Fp) group (G1)."""
 
@@ -47,6 +58,9 @@ class Spec:
 
     # The prime modulus of the BN254 prime field Fp
     P = 0x30644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD47
+
+    # The order of the BN254 G1 group
+    N = 0x30644E72E131A029B85045B68181585D2833E84879B9709143E1F593F0000001
 
     # G1 generator point
     G1 = PointG1(1, 2)

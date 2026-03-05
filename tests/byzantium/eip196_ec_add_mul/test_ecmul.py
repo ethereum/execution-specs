@@ -8,7 +8,7 @@ from execution_testing import (
     Transaction,
 )
 
-from .spec import FP, PointG1, Spec, ref_spec_196
+from .spec import PointG1, Scalar, Spec, ref_spec_196
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_196.git_path
 REFERENCE_SPEC_VERSION = ref_spec_196.version
@@ -23,42 +23,42 @@ pytestmark = [
     "input_data, expected_output",
     [
         pytest.param(
-            Spec.G1 + FP(0),
+            Spec.G1 + Scalar(0),
             Spec.INF_G1,
             id="generator_times_zero",
         ),
         pytest.param(
-            Spec.G1 + FP(1),
+            Spec.G1 + Scalar(1),
             Spec.G1,
             id="generator_times_one",
         ),
         pytest.param(
-            Spec.G1 + FP(2),
+            Spec.G1 + Scalar(2),
             Spec.G1x2,
             id="generator_times_two",
         ),
         pytest.param(
-            Spec.P1 + FP(0),
+            Spec.P1 + Scalar(0),
             Spec.INF_G1,
             id="p1_times_zero",
         ),
         pytest.param(
-            Spec.P1 + FP(1),
+            Spec.P1 + Scalar(1),
             Spec.P1,
             id="p1_times_one",
         ),
         pytest.param(
-            Spec.INF_G1 + FP(0),
+            Spec.INF_G1 + Scalar(0),
             Spec.INF_G1,
             id="inf_times_zero",
         ),
         pytest.param(
-            Spec.INF_G1 + FP(1),
+            Spec.INF_G1 + Scalar(1),
             Spec.INF_G1,
             id="inf_times_one",
         ),
         pytest.param(
-            Spec.INF_G1 + FP(2),
+            Spec.INF_G1 + Scalar(2),
             Spec.INF_G1,
             id="inf_times_two",
         ),
@@ -73,9 +73,29 @@ pytestmark = [
             id="no_scalar",
         ),
         pytest.param(
-            Spec.G1 + FP(1) + b"\0" * 32,
+            Spec.G1 + Scalar(1) + b"\0" * 32,
             Spec.G1,
             id="generator_times_one_extra_data",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(Spec.N),
+            Spec.INF_G1,
+            id="generator_times_group_order",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(Spec.N + 1),
+            Spec.G1,
+            id="generator_times_group_order_plus_one",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(2 * Spec.N),
+            Spec.INF_G1,
+            id="generator_times_double_group_order",
+        ),
+        pytest.param(
+            Spec.G1 + Scalar(2 * Spec.N + 1),
+            Spec.G1,
+            id="generator_times_double_group_order_plus_one",
         ),
     ],
 )
@@ -104,52 +124,52 @@ def test_valid(
     "input_data, expected_output",
     [
         pytest.param(
-            PointG1(1, 3) + FP(0),
+            PointG1(1, 3) + Scalar(0),
             b"",
             id="not_on_curve_1_3_times_zero",
         ),
         pytest.param(
-            PointG1(1, 3) + FP(1),
+            PointG1(1, 3) + Scalar(1),
             b"",
             id="not_on_curve_1_3_times_one",
         ),
         pytest.param(
-            PointG1(1, 3) + FP(2),
+            PointG1(1, 3) + Scalar(2),
             b"",
             id="not_on_curve_1_3_times_two",
         ),
         pytest.param(
-            PointG1(7827, 6598) + FP(0),
+            PointG1(7827, 6598) + Scalar(0),
             b"",
             id="not_on_curve_7827_6598_times_zero",
         ),
         pytest.param(
-            PointG1(7827, 6598) + FP(1),
+            PointG1(7827, 6598) + Scalar(1),
             b"",
             id="not_on_curve_7827_6598_times_one",
         ),
         pytest.param(
-            PointG1(0, 3) + FP(1),
+            PointG1(0, 3) + Scalar(1),
             b"",
             id="not_on_curve_0_3",
         ),
         pytest.param(
-            PointG1(Spec.P, 0) + FP(1),
+            PointG1(Spec.P, 0) + Scalar(1),
             b"",
             id="x_eq_P",
         ),
         pytest.param(
-            PointG1(0, Spec.P) + FP(1),
+            PointG1(0, Spec.P) + Scalar(1),
             b"",
             id="y_eq_P",
         ),
         pytest.param(
-            PointG1(Spec.G1.x + Spec.P, Spec.G1.y) + FP(1),
+            PointG1(Spec.G1.x + Spec.P, Spec.G1.y) + Scalar(1),
             b"",
             id="x_plus_P",
         ),
         pytest.param(
-            PointG1(Spec.G1.x, Spec.G1.y + Spec.P) + FP(1),
+            PointG1(Spec.G1.x, Spec.G1.y + Spec.P) + Scalar(1),
             b"",
             id="y_plus_P",
         ),
