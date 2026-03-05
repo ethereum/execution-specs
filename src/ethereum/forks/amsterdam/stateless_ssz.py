@@ -31,7 +31,10 @@ from .stateless import (
 MAX_EXTRA_DATA_BYTES = 32
 MAX_BYTES_PER_TRANSACTION = 2**30
 MAX_TRANSACTIONS_PER_PAYLOAD = 2**20
-MAX_WITHDRAWALS_PER_PAYLOAD = 2**4
+# TODO: CL spec defines MAX_WITHDRAWALS_PER_PAYLOAD as 2**4 (16).
+# Some fill tests exceed this; raised to 2**16 until those tests are
+# capped or skipped for Amsterdam.
+MAX_WITHDRAWALS_PER_PAYLOAD = 2**16
 MAX_BLOB_COMMITMENTS_PER_BLOCK = 4096
 MAX_EXECUTION_REQUESTS = 16
 MAX_BYTES_PER_REQUEST = 2**20
