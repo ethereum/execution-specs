@@ -297,7 +297,17 @@ def test_withdrawals_root(
     blockchain_test(pre=pre, post={}, blocks=blocks)
 
 
-@pytest.mark.parametrize("test_case", ["single_block", "multiple_blocks"])
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            "single_block",
+            # TODO(zkevm): CL expects a max of 16 withdrawals
+            marks=pytest.mark.valid_until("BPO5"),
+        ),
+        "multiple_blocks",
+    ],
+)
 class TestMultipleWithdrawalsSameAddress:
     """
     Test that multiple withdrawals can be sent to the same address.
@@ -374,6 +384,9 @@ class TestMultipleWithdrawalsSameAddress:
         blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
+# TODO(zkevm): CL expects a max of 16 withdrawals
+# so we dont activate on amsterdam, when 8025 activates
+@pytest.mark.valid_until("BPO5")
 def test_many_withdrawals(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
