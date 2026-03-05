@@ -458,7 +458,8 @@ class BesuExceptionMapper(ExceptionMapper):
         # BAL Exceptions: TODO - review once all clients completed.
         BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
             r"Block access list hash mismatch, "
-            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
+            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)|"
+            r"Block access list validation failed for block 0x[a-f0-9]+"
         ),
         BlockException.INVALID_BAL_HASH: (
             r"Block access list hash mismatch, "
@@ -468,14 +469,18 @@ class BesuExceptionMapper(ExceptionMapper):
             r"Block access list hash mismatch, "
             r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
         ),
+        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
+            r"Block access list validation failed for block 0x[a-f0-9]+"
+        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"Block access list hash mismatch, "
             r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)|"
-            r"Block access list validation failed for block"
+            r"Block access list validation failed for block 0x[a-f0-9]+"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"Block access list hash mismatch, "
-            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
+            r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)|"
+            r"Block access list validation failed for block 0x[a-f0-9]+"
         ),
     }
 
