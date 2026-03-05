@@ -50,7 +50,7 @@ class EthrexExceptionMapper(ExceptionMapper):
             "the header after executing"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
-            "not in strictly ascending order"
+            "not in strictly ascending order for"
         ),
         BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
             "Block access list exceeds gas limit"
@@ -119,7 +119,9 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"gas floor exceeds the gas limit|"
             r"call gas cost exceeds the gas limit|"
             r"Transaction gas limit lower than the minimum gas cost "
-            r"to execute the transaction"
+            r"to execute the transaction|"
+            r"Transaction gas limit lower than the gas cost floor "
+            r"for calldata tokens"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
             r"Transaction gas limit lower than the gas cost floor "
@@ -170,17 +172,27 @@ class EthrexExceptionMapper(ExceptionMapper):
         BlockException.RLP_BLOCK_LIMIT_EXCEEDED: (
             r"Maximum block size exceeded.*"
         ),
+        BlockException.INVALID_BAL_EXTRA_ACCOUNT: (
+            r"Block access list accounts not in strictly ascending order.*|"
+            r"BAL validation failed: account .* was never accessed.*"
+        ),
+        BlockException.INVALID_BAL_MISSING_ACCOUNT: (r"absent from BAL"),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"Block access list contains index \d+ "
             r"exceeding max valid index \d+|"
             r"Failed to RLP decode BAL|"
-            r"Block access list .+ not in strictly ascending order.*"
+            r"Block access list .+ not in strictly ascending order.*|"
+            r"BAL validation failed for (tx \d+|system_tx|withdrawal): .*|"
+            r"BAL validation failed: .*|"
+            r"Block access list slot .+ is in both "
+            r"storage_changes and storage_reads.*"
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"Block access list hash does not match "
             r"the one in the header after executing|"
             r"Block access list contains index \d+ "
             r"exceeding max valid index \d+|"
-            r"Failed to RLP decode BAL"
+            r"Failed to RLP decode BAL|"
+            r"Block access list accounts not in strictly ascending order.*"
         ),
     }
