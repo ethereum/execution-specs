@@ -334,28 +334,18 @@ class Result:
             )
             self.state_root = state_root_value
 
-            # TODO: Re-enable once stateless guest handles state tests
-            # # Build witness between state root and apply_changes_to_state:
-            # # the witness reads pre-state tries that apply_changes mutates.
-            # # This is safe because compute_state_root_and_trie_changes
-            # # does not mutate state (it makes transient copies of MPTs).
-            # if (
-            #     t8n.fork.has_execution_witness
-            #     # state tests have no headers
-            #     and not t8n.options.state_test
-            #     # When we make a blockchain test from state test
-            #     # it has no headers
-            #     and t8n.env.block_headers
-            # ):
-            #     self.execution_witness = t8n.fork.build_execution_witness(
-            #         block_env.state,
-            #         expected_post_state_root=state_root_value,
-            #         pre_state_accounts_data=(t8n.alloc.state._main_trie),
-            #         pre_state_storages_data=(t8n.alloc.state._storage_tries),
-            #         blockchain_headers=t8n.env.block_headers,
-            #     )
-            if hasattr(block_output, "execution_witness"):
-                self.execution_witness = block_output.execution_witness
+            # Build witness between state root and apply_changes_to_state:
+            # the witness reads pre-state tries that apply_changes mutates.
+            # This is safe because compute_state_root_and_trie_changes
+            # does not mutate state (it makes transient copies of MPTs).
+            if t8n.fork.has_execution_witness and not self.block_exception:
+                self.execution_witness = t8n.fork.build_execution_witness(
+                    block_env.state,
+                    expected_post_state_root=state_root_value,
+                    pre_state_accounts_data=(t8n.alloc.state._main_trie),
+                    pre_state_storages_data=(t8n.alloc.state._storage_tries),
+                    blockchain_headers=t8n.env.block_headers,
+                )
 
             # Apply diffs to pre-state for alloc output
             apply_changes_to_state(t8n.alloc.state, block_diff)
