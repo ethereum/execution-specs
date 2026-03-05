@@ -1307,3 +1307,100 @@ def test_extcodehash_call_to_selfdestruct(
         post[code_address] = Account(storage=storage)
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashCreatedAndDeletedAccountFiller.json",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashCreatedAndDeletedAccountCallFiller.json",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashCreatedAndDeletedAccountStaticCallFiller.json",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2416"],
+)
+@pytest.mark.parametrize(
+    "trigger",
+    [
+        pytest.param(Op.CALL, id="call"),
+        pytest.param(Op.STATICCALL, id="staticcall"),
+    ],
+)
+def test_extcodehash_created_and_deleted(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    trigger: Opcodes,
+) -> None:
+    """
+    Test EXTCODEHASH of an account created and selfdestructed in same tx.
+
+    CREATE2 a contract with SELFDESTRUCT code, check EXTCODEHASH,
+    EXTCODESIZE, and EXTCODECOPY before and after triggering it. Within
+    the transaction, the values remain unchanged. With CALL the created
+    contract is deleted at end of transaction; with STATICCALL the
+    trigger fails and the contract persists.
+    """
+    storage = Storage()
+    runtime = Op.SELFDESTRUCT(0)
+    initcode = Initcode(deploy_code=runtime)
+    salt = 0x10
+    expected_hash = runtime.keccak256()
+    expected_size = len(runtime)
+
+    created_slot = storage.store_next(0)
+    code = Bytecode()
+
+    # Store initcode in memory and CREATE2
+    code += Op.MSTORE(
+        0,
+        Op.PUSH32(bytes(initcode).ljust(32, b"\0")),
+    ) + Op.SSTORE(
+        created_slot,
+        Op.CREATE2(value=0, offset=0, size=len(initcode), salt=salt),
+    )
+
+    target = Op.SLOAD(created_slot)
+
+    def extcode_checks() -> Bytecode:
+        return (
+            Op.SSTORE(
+                storage.store_next(expected_hash),
+                Op.EXTCODEHASH(target),
+            )
+            + Op.SSTORE(
+                storage.store_next(expected_size),
+                Op.EXTCODESIZE(target),
+            )
+            + Op.EXTCODECOPY(target, 0, 0, 32)
+            + Op.SSTORE(
+                storage.store_next(bytes(runtime).ljust(32, b"\0")),
+                Op.MLOAD(0),
+            )
+        )
+
+    code += extcode_checks()
+    code += trigger(address=target, gas=0x10000) + Op.POP
+    code += extcode_checks()
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    created = compute_create2_address(
+        address=code_address,
+        salt=salt,
+        initcode=initcode,
+    )
+    storage[created_slot] = created
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    post: dict[Address, Account | None] = {
+        code_address: Account(storage=storage),
+    }
+    if trigger == Op.CALL:
+        post[created] = Account.NONEXISTENT
+    else:
+        post[created] = Account(code=runtime)
+
+    state_test(pre=pre, post=post, tx=tx)
