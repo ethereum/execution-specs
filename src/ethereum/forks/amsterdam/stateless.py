@@ -140,15 +140,17 @@ def compute_new_payload_request_root(
     stateless_input: StatelessInput,
 ) -> Hash32:
     """
-    Compute the request root for a stateless input.
+    Compute the request root for a stateless input via SSZ hash tree root.
 
-    TODO: Replace with ``new_payload_request.tree_hash_root`` (SSZ).
-
-    # For readability, we can convert to NewPayloadRequestHeader and
-    # then the payload request root.
-    # Using rlp for now since its available
+    TODO: For readability, convert to NewPayloadRequestHeader and
+    then compute the payload request root.
     """
-    return keccak256(rlp.encode(stateless_input.new_payload_request))
+    from .stateless_ssz import _new_payload_request_to_ssz
+
+    ssz_npr = _new_payload_request_to_ssz(
+        stateless_input.new_payload_request
+    )
+    return Hash32(ssz_npr.hash_tree_root())
 
 
 def new_payload_request_to_block(

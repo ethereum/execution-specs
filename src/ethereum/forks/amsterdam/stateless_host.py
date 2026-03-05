@@ -20,6 +20,11 @@ from .stateless import (
     StatelessInput,
     StatelessValidationResult,
 )
+from .stateless_ssz import (
+    SszStatelessValidationResult,
+    ssz_to_validation_result,
+    stateless_input_to_ssz,
+)
 from .transactions import (
     BlobTransaction,
     LegacyTransaction,
@@ -27,18 +32,18 @@ from .transactions import (
 )
 
 
-def serialize_stateless_input(stateless_input: StatelessInput) -> Bytes:
-    """
-    Serialize a ``StatelessInput`` to RLP-encoded bytes.
-
-    TODO: change to ssz, rlp was easier to get working with codebase.
-    """
-    return Bytes(rlp.encode(stateless_input))
+def serialize_stateless_input(
+    stateless_input: StatelessInput,
+) -> Bytes:
+    """Serialize a StatelessInput to SSZ-encoded bytes."""
+    ssz_obj = stateless_input_to_ssz(stateless_input)
+    return Bytes(ssz_obj.encode_bytes())
 
 
 def deserialize_stateless_output(data: Bytes) -> StatelessValidationResult:
-    """Deserialize a StatelessValidationResult from RLP bytes."""
-    return rlp.decode_to(StatelessValidationResult, data)
+    """Deserialize a StatelessValidationResult from SSZ bytes."""
+    ssz_obj = SszStatelessValidationResult.decode_bytes(data)
+    return ssz_to_validation_result(ssz_obj)
 
 
 def build_stateless_input(

@@ -3,7 +3,6 @@
 import random
 from typing import Tuple
 
-from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
@@ -18,12 +17,14 @@ from ethereum.forks.amsterdam.stateless import (
     ExecutionWitness,
     StatelessInput,
     StatelessValidationResult,
+    compute_new_payload_request_root,
 )
 from ethereum.forks.amsterdam.stateless_guest import (
     deserialize_stateless_input,
     serialize_stateless_output,
 )
 from ethereum.forks.amsterdam.stateless_host import (
+    deserialize_stateless_output,
     serialize_stateless_input,
 )
 from ethereum.state import Address, Root
@@ -120,8 +121,8 @@ class TestDeserializeStatelessInput:
     def test_roundtrip(self) -> None:
         """Encoding then decoding recovers the original StatelessInput."""
         original = _make_stateless_input()
-        encoded = rlp.encode(original)
-        recovered = deserialize_stateless_input(Bytes(encoded))
+        encoded = serialize_stateless_input(original)
+        recovered = deserialize_stateless_input(encoded)
         assert recovered == original
 
     def test_empty_witness(self) -> None:
@@ -137,7 +138,8 @@ class TestDeserializeStatelessInput:
             chain_config=ChainConfig(chain_id=U64(1)),
             public_keys=(),
         )
-        recovered = deserialize_stateless_input(Bytes(rlp.encode(original)))
+        encoded = serialize_stateless_input(original)
+        recovered = deserialize_stateless_input(encoded)
         assert recovered == original
 
 
@@ -148,7 +150,7 @@ class TestSerializeStatelessOutput:
         """Encoding then decoding recovers the original result."""
         original = _make_stateless_output()
         encoded = serialize_stateless_output(original)
-        recovered = rlp.decode_to(StatelessValidationResult, encoded)
+        recovered = deserialize_stateless_output(encoded)
         assert recovered == original
 
     def test_failed_validation(self) -> None:
@@ -158,7 +160,23 @@ class TestSerializeStatelessOutput:
             successful_validation=False,
             chain_config=ChainConfig(chain_id=U64(1)),
         )
-        recovered = rlp.decode_to(
-            StatelessValidationResult, serialize_stateless_output(original)
-        )
+        encoded = serialize_stateless_output(original)
+        recovered = deserialize_stateless_output(encoded)
         assert recovered == original
+
+
+class TestComputeNewPayloadRequestRoot:
+    """Test compute_new_payload_request_root."""
+
+    def test_hash_tree_root_is_deterministic(self) -> None:
+        """Same input produces the same root."""
+        si = _make_stateless_input()
+        root_a = compute_new_payload_request_root(si)
+        root_b = compute_new_payload_request_root(si)
+        assert root_a == root_b
+
+    def test_hash_tree_root_is_32_bytes(self) -> None:
+        """Root is always 32 bytes."""
+        si = _make_stateless_input()
+        root = compute_new_payload_request_root(si)
+        assert len(root) == 32

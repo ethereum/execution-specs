@@ -2,7 +2,6 @@
 Stateless guest interfaces.
 """
 
-from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 
 from .stateless import (
@@ -10,24 +9,25 @@ from .stateless import (
     StatelessValidationResult,
     verify_stateless_new_payload,
 )
+from .stateless_ssz import (
+    SszStatelessInput,
+    ssz_to_stateless_input,
+    validation_result_to_ssz,
+)
 
 
-def serialize_stateless_output(output: StatelessValidationResult) -> Bytes:
-    """
-    Serialize a ``StatelessValidationResult`` to RLP-encoded bytes.
-
-    TODO: change to ssz, rlp was easier to get working with codebase.
-    """
-    return Bytes(rlp.encode(output))
+def serialize_stateless_output(
+    output: StatelessValidationResult,
+) -> Bytes:
+    """Serialize a StatelessValidationResult to SSZ bytes."""
+    ssz_obj = validation_result_to_ssz(output)
+    return Bytes(ssz_obj.encode_bytes())
 
 
 def deserialize_stateless_input(data: Bytes) -> StatelessInput:
-    """
-    Deserialize a ``StatelessInput`` from RLP-encoded bytes.
-
-    TODO: change to ssz, rlp was easier to get working with codebase.
-    """
-    return rlp.decode_to(StatelessInput, data)
+    """Deserialize a StatelessInput from SSZ bytes."""
+    ssz_obj = SszStatelessInput.decode_bytes(data)
+    return ssz_to_stateless_input(ssz_obj)
 
 
 def run_stateless_guest(input_bytes: Bytes) -> Bytes:
