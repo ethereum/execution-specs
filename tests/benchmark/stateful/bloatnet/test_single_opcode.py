@@ -425,15 +425,14 @@ def test_sstore_erc20_approve(
             + Op.CALLDATALOAD(36)
             + Op.MSTORE(0, Op.CALLDATALOAD(4))
             + Op.MSTORE(32, 1)
-            + Op.SHA3(
+            + Op.MSTORE(32, Op.SHA3(
                 0,
                 64,
                 # gas accounting
                 data_size=64,
                 old_memory_size=0,
                 new_memory_size=64,
-            )
-            + Op.MSTORE(32)
+            ))
             + Op.MSTORE(0, Op.CALLDATALOAD(36))
             + Op.SHA3(
                 0,
@@ -497,7 +496,15 @@ def test_sstore_erc20_approve(
 
     blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
 
-    benchmark_test(pre=pre, blocks=blocks)
+    # The gas used validation is skipped here. This bench cannot go OOG
+    # because the state root calculation is part of the benchmark.
+    # Any ERC20 contract might behave (slightly) differently, even
+    # if the source code is the same but the compiler is different
+    # (either the versions or the config, like optimization rounds)
+    # This can however technically be still be calculated, as it is possible
+    # to fetch the code from the target chain and do the gas analysis on
+    # that code.
+    benchmark_test(pre=pre, blocks=blocks, skip_gas_used_validation=True)
 
 
 def build_call_memory_setup(
@@ -570,6 +577,10 @@ def test_sstore_erc20_mint(
 ) -> None:
     """
     Benchmark SSTORE using ERC20 mint on bloatnet.
+    This targets very specific code and is meant to be
+    temporary for the gas repricings effort, to be replaced
+    by a robust benchmark which does not depend on specific
+    conditions like in this benchmark.
     This contract calls mint() on an ERC20 contract
     which supports the mint() function. It is intended
     to be used with ERC20 contracts bloated via bloatStorage.
@@ -704,6 +715,12 @@ def test_sstore_erc20_mint(
     benchmark_test(
         pre=pre,
         blocks=blocks,
+        # NOTE: this specifically targets bloatnet code so the
+        # gas calculation could technically be done by inlining
+        # the bytecode. This test is temporary and will be removed
+        # after (or during) gas repricing effort is done. See
+        # https://github.com/ethereum/execution-specs/issues/2411
+        skip_gas_used_validation=True
     )
 
 
