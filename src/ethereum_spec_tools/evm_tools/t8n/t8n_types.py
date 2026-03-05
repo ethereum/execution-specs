@@ -338,7 +338,11 @@ class Result:
             # the witness reads pre-state tries that apply_changes mutates.
             # This is safe because compute_state_root_and_trie_changes
             # does not mutate state (it makes transient copies of MPTs).
-            if t8n.fork.has_execution_witness and not self.block_exception:
+            if (
+                t8n.fork.has_execution_witness
+                and not self.block_exception
+                and t8n.env.block_headers
+            ):
                 self.execution_witness = t8n.fork.build_execution_witness(
                     block_env.state,
                     expected_post_state_root=state_root_value,
