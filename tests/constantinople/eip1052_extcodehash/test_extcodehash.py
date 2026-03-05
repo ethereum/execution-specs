@@ -1511,3 +1511,123 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     }
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSubcallSuicideFiller.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSubcallSuicideCancunFiller.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2418"],
+)
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALLCODE, id="callcode"),
+        pytest.param(Op.DELEGATECALL, id="delegatecall"),
+    ],
+)
+@pytest.mark.parametrize(
+    "dynamic_a",
+    [
+        pytest.param(False, id="pre_existing"),
+        pytest.param(True, id="dynamic"),
+    ],
+)
+def test_extcodehash_subcall_selfdestruct(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    call_opcode: Opcodes,
+    dynamic_a: bool,
+) -> None:
+    """
+    Test EXTCODEHASH after subcall with CALLCODE/DELEGATECALL to SELFDESTRUCT.
+
+    B calls A, which uses CALLCODE or DELEGATECALL to invoke a contract C
+    containing SELFDESTRUCT, executing it in A's context. B checks
+    EXTCODEHASH, EXTCODESIZE, and EXTCODECOPY of A before and after.
+    Within the transaction, A's code properties are unchanged. Pre-Cancun,
+    A is deleted at end of transaction. In Cancun, A survives only if
+    pre-existing; a dynamically created A is still deleted (EIP-6780).
+    """
+    storage = Storage()
+    beneficiary = pre.empty_account()
+    selfdestruct_code = Op.SELFDESTRUCT(beneficiary)
+    target_c = pre.deploy_contract(selfdestruct_code)
+
+    # A: executes C's code in A's context via CALLCODE/DELEGATECALL
+    a_code = call_opcode(
+        gas=350_000,
+        address=target_c,
+        ret_size=32,
+    )
+
+    if not dynamic_a:
+        a = pre.deploy_contract(a_code, balance=1)
+
+    a_hash = a_code.keccak256()
+    a_size = len(a_code)
+    a_code_word0 = bytes(a_code)[:32].ljust(32, b"\0")
+
+    def extcode_checks(target: Address | Bytecode) -> Bytecode:
+        """Check EXTCODEHASH, EXTCODESIZE, and EXTCODECOPY of A."""
+        return (
+            Op.SSTORE(storage.store_next(a_hash), Op.EXTCODEHASH(target))
+            + Op.SSTORE(storage.store_next(a_size), Op.EXTCODESIZE(target))
+            + Op.EXTCODECOPY(target, 0, 0, 32)
+            + Op.SSTORE(
+                storage.store_next(a_code_word0),
+                Op.MLOAD(0),
+            )
+        )
+
+    code = Bytecode()
+
+    if dynamic_a:
+        initcode = Initcode(deploy_code=a_code)
+        code += Om.MSTORE(initcode)
+        created_slot = storage.store_next(0)
+        code += Op.SSTORE(
+            created_slot,
+            Op.CREATE(value=0, offset=0, size=len(initcode)),
+        )
+        a_target: Address | Bytecode = Op.SLOAD(created_slot)
+    else:
+        a_target = a
+
+    code += extcode_checks(a_target)
+    code += Op.SSTORE(
+        storage.store_next(1),
+        Op.CALL(gas=350_000, address=a_target),
+    )
+    code += extcode_checks(a_target)
+    code += Op.SSTORE(
+        storage.store_next(1),
+        Op.CALL(gas=350_000, address=a_target),
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    if dynamic_a:
+        a = compute_create_address(address=code_address, nonce=1)
+        storage[created_slot] = a
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=500_000,
+    )
+
+    # Pre-Cancun, CALLCODE/DELEGATECALL executes SELFDESTRUCT in A's
+    # context, deleting A at end of transaction.
+    # In Cancun, pre-existing A survives (EIP-6780); dynamic A is deleted.
+    post: dict[Address, Account | None] = {
+        code_address: Account(storage=storage),
+    }
+    if fork >= Cancun and not dynamic_a:
+        post[a] = Account(code=a_code, balance=0)
+    else:
+        post[a] = Account.NONEXISTENT
+
+    state_test(pre=pre, post=post, tx=tx)
