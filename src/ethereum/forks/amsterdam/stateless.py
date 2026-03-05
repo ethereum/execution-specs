@@ -147,9 +147,7 @@ def compute_new_payload_request_root(
     """
     from .stateless_ssz import _new_payload_request_to_ssz
 
-    ssz_npr = _new_payload_request_to_ssz(
-        stateless_input.new_payload_request
-    )
+    ssz_npr = _new_payload_request_to_ssz(stateless_input.new_payload_request)
     return Hash32(ssz_npr.hash_tree_root())
 
 

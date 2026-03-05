@@ -6,12 +6,12 @@ types in ``stateless`` and ``execution_engine.types``, plus conversion
 functions between the two representations.
 """
 
-from remerkleable.basic import boolean, uint64, uint256
-from remerkleable.byte_arrays import ByteList, ByteVector, Bytes32
-from remerkleable.complex import Container, List as SszList
-
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
+from remerkleable.basic import boolean, uint64, uint256
+from remerkleable.byte_arrays import ByteList, Bytes32, ByteVector
+from remerkleable.complex import Container
+from remerkleable.complex import List as SszList
 
 from ethereum.crypto.hash import Hash32
 from ethereum.state import Address, Root
@@ -25,7 +25,6 @@ from .stateless import (
     StatelessInput,
     StatelessValidationResult,
 )
-
 
 # --- SSZ max-length constants ---
 
@@ -75,7 +74,9 @@ class SszExecutionPayload(Container):
     extra_data: ByteList[MAX_EXTRA_DATA_BYTES]
     base_fee_per_gas: uint256
     block_hash: Bytes32
-    transactions: SszList[ByteList[MAX_BYTES_PER_TRANSACTION], MAX_TRANSACTIONS_PER_PAYLOAD]  # noqa: E501
+    transactions: SszList[
+        ByteList[MAX_BYTES_PER_TRANSACTION], MAX_TRANSACTIONS_PER_PAYLOAD
+    ]  # noqa: E501
     withdrawals: SszList[SszWithdrawal, MAX_WITHDRAWALS_PER_PAYLOAD]
     blob_gas_used: uint64
     excess_blob_gas: uint64
@@ -88,7 +89,9 @@ class SszNewPayloadRequest(Container):
     execution_payload: SszExecutionPayload
     versioned_hashes: SszList[Bytes32, MAX_BLOB_COMMITMENTS_PER_BLOCK]
     parent_beacon_block_root: Bytes32
-    execution_requests: SszList[ByteList[MAX_BYTES_PER_REQUEST], MAX_EXECUTION_REQUESTS]  # noqa: E501
+    execution_requests: SszList[
+        ByteList[MAX_BYTES_PER_REQUEST], MAX_EXECUTION_REQUESTS
+    ]  # noqa: E501
 
 
 class SszExecutionWitness(Container):
@@ -170,9 +173,9 @@ def _payload_to_ssz(
             ByteList[MAX_BYTES_PER_TRANSACTION](bytes(tx))
             for tx in p.transactions
         ),
-        withdrawals=SszList[
-            SszWithdrawal, MAX_WITHDRAWALS_PER_PAYLOAD
-        ](_withdrawal_to_ssz(w) for w in p.withdrawals),
+        withdrawals=SszList[SszWithdrawal, MAX_WITHDRAWALS_PER_PAYLOAD](
+            _withdrawal_to_ssz(w) for w in p.withdrawals
+        ),
         blob_gas_used=uint64(int(p.blob_gas_used)),
         excess_blob_gas=uint64(int(p.excess_blob_gas)),
         block_access_list=ByteList[MAX_BLOCK_ACCESS_LIST_BYTES](
@@ -199,12 +202,8 @@ def _ssz_to_payload(
         extra_data=Bytes(bytes(sp.extra_data)),
         base_fee_per_gas=Uint(sp.base_fee_per_gas),
         block_hash=Hash32(bytes(sp.block_hash)),
-        transactions=tuple(
-            Bytes(bytes(tx)) for tx in sp.transactions
-        ),
-        withdrawals=tuple(
-            _ssz_to_withdrawal(sw) for sw in sp.withdrawals
-        ),
+        transactions=tuple(Bytes(bytes(tx)) for tx in sp.transactions),
+        withdrawals=tuple(_ssz_to_withdrawal(sw) for sw in sp.withdrawals),
         blob_gas_used=U64(sp.blob_gas_used),
         excess_blob_gas=U64(sp.excess_blob_gas),
         block_access_list=Bytes(bytes(sp.block_access_list)),
@@ -217,12 +216,10 @@ def _new_payload_request_to_ssz(
     """Convert a NewPayloadRequest to its SSZ form."""
     return SszNewPayloadRequest(
         execution_payload=_payload_to_ssz(npr.execution_payload),
-        versioned_hashes=SszList[
-            Bytes32, MAX_BLOB_COMMITMENTS_PER_BLOCK
-        ](Bytes32(bytes(vh)) for vh in npr.versioned_hashes),
-        parent_beacon_block_root=Bytes32(
-            bytes(npr.parent_beacon_block_root)
+        versioned_hashes=SszList[Bytes32, MAX_BLOB_COMMITMENTS_PER_BLOCK](
+            Bytes32(bytes(vh)) for vh in npr.versioned_hashes
         ),
+        parent_beacon_block_root=Bytes32(bytes(npr.parent_beacon_block_root)),
         execution_requests=SszList[
             ByteList[MAX_BYTES_PER_REQUEST],
             MAX_EXECUTION_REQUESTS,
@@ -240,12 +237,9 @@ def _ssz_to_new_payload_request(
     return NewPayloadRequest(
         execution_payload=_ssz_to_payload(snpr.execution_payload),
         versioned_hashes=tuple(
-            VersionedHash(bytes(vh))
-            for vh in snpr.versioned_hashes
+            VersionedHash(bytes(vh)) for vh in snpr.versioned_hashes
         ),
-        parent_beacon_block_root=Root(
-            bytes(snpr.parent_beacon_block_root)
-        ),
+        parent_beacon_block_root=Root(bytes(snpr.parent_beacon_block_root)),
         execution_requests=tuple(
             Bytes(bytes(er)) for er in snpr.execution_requests
         ),
@@ -257,17 +251,14 @@ def _witness_to_ssz(
 ) -> SszExecutionWitness:
     """Convert an ExecutionWitness to its SSZ form."""
     return SszExecutionWitness(
-        state=SszList[
-            ByteList[MAX_BYTES_PER_WITNESS_NODE], MAX_WITNESS_NODES
-        ](ByteList[MAX_BYTES_PER_WITNESS_NODE](bytes(s)) for s in w.state),
+        state=SszList[ByteList[MAX_BYTES_PER_WITNESS_NODE], MAX_WITNESS_NODES](
+            ByteList[MAX_BYTES_PER_WITNESS_NODE](bytes(s)) for s in w.state
+        ),
         codes=SszList[ByteList[MAX_BYTES_PER_CODE], MAX_WITNESS_CODES](
             ByteList[MAX_BYTES_PER_CODE](bytes(c)) for c in w.codes
         ),
-        headers=SszList[
-            ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS
-        ](
-            ByteList[MAX_BYTES_PER_HEADER](bytes(h))
-            for h in w.headers
+        headers=SszList[ByteList[MAX_BYTES_PER_HEADER], MAX_WITNESS_HEADERS](
+            ByteList[MAX_BYTES_PER_HEADER](bytes(h)) for h in w.headers
         ),
     )
 
@@ -326,9 +317,7 @@ def ssz_to_stateless_input(
         ),
         witness=_ssz_to_witness(ssz_si.witness),
         chain_config=_ssz_to_chain_config(ssz_si.chain_config),
-        public_keys=tuple(
-            Bytes(bytes(pk)) for pk in ssz_si.public_keys
-        ),
+        public_keys=tuple(Bytes(bytes(pk)) for pk in ssz_si.public_keys),
     )
 
 
@@ -337,9 +326,7 @@ def validation_result_to_ssz(
 ) -> SszStatelessValidationResult:
     """Convert a StatelessValidationResult to its SSZ form."""
     return SszStatelessValidationResult(
-        new_payload_request_root=Bytes32(
-            bytes(vr.new_payload_request_root)
-        ),
+        new_payload_request_root=Bytes32(bytes(vr.new_payload_request_root)),
         successful_validation=boolean(vr.successful_validation),
         chain_config=_chain_config_to_ssz(vr.chain_config),
     )
