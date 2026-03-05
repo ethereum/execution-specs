@@ -32,7 +32,10 @@ from execution_testing import (
     While,
 )
 
-from tests.benchmark.compute.helpers import ContractDeploymentTransaction, CustomSizedContractFactory
+from tests.benchmark.compute.helpers import (
+    ContractDeploymentTransaction,
+    CustomSizedContractFactory,
+)
 
 
 def generate_account_query_params() -> List[ParameterSet]:
@@ -95,8 +98,6 @@ def generate_account_query_params() -> List[ParameterSet]:
                 )
 
     return params
-
-
 
 
 @pytest.mark.repricing
@@ -301,66 +302,3 @@ def test_account_query(
         target_opcode=opcode,
         expected_benchmark_gas_used=total_gas_cost,
     )
-
-def generate_account_query_params() -> List[ParameterSet]:
-    """
-    Generate valid parameter combinations for test_account_query.
-
-    Returns tuples of: (opcode, access_warm, mem_size, code_size, value_sent)
-    """
-    all_mem_sizes = [0, 32, 256, 1024]
-    all_code_sizes = [0, 32, 256, 1024]
-    all_access_warm = [True, False]
-    all_value_sent = [0, 1]
-
-    params = []
-
-    # BALANCE, EXTCODESIZE, EXTCODEHASH:
-    # only mem_size=0, code_size=0, value_sent=0
-    for opcode in [Op.BALANCE, Op.EXTCODESIZE, Op.EXTCODEHASH]:
-        for access_warm in all_access_warm:
-            params.append(pytest.param(opcode, access_warm, 0, 0, 0))
-
-    # EXTCODECOPY: all mem_size, all code_size, value_sent=0
-    for access_warm in all_access_warm:
-        for mem_size in all_mem_sizes:
-            for code_size in all_code_sizes:
-                params.append(
-                    pytest.param(
-                        Op.EXTCODECOPY, access_warm, mem_size, code_size, 0
-                    )
-                )
-            # Add None (max_code_size) separately with custom ID
-            params.append(
-                pytest.param(
-                    Op.EXTCODECOPY,
-                    access_warm,
-                    mem_size,
-                    None,
-                    0,
-                    id=f"EXTCODECOPY-{access_warm}-{mem_size}-max_code_size-0",
-                )
-            )
-
-    # CALL, CALLCODE: all mem_size, code_size=0, all value_sent
-    for opcode in [Op.CALL, Op.CALLCODE]:
-        for access_warm in all_access_warm:
-            for mem_size in all_mem_sizes:
-                for value_sent in all_value_sent:
-                    params.append(
-                        pytest.param(
-                            opcode, access_warm, mem_size, 0, value_sent
-                        )
-                    )
-
-    # STATICCALL, DELEGATECALL: all mem_size, code_size=0, value_sent=0
-    for opcode in [Op.STATICCALL, Op.DELEGATECALL]:
-        for access_warm in all_access_warm:
-            for mem_size in all_mem_sizes:
-                params.append(
-                    pytest.param(opcode, access_warm, mem_size, 0, 0)
-                )
-
-    return params
-
-
