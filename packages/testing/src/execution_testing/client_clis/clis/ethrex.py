@@ -153,6 +153,9 @@ class EthrexExceptionMapper(ExceptionMapper):
             r"Invalid transaction: "
             r"Transaction gas limit exceeds maximum.*"
         ),
+        BlockException.INVALID_DEPOSIT_EVENT_LAYOUT: (
+            r"Invalid deposit request layout|BAL validation failed.*"
+        ),
         BlockException.SYSTEM_CONTRACT_CALL_FAILED: (r"System call failed.*"),
         BlockException.SYSTEM_CONTRACT_EMPTY: (
             r"System contract:.* has no code after deployment"
