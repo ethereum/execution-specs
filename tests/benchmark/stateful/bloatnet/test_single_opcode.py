@@ -368,6 +368,11 @@ def test_sstore_erc20_approve(
         )
     )
 
+    # This dispatch is something close to the minimal amount
+    # of code to run for a contract only implementing approve
+    # It will therefore grealty underestimate the gas of any ERC20
+    # contract because all of them have much more overhead in practice
+    # (also function selector at the entry point of the contract)
     function_dispatch = (
         # Selector dispatch
         Op.PUSH4(APPROVE_SELECTOR)
@@ -495,16 +500,16 @@ def test_sstore_erc20_approve(
         slot_offset += num_calls
 
     blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
-
-    # The gas used validation is skipped here. This bench cannot go OOG
-    # because the state root calculation is part of the benchmark.
-    # Any ERC20 contract might behave (slightly) differently, even
-    # if the source code is the same but the compiler is different
-    # (either the versions or the config, like optimization rounds)
-    # This can however technically be still be calculated, as it is possible
-    # to fetch the code from the target chain and do the gas analysis on
-    # that code.
-    benchmark_test(pre=pre, blocks=blocks, skip_gas_used_validation=True)
+    # TODO: this test can currently not estimate the gas used
+    # It will also overestimate the num_calls it can make to an unknown
+    # ERC20 contract and will therefore OOG
+    # (this actually passes the gas check as it consumes all gas and
+    # thus also the expected gas)
+    # TODO: find out how to tackle this. We do not want to OOG
+    # because the state root is part of the calculation
+    # NOTE: this is not crucial for gas repricing tests
+    # as the mint variant is used there.
+    benchmark_test(pre=pre, blocks=blocks)
 
 
 def build_call_memory_setup(
