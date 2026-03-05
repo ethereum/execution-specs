@@ -492,6 +492,10 @@ exclude = [
 ]
 plugins = ["pydantic.mypy"]
 
+[[tool.mypy.overrides]]
+module = "remerkleable.*"
+ignore_missing_imports = true #stubs seemed quite non-trivial
+
 [tool.uv]
 required-version = ">=0.7.0"
 extra-build-dependencies = { ethash = ["setuptools", "cmake>=4.2.1,<5"] }
