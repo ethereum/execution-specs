@@ -1,10 +1,10 @@
 """
 Test EIP-7623 calldata floor interaction with EIP-8037 state gas.
 
-The calldata floor (tokens_in_calldata * 10 + TX_BASE_COST) applies
-to the regular gas dimension only. It does not affect state gas.
-Block gas accounting uses max(tx_regular_gas, calldata_floor) for
-regular gas and tracks state gas separately.
+The calldata floor applies to the regular gas dimension only. It
+does not affect state gas. Block gas accounting uses
+max(tx_regular_gas, calldata_floor) for regular gas and tracks
+state gas separately.
 
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
@@ -27,11 +27,6 @@ from .spec import Spec, ref_spec_8037
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
-# Calldata floor cost parameters
-COST_PER_TOKEN = 10
-TX_BASE_COST = 21_000
-COST_PER_NONZERO_BYTE = 16
-COST_PER_ZERO_BYTE = 4
 
 
 @EIPChecklist.GasRefundsChanges.Test.CrossFunctional.CalldataCost()
@@ -48,10 +43,10 @@ def test_calldata_floor_with_sstore(
     """
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
-    # Large calldata to trigger floor (256 nonzero bytes = 1024 tokens)
+    # Large calldata to trigger the calldata floor
     calldata = b"\x01" * 256
 
     tx = Transaction(
@@ -80,7 +75,7 @@ def test_calldata_floor_independent_of_state_gas(
     """
     contract = pre.deploy_contract(code=Op.STOP)
 
-    # 512 nonzero bytes = 2048 tokens, floor = 2048*10 + 21000 = 41480
+    # Large calldata so the floor exceeds actual execution gas
     calldata = b"\xff" * 512
 
     tx = Transaction(
@@ -110,7 +105,7 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
 
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     # Large calldata so floor dominates regular gas
