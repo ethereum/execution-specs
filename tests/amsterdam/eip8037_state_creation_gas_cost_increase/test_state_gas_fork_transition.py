@@ -51,10 +51,10 @@ def test_sstore_state_gas_at_transition(
     which provides enough gas in either regime.
     """
     contract_before = pre.deploy_contract(
-        code=Op.SSTORE(0, 1) + Op.STOP,
+        code=Op.SSTORE(0, 1),
     )
     contract_after = pre.deploy_contract(
-        code=Op.SSTORE(0, 1) + Op.STOP,
+        code=Op.SSTORE(0, 1),
     )
 
     blocks = [
@@ -120,12 +120,12 @@ def test_tx_gas_above_cap_at_transition(
     """
     storage_before = Storage()
     contract_before = pre.deploy_contract(
-        code=(Op.SSTORE(storage_before.store_next(1), 1) + Op.STOP),
+        code=(Op.SSTORE(storage_before.store_next(1), 1)),
     )
 
     storage_after = Storage()
     contract_after = pre.deploy_contract(
-        code=(Op.SSTORE(storage_after.store_next(1), 1) + Op.STOP),
+        code=(Op.SSTORE(storage_after.store_next(1), 1)),
     )
 
     gas_limit = (
@@ -192,7 +192,7 @@ def test_reservoir_available_after_transition(
 
     child_storage = Storage()
     child = pre.deploy_contract(
-        code=Op.SSTORE(child_storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(child_storage.store_next(1), 1),
     )
 
     parent_storage = Storage()
@@ -202,7 +202,6 @@ def test_reservoir_available_after_transition(
                 parent_storage.store_next(1),
                 Op.CALL(gas=100_000, address=child),
             )
-            + Op.STOP
         ),
     )
 
