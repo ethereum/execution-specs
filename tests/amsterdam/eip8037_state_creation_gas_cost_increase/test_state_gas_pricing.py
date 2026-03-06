@@ -50,6 +50,7 @@ def test_pricing_at_various_gas_limits(
     state_test: StateTestFiller,
     pre: Alloc,
     block_gas_limit: int,
+    fork: Fork,
 ) -> None:
     """
     Test SSTORE succeeds at various block gas limits.
@@ -59,9 +60,10 @@ def test_pricing_at_various_gas_limits(
     when given sufficient total gas, confirming the pricing function
     produces a valid (nonzero) cost.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment(gas_limit=block_gas_limit)
-    cpsb = Spec.COST_PER_STATE_BYTE
-    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+    sstore_state_gas = fork.sstore_state_gas()
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -70,7 +72,7 @@ def test_pricing_at_various_gas_limits(
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + sstore_state_gas,
+        gas_limit=gas_limit_cap + sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -82,6 +84,7 @@ def test_pricing_at_various_gas_limits(
 def test_charge_draws_entirely_from_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test state gas is drawn entirely from the reservoir.
@@ -90,9 +93,10 @@ def test_charge_draws_entirely_from_reservoir(
     gas_left should not be reduced by the state charge. Verify by
     performing a regular-gas-heavy computation after the SSTORE.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
-    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+    sstore_state_gas = fork.sstore_state_gas()
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -110,7 +114,7 @@ def test_charge_draws_entirely_from_reservoir(
     # Provide exact state gas in the reservoir
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + sstore_state_gas * 2,
+        gas_limit=gas_limit_cap + sstore_state_gas * 2,
         sender=pre.fund_eoa(),
     )
 
@@ -122,6 +126,7 @@ def test_charge_draws_entirely_from_reservoir(
 def test_charge_spills_to_gas_left(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test state gas spills from reservoir to gas_left.
@@ -130,9 +135,10 @@ def test_charge_spills_to_gas_left(
     state charge, the remainder is taken from gas_left. The SSTORE
     should still succeed.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
-    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+    sstore_state_gas = fork.sstore_state_gas()
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -143,7 +149,7 @@ def test_charge_spills_to_gas_left(
     half_state_gas = sstore_state_gas // 2
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + half_state_gas,
+        gas_limit=gas_limit_cap + half_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -165,13 +171,14 @@ def test_charge_oog_both_pools_insufficient(
     not enough for the state gas charge. Neither the reservoir (empty
     at TX_MAX_GAS_LIMIT) nor gas_left can cover the cost.
     """
+    gas_costs = fork.gas_costs()
     contract = pre.deploy_contract(
         code=Op.SSTORE(0, 1),
     )
 
     # Tight gas: intrinsic + SSTORE regular gas only
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = intrinsic_cost() + Spec.GAS_STORAGE_UPDATE
+    gas_limit = intrinsic_cost() + gas_costs.GAS_STORAGE_UPDATE
 
     tx = Transaction(
         to=contract,
@@ -189,6 +196,7 @@ def test_charge_oog_both_pools_insufficient(
 def test_refund_cap_includes_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test the 1/5 refund cap includes state gas used from gas_left.
@@ -199,6 +207,8 @@ def test_refund_cap_includes_state_gas(
     performs an SSTORE zero-to-nonzero-to-zero sequence to generate
     a refund and verifies the transaction succeeds.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     contract = pre.deploy_contract(
         code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
     )
@@ -206,7 +216,7 @@ def test_refund_cap_includes_state_gas(
     # No reservoir — all gas from gas_left, refund cap applies
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT,
+        gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
     )
 
@@ -220,6 +230,7 @@ def test_refund_cap_includes_state_gas(
 def test_refund_with_reservoir_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test refund when state gas is drawn from reservoir.
@@ -230,9 +241,10 @@ def test_refund_with_reservoir_state_gas(
     both dimensions. An SSTORE zero-to-nonzero-to-zero sequence
     should refund correctly.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
-    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+    sstore_state_gas = fork.sstore_state_gas()
 
     contract = pre.deploy_contract(
         code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
@@ -240,7 +252,7 @@ def test_refund_with_reservoir_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + sstore_state_gas,
+        gas_limit=gas_limit_cap + sstore_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -262,6 +274,7 @@ def test_pricing_changes_with_block_gas_limit(
     pre: Alloc,
     gas_limit_block_1: int,
     gas_limit_block_2: int,
+    fork: Fork,
 ) -> None:
     """
     Test state gas cost changes when block gas limit changes.
@@ -271,10 +284,9 @@ def test_pricing_changes_with_block_gas_limit(
     (targeting constant state growth). Each block's SSTORE should
     succeed with the appropriate state gas for that block's gas limit.
     """
-    cpsb_1 = Spec.COST_PER_STATE_BYTE
-    cpsb_2 = Spec.COST_PER_STATE_BYTE
-    sstore_state_gas_1 = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb_1
-    sstore_state_gas_2 = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb_2
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
 
     storage_1 = Storage()
     contract_1 = pre.deploy_contract(
@@ -293,7 +305,7 @@ def test_pricing_changes_with_block_gas_limit(
         txs=[
             Transaction(
                 to=contract_1,
-                gas_limit=Spec.TX_MAX_GAS_LIMIT + sstore_state_gas_1,
+                gas_limit=gas_limit_cap + sstore_state_gas,
                 sender=pre.fund_eoa(),
             ),
         ],
@@ -304,7 +316,7 @@ def test_pricing_changes_with_block_gas_limit(
         txs=[
             Transaction(
                 to=contract_2,
-                gas_limit=Spec.TX_MAX_GAS_LIMIT + sstore_state_gas_2,
+                gas_limit=gas_limit_cap + sstore_state_gas,
                 sender=pre.fund_eoa(),
             ),
         ],
@@ -371,6 +383,7 @@ def test_intrinsic_regular_gas_exceeds_cap(
     """
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     # One more non-zero byte than needed to exceed the cap
     calldata_len = gas_limit_cap // gas_costs.GAS_TX_DATA_PER_NON_ZERO + 1
     calldata = b"\x01" * calldata_len
