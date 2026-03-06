@@ -17,6 +17,7 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 import pytest
 from execution_testing import (
     Account,
+    Address,
     Alloc,
     Environment,
     Fork,
@@ -644,33 +645,51 @@ def test_gas_opcode_excludes_reservoir(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
+@pytest.mark.parametrize(
+    "target_exists",
+    [
+        pytest.param(True, id="existing_account"),
+        pytest.param(False, id="new_account"),
+    ],
+)
 @pytest.mark.valid_from("Amsterdam")
 def test_call_insufficient_balance_returns_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     fork: Fork,
+    target_exists: bool,
 ) -> None:
     """
     Test CALL with insufficient balance returns reservoir to parent.
 
-    When a CALL transfers value but the sender has insufficient balance,
-    the call fails and both gas_left and state_gas_left are returned
-    to the parent frame. The parent can still use the reservoir.
+    When a CALL transfers value but the caller has insufficient balance,
+    the call fails before any state gas is charged for the target
+    account. Both gas_left and state_gas_left are returned to the
+    parent frame. The parent can still use the reservoir for a
+    subsequent SSTORE.
     """
+    gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
     sstore_state_gas = fork.sstore_state_gas()
 
-    child = pre.deploy_contract(code=Op.STOP)
+    target: int | Address
+    if target_exists:
+        target = pre.deploy_contract(code=Op.STOP)
+        reservoir = sstore_state_gas
+    else:
+        target = 0xDEAD
+        # New account needs new-account state gas too
+        reservoir = sstore_state_gas + gas_costs.GAS_NEW_ACCOUNT
 
     storage = Storage()
     contract = pre.deploy_contract(
         code=(
-            # CALL with 1 wei to child — will fail (contract has 0 balance)
+            # CALL with 1 wei — fails (contract has 0 balance)
             Op.SSTORE(
                 storage.store_next(0, "call_fails"),
-                Op.CALL(100_000, child, 1, 0, 0, 0, 0),
+                Op.CALL(100_000, target, 1, 0, 0, 0, 0),
             )
             # Reservoir should be returned — SSTORE still works
             + Op.SSTORE(storage.store_next(1, "sstore_after"), 1)
@@ -679,7 +698,7 @@ def test_call_insufficient_balance_returns_reservoir(
 
     tx = Transaction(
         to=contract,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        gas_limit=gas_limit_cap + reservoir,
         sender=pre.fund_eoa(),
     )
 
