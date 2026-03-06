@@ -4,6 +4,7 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Bytes,
     Fork,
     Op,
     StateTestFiller,
@@ -32,8 +33,8 @@ def test_extcodecopy_bounds(
     3. Offset 5 + size 12             -> partial code copy + zero padding
 
     Each result is read via MLOAD(0) and MLOAD(32) and stored. Only the
-    third operation produces a non-zero result in slot 4 because the
-    dest_offset=1 shifts the copied bytes into the MLOAD(0) word.
+    third operation produces a non-zero result because the dest_offset=1
+    shifts the copied bytes into the MLOAD(0) word.
     """
     storage = Storage()
 
@@ -41,12 +42,17 @@ def test_extcodecopy_bounds(
     target = pre.deploy_contract(target_code)
 
     huge_offset = 0x010000000000000000000000000000000000000000
+    large_size = 5000
 
     code = (
-        # 1. Huge code offset, size 5000 -> all zeros
-        Op.EXTCODECOPY(target, 1, huge_offset, 5000)
+        # 1. Huge code offset, large size -> all zeros
+        Op.EXTCODECOPY(target, 1, huge_offset, large_size)
         + Op.SSTORE(storage.store_next(0), Op.MLOAD(0))
         + Op.SSTORE(storage.store_next(0), Op.MLOAD(32))
+        + Op.SSTORE(
+            storage.store_next(Bytes(b"\0" * large_size).keccak256()),
+            Op.SHA3(1, large_size),
+        )
         # 2. Huge code offset, size 12 -> all zeros
         + Op.EXTCODECOPY(target, 1, huge_offset, 12)
         + Op.SSTORE(storage.store_next(0), Op.MLOAD(0))
