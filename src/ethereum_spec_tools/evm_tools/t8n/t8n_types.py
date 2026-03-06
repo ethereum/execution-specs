@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from ethereum_rlp import Simple, rlp
-from ethereum_types.bytes import Bytes
+from ethereum_types.bytes import Bytes, Bytes8
 from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32, keccak256
@@ -380,78 +380,76 @@ class Result:
 
         # TODO: Re-enable stateless guest once state test handling is
         # resolved. Currently fails on state tests.
-        # if self.execution_witness is not None:
-        #     withdrawals = (
-        #         tuple(t8n.env.withdrawals) if t8n.env.withdrawals else ()
-        #     )
-        #
-        #     # Build the block header from execution results.
-        #     bh = block_env.block_hashes
-        #     assert bh and bh[-1] is not None
-        #     header = t8n.fork.Header(
-        #         parent_hash=Hash32(bytes(bh[-1])),
-        #         ommers_hash=keccak256(rlp.encode([])),
-        #         coinbase=block_env.coinbase,
-        #         state_root=self.state_root,
-        #         transactions_root=self.tx_root,
-        #         receipt_root=self.receipt_root,
-        #         bloom=self.bloom,
-        #         difficulty=Uint(0),
-        #         number=block_env.number,
-        #         gas_limit=block_env.block_gas_limit,
-        #         gas_used=self.gas_used,
-        #         timestamp=block_env.time,
-        #         extra_data=Bytes(b""),
-        #         prev_randao=block_env.prev_randao,
-        #         nonce=Bytes8(b"\x00" * 8),
-        #         base_fee_per_gas=block_env.base_fee_per_gas,
-        #         withdrawals_root=self.withdrawals_root,
-        #         blob_gas_used=block_output.blob_gas_used,
-        #         excess_blob_gas=block_env.excess_blob_gas,
-        #         parent_beacon_block_root=block_env.parent_beacon_block_root,
-        #         requests_hash=self.requests_hash,
-        #         block_access_list_hash=self.block_access_list_hash,
-        #     )
-        #
-        #     # TODO: perhaps change this for t8n.all_txs minus rejected_txs?
-        #     included_txs = []
-        #     for key in block_output.receipt_keys:
-        #         tx = t8n.fork.trie_get(
-        #             block_output.transactions_trie, key
-        #         )
-        #         assert tx is not None
-        #         included_txs.append(tx)
-        #
-        #     block = t8n.fork.Block(
-        #         header=header,
-        #         transactions=tuple(included_txs),
-        #         ommers=(),
-        #         withdrawals=withdrawals,
-        #     )
-        #
-        #     assert self.requests is not None
-        #     stateless_input = t8n.fork.build_stateless_input(
-        #         block,
-        #         execution_witness=self.execution_witness,
-        #         execution_requests=tuple(self.requests),
-        #         block_access_list=self.block_access_list,
-        #         chain_id=block_env.chain_id,
-        #     )
-        #     stateless_input_bytes = t8n.fork.serialize_stateless_input(
-        #         stateless_input
-        #     )
-        #     stateless_output_bytes = t8n.fork.run_stateless_guest(
-        #         stateless_input_bytes
-        #     )
-        #     result = t8n.fork.deserialize_stateless_output(
-        #         stateless_output_bytes
-        #     )
-        #     if t8n.txs.rejected_txs or self.block_exception:
-        #         assert not result.successful_validation
-        #     else:
-        #         assert result.successful_validation, (
-        #             "Stateless validation failed"
-        #         )
+        if self.execution_witness is not None:
+            withdrawals = (
+                tuple(t8n.env.withdrawals) if t8n.env.withdrawals else ()
+            )
+
+            # Build the block header from execution results.
+            bh = block_env.block_hashes
+            assert bh and bh[-1] is not None
+            header = t8n.fork.Header(
+                parent_hash=Hash32(bytes(bh[-1])),
+                ommers_hash=keccak256(rlp.encode([])),
+                coinbase=block_env.coinbase,
+                state_root=self.state_root,
+                transactions_root=self.tx_root,
+                receipt_root=self.receipt_root,
+                bloom=self.bloom,
+                difficulty=Uint(0),
+                number=block_env.number,
+                gas_limit=block_env.block_gas_limit,
+                gas_used=self.gas_used,
+                timestamp=block_env.time,
+                extra_data=Bytes(b""),
+                prev_randao=block_env.prev_randao,
+                nonce=Bytes8(b"\x00" * 8),
+                base_fee_per_gas=block_env.base_fee_per_gas,
+                withdrawals_root=self.withdrawals_root,
+                blob_gas_used=block_output.blob_gas_used,
+                excess_blob_gas=block_env.excess_blob_gas,
+                parent_beacon_block_root=block_env.parent_beacon_block_root,
+                requests_hash=self.requests_hash,
+                block_access_list_hash=self.block_access_list_hash,
+            )
+
+            # TODO: perhaps change this for t8n.all_txs minus rejected_txs?
+            included_txs = []
+            for key in block_output.receipt_keys:
+                tx = t8n.fork.trie_get(block_output.transactions_trie, key)
+                assert tx is not None
+                included_txs.append(tx)
+
+            block = t8n.fork.Block(
+                header=header,
+                transactions=tuple(included_txs),
+                ommers=(),
+                withdrawals=withdrawals,
+            )
+
+            assert self.requests is not None
+            stateless_input = t8n.fork.build_stateless_input(
+                block,
+                execution_witness=self.execution_witness,
+                execution_requests=tuple(self.requests),
+                block_access_list=self.block_access_list,
+                chain_id=block_env.chain_id,
+            )
+            stateless_input_bytes = t8n.fork.serialize_stateless_input(
+                stateless_input
+            )
+            stateless_output_bytes = t8n.fork.run_stateless_guest(
+                stateless_input_bytes
+            )
+            result = t8n.fork.deserialize_stateless_output(
+                stateless_output_bytes
+            )
+            if t8n.txs.rejected_txs or self.block_exception:
+                assert not result.successful_validation
+            else:
+                assert result.successful_validation, (
+                    "Stateless validation failed"
+                )
         #     self.stateless_input_bytes = bytes(stateless_input_bytes)
         #     self.stateless_output_bytes = bytes(stateless_output_bytes)
 
