@@ -112,6 +112,7 @@ def initcode(fork: Fork, initcode_name: str) -> Initcode:
 """Test cases using a contract creating transaction"""
 
 
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize(
     "initcode_name",
@@ -515,6 +516,7 @@ class TestCreateInitcode:
             sender=sender,
         )
 
+    @pytest.mark.bigmem
     @pytest.mark.xdist_group(name="bigmem")
     @pytest.mark.slow()
     def test_create_opcode_initcode(

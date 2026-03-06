@@ -3,19 +3,49 @@ Stateless validation interfaces.
 """
 
 from dataclasses import dataclass
-from typing import Sequence, Tuple
+from typing import List, Sequence, Tuple
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64
 
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
 from ethereum.state import Root
 
-from .blocks import Block
+from .blocks import Block, Header
+from .execution_engine.new_payload import execute_new_payload_request
 from .execution_engine.types import NewPayloadRequest
+from .fork import ChainContext
 from .fork_types import VersionedHash
-from .stateless_types import ExecutionWitness
+from .witness_state import WitnessState, build_code_db, build_node_db
+
+
+@slotted_freezable
+@dataclass
+class ExecutionWitness:
+    """
+    Execution witness data for stateless validation.
+    """
+
+    state: Tuple[Bytes, ...]
+    """
+    Hashed trie-node preimages needed during execution and state-root
+    recomputation.
+    """
+
+    codes: Tuple[Bytes, ...]
+    """
+    Contract-code preimages (created or accessed) needed during execution.
+    """
+
+    headers: Tuple[Bytes, ...]
+    """
+    RLP-encoded block headers used for pre-state and ``BLOCKHASH`` correctness
+    proofs. This may trend toward empty EIP-7709.
+    """
+
 
 # Amsterdam currently carries execution requests as raw bytes in order.
 ExecutionRequests = Tuple[Bytes, ...]
@@ -96,6 +126,9 @@ class StatelessInput:
 class StatelessValidationResult:
     """
     Result returned by stateless validation.
+
+    Note: We use return values to denote "public inputs"
+
     """
 
     new_payload_request_root: Hash32
@@ -107,14 +140,15 @@ def compute_new_payload_request_root(
     stateless_input: StatelessInput,
 ) -> Hash32:
     """
-    Compute the request root for a stateless input.
+    Compute the request root for a stateless input via SSZ hash tree root.
 
-    TODO: Replace this with ``new_payload_request.tree_hash_root``.
-
-    # For readability, we can convert to NewPayloadRequestHeader and
-    # then the payload request root.
+    TODO: For readability, convert to NewPayloadRequestHeader and
+    then compute the payload request root.
     """
-    raise NotImplementedError
+    from .stateless_ssz import _new_payload_request_to_ssz
+
+    ssz_npr = _new_payload_request_to_ssz(stateless_input.new_payload_request)
+    return Hash32(ssz_npr.hash_tree_root())
 
 
 def new_payload_request_to_block(
@@ -126,20 +160,79 @@ def new_payload_request_to_block(
     raise NotImplementedError
 
 
+def _decode_header(header_bytes: Bytes) -> Header | PreviousForkHeader:
+    """
+    Decode an RLP-encoded header, trying the current fork first and
+    falling back to the previous fork for transition-period headers.
+    """
+    try:
+        return rlp.decode_to(Header, header_bytes)
+    except rlp.DecodingError:
+        return rlp.decode_to(PreviousForkHeader, header_bytes)
+
+
+def validate_headers(
+    encoded_headers: Tuple[Bytes, ...],
+) -> Tuple[List[Header | PreviousForkHeader], List[Hash32]]:
+    """
+    Validate that a sequence of encoded headers forms a contiguous chain.
+
+    Each header's ``parent_hash`` must match the hash of the preceding
+    header. Return the decoded headers and block hashes. Headers may
+    come from different forks during fork transitions.
+    """
+    assert len(encoded_headers) <= 256, "Too many headers in witness"
+    headers = [
+        _decode_header(header_bytes) for header_bytes in encoded_headers
+    ]
+    block_hashes: List[Hash32] = [
+        keccak256(header_bytes) for header_bytes in encoded_headers
+    ]
+    for i in range(1, len(headers)):
+        if headers[i].parent_hash != block_hashes[i - 1]:
+            raise Exception("Witness headers are not contiguous")
+    return headers, block_hashes
+
+
 def verify_stateless_new_payload(
     stateless_input: StatelessInput,
 ) -> StatelessValidationResult:
     """
     Statelessly validate the execution payload.
     """
-    # TODO: We can fill this in properly once the pre-state PR
-    # TODO: and state change PRs are completed.
-    # TODO: We would effectively call `verify_and_notify_new_payload`
+    witness = stateless_input.witness
+
+    # Validate the headers are contiguous and compute their
+    # blockhashes.
+    decoded_headers, block_hashes = validate_headers(witness.headers)
+    parent_header = decoded_headers[-1]
+
+    chain_context = ChainContext(
+        chain_id=stateless_input.chain_config.chain_id,
+        block_hashes=block_hashes,
+        parent_header=parent_header,
+    )
+
+    pre_state = WitnessState(
+        _node_db=build_node_db(witness.state),
+        _state_root=parent_header.state_root,
+        _code_db=build_code_db(witness.codes),
+    )
+
+    try:
+        execute_new_payload_request(
+            stateless_input.new_payload_request,
+            pre_state,
+            chain_context,
+        )
+        successful_validation = True
+    except Exception:
+        successful_validation = False
 
     return StatelessValidationResult(
         new_payload_request_root=compute_new_payload_request_root(
             stateless_input
         ),
-        successful_validation=True,
+        successful_validation=successful_validation,
         chain_config=stateless_input.chain_config,
     )

@@ -476,30 +476,6 @@ class T8N(Load):
                 block_gas_limit=block_env.block_gas_limit,
             )
 
-        if self.fork.has_execution_witness:
-            assert self.fork.has_block_state
-            # TODO(zkevm): since IncrementalMPT isn't the authoritative way
-            # to do post-state root calculation, we calculate the post-state
-            # root here with patricialize. Note this work will happen again
-            # later in t8n to provide the expected output. Although we could
-            # cache it, it might be too invasive and not worth it. Note also
-            # this is safe since `compute_state_root_and_trie_changes` does
-            # not mutate anything in state (i.e. it does transient copies of
-            # MPTs to do its work).
-            expected_post_state_root, _ = (
-                self.alloc.state.compute_state_root_and_trie_changes(
-                    block_env.state.account_writes,
-                    block_env.state.storage_writes,
-                )
-            )
-            block_output.execution_witness = self.fork.build_execution_witness(
-                block_env.state,
-                expected_post_state_root=expected_post_state_root,
-                pre_state_accounts_data=self.alloc.state._main_trie,
-                pre_state_storages_data=self.alloc.state._storage_tries,
-                blockchain_headers=self.env.block_headers,
-            )
-
     def run_blockchain_test(self) -> None:
         """
         Apply a block on the pre-state. Also includes system operations.

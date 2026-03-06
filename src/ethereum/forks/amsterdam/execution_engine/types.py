@@ -15,7 +15,6 @@ from ethereum.state import Address, Root
 from ..blocks import Withdrawal
 from ..fork import BlockChain
 from ..fork_types import Bloom, VersionedHash
-from ..transactions import LegacyTransaction
 
 # In this module, the execution engine is the chain/state container used by
 # the fork's transition functions.
@@ -52,7 +51,7 @@ class ExecutionPayload:
     extra_data: Bytes
     base_fee_per_gas: Uint
     block_hash: Hash32
-    transactions: Tuple[LegacyTransaction | Bytes, ...]
+    transactions: Tuple[Bytes, ...]
     withdrawals: Tuple[Withdrawal, ...]
     blob_gas_used: U64
     excess_blob_gas: U64

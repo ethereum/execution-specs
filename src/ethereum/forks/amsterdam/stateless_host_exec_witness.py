@@ -2,11 +2,9 @@
 Stateless validation types.
 """
 
-from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple
 
 from ethereum_types.bytes import Bytes, Bytes32
-from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import Hash32
@@ -20,32 +18,8 @@ from .incremental_mpt import (
     mpt_set,
 )
 from .state_tracker import BlockState
+from .stateless import ExecutionWitness
 from .trie import EMPTY_TRIE_ROOT, Trie
-
-
-@slotted_freezable
-@dataclass
-class ExecutionWitness:
-    """
-    Execution witness data for stateless validation.
-    """
-
-    state: Tuple[Bytes, ...]
-    """
-    Hashed trie-node preimages needed during execution and state-root
-    recomputation.
-    """
-
-    codes: Tuple[Bytes, ...]
-    """
-    Contract-code preimages (created or accessed) needed during execution.
-    """
-
-    headers: Tuple[Bytes, ...]
-    """
-    RLP-encoded block headers used for pre-state and ``BLOCKHASH`` correctness
-    proofs. This may trend toward empty EIP-7709.
-    """
 
 
 def _build_pre_state_storage_mpts(

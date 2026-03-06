@@ -144,7 +144,7 @@ class ForkLoad:
     def has_execution_witness(self) -> bool:
         """Check if the fork has an `ExecutionWitness` type."""
         try:
-            module = self._module("stateless_types")
+            module = self._module("stateless")
         except ModuleNotFoundError:
             return False
         return hasattr(module, "ExecutionWitness")
@@ -152,7 +152,28 @@ class ForkLoad:
     @property
     def build_execution_witness(self) -> Any:
         """Build function of the fork."""
-        return self._module("stateless_types").build_execution_witness
+        mod = self._module("stateless_host_exec_witness")
+        return mod.build_execution_witness
+
+    @property
+    def build_stateless_input(self) -> Any:
+        """build_stateless_input function of the fork."""
+        return self._module("stateless_host").build_stateless_input
+
+    @property
+    def serialize_stateless_input(self) -> Any:
+        """serialize_stateless_input function of the fork."""
+        return self._module("stateless_host").serialize_stateless_input
+
+    @property
+    def deserialize_stateless_output(self) -> Any:
+        """deserialize_stateless_output function of the fork."""
+        return self._module("stateless_host").deserialize_stateless_output
+
+    @property
+    def run_stateless_guest(self) -> Any:
+        """run_stateless_guest function of the fork."""
+        return self._module("stateless_guest").run_stateless_guest
 
     @property
     def signing_hash_2930(self) -> Any:

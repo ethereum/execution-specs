@@ -712,6 +712,7 @@ def test_zero_amount(
     )
 
 
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 def test_large_amount(
     blockchain_test: BlockchainTestFiller,
@@ -753,6 +754,7 @@ def test_large_amount(
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
+@pytest.mark.bigmem
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.parametrize("amount", [0, 1])
 @pytest.mark.with_all_precompiles

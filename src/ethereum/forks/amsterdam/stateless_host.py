@@ -1,0 +1,115 @@
+"""
+Host-side assembly of stateless input from block execution data.
+"""
+
+from typing import List, Tuple
+
+from ethereum_rlp import rlp
+from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import U64
+
+from ethereum.crypto.hash import Hash32, keccak256
+
+from .block_access_lists import BlockAccessList
+from .blocks import Block
+from .execution_engine.types import ExecutionPayload, NewPayloadRequest
+from .fork_types import VersionedHash
+from .stateless import (
+    ChainConfig,
+    ExecutionWitness,
+    StatelessInput,
+    StatelessValidationResult,
+)
+from .stateless_ssz import (
+    SszStatelessValidationResult,
+    ssz_to_validation_result,
+    stateless_input_to_ssz,
+)
+from .transactions import (
+    BlobTransaction,
+    LegacyTransaction,
+    decode_transaction,
+)
+
+
+def serialize_stateless_input(
+    stateless_input: StatelessInput,
+) -> Bytes:
+    """Serialize a StatelessInput to SSZ-encoded bytes."""
+    ssz_obj = stateless_input_to_ssz(stateless_input)
+    return Bytes(ssz_obj.encode_bytes())
+
+
+def deserialize_stateless_output(data: Bytes) -> StatelessValidationResult:
+    """Deserialize a StatelessValidationResult from SSZ bytes."""
+    ssz_obj = SszStatelessValidationResult.decode_bytes(data)
+    return ssz_to_validation_result(ssz_obj)
+
+
+def build_stateless_input(
+    block: Block,
+    *,
+    execution_witness: ExecutionWitness,
+    execution_requests: Tuple[Bytes, ...],
+    block_access_list: BlockAccessList,
+    chain_id: U64,
+) -> StatelessInput:
+    """
+    Build a StatelessInput from a completed block.
+
+    Extract the header, transactions, and withdrawals from the block,
+    compute the block hash, collect versioned hashes, and package
+    everything into a StatelessInput ready for stateless guest execution.
+    """
+    header = block.header
+    block_hash = Hash32(keccak256(rlp.encode(header)))
+
+    # Encode transactions to bytes and collect versioned hashes.
+    tx_bytes_list: List[Bytes] = []
+    versioned_hashes: List[VersionedHash] = []
+    for tx in block.transactions:
+        if isinstance(tx, LegacyTransaction):
+            tx_bytes_list.append(Bytes(rlp.encode(tx)))
+        else:
+            tx_bytes_list.append(Bytes(tx))
+            tx_obj = decode_transaction(tx)
+            if isinstance(tx_obj, BlobTransaction):
+                versioned_hashes.extend(tx_obj.blob_versioned_hashes)
+
+    # Block access list as RLP bytes.
+    bal_bytes = Bytes(rlp.encode(block_access_list))
+
+    payload = ExecutionPayload(
+        parent_hash=header.parent_hash,
+        fee_recipient=header.coinbase,
+        state_root=header.state_root,
+        receipts_root=header.receipt_root,
+        logs_bloom=header.bloom,
+        prev_randao=header.prev_randao,
+        block_number=header.number,
+        gas_limit=header.gas_limit,
+        gas_used=header.gas_used,
+        timestamp=header.timestamp,
+        extra_data=header.extra_data,
+        base_fee_per_gas=header.base_fee_per_gas,
+        block_hash=block_hash,
+        transactions=tuple(tx_bytes_list),
+        withdrawals=block.withdrawals,
+        blob_gas_used=header.blob_gas_used,
+        excess_blob_gas=header.excess_blob_gas,
+        block_access_list=bal_bytes,
+    )
+
+    new_payload = NewPayloadRequest(
+        execution_payload=payload,
+        versioned_hashes=tuple(versioned_hashes),
+        parent_beacon_block_root=header.parent_beacon_block_root,
+        execution_requests=execution_requests,
+    )
+
+    return StatelessInput(
+        new_payload_request=new_payload,
+        witness=execution_witness,
+        chain_config=ChainConfig(chain_id=chain_id),
+        public_keys=(),
+    )

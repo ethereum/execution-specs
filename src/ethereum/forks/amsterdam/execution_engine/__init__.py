@@ -22,7 +22,6 @@ from .get_payload import get_payload
 from .new_payload import (
     is_valid_block_hash,
     is_valid_versioned_hashes,
-    notify_new_payload,
     verify_and_notify_new_payload,
 )
 from .types import (
@@ -47,6 +46,5 @@ __all__ = [
     "is_valid_block_hash",
     "is_valid_versioned_hashes",
     "notify_forkchoice_updated",
-    "notify_new_payload",
     "verify_and_notify_new_payload",
 ]

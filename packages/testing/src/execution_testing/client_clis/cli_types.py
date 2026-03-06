@@ -291,6 +291,9 @@ class Result(CamelModel):
     block_access_list: BlockAccessList | None = None
     block_access_list_hash: Hash | None = None
     execution_witness: ExecutionWitness | None = None
+    # TODO: Re-enable, compare fixtures will fail
+    # stateless_input_bytes: Bytes | None = None
+    # stateless_output_bytes: Bytes | None = None
     block_exception: Annotated[
         BlockExceptionWithMessage | UndefinedException | None,
         ExceptionMapperValidator,
