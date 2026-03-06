@@ -1,10 +1,10 @@
 """
 Test EIP-7702 SetCode authorization state gas under EIP-8037.
 
-Each authorization charges (112 + 23) * cost_per_state_byte intrinsic
-state gas and 7500 intrinsic regular gas. When the authority account
-already exists, 112 * cost_per_state_byte is refunded to the state
-gas reservoir.
+Each authorization charges intrinsic state gas for the new account
+plus auth base bytes, and intrinsic regular gas. When the authority
+account already exists, the new-account state gas is refunded to the
+state gas reservoir.
 
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
@@ -91,7 +91,7 @@ def test_existing_account_refund(
     """
     Test authorization targeting existing account refunds state gas.
 
-    When the authority account already exists, 112 * cost_per_state_byte
+    When the authority account already exists, new-account state gas
     is refunded to the state gas reservoir and subtracted from
     intrinsic_state_gas. Only 23 * cost_per_state_byte is effectively
     charged.
@@ -144,7 +144,7 @@ def test_mixed_new_and_existing_auths(
 
     contract = pre.deploy_contract(code=Op.STOP)
 
-    # Existing account (gets 112*cpsb refund)
+    # Existing account (gets new-account state gas refund)
     existing_signer = pre.fund_eoa()
 
     # New account — fund_eoa creates it in pre-state, so we need
@@ -171,7 +171,7 @@ def test_mixed_new_and_existing_auths(
         ),
     ]
 
-    # Both are existing accounts, so both get the 112*cpsb refund
+    # Both are existing accounts, so both get the new-account state gas refund
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
@@ -204,7 +204,7 @@ def test_authorization_with_sstore(
 
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     signer = pre.fund_eoa()
@@ -237,7 +237,7 @@ def test_existing_account_refund_enables_sstore(
     Test auth refund to reservoir enables subsequent state ops.
 
     When an authorization targets an existing account, the
-    112 * cost_per_state_byte refund goes to state_gas_reservoir.
+    new-account state gas refund goes to state_gas_reservoir.
     This refunded gas should then be available for SSTORE state
     gas in the execution phase.
     """
@@ -250,10 +250,10 @@ def test_existing_account_refund_enables_sstore(
 
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
-    # Existing signer — gets 112*cpsb refunded to reservoir
+    # Existing signer — gets new-account state gas refunded to reservoir
     signer = pre.fund_eoa()
     authorization_list = [
         AuthorizationTuple(
@@ -411,7 +411,7 @@ def test_self_sponsored_authorization(
     The sender authorizes delegation to a contract and is also the
     authority. The intrinsic state gas for the authorization is still
     charged. Since the sender account already exists, the
-    112 * cpsb refund applies.
+    new-account state gas refund applies.
     """
     env = Environment()
     cpsb = Spec.COST_PER_STATE_BYTE
@@ -421,7 +421,7 @@ def test_self_sponsored_authorization(
 
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     # Sender is also the signer (self-sponsored)
@@ -517,7 +517,7 @@ def test_auth_with_calldata_and_access_list(
     # Contract that reads calldata and stores it
     contract = pre.deploy_contract(
         code=(
-            Op.SSTORE(storage.store_next(0x42), Op.CALLDATALOAD(0)) + Op.STOP
+            Op.SSTORE(storage.store_next(0x42), Op.CALLDATALOAD(0))
         ),
     )
 
@@ -553,7 +553,7 @@ def test_re_authorization_existing_delegation(
 
     When an authority already has a delegation (set-code) and is
     re-authorized in a new transaction, the account exists so the
-    112 * cpsb refund applies. The new delegation replaces the old one.
+    new-account state gas refund applies. The new delegation replaces the old one.
     """
     env = Environment()
     cpsb = Spec.COST_PER_STATE_BYTE
@@ -564,7 +564,7 @@ def test_re_authorization_existing_delegation(
     contract_old = pre.deploy_contract(code=Op.STOP)
     storage = Storage()
     contract_new = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     # Signer already has a delegation from a previous tx
@@ -578,7 +578,7 @@ def test_re_authorization_existing_delegation(
         ),
     ]
 
-    # Existing account — gets 112*cpsb refund
+    # Existing account — gets new-account state gas refund
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract_new,
@@ -725,7 +725,6 @@ def test_auth_with_multiple_sstores(
     code = Bytecode()
     for _ in range(num_sstores):
         code += Op.SSTORE(storage.store_next(1), 1)
-    code += Op.STOP
 
     contract = pre.deploy_contract(code=code)
 
@@ -870,7 +869,7 @@ def test_multi_tx_block_auth_refund_and_sstore(
     Test multi-transaction block with auth refund and SSTORE state gas.
 
     Two transactions in one block:
-    1. A SetCode tx authorizing an existing account (gets 112*cpsb
+    1. A SetCode tx authorizing an existing account (gets new-account state gas
        refund to reservoir). The refund reduces intrinsic_state_gas.
     2. A regular tx performing an SSTORE (charges 32*cpsb state gas).
 
@@ -905,7 +904,7 @@ def test_multi_tx_block_auth_refund_and_sstore(
     # TX 2: SSTORE zero-to-nonzero (charges state gas)
     storage = Storage()
     sstore_contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
     sender_2 = pre.fund_eoa()
     tx_2 = Transaction(
@@ -929,7 +928,7 @@ def test_auth_refund_bypasses_one_fifth_cap(
     """
     Test auth refund to reservoir bypasses the 1/5 refund cap.
 
-    The existing-account auth refund (112 * cpsb) goes directly to
+    The existing-account auth refund (new-account state gas) goes directly to
     state_gas_reservoir, NOT to refund_counter. This means it is not
     subject to the 1/5 refund cap. The test provides just enough gas
     for the auth intrinsic state gas and multiple SSTOREs whose state
@@ -946,11 +945,11 @@ def test_auth_refund_bypasses_one_fifth_cap(
         Spec.STATE_BYTES_PER_NEW_ACCOUNT + Spec.STATE_BYTES_PER_AUTH_BASE
     ) * cpsb
     sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
-    # Auth refund for existing account = 112 * cpsb (unused in assertion,
+    # Auth refund for existing account = new-account state gas (unused in assertion,
     # but documents the expected value for reasoning about gas budgets).
 
     # Use 3 SSTOREs: 3 * 32 * cpsb = 96 * cpsb of state gas needed.
-    # Auth refund gives 112 * cpsb to the reservoir — enough for all 3.
+    # Auth refund gives new-account state gas to the reservoir — enough for all 3.
     # If it were 1/5 capped: refund would be at most
     # (135 * cpsb) / 5 = 27 * cpsb, which can only fund 0 SSTOREs.
     num_sstores = 3
@@ -959,7 +958,6 @@ def test_auth_refund_bypasses_one_fifth_cap(
     code = Bytecode()
     for _ in range(num_sstores):
         code += Op.SSTORE(storage.store_next(1), 1)
-    code += Op.STOP
 
     contract = pre.deploy_contract(code=code)
 
@@ -974,7 +972,7 @@ def test_auth_refund_bypasses_one_fifth_cap(
     ]
 
     # Provide auth intrinsic state gas + SSTORE state gas.
-    # After the auth refund (112*cpsb) returns to the reservoir,
+    # After the auth refund (new-account state gas) returns to the reservoir,
     # the reservoir holds auth_refund which covers 3 SSTOREs (96*cpsb).
     sender = pre.fund_eoa()
     tx = Transaction(
