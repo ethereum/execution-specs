@@ -32,6 +32,9 @@ class Spec:
     (https://eips.ethereum.org/EIPS/eip-197).
     """
 
+    # The prime modulus of the BN254 prime field Fp (from EIP-196)
+    P = Spec196.P
+
     # Precompile address
     ECPAIRING = Address(0x08)
 
