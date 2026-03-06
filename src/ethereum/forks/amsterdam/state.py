@@ -168,6 +168,7 @@ def apply_changes_to_state(state: State, diff: BlockDiff) -> None:
 
     state._code_store.update(diff.code_changes)
 
+
 def store_code(state: State, code: Bytes) -> Hash32:
     """
     Store bytecode in ``State``.
