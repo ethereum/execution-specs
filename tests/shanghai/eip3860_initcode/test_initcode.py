@@ -118,10 +118,18 @@ SINGLE_BYTE_INITCODE.opcode_list = _single_bytecode.opcode_list
         INITCODE_ZEROS_MAX_LIMIT,
         INITCODE_ONES_MAX_LIMIT,
         pytest.param(
-            INITCODE_ZEROS_OVER_LIMIT, marks=pytest.mark.exception_test
+            INITCODE_ZEROS_OVER_LIMIT,
+            marks=[
+                pytest.mark.exception_test,
+                pytest.mark.valid_until("Osaka"),
+            ],
         ),
         pytest.param(
-            INITCODE_ONES_OVER_LIMIT, marks=pytest.mark.exception_test
+            INITCODE_ONES_OVER_LIMIT,
+            marks=[
+                pytest.mark.exception_test,
+                pytest.mark.valid_until("Osaka"),
+            ],
         ),
     ],
     ids=get_initcode_name,
@@ -137,6 +145,9 @@ def test_contract_creating_tx(
 ) -> None:
     """
     Test creating a contract with initcode that is on/over the allowed limit.
+
+    Over-limit cases are valid until Osaka because EIP-7954 increases
+    the max initcode size in Amsterdam.
     """
     create_contract_address = compute_create_address(
         address=sender,
