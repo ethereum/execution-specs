@@ -4,7 +4,14 @@ from itertools import zip_longest
 from typing import List
 
 import pytest
-from execution_testing import Alloc, Block, Fork, Header, Requests
+from execution_testing import (
+    Alloc,
+    Block,
+    Fork,
+    Header,
+    Requests,
+    TransitionFork,
+)
 
 from .helpers import WithdrawalRequest, WithdrawalRequestInteractionBase
 from .spec import Spec
@@ -79,7 +86,7 @@ def timestamp() -> int:
 
 @pytest.fixture
 def blocks(
-    fork: Fork,
+    fork: Fork | TransitionFork,
     update_pre: None,  # Fixture is used for its side effects
     blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
     included_requests: List[List[WithdrawalRequest]],
@@ -94,10 +101,10 @@ def blocks(
         fillvalue=[],
     ):
         header_verify: Header | None = None
-        if fork.header_requests_required(
+        if fork.fork_at(
             block_number=len(blocks) + 1,
             timestamp=timestamp,
-        ):
+        ).header_requests_required():
             header_verify = Header(
                 requests_hash=Requests(
                     *block_included_requests,

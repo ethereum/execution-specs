@@ -12,7 +12,7 @@ from execution_testing.base_types import (
     ZeroPaddedHexNumber,
 )
 from execution_testing.exceptions import TransactionExceptionInstanceOrList
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 
 from .base import BaseFixture
 
@@ -34,10 +34,10 @@ class TransactionFixture(BaseFixture):
         "Tests that generate a transaction test fixture."
     )
 
-    result: Mapping[Fork, FixtureResult]
+    result: Mapping[Fork | TransitionFork, FixtureResult]
     transaction: Bytes = Field(..., alias="txbytes")
 
-    def get_fork(self) -> Fork | None:
+    def get_fork(self) -> Fork | TransitionFork | None:
         """Return the fork of the fixture as a string."""
         forks = list(self.result.keys())
         assert len(forks) == 1, (

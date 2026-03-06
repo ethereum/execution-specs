@@ -27,11 +27,8 @@ class CustomOsaka(Osaka):
         )
 
     @classmethod
-    def transaction_gas_limit_cap(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> int | None:
+    def transaction_gas_limit_cap(cls) -> int | None:
         """Return the transaction gas limit cap."""
-        del block_number, timestamp
         return cls.tx_gas_limit_cap
 
 

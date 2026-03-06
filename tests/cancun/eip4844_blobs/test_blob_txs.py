@@ -38,6 +38,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionException,
+    TransitionFork,
     add_kzg_version,
 )
 
@@ -76,12 +77,14 @@ def destination_account(
 
 @pytest.fixture
 def tx_gas(
-    fork: Fork,
+    fork: Fork | TransitionFork,
     tx_calldata: bytes,
     tx_access_list: List[AccessList],
 ) -> int:
     """Gas allocated to transactions sent during test."""
-    tx_intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    tx_intrinsic_cost_calculator = (
+        fork.transitions_to().transaction_intrinsic_cost_calculator()
+    )
     return tx_intrinsic_cost_calculator(
         calldata=tx_calldata, access_list=tx_access_list
     )
@@ -296,20 +299,20 @@ def block_timestamp() -> int:
 
 @pytest.fixture
 def expected_blob_gas_used(
-    fork: Fork,
+    fork: Fork | TransitionFork,
     txs: List[Transaction],
     block_number: int,
     block_timestamp: int,
 ) -> Optional[int | Removable]:
     """Calculate blob gas used by the test block."""
-    if not fork.header_blob_gas_used_required(
+    if not fork.fork_at(
         block_number=block_number, timestamp=block_timestamp
-    ):
+    ).header_blob_gas_used_required():
         return Header.EMPTY_FIELD
-    blob_gas_per_blob = fork.blob_gas_per_blob(
+    blob_gas_per_blob = fork.fork_at(
         block_number=block_number,
         timestamp=block_timestamp,
-    )
+    ).blob_gas_per_blob()
     return sum(
         [
             Spec.get_total_blob_gas(tx=tx, blob_gas_per_blob=blob_gas_per_blob)
@@ -320,7 +323,7 @@ def expected_blob_gas_used(
 
 @pytest.fixture
 def expected_excess_blob_gas(
-    fork: Fork,
+    fork: Fork | TransitionFork,
     parent_excess_blobs: Optional[int],
     parent_blobs: Optional[int],
     block_number: int,
@@ -328,11 +331,13 @@ def expected_excess_blob_gas(
     block_base_fee_per_gas: int,
 ) -> Optional[int | Removable]:
     """Calculate blob gas used by the test block."""
-    if not fork.header_excess_blob_gas_required(
+    if not fork.fork_at(
         block_number=block_number, timestamp=block_timestamp
-    ):
+    ).header_excess_blob_gas_required():
         return Header.EMPTY_FIELD
-    excess_blob_gas = fork.excess_blob_gas_calculator()
+    excess_blob_gas = fork.fork_at(
+        block_number=block_number, timestamp=block_timestamp
+    ).excess_blob_gas_calculator()
     return excess_blob_gas(
         parent_excess_blobs=parent_excess_blobs if parent_excess_blobs else 0,
         parent_blob_count=parent_blobs if parent_blobs else 0,
@@ -417,9 +422,7 @@ def test_valid_blob_tx_combinations(
     )
 
 
-def generate_invalid_tx_max_fee_per_blob_gas_tests(
-    fork: Fork,
-) -> List:
+def generate_invalid_tx_max_fee_per_blob_gas_tests(fork: Fork) -> List:
     """
     Return a list of tests for invalid blob transactions due to insufficient
     max fee per blob gas parametrized for each different fork.

@@ -12,10 +12,10 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     EIPChecklist,
-    Fork,
     Op,
     Transaction,
     TransactionException,
+    TransitionFork,
 )
 
 from .spec import ref_spec_7825
@@ -39,7 +39,7 @@ REFERENCE_SPEC_VERSION = ref_spec_7825.version
 def test_transaction_gas_limit_cap_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    fork: TransitionFork,
     transaction_at_cap: bool,
 ) -> None:
     """
@@ -54,7 +54,7 @@ def test_transaction_gas_limit_cap_at_transition(
     )
 
     # Get the gas limit cap at fork activation
-    tx_gas_cap = fork.transaction_gas_limit_cap(timestamp=15_000)
+    tx_gas_cap = fork.fork_at(timestamp=15_000).transaction_gas_limit_cap()
     assert tx_gas_cap is not None, (
         "Gas limit cap should not be None after fork activation"
     )

@@ -17,6 +17,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    TransitionFork,
     add_kzg_version,
 )
 
@@ -148,7 +149,7 @@ def test_invalid_max_blobs_per_tx(
 @pytest.mark.valid_at_transition_to("Osaka")
 @pytest.mark.exception_test
 def test_max_blobs_per_tx_fork_transition(
-    fork: Fork,
+    fork: TransitionFork,
     blockchain_test: BlockchainTestFiller,
     env: Environment,
     pre: Alloc,
@@ -158,19 +159,18 @@ def test_max_blobs_per_tx_fork_transition(
     """Test `MAX_BLOBS_PER_TX` limit enforcement across fork transition."""
     expected_exception = (
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
-        if blob_count > fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
+        if blob_count > fork.transitions_to().max_blobs_per_block()
         else TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED
     )
     pre_fork_block = Block(
         txs=[
             tx
-            if blob_count
-            < fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP - 1)
+            if blob_count < fork.transitions_from().max_blobs_per_block()
             else tx.with_error(expected_exception)
         ],
         timestamp=FORK_TIMESTAMP - 1,
         exception=None
-        if blob_count < fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP - 1)
+        if blob_count < fork.transitions_from().max_blobs_per_block()
         else [expected_exception],
     )
     fork_block = Block(

@@ -25,7 +25,7 @@ from execution_testing.base_types.conversions import (
     NumberConvertible,
 )
 from execution_testing.fixtures import LabeledFixtureFormat
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.specs import BaseTest
 from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
@@ -121,7 +121,7 @@ class Alloc(SharedAlloc):
     def compute_pre_alloc_group_hash(
         self,
         *,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         genesis_environment: Environment,
         group_salt: str | None,
     ) -> str:
@@ -165,21 +165,23 @@ class Alloc(SharedAlloc):
         if storage is None:
             storage = {}
         salt = Hash(salt)
+        # Everything is deployed at genesis, hence `transitions_from`
+        fork = self._fork.transitions_from()
         contract_address = compute_deterministic_create2_address(
-            salt=salt, initcode=initcode, fork=self._fork
+            salt=salt, initcode=initcode, fork=fork
         )
         if contract_address in self:
             raise ValueError(
                 f"contract address already in pre-alloc: {contract_address}"
             )
-        max_code_size = self._fork.max_code_size()
+        max_code_size = fork.max_code_size()
         if len(deploy_code) > max_code_size:
             raise ValueError(
                 f"code too large: {len(deploy_code)} > {max_code_size}"
             )
 
         fork_deterministic_factory_address = (
-            self._fork.deterministic_factory_predeploy_address()
+            fork.deterministic_factory_predeploy_address()
         )
         if (
             fork_deterministic_factory_address is None
@@ -241,7 +243,7 @@ class Alloc(SharedAlloc):
         code_bytes = (
             bytes(code) if not isinstance(code, (bytes, str)) else code
         )
-        max_code_size = self._fork.max_code_size()
+        max_code_size = self._fork.transitions_from().max_code_size()
         assert len(code_bytes) <= max_code_size, (
             f"code too large: {len(code_bytes)} > {max_code_size}"
         )

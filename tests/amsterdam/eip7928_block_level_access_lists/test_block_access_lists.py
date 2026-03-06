@@ -1505,7 +1505,7 @@ def test_bal_precompile_funded(
     "precompile",
     lambda fork: [
         pytest.param(addr, id=f"0x{int.from_bytes(addr, 'big'):02x}")
-        for addr in fork.precompiles(block_number=0, timestamp=0)
+        for addr in fork.precompiles()
     ],
 )
 def test_bal_precompile_call(

@@ -37,7 +37,7 @@ from execution_testing.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import Alloc, Environment, Transaction
 from execution_testing.vm import Bytecode, Op
 
@@ -375,7 +375,9 @@ class BenchmarkTest(BaseTest):
 
         elif self.tx is not None:
             gas_limit = (
-                self.fork.transaction_gas_limit_cap()
+                self.fork.fork_at(
+                    block_number=0, timestamp=0
+                ).transaction_gas_limit_cap()
                 or self.gas_benchmark_value
             )
 
@@ -403,7 +405,7 @@ class BenchmarkTest(BaseTest):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
@@ -456,9 +458,14 @@ class BenchmarkTest(BaseTest):
         """Generate blocks using the code generator."""
         if self.code_generator is None:
             raise Exception("Code generator is not set")
-        self.code_generator.deploy_contracts(pre=self.pre, fork=self.fork)
+        self.code_generator.deploy_contracts(
+            pre=self.pre, fork=self.fork.fork_at(block_number=0, timestamp=0)
+        )
         gas_limit = (
-            self.fork.transaction_gas_limit_cap() or self.gas_benchmark_value
+            self.fork.fork_at(
+                block_number=0, timestamp=0
+            ).transaction_gas_limit_cap()
+            or self.gas_benchmark_value
         )
         benchmark_tx = self.code_generator.generate_transaction(
             pre=self.pre, gas_benchmark_value=gas_limit
@@ -474,10 +481,13 @@ class BenchmarkTest(BaseTest):
         if self.code_generator is None:
             raise Exception("Code generator is not set")
         self.code_generator.deploy_fix_count_contracts(
-            pre=self.pre, fork=self.fork
+            pre=self.pre, fork=self.fork.fork_at(block_number=0, timestamp=0)
         )
         gas_limit = (
-            self.fork.transaction_gas_limit_cap() or self.gas_benchmark_value
+            self.fork.fork_at(
+                block_number=0, timestamp=0
+            ).transaction_gas_limit_cap()
+            or self.gas_benchmark_value
         )
         benchmark_tx = self.code_generator.generate_transaction(
             pre=self.pre, gas_benchmark_value=gas_limit

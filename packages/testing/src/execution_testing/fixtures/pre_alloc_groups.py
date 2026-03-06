@@ -24,7 +24,7 @@ from execution_testing.base_types import (
     EthereumTestRootModel,
     Hash,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import Alloc, Environment
 from execution_testing.test_types.chain_config_types import DEFAULT_CHAIN_ID
 
@@ -38,7 +38,7 @@ class PreAllocGroupBuilder(CamelModel):
     environment: Environment = Field(
         ..., description="Grouping environment for this test group"
     )
-    fork: Fork = Field(..., alias="network")
+    fork: Fork | TransitionFork = Field(..., alias="network")
     chain_id: int = DEFAULT_CHAIN_ID
     pre: Alloc
 
@@ -53,7 +53,7 @@ class PreAllocGroupBuilder(CamelModel):
     def calculate_genesis(self) -> FixtureHeader:
         """Get the genesis header for this group."""
         return FixtureHeader.genesis(
-            self.fork,
+            self.fork.transitions_from(),
             self.environment,
             self.pre.state_root(),
         )
@@ -208,7 +208,7 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
         *,
         pre_alloc_hash: str,
         test_id: str,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         chain_id: int,
         environment: Environment,
         pre: Alloc,
@@ -233,7 +233,9 @@ class PreAllocGroupBuilders(EthereumTestRootModel):
                 chain_id=chain_id,
                 environment=environment,
                 pre=Alloc.merge(
-                    Alloc.model_validate(fork.pre_allocation_blockchain()),
+                    Alloc.model_validate(
+                        fork.transitions_to().pre_allocation_blockchain()
+                    ),
                     pre,
                 ),
             )

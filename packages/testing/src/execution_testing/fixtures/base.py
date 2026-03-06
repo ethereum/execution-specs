@@ -30,7 +30,7 @@ from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
 from execution_testing.base_types import CamelModel, ReferenceSpec
 from execution_testing.client_clis.cli_types import OpcodeCount
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 
 
 def fixture_format_discriminator(v: Any) -> str | None:
@@ -183,12 +183,12 @@ class BaseFixture(CamelModel):
         if _info_metadata:
             self.info.update(_info_metadata)
 
-    def get_fork(self) -> Fork | None:
+    def get_fork(self) -> Fork | TransitionFork | None:
         """Return fork of the fixture as a string."""
         raise NotImplementedError
 
     @classmethod
-    def supports_fork(cls, fork: Fork) -> bool:
+    def supports_fork(cls, fork: Fork | TransitionFork) -> bool:
         """
         Return whether the fixture can be generated for the given fork.
 
@@ -200,7 +200,7 @@ class BaseFixture(CamelModel):
     @classmethod
     def discard_fixture_format_by_marks(
         cls,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """

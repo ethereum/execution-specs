@@ -27,11 +27,11 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     Bytecode,
-    Fork,
     Hash,
     Op,
     Storage,
     Transaction,
+    TransitionFork,
     Withdrawal,
 )
 
@@ -546,7 +546,7 @@ def test_beacon_root_transition(
     block_count: int,
     call_gas: int,
     call_value: int,
-    fork: Fork,
+    fork: TransitionFork,
 ) -> None:
     """
     Tests the fork transition to cancun and verifies that blocks with timestamp
@@ -572,9 +572,9 @@ def test_beacon_root_transition(
     ):
         timestamp_index = timestamp % Spec.HISTORY_BUFFER_LENGTH
 
-        transitioned = fork.header_beacon_root_required(
+        transitioned = fork.fork_at(
             block_number=i, timestamp=timestamp
-        )
+        ).header_beacon_root_required()
         if transitioned:
             # We've transitioned, the current timestamp must contain a value in
             # the contract
@@ -678,15 +678,15 @@ def test_no_beacon_root_contract_at_transition(
     tx: Transaction,
     timestamp: int,
     caller_address: Address,
-    fork: Fork,
+    fork: TransitionFork,
 ) -> None:
     """
     Tests the fork transition to cancun in the case where the beacon root
     pre-deploy was not deployed in time for the fork.
     """
-    assert fork.header_beacon_root_required(
+    assert fork.fork_at(
         block_number=1, timestamp=timestamp
-    )
+    ).header_beacon_root_required()
     blocks: List[Block] = [
         Block(
             txs=[tx],
@@ -757,15 +757,15 @@ def test_beacon_root_contract_deploy(
     tx: Transaction,
     timestamp: int,
     post: Dict,
-    fork: Fork,
+    fork: TransitionFork,
 ) -> None:
     """
     Tests the fork transition to cancun deploying the contract during Shanghai
     and verifying the code deployed and its functionality after Cancun.
     """
-    assert fork.header_beacon_root_required(
+    assert fork.fork_at(
         block_number=1, timestamp=timestamp
-    )
+    ).header_beacon_root_required()
     tx_gas_limit = 0x3D090
     tx_gas_price = 0xE8D4A51000
     deployer_required_balance = tx_gas_limit * tx_gas_price
@@ -801,9 +801,9 @@ def test_beacon_root_contract_deploy(
                     txs=[deploy_tx],
                     parent_beacon_block_root=(
                         beacon_root
-                        if fork.header_beacon_root_required(
+                        if fork.fork_at(
                             block_number=1, timestamp=current_timestamp
-                        )
+                        ).header_beacon_root_required()
                         else None
                     ),
                     timestamp=timestamp // 2,
@@ -866,7 +866,7 @@ def test_beacon_root_contract_deploy(
         else:
             raise AssertionError("This test should only have two blocks")
 
-    expected_code = fork.pre_allocation_blockchain()[
+    expected_code = fork.transitions_to().pre_allocation_blockchain()[
         Spec.BEACON_ROOTS_ADDRESS
     ]["code"]
     pre[Spec.BEACON_ROOTS_ADDRESS] = Account(

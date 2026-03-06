@@ -65,7 +65,7 @@ from execution_testing.fixtures.pre_alloc_groups import (
 )
 from execution_testing.forks import (
     Fork,
-    get_transition_fork_predecessor,
+    TransitionFork,
     get_transition_forks,
 )
 from execution_testing.specs import BaseTest
@@ -1625,7 +1625,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
     def base_test_parametrizer_func(
         request: pytest.FixtureRequest,
         t8n: TransitionTool,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         reference_spec: ReferenceSpec,
         pre: Alloc,
         output_dir: Path,
@@ -1900,7 +1900,7 @@ def pytest_collection_modifyitems(
         if not params or "fork" not in params or params["fork"] is None:
             items_for_removal.append(i)
             continue
-        fork: Fork = params["fork"]
+        fork: Fork | TransitionFork = params["fork"]
         spec_type, fixture_format = get_spec_format_for_item(params)
         if isinstance(fixture_format, NotSetType):
             items_for_removal.append(i)
@@ -1947,7 +1947,7 @@ def pytest_collection_modifyitems(
                 marker.name == "valid_at_transition_to" for marker in markers
             )
             if has_state_test and has_valid_transition:
-                base_fork = get_transition_fork_predecessor(fork)
+                base_fork = fork.transitions_from()
                 item._nodeid = item._nodeid.replace(
                     f"fork_{fork.name()}",
                     f"fork_{base_fork.name()}",

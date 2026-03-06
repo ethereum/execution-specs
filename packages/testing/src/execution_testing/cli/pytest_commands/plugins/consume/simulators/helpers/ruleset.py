@@ -37,6 +37,7 @@ from execution_testing.forks import (
     PragueToOsakaAtTime15k,
     Shanghai,
     ShanghaiToCancunAtTime15k,
+    TransitionFork,
 )
 
 
@@ -72,7 +73,7 @@ def get_blob_schedule_entries(fork: Fork) -> Dict[str, int]:
     return entries
 
 
-ruleset: Dict[Fork, Dict[str, int]] = {
+ruleset: Dict[Fork | TransitionFork, Dict[str, int]] = {
     Frontier: {
         "HIVE_FORK_HOMESTEAD": 2000,
         "HIVE_FORK_DAO_BLOCK": 2000,

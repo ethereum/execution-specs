@@ -36,12 +36,8 @@ class Bytecode:
     _keccak_256_: Hash | None = None
     _gas_cost_: int | None = None
     _gas_cost_fork_: Type[ForkOpcodeInterface] | None = None
-    _gas_cost_block_number_: int | None = None
-    _gas_cost_timestamp_: int | None = None
     _refund_: int | None = None
     _refund_fork_: Type[ForkOpcodeInterface] | None = None
-    _refund_block_number_: int | None = None
-    _refund_timestamp_: int | None = None
 
     popped_stack_items: int
     pushed_stack_items: int
@@ -274,51 +270,21 @@ class Bytecode:
             self._keccak_256_ = Bytes(self._bytes_).keccak256()
         return self._keccak_256_
 
-    def gas_cost(
-        self,
-        fork: Type[ForkOpcodeInterface],
-        *,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> int:
+    def gas_cost(self, fork: Type[ForkOpcodeInterface]) -> int:
         """Use a fork object to calculate the gas used by this bytecode."""
-        if (
-            self._gas_cost_ is None
-            or self._gas_cost_fork_ != fork
-            or self._gas_cost_block_number_ != block_number
-            or self._gas_cost_timestamp_ != timestamp
-        ):
+        if self._gas_cost_ is None or self._gas_cost_fork_ != fork:
             self._gas_cost_fork_ = fork
-            self._gas_cost_block_number_ = block_number
-            self._gas_cost_timestamp_ = timestamp
-            opcode_gas_calculator = fork.opcode_gas_calculator(
-                block_number=block_number, timestamp=timestamp
-            )
+            opcode_gas_calculator = fork.opcode_gas_calculator()
             self._gas_cost_ = 0
             for opcode in self.opcode_list:
                 self._gas_cost_ += opcode_gas_calculator(opcode)
         return self._gas_cost_
 
-    def refund(
-        self,
-        fork: Type[ForkOpcodeInterface],
-        *,
-        block_number: int = 0,
-        timestamp: int = 0,
-    ) -> int:
+    def refund(self, fork: Type[ForkOpcodeInterface]) -> int:
         """Use a fork object to calculate the gas refund from this bytecode."""
-        if (
-            self._refund_ is None
-            or self._refund_fork_ != fork
-            or self._refund_block_number_ != block_number
-            or self._refund_timestamp_ != timestamp
-        ):
+        if self._refund_ is None or self._refund_fork_ != fork:
             self._refund_fork_ = fork
-            self._refund_block_number_ = block_number
-            self._refund_timestamp_ = timestamp
-            opcode_refund_calculator = fork.opcode_refund_calculator(
-                block_number=block_number, timestamp=timestamp
-            )
+            opcode_refund_calculator = fork.opcode_refund_calculator()
             self._refund_ = 0
             for opcode in self.opcode_list:
                 self._refund_ += opcode_refund_calculator(opcode)

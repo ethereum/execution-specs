@@ -18,7 +18,7 @@ from execution_testing.base_types.conversions import (
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import EOA
 from execution_testing.test_types import Alloc as BaseAlloc
 
@@ -35,7 +35,7 @@ class Alloc(BaseAlloc):
     Allocation subclass that enforces rules set by the allocation flags.
     """
 
-    _fork: Fork = PrivateAttr()
+    _fork: Fork | TransitionFork = PrivateAttr()
     _flags: AllocFlags = PrivateAttr(AllocFlags.NONE)
     _set_addresses: Set[Address] = PrivateAttr(default_factory=set)
     _deleted_addresses: Set[Address] = PrivateAttr(default_factory=set)

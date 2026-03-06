@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.test_types.chain_config_types import (
     ChainConfigDefaults,
@@ -176,7 +176,7 @@ def eth_rpc(
     request: pytest.FixtureRequest,
     rpc_endpoint: str,
     engine_rpc: EngineRPC | None,
-    session_fork: Fork,
+    session_fork: Fork | TransitionFork,
     session_temp_folder: Path,
     max_transactions_per_batch: int | None,
     use_testing_build_block: bool,

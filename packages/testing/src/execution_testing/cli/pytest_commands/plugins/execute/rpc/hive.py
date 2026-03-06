@@ -21,7 +21,7 @@ from execution_testing.base_types import (
     to_json,
 )
 from execution_testing.fixtures.blockchain import FixtureHeader
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
@@ -120,11 +120,16 @@ def base_pre(
 
 @pytest.fixture(scope="session")
 def base_pre_genesis(
-    session_fork: Fork,
+    session_fork: Fork | TransitionFork,
     base_pre: Alloc,
 ) -> Tuple[Alloc, FixtureHeader]:
     """Create a genesis block from the blockchain test definition."""
-    env = Environment().set_fork_requirements(session_fork)
+    block_number = 0
+    timestamp = 1
+    genesis_fork = session_fork.fork_at(
+        block_number=block_number, timestamp=timestamp
+    )
+    env = Environment().set_fork_requirements(genesis_fork)
     assert env.withdrawals is None or len(env.withdrawals) == 0, (
         "withdrawals must be empty at genesis"
     )
@@ -134,14 +139,14 @@ def base_pre_genesis(
     ), "parent_beacon_block_root must be empty at genesis"
 
     pre_alloc = Alloc.merge(
-        Alloc.model_validate(session_fork.pre_allocation_blockchain()),
+        Alloc.model_validate(
+            session_fork.transitions_to().pre_allocation_blockchain()
+        ),
         base_pre,
     )
     if empty_accounts := pre_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")
     state_root = pre_alloc.state_root()
-    block_number = 0
-    timestamp = 1
     genesis = FixtureHeader(
         parent_hash=0,
         ommers_hash=EmptyOmmersRoot,
@@ -168,14 +173,10 @@ def base_pre_genesis(
         ),
         parent_beacon_block_root=env.parent_beacon_block_root,
         requests_hash=Requests()
-        if session_fork.header_requests_required(
-            block_number=block_number, timestamp=timestamp
-        )
+        if genesis_fork.header_requests_required()
         else None,
         block_access_list_hash=Hash(EmptyTrieRoot)
-        if session_fork.header_bal_hash_required(
-            block_number=block_number, timestamp=timestamp
-        )
+        if genesis_fork.header_bal_hash_required()
         else None,
     )
 
@@ -402,7 +403,7 @@ def eth_rpc(
     request: pytest.FixtureRequest,
     client: Client,
     engine_rpc: EngineRPC,
-    session_fork: Fork,
+    session_fork: Fork | TransitionFork,
     session_temp_folder: Path,
     max_transactions_per_batch: int | None,
     use_testing_build_block: bool,

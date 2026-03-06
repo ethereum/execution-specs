@@ -33,7 +33,7 @@ from execution_testing.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
 from execution_testing.test_types import Environment, Withdrawal
 from execution_testing.test_types.receipt_types import (
@@ -103,8 +103,8 @@ class BaseTest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    fork: Fork = (
-        BaseFork  # type: ignore[type-abstract]
+    fork: Fork | TransitionFork = (
+        BaseFork
         # default to BaseFork to allow the filler to set it,
         # instead of each test having to set it
     )
@@ -139,7 +139,7 @@ class BaseTest(BaseModel):
     def discard_fixture_format_by_marks(
         cls,
         fixture_format: FixtureFormat,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """
@@ -182,7 +182,7 @@ class BaseTest(BaseModel):
     def discard_execute_format_by_marks(
         cls,
         execute_format: ExecuteFormat,
-        fork: Fork,
+        fork: Fork | TransitionFork,
         markers: List[pytest.Mark],
     ) -> bool:
         """

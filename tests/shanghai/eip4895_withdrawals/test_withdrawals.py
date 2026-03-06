@@ -311,9 +311,7 @@ class TestMultipleWithdrawalsSameAddress:
 
     @pytest.fixture
     def addresses(self, fork: Fork) -> List[Address]:  # noqa: D102
-        addresses = [
-            Address(p) for p in fork.precompiles(block_number=0, timestamp=0)
-        ]
+        addresses = [Address(p) for p in fork.precompiles()]
         return addresses + [Address(2**160 - 1)]
 
     @pytest.fixture

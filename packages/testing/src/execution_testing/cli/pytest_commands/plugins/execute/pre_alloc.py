@@ -29,7 +29,7 @@ from execution_testing.base_types.conversions import (
     BytesConvertible,
     NumberConvertible,
 )
-from execution_testing.forks import Fork
+from execution_testing.forks import Fork, TransitionFork
 from execution_testing.logging import get_logger
 from execution_testing.rpc import EthRPC
 from execution_testing.rpc.rpc_types import TransactionByHashResponse
@@ -179,7 +179,7 @@ def eoa_iterator(request: pytest.FixtureRequest) -> Iterator[EOA]:
 
 @pytest.fixture(scope="session", autouse=True)
 def execute_required_contracts(
-    session_fork: Fork,
+    session_fork: Fork | TransitionFork,
     session_worker_key: EOA,
     eth_rpc: EthRPC,
     sender_funding_transactions_gas_price: int,
@@ -281,6 +281,8 @@ class Alloc(SharedAlloc):
     _deferred_fund_addresses: List[_DeferredFundAddress] = PrivateAttr(
         default_factory=list
     )
+    _block_number: int = PrivateAttr()
+    _timestamp: int = PrivateAttr()
 
     def __init__(
         self,
@@ -291,6 +293,8 @@ class Alloc(SharedAlloc):
         chain_id: int,
         node_id: str = "",
         address_stubs: AddressStubs | None = None,
+        block_number: int = 0,
+        timestamp: int = 0,
         **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc with the given parameters."""
@@ -301,6 +305,8 @@ class Alloc(SharedAlloc):
         self._chain_id = chain_id
         self._node_id = node_id
         self._address_stubs = address_stubs or AddressStubs(root={})
+        self._block_number = block_number
+        self._timestamp = timestamp
 
     def code_pre_processor(self, code: Bytecode) -> Bytecode:
         """Pre-processes the code before setting it."""
@@ -350,13 +356,14 @@ class Alloc(SharedAlloc):
         trip.
         """
         del storage
-        gas_costs = self._fork.gas_costs()
+        fork = self._fork.fork_at(
+            block_number=self._block_number, timestamp=self._timestamp
+        )
+        gas_costs = fork.gas_costs()
         memory_expansion_gas_calculator = (
-            self._fork.memory_expansion_gas_calculator()
+            fork.memory_expansion_gas_calculator()
         )
-        calldata_gas_calculator = self._fork.calldata_gas_calculator(
-            block_number=0, timestamp=0
-        )
+        calldata_gas_calculator = fork.calldata_gas_calculator()
         if not isinstance(deploy_code, Bytes):
             deploy_code = Bytes(deploy_code)
         if initcode is None:
@@ -365,16 +372,16 @@ class Alloc(SharedAlloc):
             initcode = Bytes(initcode)
         salt = Hash(salt)
         contract_address = compute_deterministic_create2_address(
-            salt=salt, initcode=initcode, fork=self._fork
+            salt=salt, initcode=initcode, fork=fork
         )
 
         # Pre-compute the gas limit for the deploy transaction.
-        max_code_size = self._fork.max_code_size()
+        max_code_size = fork.max_code_size()
         if len(deploy_code) > max_code_size:
             raise ValueError(
                 f"code too large: {len(deploy_code)} > {max_code_size}"
             )
-        max_initcode_size = self._fork.max_initcode_size()
+        max_initcode_size = fork.max_initcode_size()
         if len(initcode) > max_initcode_size:
             raise ValueError(
                 f"initcode too large {len(initcode)} > {max_initcode_size}"
@@ -388,7 +395,7 @@ class Alloc(SharedAlloc):
         )
         deploy_gas_limit += calldata_gas_calculator(data=initcode)
         deploy_gas_limit = deploy_gas_limit * 2
-        tx_gas_limit_cap = self._fork.transaction_gas_limit_cap()
+        tx_gas_limit_cap = fork.transaction_gas_limit_cap()
         if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
             raise ValueError(
                 f"deterministic deploy gas limit exceeds the transaction "
@@ -433,14 +440,14 @@ class Alloc(SharedAlloc):
         if storage is None:
             storage = {}
         assert address is None, "address parameter is not supported"
-
-        gas_costs = self._fork.gas_costs()
+        fork = self._fork.fork_at(
+            block_number=self._block_number, timestamp=self._timestamp
+        )
+        gas_costs = fork.gas_costs()
         memory_expansion_gas_calculator = (
-            self._fork.memory_expansion_gas_calculator()
+            fork.memory_expansion_gas_calculator()
         )
-        calldata_gas_calculator = self._fork.calldata_gas_calculator(
-            block_number=0, timestamp=0
-        )
+        calldata_gas_calculator = fork.calldata_gas_calculator()
 
         if not isinstance(storage, Storage):
             storage = Storage(storage)  # type: ignore
@@ -488,7 +495,7 @@ class Alloc(SharedAlloc):
         )
         code = self.code_pre_processor(code)
 
-        max_code_size = self._fork.max_code_size()
+        max_code_size = fork.max_code_size()
         if len(code) > max_code_size:
             raise ValueError(f"code too large: {len(code)} > {max_code_size}")
 
@@ -501,7 +508,7 @@ class Alloc(SharedAlloc):
             new_bytes=len(bytes(prepared_initcode))
         )
 
-        max_initcode_size = self._fork.max_initcode_size()
+        max_initcode_size = fork.max_initcode_size()
         initcode_len = len(prepared_initcode)
         if initcode_len > max_initcode_size:
             raise ValueError(
@@ -511,7 +518,7 @@ class Alloc(SharedAlloc):
         deploy_gas_limit += calldata_gas_calculator(data=prepared_initcode)
 
         deploy_gas_limit = deploy_gas_limit * 2
-        tx_gas_limit_cap = self._fork.transaction_gas_limit_cap()
+        tx_gas_limit_cap = fork.transaction_gas_limit_cap()
         if tx_gas_limit_cap and deploy_gas_limit > tx_gas_limit_cap:
             raise ValueError(
                 f"deploy gas limit exceeds the transaction gas limit cap: "
@@ -756,6 +763,9 @@ class Alloc(SharedAlloc):
         deferred = self._deferred_deterministic_deploys
         if not deferred:
             return
+        fork = self._fork.fork_at(
+            block_number=self._block_number, timestamp=self._timestamp
+        )
         self._deferred_deterministic_deploys = []
 
         addresses = [d.contract_address for d in deferred]
@@ -779,7 +789,7 @@ class Alloc(SharedAlloc):
                 if not factory_checked:
                     assert (
                         check_deterministic_factory_deployment(
-                            eth_rpc=self._eth_rpc, fork=self._fork
+                            eth_rpc=self._eth_rpc, fork=fork
                         )
                         is not None
                     ), "Deployment contract code is not found"
@@ -929,6 +939,9 @@ class Alloc(SharedAlloc):
         """
         minimum_balance = 0
         gas_consumption = 0
+        fork = self._fork.fork_at(
+            block_number=self._block_number, timestamp=self._timestamp
+        )
         for tx in self._pending_txs:
             if tx.value is None:
                 # WARN: This currently fails if there's an account with
@@ -957,7 +970,7 @@ class Alloc(SharedAlloc):
                 max_fee_per_blob_gas=max_fee_per_blob_gas,
             )
             gas_consumption += tx.gas_limit
-            minimum_balance += tx.signer_minimum_balance(fork=self._fork)
+            minimum_balance += tx.signer_minimum_balance(fork=fork)
         return minimum_balance + gas_consumption * gas_price, gas_consumption
 
     def send_pending_transactions(self) -> List[TransactionByHashResponse]:

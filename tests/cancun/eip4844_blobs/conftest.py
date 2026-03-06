@@ -10,6 +10,7 @@ from execution_testing import (
     Fork,
     Hash,
     Transaction,
+    TransitionFork,
     add_kzg_version,
 )
 
@@ -274,7 +275,7 @@ def tx_max_fee_per_blob_gas(  # noqa: D103
 def non_zero_blob_gas_used_genesis_block(
     pre: Alloc,
     parent_blobs: int,
-    fork: Fork,
+    fork: Fork | TransitionFork,
     genesis_excess_blob_gas: int,
     parent_excess_blob_gas: int,
     tx_max_fee_per_gas: int,
@@ -299,10 +300,8 @@ def non_zero_blob_gas_used_genesis_block(
     """
     if parent_blobs == 0:
         return None
-
-    excess_blob_gas_calculator = fork.excess_blob_gas_calculator(
-        block_number=1
-    )
+    block_fork = fork.fork_at(block_number=1)
+    excess_blob_gas_calculator = block_fork.excess_blob_gas_calculator()
     calculated_excess_blob_gas = excess_blob_gas_calculator(
         parent_excess_blob_gas=genesis_excess_blob_gas,
         parent_blob_count=0,
@@ -317,15 +316,15 @@ def non_zero_blob_gas_used_genesis_block(
 
     sender = pre.fund_eoa(10**42)
     empty_account_destination = pre.fund_eoa(0)
-    blob_gas_price_calculator = fork.blob_gas_price_calculator(block_number=1)
+    blob_gas_price_calculator = block_fork.blob_gas_price_calculator()
 
     # Split blobs into chunks when MAX_BLOBS_PER_TX < MAX_BLOBS_PER_BLOCK to
     # respect per-tx limits. Allows us to keep single txs for forks where per-
     # tx and per-block limits are equal, hitting coverage for block level blob
     # gas validation when parent_blobs > MAX_BLOBS_PER_BLOCK.
     max_blobs_per_tx = (
-        fork.max_blobs_per_tx()
-        if fork.max_blobs_per_tx() < fork.max_blobs_per_block()
+        block_fork.max_blobs_per_tx()
+        if block_fork.max_blobs_per_tx() < block_fork.max_blobs_per_block()
         else parent_blobs
     )
     blob_chunks = [
