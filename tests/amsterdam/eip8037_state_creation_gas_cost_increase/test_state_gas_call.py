@@ -49,7 +49,7 @@ def test_child_call_uses_reservoir(
 
     child_storage = Storage()
     child = pre.deploy_contract(
-        code=Op.SSTORE(child_storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(child_storage.store_next(1), 1),
     )
 
     parent_storage = Storage()
@@ -59,7 +59,6 @@ def test_child_call_uses_reservoir(
                 parent_storage.store_next(1),
                 Op.CALL(gas=100_000, address=child),
             )
-            + Op.STOP
         ),
     )
 
@@ -100,7 +99,6 @@ def test_reservoir_returned_on_revert(
             Op.POP(Op.CALL(gas=100_000, address=child))
             # Parent can still use reservoir for its own SSTORE
             + Op.SSTORE(parent_storage.store_next(1), 1)
-            + Op.STOP
         ),
     )
 
@@ -139,7 +137,6 @@ def test_reservoir_returned_on_oog(
             Op.POP(Op.CALL(gas=100, address=child))
             # Parent can still use reservoir for SSTORE
             + Op.SSTORE(parent_storage.store_next(1), 1)
-            + Op.STOP
         ),
     )
 
@@ -186,7 +183,6 @@ def test_reservoir_restored_after_child_spill_and_revert(
             # can perform two SSTOREs from the recovered reservoir
             + Op.SSTORE(parent_storage.store_next(1), 1)
             + Op.SSTORE(parent_storage.store_next(1), 1)
-            + Op.STOP
         ),
     )
 
@@ -232,7 +228,6 @@ def test_reservoir_restored_after_child_spill_and_halt(
             # can perform two SSTOREs from the recovered reservoir
             + Op.SSTORE(parent_storage.store_next(1), 1)
             + Op.SSTORE(parent_storage.store_next(1), 1)
-            + Op.STOP
         ),
     )
 
@@ -272,7 +267,6 @@ def test_reservoir_restored_after_child_full_drain_and_revert(
         code=(
             Op.POP(Op.CALL(gas=500_000, address=child))
             + Op.SSTORE(parent_storage.store_next(1), 1)
-            + Op.STOP
         ),
     )
 
@@ -316,7 +310,6 @@ def test_sequential_calls_reservoir_restored_between_reverts(
             + Op.POP(Op.CALL(gas=500_000, address=child))
             # Parent SSTORE succeeds with restored reservoir
             + Op.SSTORE(parent_storage.store_next(1), 1)
-            + Op.STOP
         ),
     )
 
@@ -348,11 +341,11 @@ def test_nested_calls_reservoir_passing(
 
     c_storage = Storage()
     c = pre.deploy_contract(
-        code=Op.SSTORE(c_storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(c_storage.store_next(1), 1),
     )
 
     b = pre.deploy_contract(
-        code=Op.CALL(gas=200_000, address=c) + Op.STOP,
+        code=Op.CALL(gas=200_000, address=c),
     )
 
     a_storage = Storage()
@@ -362,7 +355,6 @@ def test_nested_calls_reservoir_passing(
                 a_storage.store_next(1),
                 Op.CALL(gas=300_000, address=b),
             )
-            + Op.STOP
         ),
     )
 
@@ -388,7 +380,7 @@ def test_call_value_transfer_new_account(
     Test CALL with value to non-existent account charges state gas.
 
     A CALL that transfers value to a non-existent account creates a
-    new account, charging 112 * cost_per_state_byte of state gas.
+    new account, charging new-account state gas of state gas.
     """
     env = Environment()
     cpsb = Spec.COST_PER_STATE_BYTE
@@ -404,7 +396,6 @@ def test_call_value_transfer_new_account(
                 parent_storage.store_next(1),
                 Op.CALL(gas=100_000, address=target, value=1),
             )
-            + Op.STOP
         ),
         balance=1,
     )
@@ -440,7 +431,6 @@ def test_call_value_transfer_existing_account_no_state_gas(
                 parent_storage.store_next(1),
                 Op.CALL(gas=100_000, address=target, value=1),
             )
-            + Op.STOP
         ),
         balance=1,
     )
@@ -474,7 +464,7 @@ def test_child_state_gas_tracked_in_parent(
 
     child_storage = Storage()
     child = pre.deploy_contract(
-        code=Op.SSTORE(child_storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(child_storage.store_next(1), 1),
     )
 
     parent_storage = Storage()
@@ -487,7 +477,6 @@ def test_child_state_gas_tracked_in_parent(
                 parent_storage.store_next(1),
                 Op.CALL(gas=100_000, address=child),
             )
-            + Op.STOP
         ),
     )
 
@@ -523,13 +512,13 @@ def test_delegatecall_reservoir_passing(
 
     # Library code that writes to slot 0 — runs in parent's context
     library = pre.deploy_contract(
-        code=Op.SSTORE(0, 1) + Op.STOP,
+        code=Op.SSTORE(0, 1),
     )
 
     parent_storage = Storage()
     parent_storage[0] = 1  # Expect slot 0 = 1 after delegatecall
     parent = pre.deploy_contract(
-        code=(Op.DELEGATECALL(gas=100_000, address=library) + Op.STOP),
+        code=(Op.DELEGATECALL(gas=100_000, address=library)),
     )
 
     tx = Transaction(
@@ -560,7 +549,7 @@ def test_staticcall_passes_reservoir(
 
     # Child does a read-only operation
     child = pre.deploy_contract(
-        code=Op.MSTORE(0, Op.ADDRESS) + Op.STOP,
+        code=Op.MSTORE(0, Op.ADDRESS),
     )
 
     parent_storage = Storage()
@@ -569,7 +558,6 @@ def test_staticcall_passes_reservoir(
             Op.POP(Op.STATICCALL(gas=100_000, address=child))
             # Reservoir should still be available for parent's SSTORE
             + Op.SSTORE(parent_storage.store_next(1), 1)
-            + Op.STOP
         ),
     )
 
@@ -606,7 +594,6 @@ def test_gas_opcode_excludes_reservoir(
             Op.SSTORE(0, Op.GAS)
             # Store 1 to prove execution reached this point
             + Op.SSTORE(storage.store_next(1), 1)
-            + Op.STOP
         ),
     )
 
@@ -654,7 +641,6 @@ def test_call_insufficient_balance_returns_reservoir(
             )
             # Reservoir should be returned — SSTORE still works
             + Op.SSTORE(storage.store_next(1, "sstore_after"), 1)
-            + Op.STOP
         ),
     )
 
@@ -695,7 +681,6 @@ def test_create_insufficient_balance_returns_reservoir(
             )
             # Reservoir returned — SSTORE still works
             + Op.SSTORE(storage.store_next(1, "sstore_after"), 1)
-            + Op.STOP
         ),
     )
 
@@ -735,7 +720,6 @@ def test_call_stack_depth_returns_reservoir(
             # After recursion unwinds, only the outermost frame
             # reaches this SSTORE
             + Op.SSTORE(storage.store_next(1, "after_recursion"), 1)
-            + Op.STOP
         ),
     )
 

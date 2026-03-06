@@ -28,7 +28,7 @@ def test_sstore_zero_to_nonzero(
     """Test SSTORE zero-to-nonzero charges state gas and succeeds."""
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     tx = Transaction(
@@ -60,7 +60,6 @@ def test_create_charges_state_gas(
                 storage.store_next(True),
                 Op.GT(Op.CREATE(0, 0, len(init_code)), 0),
             )
-            + Op.STOP
         ),
     )
 
