@@ -31,12 +31,14 @@ def test_create_tx_intrinsic_gas_includes_state_component(
     Contract-creating transactions must include the EIP-8037 intrinsic state
     gas for account creation.
     """
+    intrinsic_gas = 21_000 + Spec.CREATE_REGULAR + Spec.CREATE_STATE
+
     tx = Transaction(
         ty=tx_type,
         sender=pre.fund_eoa(),
         to=None,
         data=b"",
-        gas_limit=21_000 + Spec.CREATE_REGULAR,
+        gas_limit=intrinsic_gas - 1,
         error=TransactionException.INTRINSIC_GAS_TOO_LOW,
     )
 
@@ -52,6 +54,9 @@ def test_set_code_tx_intrinsic_gas_includes_state_component(
     Set-code transactions must include the EIP-8037 intrinsic state gas for
     each authorization.
     """
+    intrinsic_gas = (
+        21_000 + Spec.PER_AUTH_BASE_REGULAR + Spec.TOTAL_AUTH_STATE
+    )
     auth_signer = pre.fund_eoa()
     delegated_to = pre.fund_eoa(0)
     destination = pre.deploy_contract(code=Op.STOP)
@@ -60,7 +65,7 @@ def test_set_code_tx_intrinsic_gas_includes_state_component(
         ty=4,
         sender=pre.fund_eoa(),
         to=destination,
-        gas_limit=21_000 + Spec.PER_AUTH_BASE_REGULAR,
+        gas_limit=intrinsic_gas - 1,
         authorization_list=[
             AuthorizationTuple(
                 address=delegated_to,
@@ -128,6 +133,9 @@ def test_nested_create_code_deposit_does_not_borrow_parent_regular_gas(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=factory,
+        # 54,225 is the smallest tx gas limit that makes the inner CREATE
+        # finish initcode with 1,175 gas: enough for the 6-gas regular
+        # pre-check, but not enough for the 6 + 1,174 state-spill deposit.
         gas_limit=54_225,
     )
 

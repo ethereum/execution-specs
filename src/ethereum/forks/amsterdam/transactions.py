@@ -50,9 +50,9 @@ gas cost for transactions that include calldata.
 [EIP-7623]: https://eips.ethereum.org/EIPS/eip-7623
 """
 
-GAS_TX_CREATE = Uint(32000)
+GAS_TX_CREATE = Uint(9000 + 112 * 1174)
 """
-Additional gas cost for creating a new contract.
+Additional intrinsic gas cost for creating a new contract under [EIP-8037].
 """
 
 GAS_TX_ACCESS_LIST_ADDRESS = Uint(2400)
@@ -63,6 +63,12 @@ Gas cost for including an address in the access list of a transaction.
 GAS_TX_ACCESS_LIST_STORAGE_KEY = Uint(1900)
 """
 Gas cost for including a storage key in the access list of a transaction.
+"""
+
+GAS_TX_SET_CODE_AUTHORIZATION = Uint(7500 + (23 + 112) * 1174)
+"""
+Additional intrinsic gas cost per authorization in a set-code transaction
+under [EIP-8037]. This is separate from the runtime authorization charge.
 """
 
 TX_MAX_GAS_LIMIT = Uint(16_777_216)
@@ -602,7 +608,6 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     gas cost of the transaction and the minimum gas cost used by the
     transaction based on the calldata size.
     """
-    from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
     from .vm.gas import init_code_cost
 
     num_zeros = Uint(tx.data.count(0))
@@ -639,7 +644,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
 
     auth_cost = Uint(0)
     if isinstance(tx, SetCodeTransaction):
-        auth_cost += Uint(GAS_AUTH_PER_EMPTY_ACCOUNT * len(tx.authorizations))
+        auth_cost += Uint(
+            GAS_TX_SET_CODE_AUTHORIZATION * len(tx.authorizations)
+        )
 
     return (
         Uint(
