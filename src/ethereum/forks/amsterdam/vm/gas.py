@@ -45,7 +45,8 @@ GAS_LOG = Uint(375)
 GAS_LOG_DATA_PER_BYTE = Uint(8)
 GAS_LOG_TOPIC = Uint(375)
 GAS_CREATE = Uint(32000)
-GAS_CODE_DEPOSIT_PER_BYTE = Uint(200)
+GAS_CODE_DEPOSIT_PER_WORD = Uint(6)
+GAS_CODE_DEPOSIT_STATE_PER_BYTE = Uint(1174)
 GAS_ZERO = Uint(0)
 GAS_NEW_ACCOUNT = Uint(25000)
 GAS_CALL_VALUE = Uint(9000)
@@ -304,6 +305,28 @@ def init_code_cost(init_code_length: Uint) -> Uint:
 
     """
     return GAS_CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
+
+
+def calculate_code_deposit_cost(code_length: Uint) -> Uint:
+    """
+    Calculates the total EIP-8037 code-deposit cost.
+
+    Parameters
+    ----------
+    code_length :
+        The length of the code returned by initcode.
+
+    Returns
+    -------
+    code_deposit_gas: `ethereum.base_types.Uint`
+        The total gas charged for depositing the returned code.
+
+    """
+    code_words = ceil32(code_length) // Uint(32)
+    return (
+        code_words * GAS_CODE_DEPOSIT_PER_WORD
+        + code_length * GAS_CODE_DEPOSIT_STATE_PER_BYTE
+    )
 
 
 def calculate_excess_blob_gas(
