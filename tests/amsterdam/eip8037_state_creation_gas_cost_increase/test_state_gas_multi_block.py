@@ -54,11 +54,8 @@ def test_exact_coinbase_fee_simple_sstore(
     """
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
-    sstore_state_gas = (
-        gas_costs.GAS_STORAGE_SET
-        - gas_costs.GAS_STORAGE_UPDATE
-        + gas_costs.GAS_COLD_SLOAD
-    )
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
 
     # Gas breakdown for tx 1 (SSTORE zero-to-nonzero, no calldata):
     # PUSH1(1) + PUSH1(0) + SSTORE(cold, zero-to-nonzero) + STOP
@@ -135,13 +132,9 @@ def test_multi_block_mixed_state_operations(
     This mixed scenario tests that `receipt_gas_used` is consistent
     across different state gas paths within a multi-block chain.
     """
-    gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
-    sstore_state_gas = (
-        gas_costs.GAS_STORAGE_SET
-        - gas_costs.GAS_STORAGE_UPDATE
-        + gas_costs.GAS_COLD_SLOAD
-    )
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
 
     reverting_child = pre.deploy_contract(
         code=(
@@ -252,7 +245,7 @@ def test_multi_block_mixed_state_operations(
     ]
     post = {
         c: Account(storage=s)
-        for c, s in zip(all_contracts, all_storages)
+        for c, s in zip(all_contracts, all_storages, strict=False)
     }
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
@@ -280,13 +273,9 @@ def test_multi_block_observed_coinbase_balance(
       (coinbase earns fee through different code path).
       Tx 4: Store `BALANCE(COINBASE)` in slot 0.
     """
-    gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
-    sstore_state_gas = (
-        gas_costs.GAS_STORAGE_SET
-        - gas_costs.GAS_STORAGE_UPDATE
-        + gas_costs.GAS_COLD_SLOAD
-    )
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
 
     reporter1 = pre.deploy_contract(
         code=(

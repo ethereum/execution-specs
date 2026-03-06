@@ -1186,6 +1186,30 @@ class Frontier(BaseFork, solc_name="homestead"):
         return None
 
     @classmethod
+    def sstore_state_gas(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """Return the state gas for a zero-to-nonzero SSTORE."""
+        del block_number, timestamp
+        return 0
+
+    @classmethod
+    def code_deposit_state_gas(
+        cls, *, code_size: int, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """Return the state gas for code deposit of the given size."""
+        del code_size, block_number, timestamp
+        return 0
+
+    @classmethod
+    def create_state_gas(
+        cls, *, code_size: int = 0, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """Return total state gas for CREATE (new account + code deposit)."""
+        del code_size, block_number, timestamp
+        return 0
+
+    @classmethod
     def block_rlp_size_limit(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> int | None:
@@ -3536,6 +3560,40 @@ class Amsterdam(BPO2):
             ),
             REFUND_AUTH_PER_EXISTING_ACCOUNT=new_acct,
             GAS_BLOCK_ACCESS_LIST_ITEM=2000,
+        )
+
+    @classmethod
+    def sstore_state_gas(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """Return the state gas for a zero-to-nonzero SSTORE (EIP-8037)."""
+        del block_number, timestamp
+        STATE_BYTES_PER_STORAGE_SET = 32  # noqa: N806
+        return STATE_BYTES_PER_STORAGE_SET * cls.cost_per_state_byte()
+
+    @classmethod
+    def code_deposit_state_gas(
+        cls, *, code_size: int, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """Return state gas for code deposit of the given size (EIP-8037)."""
+        del block_number, timestamp
+        return code_size * cls.cost_per_state_byte()
+
+    @classmethod
+    def create_state_gas(
+        cls, *, code_size: int = 0, block_number: int = 0, timestamp: int = 0
+    ) -> int:
+        """Return total state gas for CREATE (new account + code deposit)."""
+        gas_costs = cls.gas_costs(
+            block_number=block_number, timestamp=timestamp
+        )
+        return (
+            gas_costs.GAS_NEW_ACCOUNT
+            + cls.code_deposit_state_gas(
+                code_size=code_size,
+                block_number=block_number,
+                timestamp=timestamp,
+            )
         )
 
     @classmethod
