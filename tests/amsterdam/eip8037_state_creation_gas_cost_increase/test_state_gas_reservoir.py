@@ -31,7 +31,7 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .spec import Spec, ref_spec_8037
+from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -51,6 +51,7 @@ def test_reservoir_allocation_boundary(
     state_test: StateTestFiller,
     pre: Alloc,
     gas_limit_delta: int,
+    fork: Fork,
 ) -> None:
     """
     Test state gas reservoir allocation at TX_MAX_GAS_LIMIT boundary.
@@ -60,6 +61,8 @@ def test_reservoir_allocation_boundary(
     excess goes to the reservoir. In all cases, an SSTORE should
     succeed because state gas can spill from gas_left.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
@@ -67,7 +70,7 @@ def test_reservoir_allocation_boundary(
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + gas_limit_delta,
+        gas_limit=gas_limit_cap + gas_limit_delta,
         sender=pre.fund_eoa(),
     )
 
@@ -90,6 +93,7 @@ def test_sstore_state_gas_source(
     pre: Alloc,
     num_sstores: int,
     reservoir_covers_state_gas: bool,
+    fork: Fork,
 ) -> None:
     """
     Test SSTORE zero-to-nonzero drawing state gas from different sources.
@@ -99,9 +103,10 @@ def test_sstore_state_gas_source(
     When False, the reservoir is minimal (1 gas unit) and state gas must
     spill into gas_left.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
-    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+    sstore_state_gas = fork.sstore_state_gas()
 
     storage = Storage()
     code = Bytecode()
@@ -116,7 +121,7 @@ def test_sstore_state_gas_source(
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + extra_gas,
+        gas_limit=gas_limit_cap + extra_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -128,6 +133,7 @@ def test_sstore_state_gas_source(
 def test_sstore_state_gas_entirely_from_gas_left(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test SSTORE state gas charged entirely from gas_left (no reservoir).
@@ -135,6 +141,8 @@ def test_sstore_state_gas_entirely_from_gas_left(
     When tx.gas <= TX_MAX_GAS_LIMIT, the reservoir is zero. All state
     gas must come from gas_left.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
@@ -142,7 +150,7 @@ def test_sstore_state_gas_entirely_from_gas_left(
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT,
+        gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
     )
 
@@ -164,6 +172,7 @@ def test_insufficient_gas_for_sstore_state_cost(
     gas, but not enough to also cover the SSTORE state gas. The SSTORE
     should OOG, leaving storage slot 0 unchanged at zero.
     """
+    gas_costs = fork.gas_costs()
     contract = pre.deploy_contract(
         code=Op.SSTORE(0, 1),
     )
@@ -171,7 +180,7 @@ def test_insufficient_gas_for_sstore_state_cost(
     # Enough for intrinsic + warm SSTORE regular gas, but not the
     # state gas cost for zero-to-nonzero transition
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = intrinsic_cost() + Spec.GAS_COLD_STORAGE_WRITE
+    gas_limit = intrinsic_cost() + gas_costs.GAS_COLD_STORAGE_WRITE
 
     tx = Transaction(
         to=contract,
@@ -196,6 +205,7 @@ def test_block_regular_gas_limit(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     exceed_block_gas_limit: bool,
+    fork: Fork,
 ) -> None:
     """
     Test check_transaction enforcement of regular gas against block limit.
@@ -204,8 +214,10 @@ def test_block_regular_gas_limit(
     Fill the block with transactions at TX_MAX_GAS_LIMIT and verify
     the last one is accepted or rejected based on remaining capacity.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    tx_count = env.gas_limit // Spec.TX_MAX_GAS_LIMIT
+    tx_count = env.gas_limit // gas_limit_cap
 
     gas_spender = pre.deploy_contract(code=Op.INVALID)
 
@@ -215,7 +227,7 @@ def test_block_regular_gas_limit(
             Transaction(
                 to=gas_spender,
                 sender=pre.fund_eoa(),
-                gas_limit=Spec.TX_MAX_GAS_LIMIT,
+                gas_limit=gas_limit_cap,
                 error=TransactionException.GAS_ALLOWANCE_EXCEEDED
                 if i >= tx_count
                 else None,
@@ -322,6 +334,7 @@ def test_block_gas_used_no_state_ops(
 def test_block_gas_used_with_state_ops(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test block gas_used includes state gas contribution.
@@ -330,6 +343,8 @@ def test_block_gas_used_with_state_ops(
     block_gas_used and block_state_gas_used. The block header gas_used
     is max(block_gas_used, block_state_gas_used).
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
@@ -337,7 +352,7 @@ def test_block_gas_used_with_state_ops(
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT,
+        gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
     )
 
@@ -360,6 +375,7 @@ def test_create_tx_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     gas_above_cap: bool,
+    fork: Fork,
 ) -> None:
     """
     Test contract creation with state gas from reservoir or gas_left.
@@ -369,16 +385,18 @@ def test_create_tx_reservoir(
     beyond TX_MAX_GAS_LIMIT feeds the reservoir. When False, all state
     gas comes from gas_left (reservoir is zero).
     """
+    gas_costs = fork.gas_costs()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     init_code = Op.STOP
 
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
-    create_state_gas = Spec.STATE_BYTES_PER_NEW_ACCOUNT * cpsb
+    create_state_gas = gas_costs.GAS_NEW_ACCOUNT
 
     if gas_above_cap:
-        gas_limit = Spec.TX_MAX_GAS_LIMIT + create_state_gas
+        gas_limit = gas_limit_cap + create_state_gas
     else:
-        gas_limit = Spec.TX_MAX_GAS_LIMIT
+        gas_limit = gas_limit_cap
 
     tx = Transaction(
         to=None,

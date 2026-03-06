@@ -54,18 +54,15 @@ def test_exact_coinbase_fee_simple_sstore(
     """
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
-    sstore_state_gas = (
-        gas_costs.GAS_STORAGE_SET
-        - gas_costs.GAS_STORAGE_UPDATE
-        + gas_costs.GAS_COLD_SLOAD
-    )
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
 
     # Gas breakdown for tx 1 (SSTORE zero-to-nonzero, no calldata):
     # PUSH1(1) + PUSH1(0) + SSTORE(cold, zero-to-nonzero) + STOP
     intrinsic_regular = gas_costs.GAS_TX_BASE
     evm_regular = (
         2 * gas_costs.GAS_VERY_LOW  # PUSH1 + PUSH1
-        + gas_costs.GAS_STORAGE_UPDATE  # SSTORE cold zero-to-nonzero
+        + gas_costs.GAS_COLD_STORAGE_WRITE  # SSTORE cold zero-to-nonzero
     )
     tx1_gas_used = intrinsic_regular + evm_regular + sstore_state_gas
     expected_coinbase = tx1_gas_used
@@ -73,17 +70,12 @@ def test_exact_coinbase_fee_simple_sstore(
     # Tx 1: single SSTORE zero-to-nonzero
     sstore_storage = Storage()
     sstore_contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(sstore_storage.store_next(1), 1)
-        ),
+        code=(Op.SSTORE(sstore_storage.store_next(1), 1)),
     )
 
     # Tx 2: reporter reads BALANCE(COINBASE) into slot 0
     reporter = pre.deploy_contract(
-        code=(
-            Op.SSTORE(0, Op.BALANCE(Op.COINBASE))
-            + Op.SSTORE(1, 1)
-        ),
+        code=(Op.SSTORE(0, Op.BALANCE(Op.COINBASE)) + Op.SSTORE(1, 1)),
     )
 
     blocks = [
@@ -91,10 +83,7 @@ def test_exact_coinbase_fee_simple_sstore(
             txs=[
                 Transaction(
                     to=sstore_contract,
-                    gas_limit=(
-                        gas_limit_cap
-                        + sstore_state_gas
-                    ),
+                    gas_limit=(gas_limit_cap + sstore_state_gas),
                     max_priority_fee_per_gas=1,
                     max_fee_per_gas=8,
                     sender=pre.fund_eoa(),
@@ -112,9 +101,7 @@ def test_exact_coinbase_fee_simple_sstore(
 
     post = {
         sstore_contract: Account(storage=sstore_storage),
-        reporter: Account(
-            storage={0: expected_coinbase, 1: 1}
-        ),
+        reporter: Account(storage={0: expected_coinbase, 1: 1}),
     }
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
@@ -135,27 +122,15 @@ def test_multi_block_mixed_state_operations(
     This mixed scenario tests that `receipt_gas_used` is consistent
     across different state gas paths within a multi-block chain.
     """
-    gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
-    sstore_state_gas = (
-        gas_costs.GAS_STORAGE_SET
-        - gas_costs.GAS_STORAGE_UPDATE
-        + gas_costs.GAS_COLD_SLOAD
-    )
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
 
     reverting_child = pre.deploy_contract(
-        code=(
-            Op.SSTORE(0, 1)
-            + Op.SSTORE(1, 1)
-            + Op.REVERT(0, 0)
-        ),
+        code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)),
     )
     halting_child = pre.deploy_contract(
-        code=(
-            Op.SSTORE(0, 1)
-            + Op.SSTORE(1, 1)
-            + Op.INVALID
-        ),
+        code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.INVALID),
     )
 
     all_contracts = []
@@ -166,19 +141,14 @@ def test_multi_block_mixed_state_operations(
     for _ in range(2):
         storage = Storage()
         contract = pre.deploy_contract(
-            code=(
-                Op.SSTORE(storage.store_next(1), 1)
-            ),
+            code=(Op.SSTORE(storage.store_next(1), 1)),
         )
         all_contracts.append(contract)
         all_storages.append(storage)
         block1_txs.append(
             Transaction(
                 to=contract,
-                gas_limit=(
-                    gas_limit_cap
-                    + sstore_state_gas
-                ),
+                gas_limit=(gas_limit_cap + sstore_state_gas),
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
@@ -205,10 +175,7 @@ def test_multi_block_mixed_state_operations(
         block2_txs.append(
             Transaction(
                 to=parent,
-                gas_limit=(
-                    gas_limit_cap
-                    + sstore_state_gas
-                ),
+                gas_limit=(gas_limit_cap + sstore_state_gas),
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
@@ -235,10 +202,7 @@ def test_multi_block_mixed_state_operations(
         block3_txs.append(
             Transaction(
                 to=parent,
-                gas_limit=(
-                    gas_limit_cap
-                    + sstore_state_gas
-                ),
+                gas_limit=(gas_limit_cap + sstore_state_gas),
                 max_priority_fee_per_gas=1,
                 max_fee_per_gas=8,
                 sender=pre.fund_eoa(),
@@ -252,7 +216,7 @@ def test_multi_block_mixed_state_operations(
     ]
     post = {
         c: Account(storage=s)
-        for c, s in zip(all_contracts, all_storages)
+        for c, s in zip(all_contracts, all_storages, strict=False)
     }
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
@@ -280,49 +244,31 @@ def test_multi_block_observed_coinbase_balance(
       (coinbase earns fee through different code path).
       Tx 4: Store `BALANCE(COINBASE)` in slot 0.
     """
-    gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
-    sstore_state_gas = (
-        gas_costs.GAS_STORAGE_SET
-        - gas_costs.GAS_STORAGE_UPDATE
-        + gas_costs.GAS_COLD_SLOAD
-    )
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
 
     reporter1 = pre.deploy_contract(
-        code=(
-            Op.SSTORE(0, Op.BALANCE(Op.COINBASE))
-        ),
+        code=(Op.SSTORE(0, Op.BALANCE(Op.COINBASE))),
     )
     reporter2 = pre.deploy_contract(
-        code=(
-            Op.SSTORE(0, Op.BALANCE(Op.COINBASE))
-        ),
+        code=(Op.SSTORE(0, Op.BALANCE(Op.COINBASE))),
     )
 
     # Block 1 tx 1: simple SSTORE
     sstore_storage = Storage()
     sstore_contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(sstore_storage.store_next(1), 1)
-        ),
+        code=(Op.SSTORE(sstore_storage.store_next(1), 1)),
     )
 
     # Block 2 tx 3: child spill + revert, parent SSTORE
     reverting_child = pre.deploy_contract(
-        code=(
-            Op.SSTORE(0, 1)
-            + Op.SSTORE(1, 1)
-            + Op.REVERT(0, 0)
-        ),
+        code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)),
     )
     spill_storage = Storage()
     spill_parent = pre.deploy_contract(
         code=(
-            Op.POP(
-                Op.CALL(
-                    gas=500_000, address=reverting_child
-                )
-            )
+            Op.POP(Op.CALL(gas=500_000, address=reverting_child))
             + Op.SSTORE(spill_storage.store_next(1), 1)
         ),
     )
@@ -332,10 +278,7 @@ def test_multi_block_observed_coinbase_balance(
             txs=[
                 Transaction(
                     to=sstore_contract,
-                    gas_limit=(
-                        gas_limit_cap
-                        + sstore_state_gas
-                    ),
+                    gas_limit=(gas_limit_cap + sstore_state_gas),
                     max_priority_fee_per_gas=1,
                     max_fee_per_gas=8,
                     sender=pre.fund_eoa(),
@@ -353,10 +296,7 @@ def test_multi_block_observed_coinbase_balance(
             txs=[
                 Transaction(
                     to=spill_parent,
-                    gas_limit=(
-                        gas_limit_cap
-                        + sstore_state_gas
-                    ),
+                    gas_limit=(gas_limit_cap + sstore_state_gas),
                     max_priority_fee_per_gas=1,
                     max_fee_per_gas=8,
                     sender=pre.fund_eoa(),

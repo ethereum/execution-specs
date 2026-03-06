@@ -22,13 +22,14 @@ from execution_testing import (
     Block,
     BlockchainTestFiller,
     EIPChecklist,
+    Fork,
     Op,
     Storage,
     Transaction,
     TransactionException,
 )
 
-from .spec import Spec, ref_spec_8037
+from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -41,6 +42,7 @@ pytestmark = pytest.mark.valid_at_transition_to("Amsterdam")
 def test_sstore_state_gas_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test SSTORE state gas activates at the Amsterdam fork boundary.
@@ -50,6 +52,8 @@ def test_sstore_state_gas_at_transition(
     operation requires state gas. Both blocks use TX_MAX_GAS_LIMIT
     which provides enough gas in either regime.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     contract_before = pre.deploy_contract(
         code=Op.SSTORE(0, 1),
     )
@@ -64,7 +68,7 @@ def test_sstore_state_gas_at_transition(
             txs=[
                 Transaction(
                     to=contract_before,
-                    gas_limit=Spec.TX_MAX_GAS_LIMIT,
+                    gas_limit=gas_limit_cap,
                     sender=pre.fund_eoa(),
                 ),
             ],
@@ -75,7 +79,7 @@ def test_sstore_state_gas_at_transition(
             txs=[
                 Transaction(
                     to=contract_after,
-                    gas_limit=Spec.TX_MAX_GAS_LIMIT,
+                    gas_limit=gas_limit_cap,
                     sender=pre.fund_eoa(),
                 ),
             ],
@@ -109,6 +113,7 @@ def test_tx_gas_above_cap_at_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     gas_above_cap: bool,
+    fork: Fork,
 ) -> None:
     """
     Test tx.gas > TX_MAX_GAS_LIMIT validity at the Amsterdam transition.
@@ -118,6 +123,8 @@ def test_tx_gas_above_cap_at_transition(
     reservoir. This test sends a tx at the cap (always valid) and one
     above the cap (rejected before, accepted after).
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     storage_before = Storage()
     contract_before = pre.deploy_contract(
         code=(Op.SSTORE(storage_before.store_next(1), 1)),
@@ -128,9 +135,7 @@ def test_tx_gas_above_cap_at_transition(
         code=(Op.SSTORE(storage_after.store_next(1), 1)),
     )
 
-    gas_limit = (
-        Spec.TX_MAX_GAS_LIMIT + 1 if gas_above_cap else Spec.TX_MAX_GAS_LIMIT
-    )
+    gas_limit = gas_limit_cap + 1 if gas_above_cap else gas_limit_cap
 
     # Before fork: above-cap tx is rejected by EIP-7825
     before_error = (
@@ -179,6 +184,7 @@ def test_tx_gas_above_cap_at_transition(
 def test_reservoir_available_after_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test reservoir is available for state ops after the fork.
@@ -187,8 +193,9 @@ def test_reservoir_available_after_transition(
     no reservoir. After the fork, gas above the cap feeds the reservoir,
     which child calls can draw from for state operations.
     """
-    cpsb = Spec.COST_PER_STATE_BYTE
-    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
 
     child_storage = Storage()
     child = pre.deploy_contract(
@@ -211,7 +218,7 @@ def test_reservoir_available_after_transition(
             txs=[
                 Transaction(
                     to=parent,
-                    gas_limit=Spec.TX_MAX_GAS_LIMIT + sstore_state_gas,
+                    gas_limit=gas_limit_cap + sstore_state_gas,
                     sender=pre.fund_eoa(),
                 ),
             ],
