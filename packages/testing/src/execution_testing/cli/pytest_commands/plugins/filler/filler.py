@@ -1855,6 +1855,9 @@ def pytest_collection_modifyitems(
     These can't be handled in this plugins pytest_generate_tests() as the fork
     parametrization occurs in the forks plugin.
     """
+    # Track specs with no fixture formats for warning message
+    specs_without_fixture_formats: Dict[str, Set[str]] = {}
+
     items_for_removal = []
     for i, item in enumerate(items):
         item.name = item.name.strip().replace(" ", "-")
@@ -1870,6 +1873,15 @@ def pytest_collection_modifyitems(
         spec_type, fixture_format = get_spec_format_for_item(params)
         if isinstance(fixture_format, NotSetType):
             items_for_removal.append(i)
+            # Track this spec type and the test file
+            spec_name = spec_type.__name__
+            if spec_name not in specs_without_fixture_formats:
+                specs_without_fixture_formats[spec_name] = set()
+            # Get the test file path from the item
+            test_file = (
+                str(item.fspath) if hasattr(item, "fspath") else str(item.path)
+            )
+            specs_without_fixture_formats[spec_name].add(test_file)
             continue
         assert issubclass(fixture_format, BaseFixture)
         if not fixture_format.supports_fork(fork):
@@ -1912,6 +1924,39 @@ def pytest_collection_modifyitems(
 
     for i in reversed(items_for_removal):
         items.pop(i)
+
+    # Warn users if tests were removed because they have no fixture formats
+    if specs_without_fixture_formats:
+        reporter = config.pluginmanager.get_plugin("terminalreporter")
+        if reporter and isinstance(reporter, TerminalReporter):
+            reporter.write_line("")
+            reporter.write_sep(
+                "=",
+                "NOTICE: Tests ignored (as expected; no fixture formats)",
+                yellow=True,
+                bold=True,
+            )
+            for spec_name, test_files in specs_without_fixture_formats.items():
+                reporter.write_line(
+                    f"  {spec_name} has no supported_fixture_formats "
+                    f"for 'fill' command.",
+                    yellow=True,
+                )
+                for test_file in sorted(test_files):
+                    reporter.write_line(f"    - {test_file}", yellow=True)
+            reporter.write_line("")
+            reporter.write_line(
+                "  These tests are designed for the 'execute' command, "
+                "not 'fill'.",
+                yellow=True,
+            )
+            reporter.write_line(
+                "  Use 'uv run execute hive' or 'uv run execute remote' "
+                "instead.",
+                yellow=True,
+            )
+            reporter.write_sep("=", yellow=True, bold=True)
+            reporter.write_line("")
 
     # Build base_nodeid cache and identify slow groups.
     # If ANY fixture format variant is marked slow, treat ALL variants as slow

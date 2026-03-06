@@ -168,6 +168,15 @@ def apply_changes_to_state(state: State, diff: BlockDiff) -> None:
 
     state._code_store.update(diff.code_changes)
 
+def store_code(state: State, code: Bytes) -> Hash32:
+    """
+    Store bytecode in ``State``.
+    """
+    code_hash = keccak256(code)
+    if code_hash != EMPTY_CODE_HASH:
+        state._code_store[code_hash] = code
+    return code_hash
+
 
 def set_account(
     state: State,
@@ -210,13 +219,3 @@ def state_root(state: State) -> Root:
     """
     root_value, _ = state.compute_state_root_and_trie_changes({}, {})
     return root_value
-
-
-def set_code(state: State, code: Bytes) -> Hash32:
-    """
-    Store bytecode in a ``State``.
-    """
-    code_hash = keccak256(code)
-    if code_hash != EMPTY_CODE_HASH:
-        state._code_store[code_hash] = code
-    return code_hash

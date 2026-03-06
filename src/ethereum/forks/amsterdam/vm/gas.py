@@ -16,7 +16,7 @@ from typing import List, Tuple
 
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.forks.bpo5.blocks import Header as PreviousForkHeader
+from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
@@ -307,7 +307,7 @@ def init_code_cost(init_code_length: Uint) -> Uint:
 
 
 def calculate_excess_blob_gas(
-    parent_header: Header | PreviousForkHeader,
+    parent_header: Header | PreviousHeader,
 ) -> U64:
     """
     Calculates the excess blob gas for the current block based

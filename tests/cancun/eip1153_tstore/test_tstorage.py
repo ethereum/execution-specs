@@ -239,6 +239,12 @@ class GasMeasureTestCases(PytestParameterEnum):
     }
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/17_tstoreGasFiller.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2385"],
+)
 @GasMeasureTestCases.parametrize()
 def test_gas_usage(
     state_test: StateTestFiller,
@@ -302,6 +308,13 @@ def max_tx_gas_limit(fork: Fork) -> list[int]:
     return [tx_limit if tx_limit is not None else Environment().gas_limit]
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/15_tstoreCannotBeDosdFiller.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153-transientStorage/21_tstoreCannotBeDosdOOOFiller.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2385"],
+)
 @LoopRunUntilOutOfGasCases.parametrize()
 @pytest.mark.slow()
 @pytest.mark.parametrize_by_fork("tx_gas_limit", max_tx_gas_limit)

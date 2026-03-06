@@ -7,12 +7,13 @@ from ethereum_types.numeric import U64
 from ethereum.crypto.hash import keccak256
 from ethereum.forks.frontier.blocks import Block, Header
 from ethereum.forks.frontier.fork import BlockChain
-from ethereum.forks.frontier.fork_types import Account, Address, Bloom
+from ethereum.forks.frontier.fork_types import Account, Bloom
 from ethereum.forks.frontier.state import (
     State,
     set_account,
     set_storage,
     state_root,
+    store_code,
 )
 from ethereum.forks.frontier.trie import Trie, root
 from ethereum.forks.frontier.utils.hexadecimal import hex_to_address
@@ -21,6 +22,7 @@ from ethereum.genesis import (
     add_genesis_block,
     get_genesis_configuration,
 )
+from ethereum.state import Address
 from ethereum.utils.hexadecimal import hex_to_hash
 from ethereum_spec_tools.forks import Hardfork
 
@@ -46,6 +48,7 @@ def test_frontier_block_hash() -> None:
         state_root=state_root,
         root=root,
         hex_to_address=hex_to_address,
+        store_code=store_code,
     )
 
     chain = BlockChain([], State(), U64(1))
@@ -65,7 +68,7 @@ def fork_name(fork: Hardfork) -> str:
 def test_genesis(fork: Hardfork) -> None:
     """Tests genesis block creation for all hardforks."""
     description: GenesisFork = GenesisFork(
-        Address=fork.module("fork_types").Address,
+        Address=Address,
         Account=fork.module("fork_types").Account,
         Trie=fork.module("trie").Trie,
         Bloom=fork.module("fork_types").Bloom,
@@ -76,6 +79,7 @@ def test_genesis(fork: Hardfork) -> None:
         state_root=fork.module("state").state_root,
         root=fork.module("trie").root,
         hex_to_address=fork.module("utils.hexadecimal").hex_to_address,
+        store_code=fork.module("state").store_code,
     )
 
     state = fork.module("state").State()

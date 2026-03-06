@@ -16,9 +16,8 @@ from ethereum_rlp import rlp
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import keccak256
+from ethereum.state import Address
 from ethereum.utils.byte import left_pad_zero_bytes
-
-from ..fork_types import Address
 
 
 def to_address_masked(data: Uint | U256) -> Address:

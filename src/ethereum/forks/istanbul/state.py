@@ -23,7 +23,9 @@ from ethereum_types.bytes import Bytes, Bytes32
 from ethereum_types.frozen import modify
 from ethereum_types.numeric import U256, Uint
 
-from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
+from ethereum.crypto.hash import Hash32, keccak256
+
+from .fork_types import EMPTY_ACCOUNT, EMPTY_CODE_HASH, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 
@@ -46,6 +48,9 @@ class State:
         ]
     ] = field(default_factory=list)
     created_accounts: Set[Address] = field(default_factory=set)
+    _code_store: Dict[Hash32, Bytes] = field(
+        default_factory=dict, compare=False
+    )
 
 
 def close_state(state: State) -> None:
@@ -57,6 +62,7 @@ def close_state(state: State) -> None:
     del state._storage_tries
     del state._snapshots
     del state.created_accounts
+    del state._code_store
 
 
 def begin_transaction(state: State) -> None:
@@ -159,6 +165,25 @@ def get_account_optional(state: State, address: Address) -> Optional[Account]:
     """
     account = trie_get(state._main_trie, address)
     return account
+
+
+def get_code(state: State, code_hash: Hash32) -> Bytes:
+    """
+    Get the bytecode for a given code hash.
+    """
+    if code_hash == EMPTY_CODE_HASH:
+        return b""
+    return state._code_store[code_hash]
+
+
+def store_code(state: State, code: Bytes) -> Hash32:
+    """
+    Store bytecode in ``State``.
+    """
+    code_hash = keccak256(code)
+    if code_hash != EMPTY_CODE_HASH:
+        state._code_store[code_hash] = code
+    return code_hash
 
 
 def set_account(
@@ -384,7 +409,7 @@ def account_has_code_or_nonce(state: State, address: Address) -> bool:
 
     """
     account = get_account(state, address)
-    return account.nonce != Uint(0) or account.code != b""
+    return account.nonce != Uint(0) or account.code_hash != EMPTY_CODE_HASH
 
 
 def account_has_storage(state: State, address: Address) -> bool:
@@ -430,7 +455,7 @@ def account_exists_and_is_empty(state: State, address: Address) -> bool:
     return (
         account is not None
         and account.nonce == Uint(0)
-        and account.code == b""
+        and account.code_hash == EMPTY_CODE_HASH
         and account.balance == 0
     )
 
@@ -563,9 +588,12 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
         The bytecode that needs to be set.
 
     """
+    code_hash = keccak256(code)
+    if code_hash != EMPTY_CODE_HASH:
+        state._code_store[code_hash] = code
 
     def write_code(sender: Account) -> None:
-        sender.code = code
+        sender.code_hash = code_hash
 
     modify_state(state, address, write_code)
 

@@ -36,10 +36,10 @@ class JSONRPCError(Exception):
 
     code: int
     message: str
-    data: str | None
+    data: str | dict | None
 
     def __init__(
-        self, code: int | str, message: str, data: str | None = None
+        self, code: int | str, message: str, data: str | dict | None = None
     ) -> None:
         """Initialize the JSONRPCError."""
         self.code = int(code)
@@ -79,7 +79,7 @@ class JSONRPCErrorObject(BaseModel):
 
     code: int
     message: str
-    data: str | None = None
+    data: str | dict | None = None
 
 
 class JSONRPCResponse(BaseModel):

@@ -225,6 +225,16 @@ def test_valid(
             + Scalar(0),
             id="y_above_p_pos_1",
         ),
+        # BLS serialization flag byte in coordinate: values >= p whose first
+        # coordinate byte has BLS flag bits set. Implementations that parse
+        # BLS serialization flags before validating the field modulus may
+        # misinterpret these as valid special-case points (e.g. point at
+        # infinity) instead of rejecting them.
+        # See: https://github.com/lambdaclass/ethrex/pull/6287
+        pytest.param(
+            Spec.G1 + Scalar(1) + PointG1(0x40 << (47 * 8), 0) + Scalar(0),
+            id="x_bls_infinity_flag_pos_1",
+        ),
     ],
     # Input length tests can be found in
     # ./test_bls12_variable_length_input_contracts.py
