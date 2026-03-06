@@ -385,3 +385,45 @@ def test_intrinsic_regular_gas_exceeds_cap(
     )
 
     state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "gas_limit,error",
+    [
+        pytest.param(
+            23_000,
+            TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST,
+            id="below_floor",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(25_000, None, id="at_floor"),
+    ],
+)
+@pytest.mark.valid_from("Amsterdam")
+def test_calldata_floor_enforced_with_state_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    gas_limit: int,
+    error: TransactionException | None,
+) -> None:
+    """
+    Test EIP-7623 calldata floor is enforced when EIP-8037 is active.
+
+    With 100 non-zero calldata bytes (tokens = 400):
+    - regular_intrinsic = 21000 + 400*4 = 22600
+    - state_intrinsic = 0 (call tx, no creation)
+    - floor = 21000 + 400*10 = 25000
+
+    A gas_limit of 23000 satisfies regular + state (22600) but not
+    the floor (25000), so it must be rejected. A gas_limit of 25000
+    meets the floor and is accepted.
+    """
+    tx = Transaction(
+        to=pre.fund_eoa(0),
+        data=b"\x01" * 100,
+        gas_limit=gas_limit,
+        sender=pre.fund_eoa(),
+        error=error,
+    )
+
+    state_test(pre=pre, post={}, tx=tx)
