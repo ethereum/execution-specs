@@ -1,7 +1,7 @@
 """
 Test SELFDESTRUCT state gas charging under EIP-8037.
 
-SELFDESTRUCT charges 112 * cost_per_state_byte of state gas when the
+SELFDESTRUCT charges new-account state gas of state gas when the
 beneficiary account does not exist AND the originating contract has
 a nonzero balance. No state gas is charged when the beneficiary
 already exists or the originator has zero balance.
@@ -34,7 +34,7 @@ def test_selfdestruct_new_beneficiary_charges_state_gas(
     Test SELFDESTRUCT to non-existent beneficiary charges state gas.
 
     When the beneficiary does not exist and the originator has nonzero
-    balance, SELFDESTRUCT charges 112 * cost_per_state_byte for
+    balance, SELFDESTRUCT charges new-account state gas for
     creating the new beneficiary account.
     """
     env = Environment()
@@ -170,7 +170,6 @@ def test_selfdestruct_to_self_in_create_tx(
                 << (256 - 8 * len(inner_code)),
             )
             + Op.POP(Op.CREATE(1, 0, len(inner_code)))
-            + Op.STOP
         ),
         balance=1,
     )
