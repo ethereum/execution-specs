@@ -20,6 +20,8 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionException,
+    compute_create_address,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -319,4 +321,111 @@ def test_create2_address_collision(
     )
 
     post = {contract: Account(storage=storage)}
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "gas_delta",
+    [
+        pytest.param(
+            -1,
+            id="below_intrinsic",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(0, id="at_intrinsic"),
+    ],
+)
+@pytest.mark.valid_from("Amsterdam")
+def test_create_tx_intrinsic_gas_boundary(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_delta: int,
+) -> None:
+    """
+    Test CREATE tx intrinsic gas boundary includes state component.
+
+    The intrinsic gas for a contract-creating transaction includes
+    both regular gas (GAS_TX_BASE + CREATE_REGULAR + init_code_cost)
+    and state gas (112 * cost_per_state_byte). A transaction with
+    gas_limit exactly at the boundary succeeds; one gas below is
+    rejected.
+    """
+    intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
+    gas_limit = intrinsic_cost(
+        contract_creation=True,
+    )
+
+    tx = Transaction(
+        to=None,
+        data=Op.STOP,
+        gas_limit=gas_limit + gas_delta,
+        sender=pre.fund_eoa(),
+        error=(
+            TransactionException.INTRINSIC_GAS_TOO_LOW
+            if gas_delta < 0
+            else None
+        ),
+    )
+
+    state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_nested_create_code_deposit_cannot_borrow_parent_gas(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test nested CREATE code deposit does not borrow parent gas.
+
+    A parent CALLs a factory that performs CREATE of a 1-byte
+    contract. The parent has no state gas reservoir, so the child
+    also has none. Code deposit requires both regular gas
+    (6 * ceil(1/32) = 6) and state gas (1 * cost_per_state_byte
+    = 1174, spilled from gas_left). The child must have enough
+    gas_left to cover both; it must not succeed by borrowing the
+    parent's retained gas after the child frame merges back.
+
+    Tune gas so the child ends initcode with enough gas for either
+    component alone but not both together.
+    """
+    # Initcode: PUSH1 1, PUSH1 0, RETURN -> deploys 1 byte of 0x00
+    init_code = Op.RETURN(0, 1)
+
+    storage = Storage()
+    factory = pre.deploy_contract(
+        code=(
+            Op.MSTORE(0, Op.PUSH32(bytes(init_code)))
+            + Op.SSTORE(
+                storage.store_next(0, "create_fails"),
+                Op.CREATE(
+                    value=0,
+                    offset=32 - len(init_code),
+                    size=len(init_code),
+                ),
+            )
+            + Op.STOP
+        ),
+    )
+    created = compute_create_address(
+        address=factory, nonce=1
+    )
+
+    # Give enough total gas for the parent to execute, but
+    # constrain so the child CREATE frame ends with gas between
+    # code_deposit_state and code_deposit_regular +
+    # code_deposit_state. The child should fail code deposit.
+    tx = Transaction(
+        to=factory,
+        gas_limit=54_225,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {
+        factory: Account(
+            nonce=2, storage=storage
+        ),
+        created: Account.NONEXISTENT,
+    }
     state_test(pre=pre, post=post, tx=tx)
