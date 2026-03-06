@@ -3,8 +3,9 @@ Test CALL state gas reservoir passing under EIP-8037.
 
 The full state gas reservoir is passed to child call frames with no
 63/64 rule. On child success, remaining state gas returns to the
-parent. On child revert or exceptional halt, the reservoir is also
-returned (only gas_left is consumed for the failed frame).
+parent. On child revert or exceptional halt, all state gas, both
+reservoir and any that spilled into `gas_left`, is restored to the
+parent's reservoir (only CPU gas is consumed for the failed frame).
 
 All CALL-family opcodes (CALL, DELEGATECALL, STATICCALL) pass the
 full reservoir to child frames.
@@ -158,20 +159,21 @@ def test_reservoir_restored_after_child_spill_and_revert(
     pre: Alloc,
 ) -> None:
     """
-    Test full reservoir restored when child spills state gas then reverts.
+    Test all state gas recovered when child spills then reverts.
 
     The child performs two SSTOREs (zero-to-nonzero) but only one
     SSTORE's worth of state gas fits in the reservoir — the second
-    spills into gas_left. The child then REVERTs. Because state
-    changes are rolled back, the full original reservoir is returned
-    to the parent, which can use it for its own SSTORE.
+    spills into `gas_left`. The child then REVERTs. Because state
+    changes are rolled back, all state gas (reservoir + spill) is
+    restored to the parent's reservoir. The parent can then perform
+    two SSTOREs using only the recovered reservoir.
     """
     env = Environment()
     cpsb = Spec.COST_PER_STATE_BYTE
     sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
 
     # Child does two SSTOREs then reverts — the second SSTORE's
-    # state gas spills from the reservoir into gas_left
+    # state gas spills from the reservoir into `gas_left`
     child = pre.deploy_contract(
         code=(Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.REVERT(0, 0)),
     )
@@ -180,7 +182,9 @@ def test_reservoir_restored_after_child_spill_and_revert(
     parent = pre.deploy_contract(
         code=(
             Op.POP(Op.CALL(gas=500_000, address=child))
-            # Reservoir was restored — parent SSTORE succeeds
+            # All state gas recovered (reservoir + spill), parent
+            # can perform two SSTOREs from the recovered reservoir
+            + Op.SSTORE(parent_storage.store_next(1), 1)
             + Op.SSTORE(parent_storage.store_next(1), 1)
             + Op.STOP
         ),
@@ -203,12 +207,13 @@ def test_reservoir_restored_after_child_spill_and_halt(
     pre: Alloc,
 ) -> None:
     """
-    Test full reservoir restored when child spills state gas then halts.
+    Test all state gas recovered when child spills then halts.
 
     The child performs two SSTOREs (zero-to-nonzero), exhausting the
-    reservoir and spilling into gas_left, then hits INVALID causing
-    an exceptional halt. On halt gas_left is zeroed but the full
-    original reservoir is returned to the parent.
+    reservoir and spilling into `gas_left`, then hits INVALID causing
+    an exceptional halt. On halt `gas_left` is zeroed but all state gas
+    (reservoir + spill) is restored to the parent's reservoir. The
+    parent can then perform two SSTOREs using the recovered reservoir.
     """
     env = Environment()
     cpsb = Spec.COST_PER_STATE_BYTE
@@ -223,7 +228,9 @@ def test_reservoir_restored_after_child_spill_and_halt(
     parent = pre.deploy_contract(
         code=(
             Op.POP(Op.CALL(gas=500_000, address=child))
-            # Reservoir was restored — parent SSTORE succeeds
+            # All state gas recovered (reservoir + spill), parent
+            # can perform two SSTOREs from the recovered reservoir
+            + Op.SSTORE(parent_storage.store_next(1), 1)
             + Op.SSTORE(parent_storage.store_next(1), 1)
             + Op.STOP
         ),
