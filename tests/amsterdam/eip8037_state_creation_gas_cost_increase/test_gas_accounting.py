@@ -54,9 +54,7 @@ def test_set_code_tx_intrinsic_gas_includes_state_component(
     Set-code transactions must include the EIP-8037 intrinsic state gas for
     each authorization.
     """
-    intrinsic_gas = (
-        21_000 + Spec.PER_AUTH_BASE_REGULAR + Spec.TOTAL_AUTH_STATE
-    )
+    intrinsic_gas = 21_000 + Spec.PER_AUTH_BASE_REGULAR + Spec.TOTAL_AUTH_STATE
     auth_signer = pre.fund_eoa()
     delegated_to = pre.fund_eoa(0)
     destination = pre.deploy_contract(code=Op.STOP)
