@@ -371,7 +371,7 @@ def test_sstore_erc20_approve(
 
     # This dispatch is something close to the minimal amount
     # of code to run for a contract only implementing approve
-    # It will therefore grealty underestimate the gas of any ERC20
+    # It will therefore greatly underestimate the gas of any ERC20
     # contract because all of them have much more overhead in practice
     # (also function selector at the entry point of the contract)
     function_dispatch = (
