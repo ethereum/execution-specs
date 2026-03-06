@@ -201,14 +201,14 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
 def incorporate_child_on_error(
     evm: Evm,
     child_evm: Evm,
-    child_state_gas_reservoir: Uint,
 ) -> None:
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
     On failure (revert or exceptional halt) state changes are rolled back,
-    so no state was actually grown.  The full original reservoir is restored
-    to the parent and the child's state_gas_used is not accumulated.
+    so no state was actually grown.  All state gas, both reservoir and any
+    that spilled into `gas_left`, is restored to the parent's reservoir and
+    the child's `state_gas_used` is not accumulated.
 
     Parameters
     ----------
@@ -216,10 +216,8 @@ def incorporate_child_on_error(
         The parent `EVM`.
     child_evm :
         The child evm to incorporate.
-    child_state_gas_reservoir :
-        The original state gas reservoir forwarded to the child frame.
 
     """
     evm.gas_left += child_evm.gas_left
-    evm.state_gas_left += child_state_gas_reservoir
+    evm.state_gas_left += child_evm.state_gas_used + child_evm.state_gas_left
     evm.regular_gas_used += child_evm.regular_gas_used
