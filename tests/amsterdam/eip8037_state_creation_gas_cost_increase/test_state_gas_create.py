@@ -1,10 +1,8 @@
 """
 Test CREATE and CREATE2 state gas charging under EIP-8037.
 
-Contract creation charges state gas for the new account
-(112 * cost_per_state_byte) and for code deposit
-(len(code) * cost_per_state_byte). Regular gas for CREATE is
-REGULAR_GAS_CREATE (9000).
+Contract creation charges state gas for the new account and for
+code deposit. Regular gas for CREATE is charged separately.
 
 Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
@@ -25,7 +23,7 @@ from execution_testing import (
 )
 from execution_testing.checklists import EIPChecklist
 
-from .spec import Spec, ref_spec_8037
+from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -36,14 +34,16 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 def test_create_charges_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test CREATE charges state gas for new account and code deposit.
 
-    A successful CREATE charges 112 * cost_per_state_byte for the new
-    account plus len(runtime_code) * cost_per_state_byte for code
-    deposit.
+    A successful CREATE charges new-account state gas plus code
+    deposit state gas proportional to the deployed code size.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     init_code = Op.STOP
 
     storage = Storage()
@@ -58,13 +58,12 @@ def test_create_charges_state_gas(
                 storage.store_next(True),
                 Op.GT(Op.CREATE(0, 0, len(init_code)), 0),
             )
-            + Op.STOP
         ),
     )
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT,
+        gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
     )
 
@@ -84,6 +83,7 @@ def test_create_with_reservoir(
     state_test: StateTestFiller,
     pre: Alloc,
     opcode: Op,
+    fork: Fork,
 ) -> None:
     """
     Test CREATE/CREATE2 with state gas funded from the reservoir.
@@ -91,9 +91,11 @@ def test_create_with_reservoir(
     Provide gas above TX_MAX_GAS_LIMIT so the new account state gas
     is drawn from the reservoir rather than gas_left.
     """
+    gas_costs = fork.gas_costs()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
-    create_state_gas = Spec.STATE_BYTES_PER_NEW_ACCOUNT * cpsb
+    create_state_gas = gas_costs.GAS_NEW_ACCOUNT
 
     storage = Storage()
     init_code = Op.STOP
@@ -114,13 +116,12 @@ def test_create_with_reservoir(
                 storage.store_next(True),
                 Op.GT(create_call, 0),
             )
-            + Op.STOP
         ),
     )
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + create_state_gas,
+        gas_limit=gas_limit_cap + create_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -142,6 +143,7 @@ def test_code_deposit_state_gas_scales_with_size(
     state_test: StateTestFiller,
     pre: Alloc,
     code_size: int,
+    fork: Fork,
 ) -> None:
     """
     Test code deposit state gas scales linearly with code size.
@@ -149,10 +151,11 @@ def test_code_deposit_state_gas_scales_with_size(
     The code deposit charges len(code) * cost_per_state_byte of state
     gas. Larger deployed code requires proportionally more state gas.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
     # State gas: new account + code deposit
-    total_state_gas = (Spec.STATE_BYTES_PER_NEW_ACCOUNT + code_size) * cpsb
+    total_state_gas = fork.create_state_gas(code_size=code_size)
 
     # Build init code that returns `code_size` bytes of 0x00
     # PUSH2 code_size, PUSH1 0, RETURN
@@ -161,7 +164,7 @@ def test_code_deposit_state_gas_scales_with_size(
     tx = Transaction(
         to=None,
         data=init_code,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + total_state_gas,
+        gas_limit=gas_limit_cap + total_state_gas,
         sender=pre.fund_eoa(),
     )
 
@@ -172,18 +175,21 @@ def test_code_deposit_state_gas_scales_with_size(
 def test_create_tx_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test contract creation transaction charges intrinsic state gas.
 
-    A create transaction (to=None) charges 112 * cost_per_state_byte
+    A create transaction (to=None) charges new-account state gas
     as intrinsic state gas for the new account, plus code deposit state
     gas for the deployed bytecode.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     tx = Transaction(
         to=None,
         data=Op.STOP,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT,
+        gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
     )
 
@@ -194,6 +200,7 @@ def test_create_tx_state_gas(
 def test_create_revert_no_code_deposit_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test reverted CREATE does not charge code deposit state gas.
@@ -202,6 +209,8 @@ def test_create_revert_no_code_deposit_state_gas(
     account state gas is consumed but no code deposit state gas is
     charged because no code was deployed.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     init_code = Op.REVERT(0, 0)
 
     storage = Storage()
@@ -216,13 +225,12 @@ def test_create_revert_no_code_deposit_state_gas(
                 storage.store_next(0),  # CREATE returns 0 on failure
                 Op.CREATE(0, 0, len(init_code)),
             )
-            + Op.STOP
         ),
     )
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT,
+        gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
     )
 
@@ -240,9 +248,9 @@ def test_create_insufficient_state_gas(
     """
     Test CREATE OOGs when state gas is insufficient.
 
-    Provide enough gas for CREATE's regular gas cost (9000) but not
-    enough to cover the 112 * cost_per_state_byte state gas for the
-    new account. The CREATE should fail, returning 0.
+    Provide enough gas for CREATE's regular gas cost but not enough
+    to cover the new-account state gas. The CREATE should fail,
+    returning 0.
     """
     init_code = Op.STOP
 
@@ -258,14 +266,15 @@ def test_create_insufficient_state_gas(
                 storage.store_next(0),  # CREATE returns 0 on OOG
                 Op.CREATE(0, 0, len(init_code)),
             )
-            + Op.STOP
         ),
     )
 
     # Tight gas — enough for intrinsic + CREATE regular gas but not
     # enough for the new account state gas
+    gas_costs = fork.gas_costs()
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
-    gas_limit = intrinsic_cost() + Spec.REGULAR_GAS_CREATE + 10_000
+    regular_create_gas = gas_costs.GAS_CREATE - gas_costs.GAS_NEW_ACCOUNT
+    gas_limit = intrinsic_cost() + regular_create_gas + 10_000
 
     tx = Transaction(
         to=contract,
@@ -281,6 +290,7 @@ def test_create_insufficient_state_gas(
 def test_create2_address_collision(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test CREATE2 returns zero on address collision.
@@ -289,6 +299,8 @@ def test_create2_address_collision(
     the collision is detected early and returns zero without charging
     state gas. The existing account is left unchanged.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     init_code = Op.STOP
     salt = 0
 
@@ -310,13 +322,12 @@ def test_create2_address_collision(
                 storage.store_next(0, "collision_create2"),
                 Op.CREATE2(0, 0, len(init_code), salt),
             )
-            + Op.STOP
         ),
     )
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT * 2,
+        gas_limit=gas_limit_cap * 2,
         sender=pre.fund_eoa(),
     )
 
@@ -346,10 +357,8 @@ def test_create_tx_intrinsic_gas_boundary(
     Test CREATE tx intrinsic gas boundary includes state component.
 
     The intrinsic gas for a contract-creating transaction includes
-    both regular gas (GAS_TX_BASE + CREATE_REGULAR + init_code_cost)
-    and state gas (112 * cost_per_state_byte). A transaction with
-    gas_limit exactly at the boundary succeeds; one gas below is
-    rejected.
+    both regular gas and state gas. A transaction with gas_limit
+    exactly at the boundary succeeds; one gas below is rejected.
     """
     intrinsic_cost = fork.transaction_intrinsic_cost_calculator()
     gas_limit = intrinsic_cost(
@@ -358,7 +367,6 @@ def test_create_tx_intrinsic_gas_boundary(
 
     tx = Transaction(
         to=None,
-        data=Op.STOP,
         gas_limit=gas_limit + gas_delta,
         sender=pre.fund_eoa(),
         error=(
@@ -375,57 +383,70 @@ def test_create_tx_intrinsic_gas_boundary(
 def test_nested_create_code_deposit_cannot_borrow_parent_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test nested CREATE code deposit does not borrow parent gas.
 
-    A parent CALLs a factory that performs CREATE of a 1-byte
-    contract. The parent has no state gas reservoir, so the child
-    also has none. Code deposit requires both regular gas
-    (6 * ceil(1/32) = 6) and state gas (1 * cost_per_state_byte
-    = 1174, spilled from gas_left). The child must have enough
-    gas_left to cover both; it must not succeed by borrowing the
-    parent's retained gas after the child frame merges back.
-
-    Tune gas so the child ends initcode with enough gas for either
-    component alone but not both together.
+    Provide just enough gas for CREATE to start (new account state
+    gas + regular gas) but not enough for the child frame to cover
+    code deposit after init code runs. The CREATE increments the
+    factory nonce but code deposit fails, so no contract is deployed.
     """
-    # Initcode: PUSH1 1, PUSH1 0, RETURN -> deploys 1 byte of 0x00
     init_code = Op.RETURN(0, 1)
+    gas_costs = fork.gas_costs()
+    new_acct_state = gas_costs.GAS_NEW_ACCOUNT
+    code_deposit_state = fork.code_deposit_state_gas(code_size=1)
 
-    storage = Storage()
     factory = pre.deploy_contract(
         code=(
             Op.MSTORE(0, Op.PUSH32(bytes(init_code)))
-            + Op.SSTORE(
-                storage.store_next(0, "create_fails"),
+            + Op.POP(
                 Op.CREATE(
                     value=0,
                     offset=32 - len(init_code),
                     size=len(init_code),
                 ),
             )
-            + Op.STOP
         ),
     )
     created = compute_create_address(
         address=factory, nonce=1
     )
 
-    # Give enough total gas for the parent to execute, but
-    # constrain so the child CREATE frame ends with gas between
-    # code_deposit_state and code_deposit_regular +
-    # code_deposit_state. The child should fail code deposit.
+    # Gas consumed before the child CREATE frame receives gas:
+    # Intrinsic + factory code (PUSH32+PUSH1+MSTORE+mem +
+    # 3xPUSH1) + CREATE regular (+ init_code_cost) + new account
+    # state gas (spilled from gas_left, no reservoir).
+    init_code_word_cost = (
+        gas_costs.GAS_CODE_INIT_PER_WORD
+        * ((len(init_code) + 31) // 32)
+    )
+    pre_child_gas = (
+        gas_costs.GAS_TX_BASE
+        + 7 * gas_costs.GAS_VERY_LOW
+        + gas_costs.GAS_MEMORY
+        + (gas_costs.GAS_CREATE - new_acct_state)
+        + init_code_word_cost
+        + new_acct_state
+    )
+
+    # Init code cost: PUSH1 + PUSH1 + RETURN(+mem expansion)
+    init_cost = 2 * gas_costs.GAS_VERY_LOW + gas_costs.GAS_MEMORY
+    # Target child gas: enough for init, not enough for code deposit
+    target_child = (init_cost + code_deposit_state) // 2
+    # Invert EIP-150 63/64ths rule: ceil(target_child * 64 / 63)
+    factory_remaining = (target_child * 64 + 62) // 63
+    gas_limit = pre_child_gas + factory_remaining
+
     tx = Transaction(
         to=factory,
-        gas_limit=54_225,
+        gas_limit=gas_limit,
         sender=pre.fund_eoa(),
     )
 
     post = {
-        factory: Account(
-            nonce=2, storage=storage
-        ),
+        factory: Account(nonce=2),
         created: Account.NONEXISTENT,
     }
     state_test(pre=pre, post=post, tx=tx)
