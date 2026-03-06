@@ -17,6 +17,9 @@ from execution_testing import (
     compute_create2_address,
     compute_create_address,
 )
+from execution_testing import (
+    Macros as Om,
+)
 from execution_testing.forks import Cancun
 from execution_testing.forks.helpers import Fork
 
@@ -1402,5 +1405,109 @@ def test_extcodehash_created_and_deleted(
         post[created] = Account.NONEXISTENT
     else:
         post[created] = Account(code=runtime)
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashCreatedAndDeletedAccountRecheckInOuterCallFiller.json",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2428"],
+)
+def test_extcodehash_created_and_deleted_recheck_outer(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test EXTCODEHASH of a created-and-selfdestructed account rechecked
+    from an outer call frame.
+
+    Outer contract CALLs inner, which CREATE2s a contract with
+    SELFDESTRUCT code then triggers it. After inner returns, outer
+    re-checks EXTCODEHASH and EXTCODESIZE of the created address.
+    Within the transaction all checks return the original code hash
+    and size. The created contract is deleted at end of transaction.
+    """
+    inner_storage = Storage()
+    outer_storage = Storage()
+
+    runtime = Op.SELFDESTRUCT(0)
+    initcode = Initcode(deploy_code=runtime)
+    salt = 0x10
+    expected_hash = runtime.keccak256()
+    expected_size = len(runtime)
+
+    # Inner contract: CREATE2, check, trigger SELFDESTRUCT, re-check.
+    created_slot = inner_storage.store_next(0)
+    inner_code = Bytecode()
+    inner_code += Om.MSTORE(initcode, 0) + Op.SSTORE(
+        created_slot,
+        Op.CREATE2(value=0, offset=0, size=len(initcode), salt=salt),
+    )
+
+    target = Op.SLOAD(created_slot)
+    expected_code = bytes(runtime).ljust(32, b"\0")
+
+    def inner_extcode_checks() -> Bytecode:
+        return (
+            Op.SSTORE(
+                inner_storage.store_next(expected_hash),
+                Op.EXTCODEHASH(target),
+            )
+            + Op.SSTORE(
+                inner_storage.store_next(expected_size),
+                Op.EXTCODESIZE(target),
+            )
+            + Op.EXTCODECOPY(target, 0, 0, 32)
+            + Op.SSTORE(
+                inner_storage.store_next(expected_code),
+                Op.MLOAD(0),
+            )
+        )
+
+    inner_code += inner_extcode_checks()
+    inner_code += Op.CALL(address=target, gas=Op.GAS) + Op.POP
+    inner_code += inner_extcode_checks()
+    inner = pre.deploy_contract(inner_code, storage=inner_storage.canary())
+
+    created = compute_create2_address(
+        address=inner,
+        salt=salt,
+        initcode=initcode,
+    )
+    inner_storage[created_slot] = created
+
+    # Outer contract: CALL inner, then re-check the created address.
+    outer_code = (
+        Op.CALL(address=inner, gas=Op.GAS)
+        + Op.POP
+        + Op.SSTORE(
+            outer_storage.store_next(expected_hash),
+            Op.EXTCODEHASH(created),
+        )
+        + Op.SSTORE(
+            outer_storage.store_next(expected_size),
+            Op.EXTCODESIZE(created),
+        )
+        + Op.EXTCODECOPY(created, 0, 0, 32)
+        + Op.SSTORE(
+            outer_storage.store_next(expected_code),
+            Op.MLOAD(0),
+        )
+    )
+    outer = pre.deploy_contract(outer_code, storage=outer_storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=outer,
+        gas_limit=400_000,
+    )
+
+    post: dict[Address, Account | None] = {
+        inner: Account(storage=inner_storage),
+        outer: Account(storage=outer_storage),
+        created: Account.NONEXISTENT,
+    }
 
     state_test(pre=pre, post=post, tx=tx)
