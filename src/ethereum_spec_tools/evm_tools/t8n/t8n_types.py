@@ -278,9 +278,8 @@ class Result:
     block_access_list: Optional[Any] = None
     block_access_list_hash: Optional[Hash32] = None
     execution_witness: Optional[Any] = None
-    # TODO: Re-enable, compare fixtures will fail
-    # stateless_input_bytes: Optional[bytes] = None
-    # stateless_output_bytes: Optional[bytes] = None
+    stateless_input_bytes: Optional[bytes] = None
+    stateless_output_bytes: Optional[bytes] = None
 
     def get_receipts_from_output(
         self,
@@ -378,8 +377,6 @@ class Result:
                 block_output.block_access_list
             )
 
-        # TODO: Re-enable stateless guest once state test handling is
-        # resolved. Currently fails on state tests.
         if self.execution_witness is not None:
             withdrawals = (
                 tuple(t8n.env.withdrawals) if t8n.env.withdrawals else ()
@@ -450,8 +447,8 @@ class Result:
                 assert result.successful_validation, (
                     "Stateless validation failed"
                 )
-        #     self.stateless_input_bytes = bytes(stateless_input_bytes)
-        #     self.stateless_output_bytes = bytes(stateless_output_bytes)
+            self.stateless_input_bytes = bytes(stateless_input_bytes)
+            self.stateless_output_bytes = bytes(stateless_output_bytes)
 
     @staticmethod
     def _block_access_list_to_json(account_changes: Any) -> Any:
@@ -618,15 +615,14 @@ class Result:
                 "headers": ["0x" + h.hex() for h in ew.headers],
             }
 
-        # TODO: Re-enable but compare fixtures will fail
-        # if self.stateless_input_bytes is not None:
-        #     data["statelessInputBytes"] = (
-        #         "0x" + self.stateless_input_bytes.hex()
-        #     )
-        #
-        # if self.stateless_output_bytes is not None:
-        #     data["statelessOutputBytes"] = (
-        #         "0x" + self.stateless_output_bytes.hex()
-        #     )
+        if self.stateless_input_bytes is not None:
+            data["statelessInputBytes"] = (
+                "0x" + self.stateless_input_bytes.hex()
+            )
+
+        if self.stateless_output_bytes is not None:
+            data["statelessOutputBytes"] = (
+                "0x" + self.stateless_output_bytes.hex()
+            )
 
         return data
