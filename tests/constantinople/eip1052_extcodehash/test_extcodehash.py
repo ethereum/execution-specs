@@ -832,7 +832,7 @@ def test_extcodehash_after_selfdestruct(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     post: dict[Address, Account | None] = {
@@ -1396,7 +1396,7 @@ def test_extcodehash_created_and_deleted(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     post: dict[Address, Account | None] = {
@@ -1502,7 +1502,7 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=outer,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     post: dict[Address, Account | None] = {
