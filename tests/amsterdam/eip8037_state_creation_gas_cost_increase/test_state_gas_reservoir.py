@@ -62,7 +62,7 @@ def test_reservoir_allocation_boundary(
     """
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     tx = Transaction(
@@ -107,7 +107,6 @@ def test_sstore_state_gas_source(
     code = Bytecode()
     for _ in range(num_sstores):
         code += Op.SSTORE(storage.store_next(1), 1)
-    code += Op.STOP
     contract = pre.deploy_contract(code=code)
 
     if reservoir_covers_state_gas:
@@ -138,7 +137,7 @@ def test_sstore_state_gas_entirely_from_gas_left(
     """
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     tx = Transaction(
@@ -166,7 +165,7 @@ def test_insufficient_gas_for_sstore_state_cost(
     should OOG, leaving storage slot 0 unchanged at zero.
     """
     contract = pre.deploy_contract(
-        code=Op.SSTORE(0, 1) + Op.STOP,
+        code=Op.SSTORE(0, 1),
     )
 
     # Enough for intrinsic + warm SSTORE regular gas, but not the
@@ -258,7 +257,7 @@ def test_block_state_gas_limit(
 
     # Contract that performs a single SSTORE (consumes state gas)
     state_gas_spender = pre.deploy_contract(
-        code=Op.SSTORE(0, 1) + Op.STOP,
+        code=Op.SSTORE(0, 1),
     )
 
     txs = [
@@ -333,7 +332,7 @@ def test_block_gas_used_with_state_ops(
     """
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     tx = Transaction(
@@ -366,7 +365,7 @@ def test_create_tx_reservoir(
     Test contract creation with state gas from reservoir or gas_left.
 
     Contract creation charges intrinsic state gas for the new account
-    (112 * cost_per_state_byte). When gas_above_cap is True, extra gas
+    (new-account state gas). When gas_above_cap is True, extra gas
     beyond TX_MAX_GAS_LIMIT feeds the reservoir. When False, all state
     gas comes from gas_left (reservoir is zero).
     """
