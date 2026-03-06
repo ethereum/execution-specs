@@ -754,6 +754,80 @@ def test_fixture_output_based_on_command_line_args(
         assert properties["build"] == build_name
 
 
+test_module_execution_witness = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import  Account, Environment, Op, Transaction
+
+    @pytest.mark.valid_at("Amsterdam")
+    def test_execution_witness(state_test, pre) -> None:
+        contract = pre.deploy_contract(code=Op.SSTORE(0, 1) + Op.STOP)
+        state_test(env=Environment(),
+                    pre=pre, post={contract: Account(storage={0: 1})},
+                    tx=Transaction(to=contract, gas_limit=100_000, sender=pre.fund_eoa()))
+    """
+)
+
+
+def test_execution_witness_in_blockchain_fixture(
+    testdir: pytest.Testdir,
+) -> None:
+    """
+    Fill a minimal Amsterdam state_test that calls a pre-deployed contract,
+    then verify the resulting blockchain fixture contains execution witness
+    and stateless validation fields.
+    """
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join("test_module_execution_witness.py")
+    test_module.write(test_module_execution_witness)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = ["-c", "pytest-fill.ini", "-v", "--until=Amsterdam", "--no-html"]
+    result = testdir.runpytest(*args)
+    result.assert_outcomes(
+        passed=3,
+        failed=0,
+        skipped=0,
+        errors=0,
+    )
+
+    output_dir = Path(default_output_directory()).absolute()
+    assert output_dir.exists()
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests/for_amsterdam/amsterdam/"
+        "module_execution_witness/execution_witness.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    assert len(fixture_data) == 1, "Expected exactly one fixture"
+    fixture = next(iter(fixture_data.values()))
+    block = fixture["blocks"][0]
+
+    # executionWitness exists with non-empty state, codes, and headers
+    assert "executionWitness" in block
+    witness = block["executionWitness"]
+    assert len(witness["state"]) > 0, "executionWitness.state is empty"
+    assert len(witness["codes"]) > 0, "executionWitness.codes is empty"
+    assert len(witness["headers"]) > 0, "executionWitness.headers is empty"
+
+    # statelessInputBytes and statelessOutputBytes are non-empty hex strings
+    assert "statelessInputBytes" in block
+    sib = block["statelessInputBytes"]
+    assert isinstance(sib, str) and sib.startswith("0x") and len(sib) > 2
+
+    assert "statelessOutputBytes" in block
+    sob = block["statelessOutputBytes"]
+    assert isinstance(sob, str) and sob.startswith("0x") and len(sob) > 2
+
+
 test_module_environment_variables = textwrap.dedent(
     """\
     import pytest
