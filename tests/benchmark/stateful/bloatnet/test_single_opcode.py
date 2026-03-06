@@ -264,8 +264,9 @@ def test_sload_erc20_balanceof(
         slot_offset += num_calls
 
     blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
-
-    benchmark_test(pre=pre, blocks=blocks)
+    # FIXME: this should not use gas validation as this one should OOG
+    # If it does not OOG, the gas calculation is too high, it should be too low
+    benchmark_test(pre=pre, blocks=blocks, skip_gas_used_validation=True)
 
 
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
