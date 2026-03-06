@@ -513,7 +513,9 @@ def test_sstore_erc20_approve(
     # because the state root is part of the calculation
     # NOTE: this is not crucial for gas repricing tests
     # as the mint variant is used there.
-    benchmark_test(pre=pre, blocks=blocks, skip_gas_used_validation=True) # FIXME: temp skips
+    benchmark_test(
+        pre=pre, blocks=blocks, skip_gas_used_validation=True
+    )  # FIXME: temp skips
 
 
 def build_call_memory_setup(
