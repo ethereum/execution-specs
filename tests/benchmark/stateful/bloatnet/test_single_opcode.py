@@ -217,7 +217,10 @@ def test_sload_erc20_balanceof(
     slot_offset = (
         1
         if existing_slots
-        else 0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
+        else (
+            0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
+        )
+        % (2**160)  # Mask it as address otherwise Solidity rejects the input
     )
 
     while gas_remaining > intrinsic_gas_with_access_list:
