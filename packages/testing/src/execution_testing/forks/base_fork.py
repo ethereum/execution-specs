@@ -798,6 +798,24 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def sstore_state_gas(cls) -> int:
+        """Return state gas for a zero-to-nonzero SSTORE."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def code_deposit_state_gas(cls, *, code_size: int) -> int:
+        """Return state gas for code deposit of the given size."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def create_state_gas(cls, *, code_size: int = 0) -> int:
+        """Return total state gas for CREATE."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def block_rlp_size_limit(cls) -> int | None:
         """
         Return the maximum RLP size of a block in bytes, or None if no limit is
