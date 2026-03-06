@@ -1001,6 +1001,23 @@ class Frontier(
         return None
 
     @classmethod
+    def sstore_state_gas(cls) -> int:
+        """Return the state gas for a zero-to-nonzero SSTORE."""
+        return 0
+
+    @classmethod
+    def code_deposit_state_gas(cls, *, code_size: int) -> int:
+        """Return the state gas for code deposit of the given size."""
+        del code_size
+        return 0
+
+    @classmethod
+    def create_state_gas(cls, *, code_size: int = 0) -> int:
+        """Return total state gas for CREATE (new account + code deposit)."""
+        del code_size
+        return 0
+
+    @classmethod
     def block_rlp_size_limit(cls) -> int | None:
         """At Genesis, no RLP block size limit is imposed."""
         return None

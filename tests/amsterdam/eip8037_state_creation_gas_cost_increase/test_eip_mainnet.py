@@ -7,13 +7,14 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
 
-from .spec import Spec, ref_spec_8037
+from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -24,8 +25,11 @@ pytestmark = [pytest.mark.valid_at("Amsterdam"), pytest.mark.mainnet]
 def test_sstore_zero_to_nonzero(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test SSTORE zero-to-nonzero charges state gas and succeeds."""
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     storage = Storage()
     contract = pre.deploy_contract(
         code=Op.SSTORE(storage.store_next(1), 1),
@@ -33,7 +37,7 @@ def test_sstore_zero_to_nonzero(
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT,
+        gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
     )
 
@@ -44,8 +48,11 @@ def test_sstore_zero_to_nonzero(
 def test_create_charges_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test CREATE charges state gas for new account creation."""
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     init_code = Op.STOP
 
     storage = Storage()
@@ -65,7 +72,7 @@ def test_create_charges_state_gas(
 
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT,
+        gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
     )
 
@@ -76,12 +83,15 @@ def test_create_charges_state_gas(
 def test_create_tx_deploys_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test contract creation transaction succeeds with state gas."""
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     tx = Transaction(
         to=None,
         data=Op.STOP,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT,
+        gas_limit=gas_limit_cap,
         sender=pre.fund_eoa(),
     )
 

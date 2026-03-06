@@ -15,13 +15,14 @@ from execution_testing import (
     Alloc,
     AuthorizationTuple,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
     Transaction,
 )
 
-from .spec import Spec, ref_spec_8037
+from .spec import ref_spec_8037
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
@@ -31,6 +32,7 @@ REFERENCE_SPEC_VERSION = ref_spec_8037.version
 def test_sstore_via_delegation_pointer(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test SSTORE state gas charged when called via delegation pointer.
@@ -40,12 +42,13 @@ def test_sstore_via_delegation_pointer(
     contract code in the EOA's context. The SSTORE state gas should
     be charged from the reservoir just as it would for a direct call.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
-    auth_state_gas = (
-        Spec.STATE_BYTES_PER_NEW_ACCOUNT + Spec.STATE_BYTES_PER_AUTH_BASE
-    ) * cpsb
-    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+    auth_state_gas = fork.transaction_intrinsic_state_gas(
+        authorization_count=1,
+    )
+    sstore_state_gas = fork.sstore_state_gas()
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -58,7 +61,7 @@ def test_sstore_via_delegation_pointer(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=delegator,
-        gas_limit=(Spec.TX_MAX_GAS_LIMIT + auth_state_gas + sstore_state_gas),
+        gas_limit=(gas_limit_cap + auth_state_gas + sstore_state_gas),
         authorization_list=[
             AuthorizationTuple(
                 address=contract,
@@ -78,6 +81,7 @@ def test_sstore_via_delegation_pointer(
 def test_sstore_direct_call_same_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test SSTORE state gas charged when calling the contract directly.
@@ -85,9 +89,10 @@ def test_sstore_direct_call_same_contract(
     Baseline comparison: calling the contract directly (not via a
     delegation pointer) charges SSTORE state gas identically.
     """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
-    sstore_state_gas = Spec.STATE_BYTES_PER_STORAGE_SET * cpsb
+    sstore_state_gas = fork.sstore_state_gas()
 
     storage = Storage()
     contract = pre.deploy_contract(
@@ -97,7 +102,7 @@ def test_sstore_direct_call_same_contract(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=contract,
-        gas_limit=Spec.TX_MAX_GAS_LIMIT + sstore_state_gas,
+        gas_limit=gas_limit_cap + sstore_state_gas,
         sender=sender,
     )
 
@@ -109,6 +114,7 @@ def test_sstore_direct_call_same_contract(
 def test_delegation_pointer_new_account_state_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test delegation pointer CALL to empty account charges new-account gas.
@@ -117,12 +123,14 @@ def test_delegation_pointer_new_account_state_gas(
     via a delegation pointer, the new-account state gas
     is charged identically to a direct call.
     """
+    gas_costs = fork.gas_costs()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     env = Environment()
-    cpsb = Spec.COST_PER_STATE_BYTE
-    auth_state_gas = (
-        Spec.STATE_BYTES_PER_NEW_ACCOUNT + Spec.STATE_BYTES_PER_AUTH_BASE
-    ) * cpsb
-    new_account_state_gas = Spec.STATE_BYTES_PER_NEW_ACCOUNT * cpsb
+    auth_state_gas = fork.transaction_intrinsic_state_gas(
+        authorization_count=1,
+    )
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
 
     target = 0xDEAD
 
@@ -143,9 +151,7 @@ def test_delegation_pointer_new_account_state_gas(
     sender = pre.fund_eoa()
     tx = Transaction(
         to=delegator,
-        gas_limit=(
-            Spec.TX_MAX_GAS_LIMIT + auth_state_gas + new_account_state_gas
-        ),
+        gas_limit=(gas_limit_cap + auth_state_gas + new_account_state_gas),
         authorization_list=[
             AuthorizationTuple(
                 address=contract,
