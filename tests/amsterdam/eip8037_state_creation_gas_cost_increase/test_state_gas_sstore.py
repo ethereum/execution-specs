@@ -43,7 +43,7 @@ def test_sstore_zero_to_nonzero(
     """
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     tx = Transaction(
@@ -69,7 +69,7 @@ def test_sstore_nonzero_to_nonzero(
     """
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(2), 2) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(2), 2),
         storage={0: 1},
     )
 
@@ -96,7 +96,7 @@ def test_sstore_nonzero_to_zero(
     """
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(0), 0) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(0), 0),
         storage={0: 1},
     )
 
@@ -123,7 +123,7 @@ def test_sstore_zero_to_zero(
     """
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(0), 0) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(0), 0),
     )
 
     tx = Transaction(
@@ -151,7 +151,7 @@ def test_sstore_restoration_refund(
     with the regular gas write cost.
     """
     contract = pre.deploy_contract(
-        code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0) + Op.STOP),
+        code=(Op.SSTORE(0, 1) + Op.SSTORE(0, 0)),
     )
 
     tx = Transaction(
@@ -178,7 +178,7 @@ def test_sstore_restoration_nonzero_no_state_refund(
     so only regular gas refunds apply.
     """
     contract = pre.deploy_contract(
-        code=(Op.SSTORE(0, 2) + Op.SSTORE(0, 1) + Op.STOP),
+        code=(Op.SSTORE(0, 2) + Op.SSTORE(0, 1)),
         storage={0: 1},
     )
 
@@ -205,7 +205,7 @@ def test_sstore_clear_refund_reversal(
     nonzero value, the clear refund is reversed via refund_counter.
     """
     contract = pre.deploy_contract(
-        code=(Op.SSTORE(0, 0) + Op.SSTORE(0, 2) + Op.STOP),
+        code=(Op.SSTORE(0, 0) + Op.SSTORE(0, 2)),
         storage={0: 1},
     )
 
@@ -243,7 +243,6 @@ def test_sstore_multiple_slots(
     code = Bytecode()
     for _ in range(num_slots):
         code += Op.SSTORE(storage.store_next(1), 1)
-    code += Op.STOP
     contract = pre.deploy_contract(code=code)
 
     tx = Transaction(
@@ -274,7 +273,7 @@ def test_sstore_state_gas_drawn_from_reservoir(
 
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     tx = Transaction(
@@ -304,7 +303,7 @@ def test_sstore_state_gas_all_tx_types(
     """
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     tx = typed_transaction.copy(

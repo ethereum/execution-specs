@@ -49,7 +49,7 @@ def test_sstore_via_delegation_pointer(
 
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     # EOA with pre-existing delegation to the contract
@@ -91,7 +91,7 @@ def test_sstore_direct_call_same_contract(
 
     storage = Storage()
     contract = pre.deploy_contract(
-        code=Op.SSTORE(storage.store_next(1), 1) + Op.STOP,
+        code=Op.SSTORE(storage.store_next(1), 1),
     )
 
     sender = pre.fund_eoa()
@@ -115,7 +115,7 @@ def test_delegation_pointer_new_account_state_gas(
 
     A contract CALLs with value to a non-existent address. When executed
     via a delegation pointer, the new-account state gas
-    (112 * cost_per_state_byte) is charged identically to a direct call.
+    is charged identically to a direct call.
     """
     env = Environment()
     cpsb = Spec.COST_PER_STATE_BYTE
@@ -133,7 +133,6 @@ def test_delegation_pointer_new_account_state_gas(
                 parent_storage.store_next(1),
                 Op.CALL(gas=100_000, address=target, value=1),
             )
-            + Op.STOP
         ),
         balance=1,
     )
