@@ -18,7 +18,7 @@ from ethereum.crypto.bls12_381 import pairing_check
 from ....vm import Evm
 from ....vm.gas import charge_gas
 from ...exceptions import InvalidParameter
-from . import _unpad_g1, _unpad_g2
+from . import unpad_g1, unpad_g2
 
 
 def bls12_pairing(evm: Evm) -> None:
@@ -53,8 +53,8 @@ def bls12_pairing(evm: Evm) -> None:
         g1_start = 384 * i
         g2_start = 384 * i + 128
 
-        g1_points.append(_unpad_g1(data[g1_start : g1_start + 128]))
-        g2_points.append(_unpad_g2(data[g2_start : g2_start + 256]))
+        g1_points.append(unpad_g1(data[g1_start : g1_start + 128]))
+        g2_points.append(unpad_g2(data[g2_start : g2_start + 256]))
 
     try:
         result = pairing_check(g1_points, g2_points)

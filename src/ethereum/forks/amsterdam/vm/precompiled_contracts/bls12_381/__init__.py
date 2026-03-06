@@ -19,7 +19,7 @@ from ...exceptions import InvalidParameter
 ZERO_PAD = b"\x00" * 16
 
 
-def _unpad_fp(data: Bytes) -> Bytes:
+def unpad_fp(data: Bytes) -> Bytes:
     """
     Remove the 16-byte zero padding from a 64-byte field element.
 
@@ -44,7 +44,7 @@ def _unpad_fp(data: Bytes) -> Bytes:
     return data[16:]
 
 
-def _unpad_g1(data: Bytes) -> bytes:
+def unpad_g1(data: Bytes) -> bytes:
     """
     Strip padding from a 128-byte G1 encoding to 96 raw bytes.
 
@@ -64,12 +64,12 @@ def _unpad_g1(data: Bytes) -> bytes:
         If the padding is invalid.
 
     """
-    x = _unpad_fp(data[:64])
-    y = _unpad_fp(data[64:])
+    x = unpad_fp(data[:64])
+    y = unpad_fp(data[64:])
     return bytes(x + y)
 
 
-def _unpad_g2(data: Bytes) -> bytes:
+def unpad_g2(data: Bytes) -> bytes:
     """
     Strip padding from a 256-byte G2 encoding to 192 raw bytes.
 
@@ -89,14 +89,14 @@ def _unpad_g2(data: Bytes) -> bytes:
         If the padding is invalid.
 
     """
-    c0_x = _unpad_fp(data[:64])
-    c1_x = _unpad_fp(data[64:128])
-    c0_y = _unpad_fp(data[128:192])
-    c1_y = _unpad_fp(data[192:256])
+    c0_x = unpad_fp(data[:64])
+    c1_x = unpad_fp(data[64:128])
+    c0_y = unpad_fp(data[128:192])
+    c1_y = unpad_fp(data[192:256])
     return bytes(c0_x + c1_x + c0_y + c1_y)
 
 
-def _pad_g1(raw: bytes) -> Bytes:
+def pad_g1(raw: bytes) -> Bytes:
     """
     Add 16-byte zero padding to a 96-byte G1 point.
 
@@ -116,7 +116,7 @@ def _pad_g1(raw: bytes) -> Bytes:
     return ZERO_PAD + x + ZERO_PAD + y
 
 
-def _pad_g2(raw: bytes) -> Bytes:
+def pad_g2(raw: bytes) -> Bytes:
     """
     Add 16-byte zero padding to a 192-byte G2 point.
 

@@ -28,9 +28,9 @@ from . import (
     G2_K_DISCOUNT,
     G2_MAX_DISCOUNT,
     MULTIPLIER,
-    _pad_g2,
-    _unpad_fp,
-    _unpad_g2,
+    pad_g2,
+    unpad_fp,
+    unpad_g2,
 )
 
 LENGTH_PER_PAIR = 288
@@ -59,15 +59,15 @@ def bls12_g2_add(evm: Evm) -> None:
     charge_gas(evm, Uint(GAS_BLS_G2_ADD))
 
     # OPERATION
-    p1 = _unpad_g2(data[:256])
-    p2 = _unpad_g2(data[256:512])
+    p1 = unpad_g2(data[:256])
+    p2 = unpad_g2(data[256:512])
 
     try:
         raw = g2_add(p1, p2)
     except ValueError as e:
         raise InvalidParameter(str(e)) from e
 
-    evm.output = _pad_g2(raw)
+    evm.output = pad_g2(raw)
 
 
 def bls12_g2_msm(evm: Evm) -> None:
@@ -108,7 +108,7 @@ def bls12_g2_msm(evm: Evm) -> None:
     scalars = []
     for i in range(k):
         start = i * LENGTH_PER_PAIR
-        points.append(_unpad_g2(data[start : start + 256]))
+        points.append(unpad_g2(data[start : start + 256]))
         scalars.append(bytes(buffer_read(data, U256(start + 256), U256(32))))
 
     try:
@@ -116,7 +116,7 @@ def bls12_g2_msm(evm: Evm) -> None:
     except ValueError as e:
         raise InvalidParameter(str(e)) from e
 
-    evm.output = _pad_g2(raw)
+    evm.output = pad_g2(raw)
 
 
 def bls12_map_fp2_to_g2(evm: Evm) -> None:
@@ -142,11 +142,11 @@ def bls12_map_fp2_to_g2(evm: Evm) -> None:
     charge_gas(evm, Uint(GAS_BLS_G2_MAP))
 
     # OPERATION
-    fp2 = bytes(_unpad_fp(data[:64]) + _unpad_fp(data[64:]))
+    fp2 = bytes(unpad_fp(data[:64]) + unpad_fp(data[64:]))
 
     try:
         raw = map_fp2_to_g2(fp2)
     except ValueError as e:
         raise InvalidParameter(str(e)) from e
 
-    evm.output = _pad_g2(raw)
+    evm.output = pad_g2(raw)
