@@ -62,13 +62,11 @@ def verify_kzg_proof(
     assert len(y_bytes) == BYTES_PER_FIELD_ELEMENT
     assert len(proof_bytes) == BYTES_PER_PROOF
 
-    # Validate and deserialize G1 points
-    # Note: Points must be in the prime-ordered subgroup
+    # Deserialize G1 points; raises if not in subgroup.
     commitment = G1Point.from_compressed_bytes(commitment_bytes)
     proof = G1Point.from_compressed_bytes(proof_bytes)
 
-    # Validate and convert scalars
-    # Note: Scalars must be canonical
+    # Deserialize scalars; raises if not canonical.
     z = Scalar.from_be_bytes(z_bytes)
     y = Scalar.from_be_bytes(y_bytes)
 
