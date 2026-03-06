@@ -626,14 +626,14 @@ def test_sstore_erc20_mint(
     mint_mem_setup = build_call_memory_setup(
         MINT_SELECTOR, Op.SLOAD(slot_offset), mint_amount
     )
-    mint_erc20_call = build_external_call(erc20_address, 32 + 32 + 4)
+    mint_erc20_call = build_external_call(erc20_address, 2)
 
     # MEM[0] = function selector
     # MEM[32] = target address
     balance_mem_setup = build_call_memory_setup(
         BALANCEOF_SELECTOR, Op.SLOAD(slot_offset)
     )
-    balance_erc20_call = build_external_call(erc20_address, 32 + 4)
+    balance_erc20_call = build_external_call(erc20_address, 1)
 
     attack_code = mint_erc20_call
     if cache_strategy == CacheStrategy.CACHE_TX:
