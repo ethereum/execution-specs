@@ -430,14 +430,17 @@ def test_sstore_erc20_approve(
             + Op.CALLDATALOAD(36)
             + Op.MSTORE(0, Op.CALLDATALOAD(4))
             + Op.MSTORE(32, 1)
-            + Op.MSTORE(32, Op.SHA3(
-                0,
-                64,
-                # gas accounting
-                data_size=64,
-                old_memory_size=0,
-                new_memory_size=64,
-            ))
+            + Op.MSTORE(
+                32,
+                Op.SHA3(
+                    0,
+                    64,
+                    # gas accounting
+                    data_size=64,
+                    old_memory_size=0,
+                    new_memory_size=64,
+                ),
+            )
             + Op.MSTORE(0, Op.CALLDATALOAD(36))
             + Op.SHA3(
                 0,
@@ -725,7 +728,7 @@ def test_sstore_erc20_mint(
         # the bytecode. This test is temporary and will be removed
         # after (or during) gas repricing effort is done. See
         # https://github.com/ethereum/execution-specs/issues/2411
-        skip_gas_used_validation=True
+        skip_gas_used_validation=True,
     )
 
 
