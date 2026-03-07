@@ -35,6 +35,9 @@ class Spec:
     # The prime modulus of the BN254 prime field Fp (from EIP-196)
     P = Spec196.P
 
+    # The order of the BN254 G1 group
+    N = Spec196.N
+
     # Precompile address
     ECPAIRING = Address(0x08)
 
