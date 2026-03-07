@@ -19,7 +19,7 @@ Test cases can (and it most cases should) be decorated with one or more "validit
 
 or
 
-- `pytest.mark.valid_at_transition_to(FORK)`
+- `pytest.mark.valid_at_transition_to(FORK)` (requires the `fork` parameter to use the `TransitionFork` type instead of `Fork`, see [Transition Fork Tests](#transition-fork-tests))
 
 markers on either the test function, test class or test module level:
 
@@ -55,6 +55,38 @@ The [`execution_testing.forks`](../library/execution_testing_forks.md) package d
 
 - [forks_from](../library/execution_testing_forks.md#execution_testing.forks.forks_from)
 - [forks_from_until](../library/execution_testing_forks.md#execution_testing.forks.forks_from_until)
+
+### Transition Fork Tests
+
+When writing tests that use the `valid_at_transition_to` marker, the `fork` parameter must be typed as `TransitionFork` instead of `Fork`:
+
+```python
+import pytest
+
+from execution_testing.forks import TransitionFork
+from execution_testing.tools import Alloc, BlockchainTestFiller
+
+@pytest.mark.valid_at_transition_to("London")
+def test_something_at_transition(
+    blockchain_test: BlockchainTestFiller,
+    fork: TransitionFork,
+    pre: Alloc,
+):
+    pass
+```
+
+The `TransitionFork` type represents a fork that transitions from one fork to another at a specific block number or timestamp. It provides methods not available on regular `Fork`:
+
+- `fork.transitions_from()` — returns the fork before the transition (e.g. `Berlin`)
+- `fork.transitions_to()` — returns the fork after the transition (e.g. `London`)
+- `fork.fork_at(block_number=N, timestamp=T)` — returns the active fork at the given block/timestamp
+
+Transition forks support comparison operators that compare based on the `transitions_to()` fork. For example, given a transition `Berlin -> London`:
+
+- `BerlinToLondonAt5 >= Berlin` is `True` (the transition encompasses Berlin)
+- `BerlinToLondonAt5 <= Berlin` is `False` (the transition goes beyond Berlin)
+- `BerlinToLondonAt5 >= London` is `True`
+- `BerlinToLondonAt5 <= London` is `True`
 
 ### The `state_test` and `blockchain_test` Test Function Arguments
 

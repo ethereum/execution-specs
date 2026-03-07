@@ -164,6 +164,52 @@ class ParisToShanghaiAtTime15k(Paris):
     pass
 ```
 
+### The `TransitionFork` Type
+
+Tests that use the `valid_at_transition_to` marker must type their `fork` parameter as `TransitionFork` instead of the regular `Fork` type:
+
+```python
+from execution_testing.forks import TransitionFork
+
+@pytest.mark.valid_at_transition_to("London")
+def test_transition_behavior(
+    blockchain_test: BlockchainTestFiller,
+    fork: TransitionFork,
+    pre: Alloc,
+):
+    pass
+```
+
+The `TransitionFork` type provides the following methods:
+
+- `fork.transitions_from()` — returns the fork before the transition
+- `fork.transitions_to()` — returns the fork after the transition
+- `fork.fork_at(block_number=N, timestamp=T)` — returns the active `Fork` at the given block number and timestamp
+
+### Transition Fork Comparisons
+
+Transition forks support comparison operators. A transition fork compares based on its `transitions_to()` fork. For a transition `A -> B`:
+
+| Expression   | Result  | Reason                                      |
+|--------------|---------|----------------------------------------------|
+| `A->B >= A`  | `True`  | B is newer than or equal to A                |
+| `A->B <= A`  | `False` | B is newer than A, not older or equal        |
+| `A->B >= B`  | `True`  | B is equal to B                              |
+| `A->B <= B`  | `True`  | B is equal to B                              |
+
+This logic mirrors how the test framework determines whether a transition fork is included when evaluating `valid_from` / `valid_until` markers:
+
+| Marker     | Comparison   | Transition Included? |
+|------------|--------------|----------------------|
+| `From A`   | `fork >= A`  | Yes                  |
+| `Until A`  | `fork <= A`  | No                   |
+| `From B`   | `fork >= B`  | Yes                  |
+| `Until B`  | `fork <= B`  | Yes                  |
+
+Comparisons between two transition forks also use their respective `transitions_to()` forks, which enables correct sorting of transition forks.
+
+### Testing Behavior Across Transitions
+
 With transition forks, you can test how behavior changes across fork boundaries:
 
 ```python

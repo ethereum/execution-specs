@@ -22,6 +22,9 @@ These markers are used to specify the forks for which a test is valid.
 
 ### `@pytest.mark.valid_at_transition_to("FORK_NAME")`
 
+!!! important
+    Tests using this marker must type their `fork` parameter as `TransitionFork` (imported from `execution_testing`) instead of the regular `Fork` type. The `TransitionFork` type provides transition-specific methods such as `fork_at()`, `transitions_to()`, and `transitions_from()`. See [Transition Fork Tests](./writing_a_new_test.md#transition-fork-tests) for details.
+
 :::execution_testing.cli.pytest_commands.plugins.forks.forks.ValidAtTransitionTo
 
 ## Fork Covariant Markers
