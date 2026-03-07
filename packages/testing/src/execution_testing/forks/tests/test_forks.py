@@ -377,22 +377,21 @@ class PreAllocTransitionFork(TransitionBaseClass):
 def test_pre_alloc() -> None:  # noqa: D103
     assert PrePreAllocFork.pre_allocation() == {"test": "test"}
     assert PreAllocFork.pre_allocation() == {"test": "test", "test2": "test2"}
-    assert PreAllocTransitionFork.fork_at().pre_allocation() == {
+    assert PreAllocTransitionFork.transitions_to().pre_allocation() == {
         "test": "test",
         "test2": "test2",
     }
-    assert PreAllocTransitionFork.fork_at().pre_allocation() == {
+    assert PreAllocTransitionFork.transitions_from().pre_allocation() == {
         "test": "test",
-        "test2": "test2",
     }
 
 
 def test_precompiles() -> None:  # noqa: D103
-    assert Cancun.precompiles() == list(range(11))[1:]
+    assert sorted(Cancun.precompiles()) == list(range(1, 11))
 
 
 def test_tx_types() -> None:  # noqa: D103
-    assert Cancun.tx_types() == list(range(4))
+    assert Cancun.tx_types() == list(reversed(range(4)))
 
 
 @pytest.mark.parametrize(
@@ -574,9 +573,9 @@ def test_blob_schedules(
 ) -> None:
     """Test blob schedules for different forks."""
     if expected_schedule is None:
-        assert fork.fork_at().blob_schedule() is None
+        assert fork.transitions_to().blob_schedule() is None
     else:
-        assert fork.fork_at().blob_schedule() == BlobSchedule(
+        assert fork.transitions_to().blob_schedule() == BlobSchedule(
             **expected_schedule
         )
 

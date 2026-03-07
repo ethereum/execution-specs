@@ -18,41 +18,6 @@ class TransitionBaseMetaClass(type):
         """
         raise Exception("Not implemented")
 
-    def __repr__(cls) -> str:
-        """Print the name of the fork, instead of the class."""
-        return cls.name()
-
-    def __gt__(cls, other: "TransitionBaseMetaClass | Type[BaseFork]") -> bool:
-        """Compare if a fork is newer than some other fork (cls > other)."""
-        return False
-
-    def __ge__(cls, other: "TransitionBaseMetaClass | Type[BaseFork]") -> bool:
-        """
-        Compare if a fork is newer than or equal to some other fork (cls >=
-        other).
-        """
-        return False
-
-    def __lt__(cls, other: "TransitionBaseMetaClass | Type[BaseFork]") -> bool:
-        """Compare if a fork is older than some other fork (cls < other)."""
-        # "Older" means other is a subclass of cls, but not the same.
-        return False
-
-    def __le__(cls, other: "TransitionBaseMetaClass | Type[BaseFork]") -> bool:
-        """
-        Compare if a fork is older than or equal to some other fork (cls <=
-        other).
-        """
-        return False
-
-
-class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
-    """Base class for transition forks."""
-
-    is_transition_fork: ClassVar[bool] = True
-    _ignore: ClassVar[bool] = False
-
-    @classmethod
     def transitions_to(cls) -> Type[BaseFork]:
         """
         Return fork where the transition ends.
@@ -62,7 +27,6 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
         """
         raise Exception("Not implemented")
 
-    @classmethod
     def transitions_from(cls) -> Type[BaseFork]:
         """
         Return fork where the transition starts.
@@ -71,6 +35,47 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
         the first fork.
         """
         raise Exception("Not implemented")
+
+    def __repr__(cls) -> str:
+        """Print the name of the fork, instead of the class."""
+        return cls.name()
+
+    def _other_fork(
+        cls, other: "TransitionBaseMetaClass | Type[BaseFork]"
+    ) -> Type[BaseFork]:
+        """Return the fork to compare against for the other operand."""
+        if isinstance(other, TransitionBaseMetaClass):
+            return other.transitions_to()
+        return other
+
+    def __gt__(cls, other: "TransitionBaseMetaClass | Type[BaseFork]") -> bool:
+        """Compare if a fork is newer than some other fork (cls > other)."""
+        return cls.transitions_to() > cls._other_fork(other)
+
+    def __ge__(cls, other: "TransitionBaseMetaClass | Type[BaseFork]") -> bool:
+        """
+        Compare if a fork is newer than or equal to some other fork (cls >=
+        other).
+        """
+        return cls.transitions_to() >= cls._other_fork(other)
+
+    def __lt__(cls, other: "TransitionBaseMetaClass | Type[BaseFork]") -> bool:
+        """Compare if a fork is older than some other fork (cls < other)."""
+        return cls.transitions_to() < cls._other_fork(other)
+
+    def __le__(cls, other: "TransitionBaseMetaClass | Type[BaseFork]") -> bool:
+        """
+        Compare if a fork is older than or equal to some other fork (cls <=
+        other).
+        """
+        return cls.transitions_to() <= cls._other_fork(other)
+
+
+class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
+    """Base class for transition forks."""
+
+    is_transition_fork: ClassVar[bool] = True
+    _ignore: ClassVar[bool] = False
 
     @classmethod
     def fork_at(

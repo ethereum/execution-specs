@@ -32,7 +32,6 @@ from execution_testing.vm import (
     Opcodes,
 )
 
-from .base_decorators import prefer_transition_to_method
 from .gas_costs import GasCosts
 
 
@@ -833,7 +832,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return cls._ignore
 
     @classmethod
-    @prefer_transition_to_method
     def bpo_fork(cls) -> bool:
         """Return whether the fork is a BPO fork."""
         return cls._bpo_fork
