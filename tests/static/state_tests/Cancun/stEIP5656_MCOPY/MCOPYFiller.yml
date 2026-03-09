@@ -16,9 +16,7 @@ MCOPY:
       balance: 0
       nonce: 1
       code: |
-        :yul {
-          function mcopy(dst, src, size) { verbatim_3i_0o(hex"5e", dst, src, size) }
-        
+        :yul cancun {
           // Fill memory at [0-96] (3x32) with the pattern of unique bytes.
           mstore( 0, 0xa0a1a2a3a4a5a6a7a8a9aAaBaCaDaEaFb0b1b2b3b4b5b6b7b8b9bAbBbCbDbEbF)
           mstore(32, 0xc0c1c2c3c4c5c6c7c8c9cAcBcCcDcEcFd0d1d2d3d4d5d6d7d8d9dAdBdCdDdEdF)

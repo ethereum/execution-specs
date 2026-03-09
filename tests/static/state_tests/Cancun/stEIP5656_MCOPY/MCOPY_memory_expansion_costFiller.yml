@@ -16,9 +16,7 @@ MCOPY_memory_expansion_cost:
       balance: 0
       nonce: 1
       code: |
-        :yul {
-          function mcopy(dst, src, size) { verbatim_3i_0o(hex"5e", dst, src, size) }
-        
+        :yul cancun {
           // Take most of the SSTORE cost before MCOPY. 
           sstore(0, 1)
         
