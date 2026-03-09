@@ -7,7 +7,10 @@ Remove this file afterwards.
 
 from typing import Dict, List
 
+import pytest
+
 from execution_testing.forks import (
+    ALL_FORKS_WITH_TRANSITIONS,
     BPO1,
     BPO2,
     BPO3,
@@ -530,3 +533,32 @@ ruleset: Dict[Fork | TransitionFork, Dict[str, int]] = {
         **get_blob_schedule_entries(BPO2),
     },
 }
+
+
+def ruleset_format(fork: Fork | TransitionFork) -> Dict[str, int]:
+    """Format the ruleset for hive."""
+    default_values: Dict[str, int] = dict.fromkeys(
+        London.ruleset().keys(), 2000
+    )
+    if fork < Byzantium:
+        default_values["HIVE_FORK_DAO_BLOCK"] = 2000
+    if fork > London:
+        default_values["HIVE_TERMINAL_TOTAL_DIFFICULTY"] = 0
+    ruleset = default_values | fork.ruleset()
+    if fork in [Amsterdam, BPO2ToAmsterdamAtTime15k]:
+        ruleset.pop("HIVE_AMSTERDAM_BLOB_BASE_FEE_UPDATE_FRACTION")
+        ruleset.pop("HIVE_AMSTERDAM_BLOB_MAX")
+        ruleset.pop("HIVE_AMSTERDAM_BLOB_TARGET")
+    return ruleset
+
+
+ruleset_automatic = {f: ruleset_format(f) for f in ALL_FORKS_WITH_TRANSITIONS}
+
+
+@pytest.mark.parametrize("fork", ruleset.keys())
+def test_ruleset_generation(fork: Fork | TransitionFork) -> None:
+    """Temporary unit test to verify conversion."""
+    assert fork in ruleset_automatic, f"fork not found in new ruleset {fork}"
+    assert ruleset[fork] == ruleset_automatic[fork], (
+        f"rulesets differ for {fork}"
+    )

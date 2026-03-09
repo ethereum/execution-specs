@@ -1,5 +1,6 @@
 """Abstract base class for Ethereum forks."""
 
+import re
 from abc import ABCMeta, abstractmethod
 from typing import (
     TYPE_CHECKING,
@@ -244,6 +245,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _ignore: ClassVar[bool] = False
     _bpo_fork: ClassVar[bool] = False
     _children: ClassVar[Set[Type["BaseFork"]]] = set()
+    _ruleset_name: ClassVar[Optional[str]] = None
+    _fork_by_timestamp: ClassVar[bool] = False
 
     # make mypy happy
     BLOB_CONSTANTS: ClassVar[Dict[str, Union[int, Literal["big"]]]] = {}
@@ -260,6 +263,8 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         solc_name: Optional[str] = None,
         ignore: bool = False,
         bpo_fork: bool = False,
+        ruleset_name: Optional[str] = None,
+        fork_by_timestamp: Optional[bool] = None,
     ) -> None:
         """
         Initialize new fork with values that don't carry over to subclass
@@ -269,7 +274,15 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         cls._solc_name = solc_name
         cls._ignore = ignore
         cls._bpo_fork = bpo_fork
+        cls._ruleset_name = ruleset_name
         cls._children = set()
+        if fork_by_timestamp is None:
+            parent = cls.parent()
+            cls._fork_by_timestamp = (
+                parent._fork_by_timestamp if parent is not None else False
+            )
+        else:
+            cls._fork_by_timestamp = fork_by_timestamp
         base_class = cls.__bases__[0]
         assert issubclass(base_class, BaseFork)
         if base_class != BaseFork:
@@ -870,3 +883,52 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         Build a default block header for this fork with the given attributes.
         """
         pass
+
+    @classmethod
+    def ruleset_name(cls) -> str | None:
+        """
+        Build a default block header for this fork with the given attributes.
+        """
+        assert cls is not BaseFork
+        if cls._ruleset_name is not None:
+            if cls._ruleset_name == "":
+                return None
+            ruleset_name = cls._ruleset_name
+        else:
+            if cls.__name__.startswith("BPO"):
+                ruleset_name = cls.__name__
+            else:
+                ruleset_name = re.sub(
+                    r"(?<!^)(?=[A-Z])", "_", cls.__name__
+                ).upper()
+        return ruleset_name
+
+    @classmethod
+    def ruleset(cls, value: int = 0) -> Dict[str, int]:
+        """
+        Build a default block header for this fork with the given attributes.
+        """
+        assert cls is not BaseFork
+        parent = cls.parent()
+        if parent is None:
+            return {}
+        entries: Dict[str, int] = {}
+        entries |= parent.ruleset()
+        ruleset_name = cls.ruleset_name()
+        if ruleset_name:
+            if cls._fork_by_timestamp:
+                hive_ruleset_name = f"HIVE_{ruleset_name}_TIMESTAMP"
+            else:
+                hive_ruleset_name = f"HIVE_FORK_{ruleset_name}"
+            entries[hive_ruleset_name] = value
+            if cls.supports_blobs():
+                entries[f"HIVE_{ruleset_name}_BLOB_TARGET"] = (
+                    cls.target_blobs_per_block()
+                )
+                entries[f"HIVE_{ruleset_name}_BLOB_MAX"] = (
+                    cls.max_blobs_per_block()
+                )
+                entries[
+                    f"HIVE_{ruleset_name}_BLOB_BASE_FEE_UPDATE_FRACTION"
+                ] = cls.blob_base_fee_update_fraction()
+        return entries

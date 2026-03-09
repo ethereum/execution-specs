@@ -1356,19 +1356,19 @@ class Homestead(Frontier):
         return fn
 
 
-class DAOFork(Homestead, ignore=True):
+class DAOFork(Homestead, ignore=True, ruleset_name=""):
     """DAO fork."""
 
     pass
 
 
-class TangerineWhistle(DAOFork, ignore=True):
+class TangerineWhistle(DAOFork, ignore=True, ruleset_name="TANGERINE"):
     """TangerineWhistle fork (EIP-150)."""
 
     pass
 
 
-class SpuriousDragon(TangerineWhistle, ignore=True):
+class SpuriousDragon(TangerineWhistle, ignore=True, ruleset_name="SPURIOUS"):
     """SpuriousDragon fork."""
 
     @classmethod
@@ -1553,7 +1553,11 @@ class Constantinople(Byzantium):
         ] + super(Constantinople, cls).valid_opcodes()
 
 
-class ConstantinopleFix(Constantinople, solc_name="constantinople"):
+class ConstantinopleFix(
+    Constantinople,
+    solc_name="constantinople",
+    ruleset_name="PETERSBURG",
+):
     """Constantinople Fix fork."""
 
     pass
@@ -1859,6 +1863,7 @@ class GrayGlacier(ArrowGlacier, solc_name="london", ignore=True):
 class Paris(
     London,
     transition_tool_name="Merge",
+    ruleset_name="MERGE",
 ):
     """Paris (Merge) fork."""
 
@@ -1883,7 +1888,7 @@ class Paris(
         return 1
 
 
-class Shanghai(Paris):
+class Shanghai(Paris, fork_by_timestamp=True):
     """Shanghai fork."""
 
     @classmethod

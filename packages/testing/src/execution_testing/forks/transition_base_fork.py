@@ -1,6 +1,6 @@
 """Base objects used to define transition forks."""
 
-from typing import Any, Callable, ClassVar, List, Type
+from typing import Any, Callable, ClassVar, Dict, List, Type
 
 from .base_fork import BaseFork
 
@@ -104,6 +104,13 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
         """
         return cls.transitions_to().is_deployed()
 
+    @classmethod
+    def ruleset(cls) -> Dict[str, int]:
+        """
+        Return the ruleset used for fork configuration.
+        """
+        raise Exception("Not implemented")
+
 
 def base_fork_abstract_methods() -> List[str]:
     """
@@ -123,6 +130,15 @@ def transition_fork(
 
     def decorator(cls: Type[Any]) -> Type[TransitionBaseClass]:
         transition_name = cls.__name__
+
+        if to_fork._fork_by_timestamp:
+            assert at_block == 0, f"Invalid block for {transition_name}"
+            assert at_timestamp > 0, f"Invalid timestamp for {transition_name}"
+        else:
+            assert at_block > 0, f"Invalid block for {transition_name}"
+            assert at_timestamp == 0, (
+                f"Invalid timestamp for {transition_name}"
+            )
 
         class NewTransitionClass(
             cls,
@@ -152,6 +168,17 @@ def transition_fork(
             def name(cls) -> str:
                 """Return name of the transition fork."""
                 return transition_name
+
+            @classmethod
+            def ruleset(cls) -> Dict[str, int]:
+                """
+                Return the ruleset used for fork configuration.
+                """
+                return to_fork.ruleset(
+                    value=at_timestamp
+                    if to_fork._fork_by_timestamp
+                    else at_block
+                )
 
         NewTransitionClass.__name__ = transition_name
         NewTransitionClass.at_block = at_block
