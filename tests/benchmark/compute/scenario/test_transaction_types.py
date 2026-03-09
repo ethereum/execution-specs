@@ -20,6 +20,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 
 
 def test_empty_block(
@@ -590,7 +591,9 @@ def test_auth_transaction(
         )
         total_gas_used += tx_gas_used
 
-        if not empty_authority:
+        # From Amsterdam onwards (EIP-7778), GasUsed in receipts reflects
+        # pre-refund gas (MaxUsedGas), so refunds are not subtracted.
+        if not empty_authority and fork < Amsterdam:
             total_refund += min(
                 tx_gas_used // 5,
                 (
