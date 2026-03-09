@@ -69,7 +69,7 @@ def exceptional_blockchain_test_patterns(
         f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-blockchain_test-multi_inf_pair-\\]",
         f"tests/{ef}/eip2935_historical_block_hashes_from_state/test_block_hashes\\.py::test_block_hashes_history\\[fork_{jf}-blockchain_test-full_history_plus_one_check_blockhash_first\\]",
         # Static tests from EEST
-        "tests/json_infra/fixtures/latest_fork_tests/fixtures/blockchain_tests/static",
+        "tests/json_loader/fixtures/latest_fork_tests/fixtures/blockchain_tests/static",
     )
 
     # These are tests that are considered to be incorrect,
@@ -132,7 +132,7 @@ def exceptional_state_test_patterns(
         f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-state_test-inf_pair-\\]",
         f"tests/{ef}/eip2537_bls_12_381_precompiles/test_bls12_pairing\\.py::test_valid\\[fork_{jf}-state_test-multi_inf_pair-\\]",
         # Static tests from EEST
-        "tests/json_infra/fixtures/latest_fork_tests/fixtures/state_tests/static",
+        "tests/json_loader/fixtures/latest_fork_tests/fixtures/state_tests/static",
     )
 
     return TestPatterns(

@@ -33,7 +33,7 @@ pytestmark = [
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/2249"],
 )
-@pytest.mark.json_infra
+@pytest.mark.json_loader
 def test_extcodehash_self(
     state_test: StateTestFiller,
     pre: Alloc,

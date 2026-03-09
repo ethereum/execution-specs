@@ -94,7 +94,7 @@ jobs:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
 
-  json_infra:
+  json_loader:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
@@ -103,8 +103,8 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-env
-      - name: Fill and run json_infra tests
-        run: tox -e json_infra
+      - name: Fill and run json_loader tests
+        run: tox -e json_loader
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 

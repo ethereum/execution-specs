@@ -1,4 +1,4 @@
-"""Shared StashKey definitions for json_infra tests."""
+"""Shared StashKey definitions for json_loader tests."""
 
 from pytest import StashKey
 

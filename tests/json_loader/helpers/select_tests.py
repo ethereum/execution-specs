@@ -66,7 +66,7 @@ def extract_affected_forks(
             # Skip invalid paths
             continue
 
-        if file_path.is_relative_to("tests/json_infra/"):
+        if file_path.is_relative_to("tests/json_loader/"):
             # Run all forks if something changes in the test
             # framework
             return all_forks

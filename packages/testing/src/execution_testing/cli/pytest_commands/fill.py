@@ -109,7 +109,7 @@ class FillCommand(PytestCommand):
         # Directories to ignore by default
         default_ignores = [
             "tests/evm_tools",
-            "tests/json_infra",
+            "tests/json_loader",
             "tests/fixtures",
         ]
 

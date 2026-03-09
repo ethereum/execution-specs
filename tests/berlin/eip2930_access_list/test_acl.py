@@ -213,7 +213,7 @@ def test_account_storage_warm_cold_state(
         ),
     ],
 )
-@pytest.mark.json_infra
+@pytest.mark.json_loader
 def test_transaction_intrinsic_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,

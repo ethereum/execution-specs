@@ -318,7 +318,7 @@ def test_value_transfer_gas_calculation(
 @pytest.mark.parametrize("gas_shortage", [0, 1])
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.valid_until("Berlin")
-@pytest.mark.json_infra
+@pytest.mark.json_loader
 def test_value_transfer_gas_calculation_byzantium(
     state_test: StateTestFiller,
     pre: Alloc,
