@@ -143,13 +143,13 @@ def test_alloc_fund_eoa_basic() -> None:
 
 
 def test_alloc_empty_account() -> None:
-    """Test `Alloc.empty_account` functionality."""
+    """Test `Alloc.empty_account` returns a nonexistent address."""
     pre = create_test_alloc()
     empty_addr = pre.empty_account()
 
-    # Check that we get a valid address (address generation works)
     assert isinstance(empty_addr, Address)
-    # Note: empty_account() only returns address, doesn't add to pre
+    # The address must not be in the pre-state (nonexistent account).
+    assert empty_addr not in pre
 
 
 def test_alloc_deploy_contract_code_types() -> None:
