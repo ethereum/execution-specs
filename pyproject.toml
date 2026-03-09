@@ -220,7 +220,7 @@ lint = [
     "types-requests>=2.31,<2.33",
 ]
 actionlint = [
-    "actionlint-py>=1.7",
+    "actionlint-py>=1.7.11,<2",
     "pyflakes>=3.0",
     "shellcheck-py>=0.10",
 ]

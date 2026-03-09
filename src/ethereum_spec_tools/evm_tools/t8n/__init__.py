@@ -338,24 +338,18 @@ class T8N(Load):
             k: self.fork.copy_trie(t)
             for (k, t) in state._storage_tries.items()
         }
-        # TODO: backport pass amsterdam
-        if self.fork.has_block_state:
-            self.alloc.state_backup = (
-                main_trie,
-                storage_tries,
-                dict(state._code_store),
-            )
-        else:
-            self.alloc.state_backup = (main_trie, storage_tries)
+        self.alloc.state_backup = (
+            main_trie,
+            storage_tries,
+            dict(state._code_store),
+        )
 
     def restore_state(self) -> None:
         """Restore the state from the backup."""
         state = self.alloc.state
         state._main_trie = self.alloc.state_backup[0]
         state._storage_tries = self.alloc.state_backup[1]
-        # TODO: backport pass amsterdam
-        if self.fork.has_block_state:
-            state._code_store = self.alloc.state_backup[2]
+        state._code_store = self.alloc.state_backup[2]
 
     def pay_block_rewards(self, block_reward: U256, block_env: Any) -> None:
         """Apply the block rewards to the block coinbase."""

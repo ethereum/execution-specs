@@ -24,6 +24,8 @@ Address = Bytes20
 Root = Hash32
 Bloom = Bytes256
 
+EMPTY_CODE_HASH = keccak256(b"")
+
 
 @slotted_freezable
 @dataclass
@@ -34,13 +36,13 @@ class Account:
 
     nonce: Uint
     balance: U256
-    code: Bytes
+    code_hash: Hash32
 
 
 EMPTY_ACCOUNT = Account(
     nonce=Uint(0),
     balance=U256(0),
-    code=b"",
+    code_hash=EMPTY_CODE_HASH,
 )
 
 
@@ -56,6 +58,6 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
             raw_account_data.nonce,
             raw_account_data.balance,
             storage_root,
-            keccak256(raw_account_data.code),
+            raw_account_data.code_hash,
         )
     )

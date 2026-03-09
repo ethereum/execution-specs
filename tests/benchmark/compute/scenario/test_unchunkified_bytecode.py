@@ -24,7 +24,6 @@ from execution_testing import (
 from ..helpers import ContractDeploymentTransaction, CustomSizedContractFactory
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize(
     "opcode",
     [

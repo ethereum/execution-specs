@@ -27,6 +27,7 @@ from ethereum.exceptions import (
     InvalidSenderError,
     NonceMismatchError,
 )
+from ethereum.state import EMPTY_CODE_HASH, Account, Address
 
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
@@ -40,12 +41,13 @@ from .exceptions import (
     PriorityFeeGreaterThanMaxFeeError,
     TransactionTypeContractCreationError,
 )
-from .fork_types import Account, Address, VersionedHash
+from .fork_types import VersionedHash
 from .state import (
     State,
     TransientStorage,
     destroy_account,
     get_account,
+    get_code,
     increment_nonce,
     modify_state,
     set_account_balance,
@@ -482,7 +484,7 @@ def check_transaction(
         raise NonceMismatchError("nonce too high")
     if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InsufficientBalanceError("insufficient sender balance")
-    if sender_account.code:
+    if sender_account.code_hash != EMPTY_CODE_HASH:
         raise InvalidSenderError("not EOA")
 
     return (
@@ -619,7 +621,10 @@ def process_unchecked_system_transaction(
         Output of processing the system transaction.
 
     """
-    system_contract_code = get_account(block_env.state, target_address).code
+    system_contract_code = get_code(
+        block_env.state,
+        get_account(block_env.state, target_address).code_hash,
+    )
     return process_system_transaction(
         block_env,
         target_address,

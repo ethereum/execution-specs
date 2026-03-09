@@ -20,9 +20,10 @@ from ethereum_types.numeric import U64, U256, Uint
 
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import EthereumException
+from ethereum.state import Address
 
 from ..blocks import Log, Receipt, Withdrawal
-from ..fork_types import Address, VersionedHash
+from ..fork_types import VersionedHash
 from ..state import State, TransientStorage
 from ..transactions import LegacyTransaction
 from ..trie import Trie

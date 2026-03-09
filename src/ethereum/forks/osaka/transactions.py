@@ -19,13 +19,14 @@ from ethereum.exceptions import (
     InvalidSignatureError,
     NonceOverflowError,
 )
+from ethereum.state import Address
 
 from .exceptions import (
     InitCodeTooLargeError,
     TransactionGasLimitExceededError,
     TransactionTypeError,
 )
-from .fork_types import Address, Authorization, VersionedHash
+from .fork_types import Authorization, VersionedHash
 
 GAS_TX_BASE = Uint(21000)
 """
@@ -597,12 +598,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     from .vm.eoa_delegation import GAS_AUTH_PER_EMPTY_ACCOUNT
     from .vm.gas import init_code_cost
 
-    zero_bytes = 0
-    for byte in tx.data:
-        if byte == 0:
-            zero_bytes += 1
+    num_zeros = Uint(tx.data.count(0))
+    num_non_zeros = ulen(tx.data) - num_zeros
 
-    tokens_in_calldata = Uint(zero_bytes + (len(tx.data) - zero_bytes) * 4)
+    tokens_in_calldata = num_zeros + num_non_zeros * Uint(4)
     # EIP-7623 floor price (note: no EVM costs)
     calldata_floor_gas_cost = (
         tokens_in_calldata * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE

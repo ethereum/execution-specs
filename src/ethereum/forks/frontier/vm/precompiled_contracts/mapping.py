@@ -13,7 +13,8 @@ Mapping of precompiled contracts to their implementations.
 
 from typing import Callable, Dict
 
-from ...fork_types import Address
+from ethereum.state import Address
+
 from . import (
     ECRECOVER_ADDRESS,
     IDENTITY_ADDRESS,

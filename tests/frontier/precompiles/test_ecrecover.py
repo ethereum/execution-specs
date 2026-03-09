@@ -52,7 +52,7 @@ from execution_testing.vm import Opcodes as Op
             ),
             id="valid_signature_2",
         ),
-        # z >= Order
+        # z == N (order)
         pytest.param(
             bytes.fromhex(
                 "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
@@ -69,7 +69,7 @@ from execution_testing.vm import Opcodes as Op
             bytes.fromhex(
                 "000000000000000000000000b32cf3c8616537a28583fc00d29a3e8c9614cd61"
             ),
-            id="z_gte_order",
+            id="z_eq_N",
         ),
         pytest.param(
             bytes.fromhex(
@@ -119,7 +119,7 @@ from execution_testing.vm import Opcodes as Op
             b"",
             id="invalid_signature_3",
         ),
-        # r >= Order
+        # r == N (order)
         pytest.param(
             bytes.fromhex(
                 "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
@@ -134,9 +134,9 @@ from execution_testing.vm import Opcodes as Op
                 "eeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549"
             ),
             b"",
-            id="invalid_signature_3",
+            id="r_eq_N",
         ),
-        # s >= Order
+        # s == N (order)
         pytest.param(
             bytes.fromhex(
                 "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
@@ -151,7 +151,58 @@ from execution_testing.vm import Opcodes as Op
                 "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
             ),
             b"",
-            id="s_gte_order",
+            id="s_eq_N",
+        ),
+        # r == 0 and s == N (order)
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+            ),
+            b"",
+            id="r_zero_and_s_eq_N",
+        ),
+        # r == N (order) and s == 0
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+            ),
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            b"",
+            id="r_eq_N_and_s_zero",
+        ),
+        # r == N (order) and s == N (order)
+        pytest.param(
+            bytes.fromhex(
+                "18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c"
+            ),
+            bytes.fromhex(
+                "000000000000000000000000000000000000000000000000000000000000001c"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+            ),
+            bytes.fromhex(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+            ),
+            b"",
+            id="r_eq_N_and_s_eq_N",
         ),
         # u1 == u2 && R == G
         pytest.param(
