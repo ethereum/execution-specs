@@ -1,15 +1,19 @@
 """Tests for the incremental MPT witness decoding and HashedNode."""
 
+from typing import List, Optional
+
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 
 from ethereum.crypto.hash import keccak256
 from ethereum.forks.amsterdam.incremental_mpt import (
+    BranchNode,
     HashedNode,
     IncrementalMPT,
-    MutableBranchNode,
-    MutableLeafNode,
+    LeafNode,
+    Node,
+    _encode_node,
     build_mpt,
     compact_to_nibbles,
     decode_witness_to_mpt,
@@ -92,24 +96,25 @@ class TestCompactToNibbles:
 
 
 class TestHashedNode:
-    """Test HashedNode behavior in the MutableNode functions."""
+    """Test HashedNode behavior in the Node functions."""
 
     def test_hashed_node_as_child_in_root_computation(self) -> None:
         """A hashed node child contributes its stored hash to the root."""
         fake_hash = keccak256(b"some subtree data")
         hashed_node = HashedNode(_hash=fake_hash)
 
-        branch = MutableBranchNode(
-            children=[None] * 16,
-            value=b"",
-            _dirty=True,
-        )
-        branch.children[0] = MutableLeafNode(
+        children: List[Optional[Node]] = [None] * 16
+        children[0] = LeafNode(
             rest_of_key=Bytes(b"\x01\x02"),
             value=b"hello",
             _dirty=True,
         )
-        branch.children[1] = hashed_node
+        children[1] = hashed_node
+        branch = BranchNode(
+            children=tuple(children),
+            value=b"",
+            _dirty=True,
+        )
 
         mpt: IncrementalMPT[Bytes, Bytes] = IncrementalMPT(
             secured=False,
@@ -131,7 +136,7 @@ class TestHashedNode:
             root_node=hashed_node,
             _data={},
         )
-        with pytest.raises(AssertionError, match="cannot be invalidated"):
+        with pytest.raises(AssertionError, match="Invalid node type"):
             mpt_set(mpt, b"\x01", b"value")
 
     def test_delete_from_hashed_node_raises(self) -> None:
@@ -143,7 +148,7 @@ class TestHashedNode:
             root_node=hashed_node,
             _data={},
         )
-        with pytest.raises(AssertionError, match="cannot be invalidated"):
+        with pytest.raises(AssertionError, match="Invalid node type"):
             mpt_set(mpt, b"\x01", b"")
 
     def test_witness_traversal_on_hashed_node_raises(self) -> None:
@@ -168,10 +173,6 @@ def _build_trie_and_collect_nodes(
 
     Return (root_hash, node_db).
     """
-    from ethereum.forks.amsterdam.incremental_mpt import (
-        _encode_mutable_node,
-    )
-
     # Compute the expected root via standard trie
     std_trie: Trie[Bytes, Bytes] = Trie(secured=secured, default=b"")
     for k, v in data.items():
@@ -189,10 +190,36 @@ def _build_trie_and_collect_nodes(
     # witness because they have no hash.  Ensure the root is
     # always present in node_db.
     if inc_mpt.root_node is not None and expected_root not in node_db:
-        root_rlp = rlp.encode(_encode_mutable_node(inc_mpt.root_node))
+        root_rlp = rlp.encode(_encode_node(inc_mpt.root_node))
         node_db[keccak256(root_rlp)] = root_rlp
 
     return expected_root, node_db
+
+
+def _build_partial_witness_mpt(
+    data: dict[Bytes, Bytes],
+    accessed_keys: list[bytes],
+    secured: bool = False,
+) -> tuple[IncrementalMPT[Bytes, Bytes], Root]:
+    """
+    Build an IncrementalMPT, access only ``accessed_keys`` to
+    generate a partial witness, then decode from that witness.
+
+    Return (decoded_mpt, root_hash).
+    """
+    inc_mpt = build_mpt(data, secured=secured, default=b"")
+    for k in accessed_keys:
+        mpt_get(inc_mpt, k)
+
+    partial_db: dict[Bytes, Bytes] = dict(inc_mpt.witness.accessed_nodes)
+    root_rlp = rlp.encode(_encode_node(inc_mpt.root_node))
+    root_hash = Root(keccak256(root_rlp))
+    partial_db[root_hash] = root_rlp
+
+    decoded_mpt: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
+        partial_db, root_hash, secured=secured, default=b""
+    )
+    return decoded_mpt, root_hash
 
 
 class TestDecodeWitnessToMpt:
@@ -339,30 +366,13 @@ class TestPartialWitness:
             b"bb": b"val_d",
         }
 
-        # Build the full trie to get the root
+        # Build the full trie to get the expected root
         std_trie: Trie[Bytes, Bytes] = Trie(secured=False, default=b"")
         for k, v in data.items():
             trie_set(std_trie, k, v)
         expected_root = root(std_trie)
 
-        # Build incremental MPT but only access some keys
-        inc_mpt = build_mpt(data, secured=False, default=b"")
-        mpt_get(inc_mpt, b"aa")
-        mpt_get(inc_mpt, b"ab")
-        # Intentionally NOT accessing b"ba" and b"bb"
-
-        partial_db: dict[Bytes, Bytes] = dict(inc_mpt.witness.accessed_nodes)
-
-        # Also need the root node itself
-        root_rlp = rlp.encode(
-            _encode_root_for_db(inc_mpt.root_node)  # type: ignore[arg-type]
-        )
-        root_hash = Root(keccak256(root_rlp))
-        partial_db[root_hash] = root_rlp
-
-        decoded_mpt: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
-            partial_db, expected_root, secured=False, default=b""
-        )
+        decoded_mpt, _ = _build_partial_witness_mpt(data, [b"aa", b"ab"])
 
         # Root should match even with hashed nodes for b"ba"/b"bb"
         assert mpt_root(decoded_mpt) == expected_root
@@ -378,27 +388,7 @@ class TestPartialWitness:
             b"ba": b"val_c",
             b"bb": b"val_d",
         }
-
-        # Full trie for expected roots
-        std_trie: Trie[Bytes, Bytes] = Trie(secured=False, default=b"")
-        for k, v in data.items():
-            trie_set(std_trie, k, v)
-
-        # Build incremental MPT, access only "a*" keys
-        inc_mpt = build_mpt(data, secured=False, default=b"")
-        mpt_get(inc_mpt, b"aa")
-        mpt_get(inc_mpt, b"ab")
-
-        partial_db: dict[Bytes, Bytes] = dict(inc_mpt.witness.accessed_nodes)
-        root_rlp = rlp.encode(
-            _encode_root_for_db(inc_mpt.root_node)  # type: ignore[arg-type]
-        )
-        root_hash = Root(keccak256(root_rlp))
-        partial_db[root_hash] = root_rlp
-
-        decoded_mpt: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
-            partial_db, root_hash, secured=False, default=b""
-        )
+        decoded_mpt, _ = _build_partial_witness_mpt(data, [b"aa", b"ab"])
 
         # Modify a known key
         mpt_set(decoded_mpt, b"aa", b"new_a")
@@ -424,36 +414,54 @@ class TestPartialWitness:
             b"ba": b"val_c",
             b"bb": b"val_d",
         }
-
-        inc_mpt = build_mpt(data, secured=False, default=b"")
-        mpt_get(inc_mpt, b"aa")
-        mpt_get(inc_mpt, b"ab")
-
-        partial_db: dict[Bytes, Bytes] = dict(inc_mpt.witness.accessed_nodes)
-        root_rlp = rlp.encode(
-            _encode_root_for_db(inc_mpt.root_node)  # type: ignore[arg-type]
-        )
-        root_hash = Root(keccak256(root_rlp))
-        partial_db[root_hash] = root_rlp
-
-        decoded_mpt: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
-            partial_db, root_hash, secured=False, default=b""
-        )
+        decoded_mpt, _ = _build_partial_witness_mpt(data, [b"aa", b"ab"])
 
         # Try to insert into the hashed node subtree
-        with pytest.raises(AssertionError, match="cannot be invalidated"):
+        with pytest.raises(AssertionError, match="Invalid node type"):
             mpt_set(decoded_mpt, b"ba", b"new_c")
 
+    def test_partial_witness_delete_collapses_to_hashed_node(self) -> None:
+        """
+        Delete a key whose sibling is a HashedNode.
 
-def _encode_root_for_db(
-    node: object,
-) -> object:
-    """Encode a MutableNode root into its RLP-encodable form."""
-    from ethereum.forks.amsterdam.incremental_mpt import (
-        _encode_mutable_node,
-    )
+        When a branch has two children and one is deleted, the branch
+        must collapse. If the remaining child is a HashedNode (from a
+        partial witness), _collapse_branch cannot merge the nibble into
+        it because its structure is unknown. This currently raises
+        AssertionError.
+        """
+        fake_hash = keccak256(b"some large subtree")
+        hashed_child = HashedNode(_hash=fake_hash)
 
-    return _encode_mutable_node(node)  # type: ignore[arg-type]
+        # Branch with a leaf at nibble 0 and a HashedNode at nibble 1.
+        # Key b"\x01" → nibbles [0, 1]: child index 0, rest_of_key [1].
+        children: List[Optional[Node]] = [None] * 16
+        children[0] = LeafNode(
+            rest_of_key=Bytes(b"\x01"),
+            value=b"hello",
+            _dirty=False,
+        )
+        children[1] = hashed_child
+
+        mpt: IncrementalMPT[Bytes, Bytes] = IncrementalMPT(
+            secured=False,
+            default=b"",
+            root_node=BranchNode(
+                children=tuple(children),
+                value=b"",
+                _dirty=False,
+            ),
+            _data={Bytes(b"\x01"): b"hello"},
+        )
+
+        # Deleting the leaf at nibble 0 leaves only the HashedNode,
+        # triggering a branch collapse. _collapse_branch calls
+        # _record_witness on the remaining child, which fails
+        # because HashedNode cannot be witnessed.
+        with pytest.raises(
+            AssertionError, match="HashedNode cannot be witnessed"
+        ):
+            mpt_set(mpt, Bytes(b"\x01"), b"")
 
 
 class TestBuildVsDecode:
@@ -564,22 +572,7 @@ class TestDecodeEdgeCases:
             b"ba": b"val_c",
             b"bb": b"val_d",
         }
-
-        # Build incremental MPT, access only "a*" keys
-        inc_mpt = build_mpt(data, secured=False, default=b"")
-        mpt_get(inc_mpt, b"aa")
-        mpt_get(inc_mpt, b"ab")
-
-        partial_db: dict[Bytes, Bytes] = dict(inc_mpt.witness.accessed_nodes)
-        root_rlp = rlp.encode(
-            _encode_root_for_db(inc_mpt.root_node)  # type: ignore[arg-type]
-        )
-        root_hash = Root(keccak256(root_rlp))
-        partial_db[root_hash] = root_rlp
-
-        decoded_mpt: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
-            partial_db, root_hash, secured=False, default=b""
-        )
+        decoded_mpt, _ = _build_partial_witness_mpt(data, [b"aa", b"ab"])
 
         # Delete a known key
         mpt_set(decoded_mpt, b"aa", b"")
