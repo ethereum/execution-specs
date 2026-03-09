@@ -17,6 +17,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing import Macros as Om
 
 from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153
@@ -263,3 +264,69 @@ class TestTransientStorageInContractCreation:
             post=post,
             tx=tx,
         )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/holiman/goevmlab/blob/master/examples/tstore_bug-2/main.go",
+    ],
+)
+def test_tstore_rollback_on_failed_create2(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test TSTORE is rolled back after failed CREATE2 initcode.
+
+    Regression test for
+    https://github.com/ethereum/execution-specs/issues/917
+
+    Initcode does TLOAD(1) to compute a return size, then does
+    TSTORE(1, 0x6000), then returns data of the computed size.
+    When TLOAD(1) is 0, the return size is 0x600a (exceeds max code
+    size 0x6000), so creation fails.
+
+    The caller invokes CREATE2 twice with the same initcode and salt.
+    If TSTORE from the first (failed) creation is properly rolled
+    back, the second CREATE2 also sees TLOAD(1)==0 and fails the
+    same way. If not rolled back, TLOAD(1)==0x6000 and the second
+    creation succeeds.
+    """
+    # Initcode:
+    #   return_size = 0x600a - TLOAD(1)
+    #   TSTORE(1, 0x6000)
+    #   RETURN(offset=0, size=return_size)
+    #
+    # TLOAD(1)==0:     return_size = 0x600a > max code size -> fail
+    # TLOAD(1)==0x6000: return_size = 0x0a <= max code size -> succeed
+    initcode = (
+        Op.TLOAD(1)
+        + Op.PUSH2(0x600A)
+        + Op.SUB
+        + Op.TSTORE(1, 0x6000)
+        + Op.PUSH1(0)
+        + Op.RETURN
+    )
+    initcode_bytes = bytes(initcode)
+    initcode_len = len(initcode_bytes)
+
+    caller_code = (
+        Om.MSTORE(initcode_bytes, 0)
+        + Op.SSTORE(0, Op.CREATE2(0, 0, initcode_len, 0))
+        + Op.SSTORE(1, Op.CREATE2(0, 0, initcode_len, 0))
+    )
+    caller_address = pre.deploy_contract(caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        to=caller_address,
+        gas_limit=10_000_000,
+    )
+
+    post = {
+        # Both CREATE2s fail because TSTORE is rolled back
+        caller_address: Account(storage={0: 0, 1: 0}),
+    }
+
+    state_test(env=Environment(), pre=pre, post=post, tx=tx)
