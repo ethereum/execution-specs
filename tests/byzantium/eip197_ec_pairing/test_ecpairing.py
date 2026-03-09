@@ -143,6 +143,29 @@ pytestmark = [
             Spec.PAIRING_TRUE,
             id="three_point_match_1",
         ),
+        pytest.param(
+            # e(16*G1, G2) * e(G1, -16*G2) == 1
+            # Exercises the FQ2 multiplicative inverse for scalar 16,
+            # which previously triggered a bug in the specification.
+            PointG1(
+                0x17F485337F6E10FCA0E385F7A93D1AC0A977E43995C3E4D9B8F89DAA6A183F44,
+                0x05CCDC1561DB963516DA62C66EDD39D1BB9C6C4674990C4440403C88025C95AD,
+            )
+            + Spec.G2
+            + Spec.G1
+            + PointG2(
+                (
+                    0x27A819BCF5C2C30229550CC0D34EE9C923EE6C3033A89F0BE27204893B112207,
+                    0x29E39258393EE0C24EB66B69973E9FEB8B02E9D94A9897492C98EFE5B0EB459A,
+                ),
+                (
+                    0x12C79F74D498D73F3F1C4F2489FF4C5EF88C6A2C932560FEC4B5D2A1AE20D274,
+                    0x1FBD1A0CA265F11112AF813152C1AD30B95AA1CBF94F7571552CA27658A6940C,
+                ),
+            ),
+            Spec.PAIRING_TRUE,
+            id="fq2_inverse_scalar_16",
+        ),
     ],
 )
 @pytest.mark.ported_from(
