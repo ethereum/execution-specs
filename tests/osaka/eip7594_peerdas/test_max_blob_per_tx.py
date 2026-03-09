@@ -26,8 +26,6 @@ from .spec import Spec, ref_spec_7594
 REFERENCE_SPEC_GIT_PATH = ref_spec_7594.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7594.version
 
-FORK_TIMESTAMP = 15_000
-
 
 @pytest.fixture
 def env() -> Environment:
@@ -48,9 +46,12 @@ def destination(pre: Alloc) -> Address:
 
 
 @pytest.fixture
-def blob_gas_price(fork: Fork) -> int:
+def blob_gas_price(fork: Fork | TransitionFork) -> int:
     """Blob gas price for transactions."""
-    return fork.min_base_fee_per_blob_gas()
+    return max(
+        fork.transitions_from().min_base_fee_per_blob_gas(),
+        fork.transitions_to().min_base_fee_per_blob_gas(),
+    )
 
 
 @pytest.fixture
@@ -168,19 +169,19 @@ def test_max_blobs_per_tx_fork_transition(
             if blob_count < fork.transitions_from().max_blobs_per_block()
             else tx.with_error(expected_exception)
         ],
-        timestamp=FORK_TIMESTAMP - 1,
+        timestamp=fork.at_timestamp - 1,
         exception=None
         if blob_count < fork.transitions_from().max_blobs_per_block()
         else [expected_exception],
     )
     fork_block = Block(
         txs=[tx.with_nonce(1).with_error(expected_exception)],
-        timestamp=FORK_TIMESTAMP,
+        timestamp=fork.at_timestamp,
         exception=[expected_exception],
     )
     post_fork_block = Block(
         txs=[tx.with_nonce(1).with_error(expected_exception)],
-        timestamp=FORK_TIMESTAMP + 1,
+        timestamp=fork.at_timestamp + 1,
         exception=[expected_exception],
     )
     blockchain_test(
