@@ -8,9 +8,9 @@ Incremental Merkle Patricia Trie.
 Introduction
 ------------
 
-Provide a mutable MPT that supports incremental updates and
-witness tracking. The tree structure is updated in-place rather
-than rebuilt from scratch on each root calculation.
+Provide an MPT that supports incremental updates and witness tracking.
+The tree structure is rebuilt along modified paths rather than rebuilt
+from scratch on each root calculation.
 """
 
 from dataclasses import dataclass, field
@@ -28,6 +28,7 @@ from typing import (
 
 from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes
+from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import Uint
 
 from ethereum.crypto.hash import keccak256
@@ -45,39 +46,37 @@ from .trie import (
 )
 
 
+@slotted_freezable
 @dataclass
-class MutableLeafNode:
-    """Mutable leaf node in the Merkle Trie for in-place updates."""
+class LeafNode:
+    """Leaf node in the Merkle Trie."""
 
     rest_of_key: Bytes
     value: Bytes
-    _hash: Optional[Bytes] = None
-    _rlp: Optional[Bytes] = None
-    _dirty: bool = False
+    _dirty: bool
 
 
+@slotted_freezable
 @dataclass
-class MutableExtensionNode:
-    """Mutable extension node in the Merkle Trie for in-place updates."""
+class ExtensionNode:
+    """Extension node in the Merkle Trie."""
 
     key_segment: Bytes
-    child: "MutableNode"
-    _hash: Optional[Bytes] = None
-    _rlp: Optional[Bytes] = None
-    _dirty: bool = False
+    child: "Node"
+    _dirty: bool
 
 
+@slotted_freezable
 @dataclass
-class MutableBranchNode:
-    """Mutable branch node in the Merkle Trie for in-place updates."""
+class BranchNode:
+    """Branch node in the Merkle Trie."""
 
-    children: List[Optional["MutableNode"]]
+    children: Tuple[Optional["Node"], ...]
     value: Bytes
-    _hash: Optional[Bytes] = None
-    _rlp: Optional[Bytes] = None
-    _dirty: bool = False
+    _dirty: bool
 
 
+@slotted_freezable
 @dataclass
 class HashedNode:
     """Placeholder for a trie subtree known only by its hash."""
@@ -85,10 +84,10 @@ class HashedNode:
     _hash: Bytes
 
 
-MutableNode = Union[
-    MutableLeafNode,
-    MutableExtensionNode,
-    MutableBranchNode,
+Node = Union[
+    LeafNode,
+    ExtensionNode,
+    BranchNode,
     HashedNode,
     None,
 ]
@@ -106,25 +105,24 @@ class IncrementalMPT(Generic[K, V]):
     """
     An MPT that supports incremental updates and witness tracking.
 
-    Maintain an actual tree structure that can be updated in-place,
-    rather than rebuilding the entire tree on each root calculation.
+    Maintain an actual tree structure that can be updated along
+    modified paths, rather than rebuilding the entire tree on each
+    root calculation.
     """
 
     secured: bool
     default: V
-    root_node: MutableNode = None
+    root_node: Node = None
     witness: Witness = field(default_factory=Witness)
     _data: Dict[K, V] = field(default_factory=dict)
 
 
-def _build_mutable_tree(
-    obj: Mapping[Bytes, Bytes], level: Uint
-) -> MutableNode:
+def _build_tree(obj: Mapping[Bytes, Bytes], level: Uint) -> Node:
     """
-    Build a mutable tree structure from a prepared key-value mapping.
+    Build a tree structure from a prepared key-value mapping.
 
-    Similar to ``patricialize()`` but create mutable nodes for
-    in-place updates.
+    Similar to ``patricialize()`` but build nodes for
+    path-based updates.
 
     Parameters
     ----------
@@ -136,8 +134,8 @@ def _build_mutable_tree(
 
     Returns
     -------
-    node : `MutableNode`
-        Root node of the mutable tree.
+    node : `Node`
+        Root node of the tree.
 
     """
     if len(obj) == 0:
@@ -146,9 +144,10 @@ def _build_mutable_tree(
     arbitrary_key = next(iter(obj))
 
     if len(obj) == 1:
-        return MutableLeafNode(
+        return LeafNode(
             rest_of_key=arbitrary_key[level:],
             value=obj[arbitrary_key],
+            _dirty=False,
         )
 
     substring = arbitrary_key[level:]
@@ -163,8 +162,8 @@ def _build_mutable_tree(
 
     if prefix_length > 0:
         prefix = arbitrary_key[int(level) : int(level) + prefix_length]
-        child = _build_mutable_tree(obj, level + Uint(prefix_length))
-        return MutableExtensionNode(key_segment=prefix, child=child)
+        child = _build_tree(obj, level + Uint(prefix_length))
+        return ExtensionNode(key_segment=prefix, child=child, _dirty=False)
 
     branches: List[MutableMapping[Bytes, Bytes]] = [{} for _ in range(16)]
     value = b""
@@ -175,11 +174,11 @@ def _build_mutable_tree(
         else:
             branches[key[level]][key] = obj[key]
 
-    children: List[Optional[MutableNode]] = [
-        _build_mutable_tree(branches[k], level + Uint(1)) for k in range(16)
-    ]
+    children = tuple(
+        _build_tree(branches[k], level + Uint(1)) for k in range(16)
+    )
 
-    return MutableBranchNode(children=children, value=value)
+    return BranchNode(children=children, value=value, _dirty=False)
 
 
 def build_mpt(
@@ -191,8 +190,8 @@ def build_mpt(
     """
     Build an IncrementalMPT from key-value data.
 
-    Call with the pre-execution state to create a mutable tree
-    structure that can be updated in-place during execution.
+    Call with the pre-execution state to create a tree structure
+    that can be updated along modified paths during execution.
 
     Parameters
     ----------
@@ -212,7 +211,7 @@ def build_mpt(
 
     """
     prepared = _prepare_data(data, secured, get_storage_root)
-    root_node = _build_mutable_tree(prepared, Uint(0))
+    root_node = _build_tree(prepared, Uint(0))
 
     return IncrementalMPT(
         secured=secured,
@@ -222,18 +221,9 @@ def build_mpt(
     )
 
 
-def _invalidate_hash(node: MutableNode) -> None:
-    """Invalidate the cached hash of a node."""
-    assert not isinstance(node, HashedNode), "HashedNode cannot be invalidated"
-    if node is None:
-        return
-    node._hash = None
-    node._rlp = None
-
-
 def _record_witness(
     witness: Witness,
-    node: MutableNode,
+    node: Node,
 ) -> None:
     """Record a node access in the witness."""
     assert not isinstance(node, HashedNode), "HashedNode cannot be witnessed"
@@ -243,46 +233,49 @@ def _record_witness(
     if node._dirty:
         return
 
-    node_hash, node_rlp = _compute_node_hash_and_rlp(node)
-    if node_hash is not None and node_hash not in witness.accessed_nodes:
-        witness.accessed_nodes[node_hash] = node_rlp
+    unencoded = _encode_node(node)
+    encoded = rlp.encode(unencoded)
+    if len(encoded) >= 32:
+        node_hash = keccak256(encoded)
+        if node_hash not in witness.accessed_nodes:
+            witness.accessed_nodes[node_hash] = encoded
 
 
-def _encode_mutable_node(node: MutableNode) -> Extended:
+def _encode_node(node: Node) -> Extended:
     """
-    Encode a mutable node to its RLP form.
+    Encode a node to its RLP form.
 
-    Similar to ``encode_internal_node`` but for mutable nodes.
+    Similar to ``encode_internal_node``.
     """
     if node is None:
         return b""
     elif isinstance(node, HashedNode):
         raise AssertionError("HashedNode cannot be inline-encoded")
-    elif isinstance(node, MutableLeafNode):
+    elif isinstance(node, LeafNode):
         return (
             nibble_list_to_compact(node.rest_of_key, True),
             node.value,
         )
-    elif isinstance(node, MutableExtensionNode):
-        child_encoded = _encode_mutable_node_to_extended(node.child)
+    elif isinstance(node, ExtensionNode):
+        child_encoded = _encode_node_to_extended(node.child)
         return (
             nibble_list_to_compact(node.key_segment, False),
             child_encoded,
         )
-    elif isinstance(node, MutableBranchNode):
+    elif isinstance(node, BranchNode):
         children_encoded = [
-            _encode_mutable_node_to_extended(child) for child in node.children
+            _encode_node_to_extended(child) for child in node.children
         ]
         return children_encoded + [node.value]
     else:
-        raise AssertionError(f"Invalid mutable node type {type(node)}!")
+        raise AssertionError(f"Invalid node type {type(node)}!")
 
 
-def _encode_mutable_node_to_extended(
-    node: MutableNode,
+def _encode_node_to_extended(
+    node: Node,
 ) -> Extended:
     """
-    Encode a mutable node for embedding in parent.
+    Encode a node for embedding in parent.
 
     Return the hash if RLP >= 32 bytes, otherwise return
     unencoded form.
@@ -293,51 +286,13 @@ def _encode_mutable_node_to_extended(
     if isinstance(node, HashedNode):
         return node._hash
 
-    if not node._dirty and node._hash is not None:
-        return node._hash
-
-    unencoded = _encode_mutable_node(node)
+    unencoded = _encode_node(node)
     encoded = rlp.encode(unencoded)
-    node._rlp = encoded
 
     if len(encoded) < 32:
         return unencoded
     else:
-        node._hash = keccak256(encoded)
-        return node._hash
-
-
-def _compute_node_hash_and_rlp(
-    node: MutableNode,
-) -> Tuple[Optional[Bytes], Bytes]:
-    """
-    Compute the hash and RLP encoding of a node.
-
-    Return (hash, rlp) where hash may be None for small nodes.
-    """
-    if node is None:
-        return None, b""
-
-    assert not isinstance(node, HashedNode), (
-        "HashedNode cannot appear in _compute_node_hash_and_rlp"
-    )
-
-    if node._rlp is not None:
-        if node._hash is not None:
-            return node._hash, node._rlp
-        elif len(node._rlp) >= 32:
-            return keccak256(node._rlp), node._rlp
-
-    unencoded = _encode_mutable_node(node)
-    encoded = rlp.encode(unencoded)
-
-    node._rlp = encoded
-
-    if len(encoded) >= 32:
-        node._hash = keccak256(encoded)
-        return node._hash, encoded
-    else:
-        return None, encoded
+        return keccak256(encoded)
 
 
 def mpt_get(mpt: IncrementalMPT[K, V], key: K) -> V:
@@ -374,7 +329,7 @@ def mpt_get(mpt: IncrementalMPT[K, V], key: K) -> V:
 
 def _mpt_traverse_for_witness(
     mpt: IncrementalMPT,
-    node: MutableNode,
+    node: Node,
     key: Bytes,
     level: Uint,
 ) -> None:
@@ -384,9 +339,9 @@ def _mpt_traverse_for_witness(
 
     _record_witness(mpt.witness, node)
 
-    if isinstance(node, MutableLeafNode):
+    if isinstance(node, LeafNode):
         pass
-    elif isinstance(node, MutableExtensionNode):
+    elif isinstance(node, ExtensionNode):
         segment_len = len(node.key_segment)
         lvl = int(level)
         if key[lvl : lvl + segment_len] == node.key_segment:
@@ -396,7 +351,7 @@ def _mpt_traverse_for_witness(
                 key,
                 Uint(lvl + segment_len),
             )
-    elif isinstance(node, MutableBranchNode):
+    elif isinstance(node, BranchNode):
         lvl = int(level)
         if lvl < len(key):
             child_idx = key[lvl]
@@ -417,8 +372,7 @@ def mpt_set(
     """
     Set a value in the incremental MPT.
 
-    Update the tree in-place and invalidate cached hashes along
-    the path.
+    Update the tree along the modified path.
 
     Parameters
     ----------
@@ -464,48 +418,45 @@ def mpt_set(
 
 def _mpt_insert_node(
     mpt: IncrementalMPT,
-    node: MutableNode,
+    node: Node,
     key: Bytes,
     value: Bytes,
     level: Uint,
-) -> MutableNode:
+) -> Node:
     """
-    Insert or update a value in the mutable tree.
+    Insert or update a value in the tree.
 
-    Return the new/updated node for this position.
+    Return a new node for this position.
     """
     if node is None:
-        return MutableLeafNode(
-            rest_of_key=key[level:], value=value, _dirty=True
-        )
+        return LeafNode(rest_of_key=key[level:], value=value, _dirty=True)
 
-    _invalidate_hash(node)
-
-    if isinstance(node, MutableLeafNode):
-        return _insert_into_leaf(mpt, node, key, value, level)
-    elif isinstance(node, MutableExtensionNode):
+    if isinstance(node, LeafNode):
+        return _insert_into_leaf(node, key, value, level)
+    elif isinstance(node, ExtensionNode):
         return _insert_into_extension(mpt, node, key, value, level)
-    elif isinstance(node, MutableBranchNode):
+    elif isinstance(node, BranchNode):
         return _insert_into_branch(mpt, node, key, value, level)
     else:
         raise AssertionError(f"Invalid node type {type(node)}")
 
 
 def _insert_into_leaf(
-    _mpt: IncrementalMPT,
-    node: MutableLeafNode,
+    node: LeafNode,
     key: Bytes,
     value: Bytes,
     level: Uint,
-) -> MutableNode:
+) -> Node:
     """Handle insertion when current node is a leaf."""
     existing_key = node.rest_of_key
     remaining_key = key[level:]
 
     if existing_key == remaining_key:
-        node.value = value
-        node._dirty = True
-        return node
+        return LeafNode(
+            rest_of_key=existing_key,
+            value=value,
+            _dirty=True,
+        )
 
     prefix_len = common_prefix_length(existing_key, remaining_key)
 
@@ -516,7 +467,7 @@ def _insert_into_leaf(
             remaining_key[prefix_len:],
             value,
         )
-        return MutableExtensionNode(
+        return ExtensionNode(
             key_segment=existing_key[:prefix_len],
             child=branch,
             _dirty=True,
@@ -532,16 +483,16 @@ def _create_branch_from_two_leaves(
     value1: Bytes,
     key2: Bytes,
     value2: Bytes,
-) -> MutableBranchNode:
+) -> BranchNode:
     """Create a branch node from two key-value pairs."""
-    children: List[Optional[MutableNode]] = [None] * 16
+    children: List[Optional[Node]] = [None] * 16
     branch_value = b""
 
     if len(key1) == 0:
         branch_value = value1
     else:
         idx1 = key1[0]
-        children[idx1] = MutableLeafNode(
+        children[idx1] = LeafNode(
             rest_of_key=key1[1:],
             value=value1,
             _dirty=True,
@@ -551,14 +502,14 @@ def _create_branch_from_two_leaves(
         branch_value = value2
     else:
         idx2 = key2[0]
-        children[idx2] = MutableLeafNode(
+        children[idx2] = LeafNode(
             rest_of_key=key2[1:],
             value=value2,
             _dirty=True,
         )
 
-    return MutableBranchNode(
-        children=children,
+    return BranchNode(
+        children=tuple(children),
         value=branch_value,
         _dirty=True,
     )
@@ -566,30 +517,33 @@ def _create_branch_from_two_leaves(
 
 def _insert_into_extension(
     mpt: IncrementalMPT,
-    node: MutableExtensionNode,
+    node: ExtensionNode,
     key: Bytes,
     value: Bytes,
     level: Uint,
-) -> MutableNode:
+) -> Node:
     """Handle insertion when current node is an extension."""
     remaining_key = key[level:]
     segment = node.key_segment
     prefix_len = common_prefix_length(segment, remaining_key)
 
     if prefix_len == len(segment):
-        node.child = _mpt_insert_node(
+        new_child = _mpt_insert_node(
             mpt,
             node.child,
             key,
             value,
             level + Uint(prefix_len),
         )
-        node._dirty = True
-        return node
+        return ExtensionNode(
+            key_segment=segment,
+            child=new_child,
+            _dirty=True,
+        )
 
     if prefix_len > 0:
         new_child = _split_extension(node, remaining_key, value, prefix_len)
-        return MutableExtensionNode(
+        return ExtensionNode(
             key_segment=segment[:prefix_len],
             child=new_child,
             _dirty=True,
@@ -599,14 +553,14 @@ def _insert_into_extension(
 
 
 def _split_extension(
-    node: MutableExtensionNode,
+    node: ExtensionNode,
     remaining_key: Bytes,
     value: Bytes,
     prefix_len: int,
-) -> MutableNode:
+) -> Node:
     """Split an extension node when keys diverge."""
     segment = node.key_segment
-    children: List[Optional[MutableNode]] = [None] * 16
+    children: List[Optional[Node]] = [None] * 16
     branch_value = b""
 
     segment_after_prefix = segment[prefix_len:]
@@ -615,7 +569,7 @@ def _split_extension(
         children[idx] = node.child
     elif len(segment_after_prefix) > 1:
         idx = segment_after_prefix[0]
-        children[idx] = MutableExtensionNode(
+        children[idx] = ExtensionNode(
             key_segment=segment_after_prefix[1:],
             child=node.child,
             _dirty=True,
@@ -627,7 +581,7 @@ def _split_extension(
     else:
         idx = key_after_prefix[0]
         if children[idx] is None:
-            children[idx] = MutableLeafNode(
+            children[idx] = LeafNode(
                 rest_of_key=key_after_prefix[1:],
                 value=value,
                 _dirty=True,
@@ -635,8 +589,8 @@ def _split_extension(
         else:
             raise AssertionError("Unexpected collision during split")
 
-    return MutableBranchNode(
-        children=children,
+    return BranchNode(
+        children=tuple(children),
         value=branch_value,
         _dirty=True,
     )
@@ -644,54 +598,59 @@ def _split_extension(
 
 def _insert_into_branch(
     mpt: IncrementalMPT,
-    node: MutableBranchNode,
+    node: BranchNode,
     key: Bytes,
     value: Bytes,
     level: Uint,
-) -> MutableNode:
+) -> Node:
     """Handle insertion when current node is a branch."""
     remaining_key = key[level:]
 
     if len(remaining_key) == 0:
-        node.value = value
-        node._dirty = True
-        return node
+        return BranchNode(
+            children=node.children,
+            value=value,
+            _dirty=True,
+        )
 
     child_idx = remaining_key[0]
-    node.children[child_idx] = _mpt_insert_node(
+    new_child = _mpt_insert_node(
         mpt,
         node.children[child_idx],
         key,
         value,
         level + Uint(1),
     )
-    node._dirty = True
-    return node
+    children = list(node.children)
+    children[child_idx] = new_child
+    return BranchNode(
+        children=tuple(children),
+        value=node.value,
+        _dirty=True,
+    )
 
 
 def _mpt_delete_node(
     mpt: IncrementalMPT,
-    node: MutableNode,
+    node: Node,
     key: Bytes,
     level: Uint,
-) -> MutableNode:
+) -> Node:
     """
-    Delete a key from the mutable tree.
+    Delete a key from the tree.
 
     Return the updated node (may be different type or None).
     """
     if node is None:
         return None
 
-    _invalidate_hash(node)
-
-    if isinstance(node, MutableLeafNode):
+    if isinstance(node, LeafNode):
         if node.rest_of_key == key[level:]:
             return None
         return node
-    elif isinstance(node, MutableExtensionNode):
+    elif isinstance(node, ExtensionNode):
         return _delete_from_extension(mpt, node, key, level)
-    elif isinstance(node, MutableBranchNode):
+    elif isinstance(node, BranchNode):
         return _delete_from_branch(mpt, node, key, level)
     else:
         raise AssertionError(f"Invalid node type {type(node)}")
@@ -699,10 +658,10 @@ def _mpt_delete_node(
 
 def _delete_from_extension(
     mpt: IncrementalMPT,
-    node: MutableExtensionNode,
+    node: ExtensionNode,
     key: Bytes,
     level: Uint,
-) -> MutableNode:
+) -> Node:
     """Handle deletion when current node is an extension."""
     segment = node.key_segment
     remaining_key = key[level:]
@@ -719,44 +678,47 @@ def _delete_from_extension(
     if new_child is None:
         return None
 
-    if isinstance(new_child, MutableExtensionNode):
-        return MutableExtensionNode(
+    if isinstance(new_child, ExtensionNode):
+        return ExtensionNode(
             key_segment=segment + new_child.key_segment,
             child=new_child.child,
             _dirty=True,
         )
-    elif isinstance(new_child, MutableLeafNode):
-        return MutableLeafNode(
+    elif isinstance(new_child, LeafNode):
+        return LeafNode(
             rest_of_key=segment + new_child.rest_of_key,
             value=new_child.value,
             _dirty=True,
         )
 
     assert not isinstance(new_child, HashedNode)
-    child_changed = new_child is not old_child or (
-        new_child is not None and new_child._dirty
-    )
-    if not child_changed:
+    if new_child is old_child:
         return node
 
-    node.child = new_child
-    node._dirty = True
-    return node
+    return ExtensionNode(
+        key_segment=segment,
+        child=new_child,
+        _dirty=True,
+    )
 
 
 def _delete_from_branch(
     mpt: IncrementalMPT,
-    node: MutableBranchNode,
+    node: BranchNode,
     key: Bytes,
     level: Uint,
-) -> MutableNode:
+) -> Node:
     """Handle deletion when current node is a branch."""
     remaining_key = key[level:]
 
     if len(remaining_key) == 0:
         if node.value == b"":
             return node
-        node.value = b""
+        new_node = BranchNode(
+            children=node.children,
+            value=b"",
+            _dirty=True,
+        )
     else:
         child_idx = remaining_key[0]
         old_child = node.children[child_idx]
@@ -767,20 +729,20 @@ def _delete_from_branch(
             level + Uint(1),
         )
         assert not isinstance(new_child, HashedNode)
-        child_changed = new_child is not old_child or (
-            new_child is not None and new_child._dirty
-        )
-        if not child_changed:
+        if new_child is old_child:
             return node
-        node.children[child_idx] = new_child
+        children = list(node.children)
+        children[child_idx] = new_child
+        new_node = BranchNode(
+            children=tuple(children),
+            value=node.value,
+            _dirty=True,
+        )
 
-    node._dirty = True
-    return _collapse_branch(mpt, node)
+    return _collapse_branch(mpt, new_node)
 
 
-def _collapse_branch(
-    mpt: IncrementalMPT, node: MutableBranchNode
-) -> MutableNode:
+def _collapse_branch(mpt: IncrementalMPT, node: BranchNode) -> Node:
     """Collapse a branch node if it has only one child."""
     non_empty = [(i, c) for i, c in enumerate(node.children) if c is not None]
 
@@ -791,20 +753,20 @@ def _collapse_branch(
         _record_witness(mpt.witness, child)
         nibble = Bytes([idx])
 
-        if isinstance(child, MutableLeafNode):
-            return MutableLeafNode(
+        if isinstance(child, LeafNode):
+            return LeafNode(
                 rest_of_key=nibble + child.rest_of_key,
                 value=child.value,
                 _dirty=True,
             )
-        elif isinstance(child, MutableExtensionNode):
-            return MutableExtensionNode(
+        elif isinstance(child, ExtensionNode):
+            return ExtensionNode(
                 key_segment=nibble + child.key_segment,
                 child=child.child,
                 _dirty=True,
             )
-        elif isinstance(child, MutableBranchNode):
-            return MutableExtensionNode(
+        elif isinstance(child, BranchNode):
+            return ExtensionNode(
                 key_segment=nibble,
                 child=child,
                 _dirty=True,
@@ -813,7 +775,7 @@ def _collapse_branch(
             raise AssertionError(f"Unexpected node type {type(child)}")
 
     if len(non_empty) == 0 and node.value != b"":
-        return MutableLeafNode(
+        return LeafNode(
             rest_of_key=b"",
             value=node.value,
             _dirty=True,
@@ -825,8 +787,6 @@ def _collapse_branch(
 def mpt_root(mpt: IncrementalMPT) -> Root:
     """
     Compute the root hash of the incremental MPT.
-
-    Use cached hashes where available for efficiency.
 
     Parameters
     ----------
@@ -842,7 +802,7 @@ def mpt_root(mpt: IncrementalMPT) -> Root:
     if mpt.root_node is None:
         return EMPTY_TRIE_ROOT
 
-    root_encoded = _encode_mutable_node_to_extended(mpt.root_node)
+    root_encoded = _encode_node_to_extended(mpt.root_node)
 
     if isinstance(root_encoded, Bytes):
         return Root(root_encoded)
@@ -886,7 +846,7 @@ def compact_to_nibbles(compact: Bytes) -> Tuple[Bytes, bool]:
 def _resolve_child_ref(
     node_db: Dict[Bytes, Bytes],
     child_ref: Extended,
-) -> MutableNode:
+) -> Node:
     """
     Resolve a child reference from an RLP-decoded trie node.
 
@@ -911,9 +871,9 @@ def _resolve_child_ref(
 def _decode_witness_node(
     node_db: Dict[Bytes, Bytes],
     rlp_bytes: Bytes,
-) -> MutableNode:
+) -> Node:
     """
-    Decode an RLP-encoded trie node into a ``MutableNode``.
+    Decode an RLP-encoded trie node into a ``Node``.
 
     Parameters
     ----------
@@ -923,10 +883,6 @@ def _decode_witness_node(
         The RLP-encoded node to decode.
 
     """
-    node_hash: Optional[Bytes] = None
-    if len(rlp_bytes) >= 32:
-        node_hash = keccak256(rlp_bytes)
-
     decoded = rlp.decode(rlp_bytes)
 
     if isinstance(decoded, (bytes, bytearray)):
@@ -943,26 +899,24 @@ def _decode_witness_node(
         if is_leaf:
             value = decoded[1]
             assert isinstance(value, (bytes, bytearray))
-            return MutableLeafNode(
+            return LeafNode(
                 rest_of_key=nibbles,
                 value=Bytes(value),
-                _hash=node_hash,
-                _rlp=rlp_bytes,
+                _dirty=False,
             )
         else:
             child = _resolve_child_ref(node_db, decoded[1])
-            assert isinstance(child, (MutableBranchNode, HashedNode)), (
+            assert isinstance(child, (BranchNode, HashedNode)), (
                 "ExtensionNode child must be a BranchNode"
             )
-            return MutableExtensionNode(
+            return ExtensionNode(
                 key_segment=nibbles,
                 child=child,
-                _hash=node_hash,
-                _rlp=rlp_bytes,
+                _dirty=False,
             )
 
     elif len(decoded) == 17:
-        children: List[Optional[MutableNode]] = []
+        children: List[Optional[Node]] = []
         for i in range(16):
             children.append(_resolve_child_ref(node_db, decoded[i]))
         value_raw = decoded[16]
@@ -973,11 +927,10 @@ def _decode_witness_node(
         # TODO: value is always empty in practice; refactor
         occupied = 16 - children.count(None) + (value != b"")
         assert occupied >= 2, "BranchNode must have at least 2 children"
-        return MutableBranchNode(
-            children=children,
+        return BranchNode(
+            children=tuple(children),
             value=value,
-            _hash=node_hash,
-            _rlp=rlp_bytes,
+            _dirty=False,
         )
     else:
         raise AssertionError(f"Invalid RLP node length: {len(decoded)}")
