@@ -190,9 +190,7 @@ def _build_trie_and_collect_nodes(
     # witness because they have no hash.  Ensure the root is
     # always present in node_db.
     if inc_mpt.root_node is not None and expected_root not in node_db:
-        root_rlp = rlp.encode(
-            _encode_node(inc_mpt.root_node)
-        )
+        root_rlp = rlp.encode(_encode_node(inc_mpt.root_node))
         node_db[keccak256(root_rlp)] = root_rlp
 
     return expected_root, node_db
@@ -214,9 +212,7 @@ def _build_partial_witness_mpt(
         mpt_get(inc_mpt, k)
 
     partial_db: dict[Bytes, Bytes] = dict(inc_mpt.witness.accessed_nodes)
-    root_rlp = rlp.encode(
-        _encode_node(inc_mpt.root_node)
-    )
+    root_rlp = rlp.encode(_encode_node(inc_mpt.root_node))
     root_hash = Root(keccak256(root_rlp))
     partial_db[root_hash] = root_rlp
 
