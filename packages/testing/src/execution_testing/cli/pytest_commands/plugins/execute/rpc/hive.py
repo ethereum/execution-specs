@@ -22,6 +22,7 @@ from execution_testing.base_types import (
 )
 from execution_testing.fixtures.blockchain import FixtureHeader
 from execution_testing.forks import Fork
+from execution_testing.logging import get_logger
 from execution_testing.rpc import EngineRPC, EthRPC
 from execution_testing.test_types import (
     DETERMINISTIC_FACTORY_ADDRESS,
@@ -36,6 +37,8 @@ from execution_testing.test_types import (
 
 from ...consume.simulators.helpers.ruleset import ruleset
 from .chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
+
+logger = get_logger(__name__)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -253,12 +256,13 @@ def test_suite_description() -> str:
 
 @pytest.fixture(autouse=True, scope="session")
 def base_hive_test(
-    request: pytest.FixtureRequest,
     test_suite: HiveTestSuite,
     session_temp_folder: Path,
 ) -> Generator[HiveTest, None, None]:
     """
-    Test (base) used to deploy the main client to be used throughout all tests.
+    Test (base) used to deploy the main client to be used throughout
+    all tests. Individual test results are reported by the per-test
+    `execute_hive_test` fixture.
     """
     base_name = "base_hive_test"
     base_file = session_temp_folder / base_name
@@ -269,10 +273,10 @@ def base_hive_test(
                 test = HiveTest(**json.load(f))
         else:
             test = test_suite.start_test(
-                name="Base Hive Test",
+                name="Client Deployment",
                 description=(
-                    "Base test used to deploy the main client to be used "
-                    "throughout all tests."
+                    "Infrastructure test used to deploy the "
+                    "client shared by all execute tests."
                 ),
             )
             with open(base_file, "w") as f:
@@ -293,12 +297,6 @@ def base_hive_test(
 
     yield test
 
-    test_pass = True
-    test_details = "All tests have completed"
-    if request.session.testsfailed > 0:
-        test_pass = False
-        test_details = "One or more tests have failed"
-
     with FileLock(users_lock_file):
         with open(users_file, "r") as f:
             users = json.load(f)
@@ -308,7 +306,8 @@ def base_hive_test(
         if users == 0:
             test.end(
                 result=HiveTestResult(
-                    test_pass=test_pass, details=test_details
+                    test_pass=True,
+                    details="Client deployment completed.",
                 )
             )
             base_file.unlink()
@@ -423,3 +422,117 @@ def eth_rpc(
         max_transactions_per_batch=max_transactions_per_batch,
         testing_rpc=testing_rpc,
     )
+
+
+@pytest.fixture(scope="function")
+def test_case_description(
+    request: pytest.FixtureRequest,
+) -> str:
+    """Create a description for the current execute test case."""
+    node = request.node
+    docstring = node.obj.__doc__ if hasattr(node, "obj") else None
+    if docstring:
+        docstring = docstring.strip()
+    else:
+        docstring = "No documentation available."
+
+    description = (
+        f"<b>Test:</b> <code>{node.nodeid}</code><br/><br/>{docstring}"
+    )
+    return description
+
+
+@pytest.fixture(autouse=True, scope="function")
+def execute_hive_test(
+    request: pytest.FixtureRequest,
+    test_suite: HiveTestSuite,
+    test_case_description: str,
+) -> Generator[HiveTest, None, None]:
+    """
+    Create an individual Hive test record for each execute test.
+
+    This allows each test to appear separately in the Hive UI with
+    its own pass/fail status, rather than aggregating all results
+    into a single test entry.
+    """
+    test: HiveTest = test_suite.start_test(
+        name=request.node.name,
+        description=test_case_description,
+    )
+    yield test
+
+    try:
+        captured: list[str] = []
+        setup_out = ""
+        for phase in ("setup", "call", "teardown"):
+            report = getattr(request.node, f"result_{phase}", None)
+            if report:
+                stdout = report.capstdout or "None"
+                stderr = report.capstderr or "None"
+
+                if phase == "setup":
+                    setup_out = stdout
+                if phase == "call" and stdout.startswith(setup_out):
+                    stdout = stdout.removeprefix(setup_out)
+
+                captured.append(
+                    f"# Captured Output from Test"
+                    f" {phase.capitalize()}\n\n"
+                    f"## stdout:\n{stdout}\n"
+                    f"## stderr:\n{stderr}\n"
+                )
+
+        captured_output = "\n".join(captured)
+
+        result_call = getattr(request.node, "result_call", None)
+        result_setup = getattr(request.node, "result_setup", None)
+        result_teardown = getattr(request.node, "result_teardown", None)
+
+        if result_call and result_call.passed:
+            test_passed = True
+            test_result_details = "Test passed.\n\n" + captured_output
+        elif result_call and not result_call.passed:
+            test_passed = False
+            test_result_details = (
+                result_call.longreprtext + "\n" + captured_output
+            )
+        elif result_setup and not result_setup.passed:
+            test_passed = False
+            test_result_details = (
+                "Test setup failed.\n\n"
+                + result_setup.longreprtext
+                + "\n"
+                + captured_output
+            )
+        elif result_teardown and not result_teardown.passed:
+            test_passed = False
+            test_result_details = (
+                "Test teardown failed.\n\n"
+                + result_teardown.longreprtext
+                + "\n"
+                + captured_output
+            )
+        else:
+            test_passed = False
+            test_result_details = (
+                "Test failed for unknown reason.\n\n" + captured_output
+            )
+
+        test.end(
+            result=HiveTestResult(
+                test_pass=test_passed,
+                details=test_result_details,
+            )
+        )
+        logger.verbose(f"Finished processing test: {request.node.nodeid}")
+
+    except Exception as e:
+        logger.verbose(
+            f"Error processing test {request.node.nodeid}: {str(e)}"
+        )
+        test.end(
+            result=HiveTestResult(
+                test_pass=False,
+                details=(f"Exception whilst processing test result: {str(e)}"),
+            )
+        )
