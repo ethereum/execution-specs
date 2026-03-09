@@ -298,11 +298,13 @@ def _encode_mutable_node_to_extended(
 
     unencoded = _encode_mutable_node(node)
     encoded = rlp.encode(unencoded)
+    node._rlp = encoded
 
     if len(encoded) < 32:
         return unencoded
     else:
-        return keccak256(encoded)
+        node._hash = keccak256(encoded)
+        return node._hash
 
 
 def _compute_node_hash_and_rlp(
