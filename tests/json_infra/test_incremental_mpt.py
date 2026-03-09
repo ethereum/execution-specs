@@ -444,6 +444,47 @@ class TestPartialWitness:
         with pytest.raises(AssertionError, match="cannot be invalidated"):
             mpt_set(decoded_mpt, b"ba", b"new_c")
 
+    def test_partial_witness_delete_collapses_to_hashed_node(self) -> None:
+        """
+        Delete a key whose sibling is a HashedNode.
+
+        When a branch has two children and one is deleted, the branch
+        must collapse. If the remaining child is a HashedNode (from a
+        partial witness), _collapse_branch cannot merge the nibble into
+        it because its structure is unknown. This currently raises
+        AssertionError.
+        """
+        fake_hash = keccak256(b"some large subtree")
+        hashed_child = HashedNode(_hash=fake_hash)
+
+        # Branch with a leaf at nibble 0 and a HashedNode at nibble 1.
+        # Key b"\x01" -> nibbles [0, 1]: child index 0, rest_of_key [1].
+        branch = MutableBranchNode(
+            children=[None] * 16,
+            value=b"",
+        )
+        branch.children[0] = MutableLeafNode(
+            rest_of_key=Bytes(b"\x01"),
+            value=b"hello",
+        )
+        branch.children[1] = hashed_child
+
+        mpt: IncrementalMPT[Bytes, Bytes] = IncrementalMPT(
+            secured=False,
+            default=b"",
+            root_node=branch,
+            _data={Bytes(b"\x01"): b"hello"},
+        )
+
+        # Deleting the leaf at nibble 0 leaves only the HashedNode,
+        # triggering a branch collapse. _collapse_branch calls
+        # _record_witness on the remaining child, which fails
+        # because HashedNode cannot be witnessed.
+        with pytest.raises(
+            AssertionError, match="HashedNode cannot be witnessed"
+        ):
+            mpt_set(mpt, Bytes(b"\x01"), b"")
+
 
 def _encode_root_for_db(
     node: object,
