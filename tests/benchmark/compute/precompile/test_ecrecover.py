@@ -42,9 +42,17 @@ def test_ecrecover(
     if precompile_address not in fork.precompiles():
         pytest.skip("Precompile not enabled")
 
-    attack_block = Op.POP(
-        Op.STATICCALL(
-            gas=Op.GAS, address=precompile_address, args_size=Op.CALLDATASIZE
+    attack_block = Op.MSTORE(
+        0,
+        Op.ADD(
+            Op.MLOAD(0),
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=precompile_address,
+                args_size=Op.CALLDATASIZE,
+                ret_offset=0x80,
+                ret_size=0x20,
+            ),
         ),
     )
 

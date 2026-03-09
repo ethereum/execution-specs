@@ -501,6 +501,9 @@ def test_bn128_pairings_amortized(
     )
 
 
+NUM_INPUT_VARIANTS = 4
+
+
 @pytest.mark.repricing
 @pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
 def test_alt_bn128_benchmark(
@@ -513,6 +516,48 @@ def test_alt_bn128_benchmark(
     attack_block = Op.POP(
         Op.STATICCALL(gas=Op.GAS, address=0x08, args_size=Op.CALLDATASIZE),
     )
+
+    benchmark_test(
+        target_opcode=Op.STATICCALL,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=attack_block,
+            tx_kwargs={"data": calldata},
+        ),
+    )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize("num_pairs", [1, 12, 24])
+def test_ec_pairing(
+    benchmark_test: BenchmarkTestFiller,
+    num_pairs: int,
+) -> None:
+    """Benchmark ecpairing precompile with rotating inputs to avoid caching."""
+    pair_size = num_pairs * 192
+    counter_offset = NUM_INPUT_VARIANTS * pair_size
+
+    calldata = Bytes(
+        b"".join(
+            _generate_bn128_pairs(num_pairs, seed=42 + i)
+            for i in range(NUM_INPUT_VARIANTS)
+        )
+    )
+
+    attack_block = Op.POP(
+        Op.STATICCALL(
+            gas=Op.GAS,
+            address=0x08,
+            args_offset=Op.MUL(
+                Op.AND(
+                    Op.MLOAD(counter_offset),
+                    NUM_INPUT_VARIANTS - 1,
+                ),
+                pair_size,
+            ),
+            args_size=pair_size,
+        ),
+    ) + Op.MSTORE(counter_offset, Op.ADD(Op.MLOAD(counter_offset), 1))
 
     benchmark_test(
         target_opcode=Op.STATICCALL,
