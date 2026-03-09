@@ -20,6 +20,7 @@ from execution_testing import (
     Transaction,
     compute_create_address,
 )
+from execution_testing.forks import Osaka
 
 from ...prague.eip7702_set_code_tx.spec import Spec as Spec7702
 from .spec import Spec, ref_spec_7939
@@ -290,19 +291,20 @@ def test_clz_fork_transition(
 ) -> None:
     """Test CLZ opcode behavior at fork transition."""
     sender = pre.fund_eoa()
+    ts = Osaka.transition_timestamp()
     callee_address = pre.deploy_contract(
         code=Op.SSTORE(Op.TIMESTAMP, Op.CLZ(1 << 100)) + Op.STOP,
-        storage={14_999: "0xdeadbeef"},
+        storage={ts - 1: "0xdeadbeef"},
     )
     caller_address = pre.deploy_contract(
         code=Op.SSTORE(
             Op.TIMESTAMP, Op.CALL(gas=0xFFFF, address=callee_address)
         ),
-        storage={14_999: "0xdeadbeef"},
+        storage={ts - 1: "0xdeadbeef"},
     )
     blocks = [
         Block(
-            timestamp=14_999,
+            timestamp=ts - 1,
             txs=[
                 Transaction(
                     to=caller_address,
@@ -313,7 +315,7 @@ def test_clz_fork_transition(
             ],
         ),
         Block(
-            timestamp=15_000,
+            timestamp=ts,
             txs=[
                 Transaction(
                     to=caller_address,
@@ -324,7 +326,7 @@ def test_clz_fork_transition(
             ],
         ),
         Block(
-            timestamp=15_001,
+            timestamp=ts + 1,
             txs=[
                 Transaction(
                     to=caller_address,
@@ -341,19 +343,22 @@ def test_clz_fork_transition(
         post={
             caller_address: Account(
                 storage={
-                    14_999: 0,  # Call fails as opcode not valid before Osaka
-                    15_000: 1,  # Call succeeds on fork transition block
-                    15_001: 1,  # Call continues to succeed after transition
+                    # Call fails: opcode not valid before Osaka
+                    ts - 1: 0,
+                    # Call succeeds on fork transition block
+                    ts: 1,
+                    # Call continues to succeed after transition
+                    ts + 1: 1,
                 }
             ),
             callee_address: Account(
                 storage={
                     # CLZ not valid before fork, storage unchanged
-                    14_999: "0xdeadbeef",
-                    # CLZ valid on transition block, CLZ(1 << 100) = 155
-                    15_000: 155,
+                    ts - 1: "0xdeadbeef",
+                    # CLZ valid on transition block
+                    ts: 155,
                     # CLZ continues to be valid after transition
-                    15_001: 155,
+                    ts + 1: 155,
                 }
             ),
         },

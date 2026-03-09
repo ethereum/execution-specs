@@ -10,7 +10,7 @@ import pytest
 
 from execution_testing.base_types import Account, Address, Hash
 from execution_testing.exceptions import BlockException
-from execution_testing.forks import Berlin, Fork
+from execution_testing.forks import Berlin, Fork, Paris
 from execution_testing.specs import BlockchainTestFiller, StateTestFiller
 from execution_testing.specs.blockchain import Block
 from execution_testing.test_types import Alloc, Transaction
@@ -191,34 +191,35 @@ def generate_system_contract_deploy_test(
             assert deployer_address is not None
             assert deploy_tx.created_contract == expected_deploy_address
             blocks: List[Block] = []
+            t = Paris.transition_timestamp()
 
             if test_type == DeploymentTestType.DEPLOY_BEFORE_FORK:
                 blocks = [
                     Block(  # Deployment block
                         txs=[deploy_tx],
-                        timestamp=14_999,
+                        timestamp=t - 1,
                     ),
                     Block(  # Empty block on fork
                         txs=[],
-                        timestamp=15_000,
+                        timestamp=t,
                     ),
                 ]
             elif test_type == DeploymentTestType.DEPLOY_ON_FORK_BLOCK:
                 blocks = [
                     Block(  # Deployment on fork block
                         txs=[deploy_tx],
-                        timestamp=15_000,
+                        timestamp=t,
                     ),
                     Block(  # Empty block after fork
                         txs=[],
-                        timestamp=15_001,
+                        timestamp=t + 1,
                     ),
                 ]
             elif test_type == DeploymentTestType.DEPLOY_AFTER_FORK:
                 blocks = [
                     Block(  # Empty block on fork
                         txs=[],
-                        timestamp=15_000,
+                        timestamp=t,
                         exception=BlockException.SYSTEM_CONTRACT_EMPTY
                         if fail_on_empty_code
                         else None,
@@ -228,13 +229,13 @@ def generate_system_contract_deploy_test(
                     blocks.append(
                         Block(  # Deployment after fork block
                             txs=[deploy_tx],
-                            timestamp=15_001,
+                            timestamp=t + 1,
                         )
                     )
                     blocks.append(
                         Block(  # Empty block after deployment
                             txs=[],
-                            timestamp=15_002,
+                            timestamp=t + 2,
                         ),
                     )
             balance = (

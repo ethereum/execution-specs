@@ -78,13 +78,13 @@ def test_transition_forks() -> None:
 
     assert (
         ParisToShanghaiAtTime15k.transition_tool_name(
-            block_number=0, timestamp=14_999
+            block_number=0, timestamp=Paris.transition_timestamp() - 1
         )
         == "Merge"
     )
     assert (
         ParisToShanghaiAtTime15k.transition_tool_name(
-            block_number=0, timestamp=15_000
+            block_number=0, timestamp=Paris.transition_timestamp()
         )
         == "Shanghai"
     )
@@ -101,26 +101,26 @@ def test_transition_forks() -> None:
 
     assert (
         ParisToShanghaiAtTime15k.header_withdrawals_required(
-            block_number=0, timestamp=14_999
+            block_number=0, timestamp=Paris.transition_timestamp() - 1
         )
         is False
     )
     assert (
         ParisToShanghaiAtTime15k.header_withdrawals_required(
-            block_number=0, timestamp=15_000
+            block_number=0, timestamp=Paris.transition_timestamp()
         )
         is True
     )
 
     assert (
         ParisToShanghaiAtTime15k.engine_new_payload_version(
-            block_number=0, timestamp=14_999
+            block_number=0, timestamp=Paris.transition_timestamp() - 1
         )
         == 1
     )
     assert (
         ParisToShanghaiAtTime15k.engine_new_payload_version(
-            block_number=0, timestamp=15_000
+            block_number=0, timestamp=Paris.transition_timestamp()
         )
         == 2
     )
@@ -128,17 +128,21 @@ def test_transition_forks() -> None:
     assert BerlinToLondonAt5.fork_at(block_number=4, timestamp=0) == Berlin
     assert BerlinToLondonAt5.fork_at(block_number=5, timestamp=0) == London
     assert (
-        ParisToShanghaiAtTime15k.fork_at(block_number=0, timestamp=14_999)
+        ParisToShanghaiAtTime15k.fork_at(
+            block_number=0, timestamp=Paris.transition_timestamp() - 1
+        )
         == Paris
     )
     assert (
-        ParisToShanghaiAtTime15k.fork_at(block_number=0, timestamp=15_000)
+        ParisToShanghaiAtTime15k.fork_at(
+            block_number=0, timestamp=Paris.transition_timestamp()
+        )
         == Shanghai
     )
     assert ParisToShanghaiAtTime15k.fork_at() == Paris
     assert (
         ParisToShanghaiAtTime15k.fork_at(
-            block_number=10_000_000, timestamp=14_999
+            block_number=10_000_000, timestamp=Paris.transition_timestamp() - 1
         )
         == Paris
     )
@@ -202,13 +206,13 @@ def test_forks() -> None:
     )
     assert (
         cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required(
-            block_number=0, timestamp=14_999
+            block_number=0, timestamp=Paris.transition_timestamp() - 1
         )
         is False
     )
     assert (
         cast(Fork, ParisToShanghaiAtTime15k).header_withdrawals_required(
-            block_number=0, timestamp=15_000
+            block_number=0, timestamp=Paris.transition_timestamp()
         )
         is True
     )
@@ -367,7 +371,10 @@ class PreAllocFork(PrePreAllocFork):
         return {"test2": "test2"} | super(PreAllocFork, cls).pre_allocation()
 
 
-@transition_fork(to_fork=PreAllocFork, at_timestamp=15_000)
+@transition_fork(
+    to_fork=PreAllocFork,
+    at_timestamp=Paris.transition_timestamp(),
+)
 class PreAllocTransitionFork(PrePreAllocFork):
     """PrePreAllocFork to PreAllocFork transition at Timestamp 15k."""
 

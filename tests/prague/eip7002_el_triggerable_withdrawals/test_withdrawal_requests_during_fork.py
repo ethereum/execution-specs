@@ -16,6 +16,7 @@ from execution_testing import (
     Environment,
     Transaction,
 )
+from execution_testing.forks import Prague
 
 from .helpers import WithdrawalRequest, WithdrawalRequestTransaction
 from .spec import Spec, ref_spec_7002
@@ -80,7 +81,11 @@ BLOCKS_BEFORE_FORK = 2
         ),
     ],
 )
-@pytest.mark.parametrize("timestamp", [15_000 - BLOCKS_BEFORE_FORK], ids=[""])
+@pytest.mark.parametrize(
+    "timestamp",
+    [Prague.transition_timestamp() - BLOCKS_BEFORE_FORK],
+    ids=[""],
+)
 @pytest.mark.pre_alloc_mutable
 def test_withdrawal_requests_during_fork(
     blockchain_test: BlockchainTestFiller,

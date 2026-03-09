@@ -14,6 +14,7 @@ from execution_testing import (
     Transaction,
     keccak256,
 )
+from execution_testing.forks import Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from .spec import Spec, ref_spec_7883
@@ -88,7 +89,8 @@ def test_modexp_fork_transition(
 
     senders = [pre.fund_eoa() for _ in range(3)]
     contracts = [pre.deploy_contract(code) for _ in range(3)]
-    timestamps = [14_999, 15_000, 15_001]
+    t = Osaka.transition_timestamp()
+    timestamps = [t - 1, t, t + 1]
     gas_values = [gas_old, gas_new, gas_new]
 
     blocks = [

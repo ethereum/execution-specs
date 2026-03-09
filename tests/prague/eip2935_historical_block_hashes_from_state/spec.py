@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from execution_testing.forks import Prague
+
 
 @dataclass(frozen=True)
 class ReferenceSpec:
@@ -23,7 +25,7 @@ class Spec:
     https://eips.ethereum.org/EIPS/eip-2935.
     """
 
-    FORK_TIMESTAMP = 15_000
+    FORK_TIMESTAMP = Prague.transition_timestamp()
     HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53A10CB7A02335B175320002935
     HISTORY_SERVE_WINDOW = 8191
     BLOCKHASH_OLD_WINDOW = 256

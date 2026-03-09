@@ -25,67 +25,70 @@ class BerlinToLondonAt5(Berlin):
     pass
 
 
-@transition_fork(to_fork=Shanghai, at_timestamp=15_000)
+@transition_fork(to_fork=Shanghai, at_timestamp=Paris.transition_timestamp())
 class ParisToShanghaiAtTime15k(Paris):
     """Paris to Shanghai transition at Timestamp 15k."""
 
     pass
 
 
-@transition_fork(to_fork=Cancun, at_timestamp=15_000)
+@transition_fork(to_fork=Cancun, at_timestamp=Paris.transition_timestamp())
 class ShanghaiToCancunAtTime15k(Shanghai):
     """Shanghai to Cancun transition at Timestamp 15k."""
 
     pass
 
 
-@transition_fork(to_fork=Prague, at_timestamp=15_000)
+@transition_fork(to_fork=Prague, at_timestamp=Paris.transition_timestamp())
 class CancunToPragueAtTime15k(Cancun):
     """Cancun to Prague transition at Timestamp 15k."""
 
     pass
 
 
-@transition_fork(to_fork=Osaka, at_timestamp=15_000)
+@transition_fork(to_fork=Osaka, at_timestamp=Paris.transition_timestamp())
 class PragueToOsakaAtTime15k(Prague):
     """Prague to Osaka transition at Timestamp 15k."""
 
     pass
 
 
-@transition_fork(to_fork=BPO1, at_timestamp=15_000)
+@transition_fork(to_fork=BPO1, at_timestamp=Paris.transition_timestamp())
 class OsakaToBPO1AtTime15k(Osaka):
     """Osaka to BPO1 transition at Timestamp 15k."""
 
     pass
 
 
-@transition_fork(to_fork=BPO2, at_timestamp=15_000)
+@transition_fork(to_fork=BPO2, at_timestamp=Paris.transition_timestamp())
 class BPO1ToBPO2AtTime15k(BPO1):
     """BPO1 to BPO2 transition at Timestamp 15k."""
 
     pass
 
 
-@transition_fork(to_fork=Amsterdam, at_timestamp=15_000)
+@transition_fork(
+    to_fork=Amsterdam,
+    at_timestamp=Paris.transition_timestamp(),
+)
 class BPO2ToAmsterdamAtTime15k(BPO2):
     """BPO2 to Amsterdam transition at Timestamp 15k."""
 
-    # TODO: We may need to adjust which BPO Amsterdam inherits from as the
-    #  related Amsterdam specs change over time, and before Amsterdam is
-    #  live on mainnet.
+    # TODO: We may need to adjust which BPO Amsterdam inherits
+    #  from as the related Amsterdam specs change over time, and
+    #  before Amsterdam is live on mainnet.
 
     pass
 
 
-@transition_fork(to_fork=BPO3, at_timestamp=15_000)
+@transition_fork(to_fork=BPO3, at_timestamp=Paris.transition_timestamp())
 class BPO2ToBPO3AtTime15k(BPO2):
     """BPO2 to BPO3 transition at Timestamp 15k."""
 
     pass
 
 
-@transition_fork(to_fork=BPO4, at_timestamp=15_000)
+@transition_fork(to_fork=BPO4, at_timestamp=Paris.transition_timestamp())
 class BPO3ToBPO4AtTime15k(BPO3):
     """BPO3 to BPO4 transition at Timestamp 15k."""
 

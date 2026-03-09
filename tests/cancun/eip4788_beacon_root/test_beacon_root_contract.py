@@ -34,6 +34,7 @@ from execution_testing import (
     Transaction,
     Withdrawal,
 )
+from execution_testing.forks import Cancun
 
 from .spec import Spec, ref_spec_4788
 
@@ -668,7 +669,7 @@ def test_beacon_root_transition(
     )
 
 
-@pytest.mark.parametrize("timestamp", [15_000])
+@pytest.mark.parametrize("timestamp", [Cancun.transition_timestamp()])
 @pytest.mark.valid_at_transition_to("Cancun")
 @pytest.mark.pre_alloc_mutable()
 def test_no_beacon_root_contract_at_transition(
@@ -744,8 +745,8 @@ def test_no_beacon_root_contract_at_transition(
 @pytest.mark.parametrize(
     "timestamp",
     [
-        pytest.param(15_000, id="deploy_on_shanghai"),
-        pytest.param(30_000, id="deploy_on_cancun"),
+        pytest.param(Cancun.transition_timestamp(), id="deploy_on_shanghai"),
+        pytest.param(Cancun.transition_timestamp() * 2, id="deploy_on_cancun"),
     ],
 )
 @pytest.mark.valid_at_transition_to("Cancun")

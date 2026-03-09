@@ -53,6 +53,7 @@ from execution_testing import (
     TransactionReceipt,
     call_return_code,
 )
+from execution_testing.forks import Cancun
 
 from .common import INF_POINT, Z_Y_VALID_ENDIANNESS, Z
 from .spec import Spec, ref_spec_4844
@@ -662,14 +663,15 @@ def test_precompile_before_fork(
 
     state_test(
         pre=pre,
-        env=Environment(timestamp=7_500),
+        env=Environment(
+            timestamp=Cancun.transition_timestamp() // 2,
+        ),
         post=post,
         tx=tx,
     )
 
 
-FORK_TIMESTAMP = 15_000
-PRE_FORK_BLOCK_RANGE = range(999, FORK_TIMESTAMP, 1_000)
+PRE_FORK_BLOCK_RANGE = range(999, Cancun.transition_timestamp(), 1_000)
 
 
 @pytest.mark.parametrize(
@@ -727,7 +729,7 @@ def test_precompile_during_fork(
     # Block after fork
     blocks += [
         Block(
-            timestamp=FORK_TIMESTAMP,
+            timestamp=Cancun.transition_timestamp(),
             txs=[
                 Transaction(
                     sender=sender,

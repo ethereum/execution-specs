@@ -21,6 +21,7 @@ from execution_testing import (
     Storage,
     Transaction,
 )
+from execution_testing.forks import Cancun
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7516.md"
 REFERENCE_SPEC_VERSION = "dcd2f4ede58a6ed908acd3cc2c198e9f605cbf3b"
@@ -188,8 +189,8 @@ def test_blobbasefee_before_fork(
     Tests that the BLOBBASEFEE opcode results on exception when called before
     the fork.
     """
-    # Fork happens at timestamp 15_000
-    timestamp = 7_500
+    # Fork happens at transition_timestamp
+    timestamp = Cancun.transition_timestamp() // 2
     post = {
         caller_address: Account(
             storage={1: 0},
@@ -208,7 +209,11 @@ def test_blobbasefee_before_fork(
     )
 
 
-timestamps = [7_500, 14_999, 15_000]
+timestamps = [
+    Cancun.transition_timestamp() // 2,
+    Cancun.transition_timestamp() - 1,
+    Cancun.transition_timestamp(),
+]
 
 
 @pytest.mark.parametrize(
@@ -247,7 +252,9 @@ def test_blobbasefee_during_fork(
             ),
         )
         # pre-set storage just to make sure we detect the change
-        code_caller_post_storage[block_number] = 0 if timestamp < 15_000 else 1
+        code_caller_post_storage[block_number] = (
+            0 if timestamp < Cancun.transition_timestamp() else 1
+        )
 
     post = {
         caller_address: Account(

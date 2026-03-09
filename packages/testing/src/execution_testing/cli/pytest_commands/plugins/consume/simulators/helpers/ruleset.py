@@ -213,7 +213,7 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_FORK_LONDON": 0,
         "HIVE_FORK_MERGE": 0,
         "HIVE_TERMINAL_TOTAL_DIFFICULTY": 0,
-        "HIVE_SHANGHAI_TIMESTAMP": 15000,
+        "HIVE_SHANGHAI_TIMESTAMP": Shanghai.transition_timestamp(),
     },
     Cancun: {
         "HIVE_FORK_HOMESTEAD": 0,
@@ -244,7 +244,7 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_FORK_MERGE": 0,
         "HIVE_TERMINAL_TOTAL_DIFFICULTY": 0,
         "HIVE_SHANGHAI_TIMESTAMP": 0,
-        "HIVE_CANCUN_TIMESTAMP": 15000,
+        "HIVE_CANCUN_TIMESTAMP": Cancun.transition_timestamp(),
         **get_blob_schedule_entries(Cancun),
     },
     Prague: {
@@ -278,7 +278,7 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_TERMINAL_TOTAL_DIFFICULTY": 0,
         "HIVE_SHANGHAI_TIMESTAMP": 0,
         "HIVE_CANCUN_TIMESTAMP": 0,
-        "HIVE_PRAGUE_TIMESTAMP": 15000,
+        "HIVE_PRAGUE_TIMESTAMP": Prague.transition_timestamp(),
         **get_blob_schedule_entries(Prague),
     },
     Osaka: {
@@ -314,7 +314,7 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_SHANGHAI_TIMESTAMP": 0,
         "HIVE_CANCUN_TIMESTAMP": 0,
         "HIVE_PRAGUE_TIMESTAMP": 0,
-        "HIVE_OSAKA_TIMESTAMP": 15000,
+        "HIVE_OSAKA_TIMESTAMP": Osaka.transition_timestamp(),
         **get_blob_schedule_entries(Osaka),
     },
     BPO1: {
@@ -352,7 +352,7 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_CANCUN_TIMESTAMP": 0,
         "HIVE_PRAGUE_TIMESTAMP": 0,
         "HIVE_OSAKA_TIMESTAMP": 0,
-        "HIVE_BPO1_TIMESTAMP": 15000,
+        "HIVE_BPO1_TIMESTAMP": BPO1.transition_timestamp(),
         **get_blob_schedule_entries(BPO1),
     },
     BPO2: {
@@ -392,7 +392,7 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_PRAGUE_TIMESTAMP": 0,
         "HIVE_OSAKA_TIMESTAMP": 0,
         "HIVE_BPO1_TIMESTAMP": 0,
-        "HIVE_BPO2_TIMESTAMP": 15000,
+        "HIVE_BPO2_TIMESTAMP": BPO2.transition_timestamp(),
         **get_blob_schedule_entries(BPO2),
     },
     BPO3: {
@@ -434,7 +434,7 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_OSAKA_TIMESTAMP": 0,
         "HIVE_BPO1_TIMESTAMP": 0,
         "HIVE_BPO2_TIMESTAMP": 0,
-        "HIVE_BPO3_TIMESTAMP": 15000,
+        "HIVE_BPO3_TIMESTAMP": BPO3.transition_timestamp(),
         **get_blob_schedule_entries(BPO3),
     },
     BPO4: {
@@ -478,7 +478,7 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_BPO1_TIMESTAMP": 0,
         "HIVE_BPO2_TIMESTAMP": 0,
         "HIVE_BPO3_TIMESTAMP": 0,
-        "HIVE_BPO4_TIMESTAMP": 15000,
+        "HIVE_BPO4_TIMESTAMP": BPO4.transition_timestamp(),
         **get_blob_schedule_entries(BPO4),
     },
     BPO2ToAmsterdamAtTime15k: {
@@ -499,7 +499,7 @@ ruleset: Dict[Fork, Dict[str, int]] = {
         "HIVE_OSAKA_TIMESTAMP": 0,
         "HIVE_BPO1_TIMESTAMP": 0,
         "HIVE_BPO2_TIMESTAMP": 0,
-        "HIVE_AMSTERDAM_TIMESTAMP": 15000,
+        "HIVE_AMSTERDAM_TIMESTAMP": Amsterdam.transition_timestamp(),
         **get_blob_schedule_entries(BPO2),
     },
     Amsterdam: {

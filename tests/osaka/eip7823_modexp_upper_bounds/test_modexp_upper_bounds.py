@@ -18,6 +18,7 @@ from execution_testing import (
     Transaction,
     keccak256,
 )
+from execution_testing.forks import Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
 from ..eip7883_modexp_gas_increase.spec import Spec
@@ -316,7 +317,8 @@ def test_modexp_upper_bounds_fork_transition(
 
     senders = [pre.fund_eoa() for _ in range(3)]
     contracts = [pre.deploy_contract(code) for _ in range(3)]
-    timestamps = [14_999, 15_000, 15_001]  # Before, at, and after transition
+    t = Osaka.transition_timestamp()
+    timestamps = [t - 1, t, t + 1]  # Before, at, and after transition
     expected_results = [True, False, False]
 
     blocks = [

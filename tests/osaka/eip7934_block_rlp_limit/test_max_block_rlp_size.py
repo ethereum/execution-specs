@@ -29,6 +29,7 @@ from execution_testing.fixtures.blockchain import (
     FixtureBlockBase,
     FixtureWithdrawal,
 )
+from execution_testing.forks import Osaka
 
 from .spec import Spec, ref_spec_7934
 
@@ -841,10 +842,11 @@ def test_fork_transition_block_rlp_limit(
     """
     Test block RLP size limit at fork transition boundary.
 
-    - Before fork (timestamp 14999): Block at limit +1 should be accepted
-    - At fork (timestamp 15000): Block at limit should be accepted
-    - At fork (timestamp 15000): Block at limit +1 should be rejected
+    - Before fork: Block at limit +1 should be accepted
+    - At fork (transition_timestamp): Block at limit should be accepted
+    - At fork (transition_timestamp): Block at limit +1 should be rejected
     """
+    t = Osaka.transition_timestamp()
     sender_before_fork = pre.fund_eoa()
     sender_at_fork = pre.fund_eoa()
 
@@ -865,7 +867,7 @@ def test_fork_transition_block_rlp_limit(
     )
 
     # HEADER_TIMESTAMP (123456789) used in calculation takes 4 bytes in RLP
-    # encoding. Transition timestamps (14_999 and 15_000) take 2 bytes.
+    # encoding. Transition timestamps take 2 bytes.
     # Add the difference to extra_data to keep block at the limit.
     timestamp_byte_savings = 2
 
@@ -875,18 +877,18 @@ def test_fork_transition_block_rlp_limit(
     blocks = [
         # before fork, block at limit +1 should be accepted
         Block(
-            timestamp=14_999,
+            timestamp=t - 1,
             txs=transactions_before,
             # +1 to exceed limit
             extra_data=Bytes(b"\x00" * (extra_data_before + 1)),
         )
     ]
 
-    # At fork (timestamp 15000): Test behavior with and without exceeding limit
+    # At fork (transition_timestamp): Test with and without exceeding limit
     if exceeds_limit_at_fork:
         blocks.append(
             Block(
-                timestamp=15_000,
+                timestamp=t,
                 txs=transactions_at_fork,
                 # +1 to exceed limit, should be rejected
                 extra_data=Bytes(b"\x00" * (extra_data_at_fork + 1)),
@@ -896,7 +898,7 @@ def test_fork_transition_block_rlp_limit(
     else:
         blocks.append(
             Block(
-                timestamp=15_000,
+                timestamp=t,
                 txs=transactions_at_fork,
                 # exact limit should be accepted
                 extra_data=Bytes(b"\x00" * extra_data_at_fork),

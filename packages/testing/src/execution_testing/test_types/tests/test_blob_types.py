@@ -10,6 +10,7 @@ from filelock import FileLock
 from execution_testing.forks import (
     Cancun,
     Osaka,
+    Paris,
     Prague,
 )
 from execution_testing.forks.forks.transition import (
@@ -139,7 +140,13 @@ def test_blob_proof_corruption(
     increment_counter()
 
 
-@pytest.mark.parametrize("timestamp", [14999, 15000])
+@pytest.mark.parametrize(
+    "timestamp",
+    [
+        Paris.transition_timestamp() - 1,
+        Paris.transition_timestamp(),
+    ],
+)
 @pytest.mark.parametrize(
     "fork",
     [
@@ -153,8 +160,8 @@ def test_transition_fork_blobs(
     timestamp: int,
 ) -> None:
     """
-    Generates blobs for transition forks (time 14999 is old fork, time 15000 is
-    new fork).
+    Generate blobs for transition forks (pre-transition timestamp is old fork,
+    transition timestamp is new fork).
     """
     # line below guarantees that this test runs only after the other blob unit
     # tests are done
@@ -164,10 +171,12 @@ def test_transition_fork_blobs(
 
     print(f"Original fork: {fork}, Timestamp: {timestamp}")
     pre_transition_fork = fork.transitions_from()
-    # only reached if timestamp >= 15000
-    post_transition_fork_at_15k = fork.transitions_to()
+    post_transition_fork = fork.transitions_to()
 
-    if not pre_transition_fork.supports_blobs() and timestamp < 15000:
+    if (
+        not pre_transition_fork.supports_blobs()
+        and timestamp < Paris.transition_timestamp()
+    ):
         print(
             f"Skipping blob creation because pre-transition fork is "
             f"{pre_transition_fork} and timestamp is {timestamp}"
@@ -178,22 +187,26 @@ def test_transition_fork_blobs(
     b = Blob.from_fork(fork=fork, timestamp=timestamp)
     print(f"Fork of created blob: {b.fork.name()}")
 
-    if timestamp == 14999:  # case: no transition yet
+    if timestamp < Paris.transition_timestamp():  # case: no transition yet
         assert b.fork.name() == pre_transition_fork.name(), (
             f"Transition fork failure! Fork {fork.name()} at timestamp: "
             f"{timestamp} should have stayed at fork "
             f"{pre_transition_fork.name()} but has unexpectedly transitioned "
             f"to {b.fork.name()}"
         )
-    elif timestamp == 15000:  # case: transition to next fork has happened
-        assert b.fork.name() == post_transition_fork_at_15k.name(), (
-            f"Transition fork failure! Fork {fork.name()} at timestamp: "
-            f"{timestamp} should have transitioned to "
-            f"{post_transition_fork_at_15k.name()} but is still at "
+    # case: transition has happened
+    elif timestamp == Paris.transition_timestamp():
+        assert b.fork.name() == post_transition_fork.name(), (
+            f"Transition fork failure! Fork {fork.name()} at "
+            f"timestamp: {timestamp} should have transitioned to "
+            f"{post_transition_fork.name()} but is still at "
             f"{b.fork.name()}"
         )
 
     # delete counter at last iteration (otherwise re-running all unit tests
     # will fail)
-    if timestamp == 15_000 and pre_transition_fork == Prague:
+    if (
+        timestamp == Paris.transition_timestamp()
+        and pre_transition_fork == Prague
+    ):
         (CACHED_BLOBS_DIRECTORY / "blob_unit_test_counter.txt").unlink()

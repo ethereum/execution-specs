@@ -19,7 +19,7 @@ from execution_testing import (
     Transaction,
     add_kzg_version,
 )
-from execution_testing.forks import BPO2ToBPO3AtTime15k
+from execution_testing.forks import BPO2ToBPO3AtTime15k, Osaka
 
 from .spec import Spec, ref_spec_7918
 
@@ -84,13 +84,13 @@ def source_fork_gas_per_blob(fork: Fork) -> int:
 @pytest.fixture
 def transition_fork_target_blobs(fork: Fork) -> int:
     """Transition-to fork target blobs."""
-    return fork.target_blobs_per_block(timestamp=15_000)
+    return fork.target_blobs_per_block(timestamp=Osaka.transition_timestamp())
 
 
 @pytest.fixture
 def transition_fork_gas_per_blob(fork: Fork) -> int:
     """Transition-to fork gas per blob."""
-    return fork.blob_gas_per_blob(timestamp=15_000)
+    return fork.blob_gas_per_blob(timestamp=Osaka.transition_timestamp())
 
 
 @pytest.fixture
@@ -285,7 +285,7 @@ def parent_block(
     """Parent block to satisfy the pre-fork conditions of the test."""
     return Block(
         txs=parent_block_txs,
-        timestamp=14_999,
+        timestamp=Osaka.transition_timestamp() - 1,
         header_verify=Header(
             excess_blob_gas=parent_excess_blob_gas,
             blob_gas_used=parent_blob_count * blob_gas_per_blob,
@@ -333,7 +333,7 @@ def transition_block(
     """Parent block to satisfy the pre-fork conditions of the test."""
     return Block(
         txs=transition_block_txs,
-        timestamp=15_000,
+        timestamp=Osaka.transition_timestamp(),
         header_verify=Header(
             excess_blob_gas=transition_block_expected_excess_blob_gas,
             blob_gas_used=transition_block_blob_count * blob_gas_per_blob,
@@ -432,7 +432,9 @@ def get_fork_scenarios(fork: Fork) -> Iterator[ParameterSet]:
     fork and transition fork properties.
     """
     source_blob_schedule = BlobSchedule(fork=fork, timestamp=0)
-    transition_blob_schedule = BlobSchedule(fork=fork, timestamp=15_000)
+    transition_blob_schedule = BlobSchedule(
+        fork=fork, timestamp=Osaka.transition_timestamp()
+    )
 
     excess_blobs_combinations = [0, 1, 10, 100]
 

@@ -10,6 +10,7 @@ from execution_testing import (
     BlockchainTestFiller,
     Environment,
 )
+from execution_testing.forks import BPO1
 
 from .spec import ref_spec_7918
 
@@ -31,6 +32,6 @@ def test_blob_base_fee_with_bpo_transition(
     blockchain_test(
         genesis_environment=env,
         pre=pre,
-        blocks=[Block(timestamp=15_000)],
+        blocks=[Block(timestamp=BPO1.transition_timestamp())],
         post={},
     )

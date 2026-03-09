@@ -19,13 +19,12 @@ from execution_testing import (
     TransactionException,
     add_kzg_version,
 )
+from execution_testing.forks import Osaka
 
 from .spec import Spec, ref_spec_7594
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7594.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7594.version
-
-FORK_TIMESTAMP = 15_000
 
 
 @pytest.fixture
@@ -141,8 +140,14 @@ def test_invalid_max_blobs_per_tx(
 @pytest.mark.parametrize_by_fork(
     "blob_count",
     lambda fork: [
-        fork.max_blobs_per_tx(timestamp=FORK_TIMESTAMP) + 1,
-        fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP) + 1,
+        fork.max_blobs_per_tx(
+            timestamp=Osaka.transition_timestamp(),
+        )
+        + 1,
+        fork.max_blobs_per_block(
+            timestamp=Osaka.transition_timestamp(),
+        )
+        + 1,
     ],
 )
 @pytest.mark.valid_at_transition_to("Osaka")
@@ -156,31 +161,31 @@ def test_max_blobs_per_tx_fork_transition(
     blob_count: int,
 ) -> None:
     """Test `MAX_BLOBS_PER_TX` limit enforcement across fork transition."""
+    t = Osaka.transition_timestamp()
     expected_exception = (
         TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED
-        if blob_count > fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
+        if blob_count > fork.max_blobs_per_block(timestamp=t)
         else TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED
     )
     pre_fork_block = Block(
         txs=[
             tx
-            if blob_count
-            < fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP - 1)
+            if blob_count < fork.max_blobs_per_block(timestamp=t - 1)
             else tx.with_error(expected_exception)
         ],
-        timestamp=FORK_TIMESTAMP - 1,
+        timestamp=t - 1,
         exception=None
-        if blob_count < fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP - 1)
+        if blob_count < fork.max_blobs_per_block(timestamp=t - 1)
         else [expected_exception],
     )
     fork_block = Block(
         txs=[tx.with_nonce(1).with_error(expected_exception)],
-        timestamp=FORK_TIMESTAMP,
+        timestamp=t,
         exception=[expected_exception],
     )
     post_fork_block = Block(
         txs=[tx.with_nonce(1).with_error(expected_exception)],
-        timestamp=FORK_TIMESTAMP + 1,
+        timestamp=t + 1,
         exception=[expected_exception],
     )
     blockchain_test(

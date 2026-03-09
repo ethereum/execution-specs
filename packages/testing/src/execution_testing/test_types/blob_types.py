@@ -60,7 +60,7 @@ class Blob(CamelModel):
     name: str
     fork: Fork
     seed: int
-    timestamp: int  # fork transitions require timestamp >= 15000 to occur
+    timestamp: int  # transitions require >= transition_timestamp
 
     _trusted_setup: ClassVar[Any | None] = None
 

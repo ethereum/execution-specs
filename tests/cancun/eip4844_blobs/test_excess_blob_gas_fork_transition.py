@@ -24,14 +24,13 @@ from execution_testing import (
     Transaction,
     add_kzg_version,
 )
+from execution_testing.forks import Cancun
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
-# Timestamp of the fork
-FORK_TIMESTAMP = 15_000
 BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
 
 
@@ -73,7 +72,8 @@ def pre_fork_blobs_per_block(fork: Fork) -> int:
 @pytest.fixture
 def post_fork_blobs_per_block(fork: Fork) -> int:
     """Amount of blobs to produce with the post-fork rules."""
-    return fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP) + 1
+    t = Cancun.transition_timestamp()
+    return fork.target_blobs_per_block(timestamp=t) + 1
 
 
 @pytest.fixture
@@ -89,7 +89,7 @@ def pre_fork_blocks(
     """Generate blocks to reach the fork."""
     blocks = []
 
-    for t in range(999, FORK_TIMESTAMP, 1_000):
+    for t in range(999, Cancun.transition_timestamp(), 1_000):
         remaining_gas = block_gas_limit // 2
         if pre_fork_blobs_per_block == 0:
             blocks.append(
@@ -196,8 +196,8 @@ def post_fork_block_count(fork: Fork) -> int:
     return SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
         fork=fork, blob_gas_price=2
     ) // (
-        fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
-        - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)
+        fork.max_blobs_per_block(timestamp=Cancun.transition_timestamp())
+        - fork.target_blobs_per_block(timestamp=Cancun.transition_timestamp())
     )
 
 
@@ -224,7 +224,7 @@ def fork_block_excess_blob_gas(
     if pre_fork_blobs_per_block == 0:
         return 0
     calc_excess_blob_gas_post_fork = fork.excess_blob_gas_calculator(
-        timestamp=FORK_TIMESTAMP
+        timestamp=Cancun.transition_timestamp()
     )
     return calc_excess_blob_gas_post_fork(
         parent_excess_blob_gas=pre_fork_excess_blob_gas,
@@ -265,7 +265,8 @@ def post_fork_blocks(
         txs = []
         blob_index = 0
         remaining_blobs = post_fork_blobs_per_block
-        max_blobs_per_tx = fork.max_blobs_per_tx(timestamp=FORK_TIMESTAMP)
+        t = Cancun.transition_timestamp()
+        max_blobs_per_tx = fork.max_blobs_per_tx(timestamp=t)
         while remaining_blobs > 0:
             tx_blobs = min(remaining_blobs, max_blobs_per_tx)
             txs.append(
@@ -320,7 +321,8 @@ def post(  # noqa: D103
 
     post_fork_tx_count_per_block = 0
     if post_fork_blobs_per_block > 0:
-        max_blobs_per_tx_post = fork.max_blobs_per_tx(timestamp=FORK_TIMESTAMP)
+        t = Cancun.transition_timestamp()
+        max_blobs_per_tx_post = fork.max_blobs_per_tx(timestamp=t)
         post_fork_tx_count_per_block = (
             post_fork_blobs_per_block + max_blobs_per_tx_post - 1
         ) // max_blobs_per_tx_post
@@ -372,7 +374,7 @@ def test_invalid_pre_fork_block_with_blob_fields(
         blocks=pre_fork_blocks[:-1]
         + [
             Block(
-                timestamp=(FORK_TIMESTAMP - 1),
+                timestamp=(Cancun.transition_timestamp() - 1),
                 rlp_modifier=header_modifier,
                 exception=BlockException.INCORRECT_BLOCK_FORMAT,
                 engine_api_error_code=EngineAPIError.InvalidParams,
@@ -419,7 +421,7 @@ def test_invalid_post_fork_block_without_blob_fields(
         blocks=pre_fork_blocks
         + [
             Block(
-                timestamp=FORK_TIMESTAMP,
+                timestamp=Cancun.transition_timestamp(),
                 rlp_modifier=header_modifier,
                 exception=BlockException.INCORRECT_BLOCK_FORMAT,
                 engine_api_error_code=EngineAPIError.InvalidParams,
@@ -432,26 +434,28 @@ def test_invalid_post_fork_block_without_blob_fields(
 @pytest.mark.valid_at_transition_to("Cancun", subsequent_forks=False)
 @pytest.mark.parametrize_by_fork(
     "post_fork_block_count,post_fork_blobs_per_block",
-    lambda fork: [
-        pytest.param(
-            SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
-                fork=fork, blob_gas_price=2
-            )
-            // (
-                fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
-                - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)
-            )
-            + 2,
-            fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="max_blobs",
-        ),
-        pytest.param(10, 0, id="no_blobs"),
-        pytest.param(
-            10,
-            fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="target_blobs",
-        ),
-    ],
+    lambda fork: (
+        lambda t: [
+            pytest.param(
+                SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
+                    fork=fork, blob_gas_price=2
+                )
+                // (
+                    fork.max_blobs_per_block(timestamp=t)
+                    - fork.target_blobs_per_block(timestamp=t)
+                )
+                + 2,
+                fork.max_blobs_per_block(timestamp=t),
+                id="max_blobs",
+            ),
+            pytest.param(10, 0, id="no_blobs"),
+            pytest.param(
+                10,
+                fork.target_blobs_per_block(timestamp=t),
+                id="target_blobs",
+            ),
+        ]
+    )(Cancun.transition_timestamp()),
 )
 def test_fork_transition_excess_blob_gas_at_blob_genesis(
     blockchain_test: BlockchainTestFiller,
@@ -479,51 +483,53 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
 @pytest.mark.valid_at_transition_to("Prague", subsequent_forks=True)
 @pytest.mark.parametrize_by_fork(
     "post_fork_block_count,pre_fork_blobs_per_block,post_fork_blobs_per_block",
-    lambda fork: [
-        pytest.param(
-            SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
-                fork=fork, blob_gas_price=2
-            )
-            // (
-                fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP)
-                - fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP)
-            )
-            + 2,
-            fork.max_blobs_per_block(timestamp=0),
-            fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="max_blobs_before_and_after",
-        ),
-        pytest.param(
-            10,
-            0,
-            fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="no_blobs_before_and_max_blobs_after",
-        ),
-        pytest.param(
-            10,
-            fork.max_blobs_per_block(timestamp=0),
-            0,
-            id="max_blobs_before_and_no_blobs_after",
-        ),
-        pytest.param(
-            10,
-            fork.target_blobs_per_block(timestamp=0),
-            fork.target_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="target_blobs_before_and_after",
-        ),
-        pytest.param(
-            10,
-            1,
-            fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP),
-            id="single_blob_before_and_max_blobs_after",
-        ),
-        pytest.param(
-            10,
-            fork.max_blobs_per_block(timestamp=0),
-            1,
-            id="max_blobs_before_and_single_blob_after",
-        ),
-    ],
+    lambda fork: (
+        lambda t: [
+            pytest.param(
+                SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
+                    fork=fork, blob_gas_price=2
+                )
+                // (
+                    fork.max_blobs_per_block(timestamp=t)
+                    - fork.target_blobs_per_block(timestamp=t)
+                )
+                + 2,
+                fork.max_blobs_per_block(timestamp=0),
+                fork.max_blobs_per_block(timestamp=t),
+                id="max_blobs_before_and_after",
+            ),
+            pytest.param(
+                10,
+                0,
+                fork.max_blobs_per_block(timestamp=t),
+                id="no_blobs_before_and_max_blobs_after",
+            ),
+            pytest.param(
+                10,
+                fork.max_blobs_per_block(timestamp=0),
+                0,
+                id="max_blobs_before_and_no_blobs_after",
+            ),
+            pytest.param(
+                10,
+                fork.target_blobs_per_block(timestamp=0),
+                fork.target_blobs_per_block(timestamp=t),
+                id="target_blobs_before_and_after",
+            ),
+            pytest.param(
+                10,
+                1,
+                fork.max_blobs_per_block(timestamp=t),
+                id="single_blob_before_and_max_blobs_after",
+            ),
+            pytest.param(
+                10,
+                fork.max_blobs_per_block(timestamp=0),
+                1,
+                id="max_blobs_before_and_single_blob_after",
+            ),
+        ]
+    )(Cancun.transition_timestamp()),
 )
 @pytest.mark.parametrize("block_base_fee_per_gas", [7, 16, 23])
 @pytest.mark.slow

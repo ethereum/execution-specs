@@ -17,6 +17,7 @@ from execution_testing import (
     Transaction,
     TransactionException,
 )
+from execution_testing.forks import Osaka
 
 from .spec import ref_spec_7825
 
@@ -45,16 +46,18 @@ def test_transaction_gas_limit_cap_at_transition(
     """
     Test transaction gas limit cap behavior at the Osaka transition.
 
-    Before timestamp 15000: No gas limit cap (transactions with gas > 2^24 are
-    valid) At/after timestamp 15000: Gas limit cap of 2^24 is enforced
+    Before transition_timestamp: No gas limit cap (transactions with
+    gas > 2^24 are valid).
+    At/after transition_timestamp: Gas limit cap of 2^24 is enforced.
     """
+    t = Osaka.transition_timestamp()
     contract_address = pre.deploy_contract(
         code=Op.SSTORE(Op.TIMESTAMP, Op.ADD(Op.SLOAD(Op.TIMESTAMP), 1))
         + Op.STOP,
     )
 
     # Get the gas limit cap at fork activation
-    tx_gas_cap = fork.transaction_gas_limit_cap(timestamp=15_000)
+    tx_gas_cap = fork.transaction_gas_limit_cap(timestamp=t)
     assert tx_gas_cap is not None, (
         "Gas limit cap should not be None after fork activation"
     )
@@ -91,21 +94,21 @@ def test_transaction_gas_limit_cap_at_transition(
 
     blocks = []
 
-    # Before transition (timestamp < 15000): both cap and above_cap
-    # transactions should succeed
+    # Before transition: both cap and above_cap transactions
+    # should succeed
     blocks.append(
         Block(
-            timestamp=14_999,
+            timestamp=t - 1,
             txs=[above_cap_tx_before_fork, at_cap_tx_before_fork],
         )
     )
 
-    # At transition (timestamp = 15000):
+    # At transition:
     # - transaction at cap should succeed
     # - transaction above cap (cap + 1) should fail
     blocks.append(
         Block(
-            timestamp=15_000,
+            timestamp=t,
             txs=[transition_tx],
             exception=post_cap_tx_error if not transaction_at_cap else None,
         )
@@ -115,12 +118,12 @@ def test_transaction_gas_limit_cap_at_transition(
     post = {
         contract_address: Account(
             storage={
-                # Set by both transactions in first block (before transition):
-                14_999: 2,
+                # Set by both txs in first block (before transition):
+                t - 1: 2,
                 # After transition:
                 # - Set by transaction at cap (should succeed)
-                # - Not set by transaction above cap (should fail)
-                15_000: 1 if transaction_at_cap else 0,
+                # - Not set by tx above cap (should fail)
+                t: 1 if transaction_at_cap else 0,
             }
         )
     }

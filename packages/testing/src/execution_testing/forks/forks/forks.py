@@ -2187,6 +2187,11 @@ class Paris(
     """Paris (Merge) fork."""
 
     @classmethod
+    def transition_timestamp(cls) -> int:
+        """Return the timestamp used for fork transition tests."""
+        return 15_000
+
+    @classmethod
     def header_prev_randao_required(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from execution_testing import Storage
+from execution_testing.forks import Cancun
 
 
 @dataclass(frozen=True)
@@ -31,7 +32,7 @@ class Spec:
     BEACON_ROOTS_DEPLOYER_ADDRESS = 0x0B799C86A49DEEB90402691F1041AA3AF2D3C875
     HISTORY_BUFFER_LENGTH = 8_191
     SYSTEM_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
-    FORK_TIMESTAMP = 15_000  # ShanghaiToCancun timestamp
+    FORK_TIMESTAMP = Cancun.transition_timestamp()
 
 
 @dataclass(frozen=True)
