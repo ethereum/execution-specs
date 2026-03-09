@@ -1,9 +1,4 @@
-"""
-Fork rules for consume hive simulators.
-
-TODO: Create the ruleset dynamically per fixture test case based on the fork.
-Remove this file afterwards.
-"""
+"""Fork rules for consume hive simulators."""
 
 from typing import Dict
 
