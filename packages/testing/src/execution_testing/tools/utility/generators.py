@@ -11,6 +11,7 @@ import pytest
 from execution_testing.base_types import Account, Address, Hash
 from execution_testing.exceptions import BlockException
 from execution_testing.forks import Berlin, Fork, TransitionFork
+from execution_testing.forks.base_fork import BaseFork
 from execution_testing.specs import BlockchainTestFiller, StateTestFiller
 from execution_testing.specs.blockchain import Block
 from execution_testing.test_types import Alloc, Transaction
@@ -63,7 +64,7 @@ class SystemContractDeployTestFunction(Protocol):
     def __call__(
         self,
         *,
-        fork: Fork,
+        fork: TransitionFork,
         pre: Alloc,
         post: Alloc,
         test_type: DeploymentTestType,
@@ -88,7 +89,7 @@ class SystemContractDeployTestFunction(Protocol):
 
 def generate_system_contract_deploy_test(
     *,
-    fork: Fork | TransitionFork,
+    fork: Fork,
     tx_json_path: Path,
     expected_deploy_address: Address,
     fail_on_empty_code: bool,
@@ -139,6 +140,11 @@ def generate_system_contract_deploy_test(
                                                       the system contract.
 
     """
+    if not issubclass(fork, BaseFork):
+        raise TypeError(
+            "fork parameter of generate_system_contract_deploy_test must be "
+            "a subclass of Fork"
+        )
     with open(tx_json_path, mode="r") as f:
         tx_json = json.loads(f.read())
     if "gasLimit" not in tx_json and "gas" in tx_json:
@@ -186,8 +192,12 @@ def generate_system_contract_deploy_test(
             has_balance: ContractAddressHasBalance,
             pre: Alloc,
             test_type: DeploymentTestType,
-            fork: Fork,
+            fork: TransitionFork,
         ) -> None:
+            assert fork.at_block == 0, (
+                "Block number based transition forks are not supported by "
+                "generate_system_contract_deploy_test"
+            )
             assert deployer_address is not None
             assert deploy_tx.created_contract == expected_deploy_address
             blocks: List[Block] = []
@@ -196,29 +206,29 @@ def generate_system_contract_deploy_test(
                 blocks = [
                     Block(  # Deployment block
                         txs=[deploy_tx],
-                        timestamp=14_999,
+                        timestamp=fork.at_timestamp - 1,
                     ),
                     Block(  # Empty block on fork
                         txs=[],
-                        timestamp=15_000,
+                        timestamp=fork.at_timestamp,
                     ),
                 ]
             elif test_type == DeploymentTestType.DEPLOY_ON_FORK_BLOCK:
                 blocks = [
                     Block(  # Deployment on fork block
                         txs=[deploy_tx],
-                        timestamp=15_000,
+                        timestamp=fork.at_timestamp,
                     ),
                     Block(  # Empty block after fork
                         txs=[],
-                        timestamp=15_001,
+                        timestamp=fork.at_timestamp + 1,
                     ),
                 ]
             elif test_type == DeploymentTestType.DEPLOY_AFTER_FORK:
                 blocks = [
                     Block(  # Empty block on fork
                         txs=[],
-                        timestamp=15_000,
+                        timestamp=fork.at_timestamp,
                         exception=BlockException.SYSTEM_CONTRACT_EMPTY
                         if fail_on_empty_code
                         else None,
@@ -228,13 +238,13 @@ def generate_system_contract_deploy_test(
                     blocks.append(
                         Block(  # Deployment after fork block
                             txs=[deploy_tx],
-                            timestamp=15_001,
+                            timestamp=fork.at_timestamp + 1,
                         )
                     )
                     blocks.append(
                         Block(  # Empty block after deployment
                             txs=[],
-                            timestamp=15_002,
+                            timestamp=fork.at_timestamp + 2,
                         ),
                     )
             balance = (
