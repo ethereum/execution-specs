@@ -118,6 +118,94 @@ def test_modexp_invalid_inputs(
 
 
 @pytest.mark.parametrize(
+    "modexp_input,",
+    [
+        pytest.param(
+            # base_len=0, exp_len=32, mod_len=2^256-1
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+                "0000000000000000000000000000000000000000000000000000000000000020"
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"
+                "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd"
+            ),
+            id="legacy-case-2",
+        ),
+        pytest.param(
+            # base_len=4TiB, exp_len=0, mod_len=0
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000040000000000"
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            id="legacy-case-28",
+        ),
+        pytest.param(
+            # base_len=0, exp_len=4TiB, mod_len=0
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+                "0000000000000000000000000000000000000000000000000000040000000000"
+            ),
+            id="legacy-case-29",
+        ),
+        pytest.param(
+            # base_len=0, exp_len=2^255, mod_len=0
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000000"
+                "8000000000000000000000000000000000000000000000000000000000000000"
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            id="legacy-case-30",
+        ),
+        pytest.param(
+            # base_len=255, exp_len overflows gas calculation (Oct 2017)
+            bytes.fromhex(
+                "00000000000000000000000000000000000000000000000000000000000000ff"
+                "2a1e530000000000000000000000000000000000000000000000000000000000"
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            id="legacy-case-36",
+        ),
+        pytest.param(
+            # base_len=1, exp_len overflows gas calculation (July 2022)
+            bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000000001"
+                "2000000000000000000000000000000000000000000000000000000000000020"
+                "0000000000000000000000000000000000000000000000000000000000000001"
+                "0000000000000000000000000000000000000000000000000000000000000000"
+                "010001"
+            ),
+            id="legacy-case-37",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "modexp_expected,call_succeeds",
+    [
+        pytest.param(bytes(), False),
+    ],
+    ids=[""],
+)
+@EIPChecklist.Precompile.Test.Inputs.Invalid()
+@pytest.mark.valid_from("Osaka")
+def test_modexp_legacy_oversized_inputs(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx: Transaction,
+    post: Dict,
+) -> None:
+    """
+    Test ModExp with legacy modexpFiller cases that have oversized declared
+    lengths. EIP-7823 rejects inputs with any declared length exceeding
+    1024 bytes.
+    """
+    state_test(
+        pre=pre,
+        tx=tx,
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
     "modexp_input,modexp_expected,call_succeeds",
     [
         pytest.param(
