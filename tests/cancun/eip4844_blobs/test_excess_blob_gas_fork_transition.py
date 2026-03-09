@@ -435,7 +435,7 @@ def test_invalid_post_fork_block_without_blob_fields(
     lambda fork: [
         pytest.param(
             SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
-                fork=fork, blob_gas_price=2
+                fork=fork.transitions_to(), blob_gas_price=2
             )
             // (
                 fork.transitions_to().max_blobs_per_block()
@@ -483,7 +483,7 @@ def test_fork_transition_excess_blob_gas_at_blob_genesis(
     lambda fork: [
         pytest.param(
             SpecHelpers.get_min_excess_blobs_for_blob_gas_price(
-                fork=fork, blob_gas_price=2
+                fork=fork.transitions_from(), blob_gas_price=2
             )
             // (
                 fork.transitions_to().max_blobs_per_block()

@@ -51,6 +51,7 @@ from execution_testing import (
     Storage,
     Transaction,
     TransactionReceipt,
+    TransitionFork,
     call_return_code,
 )
 
@@ -194,14 +195,17 @@ def tx(
     precompile_caller_address: Address,
     precompile_input: bytes,
     sender: EOA,
-    fork: Fork,
+    fork: Fork | TransitionFork,
 ) -> Transaction:
     """Prepare transaction used to call the precompile caller account."""
     return Transaction(
         sender=sender,
         data=precompile_input,
         to=precompile_caller_address,
-        gas_limit=fork.gas_costs().GAS_PRECOMPILE_POINT_EVALUATION * 100,
+        gas_limit=fork.transitions_to()
+        .gas_costs()
+        .GAS_PRECOMPILE_POINT_EVALUATION
+        * 100,
     )
 
 
@@ -704,12 +708,14 @@ def test_precompile_during_fork(
     precompile_caller_address: Address,
     precompile_input: bytes,
     sender: EOA,
-    fork: Fork,
+    fork: TransitionFork,
 ) -> None:
     """
     Test calling the Point Evaluation Precompile during the appropriate fork.
     """
-    precompile_gas = fork.gas_costs().GAS_PRECOMPILE_POINT_EVALUATION
+    precompile_gas = (
+        fork.transitions_to().gas_costs().GAS_PRECOMPILE_POINT_EVALUATION
+    )
     # Blocks before fork
     blocks = [
         Block(

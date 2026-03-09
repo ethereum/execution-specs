@@ -8,10 +8,13 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     EIPChecklist,
+    Environment,
     Fork,
     Op,
     Transaction,
+    TransitionFork,
     keccak256,
 )
 
@@ -39,10 +42,10 @@ pytestmark = pytest.mark.valid_at_transition_to("Osaka")
 def test_modexp_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    env: Environment,
+    fork: TransitionFork,
     gas_old: int,
     gas_new: int,
-    tx_gas_limit: int,
     modexp_input: ModExpInput,
     modexp_expected: bytes,
 ) -> None:
@@ -50,45 +53,56 @@ def test_modexp_fork_transition(
     Test ModExp gas cost transition from EIP-7883 before and after the Osaka
     hard fork.
     """
-    call_code = Op.CALL(
-        address=Spec.MODEXP_ADDRESS,
-        args_size=Op.CALLDATASIZE,
-    )
 
-    extra_gas = (
-        Op.CALL(
+    def generate_code(fork: Fork) -> Bytecode:
+        call_code = Op.CALL(
             address=Spec.MODEXP_ADDRESS,
             args_size=Op.CALLDATASIZE,
-            address_warm=True,
-        ).gas_cost(fork)
-        + Op.GAS.gas_cost(fork)  # second GAS in measurement
-    )
-    code = (
-        Op.CALLDATACOPY(dest_offset=0, offset=0, size=Op.CALLDATASIZE)
-        + Op.GAS  # [gas_start]
-        + call_code  # [gas_start, call_result]
-        + Op.GAS  # [gas_start, call_result, gas_end]
-        + Op.SWAP1  # [gas_start, gas_end, call_result]
-        + Op.POP  # [gas_start, gas_end]
-        + Op.PUSH2[extra_gas]  # [gas_start, gas_end, extra_gas]
-        + Op.ADD  # [gas_start, gas_end + extra_gas]
-        + Op.SWAP1  # [gas_end + extra_gas, gas_start]
-        + Op.SUB  # [gas_start - (gas_end + extra_gas)]
-        + Op.TIMESTAMP  # [gas_start - (gas_end + extra_gas), TIMESTAMP]
-        + Op.SSTORE  # []
-    )
+        )
 
-    # Verification the precompile call result
-    code += Op.RETURNDATACOPY(
-        dest_offset=0, offset=0, size=Op.RETURNDATASIZE()
-    ) + Op.SSTORE(
-        Op.AND(Op.TIMESTAMP, 0xFF),
-        Op.SHA3(0, Op.RETURNDATASIZE()),
-    )
+        extra_gas = (
+            Op.CALL(
+                address=Spec.MODEXP_ADDRESS,
+                args_size=Op.CALLDATASIZE,
+                address_warm=True,
+            ).gas_cost(fork.transitions_to())
+            + Op.GAS.gas_cost(
+                fork.transitions_to()
+            )  # second GAS in measurement
+        )
+        code = (
+            Op.CALLDATACOPY(dest_offset=0, offset=0, size=Op.CALLDATASIZE)
+            + Op.GAS  # [gas_start]
+            + call_code  # [gas_start, call_result]
+            + Op.GAS  # [gas_start, call_result, gas_end]
+            + Op.SWAP1  # [gas_start, gas_end, call_result]
+            + Op.POP  # [gas_start, gas_end]
+            + Op.PUSH2[extra_gas]  # [gas_start, gas_end, extra_gas]
+            + Op.ADD  # [gas_start, gas_end + extra_gas]
+            + Op.SWAP1  # [gas_end + extra_gas, gas_start]
+            + Op.SUB  # [gas_start - (gas_end + extra_gas)]
+            + Op.TIMESTAMP  # [gas_start - (gas_end + extra_gas), TIMESTAMP]
+            + Op.SSTORE  # []
+        )
 
-    senders = [pre.fund_eoa() for _ in range(3)]
-    contracts = [pre.deploy_contract(code) for _ in range(3)]
+        # Verification the precompile call result
+        code += Op.RETURNDATACOPY(
+            dest_offset=0, offset=0, size=Op.RETURNDATASIZE()
+        ) + Op.SSTORE(
+            Op.AND(Op.TIMESTAMP, 0xFF),
+            Op.SHA3(0, Op.RETURNDATASIZE()),
+        )
+        return code
+
+    def calc_tx_gas_limit(fork: Fork) -> int:
+        tx_gas_limit_cap = fork.transaction_gas_limit_cap() or env.gas_limit
+        return tx_gas_limit_cap
+
     timestamps = [14_999, 15_000, 15_001]
+    contracts = [
+        pre.deploy_contract(generate_code(fork.fork_at(timestamp=t)))
+        for t in timestamps
+    ]
     gas_values = [gas_old, gas_new, gas_new]
 
     blocks = [
@@ -98,14 +112,12 @@ def test_modexp_fork_transition(
                 Transaction(
                     to=contract,
                     data=modexp_input,
-                    sender=sender,
-                    gas_limit=tx_gas_limit,
+                    sender=pre.fund_eoa(),
+                    gas_limit=calc_tx_gas_limit(fork.fork_at(timestamp=ts)),
                 )
             ],
         )
-        for ts, contract, sender in zip(
-            timestamps, contracts, senders, strict=False
-        )
+        for ts, contract in zip(timestamps, contracts, strict=False)
     ]
 
     post = {

@@ -142,8 +142,8 @@ def test_invalid_max_blobs_per_tx(
 @pytest.mark.parametrize_by_fork(
     "blob_count",
     lambda fork: [
-        fork.max_blobs_per_tx(timestamp=FORK_TIMESTAMP) + 1,
-        fork.max_blobs_per_block(timestamp=FORK_TIMESTAMP) + 1,
+        fork.transitions_to().max_blobs_per_tx() + 1,
+        fork.transitions_to().max_blobs_per_block() + 1,
     ],
 )
 @pytest.mark.valid_at_transition_to("Osaka")
