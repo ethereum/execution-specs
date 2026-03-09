@@ -75,6 +75,8 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
     """Base class for transition forks."""
 
     is_transition_fork: ClassVar[bool] = True
+    at_block: ClassVar[int] = 0
+    at_timestamp: ClassVar[int] = 0
     _ignore: ClassVar[bool] = False
 
     @classmethod
@@ -150,6 +152,10 @@ def transition_fork(
             def name(cls) -> str:
                 """Return name of the transition fork."""
                 return transition_name
+
+        NewTransitionClass.__name__ = transition_name
+        NewTransitionClass.at_block = at_block
+        NewTransitionClass.at_timestamp = at_timestamp
 
         return NewTransitionClass
 
