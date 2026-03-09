@@ -5,6 +5,7 @@ Common pytest fixtures for simulators with single-test client architecture.
 import io
 import json
 import logging
+import time
 from typing import Generator, Literal, cast
 
 import pytest
@@ -76,6 +77,7 @@ def genesis_header(fixture: BlockchainFixtureCommon) -> FixtureHeader:
 
 @pytest.fixture(scope="function")
 def client(
+    request: pytest.FixtureRequest,
     hive_test: HiveTest,
     # configured within: rlp/conftest.py & engine/conftest.py
     client_files: dict,
@@ -106,6 +108,10 @@ def client(
     assert client is not None, error_message
     logger.info(f"Client ({client_type.name}) ready!")
     yield client
+    # Allow the client to flush logs before stopping on failure.
+    result_call = getattr(request.node, "result_call", None)
+    if result_call is not None and result_call.failed:
+        time.sleep(1)
     logger.info(f"Stopping client ({client_type.name})...")
     with total_timing_data.time("Stop client"):
         client.stop()
