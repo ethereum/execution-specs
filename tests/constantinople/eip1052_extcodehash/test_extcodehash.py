@@ -1632,3 +1632,106 @@ def test_extcodehash_subcall_selfdestruct(
         post[a] = Account.NONEXISTENT
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashSubcallOOGFiller.yml",  # noqa: E501
+    ],
+    pr=[
+        "https://github.com/ethereum/execution-specs/pull/2458",
+    ],
+)
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALL, id="call"),
+        pytest.param(Op.CALLCODE, id="callcode"),
+        pytest.param(Op.DELEGATECALL, id="delegatecall"),
+    ],
+)
+@pytest.mark.parametrize("oog", [False, True], ids=["success", "oog"])
+def test_extcodehash_subcall_create2_oog(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_opcode: Opcodes,
+    oog: bool,
+) -> None:
+    """
+    Test EXTCODEHASH after CREATE2 in a subcall that goes out of gas.
+
+    A factory contract creates a contract via CREATE2, then either
+    returns normally or consumes all remaining gas. When the subcall
+    OOGs, the entire frame reverts — including the CREATE2 — so the
+    created contract should not exist. The caller checks
+    EXTCODEHASH/EXTCODESIZE/EXTCODECOPY of the expected CREATE2 address.
+    """
+    storage = Storage()
+    deploy_code = Op.SSTORE(0x20, 0x20)
+    deploy_code_bytes = bytes(deploy_code)
+    initcode = Initcode(deploy_code=deploy_code)
+
+    # Factory: CREATE2, optionally consume all gas to trigger OOG.
+    factory_code = Om.MSTORE(initcode, 0) + Op.MSTORE(
+        0, Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0)
+    )
+    if oog:
+        factory_code += Om.OOG
+    factory_code += Op.RETURN(0, 32)
+
+    factory = pre.deploy_contract(factory_code)
+
+    # Pass the pre-computed CREATE2 address as calldata so the test
+    # does not depend on return data from a potentially OOG'd subcall.
+    hash_slot = storage.store_next(0, "extcodehash")
+    size_slot = storage.store_next(0, "extcodesize")
+    code_slot = storage.store_next(0, "extcodecopy")
+    code = (
+        Op.SSTORE(
+            storage.store_next(int(not oog), "call_result"),
+            call_opcode(
+                address=factory,
+                gas=200_000,
+                ret_offset=0,
+                ret_size=32,
+            ),
+        )
+        + Op.SSTORE(hash_slot, Op.EXTCODEHASH(Op.CALLDATALOAD(0)))
+        + Op.SSTORE(size_slot, Op.EXTCODESIZE(Op.CALLDATALOAD(0)))
+        + Op.EXTCODECOPY(Op.CALLDATALOAD(0), 0, 0, 32)
+        + Op.SSTORE(code_slot, Op.MLOAD(0))
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    # Compute the CREATE2 address to verify existence in post-state.
+    if call_opcode == Op.CALL:
+        deployer = factory
+    else:
+        # CALLCODE/DELEGATECALL: factory code runs in caller's context.
+        deployer = code_address
+    created = compute_create2_address(
+        address=deployer, salt=0, initcode=initcode
+    )
+
+    if not oog:
+        storage[hash_slot] = keccak256(deploy_code_bytes)
+        storage[size_slot] = len(deploy_code)
+        storage[code_slot] = deploy_code_bytes.ljust(32, b"\0")
+
+    post: dict[Address, Account | None] = {
+        code_address: Account(storage=storage),
+    }
+    if oog:
+        post[created] = Account.NONEXISTENT
+    else:
+        post[created] = Account(nonce=1, code=deploy_code)
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=500_000,
+        data=created.rjust(32, b"\0"),
+    )
+
+    state_test(pre=pre, post=post, tx=tx)
