@@ -378,7 +378,7 @@ class Alloc(SharedAlloc):
 
     def _empty_account(self) -> Address:
         """
-        Filler implementation of empty account creation.
+        Filler implementation of empty_account.
         """
         salt = self.get_next_account_salt(EMPTY_ACCOUNT_HASH)
         return Address(eoa_from_hash(EMPTY_ACCOUNT_HASH, salt))

@@ -319,10 +319,10 @@ class Alloc(BaseAlloc):
 
     def empty_account(self) -> Address:
         """
-        Return a previously unused account guaranteed to be empty.
+        Return the address of a previously unused nonexistent account.
 
-        This ensures the account has zero balance, zero nonce, no code, and no
-        storage. The account is not a precompile or a system contract.
+        The address is guaranteed to not be a precompile or a system contract.
+        No account is created — it remains nonexistent in the pre-state.
         """
         return self._empty_account()
 
