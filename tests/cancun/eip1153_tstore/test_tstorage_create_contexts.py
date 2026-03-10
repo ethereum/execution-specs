@@ -6,6 +6,7 @@ from enum import unique
 
 import pytest
 from execution_testing import (
+    AccessList,
     Account,
     Address,
     Alloc,
@@ -271,12 +272,14 @@ class TestTransientStorageInContractCreation:
         "https://github.com/holiman/goevmlab/blob/master/examples/tstore_bug-2/main.go",
     ],
 )
-def test_tstore_rollback_on_failed_create2(
+@CreateOpcodeParams.parametrize()
+def test_tstore_rollback_on_failed_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    opcode: Op,
 ) -> None:
     """
-    Test TSTORE is rolled back after failed CREATE2 initcode.
+    Test TSTORE is rolled back after failed CREATE/CREATE2 initcode.
 
     Regression test for
     https://github.com/ethereum/execution-specs/issues/917
@@ -286,9 +289,9 @@ def test_tstore_rollback_on_failed_create2(
     When TLOAD(1) is 0, the return size is 0x600a (exceeds max code
     size 0x6000), so creation fails.
 
-    The caller invokes CREATE2 twice with the same initcode and salt.
+    The caller invokes CREATE/CREATE2 twice with the same initcode.
     If TSTORE from the first (failed) creation is properly rolled
-    back, the second CREATE2 also sees TLOAD(1)==0 and fails the
+    back, the second creation also sees TLOAD(1)==0 and fails the
     same way. If not rolled back, TLOAD(1)==0x6000 and the second
     creation succeeds.
     """
@@ -312,20 +315,34 @@ def test_tstore_rollback_on_failed_create2(
 
     caller_code = (
         Om.MSTORE(initcode_bytes, 0)
-        + Op.SSTORE(0, Op.CREATE2(0, 0, initcode_len, 0))
-        + Op.SSTORE(1, Op.CREATE2(0, 0, initcode_len, 0))
+        + Op.SSTORE(
+            0,
+            opcode(0, 0, initcode_len, 0)
+            if opcode == Op.CREATE2
+            else opcode(0, 0, initcode_len),
+        )
+        + Op.SSTORE(
+            1,
+            opcode(0, 0, initcode_len, 0)
+            if opcode == Op.CREATE2
+            else opcode(0, 0, initcode_len),
+        )
     )
-    caller_address = pre.deploy_contract(caller_code)
+    caller_address = pre.deploy_contract(caller_code, storage={0: 1, 1: 1})
 
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=caller_address,
-        gas_limit=10_000_000,
+        gas_limit=16_000_000,
+        access_list=[
+            AccessList(address=caller_address, storage_keys=[0, 1]),
+        ],
     )
 
     post = {
-        # Both CREATE2s fail because TSTORE is rolled back
+        # Both creations fail because TSTORE is rolled back;
+        # initial storage {0: 1, 1: 1} is overwritten to zeros
         caller_address: Account(storage={0: 0, 1: 0}),
     }
 

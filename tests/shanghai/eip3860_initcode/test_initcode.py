@@ -592,9 +592,18 @@ class TestCreateInitcode:
         "https://github.com/holiman/goevmlab/blob/master/examples/create2_bug/main.go",
     ],
 )
+@pytest.mark.parametrize(
+    "initcode_oversize,expected_storage_1",
+    [
+        pytest.param(True, 0, id="initcode_oversize"),
+        pytest.param(False, 1, id="initcode_within_limit"),
+    ],
+)
 def test_create2_oversized_initcode_with_insufficient_balance(
     state_test: StateTestFiller,
     pre: Alloc,
+    initcode_oversize: bool,
+    expected_storage_1: int,
 ) -> None:
     """
     Test CREATE2 with oversized initcode and insufficient balance.
@@ -602,21 +611,18 @@ def test_create2_oversized_initcode_with_insufficient_balance(
     Regression test for
     https://github.com/ethereum/execution-specs/issues/914
 
-    CREATE2 is called with initcode size 0x20000 (exceeds
-    MAX_INITCODE_SIZE) and an endowment of 1123123123 (exceeds the
+    CREATE2 is called with an endowment of 1123123123 (exceeds the
     contract's zero balance). The initcode size check must take
     priority over the balance check:
 
-    - Initcode too large: consumes all gas, exits scope (correct).
-    - Insufficient balance: pushes 0, continues execution (wrong).
-
-    If the initcode size check fires correctly, SSTORE(1, 1) is
-    never reached, so storage slot 1 remains 0.
+    - Initcode too large: consumes all gas, exits scope, SSTORE(1, 1)
+      is never reached, so storage slot 1 remains 0.
+    - Initcode within limit: insufficient balance pushes 0, execution
+      continues, SSTORE(1, 1) executes, so storage slot 1 becomes 1.
     """
+    initcode_size = 0x20000 if initcode_oversize else 0x100
     caller_code = (
-        Op.CREATE2(1123123123, 0, 0x20000, 0)
-        + Op.POP
-        + Op.SSTORE(1, 1)
+        Op.CREATE2(1123123123, 0, initcode_size, 0) + Op.POP + Op.SSTORE(1, 1)
     )
     caller_address = pre.deploy_contract(caller_code)
 
@@ -628,8 +634,7 @@ def test_create2_oversized_initcode_with_insufficient_balance(
     )
 
     post = {
-        # SSTORE(1, 1) never executes because CREATE2 exits scope
-        caller_address: Account(storage={1: 0}),
+        caller_address: Account(storage={1: expected_storage_1}),
     }
 
     state_test(

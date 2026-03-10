@@ -414,10 +414,9 @@ def test_tstore_rollback_on_callcode_revert(
     )
     callee_address = pre.deploy_contract(callee_code)
 
-    caller_code = (
-        Op.SSTORE(0, Op.CALLCODE(address=callee_address))
-        + Op.SSTORE(1, Op.TLOAD(4))
-    )
+    caller_code = Op.SSTORE(
+        0, Op.CALLCODE(address=callee_address)
+    ) + Op.SSTORE(1, Op.TLOAD(4))
     caller_address = pre.deploy_contract(caller_code)
 
     sender = pre.fund_eoa()
