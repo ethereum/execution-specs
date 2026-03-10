@@ -23,7 +23,6 @@ from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
 from ..helpers.test_tracker import (
     PreAllocGroupTestTracker,
     enginex_group_counts_key,
-    format_group_identifier,
     make_group_identifier,
 )
 from ..multi_test_client import MultiTestClientManager
@@ -146,10 +145,7 @@ def client(
     # Check for existing client
     existing_client = multi_test_client_manager.get_client(group_identifier)
     if existing_client is not None:
-        logger.info(
-            f"♻️  Reusing client for group "
-            f"{format_group_identifier(group_identifier)}"
-        )
+        logger.info(f"♻️  Reusing client for group {group_identifier}")
         try:
             yield existing_client
         finally:
@@ -165,8 +161,7 @@ def client(
     )
 
     logger.info(
-        f"🚀 Starting client ({client_type.name}) for group "
-        f"{format_group_identifier(group_identifier)}"
+        f"🚀 Starting client ({client_type.name}) for group {group_identifier}"
     )
 
     with total_timing_data.time("Start client"):
@@ -182,8 +177,7 @@ def client(
     )
 
     logger.info(
-        f"Client ({client_type.name}) ready for group "
-        f"{format_group_identifier(group_identifier)}"
+        f"Client ({client_type.name}) ready for group {group_identifier}"
     )
 
     multi_test_client_manager.register_client(group_identifier, client)

@@ -12,10 +12,7 @@ from execution_testing.fixtures.pre_alloc_groups import PreAllocGroup
 
 from ..consume import FixturesSource
 from .helpers.ruleset import ruleset
-from .helpers.test_tracker import (
-    PreAllocGroupTestTracker,
-    format_group_identifier,
-)
+from .helpers.test_tracker import PreAllocGroupTestTracker
 
 logger = logging.getLogger(__name__)
 
@@ -49,16 +46,10 @@ class MultiTestClientManager:
 
         """
         if group_identifier in self.clients:
-            logger.debug(
-                f"Found existing client for group "
-                f"{format_group_identifier(group_identifier)}"
-            )
+            logger.debug(f"Found existing client for group {group_identifier}")
             return self.clients[group_identifier]
 
-        logger.debug(
-            f"No existing client for group "
-            f"{format_group_identifier(group_identifier)}"
-        )
+        logger.debug(f"No existing client for group {group_identifier}")
         return None
 
     def register_client(self, group_identifier: str, client: Client) -> None:
@@ -68,15 +59,11 @@ class MultiTestClientManager:
         """
         if group_identifier in self.clients:
             raise RuntimeError(
-                f"Client already exists for group "
-                f"{format_group_identifier(group_identifier)}"
+                f"Client already exists for group {group_identifier}"
             )
 
         self.clients[group_identifier] = client
-        logger.info(
-            f"Registered client for group "
-            f"{format_group_identifier(group_identifier)}"
-        )
+        logger.info(f"Registered client for group {group_identifier}")
 
     def mark_test_completed(self, group_identifier: str, test_id: str) -> None:
         """
@@ -95,21 +82,18 @@ class MultiTestClientManager:
 
         # Stop the client immediately when all tests in the group are complete
         if is_group_complete:
-            logger.info(
-                f"✓ Group {format_group_identifier(group_identifier)} complete"
-            )
+            logger.info(f"✓ Group {group_identifier} complete")
             if group_identifier in self.clients:
                 client = self.clients[group_identifier]
                 try:
                     logger.info(
-                        f"🛑 Stopping client for group "
-                        f"{format_group_identifier(group_identifier)}"
+                        f"🛑 Stopping client for group {group_identifier}"
                     )
                     client.stop()
                 except Exception as e:
                     logger.error(
-                        f"Error stopping client for group "
-                        f"{format_group_identifier(group_identifier)}: {e}"
+                        "Error stopping client for group "
+                        f"{group_identifier}: {e}"
                     )
                 finally:
                     # Always remove from tracking, even if stop failed
@@ -124,15 +108,11 @@ class MultiTestClientManager:
         logger.info(f"Stopping {len(self.clients)} remaining client(s)...")
         for group_identifier, client in list(self.clients.items()):
             try:
-                logger.info(
-                    f"Stopping client for group "
-                    f"{format_group_identifier(group_identifier)}"
-                )
+                logger.info(f"Stopping client for group {group_identifier}")
                 client.stop()
             except Exception as e:
                 logger.error(
-                    f"Error stopping client for group "
-                    f"{format_group_identifier(group_identifier)}: {e}"
+                    f"Error stopping client for group {group_identifier}: {e}"
                 )
 
         self.clients.clear()
@@ -184,10 +164,7 @@ def pre_alloc_group(
 
     # Check cache first
     if pre_hash in pre_alloc_group_cache:
-        logger.debug(
-            f"Using cached pre-alloc group for "
-            f"{format_group_identifier(pre_hash)}"
-        )
+        logger.debug(f"Using cached pre-alloc group for {pre_hash}")
         return pre_alloc_group_cache[pre_hash]
 
     # Load from disk
@@ -214,9 +191,7 @@ def pre_alloc_group(
     pre_alloc_group_obj = PreAllocGroup.from_file(pre_alloc_path)
 
     pre_alloc_group_cache[pre_hash] = pre_alloc_group_obj
-    logger.info(
-        f"Loaded pre-alloc group for {format_group_identifier(pre_hash)}"
-    )
+    logger.info(f"Loaded pre-alloc group for {pre_hash}")
 
     return pre_alloc_group_obj
 
@@ -277,7 +252,6 @@ def environment(
         "HIVE_CHECK_LIVE_PORT": str(check_live_port),
         **{k: f"{v:d}" for k, v in ruleset[fork].items()},
         "HIVE_FORK": pre_alloc_group.fork.name(),
-        "HIVE_GROUP_ID": format_group_identifier(fixture.pre_hash),
     }
 
     environment_cache[pre_hash] = env

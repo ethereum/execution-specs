@@ -16,16 +16,6 @@ def make_group_identifier(pre_hash: str, client_name: str) -> str:
     return f"{pre_hash}-{client_name}"
 
 
-def format_group_identifier(group_identifier: str, max_len: int = 16) -> str:
-    """
-    Safely format group identifier for logging.
-
-    """
-    if len(group_identifier) <= max_len:
-        return group_identifier
-    return group_identifier[:max_len]
-
-
 class PreAllocGroupTestTracker:
     """
     Track test completion per pre-allocation group.
@@ -55,9 +45,7 @@ class PreAllocGroupTestTracker:
         self.expected_counts[group_identifier] = count
         self.completed_tests[group_identifier] = set()
         logger.debug(
-            f"Set expected test count for group "
-            f"{format_group_identifier(group_identifier)}: "
-            f"{count}"
+            f"Set expected test count for group {group_identifier}: {count}"
         )
 
     def mark_test_completed(self, group_identifier: str, test_id: str) -> bool:
@@ -67,9 +55,8 @@ class PreAllocGroupTestTracker:
         """
         if group_identifier not in self.completed_tests:
             logger.warning(
-                "Marking test complete for unknown group "
-                f"{format_group_identifier(group_identifier)}"
-                ", initializing"
+                f"Marking test complete for unknown group "
+                f"{group_identifier}, initializing"
             )
             self.completed_tests[group_identifier] = set()
 
@@ -78,17 +65,14 @@ class PreAllocGroupTestTracker:
         expected = self.expected_counts.get(group_identifier, 0)
 
         logger.debug(
-            f"Group "
-            f"{format_group_identifier(group_identifier)}: "
-            f"{completed}/{expected} tests completed"
+            f"Group {group_identifier}: {completed}/{expected} tests completed"
         )
 
         # Check if group is complete
         is_complete = completed >= expected and expected > 0
         if is_complete:
             logger.info(
-                f"✓ Pre-alloc group "
-                f"{format_group_identifier(group_identifier)}"
+                f"✓ Pre-alloc group {group_identifier}"
                 f" complete ({completed}/{expected} tests)"
             )
 
