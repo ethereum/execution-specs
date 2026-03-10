@@ -62,20 +62,12 @@ def test_create_insufficient_balance(
     """
     initcode = Op.STOP
 
-    if create_opcode == Op.CREATE:
-        creator_code = Op.MSTORE(
-            0, Op.PUSH32(bytes(initcode).ljust(32, b"\0"))
-        ) + Op.SSTORE(
-            0,
-            Op.CREATE(value=1, offset=0, size=len(initcode)),
-        )
-    else:
-        creator_code = Op.MSTORE(
-            0, Op.PUSH32(bytes(initcode).ljust(32, b"\0"))
-        ) + Op.SSTORE(
-            0,
-            Op.CREATE2(value=1, offset=0, size=len(initcode), salt=0),
-        )
+    creator_code = Op.MSTORE(
+        0, Op.PUSH32(bytes(initcode).ljust(32, b"\0"))
+    ) + Op.SSTORE(
+        0,
+        create_opcode(value=1, offset=0, size=len(initcode)),
+    )
 
     # Creator has zero balance, so CREATE with value=1 will abort
     creator_address = pre.deploy_contract(creator_code, balance=0)
@@ -146,20 +138,12 @@ def test_create_nonce_overflow(
     """
     initcode = Op.STOP
 
-    if create_opcode == Op.CREATE:
-        creator_code = Op.MSTORE(
-            0, Op.PUSH32(bytes(initcode).ljust(32, b"\0"))
-        ) + Op.SSTORE(
-            0,
-            Op.CREATE(value=0, offset=0, size=len(initcode)),
-        )
-    else:
-        creator_code = Op.MSTORE(
-            0, Op.PUSH32(bytes(initcode).ljust(32, b"\0"))
-        ) + Op.SSTORE(
-            0,
-            Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0),
-        )
+    creator_code = Op.MSTORE(
+        0, Op.PUSH32(bytes(initcode).ljust(32, b"\0"))
+    ) + Op.SSTORE(
+        0,
+        create_opcode(value=0, offset=0, size=len(initcode)),
+    )
 
     # Nonce at max value (2^64-1) causes CREATE to abort
     creator_address = pre.deploy_contract(creator_code, nonce=2**64 - 1)
