@@ -70,7 +70,9 @@ def test_create_insufficient_balance(
     )
 
     # Creator has zero balance, so CREATE with value=1 will abort
-    creator_address = pre.deploy_contract(creator_code, balance=0)
+    creator_address = pre.deploy_contract(
+        creator_code, balance=0, storage={0: 1}
+    )
 
     # Pre-compute the address that would have been created
     contract_address = compute_create_address(
@@ -146,7 +148,9 @@ def test_create_nonce_overflow(
     )
 
     # Nonce at max value (2^64-1) causes CREATE to abort
-    creator_address = pre.deploy_contract(creator_code, nonce=2**64 - 1)
+    creator_address = pre.deploy_contract(
+        creator_code, nonce=2**64 - 1, storage={0: 1}
+    )
 
     # Pre-compute the address that would have been created
     contract_address = compute_create_address(
