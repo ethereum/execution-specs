@@ -221,13 +221,8 @@ def process_create_message(message: Message) -> Evm:
             if len(contract_code) > 0:
                 if contract_code[0] == 0xEF:
                     raise InvalidContractPrefix
-            cost_per_state_byte = state_gas_per_byte(
-                message.block_env.block_gas_limit
-            )
-            code_deposit_state_gas = (
-                Uint(len(contract_code)) * cost_per_state_byte
-            )
-            charge_state_gas(evm, code_deposit_state_gas)
+            if len(contract_code) > MAX_CODE_SIZE:
+                raise OutOfGasError
             # Hash cost for computing keccak256 of deployed bytecode
             code_hash_gas = (
                 GAS_KECCAK256_PER_WORD
@@ -235,8 +230,13 @@ def process_create_message(message: Message) -> Evm:
                 // Uint(32)
             )
             charge_gas(evm, code_hash_gas)
-            if len(contract_code) > MAX_CODE_SIZE:
-                raise OutOfGasError
+            cost_per_state_byte = state_gas_per_byte(
+                message.block_env.block_gas_limit
+            )
+            code_deposit_state_gas = (
+                Uint(len(contract_code)) * cost_per_state_byte
+            )
+            charge_state_gas(evm, code_deposit_state_gas)
         except ExceptionalHalt as error:
             restore_tx_state(tx_state, snapshot)
             evm.regular_gas_used += evm.gas_left
