@@ -10,7 +10,7 @@ pre-alloc group.
 import io
 import json
 import logging
-from typing import Generator, cast
+from typing import TYPE_CHECKING, Generator, cast
 
 import pytest
 from hive.client import Client, ClientType
@@ -25,8 +25,10 @@ from ..helpers.test_tracker import (
     enginex_group_counts_key,
     make_group_identifier,
 )
-from ..multi_test_client import MultiTestClientManager
-from ..timing_data import TimingData
+
+if TYPE_CHECKING:
+    from ..multi_test_client import MultiTestClientManager
+    from ..timing_data import TimingData
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +100,7 @@ def pytest_collection_modifyitems(
 
 @pytest.fixture(scope="session", autouse=True)
 def _configure_client_manager(
-    multi_test_client_manager: MultiTestClientManager,
+    multi_test_client_manager: "MultiTestClientManager",
     pre_alloc_group_test_tracker: PreAllocGroupTestTracker,
 ) -> None:
     """Wire the test tracker to the client manager at session start."""
@@ -123,12 +125,12 @@ def test_suite_description() -> str:
 @pytest.fixture(scope="function")
 def client(
     multi_test_hive_test: HiveTest,
-    multi_test_client_manager: MultiTestClientManager,
+    multi_test_client_manager: "MultiTestClientManager",
     fixture: BlockchainEngineXFixture,
     client_type: ClientType,
     environment: dict,
     client_genesis: dict,
-    total_timing_data: TimingData,
+    total_timing_data: "TimingData",
     request: pytest.FixtureRequest,
 ) -> Generator[Client, None, None]:
     """
