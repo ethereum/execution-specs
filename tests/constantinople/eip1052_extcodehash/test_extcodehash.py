@@ -1735,3 +1735,164 @@ def test_extcodehash_subcall_create2_oog(
     )
 
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/codeCopyZero_ParisFiller.yml",  # noqa: E501
+    ],
+)
+@pytest.mark.parametrize(
+    "target_type",
+    [
+        "nonexistent",
+        "existing",
+    ],
+)
+def test_extcodecopy_zero_code(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    target_type: str,
+) -> None:
+    """
+    Test EXTCODECOPY/EXTCODESIZE/EXTCODEHASH of accounts with no code.
+
+    Two account types: nonexistent (no state at all) and existing
+    (EOA with balance, no code). EXTCODECOPY writes nothing to memory
+    (stays zero). EXTCODEHASH is zero for nonexistent, keccak256("")
+    for existing accounts.
+
+    TODO: The original test also intended to cover empty accounts
+    (zero nonce, zero balance, no code), but such accounts cannot
+    exist in post-Paris forks due to EIP-161 cleanup.
+    """
+    storage = Storage()
+
+    if target_type == "nonexistent":
+        target = pre.nonexistent_account()
+        expected_hash: int | bytes = 0
+    else:  # existing
+        target = pre.fund_eoa(amount=1)
+        expected_hash = keccak256(b"")
+
+    code = (
+        Op.EXTCODECOPY(target, 0, 0, 32)
+        + Op.SSTORE(storage.store_next(0, "extcodecopy"), Op.MLOAD(0))
+        + Op.SSTORE(
+            storage.store_next(0, "extcodesize"),
+            Op.EXTCODESIZE(target),
+        )
+        + Op.SSTORE(
+            storage.store_next(expected_hash, "extcodehash"),
+            Op.EXTCODEHASH(target),
+        )
+        + Op.SSTORE(
+            storage.store_next(1, "callcode_result"),
+            Op.CALLCODE(50_000, target, 0, 0, 0, 0, 0),
+        )
+    )
+
+    code_address = pre.deploy_contract(code, storage=storage.canary())
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=code_address,
+        gas_limit=400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={code_address: Account(storage=storage)},
+        tx=tx,
+    )
+
+
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stExtCodeHash/codeCopyZero_ParisFiller.yml",  # noqa: E501
+    ],
+)
+def test_codecopy_zero_in_create2(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """
+    Test CODECOPY inside CREATE2 initcode that deploys empty code.
+
+    The initcode does CODECOPY(0,0,32) which copies the first 32 bytes
+    of the initcode itself (not the deployed code). It then checks
+    EXTCODESIZE(ADDRESS) and EXTCODEHASH(ADDRESS) of self during init,
+    which see the account as having empty code. The deployed contract
+    retains the storage set during init.
+    """
+    storage = Storage()
+
+    # Build the initcode that queries itself and deploys empty code.
+    # During init: CODECOPY copies the initcode, EXTCODESIZE(self)=0,
+    # EXTCODEHASH(self)=keccak256("").
+    initcode = (
+        Op.CODECOPY(0, 0, 32)
+        + Op.SSTORE(0x50, Op.MLOAD(0))
+        + Op.SSTORE(0x51, Op.EXTCODESIZE(Op.ADDRESS))
+        + Op.SSTORE(0x52, Op.EXTCODEHASH(Op.ADDRESS))
+        + Op.SSTORE(
+            0x53,
+            Op.EXTCODESIZE(Op.CALLCODE(50_000, Op.ADDRESS, 0, 0, 0, 0, 0)),
+        )
+        + Op.EXTCODECOPY(Op.ADDRESS, 0, 0, 32)
+        + Op.SSTORE(0x54, Op.MLOAD(0))
+        # Return empty code (size 0).
+        + Op.RETURN(0, 0)
+    )
+
+    # Factory: CREATE2 and return the created address.
+    factory_code = (
+        Om.MSTORE(initcode, 0)
+        + Op.MSTORE(
+            0,
+            Op.CREATE2(value=0, offset=0, size=len(initcode), salt=0),
+        )
+        + Op.RETURN(0, 32)
+    )
+
+    factory = pre.deploy_contract(factory_code, balance=10**18)
+
+    # Caller: invoke factory and store created address.
+    caller_code = Op.CALL(550_000, factory, 0, 0, 0, 0, 32) + Op.SSTORE(
+        storage.store_next(0, "created_address"), Op.MLOAD(0)
+    )
+
+    caller = pre.deploy_contract(caller_code, storage=storage.canary())
+
+    created = compute_create2_address(
+        address=factory, salt=0, initcode=initcode
+    )
+    storage[0] = created
+
+    # First 32 bytes of initcode — what CODECOPY(0,0,32) returns.
+    initcode_word0 = bytes(initcode)[:32]
+
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        gas_limit=1_400_000,
+    )
+
+    state_test(
+        pre=pre,
+        post={
+            caller: Account(storage=storage),
+            created: Account(
+                nonce=1,
+                code=b"",
+                storage={
+                    0x50: initcode_word0,
+                    0x51: 0,
+                    0x52: keccak256(b""),
+                    0x53: 0,
+                    0x54: 0,
+                },
+            ),
+        },
+        tx=tx,
+    )
