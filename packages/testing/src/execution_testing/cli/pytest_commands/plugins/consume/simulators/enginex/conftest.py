@@ -142,48 +142,44 @@ def client(
     )
     test_id = request.node.nodeid
 
-    # Check for existing client
-    existing_client = multi_test_client_manager.get_client(group_identifier)
-    if existing_client is not None:
+    resolved_client = multi_test_client_manager.get_client(group_identifier)
+    if resolved_client is not None:
         logger.info(f"♻️  Reusing client for group {group_identifier}")
-        try:
-            yield existing_client
-        finally:
-            multi_test_client_manager.mark_test_completed(
-                group_identifier, test_id
-            )
-        return
-
-    # Start new client; calculate genesis
-    genesis_bytes = json.dumps(client_genesis).encode("utf-8")
-    buffered_genesis = io.BufferedReader(
-        cast(io.RawIOBase, io.BytesIO(genesis_bytes))
-    )
-
-    logger.info(
-        f"🚀 Starting client ({client_type.name}) for group {group_identifier}"
-    )
-
-    with total_timing_data.time("Start client"):
-        client = multi_test_hive_test.start_client(
-            client_type=client_type,
-            environment=environment,
-            files={"/genesis.json": buffered_genesis},
+    else:
+        # Start new client; calculate genesis
+        genesis_bytes = json.dumps(client_genesis).encode("utf-8")
+        buffered_genesis = io.BufferedReader(
+            cast(io.RawIOBase, io.BytesIO(genesis_bytes))
         )
 
-    assert client is not None, (
-        f"Unable to connect to client ({client_type.name}) via Hive. "
-        "Check the client or Hive server logs for more information."
-    )
+        logger.info(
+            f"🚀 Starting client ({client_type.name}) "
+            f"for group {group_identifier}"
+        )
 
-    logger.info(
-        f"Client ({client_type.name}) ready for group {group_identifier}"
-    )
+        with total_timing_data.time("Start client"):
+            resolved_client = multi_test_hive_test.start_client(
+                client_type=client_type,
+                environment=environment,
+                files={"/genesis.json": buffered_genesis},
+            )
 
-    multi_test_client_manager.register_client(group_identifier, client)
+        assert resolved_client is not None, (
+            f"Unable to connect to client ({client_type.name}) via "
+            "Hive. Check the client or Hive server logs for more "
+            "information."
+        )
+
+        logger.info(
+            f"Client ({client_type.name}) ready for group {group_identifier}"
+        )
+
+        multi_test_client_manager.register_client(
+            group_identifier, resolved_client
+        )
 
     try:
-        yield client
+        yield resolved_client
     finally:
         multi_test_client_manager.mark_test_completed(
             group_identifier, test_id
