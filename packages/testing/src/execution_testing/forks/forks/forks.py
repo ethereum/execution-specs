@@ -3536,7 +3536,7 @@ class Amsterdam(BPO2):
         )
         return {
             **base_map,
-            Opcodes.SLOTNUM: gas_costs.G_BASE,
+            Opcodes.SLOTNUM: gas_costs.GAS_BASE,
         }
 
     @classmethod
