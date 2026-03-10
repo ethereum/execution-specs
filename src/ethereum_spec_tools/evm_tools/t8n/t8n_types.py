@@ -121,7 +121,8 @@ class Txs:
                     self.successfully_parsed.append(idx)
             except UnsupportedTxError as e:
                 self.t8n.logger.warning(
-                    f"Unsupported transaction type {idx}: {e.error_message}"
+                    f"Unsupported transaction at index {idx}: "
+                    f"{e.error_message}"
                 )
                 self.rejected_txs[idx] = (
                     f"Unsupported transaction type: {e.error_message}"
