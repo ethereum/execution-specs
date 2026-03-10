@@ -11,6 +11,11 @@ logger = logging.getLogger(__name__)
 enginex_group_counts_key: StashKey[dict[str, int]] = StashKey()
 
 
+def make_group_identifier(pre_hash: str, client_name: str) -> str:
+    """Build xdist group key from pre-alloc hash and client name."""
+    return f"{pre_hash}-{client_name}"
+
+
 def format_group_identifier(group_identifier: str, max_len: int = 16) -> str:
     """
     Safely format group identifier for logging.

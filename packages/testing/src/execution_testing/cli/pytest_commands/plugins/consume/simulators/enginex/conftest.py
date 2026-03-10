@@ -24,6 +24,7 @@ from ..helpers.test_tracker import (
     PreAllocGroupTestTracker,
     enginex_group_counts_key,
     format_group_identifier,
+    make_group_identifier,
 )
 from ..multi_test_client import MultiTestClientManager
 from ..timing_data import TimingData
@@ -52,16 +53,14 @@ def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: list[pytest.Item]
 ) -> None:
     """
-    Count tests per pre-allocation group during collection phase.
+    Count tests per xdist_group and sort largest groups first.
 
-    This hook analyzes all collected test items to determine how many tests
-    belong to each pre-alloc group, enabling automatic client cleanup when
-    all tests in a group complete.
+    The xdist_group markers are set during parametrization in
+    `pytest_generate_tests`. This hook reads them to count tests
+    per group and sort for optimal xdist scheduling.
 
     Use `trylast=True` to run after test deselection
     (from `-k`, `-m` filters).
-    Reads group identifiers from `xdist_group` markers added in
-    `pytest_generate_tests`.
     """
     supported_formats = getattr(config, "supported_fixture_formats", [])
     if BlockchainEngineXFixture not in supported_formats:
@@ -70,44 +69,32 @@ def pytest_collection_modifyitems(
     group_counts: dict[str, int] = {}
 
     for item in items:
-        # Extract group identifier from xdist_group marker
-        # (marker was added in pytest_generate_tests in consume.py)
-        group_identifier = None
         for marker in item.iter_markers("xdist_group"):
-            if hasattr(marker, "kwargs") and "name" in marker.kwargs:
+            if "name" in marker.kwargs:
                 group_identifier = marker.kwargs["name"]
                 break
-
-        if group_identifier:
-            group_counts[group_identifier] = (
-                group_counts.get(group_identifier, 0) + 1
-            )
-
-    if group_counts:
-        # Store counts in session stash for the test tracker fixture to use
-        session.stash[enginex_group_counts_key] = group_counts
-        logger.info(
-            f"Counted {len(group_counts)} pre-alloc groups with "
-            f"{sum(group_counts.values())} total tests"
+        else:
+            continue
+        group_counts[group_identifier] = (
+            group_counts.get(group_identifier, 0) + 1
         )
 
-        # Sort tests by group_identifier to ensure consecutive execution
-        # This minimizes client thrashing and enables immediate client cleanup
-        def get_group_key(item: pytest.Item) -> str:
-            """Extract group identifier from item for sorting."""
-            for marker in item.iter_markers("xdist_group"):
-                if hasattr(marker, "kwargs") and "name" in marker.kwargs:
-                    return marker.kwargs["name"]
-            raise AssertionError(
-                f"EngineX test '{item.nodeid}' missing xdist_group marker"
-            )
+    session.stash[enginex_group_counts_key] = group_counts
+    logger.info(
+        f"Counted {len(group_counts)} pre-alloc groups with "
+        f"{sum(group_counts.values())} total tests"
+    )
 
-        items.sort(key=get_group_key)
-        logger.info(
-            "Sorted tests by pre-alloc group for consecutive execution"
-        )
-    else:
-        logger.warning("No enginex test groups found during collection")
+    def sort_key(item: pytest.Item) -> tuple[int, str]:
+        """Return sort key: largest group first, then by group id."""
+        for marker in item.iter_markers("xdist_group"):
+            if "name" in marker.kwargs:
+                gid = marker.kwargs["name"]
+                return (-group_counts[gid], gid)
+        return (0, "")
+
+    items.sort(key=sort_key)
+    logger.info("Sorted tests by pre-alloc group (largest first)")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -151,7 +138,9 @@ def client(
     Called for each test, but reuses clients across tests that
     share the same pre-allocation group.
     """
-    group_identifier = fixture.pre_hash
+    group_identifier = make_group_identifier(
+        fixture.pre_hash, client_type.name
+    )
     test_id = request.node.nodeid
 
     # Check for existing client

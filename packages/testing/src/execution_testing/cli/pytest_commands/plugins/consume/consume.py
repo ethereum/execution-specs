@@ -8,7 +8,7 @@ import tarfile
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import platformdirs
@@ -19,12 +19,19 @@ import rich
 from execution_testing.cli.gen_index import (
     generate_fixtures_index,
 )
+from execution_testing.cli.pytest_commands.plugins.consume.simulators.helpers.test_tracker import (  # noqa: E501
+    make_group_identifier,
+)
 from execution_testing.fixtures import (
     BaseFixture,
     BlockchainEngineXFixture,
     FixtureFormat,
 )
-from execution_testing.fixtures.consume import IndexFile, TestCases
+from execution_testing.fixtures.consume import (
+    IndexFile,
+    TestCaseBase,
+    TestCases,
+)
 from execution_testing.forks import (
     get_forks,
     get_relative_fork_markers,
@@ -606,16 +613,6 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             getattr(pytest.mark, test_case.format.format_name)
         ]
 
-        # Add xdist_group marker for engine x tests to enable
-        # client reuse tracking
-        if test_case.format is BlockchainEngineXFixture:
-            assert hasattr(test_case, "pre_hash") and test_case.pre_hash, (
-                f"BlockchainEngineXFixture test case "
-                f"'{test_case.id}' missing pre_hash"
-            )
-            group_identifier = test_case.pre_hash
-            marks.append(pytest.mark.xdist_group(name=group_identifier))
-
         param = pytest.param(
             test_case,
             id=test_case.id,
@@ -623,14 +620,30 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         )
         param_list.append(param)
 
-    metafunc.parametrize("test_case", param_list)
+    if "client_type" not in metafunc.fixturenames:
+        metafunc.parametrize("test_case", param_list)
+        return
 
-    if "client_type" in metafunc.fixturenames:
-        metafunc.parametrize(
-            "client_type",
-            metafunc.config.hive_execution_clients,  # type: ignore[attr-defined]
-            ids=[
-                client.name
-                for client in metafunc.config.hive_execution_clients  # type: ignore[attr-defined]
-            ],
-        )
+    clients = metafunc.config.hive_execution_clients  # type: ignore[attr-defined]
+    is_enginex = BlockchainEngineXFixture in supported_fixture_formats
+    combined = []
+    for param in param_list:
+        tc = cast(TestCaseBase, param.values[0])
+        for ct in clients:
+            marks = list(param.marks)
+            if is_enginex:
+                assert tc.pre_hash is not None
+                marks.append(
+                    pytest.mark.xdist_group(
+                        name=make_group_identifier(tc.pre_hash, ct.name)
+                    )
+                )
+            combined.append(
+                pytest.param(
+                    tc,
+                    ct,
+                    id=f"{tc.id}-{ct.name}",
+                    marks=marks,
+                )
+            )
+    metafunc.parametrize("test_case,client_type", combined)
