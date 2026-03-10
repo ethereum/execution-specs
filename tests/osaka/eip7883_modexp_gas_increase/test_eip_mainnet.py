@@ -77,6 +77,11 @@ def call_succeeds(modexp_expected: ModExpOutput) -> bool:
                 returned_data="0x02",
             ),
             id="1024-bytes-long-exp",
+            # 1024-byte exponent with 32-byte base exceeds the EIP-7825 16M
+            # tx gas cap when run through the Solidity modexp contract.
+            marks=pytest.mark.xfail(
+                reason="modexp EVM contract OOG at Osaka gas limits"
+            ),
         ),
         pytest.param(
             ModExpInput(

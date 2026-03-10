@@ -3095,6 +3095,43 @@ class Osaka(Prague, solc_name="cancun"):
     }
 
     @classmethod
+    def _modexp_contract_allocation(cls) -> Mapping:
+        """Return the modexp EVM contract allocation at address 0x05."""
+        with open(CURRENT_FOLDER / "contracts" / "modexp.bin", mode="r") as f:
+            return {
+                0x0000000000000000000000000000000000000005: {
+                    "nonce": 1,
+                    "code": bytes.fromhex(f.read().strip().removeprefix("0x")),
+                }
+            }
+
+    @classmethod
+    def pre_allocation(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
+        """
+        Osaka deploys the modexp contract at address 0x05, replacing
+        the former precompile with EVM bytecode.
+        """
+        del block_number, timestamp
+        modexp = cls._modexp_contract_allocation()
+        parent = super(Osaka, cls).pre_allocation()  # type: ignore
+        return modexp | parent
+
+    @classmethod
+    def pre_allocation_blockchain(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
+        """
+        Osaka deploys the modexp contract at address 0x05, replacing
+        the former precompile with EVM bytecode.
+        """
+        del block_number, timestamp
+        modexp = cls._modexp_contract_allocation()
+        parent = super(Osaka, cls).pre_allocation_blockchain()  # type: ignore
+        return modexp | parent
+
+    @classmethod
     def engine_get_payload_version(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:

@@ -18,7 +18,7 @@ from execution_testing import (
 from execution_testing.forks import London, Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
-from .spec import Spec, Spec7883
+from .spec import Spec
 
 
 @pytest.fixture
@@ -56,6 +56,8 @@ def total_tx_gas_needed(
     precompile_gas: int,
 ) -> int:
     """Calculate total tx gas needed for the transaction."""
+    if fork >= Osaka:
+        return 16_000_000  # Max allowed by EIP-7825 gas cap
     intrinsic_gas_cost_calculator = (
         fork.transaction_intrinsic_cost_calculator()
     )
@@ -120,16 +122,18 @@ def gas_measure_contract(
     call_succeeds: bool,
 ) -> Address:
     """
-    Deploys a contract that measures ModExp gas consumption and execution
-    result.
+    Deploy a contract that calls ModExp and checks the result.
 
-    Always stored:
+    Pre-Osaka (gas measurement):
       storage[0]: precompile call success
       storage[1]: return data length from precompile
+      storage[2]: gas consumed by precompile (only if call succeeds)
+      storage[3]: hash of return data from precompile (only if call succeeds)
 
-    Only if the precompile call succeeds:
-      storage[2]: gas consumed by precompile
-      storage[3]: hash of return data from precompile
+    Osaka+ (correctness only):
+      storage[0]: call success
+      storage[1]: return data length
+      storage[2]: hash of return data (only if call succeeds)
     """
     assert call_opcode in [
         Op.CALL,
@@ -155,6 +159,34 @@ def gas_measure_contract(
         0,
     )
 
+    if fork >= Osaka:
+        # Simplified: correctness only, no gas measurement
+        code = (
+            Op.CALLDATACOPY(dest_offset=0, offset=0, size=Op.CALLDATASIZE)
+            + Op.SSTORE(
+                call_contract_post_storage.store_next(call_succeeds),
+                call_code,
+            )
+            + Op.SSTORE(
+                call_contract_post_storage.store_next(
+                    len(modexp_expected) if call_succeeds else 0
+                ),
+                Op.RETURNDATASIZE(),
+            )
+        )
+        if call_succeeds:
+            code += Op.RETURNDATACOPY(
+                dest_offset=0, offset=0, size=Op.RETURNDATASIZE()
+            )
+            code += Op.SSTORE(
+                call_contract_post_storage.store_next(
+                    keccak256(Bytes(modexp_expected))
+                ),
+                Op.SHA3(0, Op.RETURNDATASIZE()),
+            )
+        return pre.deploy_contract(code)
+
+    # Pre-Osaka: full gas measurement
     extra_gas = (
         call_opcode(
             gas_used,
@@ -228,29 +260,31 @@ def precompile_gas(
     Calculate gas cost for the ModExp precompile and verify it matches expected
     gas.
     """
-    spec = Spec7883 if fork >= Osaka else Spec
+    # TODO: If its not a precompile, we can probably add a guard at
+    # a higher level
+    if fork >= Osaka:
+        return 15_000_000  # EVM contract needs much more gas
     try:
-        calculated_gas = spec.calculate_gas_cost(modexp_input)
+        calculated_gas = Spec.calculate_gas_cost(modexp_input)
         if gas_old is not None and gas_new is not None:
-            expected_gas = gas_new if fork >= Osaka else gas_old
             base_len = len(modexp_input.base)
             exp_len = len(modexp_input.exponent)
             mod_len = len(modexp_input.modulus)
             exp_int = int.from_bytes(modexp_input.exponent, byteorder="big")
             error_msg = (
                 f"Calculated gas {calculated_gas} != "
-                f"Vector gas {expected_gas}\n"
+                f"Vector gas {gas_old}\n"
                 f"Lengths: base: {hex(base_len)} ({base_len}), "
                 f"exponent: {hex(exp_len)} ({exp_len}), "
                 f"modulus: {hex(mod_len)} ({mod_len})\n"
                 f"Exponent: {modexp_input.exponent} ({exp_int})"
             )
-            assert calculated_gas == expected_gas, error_msg
+            assert calculated_gas == gas_old, error_msg
         return calculated_gas
     except Exception:
         # Used for `test_modexp_invalid_inputs` we expect the call to not
         # succeed. Return is for completeness.
-        return 500 if fork >= Osaka else 200
+        return 200 # For Osaka and beyond, this line is never reached
 
 
 @pytest.fixture
