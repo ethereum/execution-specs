@@ -8,6 +8,8 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
 """
 
+from typing import Optional
+
 import pytest
 from execution_testing import (
     Account,
@@ -137,13 +139,14 @@ def test_create_with_reservoir(
         pytest.param(32, id="one_word"),
         pytest.param(256, id="small_contract"),
         pytest.param(1024, id="medium_contract"),
+        pytest.param(None, id="over_max_code_size"),
     ],
 )
 @pytest.mark.valid_from("Amsterdam")
 def test_code_deposit_state_gas_scales_with_size(
     state_test: StateTestFiller,
     pre: Alloc,
-    code_size: int,
+    code_size: Optional[int],
     fork: Fork,
 ) -> None:
     """
@@ -151,7 +154,12 @@ def test_code_deposit_state_gas_scales_with_size(
 
     The code deposit charges len(code) * cost_per_state_byte of state
     gas. Larger deployed code requires proportionally more state gas.
+    When code exceeds MAX_CODE_SIZE, the size check rejects before
+    any gas is charged and the contract is not deployed.
     """
+    if code_size is None:
+        code_size = fork.max_code_size() + 1
+
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
     env = Environment()
@@ -162,14 +170,21 @@ def test_code_deposit_state_gas_scales_with_size(
     # PUSH2 code_size, PUSH1 0, RETURN
     init_code = Op.RETURN(0, code_size)
 
+    sender = pre.fund_eoa()
     tx = Transaction(
         to=None,
         data=init_code,
         gas_limit=gas_limit_cap + total_state_gas,
-        sender=pre.fund_eoa(),
+        sender=sender,
     )
 
-    state_test(env=env, pre=pre, post={}, tx=tx)
+    if code_size > fork.max_code_size():
+        create_address = compute_create_address(address=sender, nonce=0)
+        post = {create_address: Account.NONEXISTENT}
+    else:
+        post = {}
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Amsterdam")
@@ -378,6 +393,61 @@ def test_create_tx_intrinsic_gas_boundary(
     )
 
     state_test(pre=pre, post={}, tx=tx)
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_code_deposit_oog_preserves_parent_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Test parent reservoir preserved after child code deposit OOG.
+
+    Child returns enough bytes that code deposit state gas exceeds
+    available gas. Parent's SSTORE after the failed CREATE proves
+    the reservoir was not inflated by a spill-then-halt refund.
+    """
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    # Choose deploy_size so code deposit state gas exceeds the child
+    # frame's available gas, guaranteeing OOG.
+    cost_per_byte = fork.code_deposit_state_gas(code_size=1)
+    deploy_size = gas_limit_cap // cost_per_byte + 1
+    init_code = Op.RETURN(0, deploy_size)
+
+    factory_storage = Storage()
+    factory = pre.deploy_contract(
+        code=(
+            Op.MSTORE(0, Op.PUSH32(bytes(init_code)))
+            + Op.SSTORE(
+                factory_storage.store_next(0, "create_fails"),
+                Op.CREATE(
+                    value=0,
+                    offset=32 - len(init_code),
+                    size=len(init_code),
+                ),
+            )
+            # Reservoir must be fully preserved after failed CREATE;
+            # parent can still perform its own SSTORE.
+            + Op.SSTORE(
+                factory_storage.store_next(1, "parent_sstore"),
+                1,
+            )
+        ),
+    )
+
+    # Reservoir = 1 SSTORE's worth of state gas
+    tx = Transaction(
+        to=factory,
+        gas_limit=gas_limit_cap + sstore_state_gas,
+        sender=pre.fund_eoa(),
+    )
+
+    post = {factory: Account(storage=factory_storage)}
+    state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.valid_from("Amsterdam")
