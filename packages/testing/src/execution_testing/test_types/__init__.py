@@ -19,7 +19,11 @@ from .block_types import (
     Withdrawal,
 )
 from .chain_config_types import ChainConfig, ChainConfigDefaults
-from .execution_witness import ExecutionWitness
+from .execution_witness import (
+    ExecutionWitness,
+    ExecutionWitnessCodesExpectation,
+    ExecutionWitnessValidationError,
+)
 from .helpers import (
     DETERMINISTIC_FACTORY_ADDRESS,
     DETERMINISTIC_FACTORY_BYTECODE,
@@ -73,6 +77,8 @@ __all__ = (
     "Environment",
     "EnvironmentDefaults",
     "ExecutionWitness",
+    "ExecutionWitnessCodesExpectation",
+    "ExecutionWitnessValidationError",
     "NetworkWrappedTransaction",
     "Removable",
     "Requests",
