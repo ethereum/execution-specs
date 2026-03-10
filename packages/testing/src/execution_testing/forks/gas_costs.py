@@ -2,6 +2,12 @@
 
 from dataclasses import dataclass
 
+# Common Gas Cost Tiers
+GAS_VERY_LOW = 3
+GAS_LOW = 5
+GAS_MID = 8
+GAS_HIGH = 10
+
 
 @dataclass(kw_only=True, frozen=True)
 class GasCosts:
