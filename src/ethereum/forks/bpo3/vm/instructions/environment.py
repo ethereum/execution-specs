@@ -20,7 +20,7 @@ from ethereum.utils.numeric import ceil32
 from ...state import get_account, get_code
 from ...utils.address import to_address_masked
 from ...vm.memory import buffer_read, memory_write
-from .. import Evm
+from .. import Evm, gas
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
     GAS_BASE,
@@ -28,10 +28,6 @@ from ..gas import (
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_COPY,
     GAS_FAST_STEP,
-    GAS_OPCODE_CALLDATACOPY,
-    GAS_OPCODE_CALLDATALOAD,
-    GAS_OPCODE_CODECOPY,
-    GAS_OPCODE_RETURNDATACOPY,
     GAS_RETURN_DATA_COPY,
     GAS_WARM_ACCESS,
     calculate_blob_gas_price,
@@ -179,7 +175,7 @@ def calldataload(evm: Evm) -> None:
     start_index = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_CALLDATALOAD)
+    charge_gas(evm, gas.GAS_OPCODE_CALLDATALOAD)
 
     # OPERATION
     value = buffer_read(evm.message.data, start_index, U256(32))
@@ -239,7 +235,7 @@ def calldatacopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GAS_OPCODE_CALLDATACOPY + copy_gas_cost + extend_memory.cost,
+        gas.GAS_OPCODE_CALLDATACOPY + copy_gas_cost + extend_memory.cost,
     )
 
     # OPERATION
@@ -300,7 +296,7 @@ def codecopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GAS_OPCODE_CODECOPY + copy_gas_cost + extend_memory.cost,
+        gas.GAS_OPCODE_CODECOPY + copy_gas_cost + extend_memory.cost,
     )
 
     # OPERATION
@@ -457,7 +453,7 @@ def returndatacopy(evm: Evm) -> None:
     )
     charge_gas(
         evm,
-        GAS_OPCODE_RETURNDATACOPY + copy_gas_cost + extend_memory.cost,
+        gas.GAS_OPCODE_RETURNDATACOPY + copy_gas_cost + extend_memory.cost,
     )
     if Uint(return_data_start_position) + Uint(size) > ulen(evm.return_data):
         raise OutOfBoundsRead
