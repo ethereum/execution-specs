@@ -3207,15 +3207,20 @@ class Osaka(Prague, solc_name="cancun"):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
         """
-        At Osaka, a precompile for p256verify operation is added.
+        At Osaka, a precompile for p256verify operation is added and
+        modexp (0x05) is replaced by an EVM contract.
 
         P256VERIFY = 0x100
         """
         return [
             Address(0x100, label="P256VERIFY"),
-        ] + super(Osaka, cls).precompiles(
-            block_number=block_number, timestamp=timestamp
-        )
+        ] + [
+            p
+            for p in super(Osaka, cls).precompiles(
+                block_number=block_number, timestamp=timestamp
+            )
+            if p != Address(0x05)
+        ]
 
     @classmethod
     def gas_costs(
