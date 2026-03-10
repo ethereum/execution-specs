@@ -272,11 +272,11 @@ class TestTransientStorageInContractCreation:
         "https://github.com/holiman/goevmlab/blob/master/examples/tstore_bug-2/main.go",
     ],
 )
-@CreateOpcodeParams.parametrize()
+@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
 def test_tstore_rollback_on_failed_create(
     state_test: StateTestFiller,
     pre: Alloc,
-    opcode: Op,
+    create_opcode: Op,
 ) -> None:
     """
     Test TSTORE is rolled back after failed CREATE/CREATE2 initcode.
@@ -317,15 +317,15 @@ def test_tstore_rollback_on_failed_create(
         Om.MSTORE(initcode_bytes, 0)
         + Op.SSTORE(
             0,
-            opcode(0, 0, initcode_len, 0)
-            if opcode == Op.CREATE2
-            else opcode(0, 0, initcode_len),
+            create_opcode(0, 0, initcode_len, 0)
+            if create_opcode == Op.CREATE2
+            else create_opcode(0, 0, initcode_len),
         )
         + Op.SSTORE(
             1,
-            opcode(0, 0, initcode_len, 0)
-            if opcode == Op.CREATE2
-            else opcode(0, 0, initcode_len),
+            create_opcode(0, 0, initcode_len, 0)
+            if create_opcode == Op.CREATE2
+            else create_opcode(0, 0, initcode_len),
         )
     )
     caller_address = pre.deploy_contract(caller_code, storage={0: 1, 1: 1})
