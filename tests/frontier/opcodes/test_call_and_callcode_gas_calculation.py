@@ -112,14 +112,14 @@ def sufficient_gas(
 
 
 @pytest.fixture
-def empty_account(pre: Alloc) -> Address:
-    """A guaranteed-to-be-empty account."""
-    return pre.empty_account()
+def nonexistent_account(pre: Alloc) -> Address:
+    """A guaranteed-to-be nonexistent account."""
+    return pre.nonexistent_account()
 
 
 @pytest.fixture
 def callee_code(
-    callee_opcode: Op, fork: Fork, empty_account: Address
+    callee_opcode: Op, fork: Fork, nonexistent_account: Address
 ) -> Bytecode:
     """
     Code called by the caller contract:
@@ -142,7 +142,7 @@ def callee_code(
     return callee_opcode(
         unchecked=False,
         gas=1 if fork < Byzantium else Op.GAS,
-        address=empty_account,
+        address=nonexistent_account,
         args_offset=0,
         args_size=0,
         ret_offset=0,
@@ -226,7 +226,7 @@ def expected_block_access_list(
     caller_address: Address,
     callee_address: Address,
     callee_opcode: Bytecode,
-    empty_account: Account,
+    nonexistent_account: Account,
     gas_shortage: int,
 ) -> None | BlockAccessListExpectation:
     """The expected block access list for >=Amsterdam cases."""
@@ -252,7 +252,7 @@ def expected_block_access_list(
 
         return BlockAccessListExpectation(
             account_expectations={
-                empty_account: empty_account_expectation,
+                nonexistent_account: empty_account_expectation,
                 caller_address: BalAccountExpectation(
                     balance_changes=[
                         BalBalanceChange(block_access_index=1, post_balance=4)

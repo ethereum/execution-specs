@@ -208,7 +208,7 @@ def test_ext_account_query_warm(
 
     # Case 1: Completely empty account (no balance, no storage, no code)
     if not initial_balance and not initial_storage and empty_code:
-        target_addr = pre.empty_account()
+        target_addr = pre.nonexistent_account()
     # Case 2: EOA with optional balance and storage
     elif empty_code:
         eoa_kwargs: dict[str, Any] = {}

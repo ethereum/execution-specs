@@ -421,7 +421,7 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
     alice = pre.fund_eoa()
 
     target = (
-        pre.empty_account()
+        pre.nonexistent_account()
         if target_is_empty
         else pre.deploy_contract(code=Op.STOP)
     )
@@ -567,7 +567,7 @@ def test_bal_call_no_delegation_oog_after_target_access(
     alice = pre.fund_eoa()
 
     # empty target required for create_cost gap
-    target = pre.empty_account()
+    target = pre.nonexistent_account()
     # value > 0 required for create_cost
     value = 1
 

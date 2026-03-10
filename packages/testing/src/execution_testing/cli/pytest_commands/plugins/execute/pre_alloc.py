@@ -739,9 +739,9 @@ class Alloc(SharedAlloc):
             f"{Number(amount) / 10**18:.18f} ETH"
         )
 
-    def _empty_account(self) -> Address:
+    def _nonexistent_account(self) -> Address:
         """
-        Execute implementation of empty_account.
+        Execute implementation of nonexistent_account.
 
         Return a previously unused address. The account is not
         created on-chain — it remains nonexistent.

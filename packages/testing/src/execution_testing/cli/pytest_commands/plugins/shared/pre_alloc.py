@@ -317,19 +317,19 @@ class Alloc(BaseAlloc):
             "_fund_address is not implemented in the base class"
         )
 
-    def empty_account(self) -> Address:
+    def nonexistent_account(self) -> Address:
         """
         Return the address of a previously unused nonexistent account.
 
         The address is guaranteed to not be a precompile or a system contract.
         No account is created — it remains nonexistent in the pre-state.
         """
-        return self._empty_account()
+        return self._nonexistent_account()
 
-    def _empty_account(self) -> Address:
+    def _nonexistent_account(self) -> Address:
         """
-        Sub-class implementation of empty_account.
+        Sub-class implementation of nonexistent_account.
         """
         raise NotImplementedError(
-            "_empty_account is not implemented in the base class"
+            "_nonexistent_account is not implemented in the base class"
         )

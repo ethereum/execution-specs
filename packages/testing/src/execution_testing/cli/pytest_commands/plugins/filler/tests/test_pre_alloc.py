@@ -142,14 +142,18 @@ def test_alloc_fund_eoa_basic() -> None:
     assert account_2.balance == 2 * 10**18
 
 
-def test_alloc_empty_account() -> None:
-    """Test `Alloc.empty_account` returns a nonexistent address."""
+def test_alloc_nonexistent_account() -> None:
+    """Test `Alloc.nonexistent_account` returns a nonexistent address."""
     pre = create_test_alloc()
-    empty_addr = pre.empty_account()
+    addr_1 = pre.nonexistent_account()
+    addr_2 = pre.nonexistent_account()
 
-    assert isinstance(empty_addr, Address)
+    assert isinstance(addr_1, Address)
     # The address must not be in the pre-state (nonexistent account).
-    assert empty_addr not in pre
+    assert addr_1 not in pre
+    assert addr_2 not in pre
+    # Each call returns a unique address.
+    assert addr_1 != addr_2
 
 
 def test_alloc_deploy_contract_code_types() -> None:

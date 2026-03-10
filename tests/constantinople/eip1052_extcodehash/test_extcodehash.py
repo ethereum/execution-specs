@@ -90,7 +90,7 @@ def test_extcodehash_of_empty(
     Test EXTCODEHASH/EXTCODESIZE for non-existent and empty accounts.
     """
     storage = Storage()
-    target_address = pre.empty_account()
+    target_address = pre.nonexistent_account()
 
     if target_exists:
         pre.fund_address(target_address, 1)
@@ -139,7 +139,7 @@ def test_extcodehash_empty_send_value(
     the account receives value within the same transaction.
     """
     storage = Storage()
-    target_address = pre.empty_account()
+    target_address = pre.nonexistent_account()
 
     code = (
         # EXTCODEHASH before sending value: expect 0 (non-existent).
@@ -243,7 +243,7 @@ def test_extcodehash_empty_account_variants(
     Test EXTCODEHASH/EXTCODESIZE/EXTCODECOPY for empty-account variants.
     """
     storage = Storage()
-    target_address = pre.empty_account()
+    target_address = pre.nonexistent_account()
     pre[target_address] = account
 
     code = Op.JUMPDEST + (
@@ -391,7 +391,7 @@ def test_extcodehash_codeless_with_storage(
     so EXTCODEHASH returns keccak256("") and EXTCODESIZE returns 0.
     Storage is not part of the EIP-161 emptiness check.
     """
-    target_address = pre.empty_account()
+    target_address = pre.nonexistent_account()
     pre[target_address] = Account(balance=balance, nonce=nonce, storage={1: 1})
 
     storage = Storage()
@@ -1226,7 +1226,7 @@ def test_extcodehash_call_to_nonexistent(
     EXTCODEHASH — it returns 0 because the account does not exist.
     """
     storage = Storage()
-    nonexistent = pre.empty_account()
+    nonexistent = pre.nonexistent_account()
 
     code = Op.SSTORE(
         storage.store_next(1),
@@ -1275,7 +1275,7 @@ def test_extcodehash_call_to_selfdestruct(
     contract at end of transaction.
     """
     storage = Storage()
-    beneficiary = pre.empty_account()
+    beneficiary = pre.nonexistent_account()
     target_code = Op.SELFDESTRUCT(beneficiary)
     target = pre.deploy_contract(target_code, balance=5_555_555_555)
 
@@ -1553,7 +1553,7 @@ def test_extcodehash_subcall_selfdestruct(
     pre-existing; a dynamically created A is still deleted (EIP-6780).
     """
     storage = Storage()
-    beneficiary = pre.empty_account()
+    beneficiary = pre.nonexistent_account()
     selfdestruct_code = Op.SELFDESTRUCT(beneficiary)
     target_c = pre.deploy_contract(selfdestruct_code)
 

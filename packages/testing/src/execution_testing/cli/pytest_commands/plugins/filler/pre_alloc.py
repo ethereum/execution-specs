@@ -376,9 +376,9 @@ class Alloc(SharedAlloc):
         del minimum_balance
         self.__internal_setitem__(address, Account(balance=amount))
 
-    def _empty_account(self) -> Address:
+    def _nonexistent_account(self) -> Address:
         """
-        Filler implementation of empty_account.
+        Filler implementation of nonexistent_account.
         """
         salt = self.get_next_account_salt(EMPTY_ACCOUNT_HASH)
         return Address(eoa_from_hash(EMPTY_ACCOUNT_HASH, salt))
