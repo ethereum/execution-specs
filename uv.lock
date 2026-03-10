@@ -1048,7 +1048,7 @@ test = [
 
 [[package]]
 name = "ethereum-execution-testing"
-version = "1.0.0"
+version = "6.19.0"
 source = { editable = "packages/testing" }
 dependencies = [
     { name = "ckzg" },

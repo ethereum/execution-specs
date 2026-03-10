@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ethereum-execution-testing"
-version = "1.0.0"
+version = "6.19.0"
 description = "Ethereum execution layer client test generation and runner framework"
 readme = "README.md"
 requires-python = ">=3.11"

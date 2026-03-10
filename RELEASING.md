@@ -20,40 +20,47 @@ COMPAT "." HARDFORK ( "." PATCH | ".0rc" DEVNET [ ".post" PATCH ] ) [ ".dev" DEV
 Where:
 
 - `COMPAT` is incremented when a release contains a backwards-incompatible change to an EELS' interface (Python API, command line tools, etc.)
-- `HARDFORK` is the number of hardforks included in the release after Frontier.
+- `HARDFORK` is the number of named hardforks included in the release after Frontier. Parameter-only forks (such as BPO forks) do not increment this value.
+- `PATCH`, if present, is incremented for releases that do not increment `COMPAT`, `HARDFORK`, `DEV`, or `DEVNET`. This includes parameter-only forks (e.g. BPO forks), packaging fixes, spec corrections, tooling fixes, and fixture regeneration. It is reset to zero when any of `COMPAT`, `HARDFORK`, or `DEVNET` is incremented.
 - `DEVNET`, if present, is incremented when a release targets a new devnet.
 - `DEV`, if present, indicates a pre-release preview and is incremented for each pre-release before the final release.
-- `PATCH`, if present, is incremented for each release that does not increment any of `COMPAT`, `HARDFORK`, `DEV`, or `DEVNET`. It is reset to zero when any of `COMPAT`, `HARDFORK`, or `DEVNET` is incremented.
+
+### COMPAT Discontinuity
+
+Starting with version `6.19.0`, the `COMPAT` segment jumped from `2` to `6`. Versions `3.x`, `4.x`, and `5.x` were never released. This was done to leapfrog [EEST]'s v5.x releases when the two projects were unified, ensuring that all `6.x` and later versions unambiguously belong to the combined project.
+
+[EEST]: https://github.com/ethereum/execution-spec-tests
 
 ### Examples
 
-The following table is a hypothetical complete example of all of the releases between `1.15.0rc1.dev1` and `2.16.0`, in order from oldest at the top to the newest at the bottom.
+The following table is a hypothetical complete example of all of the releases between `6.19.0rc1.dev1` and `7.20.0`, in order from oldest at the top to the newest at the bottom.
 
-| Fork   | Description        | Version Number    |
-| ------ | ------------------ | ----------------- |
-| cancun | preview of devnet1 | `1.15.0rc1.dev1`  |
-| cancun | preview of devnet1 | `1.15.0rc1.dev2`  |
-| cancun | preview of devnet1 | `1.15.0rc1.dev3`  |
-|        |                    |                   |
-| cancun | finalize devnet1   | `1.15.0rc1`       |
-|        |                    |                   |
-| cancun | devnet1 bugfix     | `1.15.0rc1.post1` |
-| cancun | devnet1 bugfix     | `1.15.0rc1.post2` |
-| cancun | devnet1 bugfix     | `1.15.0rc1.post3` |
-|        |                    |                   |
-| cancun | finalize devnet2   | `1.15.0rc2`       |
-|        |                    |                   |
-| cancun | finalize mainnet   | `1.15.0`          |
-|        |                    |                   |
-| cancun | mainnet bugfix     | `1.15.1`          |
-|        |                    |                   |
-| cancun | breaking change    | `2.15.0`          |
-|        |                    |                   |
-| prague | preview of devnet1 | `2.16.0rc1.dev1`  |
-|        |                    |                   |
-| prague | finalize devnet1   | `2.16.0rc1`       |
-|        |                    |                   |
-| prague | finalize mainnet   | `2.16.0`          |
+| Fork       | Description        | Version Number     |
+| ---------- | ------------------ | ------------------ |
+| amsterdam  | preview of devnet1 | `6.19.0rc1.dev1`   |
+| amsterdam  | preview of devnet1 | `6.19.0rc1.dev2`   |
+| amsterdam  | preview of devnet1 | `6.19.0rc1.dev3`   |
+|            |                    |                    |
+| amsterdam  | finalize devnet1   | `6.19.0rc1`        |
+|            |                    |                    |
+| amsterdam  | devnet1 bugfix     | `6.19.0rc1.post1`  |
+| amsterdam  | devnet1 bugfix     | `6.19.0rc1.post2`  |
+|            |                    |                    |
+| amsterdam  | finalize devnet2   | `6.19.0rc2`        |
+|            |                    |                    |
+| amsterdam  | finalize mainnet   | `6.19.0`           |
+|            |                    |                    |
+| amsterdam  | BPO fork           | `6.19.1`           |
+| amsterdam  | BPO fork           | `6.19.2`           |
+| amsterdam  | packaging fix      | `6.19.3`           |
+|            |                    |                    |
+| amsterdam  | breaking change    | `7.19.0`           |
+|            |                    |                    |
+| next-fork  | preview of devnet1 | `7.20.0rc1.dev1`   |
+|            |                    |                    |
+| next-fork  | finalize devnet1   | `7.20.0rc1`        |
+|            |                    |                    |
+| next-fork  | finalize mainnet   | `7.20.0`           |
 
 ## Creating a Release
 
@@ -75,35 +82,35 @@ for the new release.
 
 | Current Version           | Action               | New Version            |
 | ------------------------- | -------------------- | ---------------------- |
-| **`1.3.5`**               |                      |                        |
-|                           | Mainnet Release      | `1.4.0`                |
-|                           | Devnet Release       | `1.4.0rc1`             |
-|                           | Bug Fix Release      | `1.3.6`                |
-|                           | Breaking Release     | `2.3.0`                |
+| **`6.19.3`**              |                      |                        |
+|                           | Mainnet Named Fork Release | `6.20.0`         |
+|                           | Devnet Release       | `6.20.0rc1`            |
+|                           | Patch Release        | `6.19.4`               |
+|                           | Breaking Release     | `7.19.0`               |
 |                           |                      |                        |
-| **`1.3.0rc5`**            |                      |                        |
-|                           | Mainnet Release      | `1.3.0`                |
-|                           | Devnet Release       | `1.3.0rc6`             |
-|                           | Bug Fix Release      | `1.3.0rc5.post1`       |
-|                           | Breaking Release     | `2.3.0rc5`             |
+| **`6.19.0rc5`**           |                      |                        |
+|                           | Mainnet Release      | `6.19.0`               |
+|                           | Devnet Release       | `6.19.0rc6`            |
+|                           | Bug Fix Release      | `6.19.0rc5.post1`      |
+|                           | Breaking Release     | `7.19.0rc5`            |
 |                           |                      |                        |
-| **`1.3.0rc5.post7`**      |                      |                        |
-|                           | Mainnet Release      | `1.3.0`                |
-|                           | Devnet Release       | `1.3.0rc6`             |
-|                           | Bug Fix Release      | `1.3.0rc5.post8`       |
-|                           | Breaking Release     | `2.3.0rc5`             |
+| **`6.19.0rc5.post7`**     |                      |                        |
+|                           | Mainnet Release      | `6.19.0`               |
+|                           | Devnet Release       | `6.19.0rc6`            |
+|                           | Bug Fix Release      | `6.19.0rc5.post8`      |
+|                           | Breaking Release     | `7.19.0rc5`            |
 |                           |                      |                        |
-| **`1.3.5.dev7`**          |                      |                        |
-|                           | Mainnet Release      | `1.3.5`                |
-|                           | Another Preview      | `1.3.5.dev8`           |
+| **`6.19.3.dev7`**         |                      |                        |
+|                           | Mainnet Release      | `6.19.3`               |
+|                           | Another Preview      | `6.19.3.dev8`          |
 |                           |                      |                        |
-| **`1.3.0rc5.dev7`**       |                      |                        |
-|                           | Devnet Release       | `1.3.0rc5`             |
-|                           | Another Preview      | `1.3.0rc5.dev8`        |
+| **`6.19.0rc5.dev7`**      |                      |                        |
+|                           | Devnet Release       | `6.19.0rc5`            |
+|                           | Another Preview      | `6.19.0rc5.dev8`       |
 |                           |                      |                        |
-| **`1.3.0rc5.post7.dev9`** |                      |                        |
-|                           | Devnet Release       | `1.3.0rc5.post7`       |
-|                           | Another Preview      | `1.3.0rc5.post7.dev10` |
+| **`6.19.0rc5.post7.dev9`** |                     |                        |
+|                           | Devnet Release       | `6.19.0rc5.post7`      |
+|                           | Another Preview      | `6.19.0rc5.post7.dev10`|
 
 > [!NOTE]
 > Append `.dev1` to any new version number to make it a pre-release, unless it
@@ -124,8 +131,8 @@ index 252f2f317..8cdd89a55 100644
  """
  import sys
  
--__version__ = "1.15.0"
-+__version__ = "1.16.0rc1"
+-__version__ = "6.19.0"
++__version__ = "6.20.0rc1"
  
  #
  #  Ensure we can reach 1024 frames of recursion
@@ -159,15 +166,15 @@ The usual. `git checkout -b release-vX.Y.Z`, `git commit -a`, and `git push`.
 > original commit will make the git history messier than necessary.
 
 The tag name should be the letter `v` followed by the version number (eg.
-`1.15.0rc5.post3` becomes `v1.15.0rc5.post3`.)
+`6.19.0rc5.post3` becomes `v6.19.0rc5.post3`.)
 
 To create and push the tag:
 
 ```bash
 git checkout master     # Replace `master` with the pull request's base branch.
 git pull
-git tag -a -s v1.15.0   # Replace `v1.15.0` with the tag name from earlier.
-git push origin v1.15.0 # Replace the tag name here too.
+git tag -a -s v6.19.0   # Replace `v6.19.0` with the tag name from earlier.
+git push origin v6.19.0 # Replace the tag name here too.
 ```
 
 > [!IMPORTANT]
