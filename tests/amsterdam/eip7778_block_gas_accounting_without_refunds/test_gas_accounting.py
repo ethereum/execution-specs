@@ -84,7 +84,7 @@ def build_refund_tx(
                     for _ in range(refunds_count)
                 ]
                 refund_counter += (
-                    gsc.R_AUTHORIZATION_EXISTING_AUTHORITY * refunds_count
+                    gsc.REFUND_AUTH_PER_EXISTING_ACCOUNT * refunds_count
                 )
             case _:
                 raise ValueError(
