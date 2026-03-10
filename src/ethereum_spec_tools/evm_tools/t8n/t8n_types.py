@@ -126,7 +126,8 @@ class Txs:
                 self.rejected_txs[idx] = (
                     f"Unsupported transaction type: {e.error_message}"
                 )
-                self.all_txs.append(e.encoded_params)
+                if e.encoded_params is not None:
+                    self.all_txs.append(e.encoded_params)
             except Exception as e:
                 msg = f"Failed to parse transaction {idx}: {str(e)}"
                 self.t8n.logger.warning(msg, exc_info=e)

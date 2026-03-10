@@ -240,15 +240,20 @@ class ExecutionSpecsExceptionMapper(ExceptionMapper):
             r"InsufficientMaxFeePerGasError|InvalidBlock"
         ),
         TransactionException.TYPE_1_TX_PRE_FORK: (
-            r"module '.*transactions' has no attribute 'AccessListTransaction'"
+            r"module '.*transactions' has no attribute "
+            r"'AccessListTransaction'|"
+            r"transaction type 1 is not supported in .*"
         ),
         TransactionException.TYPE_2_TX_PRE_FORK: (
-            r"'.*transactions' has no attribute 'FeeMarketTransaction'"
+            r"'.*transactions' has no attribute 'FeeMarketTransaction'|"
+            r"transaction type 2 is not supported in .*"
         ),
         TransactionException.TYPE_3_TX_PRE_FORK: (
-            r"module '.*transactions' has no attribute 'BlobTransaction'"
+            r"module '.*transactions' has no attribute 'BlobTransaction'|"
+            r"transaction type 3 is not supported in .*"
         ),
         TransactionException.TYPE_4_TX_PRE_FORK: (
-            r"'.*transactions' has no attribute 'SetCodeTransaction'"
+            r"'.*transactions' has no attribute 'SetCodeTransaction'|"
+            r"transaction type 4 is not supported in .*"
         ),
     }

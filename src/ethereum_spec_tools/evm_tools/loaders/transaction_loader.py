@@ -25,7 +25,9 @@ from ethereum_spec_tools.evm_tools.utils import parse_hex_or_int
 class UnsupportedTxError(Exception):
     """Exception for unsupported transactions."""
 
-    def __init__(self, encoded_params: bytes, error_message: str) -> None:
+    def __init__(
+        self, encoded_params: bytes | None, error_message: str
+    ) -> None:
         super().__init__(error_message)
         self.encoded_params = encoded_params
         self.error_message = error_message
@@ -161,20 +163,38 @@ class TransactionLoad:
         else:
             return self.fork.Transaction
 
+    def unsupported_tx_type(self, tx_type: int) -> UnsupportedTxError:
+        """Return an unsupported transaction type error for this fork."""
+        return UnsupportedTxError(
+            None,
+            (
+                f"transaction type {tx_type} is not supported in "
+                f"{self.fork.hardfork.short_name}"
+            ),
+        )
+
     def read(self) -> Any:
         """Convert json transaction data to a transaction object."""
         if "type" in self.raw:
             tx_type = parse_hex_or_int(self.raw.get("type"), Uint)
             if tx_type == Uint(4):
+                if not self.fork.supports_tx_type(4):
+                    raise self.unsupported_tx_type(4)
                 tx_cls = self.fork.SetCodeTransaction
                 tx_byte_prefix = b"\x04"
             elif tx_type == Uint(3):
+                if not self.fork.supports_tx_type(3):
+                    raise self.unsupported_tx_type(3)
                 tx_cls = self.fork.BlobTransaction
                 tx_byte_prefix = b"\x03"
             elif tx_type == Uint(2):
+                if not self.fork.supports_tx_type(2):
+                    raise self.unsupported_tx_type(2)
                 tx_cls = self.fork.FeeMarketTransaction
                 tx_byte_prefix = b"\x02"
             elif tx_type == Uint(1):
+                if not self.fork.supports_tx_type(1):
+                    raise self.unsupported_tx_type(1)
                 tx_cls = self.fork.AccessListTransaction
                 tx_byte_prefix = b"\x01"
             elif tx_type == Uint(0):
@@ -184,15 +204,23 @@ class TransactionLoad:
                 raise ValueError(f"Unknown transaction type: {tx_type}")
         else:
             if "authorizationList" in self.raw:
+                if not self.fork.supports_tx_type(4):
+                    raise self.unsupported_tx_type(4)
                 tx_cls = self.fork.SetCodeTransaction
                 tx_byte_prefix = b"\x04"
             elif "maxFeePerBlobGas" in self.raw:
+                if not self.fork.supports_tx_type(3):
+                    raise self.unsupported_tx_type(3)
                 tx_cls = self.fork.BlobTransaction
                 tx_byte_prefix = b"\x03"
             elif "maxFeePerGas" in self.raw:
+                if not self.fork.supports_tx_type(2):
+                    raise self.unsupported_tx_type(2)
                 tx_cls = self.fork.FeeMarketTransaction
                 tx_byte_prefix = b"\x02"
             elif "accessList" in self.raw:
+                if not self.fork.supports_tx_type(1):
+                    raise self.unsupported_tx_type(1)
                 tx_cls = self.fork.AccessListTransaction
                 tx_byte_prefix = b"\x01"
             else:
