@@ -32,9 +32,7 @@ def test_witness_excludes_bytecode_created_in_same_block(
     """
     runtime_code = bytes.fromhex("deadbeef")
     creator = pre.fund_eoa()
-    created_contract = compute_create_address(
-        address=creator, nonce=0
-    )
+    created_contract = compute_create_address(address=creator, nonce=0)
 
     create_tx = Transaction(
         sender=creator,
@@ -75,17 +73,13 @@ def test_witness_keeps_prestate_code_read_even_if_later_created_with_same_hash(
     The pre-state bytecode should appear in executionWitness.codes
     because tx1 CALLs an existing pre-state contract with that code.
     """
-    runtime_code = bytes(
-        Op.PUSH1(0x00) + Op.PUSH1(0x00) + Op.RETURN
-    )
+    runtime_code = bytes(Op.PUSH1(0x00) + Op.PUSH1(0x00) + Op.RETURN)
 
     existing_contract = pre.deploy_contract(code=runtime_code)
 
     reader = pre.fund_eoa()
     creator = pre.fund_eoa()
-    created_contract = compute_create_address(
-        address=creator, nonce=0
-    )
+    created_contract = compute_create_address(address=creator, nonce=0)
 
     tx1_read_existing_code = Transaction(
         sender=reader,
@@ -308,7 +302,7 @@ def test_witness_codes_create_same_hash_then_read(
     generation handles this case, since technically this same bytecode was
     observed in tx1 thus can in theory be exploited to avoid including it
     for tx2. Feels inconsistent with the other test
-    test_witness_codes_create_then_call_same_block(...). 
+    test_witness_codes_create_then_call_same_block(...).
     """
     runtime_code = bytes(Op.STOP)
 
@@ -378,9 +372,7 @@ def test_witness_codes_create_then_call_same_tx(
     factory = pre.deploy_contract(code=factory_code)
     sender = pre.fund_eoa()
 
-    created = compute_create_address(
-        address=factory, nonce=1
-    )
+    created = compute_create_address(address=factory, nonce=1)
 
     tx = Transaction(
         sender=sender,
@@ -473,11 +465,7 @@ def test_witness_codes_failed_create_after_initcode_read(
     callee = pre.deploy_contract(code=callee_code)
 
     # Initcode that calls callee then fails via INVALID opcode
-    initcode_body = (
-        Op.CALL(address=callee)
-        + Op.POP
-        + Op.INVALID
-    )
+    initcode_body = Op.CALL(address=callee) + Op.POP + Op.INVALID
     initcode = bytes(initcode_body)
 
     creator = pre.fund_eoa()
