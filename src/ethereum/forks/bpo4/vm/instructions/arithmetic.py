@@ -16,20 +16,10 @@ from ethereum_types.numeric import U256, Uint
 
 from ethereum.utils.numeric import get_sign
 
-from .. import Evm
+from .. import Evm, gas
 from ..gas import (
     GAS_EXPONENTIATION,
     GAS_EXPONENTIATION_PER_BYTE,
-    GAS_OPCODE_ADD,
-    GAS_OPCODE_ADDMOD,
-    GAS_OPCODE_DIV,
-    GAS_OPCODE_MOD,
-    GAS_OPCODE_MUL,
-    GAS_OPCODE_MULMOD,
-    GAS_OPCODE_SDIV,
-    GAS_OPCODE_SIGNEXTEND,
-    GAS_OPCODE_SMOD,
-    GAS_OPCODE_SUB,
     charge_gas,
 )
 from ..stack import pop, push
@@ -51,7 +41,7 @@ def add(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_ADD)
+    charge_gas(evm, gas.GAS_OPCODE_ADD)
 
     # OPERATION
     result = x.wrapping_add(y)
@@ -78,7 +68,7 @@ def sub(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_SUB)
+    charge_gas(evm, gas.GAS_OPCODE_SUB)
 
     # OPERATION
     result = x.wrapping_sub(y)
@@ -105,7 +95,7 @@ def mul(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_MUL)
+    charge_gas(evm, gas.GAS_OPCODE_MUL)
 
     # OPERATION
     result = x.wrapping_mul(y)
@@ -132,7 +122,7 @@ def div(evm: Evm) -> None:
     divisor = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_DIV)
+    charge_gas(evm, gas.GAS_OPCODE_DIV)
 
     # OPERATION
     if divisor == 0:
@@ -165,7 +155,7 @@ def sdiv(evm: Evm) -> None:
     divisor = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_SDIV)
+    charge_gas(evm, gas.GAS_OPCODE_SDIV)
 
     # OPERATION
     if divisor == 0:
@@ -198,7 +188,7 @@ def mod(evm: Evm) -> None:
     y = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_MOD)
+    charge_gas(evm, gas.GAS_OPCODE_MOD)
 
     # OPERATION
     if y == 0:
@@ -228,7 +218,7 @@ def smod(evm: Evm) -> None:
     y = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_SMOD)
+    charge_gas(evm, gas.GAS_OPCODE_SMOD)
 
     # OPERATION
     if y == 0:
@@ -259,7 +249,7 @@ def addmod(evm: Evm) -> None:
     z = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_ADDMOD)
+    charge_gas(evm, gas.GAS_OPCODE_ADDMOD)
 
     # OPERATION
     if z == 0:
@@ -290,7 +280,7 @@ def mulmod(evm: Evm) -> None:
     z = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_MULMOD)
+    charge_gas(evm, gas.GAS_OPCODE_MULMOD)
 
     # OPERATION
     if z == 0:
@@ -353,7 +343,7 @@ def signextend(evm: Evm) -> None:
     value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_SIGNEXTEND)
+    charge_gas(evm, gas.GAS_OPCODE_SIGNEXTEND)
 
     # OPERATION
     if byte_num > U256(31):

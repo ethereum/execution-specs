@@ -13,11 +13,10 @@ Implementations of the EVM control flow instructions.
 
 from ethereum_types.numeric import U256, Uint
 
+from ...vm import gas
 from ...vm.gas import (
     GAS_BASE,
     GAS_JUMPDEST,
-    GAS_OPCODE_JUMP,
-    GAS_OPCODE_JUMPI,
     charge_gas,
 )
 from .. import Evm
@@ -63,7 +62,7 @@ def jump(evm: Evm) -> None:
     jump_dest = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_JUMP)
+    charge_gas(evm, gas.GAS_OPCODE_JUMP)
 
     # OPERATION
     if jump_dest not in evm.valid_jump_destinations:
@@ -90,7 +89,7 @@ def jumpi(evm: Evm) -> None:
     conditional_value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_JUMPI)
+    charge_gas(evm, gas.GAS_OPCODE_JUMPI)
 
     # OPERATION
     if conditional_value == 0:

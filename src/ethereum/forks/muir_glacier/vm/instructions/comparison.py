@@ -13,14 +13,8 @@ Implementations of the EVM Comparison instructions.
 
 from ethereum_types.numeric import U256, Uint
 
-from .. import Evm
+from .. import Evm, gas
 from ..gas import (
-    GAS_OPCODE_EQ,
-    GAS_OPCODE_GT,
-    GAS_OPCODE_ISZERO,
-    GAS_OPCODE_LT,
-    GAS_OPCODE_SGT,
-    GAS_OPCODE_SLT,
     charge_gas,
 )
 from ..stack import pop, push
@@ -42,7 +36,7 @@ def less_than(evm: Evm) -> None:
     right = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_LT)
+    charge_gas(evm, gas.GAS_OPCODE_LT)
 
     # OPERATION
     result = U256(left < right)
@@ -68,7 +62,7 @@ def signed_less_than(evm: Evm) -> None:
     right = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_SLT)
+    charge_gas(evm, gas.GAS_OPCODE_SLT)
 
     # OPERATION
     result = U256(left < right)
@@ -95,7 +89,7 @@ def greater_than(evm: Evm) -> None:
     right = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_GT)
+    charge_gas(evm, gas.GAS_OPCODE_GT)
 
     # OPERATION
     result = U256(left > right)
@@ -121,7 +115,7 @@ def signed_greater_than(evm: Evm) -> None:
     right = pop(evm.stack).to_signed()
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_SGT)
+    charge_gas(evm, gas.GAS_OPCODE_SGT)
 
     # OPERATION
     result = U256(left > right)
@@ -148,7 +142,7 @@ def equal(evm: Evm) -> None:
     right = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_EQ)
+    charge_gas(evm, gas.GAS_OPCODE_EQ)
 
     # OPERATION
     result = U256(left == right)
@@ -174,7 +168,7 @@ def is_zero(evm: Evm) -> None:
     x = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_OPCODE_ISZERO)
+    charge_gas(evm, gas.GAS_OPCODE_ISZERO)
 
     # OPERATION
     result = U256(x == 0)
