@@ -6,6 +6,8 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
+    Bytes,
+    ExecutionWitnessCodesExpectation,
     Initcode,
     Op,
     Transaction,
@@ -25,9 +27,8 @@ def test_witness_excludes_bytecode_created_in_same_block(
     """
     Create a contract in a block without reading its code first.
 
-    Manual witness check until execution witness assertions are supported:
-    - The deployed runtime code should not appear in
-      executionWitness.codes for this block.
+    The deployed runtime code should not appear in
+    executionWitness.codes for this block.
     """
     runtime_code = bytes.fromhex("deadbeef")
     creator = pre.fund_eoa()
@@ -42,7 +43,16 @@ def test_witness_excludes_bytecode_created_in_same_block(
 
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[create_tx])],
+        blocks=[
+            Block(
+                txs=[create_tx],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_absent=[Bytes(runtime_code)],
+                    )
+                ),
+            )
+        ],
         post={
             creator: Account(nonce=1),
             created_contract: Account(
@@ -60,9 +70,8 @@ def test_witness_keeps_prestate_code_read_even_if_later_created_with_same_hash(
     """
     Tx1 reads pre-state code, tx2 later deploys the same runtime code hash.
 
-    Manual witness check until execution witness assertions are supported:
-    - 0x60006000F3 should appear in executionWitness.codes because
-      tx1 CALLs an existing pre-state contract with that code.
+    The pre-state bytecode should appear in executionWitness.codes because
+    tx1 CALLs an existing pre-state contract with that code.
     """
     runtime_code = bytes(Op.PUSH1(0x00) + Op.PUSH1(0x00) + Op.RETURN)
 
@@ -87,7 +96,17 @@ def test_witness_keeps_prestate_code_read_even_if_later_created_with_same_hash(
     blockchain_test(
         pre=pre,
         blocks=[
-            Block(txs=[tx1_read_existing_code, tx2_create_same_code_hash])
+            Block(
+                txs=[
+                    tx1_read_existing_code,
+                    tx2_create_same_code_hash,
+                ],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[Bytes(runtime_code)],
+                    )
+                ),
+            )
         ],
         post={
             reader: Account(nonce=1),

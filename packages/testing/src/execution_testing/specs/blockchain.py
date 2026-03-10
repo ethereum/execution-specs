@@ -88,6 +88,9 @@ from execution_testing.test_types.block_access_list import (
     BlockAccessList,
     BlockAccessListExpectation,
 )
+from execution_testing.test_types.execution_witness import (
+    ExecutionWitnessCodesExpectation,
+)
 
 from .base import BaseTest, FillResult, OpMode, verify_result
 from .debugging import print_traces
@@ -269,6 +272,13 @@ class Block(Header):
     """
     If set, the block access list will be verified and potentially corrupted
     for invalid tests.
+    """
+    expected_execution_witness_codes: (
+        ExecutionWitnessCodesExpectation | None
+    ) = None
+    """
+    If set, the execution witness codes will be verified and potentially
+    modified for invalid tests.
     """
     exception: BLOCK_EXCEPTION_TYPE = None
     # If set, the block is expected to be rejected by the client.
@@ -776,6 +786,20 @@ class BlockchainTest(BaseTest):
                 # If the BAL was modified, update the header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
+        # If expected witness codes defined, verify against actual
+        t8n_witness = transition_tool_output.result.execution_witness
+        execution_witness = t8n_witness
+        if (
+            block.expected_execution_witness_codes is not None
+            and t8n_witness is not None
+        ):
+            block.expected_execution_witness_codes.verify_against(t8n_witness)
+            execution_witness = (
+                block.expected_execution_witness_codes.modify_if_invalid_test(
+                    t8n_witness
+                )
+            )
+
         built_block = BuiltBlock(
             header=header,
             alloc=transition_tool_output.alloc,
@@ -790,9 +814,7 @@ class BlockchainTest(BaseTest):
             engine_api_error_code=block.engine_api_error_code,
             fork=self.fork,
             block_access_list=bal,
-            execution_witness=(
-                transition_tool_output.result.execution_witness
-            ),
+            execution_witness=execution_witness,
             stateless_input_bytes=(
                 transition_tool_output.result.stateless_input_bytes
             ),
@@ -814,15 +836,20 @@ class BlockchainTest(BaseTest):
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list._modifier is not None
                 )
+                and not (
+                    block.expected_execution_witness_codes is not None
+                    and block.expected_execution_witness_codes._modifier
+                    is not None
+                )
             ):
                 # Only verify block level exception if: - No transaction
                 # exception was raised, because these are not reported as block
                 # exceptions. - No RLP modifier was specified, because the
                 # modifier is what normally produces the block exception. - No
                 # requests were specified, because modified requests are also
-                # what normally produces the block exception. - No BAL modifier
-                # was specified, because modified BAL also produces block
-                # exceptions.
+                # what normally produces the block exception. - No BAL or
+                # witness modifier was specified, because modified BAL/witness
+                # also produces block exceptions.
                 built_block.verify_block_exception(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )
