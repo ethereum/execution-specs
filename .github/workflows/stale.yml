@@ -19,12 +19,12 @@ jobs:
           ascending: true
 
           # --- PR settings ---
-          days-before-pr-close: 0  # PR immediately auto-closes when marked stale
+          days-before-pr-close: -1      # Never auto-close PRs
           stale-pr-label: 'stale'
-          stale-pr-message: 'This PR has had no activity for 60 days and is being closed.'
-          close-pr-message: 'Closing this PR due to 60 days of inactivity.'
+          stale-pr-message: 'This PR has had no recent activity and has been marked as stale.'
+          close-pr-message: 'Closing this PR due to inactivity.'
 
           # --- Issue settings ---
           days-before-issue-close: -1   # Never auto-close issues
           stale-issue-label: 'stale'
-          stale-issue-message: 'This issue has had no activity for 60 days and has been marked as stale.'
+          stale-issue-message: 'This issue has had no recent activity and has been marked as stale.'
