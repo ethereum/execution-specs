@@ -284,7 +284,7 @@ def precompile_gas(
     except Exception:
         # Used for `test_modexp_invalid_inputs` we expect the call to not
         # succeed. Return is for completeness.
-        return 200 # For Osaka and beyond, this line is never reached
+        return 200  # For Osaka and beyond, this line is never reached
 
 
 @pytest.fixture

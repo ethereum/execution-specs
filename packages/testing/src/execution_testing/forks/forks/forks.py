@@ -3114,9 +3114,10 @@ class Osaka(Prague, solc_name="cancun"):
         the former precompile with EVM bytecode.
         """
         del block_number, timestamp
-        modexp = cls._modexp_contract_allocation()
-        parent = super(Osaka, cls).pre_allocation()  # type: ignore
-        return modexp | parent
+        return {
+            **cls._modexp_contract_allocation(),
+            **super(Osaka, cls).pre_allocation(),
+        }
 
     @classmethod
     def pre_allocation_blockchain(
@@ -3127,9 +3128,10 @@ class Osaka(Prague, solc_name="cancun"):
         the former precompile with EVM bytecode.
         """
         del block_number, timestamp
-        modexp = cls._modexp_contract_allocation()
-        parent = super(Osaka, cls).pre_allocation_blockchain()  # type: ignore
-        return modexp | parent
+        return {
+            **cls._modexp_contract_allocation(),
+            **super(Osaka, cls).pre_allocation_blockchain(),
+        }
 
     @classmethod
     def engine_get_payload_version(

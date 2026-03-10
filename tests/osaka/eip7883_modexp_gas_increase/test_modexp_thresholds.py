@@ -63,9 +63,7 @@ def test_vectors_from_eip(
             # Even modulus uses the Barrett reduction path which is more
             # expensive than Montgomery. With large exponents (>=128B)
             # it exceeds the EIP-7825 16M tx gas cap.
-            pytest.xfail(
-                "modexp EVM contract OOG at Osaka gas limits"
-            )
+            pytest.xfail("modexp EVM contract OOG at Osaka gas limits")
     state_test(
         pre=pre,
         tx=tx,
