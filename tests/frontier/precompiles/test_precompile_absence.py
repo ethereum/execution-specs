@@ -37,10 +37,18 @@ def test_precompile_absence(
     fork.
     """
     active_precompiles = fork.precompiles()
+    # In Osaka+, 0x05 is an EVM contract (not a precompile), skip it
+    # since it has deployed code and won't behave like an empty address.
+    evmified = (
+        {Address(0x05)} if Address(0x05) not in active_precompiles else set()
+    )
     storage = Storage()
     call_code = Bytecode()
     for address in range(1, UPPER_BOUND + 1):
-        if Address(address) in active_precompiles:
+        if (
+            Address(address) in active_precompiles
+            or Address(address) in evmified
+        ):
             continue
         call_code += Op.SSTORE(
             address,

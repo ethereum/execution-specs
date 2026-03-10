@@ -30,14 +30,21 @@ def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:
 
     """
     supported_precompiles = fork.precompiles()
+    # In Osaka+, 0x05 has EVM contract code (not a precompile) and
+    # won't behave like an empty address — skip it.
+    evmified = {Address(0x05)}
 
     for address in supported_precompiles:
         address_int = int.from_bytes(address, byteorder="big")
         yield (address, True)
         if address_int > 0 and (address_int - 1) not in supported_precompiles:
-            yield (Address(address_int - 1), False)
+            adj = Address(address_int - 1)
+            if adj not in evmified:
+                yield (adj, False)
         if (address_int + 1) not in supported_precompiles:
-            yield (Address(address_int + 1), False)
+            adj = Address(address_int + 1)
+            if adj not in evmified:
+                yield (adj, False)
 
 
 @pytest.mark.ported_from(
