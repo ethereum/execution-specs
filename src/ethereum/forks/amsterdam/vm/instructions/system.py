@@ -124,6 +124,7 @@ def generic_create(
         tx_state, contract_address
     ) or account_has_storage(tx_state, contract_address):
         increment_nonce(tx_state, evm.message.current_target)
+        evm.regular_gas_used += create_message_gas
         evm.state_gas_left += create_message_state_gas_reservoir
         push(evm.stack, U256(0))
         return
