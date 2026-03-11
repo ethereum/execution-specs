@@ -89,5 +89,3 @@ class GasCosts:
     # Refund constants
     REFUND_STORAGE_CLEAR: int
     REFUND_AUTH_PER_EXISTING_ACCOUNT: int
-
-    GAS_BLOCK_ACCESS_LIST_ITEM: int

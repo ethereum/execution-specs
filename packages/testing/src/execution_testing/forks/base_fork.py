@@ -371,19 +371,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def empty_block_bal_item_count(
-        cls, *, block_number: int = 0, timestamp: int = 0
-    ) -> int:
-        """
-        Return the number of BAL items produced by an empty block.
-
-        Each system contract address counts as 1 item, and each unique
-        storage key it touches (reads or writes) counts as 1 item.
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
     def header_slot_number_required(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> bool:

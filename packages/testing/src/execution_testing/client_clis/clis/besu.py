@@ -469,9 +469,6 @@ class BesuExceptionMapper(ExceptionMapper):
             r"Block access list hash mismatch, "
             r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)"
         ),
-        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
-            r"Block access list validation failed for block 0x[a-f0-9]+"
-        ),
         BlockException.INVALID_BLOCK_ACCESS_LIST: (
             r"Block access list hash mismatch, "
             r"calculated:\s*(0x[a-f0-9]+)\s+header:\s*(0x[a-f0-9]+)|"

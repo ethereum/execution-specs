@@ -52,9 +52,6 @@ class EthrexExceptionMapper(ExceptionMapper):
         BlockException.INCORRECT_BLOCK_FORMAT: (
             "not in strictly ascending order for"
         ),
-        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
-            "Block access list exceeds gas limit"
-        ),
         BlockException.INVALID_GAS_USED: (
             "Gas used doesn't match value in header"
         ),
