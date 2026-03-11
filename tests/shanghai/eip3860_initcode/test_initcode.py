@@ -637,9 +637,4 @@ def test_create2_oversized_initcode_with_insufficient_balance(
         caller_address: Account(storage={1: expected_storage_1}),
     }
 
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
-    )
+    state_test(pre=pre, post=post, tx=tx)

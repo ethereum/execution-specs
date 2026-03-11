@@ -431,4 +431,4 @@ def test_tstore_rollback_on_callcode_revert(
         caller_address: Account(storage={0: 0, 1: 0}),
     }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)

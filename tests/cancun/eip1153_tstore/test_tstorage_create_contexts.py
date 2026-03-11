@@ -11,7 +11,6 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
-    Environment,
     Initcode,
     Op,
     StateTestFiller,
@@ -259,12 +258,7 @@ class TestTransientStorageInContractCreation:
             ),
         }
 
-        state_test(
-            env=Environment(),
-            pre=pre,
-            post=post,
-            tx=tx,
-        )
+        state_test(pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.ported_from(
@@ -346,4 +340,4 @@ def test_tstore_rollback_on_failed_create(
         caller_address: Account(storage={0: 0, 1: 0}),
     }
 
-    state_test(env=Environment(), pre=pre, post=post, tx=tx)
+    state_test(pre=pre, post=post, tx=tx)
