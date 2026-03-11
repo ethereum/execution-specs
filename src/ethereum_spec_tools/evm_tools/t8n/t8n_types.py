@@ -354,72 +354,6 @@ class Result:
                 block_output.block_access_list
             )
 
-    @staticmethod
-    def _block_access_list_to_json(account_changes: Any) -> Any:
-        """
-        Convert BlockAccessList to JSON format matching the Pydantic models.
-        """
-        json_account_changes = []
-        for account in account_changes:
-            account_data: Dict[str, Any] = {
-                "address": "0x" + account.address.hex()
-            }
-
-            if account.storage_changes:
-                storage_changes = []
-                for slot_change in account.storage_changes:
-                    slot_data: Dict[str, Any] = {
-                        "slot": int(slot_change.slot),
-                        "slotChanges": [],
-                    }
-                    for change in slot_change.changes:
-                        slot_data["slotChanges"].append(
-                            {
-                                "blockAccessIndex": int(
-                                    change.block_access_index
-                                ),
-                                "postValue": int(change.new_value),
-                            }
-                        )
-                    storage_changes.append(slot_data)
-                account_data["storageChanges"] = storage_changes
-
-            if account.storage_reads:
-                account_data["storageReads"] = [
-                    int(slot) for slot in account.storage_reads
-                ]
-
-            if account.balance_changes:
-                account_data["balanceChanges"] = [
-                    {
-                        "blockAccessIndex": int(change.block_access_index),
-                        "postBalance": int(change.post_balance),
-                    }
-                    for change in account.balance_changes
-                ]
-
-            if account.nonce_changes:
-                account_data["nonceChanges"] = [
-                    {
-                        "blockAccessIndex": int(change.block_access_index),
-                        "postNonce": int(change.new_nonce),
-                    }
-                    for change in account.nonce_changes
-                ]
-
-            if account.code_changes:
-                account_data["codeChanges"] = [
-                    {
-                        "blockAccessIndex": int(change.block_access_index),
-                        "newCode": "0x" + change.new_code.hex(),
-                    }
-                    for change in account.code_changes
-                ]
-
-            json_account_changes.append(account_data)
-
-        return json_account_changes
-
     def json_encode_receipts(self) -> Any:
         """
         Encode receipts to JSON.
@@ -501,9 +435,10 @@ class Result:
             data["blockException"] = self.block_exception
 
         if self.block_access_list is not None:
-            # Convert BAL to JSON format
-            data["blockAccessList"] = self._block_access_list_to_json(
-                self.block_access_list
+            # Output BAL as RLP-encoded hex bytes; the testing framework
+            # handles JSON serialization.
+            data["blockAccessList"] = encode_to_hex(
+                rlp.encode(self.block_access_list)
             )
 
         if self.block_access_list_hash is not None:
