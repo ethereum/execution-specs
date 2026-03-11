@@ -30,7 +30,6 @@ from execution_testing.logging import (
 )
 from execution_testing.test_types import (
     Alloc,
-    BlockAccessList,
     Environment,
     Transaction,
     TransactionReceipt,
@@ -287,7 +286,7 @@ class Result(CamelModel):
     blob_gas_used: HexNumber | None = None
     requests_hash: Hash | None = None
     requests: List[Bytes] | None = None
-    block_access_list: BlockAccessList | None = None
+    block_access_list: Bytes | None = None
     block_access_list_hash: Hash | None = None
     block_exception: Annotated[
         BlockExceptionWithMessage | UndefinedException | None,

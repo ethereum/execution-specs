@@ -713,18 +713,21 @@ class BlockchainTest(BaseTest):
             )
             requests_list = block.requests
 
+        # Decode BAL from RLP bytes provided by the transition tool.
+        t8n_bal_rlp = transition_tool_output.result.block_access_list
+        t8n_bal: BlockAccessList | None = None
+        if t8n_bal_rlp is not None:
+            t8n_bal = BlockAccessList.from_rlp(t8n_bal_rlp)
+
         if self.fork.header_bal_hash_required(
             block_number=header.number, timestamp=header.timestamp
         ):
-            assert (
-                transition_tool_output.result.block_access_list is not None
-            ), (
+            assert t8n_bal is not None, (
                 "Block access list is required for this block but was not "
                 "provided by the transition tool"
             )
 
-            rlp = transition_tool_output.result.block_access_list.rlp
-            computed_bal_hash = Hash(rlp.keccak256())
+            computed_bal_hash = Hash(t8n_bal.rlp.keccak256())
             assert computed_bal_hash == header.block_access_list_hash, (
                 "Block access list hash in header does not match the "
                 f"computed hash from BAL: {header.block_access_list_hash} "
@@ -741,7 +744,6 @@ class BlockchainTest(BaseTest):
 
         # Process block access list - apply transformer if present for invalid
         # tests
-        t8n_bal = transition_tool_output.result.block_access_list
         bal = t8n_bal
 
         # Always validate BAL structural integrity (ordering, duplicates)
