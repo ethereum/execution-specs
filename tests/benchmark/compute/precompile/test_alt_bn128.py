@@ -549,26 +549,20 @@ def test_ec_pairing(
         + gsc.GAS_PRECOMPILE_ECPAIRING_PER_POINT * num_pairs
     )
 
-    # Each iteration: STATICCALL ecpairing at a rotating calldata offset,
-    # then increment counter at memory[CALLDATASIZE].
+    # Each iteration: STATICCALL ecpairing at advancing calldata offset,
+    # then advance offset by pair_size at memory[CALLDATASIZE].
     # The loop condition checks remaining gas against one body execution.
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS,
             address=0x08,
-            args_offset=Op.MUL(
-                Op.MOD(
-                    Op.MLOAD(Op.CALLDATASIZE),
-                    Op.DIV(Op.CALLDATASIZE, pair_size),
-                ),
-                pair_size,
-            ),
+            args_offset=Op.MLOAD(Op.CALLDATASIZE),
             args_size=pair_size,
             address_warm=True,
         ),
     ) + Op.MSTORE(
         Op.CALLDATASIZE,
-        Op.ADD(Op.MLOAD(Op.CALLDATASIZE), 1),
+        Op.ADD(Op.MLOAD(Op.CALLDATASIZE), pair_size),
     )
 
     setup = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
