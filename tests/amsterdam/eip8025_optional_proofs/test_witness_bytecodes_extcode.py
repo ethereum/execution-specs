@@ -99,6 +99,46 @@ def test_witness_codes_extcodesize_empty_code(
     )
 
 
+def test_witness_codes_extcodecopy_empty_code(
+    pre: Alloc,
+    system_codes: list[Bytes],
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    EXTCODECOPY on an account with empty code (an EOA).
+
+    The target has EMPTY_CODE_HASH, so get_code() returns early without
+    recording a code read.  Nothing should be added to
+    executionWitness.codes for the target.
+    """
+    eoa_target = pre.fund_eoa()
+
+    caller_code = Op.EXTCODECOPY(eoa_target, 0, 0, 32) + Op.STOP
+    caller = pre.deploy_contract(code=caller_code)
+
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=system_codes
+                        + [Bytes(bytes(caller_code))],
+                        allow_unexpected=False,
+                    )
+                ),
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+        },
+    )
+
+
 def test_witness_codes_extcodecopy(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
