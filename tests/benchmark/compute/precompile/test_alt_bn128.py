@@ -1,15 +1,20 @@
 """Benchmark ALT_BN128 precompile."""
 
+import math
 import random
 
 import pytest
 from execution_testing import (
     Address,
+    Alloc,
     BenchmarkTestFiller,
+    Block,
     Bytes,
     Fork,
     JumpLoopGenerator,
     Op,
+    Transaction,
+    While,
 )
 from py_ecc.bn128 import G1, G2, multiply
 
@@ -501,9 +506,6 @@ def test_bn128_pairings_amortized(
     )
 
 
-NUM_INPUT_VARIANTS = 4
-
-
 @pytest.mark.repricing
 @pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
 def test_alt_bn128_benchmark(
@@ -528,42 +530,127 @@ def test_alt_bn128_benchmark(
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("num_pairs", [1, 12, 24])
+@pytest.mark.parametrize("num_pairs", [1, 3, 6, 12, 24])
 def test_ec_pairing(
     benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
     num_pairs: int,
 ) -> None:
-    """Benchmark ecpairing precompile with rotating inputs to avoid caching."""
+    """Benchmark ecpairing precompile with unique inputs per call."""
     pair_size = num_pairs * 192
-    counter_offset = NUM_INPUT_VARIANTS * pair_size
-
-    calldata = Bytes(
-        b"".join(
-            _generate_bn128_pairs(num_pairs, seed=42 + i)
-            for i in range(NUM_INPUT_VARIANTS)
-        )
+    gsc = fork.gas_costs()
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
+    mem_exp = fork.memory_expansion_gas_calculator()
+    precompile_cost = (
+        gsc.GAS_PRECOMPILE_ECPAIRING_BASE
+        + gsc.GAS_PRECOMPILE_ECPAIRING_PER_POINT * num_pairs
     )
 
+    # Each iteration: STATICCALL ecpairing at a rotating calldata offset,
+    # then increment counter at memory[CALLDATASIZE].
+    # The loop condition checks remaining gas against one body execution.
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS,
             address=0x08,
             args_offset=Op.MUL(
-                Op.AND(
-                    Op.MLOAD(counter_offset),
-                    NUM_INPUT_VARIANTS - 1,
+                Op.MOD(
+                    Op.MLOAD(Op.CALLDATASIZE),
+                    Op.DIV(Op.CALLDATASIZE, pair_size),
                 ),
                 pair_size,
             ),
             args_size=pair_size,
+            address_warm=True,
         ),
-    ) + Op.MSTORE(counter_offset, Op.ADD(Op.MLOAD(counter_offset), 1))
+    ) + Op.MSTORE(
+        Op.CALLDATASIZE,
+        Op.ADD(Op.MLOAD(Op.CALLDATASIZE), 1),
+    )
+
+    setup = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+    loop = While(
+        body=attack_block,
+        condition=Op.GT(Op.GAS, attack_block.gas_cost(fork) + precompile_cost),
+    )
+    code = setup + loop
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    iteration_cost = loop.gas_cost(fork) + precompile_cost
+    setup_cost = setup.gas_cost(fork)
+
+    # Conservative per-variant estimate for sizing the calldata:
+    # one loop iteration + worst-case calldata intrinsic (all non-zero)
+    # + CALLDATACOPY copy and linear memory expansion.
+    words_per_variant = math.ceil(pair_size / 32)
+    per_variant_gas = (
+        iteration_cost
+        + pair_size * 16
+        + words_per_variant * (gsc.GAS_COPY + gsc.GAS_MEMORY)
+    )
+    empty_intrinsic = intrinsic_gas_calculator(
+        calldata=[], return_cost_deducted_prior_execution=True
+    )
+    fixed_overhead = empty_intrinsic + setup_cost + mem_exp(new_bytes=32)
+
+    seed_offset = 0
+    txs: list[Transaction] = []
+    total_gas_used = 0
+    remaining_gas = gas_benchmark_value
+
+    while remaining_gas > 0:
+        per_tx_gas = min(tx_gas_limit, remaining_gas)
+        per_tx_variants = max(
+            1, (per_tx_gas - fixed_overhead) // per_variant_gas
+        )
+        calldata = Bytes(
+            b"".join(
+                _generate_bn128_pairs(num_pairs, seed=42 + seed_offset + i)
+                for i in range(per_tx_variants)
+            )
+        )
+
+        execution_intrinsic = intrinsic_gas_calculator(
+            calldata=calldata,
+            return_cost_deducted_prior_execution=True,
+        )
+        gas_for_loop = (
+            per_tx_gas
+            - execution_intrinsic
+            - setup_cost
+            - math.ceil(len(calldata) / 32) * gsc.GAS_COPY
+            - mem_exp(new_bytes=len(calldata) + 32)
+        )
+
+        if gas_for_loop < iteration_cost:
+            break
+
+        num_iterations = gas_for_loop // iteration_cost
+        gas_remaining = gas_for_loop - num_iterations * iteration_cost
+
+        # EIP-7623: gas_used = max(standard_intrinsic + execution, floor).
+        tx_gas_used = max(
+            per_tx_gas - gas_remaining,
+            intrinsic_gas_calculator(calldata=calldata),
+        )
+
+        txs.append(
+            Transaction(
+                to=attack_contract_address,
+                sender=pre.fund_eoa(),
+                gas_limit=per_tx_gas,
+                data=calldata,
+            )
+        )
+        total_gas_used += tx_gas_used
+        remaining_gas -= per_tx_gas
+        seed_offset += per_tx_variants
 
     benchmark_test(
         target_opcode=Op.STATICCALL,
-        code_generator=JumpLoopGenerator(
-            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
-            attack_block=attack_block,
-            tx_kwargs={"data": calldata},
-        ),
+        expected_benchmark_gas_used=total_gas_used,
+        blocks=[Block(txs=txs)],
     )
