@@ -193,7 +193,7 @@ def test_witness_codes_extcodehash_only(
 
     The target bytecode should NOT appear in executionWitness.codes
     because EXTCODEHASH can read the value from the account leaf not
-    requiring doing a code access. 
+    requiring doing a code access.
     """
     target_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
     target = pre.deploy_contract(code=target_code)
