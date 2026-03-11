@@ -172,8 +172,7 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "mainnet: Specialty tests crafted for running on mainnet and sanity "
-        "checking.",
+        "mainnet: Tests crafted for running on mainnet and sanity checking.",
     )
     config.addinivalue_line(
         "markers",
@@ -197,6 +196,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "fixture_subfolder(level, prefix): "
         "Signal that fixtures should be placed in a subfolder",
+    )
+    config.addinivalue_line(
+        "markers",
+        "json_loader: tests forming a minimized test set that is used by "
+        "tests/json_loader/",
     )
 
 
