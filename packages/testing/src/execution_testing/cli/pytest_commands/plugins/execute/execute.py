@@ -706,6 +706,8 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     fork=fork,
                 )
 
+                pre.resolve_deferred_checks()
+
                 minimum_balance, gas_consumption = (
                     pre.minimum_balance_for_pending_transactions(
                         required_balances,
