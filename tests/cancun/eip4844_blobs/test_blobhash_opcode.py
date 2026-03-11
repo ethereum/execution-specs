@@ -306,6 +306,11 @@ def test_blobhash_scenarios(
         "invalid_calls",
     ],
 )
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/opcodeBlobhashOutOfRangeFiller.yml",  # noqa: E501
+    ],
+)
 @pytest.mark.json_loader
 def test_blobhash_invalid_blob_index(
     pre: Alloc,

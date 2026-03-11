@@ -367,6 +367,12 @@ def post(  # noqa: D103
     }
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153_transientStorage/14_revertAfterNestedStaticcallFiller.yml",  # noqa: E501
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153_transientStorage/transStorageOKFiller.yml",  # noqa: E501
+    ],
+)
 @CallContextTestCases.parametrize()
 @pytest.mark.json_loader
 def test_subcall(

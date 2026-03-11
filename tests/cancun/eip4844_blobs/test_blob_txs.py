@@ -935,6 +935,11 @@ def generate_invalid_tx_blob_count_tests(
     "blobs_per_tx,tx_error",
     generate_invalid_tx_blob_count_tests,
 )
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/emptyBlobhashListFiller.yml",  # noqa: E501
+    ],
+)
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.json_loader
@@ -988,6 +993,11 @@ def test_invalid_tx_blob_count(
     "tx_error",
     [TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH],
     ids=[""],
+)
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/wrongBlobhashVersionFiller.yml",  # noqa: E501
+    ],
 )
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
@@ -1080,6 +1090,11 @@ def test_invalid_blob_hash_versioning_multiple_txs(
 @pytest.mark.parametrize(
     "tx_gas", [500_000], ids=[""]
 )  # Increase gas to account for contract creation
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/createBlobhashTxFiller.yml",  # noqa: E501
+    ],
+)
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
 def test_invalid_blob_tx_contract_creation(

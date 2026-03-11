@@ -181,6 +181,11 @@ def post(code_address: Address, code_storage: Storage) -> Mapping:  # noqa: D103
         "out_of_bounds_memory_extension",
     ],
 )
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP5656_MCOPY/MCOPYFiller.yml",  # noqa: E501
+    ],
+)
 @pytest.mark.valid_from("Cancun")
 def test_valid_mcopy_operations(
     state_test: StateTestFiller,

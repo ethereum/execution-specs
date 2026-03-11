@@ -196,6 +196,11 @@ def simple_blob_hashes(
     ],
     ids=lambda x: x,
 )
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/opcodeBlobhBoundsFiller.yml",  # noqa: E501
+    ],
+)
 def test_blobhash_opcode_contexts(
     pre: Alloc,
     test_case: str,

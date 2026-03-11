@@ -334,6 +334,11 @@ class ReentrancyTestCases(
     }
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153_transientStorage/10_revertUndoesStoreAfterReturnFiller.yml",  # noqa: E501
+    ],
+)
 @ReentrancyTestCases.parametrize()
 def test_reentrant_call(
     state_test: StateTestFiller,

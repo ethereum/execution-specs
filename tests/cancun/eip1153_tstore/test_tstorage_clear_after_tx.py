@@ -19,6 +19,11 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
 
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153_transientStorage/transStorageResetFiller.yml",  # noqa: E501
+    ],
+)
 @pytest.mark.valid_from("Cancun")
 def test_tstore_clear_after_deployment_tx(
     blockchain_test: BlockchainTestFiller,
