@@ -8,7 +8,7 @@ Tests for [EIP-8037: State Creation Gas Cost Increase]
 (https://eips.ethereum.org/EIPS/eip-8037).
 """
 
-from typing import Optional
+from typing import Union
 
 import pytest
 from execution_testing import (
@@ -139,14 +139,15 @@ def test_create_with_reservoir(
         pytest.param(32, id="one_word"),
         pytest.param(256, id="small_contract"),
         pytest.param(1024, id="medium_contract"),
-        pytest.param(None, id="over_max_code_size"),
+        pytest.param("max", id="max_code_size"),
+        pytest.param("max+1", id="over_max_code_size"),
     ],
 )
 @pytest.mark.valid_from("Amsterdam")
 def test_code_deposit_state_gas_scales_with_size(
     state_test: StateTestFiller,
     pre: Alloc,
-    code_size: Optional[int],
+    code_size: Union[int, str],
     fork: Fork,
 ) -> None:
     """
@@ -157,8 +158,11 @@ def test_code_deposit_state_gas_scales_with_size(
     When code exceeds MAX_CODE_SIZE, the size check rejects before
     any gas is charged and the contract is not deployed.
     """
-    if code_size is None:
+    if code_size == "max":
+        code_size = fork.max_code_size()
+    elif code_size == "max+1":
         code_size = fork.max_code_size() + 1
+    assert isinstance(code_size, int)
 
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
@@ -404,19 +408,27 @@ def test_code_deposit_oog_preserves_parent_reservoir(
     """
     Test parent reservoir preserved after child code deposit OOG.
 
-    Child returns enough bytes that code deposit state gas exceeds
-    available gas. Parent's SSTORE after the failed CREATE proves
-    the reservoir was not inflated by a spill-then-halt refund.
+    A caller contract invokes the factory via CALL with limited gas.
+    The child CREATE returns enough bytes that code deposit state gas
+    exceeds the child frame's available gas (reservoir spillover plus
+    the limited gas_left). The factory's SSTORE after the failed
+    CREATE proves the reservoir was not inflated by a spill-then-halt
+    refund.
     """
     gas_limit_cap = fork.transaction_gas_limit_cap()
     assert gas_limit_cap is not None
+    gas_costs = fork.gas_costs()
+    new_account_state_gas = gas_costs.GAS_NEW_ACCOUNT
     sstore_state_gas = fork.sstore_state_gas()
 
-    # Choose deploy_size so code deposit state gas exceeds the child
-    # frame's available gas, guaranteeing OOG.
-    cost_per_byte = fork.code_deposit_state_gas(code_size=1)
-    deploy_size = gas_limit_cap // cost_per_byte + 1
+    # Small deploy size; code deposit state gas will exceed the
+    # limited gas available in the CREATE child frame.
+    deploy_size = 4096
     init_code = Op.RETURN(0, deploy_size)
+
+    # Limited regular gas forwarded to the factory.  After CREATE
+    # takes 63/64, the factory retains ~15 K for its SSTOREs.
+    child_gas = 1_000_000
 
     factory_storage = Storage()
     factory = pre.deploy_contract(
@@ -439,10 +451,17 @@ def test_code_deposit_oog_preserves_parent_reservoir(
         ),
     )
 
-    # Reservoir = 1 SSTORE's worth of state gas
+    # Caller invokes factory with limited gas via CALL.
+    caller = pre.deploy_contract(
+        code=Op.CALL(gas=child_gas, address=factory),
+    )
+
+    # Reservoir = new-account state gas + one SSTORE's state gas.
+    # Code deposit draws from the reservoir first then spills into
+    # gas_left, which the limited CALL gas cannot cover.
     tx = Transaction(
-        to=factory,
-        gas_limit=gas_limit_cap + sstore_state_gas,
+        to=caller,
+        gas_limit=(gas_limit_cap + new_account_state_gas + sstore_state_gas),
         sender=pre.fund_eoa(),
     )
 
