@@ -1617,7 +1617,7 @@ def test_extcodehash_subcall_selfdestruct(
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=500_000,
+        gas_limit=1_000_000,
     )
 
     # Pre-Cancun, CALLCODE/DELEGATECALL executes SELFDESTRUCT in A's

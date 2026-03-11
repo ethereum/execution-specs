@@ -12,6 +12,7 @@ state_gas_reservoir, changing the expected validation behavior.
 from typing import Callable, List
 
 import pytest
+from execution_testing.forks import Osaka
 from execution_testing import (
     AccessList,
     Account,
@@ -391,7 +392,9 @@ def test_tx_gas_limit_cap_full_calldata(
         data=byte_data * num_of_bytes,
         gas_limit=tx_gas_limit,
         sender=pre.fund_eoa(),
-        error=TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM
+        error=TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
+        if exceed_tx_gas_limit and fork > Osaka
+        else TransactionException.GAS_LIMIT_EXCEEDS_MAXIMUM
         if correct_intrinsic_cost_in_transaction_gas_limit
         and exceed_tx_gas_limit
         else TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST
