@@ -464,6 +464,12 @@ class Alloc(SharedAlloc):
                     label=label,
                 )
             )
+            # Set a placeholder so the address is visible in the alloc
+            # immediately.
+            self.__internal_setitem__(
+                contract_address,
+                Account(code=code),
+            )
             contract_address.label = label
             return contract_address
 
