@@ -293,16 +293,11 @@ def test_witness_codes_create_same_hash_then_read(
     """
     Tx1 deploys a contract, tx2 calls a pre-state contract with same code.
 
-    The pre-state contract's bytecode should appear in
-    executionWitness.codes because get_witness_codes checks per-address
-    pre-state match. The pre-state contract qualifies regardless of the
-    earlier CREATE writing the same hash.
-
-    TODO(zkevm): it might be worth reconsidering how the execution witness
-    generation handles this case, since technically this same bytecode was
-    observed in tx1 thus can in theory be exploited to avoid including it
-    for tx2. Feels inconsistent with the other test
-    test_witness_codes_create_then_call_same_block(...).
+    The pre-state contract's bytecode must not appear in
+    executionWitness.codes because the same code hash was already
+    written by tx1's CREATE.  A stateless verifier observed
+    the bytecode from the CREATE transaction data, so including it
+    in the witness is redundant.
     """
     runtime_code = bytes(Op.STOP)
 
@@ -330,7 +325,7 @@ def test_witness_codes_create_same_hash_then_read(
                 txs=[tx1_create, tx2_read],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(runtime_code)],
+                        codes_absent=[Bytes(runtime_code)],
                     )
                 ),
             )
@@ -491,5 +486,74 @@ def test_witness_codes_failed_create_after_initcode_read(
         ],
         post={
             creator: Account(nonce=1),
+        },
+    )
+
+
+def test_witness_codes_reverted_create_same_hash_then_read(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Factory CREATEs bytecode A then REVERTs; tx2 calls pre-state contract
+    with also bytecode A.
+
+    Said differently, bytecode A was observed by a contract creation execution
+    but since the creation fails it isn't tracked cross-tx boundary by the
+    state tracker. This means that tx2 access to the pre-state contract's
+    code hash doesn't find it thus falls back to fetching the bytecode
+    from pre-state and including it in the witness.
+    """
+    runtime_code = bytes(Op.STOP)
+
+    existing_contract = pre.deploy_contract(code=runtime_code)
+
+    initcode = bytes(Initcode(deploy_code=runtime_code))
+    factory_code = (
+        Op.MSTORE(0, Op.PUSH32(initcode))
+        + Op.CREATE(
+            offset=32 - len(initcode),
+            size=len(initcode),
+        )
+        # The runtime_code was observed by the CREATE execution,
+        # but since the CREATE fails, it isn't tracked cross-tx
+        # boundary by the state tracker. This means that tx2
+        # access to the pre-state contract's code hash doesn't
+        # find it thus falls back to fetching the bytecode from
+        # pre-state and including it in the witness.
+        + Op.POP
+        + Op.REVERT(offset=0, size=0)
+    )
+    factory = pre.deploy_contract(code=factory_code)
+
+    sender1 = pre.fund_eoa()
+    sender2 = pre.fund_eoa()
+
+    tx1_reverted_create = Transaction(
+        sender=sender1,
+        to=factory,
+        gas_limit=500_000,
+    )
+    tx2_read = Transaction(
+        sender=sender2,
+        to=existing_contract,
+        gas_limit=200_000,
+    )
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx1_reverted_create, tx2_read],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[Bytes(runtime_code)],
+                    )
+                ),
+            )
+        ],
+        post={
+            sender1: Account(nonce=1),
+            sender2: Account(nonce=1),
         },
     )
