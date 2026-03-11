@@ -164,6 +164,11 @@ def get_code(
 
     Read chain: tx code_writes -> block code_writes -> pre_state.
 
+    Only record a ``code_reads`` entry when the bytecode is actually
+    fetched from ``pre_state``.  Reads satisfied by ``code_writes``
+    (same-tx or earlier-tx CREATEs) are already available to a
+    stateless verifier and do not need to appear in the witness.
+
     Parameters
     ----------
     tx_state :
@@ -181,11 +186,11 @@ def get_code(
     """
     if code_hash == EMPTY_CODE_HASH:
         return b""
-    tx_state.code_reads.add((address, code_hash))
     if code_hash in tx_state.code_writes:
         return tx_state.code_writes[code_hash]
     if code_hash in tx_state.parent.code_writes:
         return tx_state.parent.code_writes[code_hash]
+    tx_state.code_reads.add((address, code_hash))
     return tx_state.parent.pre_state.get_code(code_hash)
 
 
