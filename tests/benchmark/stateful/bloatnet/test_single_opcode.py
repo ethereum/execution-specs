@@ -1603,6 +1603,9 @@ def test_account_access(
                 value=value_sent,
                 # Gas accounting
                 address_warm=access_warm,
+                value_transfer=value_sent > 0,
+                account_new=value_sent > 0
+                and account_mode == AccountMode.NON_EXISTING_ACCOUNT,
             )
         )
     elif opcode in (Op.STATICCALL, Op.DELEGATECALL):
