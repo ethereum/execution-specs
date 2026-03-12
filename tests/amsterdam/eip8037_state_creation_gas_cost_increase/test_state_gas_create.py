@@ -542,8 +542,6 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
     state_test(pre=pre, post=post, tx=tx)
 
 
-CREATE2_SALT = 0xC0FFEE
-
 
 @pytest.mark.parametrize(
     "gas_shortfall",
@@ -580,7 +578,7 @@ def test_max_initcode_size_gas_metering_via_create(
             value=0,
             offset=0,
             size=Op.CALLDATASIZE,
-            salt=CREATE2_SALT,
+            salt=0xC0FFEE,
             init_code_size=initcode_len,
         )
         if create_opcode == Op.CREATE2
@@ -609,7 +607,7 @@ def test_max_initcode_size_gas_metering_via_create(
     create_address = compute_create_address(
         address=factory,
         nonce=1,
-        salt=CREATE2_SALT,
+        salt=0xC0FFEE,
         initcode=initcode,
         opcode=create_opcode,
     )
