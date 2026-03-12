@@ -4,10 +4,13 @@ from collections.abc import Mapping, Sequence
 
 from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U256
-
 from execution_testing import Bytes
 
-from ethereum.forks.amsterdam.incremental_mpt import build_mpt, mpt_get, mpt_set
+from ethereum.forks.amsterdam.incremental_mpt import (
+    build_mpt,
+    mpt_get,
+    mpt_set,
+)
 
 
 def large_storage_value(slot: int) -> int:

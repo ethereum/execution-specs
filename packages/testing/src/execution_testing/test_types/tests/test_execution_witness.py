@@ -41,7 +41,9 @@ def test_execution_witness_state_expectation_rejects_duplicates() -> None:
         ExecutionWitnessStateExpectation().verify_against(witness)
 
 
-def test_execution_witness_state_expectation_rejects_unsorted_entries() -> None:
+def test_execution_witness_state_expectation_rejects_unsorted_entries() -> (
+    None
+):
     """Unsorted state entries should fail structural validation."""
     witness = ExecutionWitness(
         state=[Bytes(b"bb"), Bytes(b"aa")],
@@ -49,9 +51,7 @@ def test_execution_witness_state_expectation_rejects_unsorted_entries() -> None:
         headers=[],
     )
 
-    with pytest.raises(
-        ExecutionWitnessValidationError, match="not sorted"
-    ):
+    with pytest.raises(ExecutionWitnessValidationError, match="not sorted"):
         ExecutionWitnessStateExpectation().verify_against(witness)
 
 

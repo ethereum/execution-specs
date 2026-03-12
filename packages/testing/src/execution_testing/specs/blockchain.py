@@ -807,17 +807,17 @@ class BlockchainTest(BaseTest):
         execution_witness = t8n_witness
         state_expectation = block.expected_execution_witness_state
         if state_expectation is not None and execution_witness is not None:
-            state_expectation.verify_against(t8n_witness)
+            state_expectation.verify_against(execution_witness)
             execution_witness = state_expectation.modify_if_invalid_test(
                 execution_witness
             )
 
         if (
             block.expected_execution_witness_codes is not None
-            and t8n_witness is not None
+            and execution_witness is not None
         ):
             block.expected_execution_witness_codes.verify_against(
-                t8n_witness
+                execution_witness
             )
             execution_witness = (
                 block.expected_execution_witness_codes.modify_if_invalid_test(

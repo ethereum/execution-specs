@@ -254,7 +254,8 @@ class ExecutionWitnessStateExpectation(CamelModel):
                     dupes.append(node)
                 seen.add(node)
             raise ExecutionWitnessValidationError(
-                f"Witness state contains duplicates: {[n.hex() for n in dupes]}"
+                "Witness state contains duplicates: "
+                f"{[n.hex() for n in dupes]}"
             )
 
         if actual_nodes != sorted(actual_nodes):
