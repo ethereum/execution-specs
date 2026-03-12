@@ -33,6 +33,11 @@ pytestmark = pytest.mark.valid_from("Berlin")
         (False, False),
     ],
 )
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stSLoadTest/sloadGasCostFiller.json",
+    ],
+)
 def test_account_storage_warm_cold_state(
     state_test: StateTestFiller,
     pre: Alloc,
