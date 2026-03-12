@@ -62,6 +62,7 @@ def test_witness_codes_selfdestruct(
         ],
         post={
             sender: Account(nonce=1),
+            target: Account(code=target_code),
         },
     )
 
