@@ -172,7 +172,10 @@ pytestmark = [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stZeroKnowledge2/ecadd_1145-3932_2969-1336_21000_128Filler.json",
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stZeroKnowledge2/ecadd_1145-3932_2969-1336_25000_128Filler.json",
     ],
-    pr=["https://github.com/ethereum/execution-specs/pull/1935"],
+    pr=[
+        "https://github.com/ethereum/execution-specs/pull/1935",
+        "https://github.com/ethereum/execution-specs/pull/2477",
+    ],
 )
 def test_valid(
     state_test: StateTestFiller,
@@ -297,7 +300,10 @@ def test_valid(
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stZeroKnowledge2/ecadd_6-9_19274124-124124_21000_128Filler.json",
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stZeroKnowledge2/ecadd_6-9_19274124-124124_25000_128Filler.json",
     ],
-    pr=["https://github.com/ethereum/execution-specs/pull/1935"],
+    pr=[
+        "https://github.com/ethereum/execution-specs/pull/1935",
+        "https://github.com/ethereum/execution-specs/pull/2477",
+    ],
 )
 @pytest.mark.json_loader
 def test_invalid(
