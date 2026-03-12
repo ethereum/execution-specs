@@ -1550,12 +1550,16 @@ def test_account_access(
 ) -> None:
     """Benchmark account access with caching strategies."""
     address_retriever: Bytecode
+    # Read start_iteration from calldata so that when transactions are
+    # split across gas limits, each transaction continues from where
+    # the previous one left off instead of re-targeting the same accounts.
+    calldataload_start = Op.CALLDATALOAD(0)
     if account_mode == AccountMode.EXISTING_CONTRACT:
         # Use ENS registry as target
         target_address = Address(0x6090A6E47849629B7245DFA1CA21D94CD15878EF)
         address_retriever = CreatePreimageLayout(
             sender_address=target_address,
-            nonce=1,
+            nonce=Op.ADD(1, calldataload_start),
         )
         increment_op = address_retriever.increment_nonce_op()
     elif account_mode == AccountMode.EXISTING_EOA:
@@ -1563,12 +1567,16 @@ def test_account_access(
         # created these accounts on bloatnet with these values (are also the
         # defaults of SequentialAddressLayout)
         address_retriever = SequentialAddressLayout(
-            starting_address=0x1000, increment=1
+            starting_address=Op.ADD(0x1000, calldataload_start),
+            increment=1,
         )
         increment_op = address_retriever.increment_address_op()
     else:
         address_retriever = SequentialAddressLayout(
-            starting_address=keccak256(b"random"), increment=1
+            starting_address=Op.ADD(
+                keccak256(b"random"), calldataload_start
+            ),
+            increment=1,
         )
         increment_op = address_retriever.increment_address_op()
 
