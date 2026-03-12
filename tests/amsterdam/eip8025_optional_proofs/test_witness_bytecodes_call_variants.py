@@ -115,6 +115,7 @@ def test_witness_codes_nested_calls(
 
 def test_witness_codes_dedup_identical_bytecode(
     pre: Alloc,
+    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -123,7 +124,7 @@ def test_witness_codes_dedup_identical_bytecode(
     Only one copy of the bytecode should appear in executionWitness.codes
     because get_witness_codes() deduplicates by code hash.
     """
-    shared_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
+    shared_code = Op.SSTORE(0, 1) + Op.STOP
     contract_a = pre.deploy_contract(code=shared_code)
     contract_b = pre.deploy_contract(code=shared_code)
 
@@ -146,13 +147,20 @@ def test_witness_codes_dedup_identical_bytecode(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(bytes(shared_code))],
+                        codes_present=system_codes
+                        + [
+                            Bytes(bytes(caller_code)),
+                            Bytes(bytes(shared_code)),
+                        ],
+                        allow_unexpected=False,
                     )
                 ),
             )
         ],
         post={
             sender: Account(nonce=1),
+            contract_a: Account(storage={0: 1}),
+            contract_b: Account(storage={0: 1}),
         },
     )
 
