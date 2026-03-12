@@ -14,6 +14,7 @@ from execution_testing import (
     Alloc,
     Bytecode,
     Environment,
+    Fork,
     Op,
     StateTestFiller,
     Storage,
@@ -138,11 +139,11 @@ def callee_address(pre: Alloc, callee_bytecode: Bytecode) -> Address:  # noqa: D
 
 
 @pytest.fixture
-def tx(pre: Alloc, caller_address: Address) -> Transaction:  # noqa: D103
+def tx(pre: Alloc, fork: Fork, caller_address: Address) -> Transaction:  # noqa: D103
     return Transaction(
         sender=pre.fund_eoa(),
         to=caller_address,
-        gas_limit=1_000_000,
+        gas_limit=5_000_000,  # TODO: auto gas limit will remove this
     )
 
 

@@ -213,6 +213,7 @@ def test_account_storage_warm_cold_state(
         ),
     ],
 )
+@pytest.mark.json_loader
 def test_transaction_intrinsic_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -220,7 +221,7 @@ def test_transaction_intrinsic_gas_cost(
     access_lists: List[AccessList],
     enough_gas: bool,
 ) -> None:
-    """Test type 1 transaction."""
+    """Test type 1 transaction intrinsic gas cost with access lists."""
     env = Environment()
 
     contract_start_balance = 3

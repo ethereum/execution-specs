@@ -508,6 +508,7 @@ def test_blake2b(
         ),
     ],
 )
+@pytest.mark.json_loader
 def test_blake2b_invalid_gas(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -563,7 +564,7 @@ def max_tx_gas_limit(fork: Fork) -> int:
 
 def tx_gas_limits(fork: Fork) -> List[int]:
     """List of tx gas limits."""
-    return [max_tx_gas_limit(fork), 90_000, 110_000, 200_000]
+    return [max_tx_gas_limit(fork), 200_000, 300_000, 500_000]
 
 
 @pytest.mark.valid_from("Istanbul")
@@ -632,6 +633,7 @@ def tx_gas_limits(fork: Fork) -> List[int]:
         ),
     ],
 )
+@pytest.mark.json_loader
 def test_blake2b_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -43,6 +43,7 @@ pytestmark = [
 @EIPChecklist.Precompile.Test.CallContexts.Normal()
 @EIPChecklist.Precompile.Test.Inputs.Valid()
 @EIPChecklist.Precompile.Test.Inputs.MaxValues()
+@pytest.mark.json_loader
 def test_wycheproof_valid(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
 ) -> None:
@@ -968,6 +969,7 @@ def test_valid(
 @EIPChecklist.Precompile.Test.InputLengths.Static.TooLong()
 @EIPChecklist.Precompile.Test.OutOfBounds.Max()
 @EIPChecklist.Precompile.Test.OutOfBounds.MaxPlusOne()
+@pytest.mark.json_loader
 def test_invalid(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
 ) -> None:
@@ -1343,7 +1345,7 @@ def test_contract_initcode(
 
     tx = Transaction(
         sender=sender,
-        gas_limit=200_000,
+        gas_limit=1_000_000,  # TODO: auto gas limit will remove this
         to=factory_contract_address,
         value=0,
         data=call_256verify_bytecode + input_data,

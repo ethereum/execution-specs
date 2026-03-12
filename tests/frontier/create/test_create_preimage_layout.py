@@ -16,6 +16,7 @@ from execution_testing import (
     While,
     compute_create_address,
 )
+from execution_testing.forks import Amsterdam
 
 
 @pytest.mark.parametrize(
@@ -117,6 +118,7 @@ def test_create_preimage_layout_increment_nonce(
 def test_create_address_dynamic_nonce(
     pre: Alloc,
     state_test: StateTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Verify CreatePreimageLayout dynamic nonce encoding matches CREATE.
@@ -162,9 +164,12 @@ def test_create_address_dynamic_nonce(
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
 
+    # Amsterdam needs extra gas for EIP-8037 state gas costs
+    # (260 account creations × 131,488 state gas each).
+    gas_limit = 60_000_000 if fork >= Amsterdam else 15_000_000
     tx = Transaction(
         to=contract,
-        gas_limit=15_000_000,
+        gas_limit=gas_limit,
         sender=sender,
     )
 

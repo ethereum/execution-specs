@@ -183,6 +183,7 @@ def test_extra_logs(
     ],
 )
 @pytest.mark.exception_test
+@pytest.mark.json_loader
 def test_invalid_layout(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
@@ -233,6 +234,7 @@ def test_invalid_layout(
 
 @pytest.mark.parametrize("slice_bytes", [True, False])
 @pytest.mark.exception_test
+@pytest.mark.json_loader
 def test_invalid_log_length(
     blockchain_test: BlockchainTestFiller, pre: Alloc, slice_bytes: bool
 ) -> None:

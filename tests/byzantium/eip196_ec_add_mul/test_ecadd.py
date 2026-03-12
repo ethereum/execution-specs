@@ -260,6 +260,7 @@ def test_valid(
     ],
     pr=["https://github.com/ethereum/execution-specs/pull/1935"],
 )
+@pytest.mark.json_loader
 def test_invalid(
     state_test: StateTestFiller,
     pre: Alloc,

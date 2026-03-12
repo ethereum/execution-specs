@@ -30,7 +30,7 @@ from .exceptions import (
     TransactionException,
 )
 from .fixtures import BaseFixture, FixtureCollector
-from .forks import Fork, GasCosts
+from .forks import Fork, GasCosts, RefundTypes
 from .specs import (
     BaseTest,
     BenchmarkTest,
@@ -184,6 +184,7 @@ __all__ = (
     "ParameterSet",
     "ReferenceSpec",
     "ReferenceSpecTypes",
+    "RefundTypes",
     "Removable",
     "Requests",
     "SequentialAddressLayout",

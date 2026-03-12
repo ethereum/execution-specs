@@ -453,6 +453,7 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
     ids=lambda param: param.__repr__(),  # only required to remove parameter
     # names (input/output)
 )
+@pytest.mark.json_loader
 def test_modexp(
     state_test: StateTestFiller,
     mod_exp_input: ModExpInput | Bytes,
@@ -503,7 +504,7 @@ def test_modexp(
         ty=0x0,
         to=account,
         data=mod_exp_input,
-        gas_limit=500_000,
+        gas_limit=1_000_000,
         protected=True,
         sender=sender,
     )

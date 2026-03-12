@@ -41,6 +41,7 @@ class Operation(IntEnum):
 )
 @pytest.mark.valid_from("Frontier")
 @pytest.mark.with_all_create_opcodes
+@pytest.mark.json_loader
 def test_create_suicide_store(
     state_test: StateTestFiller,
     fork: Fork,

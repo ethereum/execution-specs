@@ -203,6 +203,7 @@ def post(
 )
 @pytest.mark.parametrize("proof", ["correct", "incorrect"])
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.json_loader
 def test_point_evaluation_precompile_gas_usage(
     state_test: StateTestFiller,
     pre: Dict,

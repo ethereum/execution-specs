@@ -12,6 +12,12 @@ jobs:
           # --- Stale settings ---
           days-before-stale: 60
 
+          # raise this from the default 30
+          operations-per-run: 200
+
+          # process oldest first
+          ascending: true
+
           # --- PR settings ---
           days-before-pr-close: 0  # PR immediately auto-closes when marked stale
           stale-pr-label: 'stale'

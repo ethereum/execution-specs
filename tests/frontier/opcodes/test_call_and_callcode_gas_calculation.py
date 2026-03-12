@@ -203,7 +203,7 @@ def caller_tx(sender: EOA, caller_address: Address, fork: Fork) -> Transaction:
     return Transaction(
         to=caller_address,
         value=1,
-        gas_limit=500_000,
+        gas_limit=1_000_000,
         sender=sender,
         protected=fork.supports_protected_txs(),
     )
@@ -318,6 +318,7 @@ def test_value_transfer_gas_calculation(
 @pytest.mark.parametrize("gas_shortage", [0, 1])
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.valid_until("Berlin")
+@pytest.mark.json_loader
 def test_value_transfer_gas_calculation_byzantium(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -325,8 +326,8 @@ def test_value_transfer_gas_calculation_byzantium(
     post: Dict[str, Account],
 ) -> None:
     """
-    Tests the nested CALL/CALLCODE/DELEGATECALL/STATICCALL opcode gas
-    consumption with a positive value transfer.
+    Test nested CALL/CALLCODE/DELEGATECALL/STATICCALL gas consumption with
+    value transfer from Byzantium onward.
     """
     state_test(env=Environment(), pre=pre, post=post, tx=caller_tx)
 

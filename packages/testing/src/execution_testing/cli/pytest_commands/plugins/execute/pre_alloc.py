@@ -741,18 +741,13 @@ class Alloc(SharedAlloc):
 
     def _empty_account(self) -> Address:
         """
-        Execute implementation of empty account creation.
+        Execute implementation of empty_account.
+
+        Return a previously unused address. The account is not
+        created on-chain — it remains nonexistent.
         """
         eoa = next(self._eoa_iterator)
-        logger.debug(f"Creating empty account at {eoa}")
-
-        self.__internal_setitem__(
-            eoa,
-            Account(
-                nonce=0,
-                balance=0,
-            ),
-        )
+        logger.debug(f"Returning unused address {eoa} (nonexistent account)")
         return Address(eoa)
 
     def minimum_balance_for_pending_transactions(

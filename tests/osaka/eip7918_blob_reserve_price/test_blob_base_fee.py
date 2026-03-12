@@ -149,8 +149,8 @@ def test_reserve_price_various_base_fee_scenarios(
     post: Dict[Address, Account],
 ) -> None:
     """
-    Test reserve price mechanism across various block base fee and excess blob
-    gas scenarios.
+    Test reserve price enforcement across various base fee and excess blob gas
+    combinations within a single fork.
     """
     blockchain_test(
         pre=pre,
@@ -232,6 +232,7 @@ def get_boundary_scenarios(fork: Fork) -> Iterator[Any]:
     "parent_excess_blobs,block_base_fee_per_gas_delta",
     get_boundary_scenarios,
 )
+@pytest.mark.json_loader
 def test_reserve_price_boundary(
     blockchain_test: BlockchainTestFiller,
     env: Environment,

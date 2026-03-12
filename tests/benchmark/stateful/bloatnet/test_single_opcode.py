@@ -51,6 +51,13 @@ from tests.benchmark.stateful.helpers import (
 REFERENCE_SPEC_GIT_PATH = "DUMMY/bloatnet.md"
 REFERENCE_SPEC_VERSION = "1.0"
 
+# keccak256("random") for non-existing slots, masked as address,
+# Solidity does input checks on the size and throws if we input
+# something different than an address
+START_SLOT = (
+    0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
+    % (2**160)
+)
 
 # SLOAD BENCHMARK ARCHITECTURE:
 #
@@ -212,16 +219,8 @@ def test_sload_erc20_balanceof(
     txs = []
     cache_txs = []
     gas_remaining = gas_benchmark_value
-    # Start at 1 (ERC20 bloater writes the balance of address to the slot)
-    # or start at keccak256("random") for non-existing slots
-    slot_offset = (
-        1
-        if existing_slots
-        else (
-            0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
-        )
-        % (2**160)  # Mask it as address otherwise Solidity rejects the input
-    )
+    # Start offset
+    slot_offset = 1 if existing_slots else START_SLOT
 
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
@@ -613,13 +612,8 @@ def test_sstore_erc20_mint(
     # Storage key to read and write address pointer to
     slot_offset = 0
 
-    # Start at 1 for existing balance slots,
-    # or at keccak256("random") for non-existing slots
-    start_slot = (
-        1
-        if existing_slots
-        else 0xA4896A3F93BF4BF58378E579F3CF193BB4AF1022AF7D2089F37D8BAE7157B85F
-    )
+    # Start slot
+    start_slot = 1 if existing_slots else START_SLOT
 
     # Stub Account
     erc20_address = pre.deploy_contract(

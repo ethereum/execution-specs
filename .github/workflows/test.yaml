@@ -94,23 +94,19 @@ jobs:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
 
-  json_infra:
+  json_loader:
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
         with:
           submodules: recursive
-          fetch-depth: 0  # Fetch full history for commit comparison
       - uses: ./.github/actions/setup-uv
-        with:
-          python-version: "3.11"
       - uses: ./.github/actions/setup-env
-      - uses: ./.github/actions/setup-geth
-      - uses: ./.github/actions/get-changed-files
-        id: get-changed-files
-      - name: Run json infra tests
-        run: tox -e json_infra -- --file-list="${{ steps.get-changed-files.outputs.file_list }}"
+      - name: Fill and run json_loader tests
+        run: tox -e json_loader
+        env:
+          PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
   tests_pytest_py3:
     runs-on: [self-hosted-ghr, size-xl-x64]

@@ -105,6 +105,7 @@ def bal_expectation_for_contract_with_markers(
     "stStaticFlagEnabled/StaticcallForPrecompilesIssue683Filler.yml"
 )
 @pytest.mark.valid_from("Byzantium")
+@pytest.mark.json_loader
 def test_staticcall_reentrant_call_to_precompile(
     pre: Alloc,
     state_test: StateTestFiller,
@@ -145,7 +146,7 @@ def test_staticcall_reentrant_call_to_precompile(
     tx = Transaction(
         sender=alice,
         to=target,
-        gas_limit=1_000_000,
+        gas_limit=2_000_000,
         value=tx_value,
         protected=True,
     )

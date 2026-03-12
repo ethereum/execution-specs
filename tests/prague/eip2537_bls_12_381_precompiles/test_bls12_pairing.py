@@ -127,6 +127,7 @@ pytestmark = [
         ),
     ],
 )
+@pytest.mark.json_loader
 def test_valid(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -393,6 +394,7 @@ def test_valid_multi_inf(
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
+@pytest.mark.json_loader
 def test_invalid(
     state_test: StateTestFiller,
     pre: Alloc,

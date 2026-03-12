@@ -102,6 +102,7 @@ def test_collision_with_create2_revert_in_initcode(
         ),
     ],
 )
+@pytest.mark.json_loader
 def test_create2_collision_storage(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -131,7 +132,7 @@ def test_create2_collision_storage(
         to=None,
         data=deployer_code,
         value=1,
-        gas_limit=400_000,
+        gas_limit=1_000_000,
     )
 
     deployer_address = tx.created_contract

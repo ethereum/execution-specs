@@ -152,6 +152,13 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
                 )
                 else None
             ),
+            slot_number=(
+                0
+                if self.fork.engine_payload_attribute_slot_number(
+                    block_number=0, timestamp=0
+                )
+                else None
+            ),
         )
 
     def _finalize_payload(

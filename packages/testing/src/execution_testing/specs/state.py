@@ -317,6 +317,7 @@ class StateTest(BaseTest):
             "extra_data": self.env.extra_data,
             "withdrawals": self.env.withdrawals,
             "parent_beacon_block_root": self.env.parent_beacon_block_root,
+            "slot_number": self.env.slot_number,
             "txs": [self.tx],
             "ommers": [],
             "header_verify": self.blockchain_test_header_verify,

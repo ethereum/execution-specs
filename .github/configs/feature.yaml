@@ -18,7 +18,7 @@ benchmark_fast:
 
 bal:
   evm-type: develop
-  fill-params: --fork=Amsterdam --fill-static-tests
+  fill-params: --until=Amsterdam --fill-static-tests --ignore=tests/static/state_tests/stQuadraticComplexityTest
   feature_only: true
 
 zkevm:

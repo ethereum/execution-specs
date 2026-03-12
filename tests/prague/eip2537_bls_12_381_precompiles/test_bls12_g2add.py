@@ -218,6 +218,7 @@ pytestmark = [
         ),
     ],
 )
+@pytest.mark.json_loader
 def test_valid(
     state_test: StateTestFiller,
     pre: Alloc,

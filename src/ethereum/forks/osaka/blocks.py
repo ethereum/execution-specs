@@ -161,9 +161,11 @@ class Header:
     Maximum gas allowed in this block. Pre [EIP-1559], this was the maximum
     gas that could be consumed by all transactions in the block. Post
     [EIP-1559], this is still the maximum gas limit, but the base fee per gas
-    is also considered when calculating the effective gas limit. This can be
-    [adjusted by a factor of 1/1024] from the previous block's gas limit, up
-    until a maximum of 30 million gas.
+    is adjusted so that effective block gas utilization targets 50% of
+    that limit. The gas_limit is a voted parameter that can be
+    [adjusted by a factor of 1/1024] from the previous block's limit by the
+    block proposer, allowing the network to coordinate on capacity
+    increases (e.g. the 60M limit proposed in EIP-7935).
 
     [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
     [adjusted by a factor of 1/1024]:

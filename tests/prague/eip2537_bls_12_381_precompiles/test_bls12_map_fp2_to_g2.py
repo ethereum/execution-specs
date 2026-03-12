@@ -79,6 +79,7 @@ G2_POINT_ZERO_FP = PointG2(
         ),
     ],
 )
+@pytest.mark.json_loader
 def test_valid(
     state_test: StateTestFiller,
     pre: Alloc,
