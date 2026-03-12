@@ -237,7 +237,7 @@ def test_witness_codes_reverted_inner_call(
         ],
         post={
             sender: Account(nonce=1),
-            callee: Account(storage={0: 0}), # Check reverted storage change
+            callee: Account(storage={0: 0}),  # Check reverted storage change
             caller: Account(storage={0: 1}),
         },
     )

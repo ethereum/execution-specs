@@ -328,6 +328,7 @@ def test_witness_codes_selfdestruct_beneficiary_no_code(
     sender = pre.fund_eoa()
 
     target_balance = 1
+    beneficiary: Address
     if beneficiary_type == "eoa":
         beneficiary_initial_balance = 1
         beneficiary = pre.fund_eoa(amount=beneficiary_initial_balance)
