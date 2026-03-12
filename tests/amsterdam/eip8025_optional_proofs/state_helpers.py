@@ -46,9 +46,9 @@ def _collect_storage_node_set(
     return set(storage_mpt.witness.accessed_nodes.values())
 
 
-def _sorted_nodes(nodes: set[bytes]) -> list[Bytes]:
-    """Return nodes as sorted execution-testing bytes."""
-    return [Bytes(node) for node in sorted(nodes)]
+def _nodes(nodes: set[bytes]) -> list[Bytes]:
+    """Return nodes as execution-testing bytes."""
+    return [Bytes(node) for node in nodes]
 
 
 def collect_storage_proof_nodes(
@@ -56,7 +56,7 @@ def collect_storage_proof_nodes(
     slots: Sequence[int],
 ) -> list[Bytes]:
     """Collect the pre-state proof nodes for the given storage slots."""
-    return _sorted_nodes(_collect_storage_node_set(storage, slots))
+    return _nodes(_collect_storage_node_set(storage, slots))
 
 
 def collect_storage_delete_auxiliary_nodes(
@@ -71,7 +71,7 @@ def collect_storage_delete_auxiliary_nodes(
     before = set(storage_mpt.witness.accessed_nodes.values())
     mpt_set(storage_mpt, _slot(slot_to_delete), U256(0))
     after = set(storage_mpt.witness.accessed_nodes.values())
-    return _sorted_nodes(after - before)
+    return _nodes(after - before)
 
 
 def collect_storage_path_only_nodes(
@@ -82,4 +82,18 @@ def collect_storage_path_only_nodes(
     """Collect nodes unique to one proof path relative to others."""
     slot_nodes = _collect_storage_node_set(storage, [slot])
     reference_nodes = _collect_storage_node_set(storage, relative_to_slots)
-    return _sorted_nodes(slot_nodes - reference_nodes)
+    return _nodes(slot_nodes - reference_nodes)
+
+
+def collect_storage_post_state_only_nodes(
+    pre_storage: Mapping[int, int],
+    post_storage: Mapping[int, int],
+    slot: int,
+    pre_state_reference_slots: Sequence[int],
+) -> list[Bytes]:
+    """Collect nodes that appear only on the post-state proof path."""
+    post_state_nodes = _collect_storage_node_set(post_storage, [slot])
+    pre_state_nodes = _collect_storage_node_set(
+        pre_storage, pre_state_reference_slots
+    )
+    return _nodes(post_state_nodes - pre_state_nodes)
