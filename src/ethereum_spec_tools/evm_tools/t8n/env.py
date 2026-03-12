@@ -238,6 +238,8 @@ class Env:
         if t8n.fork.has_slot_number:
             if "slotNumber" in data:
                 self.slot_number = parse_hex_or_int(data["slotNumber"], U64)
+            else:
+                self.slot_number = U64(0)
 
     def read_withdrawals(self, data: Any, t8n: "T8N") -> None:
         """

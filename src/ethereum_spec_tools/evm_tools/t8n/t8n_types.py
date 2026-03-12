@@ -409,6 +409,7 @@ class Result:
                 parent_beacon_block_root=block_env.parent_beacon_block_root,
                 requests_hash=self.requests_hash,
                 block_access_list_hash=self.block_access_list_hash,
+                slot_number=t8n.env.slot_number,
             )
 
             # TODO: perhaps change this for t8n.all_txs minus rejected_txs?
