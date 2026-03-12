@@ -719,6 +719,36 @@ def test_fund_address(execute_runner: ExecuteRunner) -> None:
     execute_runner.run_assert(test_method=test_method)
 
 
+def test_fail_fund_address_twice(execute_runner: ExecuteRunner) -> None:
+    """
+    Execute a test that uses fund_address twice on the same account
+    for pre-existing addresses.
+    """
+    funded_address = "0x1234567890ABCDEF1234567890ABCDEF12345678"
+    test_method = """\
+        def test_fund(state_test, pre) -> None:
+            sender = pre.fund_eoa()
+            funded_address = Address({funded_address})
+            pre.fund_address(funded_address, 10**18)
+            pre.fund_address(funded_address, 10**18)
+            state_test(
+                pre=pre,
+                post={{
+                    funded_address: Account(
+                        balance=10**18,
+                    ),
+                }},
+                tx=Transaction(
+                    sender=sender,
+                    to=None,
+                    gas_limit=100_000,
+                ),
+            )
+    """.format(funded_address=funded_address)
+
+    execute_runner.run_assert(test_method=test_method, failed=1)
+
+
 @pytest.mark.parametrize(
     "account_type",
     [
