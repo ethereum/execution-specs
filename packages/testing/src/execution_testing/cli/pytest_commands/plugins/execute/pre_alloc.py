@@ -725,6 +725,7 @@ class Alloc(SharedAlloc):
                 minimum_balance=minimum_balance,
             )
         )
+        self.__internal_setitem__(address, Account(balance=amount))
 
     def _nonexistent_account(self) -> Address:
         """
