@@ -1,0 +1,97 @@
+name: Hive Execute E2E
+
+on:
+  push:
+    branches:
+      - "forks/**"
+    paths:
+      - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/execute/**"
+      - "packages/testing/src/execution_testing/rpc/**"
+      - ".github/workflows/hive-execute.yaml"
+      - ".github/actions/start-hive-dev/**"
+  pull_request:
+    paths:
+      - "packages/testing/src/execution_testing/cli/pytest_commands/plugins/execute/**"
+      - "packages/testing/src/execution_testing/rpc/**"
+      - ".github/workflows/hive-execute.yaml"
+      - ".github/actions/start-hive-dev/**"
+  workflow_dispatch:
+
+concurrency:
+  group: hive-execute-${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.ref_name != github.event.repository.default_branch }}
+
+jobs:
+  cache-docker-images:
+    name: Cache Docker Images
+    runs-on: [self-hosted-ghr, size-l-x64]
+    steps:
+      - name: Checkout execution-specs
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Cache Docker images
+        uses: ./.github/actions/cache-docker-images
+        with:
+          images: "docker.io/ethereum/client-go:latest docker.io/alpine:latest docker.io/library/golang:1-alpine"
+
+  test-execute-remote:
+    name: Execute Remote E2E
+    needs: cache-docker-images
+    runs-on: [self-hosted-ghr, size-l-x64]
+    steps:
+      - name: Checkout execution-specs
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          path: execution-specs
+          submodules: recursive
+
+      - name: Checkout Hive
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          repository: ethereum/hive
+          ref: master
+          path: hive
+
+      - name: Setup Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: ">=1.24"
+          cache-dependency-path: hive/go.sum
+
+      - name: Install uv and python
+        uses: ./execution-specs/.github/actions/setup-uv
+        with:
+          cache-dependency-glob: "execution-specs/uv.lock"
+
+      - name: Setup environment
+        uses: ./execution-specs/.github/actions/setup-env
+
+      - name: Load cached Docker images
+        uses: ./execution-specs/.github/actions/load-docker-images
+
+      - name: Build Hive
+        run: |
+          cd hive
+          go build .
+
+      - name: Start Hive in dev mode
+        id: start-hive
+        uses: ./execution-specs/.github/actions/start-hive-dev
+        with:
+          clients: go-ethereum
+          client-file: execution-specs/.github/configs/hive/latest.yaml
+          hive-path: hive
+          timeout: "120"
+
+      - name: Run execute remote E2E tests
+        working-directory: execution-specs
+        env:
+          HIVE_SIMULATOR: ${{ steps.start-hive.outputs.hive-url }}
+        run: |
+          uv sync --all-extras
+          cd packages/testing
+          uv run pytest \
+            --basetemp="${{ runner.temp }}/pytest" \
+            -v \
+            -p execution_testing.cli.pytest_commands.plugins.concurrency \
+            src/execution_testing/cli/pytest_commands/plugins/execute/tests/test_execute_remote.py

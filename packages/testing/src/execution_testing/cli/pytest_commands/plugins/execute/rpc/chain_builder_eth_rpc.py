@@ -7,6 +7,7 @@ import time
 from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import Any, List, Sequence
+from urllib.parse import urlparse
 
 from filelock import FileLock
 
@@ -62,14 +63,15 @@ class ChainBuilderEthRPC(BaseEthRPC, namespace="eth"):
         )
         self.fork = fork
         self.engine_rpc = engine_rpc
+        parsed = urlparse(rpc_endpoint)
         self.block_building_lock = FileLock(
-            session_temp_folder / "chain_builder_fcu.lock"
+            session_temp_folder / f"chain_builder_fcu_{parsed.hostname}.lock"
         )
         self.get_payload_wait_time = get_payload_wait_time
         self.testing_rpc = testing_rpc
 
         # Send initial forkchoice updated only if we are the first worker
-        base_name = "eth_rpc_forkchoice_updated"
+        base_name = f"eth_rpc_forkchoice_updated_{parsed.hostname}"
         base_file = session_temp_folder / base_name
         base_error_file = session_temp_folder / f"{base_name}.err"
 
