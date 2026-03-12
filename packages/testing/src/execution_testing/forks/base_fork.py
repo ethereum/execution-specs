@@ -887,7 +887,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @classmethod
     def ruleset_name(cls) -> str | None:
         """
-        Build a default block header for this fork with the given attributes.
+        Return the hive ruleset name for this fork, or None.
         """
         assert cls is not BaseFork
         if cls._ruleset_name is not None:
@@ -906,7 +906,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @classmethod
     def ruleset(cls, value: int = 0) -> Dict[str, int]:
         """
-        Build a default block header for this fork with the given attributes.
+        Return the hive ruleset name for this fork.
         """
         assert cls is not BaseFork
         parent = cls.parent()

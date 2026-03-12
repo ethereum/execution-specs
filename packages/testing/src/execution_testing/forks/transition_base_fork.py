@@ -1,11 +1,8 @@
 """Base objects used to define transition forks."""
 
-from typing import Any, Callable, ClassVar, Dict, List, Type
+from typing import Any, Callable, ClassVar, Dict, Type
 
 from .base_fork import BaseFork
-
-ALWAYS_TRANSITIONED_BLOCK_NUMBER = 10_000
-ALWAYS_TRANSITIONED_BLOCK_TIMESTAMP = 10_000_000
 
 
 class TransitionBaseMetaClass(type):
@@ -110,13 +107,6 @@ class TransitionBaseClass(metaclass=TransitionBaseMetaClass):
         Return the ruleset used for fork configuration.
         """
         raise Exception("Not implemented")
-
-
-def base_fork_abstract_methods() -> List[str]:
-    """
-    Return list of all abstract methods that must be implemented by a fork.
-    """
-    return list(BaseFork.__abstractmethods__)
 
 
 def transition_fork(
