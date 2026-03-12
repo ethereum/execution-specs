@@ -9,6 +9,7 @@ from .exceptions import ExecutionWitnessValidationError
 from .expectations import (
     ExecutionWitnessCodesExpectation,
     ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
 )
 from .types import ExecutionWitness
 
@@ -16,5 +17,6 @@ __all__ = [
     "ExecutionWitness",
     "ExecutionWitnessCodesExpectation",
     "ExecutionWitnessHeadersExpectation",
+    "ExecutionWitnessStateExpectation",
     "ExecutionWitnessValidationError",
 ]
