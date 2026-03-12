@@ -1573,9 +1573,7 @@ def test_account_access(
         increment_op = address_retriever.increment_address_op()
     else:
         address_retriever = SequentialAddressLayout(
-            starting_address=Op.ADD(
-                keccak256(b"random"), calldataload_start
-            ),
+            starting_address=Op.ADD(keccak256(b"random"), calldataload_start),
             increment=1,
         )
         increment_op = address_retriever.increment_address_op()
