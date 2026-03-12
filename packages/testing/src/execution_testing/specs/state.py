@@ -54,6 +54,7 @@ from execution_testing.test_types import (
     BlockAccessListExpectation,
     Environment,
     ExecutionWitnessCodesExpectation,
+    ExecutionWitnessHeadersExpectation,
     Transaction,
 )
 
@@ -86,6 +87,9 @@ class StateTest(BaseTest):
     expected_block_access_list: Optional[BlockAccessListExpectation] = None
     expected_execution_witness_codes: Optional[
         ExecutionWitnessCodesExpectation
+    ] = None
+    expected_execution_witness_headers: Optional[
+        ExecutionWitnessHeadersExpectation
     ] = None
     chain_id: int = 1
 
@@ -320,6 +324,9 @@ class StateTest(BaseTest):
             "expected_block_access_list": self.expected_block_access_list,
             "expected_execution_witness_codes": (
                 self.expected_execution_witness_codes
+            ),
+            "expected_execution_witness_headers": (
+                self.expected_execution_witness_headers
             ),
         }
         if not self.fork.header_prev_randao_required():

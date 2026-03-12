@@ -6,11 +6,15 @@ expectation-based assertions for test writing.
 """
 
 from .exceptions import ExecutionWitnessValidationError
-from .expectations import ExecutionWitnessCodesExpectation
+from .expectations import (
+    ExecutionWitnessCodesExpectation,
+    ExecutionWitnessHeadersExpectation,
+)
 from .types import ExecutionWitness
 
 __all__ = [
     "ExecutionWitness",
     "ExecutionWitnessCodesExpectation",
+    "ExecutionWitnessHeadersExpectation",
     "ExecutionWitnessValidationError",
 ]

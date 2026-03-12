@@ -90,6 +90,7 @@ from execution_testing.test_types.block_access_list import (
 )
 from execution_testing.test_types.execution_witness import (
     ExecutionWitnessCodesExpectation,
+    ExecutionWitnessHeadersExpectation,
 )
 
 from .base import BaseTest, FillResult, OpMode, verify_result
@@ -278,6 +279,13 @@ class Block(Header):
     ) = None
     """
     If set, the execution witness codes will be verified and potentially
+    modified for invalid tests.
+    """
+    expected_execution_witness_headers: (
+        ExecutionWitnessHeadersExpectation | None
+    ) = None
+    """
+    If set, the execution witness headers will be verified and potentially
     modified for invalid tests.
     """
     exception: BLOCK_EXCEPTION_TYPE = None
@@ -798,6 +806,21 @@ class BlockchainTest(BaseTest):
                 block.expected_execution_witness_codes.modify_if_invalid_test(
                     t8n_witness
                 )
+            )
+
+        # If expected witness headers defined, verify against actual
+        if (
+            block.expected_execution_witness_headers is not None
+            and execution_witness is not None
+        ):
+            block.expected_execution_witness_headers.verify_against(
+                execution_witness,
+                parent_hash=header.parent_hash,
+                fork=self.fork,
+            )
+            execution_witness = (
+                block.expected_execution_witness_headers
+                .modify_if_invalid_test(execution_witness)
             )
 
         built_block = BuiltBlock(
