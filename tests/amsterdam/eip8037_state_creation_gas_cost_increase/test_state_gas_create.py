@@ -14,6 +14,7 @@ from execution_testing import (
     Alloc,
     Environment,
     Fork,
+    Initcode,
     Op,
     StateTestFiller,
     Storage,
@@ -447,3 +448,117 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
         created: Account.NONEXISTENT,
     }
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "gas_shortfall",
+    [
+        pytest.param(0, id="exact_gas"),
+        pytest.param(1, id="short_one_gas"),
+    ],
+)
+@pytest.mark.with_all_create_opcodes()
+@pytest.mark.valid_from("Amsterdam")
+def test_max_initcode_size_gas_metering_via_create(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_shortfall: int,
+    create_opcode: Op,
+) -> None:
+    """
+    Verify 2D gas metering for CREATE with max initcode size.
+
+    A caller contract forwards exact regular gas to a factory via CALL.
+    State gas is supplied through the reservoir (tx.gas_limit above the
+    cap). With short_one_gas, the factory is 1 regular gas short and
+    all state changes revert.
+    """
+    initcode = Initcode(
+        deploy_code=Op.STOP, initcode_length=fork.max_initcode_size()
+    )
+    alice = pre.fund_eoa()
+
+    initcode_len = len(initcode)
+    create_call = (
+        create_opcode(
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            salt=0xC0FFEE,
+            init_code_size=initcode_len,
+        )
+        if create_opcode == Op.CREATE2
+        else create_opcode(
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            init_code_size=initcode_len,
+        )
+    )
+
+    factory_code = (
+        Op.CALLDATACOPY(
+            0,
+            0,
+            Op.CALLDATASIZE,
+            data_size=initcode_len,
+            new_memory_size=initcode_len,
+        )
+        + Op.SSTORE(0, create_call)
+        + Op.STOP
+    )
+
+    factory = pre.deploy_contract(factory_code)
+
+    create_address = compute_create_address(
+        address=factory,
+        nonce=1,
+        salt=0xC0FFEE,
+        initcode=initcode,
+        opcode=create_opcode,
+    )
+
+    # Split gas into regular and state components.
+    # CALL gas only feeds gas_left; state gas must come from the reservoir.
+    factory_gas = (
+        factory_code.gas_cost(fork)
+        + initcode.execution_gas(fork)
+        + initcode.deployment_gas(fork)
+    )
+    factory_state_gas = fork.create_state_gas(
+        code_size=len(initcode.deploy_code)
+    ) + fork.sstore_state_gas()
+    factory_regular_gas = factory_gas - factory_state_gas
+
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.CALL(
+            gas=factory_regular_gas - gas_shortfall,
+            address=factory,
+            value=0,
+            args_offset=0,
+            args_size=Op.CALLDATASIZE,
+            ret_offset=0,
+            ret_size=0,
+        )
+        + Op.STOP
+    )
+
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    tx = Transaction(
+        sender=alice,
+        to=caller,
+        data=bytes(initcode),
+        gas_limit=gas_limit_cap + factory_state_gas,
+    )
+
+    created = not gas_shortfall
+    post = {
+        create_address: Account(code=Op.STOP)
+        if created
+        else Account.NONEXISTENT,
+        factory: Account(storage={0: create_address if created else 0}),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
