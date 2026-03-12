@@ -22,6 +22,7 @@ from .chain_config_types import ChainConfig, ChainConfigDefaults
 from .execution_witness import (
     ExecutionWitness,
     ExecutionWitnessCodesExpectation,
+    ExecutionWitnessHeadersExpectation,
     ExecutionWitnessValidationError,
 )
 from .helpers import (
@@ -78,6 +79,7 @@ __all__ = (
     "EnvironmentDefaults",
     "ExecutionWitness",
     "ExecutionWitnessCodesExpectation",
+    "ExecutionWitnessHeadersExpectation",
     "ExecutionWitnessValidationError",
     "NetworkWrappedTransaction",
     "Removable",
