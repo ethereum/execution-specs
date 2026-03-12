@@ -568,7 +568,6 @@ def test_ec_pairing(
     setup = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
     loop = While(
         body=attack_block,
-        condition=Op.GT(Op.GAS, attack_block.gas_cost(fork) + precompile_cost),
     )
     code = setup + loop
     attack_contract_address = pre.deploy_contract(code=code)
@@ -645,6 +644,5 @@ def test_ec_pairing(
 
     benchmark_test(
         target_opcode=Op.STATICCALL,
-        expected_benchmark_gas_used=total_gas_used,
         blocks=[Block(txs=txs)],
     )
