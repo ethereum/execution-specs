@@ -29,6 +29,8 @@ from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
 from execution_testing.base_types import (
     Account,
     Address,
+    EmptyOmmersRoot,
+    EmptyTrieRoot,
     Hash,
     Number,
     to_json,
@@ -46,14 +48,16 @@ from execution_testing.test_types import (
     Alloc,
     ChainConfig,
     Environment,
+    Requests,
     Transaction,
+    Withdrawal,
     compute_deterministic_create2_address,
 )
 from execution_testing.tools import Initcode
 from execution_testing.vm import Op
 
 from ..pre_alloc import AddressStubs
-from ..rpc.chain_builder_eth_rpc import ChainBuilderEthRPC
+from ..rpc.chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
 
 # Number of seed keys to pre-fund (one per test case)
 SEED_KEY_COUNT = 100
@@ -78,6 +82,79 @@ def seed_keys(testrun_uid: str) -> List[EOA]:
     return [
         EOA(key=i) for i in range(start_index, start_index + SEED_KEY_COUNT)
     ]
+
+
+def _build_client_genesis(seed_keys: List[EOA]) -> dict:
+    """Build a valid client genesis for the Hive-backed E2E tests."""
+    alloc_dict: Dict = {
+        DETERMINISTIC_FACTORY_ADDRESS: Account(
+            nonce=1, code=DETERMINISTIC_FACTORY_BYTECODE
+        ),
+    }
+    for key in seed_keys:
+        alloc_dict[key] = Account(balance=SEED_KEY_BALANCE)
+
+    env = Environment().set_fork_requirements(TEST_FORK)
+    assert env.withdrawals is None or len(env.withdrawals) == 0, (
+        "withdrawals must be empty at genesis"
+    )
+    assert (
+        env.parent_beacon_block_root is None
+        or env.parent_beacon_block_root == Hash(0)
+    ), "parent_beacon_block_root must be empty at genesis"
+
+    genesis_alloc = Alloc.merge(
+        Alloc.model_validate(TEST_FORK.pre_allocation_blockchain()),
+        Alloc(alloc_dict),
+    )
+    if empty_accounts := genesis_alloc.empty_accounts():
+        raise Exception(f"Empty accounts in pre state: {empty_accounts}")
+
+    block_number = 0
+    timestamp = 1
+    genesis_header = FixtureHeader(
+        parent_hash=0,
+        ommers_hash=EmptyOmmersRoot,
+        fee_recipient=0,
+        state_root=genesis_alloc.state_root(),
+        transactions_trie=EmptyTrieRoot,
+        receipts_root=EmptyTrieRoot,
+        logs_bloom=0,
+        difficulty=0x20000 if env.difficulty is None else env.difficulty,
+        number=block_number,
+        gas_limit=env.gas_limit,
+        gas_used=0,
+        timestamp=timestamp,
+        extra_data=b"\x00",
+        prev_randao=0,
+        nonce=0,
+        base_fee_per_gas=env.base_fee_per_gas,
+        blob_gas_used=env.blob_gas_used,
+        excess_blob_gas=env.excess_blob_gas,
+        withdrawals_root=(
+            Withdrawal.list_root(env.withdrawals)
+            if env.withdrawals is not None
+            else None
+        ),
+        parent_beacon_block_root=env.parent_beacon_block_root,
+        requests_hash=Requests()
+        if TEST_FORK.header_requests_required(
+            block_number=block_number, timestamp=timestamp
+        )
+        else None,
+        block_access_list_hash=Hash(EmptyTrieRoot)
+        if TEST_FORK.header_bal_hash_required(
+            block_number=block_number, timestamp=timestamp
+        )
+        else None,
+    )
+
+    client_genesis = to_json(genesis_header)
+    alloc = to_json(genesis_alloc)
+    client_genesis["alloc"] = {
+        k.replace("0x", ""): v for k, v in alloc.items()
+    }
+    return client_genesis
 
 
 @pytest.fixture(scope="module")
@@ -109,27 +186,7 @@ def hive_client_ip(
             url = os.environ["HIVE_SIMULATOR"]
             simulator = Simulation(url=url)
             client_type = simulator.client_types()[0]
-            alloc_dict: Dict = {
-                DETERMINISTIC_FACTORY_ADDRESS: Account(
-                    nonce=1, code=DETERMINISTIC_FACTORY_BYTECODE
-                ),
-            }
-            for key in seed_keys:
-                alloc_dict[key] = Account(balance=SEED_KEY_BALANCE)
-            genesis_alloc = Alloc.merge(
-                Alloc.model_validate(TEST_FORK.pre_allocation_blockchain()),
-                Alloc(alloc_dict),
-            )
-
-            env = Environment().set_fork_requirements(TEST_FORK)
-            state_root = genesis_alloc.state_root()
-            genesis_header = FixtureHeader.genesis(TEST_FORK, env, state_root)
-
-            client_genesis = to_json(genesis_header)
-            alloc = to_json(genesis_alloc)
-            client_genesis["alloc"] = {
-                k.replace("0x", ""): v for k, v in alloc.items()
-            }
+            client_genesis = _build_client_genesis(seed_keys)
 
             assert TEST_FORK in ruleset, (
                 f"fork '{TEST_FORK}' missing in hive ruleset"
@@ -253,6 +310,7 @@ def chain_builder_eth_rpc(
         get_payload_wait_time=1,
         transaction_wait_timeout=20,
         max_transactions_per_batch=10,
+        testing_rpc=TestingRPC(rpc_endpoint),
     )
 
 
@@ -382,6 +440,7 @@ class ExecuteRunner:
             self.rpc_endpoint,
             "--engine-endpoint",
             self.engine_endpoint,
+            "--use-testing-build-block",
             "--rpc-seed-key",
             str(self.test_seed_key.key),
             "--rpc-chain-id",
@@ -449,7 +508,7 @@ class ContractDeployer:
             gas_limit=1_000_000,
             data=initcode,
         )
-        self.chain_builder_eth_rpc.send_wait_transaction(tx)
+        self.chain_builder_eth_rpc.send_wait_transactions([tx])
         contract_address = tx.created_contract
         chain_code = self.chain_builder_eth_rpc.get_code(contract_address)
         assert chain_code == bytecode
@@ -471,7 +530,7 @@ class ContractDeployer:
             gas_limit=1_000_000,
             data=Hash(self.salt) + bytes(initcode),
         )
-        self.chain_builder_eth_rpc.send_wait_transaction(tx)
+        self.chain_builder_eth_rpc.send_wait_transactions([tx])
         chain_code = self.chain_builder_eth_rpc.get_code(deploy_address)
         assert chain_code == bytecode
         return deploy_address
@@ -571,7 +630,7 @@ def test_deterministic_deploy_contract(
             to=deploy_address,
             gas_limit=100_000,
         )
-        chain_builder_eth_rpc.send_wait_transaction(tx)
+        chain_builder_eth_rpc.send_wait_transactions([tx])
         expected_value = 2
     test_method = """\
         def test_deploy(state_test, pre) -> None:
