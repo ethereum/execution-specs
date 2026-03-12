@@ -249,19 +249,22 @@ def test_max_initcode_size_gas_metering_via_create(
         opcode=create_opcode,
     )
 
-    # Compute exact gas the factory needs
+    # Split gas into regular and state components (EIP-8037).
+    # CALL gas only feeds gas_left; state gas must come from the reservoir.
     factory_gas = (
         factory_code.gas_cost(fork)
         + initcode.execution_gas(fork)
         + initcode.deployment_gas(fork)
     )
+    factory_state_gas = fork.create_state_gas(
+        code_size=len(initcode.deploy_code)
+    ) + fork.sstore_state_gas()
+    factory_regular_gas = factory_gas - factory_state_gas
 
-    # Caller CALLs factory with explicit gas to bypass EIP-7623 floor data
-    # cost and the 63/64 rule (EIP-150).
     caller = pre.deploy_contract(
         Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
         + Op.CALL(
-            gas=factory_gas - gas_shortfall,
+            gas=factory_regular_gas - gas_shortfall,
             address=factory,
             value=0,
             args_offset=0,
@@ -272,11 +275,12 @@ def test_max_initcode_size_gas_metering_via_create(
         + Op.STOP
     )
 
+    gas_limit_cap = fork.transaction_gas_limit_cap()
     tx = Transaction(
         sender=alice,
         to=caller,
         data=bytes(initcode),
-        gas_limit=fork.transaction_gas_limit_cap(),
+        gas_limit=gas_limit_cap + factory_state_gas,
     )
 
     # With shortfall, factory OOGs and all state reverts
