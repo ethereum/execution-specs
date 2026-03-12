@@ -195,6 +195,7 @@ def post(  # noqa: D103
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP5656_MCOPY/MCOPY_copy_costFiller.yml",  # noqa: E501
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP5656_MCOPY/MCOPY_memory_expansion_costFiller.yml",  # noqa: E501
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2481"],
 )
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_memory_expansion(

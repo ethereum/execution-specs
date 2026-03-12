@@ -31,6 +31,7 @@ REFERENCE_SPEC_VERSION = "02e46aebc80e6e5006ab4d2daa41876139f9a9e2"
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stChainId/chainIdFiller.json",
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2478"],
 )
 @pytest.mark.valid_from("Istanbul")
 def test_chainid(

@@ -200,6 +200,7 @@ def simple_blob_hashes(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/opcodeBlobhBoundsFiller.yml",  # noqa: E501
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2481"],
 )
 def test_blobhash_opcode_contexts(
     pre: Alloc,

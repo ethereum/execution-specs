@@ -338,6 +338,7 @@ class ReentrancyTestCases(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153_transientStorage/10_revertUndoesStoreAfterReturnFiller.yml",  # noqa: E501
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2481"],
 )
 @ReentrancyTestCases.parametrize()
 def test_reentrant_call(

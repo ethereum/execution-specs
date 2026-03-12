@@ -939,6 +939,7 @@ def generate_invalid_tx_blob_count_tests(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/emptyBlobhashListFiller.yml",  # noqa: E501
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2481"],
 )
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
@@ -998,6 +999,7 @@ def test_invalid_tx_blob_count(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/wrongBlobhashVersionFiller.yml",  # noqa: E501
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2481"],
 )
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")
@@ -1094,6 +1096,7 @@ def test_invalid_blob_hash_versioning_multiple_txs(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/createBlobhashTxFiller.yml",  # noqa: E501
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2481"],
 )
 @pytest.mark.exception_test
 @pytest.mark.valid_from("Cancun")

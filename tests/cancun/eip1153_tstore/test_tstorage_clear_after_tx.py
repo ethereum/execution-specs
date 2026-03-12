@@ -23,6 +23,7 @@ REFERENCE_SPEC_VERSION = ref_spec_1153.version
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP1153_transientStorage/transStorageResetFiller.yml",  # noqa: E501
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2481"],
 )
 @pytest.mark.valid_from("Cancun")
 def test_tstore_clear_after_deployment_tx(

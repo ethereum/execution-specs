@@ -310,6 +310,7 @@ def test_blobhash_scenarios(
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP4844_blobtransactions/opcodeBlobhashOutOfRangeFiller.yml",  # noqa: E501
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2481"],
 )
 @pytest.mark.json_loader
 def test_blobhash_invalid_blob_index(
