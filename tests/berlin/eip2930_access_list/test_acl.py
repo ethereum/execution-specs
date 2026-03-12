@@ -37,6 +37,7 @@ pytestmark = pytest.mark.valid_from("Berlin")
     [
         "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/stSLoadTest/sloadGasCostFiller.json",
     ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2489"],
 )
 def test_account_storage_warm_cold_state(
     state_test: StateTestFiller,
