@@ -174,9 +174,9 @@ class ExecutionWitnessHeadersExpectation(CamelModel):
         description="Exact number of RLP-encoded headers expected",
     )
 
-    _modifier: (
-        Callable[["ExecutionWitness"], "ExecutionWitness"] | None
-    ) = PrivateAttr(default=None)
+    _modifier: Callable[["ExecutionWitness"], "ExecutionWitness"] | None = (
+        PrivateAttr(default=None)
+    )
 
     def modify(
         self,
@@ -234,8 +234,8 @@ class ExecutionWitnessHeadersExpectation(CamelModel):
            keccak256(headers[-1]) == parent_hash (Prague+)
 
         Steps 3-5 require RLP decoding and are only performed for
-        Prague and newer forks where executionWitness.headers is
-        fully specified.
+        Prague and newer forks where EIP-2935 guarantees at least
+        one ancestor header (the parent) is always tracked.
 
         Args:
             actual_witness: The ExecutionWitness from the t8n tool
@@ -270,14 +270,12 @@ class ExecutionWitnessHeadersExpectation(CamelModel):
         # Decode all headers to extract block numbers and parent
         # hashes for structural checks.
         decoded = []
-        for i, rlp_header in enumerate(actual_headers):
-            fields = eth_rlp.decode(rlp_header)
+        for rlp_header in actual_headers:
+            fields: list[bytes] = eth_rlp.decode(rlp_header)  # type: ignore[assignment]
             header_parent_hash = Hash(fields[0])
             block_number = int.from_bytes(fields[8], "big")
             header_hash = rlp_header.keccak256()
-            decoded.append(
-                (block_number, header_parent_hash, header_hash)
-            )
+            decoded.append((block_number, header_parent_hash, header_hash))
 
         # 3. Sorted ascending by block number
         block_numbers = [d[0] for d in decoded]

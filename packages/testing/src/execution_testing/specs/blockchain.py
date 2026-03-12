@@ -809,18 +809,15 @@ class BlockchainTest(BaseTest):
             )
 
         # If expected witness headers defined, verify against actual
-        if (
-            block.expected_execution_witness_headers is not None
-            and execution_witness is not None
-        ):
-            block.expected_execution_witness_headers.verify_against(
+        headers_expectation = block.expected_execution_witness_headers
+        if headers_expectation is not None and execution_witness is not None:
+            headers_expectation.verify_against(
                 execution_witness,
                 parent_hash=header.parent_hash,
                 fork=self.fork,
             )
-            execution_witness = (
-                block.expected_execution_witness_headers
-                .modify_if_invalid_test(execution_witness)
+            execution_witness = headers_expectation.modify_if_invalid_test(
+                execution_witness
             )
 
         built_block = BuiltBlock(

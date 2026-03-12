@@ -128,11 +128,7 @@ def test_witness_headers_blockhash_in_reverted_tx(
     Test witness headers survive a full transaction revert.
     """
     offset = 5
-    code = (
-        Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset))
-        + Op.POP
-        + Op.REVERT(0, 0)
-    )
+    code = Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.REVERT(0, 0)
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
     tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
