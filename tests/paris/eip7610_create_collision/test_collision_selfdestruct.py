@@ -43,7 +43,7 @@ def test_selfdestruct_after_create2_collision(
     initcode = Initcode(deploy_code=Op.STOP)
 
     deployer_storage = Storage()
-    deployer_code = Op.SSTORE(
+    deployer_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(
         deployer_storage.store_next(0, "create2_result"),
         Op.CREATE2(value=0, offset=0, size=Op.CALLDATASIZE, salt=salt),
     )
@@ -72,7 +72,7 @@ def test_selfdestruct_after_create2_collision(
         + Op.SSTORE(
             storage.store_next(1, "create2_call_success"),
             Op.CALL(
-                gas=100_000,
+                gas=500_000,
                 address=deployer,
                 args_size=Op.CALLDATASIZE,
             ),
@@ -109,7 +109,7 @@ def test_selfdestruct_after_create2_collision(
         tx=Transaction(
             sender=sender,
             to=controller,
-            gas_limit=1_000_000,
+            gas_limit=2_000_000,
             data=initcode,
         ),
     )
