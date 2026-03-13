@@ -12,7 +12,7 @@ inputs:
   golang:
     description: 'Golang version to use to build Geth'
     required: false
-    default: '1.21.x'
+    default: '1.24.x'
 runs:
   using: "composite"
   steps:
