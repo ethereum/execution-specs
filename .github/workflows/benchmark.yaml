@@ -30,7 +30,7 @@ jobs:
     name: Benchmark Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: true
 
@@ -63,7 +63,7 @@ jobs:
           - name: Fixed Opcode Count Config
             tox-env: benchmark-fixed-opcode-config
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: true
 
@@ -91,7 +91,7 @@ jobs:
     runs-on: [self-hosted-ghr, size-gigachungus-x64]
     timeout-minutes: 720
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: true
 
