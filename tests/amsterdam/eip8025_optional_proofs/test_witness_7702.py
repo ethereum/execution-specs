@@ -76,6 +76,80 @@ def test_witness_codes_delegated_eoa(
     )
 
 
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALL, id="call"),
+        pytest.param(Op.CALLCODE, id="callcode"),
+    ],
+)
+def test_witness_codes_delegated_eoa_insufficient_balance(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    call_opcode: Op,
+) -> None:
+    """
+    CALL/CALLCODE to a delegated EOA with value greater than caller balance.
+
+    The call must fail and return 0, but delegation resolution still reads
+    both the marker code and the delegated bytecode into the witness before
+    the insufficient-balance early return.
+    """
+    delegate_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
+    delegate = pre.deploy_contract(code=delegate_code)
+
+    delegated_eoa = pre.fund_eoa(amount=0, delegation=delegate)
+
+    caller_balance = 100
+    transfer_value = 1_000
+    caller_code = (
+        Op.SSTORE(
+            0,
+            call_opcode(
+                Op.GAS,
+                delegated_eoa,
+                transfer_value,
+                0,
+                0,
+                0,
+                0,
+            ),
+        )
+        + Op.STOP
+    )
+    caller = pre.deploy_contract(
+        code=caller_code,
+        balance=caller_balance,
+        storage={0: 1},
+    )
+
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
+
+    marker = Spec7702.delegation_designation(delegate)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[
+                            Bytes(marker),
+                            Bytes(bytes(delegate_code)),
+                        ],
+                    )
+                ),
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            caller: Account(balance=caller_balance, storage={0: 0}),
+        },
+    )
+
+
 def test_witness_codes_sender_delegation_marker_included(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
