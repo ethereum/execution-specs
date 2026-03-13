@@ -34,6 +34,7 @@ from execution_testing import (
     While,
     keccak256,
 )
+from execution_testing.base_types.base_types import Number
 
 from tests.benchmark.stateful.helpers import (
     ALLOWANCE_SELECTOR,
@@ -273,6 +274,8 @@ def test_sload_erc20_balanceof(
 
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize("token_name", SSTORE_TOKENS)
+@pytest.mark.parametrize("write_new_value", [False, True])
+@pytest.mark.parametrize("existing_slot", [True, False])
 def test_sstore_erc20_approve(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -280,9 +283,21 @@ def test_sstore_erc20_approve(
     gas_benchmark_value: int,
     tx_gas_limit: int,
     token_name: str,
+    write_new_value: bool,
+    existing_slot: bool,
     cache_strategy: CacheStrategy,
 ) -> None:
     """Benchmark SSTORE using ERC20 approve on bloatnet."""
+    sender = EOA(
+        key=0x90655B60A56E01389173510C3DDF1B969803A9F41844BF344CBF3D1AC3A80845,
+        # nonce fetched from the pre-deployed state on the network
+        nonce=45344,
+    )
+    pre.fund_address(address=sender, amount=10**9)
+    assert Address(sender) == Address(
+        0x6C2624662DC514A69955E9A6A195ECE23ACED5A0
+    ), "EOA address mismatch"
+
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
@@ -309,7 +324,14 @@ def test_sstore_erc20_approve(
         + Op.CALLDATALOAD(0)  # [num_calls]
     )
 
-    call_approve = Op.MSTORE(64, Op.MLOAD(32)) + Op.POP(
+    value_to_write: Bytecode | int
+    if write_new_value:
+        # non-zero, avoids refund and always differs from existing values
+        value_to_write = 1
+    else:
+        value_to_write = Op.MLOAD(32) if existing_slot else 0
+
+    call_approve = Op.MSTORE(64, value_to_write) + Op.POP(
         Op.CALL(
             address=erc20_address,
             value=0,
@@ -322,6 +344,7 @@ def test_sstore_erc20_approve(
         )
     )
 
+    cache_warmup = Bytecode()
     if cache_strategy == CacheStrategy.CACHE_TX:
         # Call allowance(ADDRESS, spender) to warm the allowance
         # storage slot that approve will later write to.
@@ -346,8 +369,6 @@ def test_sstore_erc20_approve(
             + Op.MSTORE(0, APPROVE_SELECTOR)
             + Op.MSTORE(32, Op.MLOAD(64))
         )
-    else:
-        cache_warmup = Bytecode()
 
     loop = While(
         body=cache_warmup
@@ -364,6 +385,22 @@ def test_sstore_erc20_approve(
     setup_cost = setup.gas_cost(fork)
     loop_cost = loop.gas_cost(fork)
     access_list = [AccessList(address=erc20_address, storage_keys=[])]
+    # Delegate sender to attack_contract_address once in setup
+    delegation_tx = Transaction(
+        gas_limit=100_000,
+        to=sender,
+        value=0,
+        sender=pre.fund_eoa(),
+        authorization_list=[
+            AuthorizationTuple(
+                chain_id=0,
+                address=attack_contract_address,
+                nonce=sender.nonce,
+                signer=sender,
+            ),
+        ],
+    )
+    sender.nonce = Number(sender.nonce + 1)
     intrinsic_gas_with_access_list = (
         fork.transaction_intrinsic_cost_calculator()(
             access_list=access_list,
@@ -420,6 +457,9 @@ def test_sstore_erc20_approve(
 
     function_dispatch_cost = function_dispatch.gas_cost(fork)
 
+    with TestPhaseManager.setup():
+        delegation_block = Block(txs=[delegation_tx])
+
     if cache_strategy == CacheStrategy.CACHE_TX:
         # Add allowance dispatch cost for the warmup call.
         # allowance(owner, spender) computes the same double-
@@ -462,7 +502,10 @@ def test_sstore_erc20_approve(
     txs = []
     cache_txs = []
     gas_remaining = gas_benchmark_value
-    slot_offset = 0
+    # This sender is a stub account, the first initialized
+    # slot is 371 on perfnet. The initialized slots range
+    # is 371-45139; existing slots fall within that range.
+    slot_offset = 371 if existing_slot else START_SLOT
 
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
@@ -485,8 +528,8 @@ def test_sstore_erc20_approve(
                     Transaction(
                         gas_limit=gas_available,
                         data=calldata,
-                        to=attack_contract_address,
-                        sender=pre.fund_eoa(),
+                        to=sender,
+                        sender=sender,
                         access_list=access_list,
                     )
                 )
@@ -496,8 +539,8 @@ def test_sstore_erc20_approve(
                 Transaction(
                     gas_limit=gas_available,
                     data=calldata,
-                    to=attack_contract_address,
-                    sender=pre.fund_eoa(),
+                    to=sender,
+                    sender=sender,
                     access_list=access_list,
                 )
             )
@@ -505,7 +548,9 @@ def test_sstore_erc20_approve(
         gas_remaining -= gas_available
         slot_offset += num_calls
 
-    blocks = build_cache_strategy_blocks(cache_strategy, txs, cache_txs)
+    blocks = [delegation_block] + build_cache_strategy_blocks(
+        cache_strategy, txs, cache_txs
+    )
     # TODO: this test can currently not estimate the gas used
     # It will also overestimate the num_calls it can make to an unknown
     # ERC20 contract and will therefore OOG
