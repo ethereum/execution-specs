@@ -179,13 +179,6 @@ class ExecutionWitnessStateExpectation(CamelModel):
             "Encoded trie nodes that must NOT be present in witness state"
         ),
     )
-    allow_unexpected: bool = Field(
-        default=True,
-        description=(
-            "If False, fail when witness state contains nodes "
-            "not listed in nodes_present"
-        ),
-    )
 
     _modifier: Callable[["ExecutionWitness"], "ExecutionWitness"] | None = (
         PrivateAttr(default=None)
@@ -235,7 +228,6 @@ class ExecutionWitnessStateExpectation(CamelModel):
         1. Structural invariants: no duplicates and sorted order
         2. Presence checks: nodes_present entries exist
         3. Absence checks: nodes_absent entries do not exist
-        4. Exhaustiveness: if allow_unexpected=False, no extra nodes
 
         Args:
             actual_witness: The ExecutionWitness from the t8n tool
@@ -277,15 +269,6 @@ class ExecutionWitnessStateExpectation(CamelModel):
                 raise ExecutionWitnessValidationError(
                     f"Trie node {node.hex()} should not be in "
                     f"witness state but was found"
-                )
-
-        if not self.allow_unexpected:
-            expected_set = set(self.nodes_present)
-            unexpected = actual_set - expected_set
-            if unexpected:
-                raise ExecutionWitnessValidationError(
-                    f"Unexpected trie nodes in witness state: "
-                    f"{[n.hex() for n in unexpected]}"
                 )
 
 
