@@ -1201,8 +1201,15 @@ def test_selfdestruct_then_transfer_same_block(
     )
 
 
+@pytest.mark.parametrize(
+    "cross_block",
+    [
+        pytest.param(False, id="same_block"),
+        pytest.param(True, id="cross_block"),
+    ],
+)
 def test_selfdestruct_to_self_cross_tx_no_log(
-    blockchain_test: BlockchainTestFiller, pre: Alloc
+    blockchain_test: BlockchainTestFiller, pre: Alloc, cross_block: bool
 ) -> None:
     """
     Test that selfdestruct-to-self in a cross-tx context emits no log.
@@ -1215,6 +1222,10 @@ def test_selfdestruct_to_self_cross_tx_no_log(
          value=2000. Logs: [transfer_log(sender, created, 2000)]
     Tx2: Call created contract directly, value=0. Logs: []
     Post: contract keeps balance (not deleted, not in created_accounts in Tx2)
+
+    When cross_block=True, Tx1 and Tx2 are in separate blocks, verifying
+    that created_accounts is properly scoped per-transaction across block
+    boundaries.
     """
     contract_balance = 2000
     sender = pre.fund_eoa()
@@ -1225,37 +1236,38 @@ def test_selfdestruct_to_self_cross_tx_no_log(
     # Calculate the address that will be created by the first tx
     created_address = compute_create_address(address=sender, nonce=0)
 
-    blocks = [
-        Block(
-            txs=[
-                # Tx1: Create the contract directly via contract creation tx
-                Transaction(
-                    to=None,
-                    sender=sender,
-                    nonce=0,
-                    value=contract_balance,
-                    data=bytes(initcode),
-                    gas_limit=300_000,
-                    expected_receipt=TransactionReceipt(
-                        logs=[
-                            transfer_log(
-                                sender, created_address, contract_balance
-                            ),
-                        ]
-                    ),
-                ),
-                # Tx2: Call the created contract directly (cross-tx)
-                Transaction(
-                    to=created_address,
-                    sender=sender,
-                    nonce=1,
-                    value=0,
-                    gas_limit=100_000,
-                    expected_receipt=TransactionReceipt(logs=[]),
-                ),
-            ],
+    tx_create = Transaction(
+        to=None,
+        sender=sender,
+        nonce=0,
+        value=contract_balance,
+        data=bytes(initcode),
+        gas_limit=300_000,
+        expected_receipt=TransactionReceipt(
+            logs=[
+                transfer_log(sender, created_address, contract_balance),
+            ]
         ),
-    ]
+    )
+
+    tx_selfdestruct = Transaction(
+        to=created_address,
+        sender=sender,
+        nonce=1,
+        value=0,
+        gas_limit=100_000,
+        expected_receipt=TransactionReceipt(logs=[]),
+    )
+
+    if cross_block:
+        blocks = [
+            Block(txs=[tx_create]),
+            Block(txs=[tx_selfdestruct]),
+        ]
+    else:
+        blocks = [
+            Block(txs=[tx_create, tx_selfdestruct]),
+        ]
 
     blockchain_test(
         pre=pre,
