@@ -95,7 +95,8 @@ class ExecutionWitnessCodesExpectation(CamelModel):
         Verify that the actual witness codes match this expectation.
 
         Validation steps:
-        1. Structural invariants: no duplicates and sorted order
+        1. Structural invariants: no duplicates and lexicographic
+           ascending order
         2. Presence checks: codes_present entries exist
         3. Absence checks: codes_absent entries do not exist
         4. Exhaustiveness: if allow_unexpected=False, no extra codes
@@ -123,7 +124,8 @@ class ExecutionWitnessCodesExpectation(CamelModel):
 
         if actual_codes != sorted(actual_codes):
             raise ExecutionWitnessValidationError(
-                "Witness codes are not sorted in lexicographic order"
+                "Witness codes are not sorted in lexicographic ascending "
+                "order"
             )
 
         actual_set = set(actual_codes)
@@ -225,7 +227,8 @@ class ExecutionWitnessStateExpectation(CamelModel):
         Verify that the actual witness state matches this expectation.
 
         Validation steps:
-        1. Structural invariants: no duplicates and sorted order
+        1. Structural invariants: no duplicates and lexicographic
+           ascending order
         2. Presence checks: nodes_present entries exist
         3. Absence checks: nodes_absent entries do not exist
 
@@ -252,7 +255,8 @@ class ExecutionWitnessStateExpectation(CamelModel):
 
         if actual_nodes != sorted(actual_nodes):
             raise ExecutionWitnessValidationError(
-                "Witness state is not sorted in lexicographic order"
+                "Witness state is not sorted in lexicographic ascending "
+                "order"
             )
 
         actual_set = set(actual_nodes)
