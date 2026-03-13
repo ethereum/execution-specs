@@ -261,6 +261,231 @@ def test_witness_state_reverted_sload_still_contains_storage_proof(
     )
 
 
+def test_witness_state_sload_absent_slot_contains_storage_proof(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    SLOAD of an absent slot should include the pre-state absence proof.
+
+    Use a multi-slot trie so the absent-slot path is meaningfully different
+    from the single-leaf proof covered elsewhere.
+    """
+    storage = build_large_storage([1, 2])
+    absent_slot = 3
+    proof_nodes = collect_storage_proof_nodes(storage, [absent_slot])
+    existing_slot_only_nodes = collect_storage_path_only_nodes(
+        storage, 1, [absent_slot]
+    )
+    assert proof_nodes
+    assert existing_slot_only_nodes
+
+    contract = pre.deploy_contract(
+        code=Op.SLOAD(absent_slot) + Op.POP + Op.STOP,
+        storage=Storage(storage),
+    )
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_state=(
+                    ExecutionWitnessStateExpectation(
+                        nodes_present=proof_nodes,
+                        nodes_absent=existing_slot_only_nodes,
+                    )
+                ),
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            contract: Account(storage=storage),
+        },
+    )
+
+
+def test_witness_state_reverted_sstore_still_contains_storage_proof(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """A reverted SSTORE should still leave its proof nodes in witness state."""
+    storage = build_large_storage([1])
+    proof_nodes = collect_storage_proof_nodes(storage, [1])
+    assert proof_nodes
+
+    new_value = large_storage_value(9)
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(1, new_value) + Op.REVERT(0, 0),
+        storage=Storage(storage),
+    )
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_state=(
+                    ExecutionWitnessStateExpectation(
+                        nodes_present=proof_nodes,
+                    )
+                ),
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            contract: Account(storage=storage),
+        },
+    )
+
+
+def test_witness_state_sstore_new_slot_omits_post_state_nodes(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Inserting a new slot should include the pre-state absence proof only.
+
+    Nodes created solely by the post-state insertion must not leak into the
+    witness.
+    """
+    pre_storage = build_large_storage([1, 2])
+    insert_slot = 3
+    insert_value = large_storage_value(insert_slot)
+    post_storage = {
+        **pre_storage,
+        insert_slot: insert_value,
+    }
+    proof_nodes = collect_storage_proof_nodes(pre_storage, [insert_slot])
+    post_state_only_nodes = collect_storage_post_state_only_nodes(
+        pre_storage=pre_storage,
+        post_storage=post_storage,
+        slot=insert_slot,
+        pre_state_reference_slots=[insert_slot],
+    )
+    assert proof_nodes
+    assert post_state_only_nodes
+
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(insert_slot, insert_value) + Op.STOP,
+        storage=Storage(pre_storage),
+    )
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_state=(
+                    ExecutionWitnessStateExpectation(
+                        nodes_present=proof_nodes,
+                        nodes_absent=post_state_only_nodes,
+                    )
+                ),
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            contract: Account(storage=post_storage),
+        },
+    )
+
+
+def test_witness_state_sstore_into_empty_storage_omits_post_state_nodes(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Empty pre-state storage should not require any storage proof nodes.
+
+    The nodes created solely by the insertion are post-state material and
+    must not appear in the witness.
+    """
+    insert_slot = 1
+    insert_value = large_storage_value(insert_slot)
+    pre_storage: dict[int, int] = {}
+    post_storage = {insert_slot: insert_value}
+    proof_nodes = collect_storage_proof_nodes(pre_storage, [insert_slot])
+    post_state_only_nodes = collect_storage_post_state_only_nodes(
+        pre_storage=pre_storage,
+        post_storage=post_storage,
+        slot=insert_slot,
+        pre_state_reference_slots=[insert_slot],
+    )
+    assert not proof_nodes
+    assert post_state_only_nodes
+
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(insert_slot, insert_value) + Op.STOP,
+        storage=Storage(pre_storage),
+    )
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_state=(
+                    ExecutionWitnessStateExpectation(
+                        nodes_absent=post_state_only_nodes,
+                    )
+                ),
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            contract: Account(storage=post_storage),
+        },
+    )
+
+
+def test_witness_state_sstore_delete_last_slot_has_no_auxiliary_nodes(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    Deleting the last slot should empty the trie without auxiliary nodes.
+    """
+    storage = build_large_storage([1])
+    proof_nodes = collect_storage_proof_nodes(storage, [1])
+    auxiliary_nodes = collect_storage_delete_auxiliary_nodes(storage, 1)
+    assert proof_nodes
+    assert not auxiliary_nodes
+
+    contract = pre.deploy_contract(
+        code=Op.SSTORE(1, 0) + Op.STOP,
+        storage=Storage(storage),
+    )
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_state=(
+                    ExecutionWitnessStateExpectation(
+                        nodes_present=proof_nodes,
+                    )
+                ),
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            contract: Account(storage={}),
+        },
+    )
+
+
 def test_witness_state_delete_with_new_dirty_sibling_omits_post_state_node(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
