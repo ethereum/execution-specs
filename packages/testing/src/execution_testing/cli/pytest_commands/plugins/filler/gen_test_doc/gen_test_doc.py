@@ -478,7 +478,6 @@ class TestDocsGenerator:
             )
 
             is_benchmark = items[0].get_closest_marker("benchmark") is not None
-            is_stateful = items[0].get_closest_marker("stateful") is not None
 
             self.function_page_props[function_id] = FunctionPageProps(
                 title=get_test_function_name(items[0]),
@@ -497,7 +496,6 @@ class TestDocsGenerator:
                 html_static_page_target=f"./{get_test_function_name(items[0])}.html",
                 mkdocs_function_page_target=f"./{get_test_function_name(items[0])}/",
                 is_benchmark=is_benchmark,
-                is_stateful=is_stateful,
             )
 
     def create_module_page_props(self) -> None:
@@ -514,7 +512,6 @@ class TestDocsGenerator:
                         pytest_node_id=str(module_path),
                         package_name=get_import_path(module_path),
                         is_benchmark=function_page.is_benchmark,
-                        is_stateful=function_page.is_stateful,
                         test_functions=[
                             TestFunction(
                                 name=function_page.title,
@@ -531,8 +528,6 @@ class TestDocsGenerator:
                 ]
                 if function_page.is_benchmark:
                     existing_module_page.is_benchmark = True
-                if function_page.is_stateful:
-                    existing_module_page.is_stateful = True
                 existing_module_page.test_functions.append(
                     TestFunction(
                         name=function_page.title,
@@ -573,13 +568,6 @@ class TestDocsGenerator:
                 if directory in module_page.path.parents
                 or module_page.path.parent == directory
             )
-            is_stateful = any(
-                module_page.is_stateful
-                for module_page in self.module_page_props.values()
-                if directory in module_page.path.parents
-                or module_page.path.parent == directory
-            )
-
             self.page_props[str(directory)] = DirectoryPageProps(
                 title=sanitize_string_title(str(directory.name)),
                 path=directory,
@@ -593,7 +581,6 @@ class TestDocsGenerator:
                 # init.py will be used for docstrings
                 package_name=get_import_path(directory),
                 is_benchmark=is_benchmark,
-                is_stateful=is_stateful,
             )
 
     def find_files_within_collection_scope(
