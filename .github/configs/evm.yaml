@@ -13,5 +13,5 @@ static:
   targets: ["evmone-t8n"]
 benchmark:
   impl: geth
-  repo: ethereum/go-ethereum
-  ref: master
+  repo: fselmo/go-ethereum
+  ref: feat/update-t8n-for-amsterdam
