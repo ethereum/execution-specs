@@ -117,7 +117,7 @@ def test_witness_state_sstore_delete_without_collapse_omits_sibling_nodes(
     )
 
 
-def test_witness_state_sstore_delete_only_slot_contains_proof_and_empties_storage(
+def test_witness_state_sstore_delete_only_slot_keeps_proof(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:

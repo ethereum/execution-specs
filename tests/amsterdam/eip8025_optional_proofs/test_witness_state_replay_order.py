@@ -107,7 +107,7 @@ def test_witness_state_block_diff_delete_insert_before_delete_order(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
-    This reproduces the same post-state-root ordering case as the
+    Reproduces the same post-state-root ordering case as the
     single-transaction test, but across transactions.
 
     The block-level diff records slot 1 before slot 3 because the delete
