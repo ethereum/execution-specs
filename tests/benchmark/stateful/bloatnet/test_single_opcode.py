@@ -272,6 +272,7 @@ def test_sload_erc20_balanceof(
     benchmark_test(pre=pre, blocks=blocks, skip_gas_used_validation=True)
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize("token_name", SSTORE_TOKENS)
 @pytest.mark.parametrize("write_new_value", [False, True])
