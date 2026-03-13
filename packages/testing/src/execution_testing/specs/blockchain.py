@@ -91,6 +91,7 @@ from execution_testing.test_types.block_access_list import (
 from execution_testing.test_types.execution_witness import (
     ExecutionWitnessCodesExpectation,
     ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
 )
 
 from .base import BaseTest, FillResult, OpMode, verify_result
@@ -279,6 +280,13 @@ class Block(Header):
     ) = None
     """
     If set, the execution witness codes will be verified and potentially
+    modified for invalid tests.
+    """
+    expected_execution_witness_state: (
+        ExecutionWitnessStateExpectation | None
+    ) = None
+    """
+    If set, the execution witness state will be verified and potentially
     modified for invalid tests.
     """
     expected_execution_witness_headers: (
@@ -794,17 +802,26 @@ class BlockchainTest(BaseTest):
                 # If the BAL was modified, update the header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
-        # If expected witness codes defined, verify against actual
+        # If expected witness state/codes defined, verify against actual
         t8n_witness = transition_tool_output.result.execution_witness
         execution_witness = t8n_witness
+        state_expectation = block.expected_execution_witness_state
+        if state_expectation is not None and execution_witness is not None:
+            state_expectation.verify_against(execution_witness)
+            execution_witness = state_expectation.modify_if_invalid_test(
+                execution_witness
+            )
+
         if (
             block.expected_execution_witness_codes is not None
-            and t8n_witness is not None
+            and execution_witness is not None
         ):
-            block.expected_execution_witness_codes.verify_against(t8n_witness)
+            block.expected_execution_witness_codes.verify_against(
+                execution_witness
+            )
             execution_witness = (
                 block.expected_execution_witness_codes.modify_if_invalid_test(
-                    t8n_witness
+                    execution_witness
                 )
             )
 
@@ -855,6 +872,11 @@ class BlockchainTest(BaseTest):
                 and not (
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list._modifier is not None
+                )
+                and not (
+                    block.expected_execution_witness_state is not None
+                    and block.expected_execution_witness_state._modifier
+                    is not None
                 )
                 and not (
                     block.expected_execution_witness_codes is not None

@@ -23,6 +23,7 @@ from .execution_witness import (
     ExecutionWitness,
     ExecutionWitnessCodesExpectation,
     ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
     ExecutionWitnessValidationError,
 )
 from .helpers import (
@@ -80,6 +81,7 @@ __all__ = (
     "ExecutionWitness",
     "ExecutionWitnessCodesExpectation",
     "ExecutionWitnessHeadersExpectation",
+    "ExecutionWitnessStateExpectation",
     "ExecutionWitnessValidationError",
     "NetworkWrappedTransaction",
     "Removable",

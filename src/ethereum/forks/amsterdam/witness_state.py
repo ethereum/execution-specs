@@ -264,8 +264,14 @@ class WitnessState:
                 secured=True,
                 default=U256(0),
             )
+            # We must do insertions+updates before deletions to minimize branch
+            # compressions.
             for key, value in slots.items():
-                mpt_set(storage_mpt, key, value)
+                if value != 0:
+                    mpt_set(storage_mpt, key, value)
+            for key, value in slots.items():
+                if value == 0:
+                    mpt_set(storage_mpt, key, value)
             new_storage_roots[address] = mpt_root(storage_mpt)
 
         state_mpt: IncrementalMPT[Address, Optional[Account]] = (

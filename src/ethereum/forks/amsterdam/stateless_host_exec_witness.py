@@ -172,8 +172,8 @@ def build_execution_witness(
     """
     Build the execution witness from block state and pre-state trie data.
 
-    Sort state and codes lexicographically, headers by block number
-    ascending.
+    Sort state and codes in lexicographic ascending order, headers by
+    block number ascending.
     """
     ancestor_headers = get_witness_ancestors(
         blockchain_headers if blockchain_headers is not None else [],
