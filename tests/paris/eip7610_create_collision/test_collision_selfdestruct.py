@@ -42,14 +42,14 @@ def test_selfdestruct_after_create2_collision(
     salt = 0
     initcode = Initcode(deploy_code=Op.STOP)
 
-    # Pre-compute the CREATE2 target address (we'll use the deployer
-    # contract address once deployed).
-    # We need to deploy the deployer first to know its address.
+    deployer_storage = Storage()
     deployer_code = Op.SSTORE(
-        0,
+        deployer_storage.store_next(0, "create2_result"),
         Op.CREATE2(value=0, offset=0, size=Op.CALLDATASIZE, salt=salt),
     )
-    deployer = pre.deploy_contract(deployer_code)
+    deployer = pre.deploy_contract(
+        deployer_code, storage=deployer_storage.canary()
+    )
 
     target_address = compute_create2_address(deployer, salt, initcode)
 
@@ -58,7 +58,7 @@ def test_selfdestruct_after_create2_collision(
     # Target already exists with balance and code (causes collision).
     target_code = Op.SELFDESTRUCT(beneficiary)
     pre[target_address] = Account(
-        balance=5_000_000_000,
+        balance=1,
         nonce=1,
         code=target_code,
     )
@@ -89,13 +89,17 @@ def test_selfdestruct_after_create2_collision(
 
     post = {
         controller: Account(storage=storage),
-        # Target must still exist with its balance (SELFDESTRUCT did
-        # not destroy because it was NOT created in this tx).
+        # CREATE2 failed due to collision — returned 0.
+        deployer: Account(storage=deployer_storage),
+        # Target must still exist (SELFDESTRUCT did not destroy because
+        # it was NOT created in this tx). Balance was transferred to
+        # beneficiary.
         target_address: Account(
             balance=0,
             nonce=1,
             code=target_code,
         ),
+        beneficiary: Account(balance=1),
     }
 
     state_test(
