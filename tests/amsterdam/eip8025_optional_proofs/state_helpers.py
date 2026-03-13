@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 
 from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U256
-from execution_testing import Bytes
+from execution_testing import Bytes, Storage
 
 from ethereum.forks.amsterdam.incremental_mpt import (
     build_mpt,
@@ -21,6 +21,11 @@ def large_storage_value(slot: int) -> int:
 def build_large_storage(slots: Sequence[int]) -> dict[int, int]:
     """Build a slot->value mapping with large deterministic values."""
     return {slot: large_storage_value(slot) for slot in slots}
+
+
+def as_storage(storage: Mapping[int, int]) -> Storage:
+    """Convert an int-keyed storage mapping into a `Storage`."""
+    return Storage.model_validate(dict(storage.items()))
 
 
 def _slot(slot: int) -> Bytes32:
