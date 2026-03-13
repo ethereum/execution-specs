@@ -124,8 +124,7 @@ class ExecutionWitnessCodesExpectation(CamelModel):
 
         if actual_codes != sorted(actual_codes):
             raise ExecutionWitnessValidationError(
-                "Witness codes are not sorted in lexicographic ascending "
-                "order"
+                "Witness codes are not sorted in lexicographic ascending order"
             )
 
         actual_set = set(actual_codes)
@@ -255,8 +254,7 @@ class ExecutionWitnessStateExpectation(CamelModel):
 
         if actual_nodes != sorted(actual_nodes):
             raise ExecutionWitnessValidationError(
-                "Witness state is not sorted in lexicographic ascending "
-                "order"
+                "Witness state is not sorted in lexicographic ascending order"
             )
 
         actual_set = set(actual_nodes)
