@@ -56,7 +56,7 @@ The generated test fixtures can be used:
 1. Directly by client teams' test frameworks, and,
 2. In the integration tests executed in the @ethereum/hive framework.
 
-More information on how to use and download the [released test fixtures](https://github.com/ethereum/execution-spec-tests/releases) can be found [here](running_tests/index.md).
+More information on how to use and download the [released test fixtures](https://github.com/ethereum/execution-spec-tests/releases) can be found in the [running tests guide](running_tests/index.md).
 
 ## Relationship to ethereum/tests
 

@@ -93,7 +93,7 @@ def markdownlint(args: tuple[str, ...]) -> None:
             "********* Install 'markdownlint-cli2' to enable markdown linting\
             *********\
             ```\
-            sudo npm install -g markdownlint-cli2@0.17.2\
+            sudo npm install -g markdownlint-cli2@0.20.0\
             ```\
             "
         )

@@ -179,7 +179,7 @@ git push origin v1.15.0 # Replace the tag name here too.
 
 ### Creating the GitHub Release
 
-Go [here][release], choose the newly created tag, and generate some release
+Go to the [release page][release], choose the newly created tag, and generate some release
 notes.
 
 [release]: https://github.com/ethereum/execution-specs/releases/new
