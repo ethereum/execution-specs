@@ -36,7 +36,6 @@ from ..state import (
     account_has_storage,
     begin_transaction,
     commit_transaction,
-    destroy_storage,
     move_ether,
     rollback_transaction,
     set_code,
