@@ -72,6 +72,19 @@ class OpcodeWithOperands:
                 return HexNumber(value)
         return self
 
+    def __eq__(self, other: Any) -> bool:
+        """Compare two opcodes with operands."""
+        if not isinstance(other, OpcodeWithOperands):
+            return False
+        if (
+            self.opcode == other.opcode
+            and self.operands == other.operands
+            and self.args == other.args
+            and self.kwargs == other.kwargs
+        ):
+            return True
+        return False
+
 
 @dataclass(kw_only=True)
 class OpcodeWithOperandsAssembly(OpcodeWithOperands):
@@ -144,8 +157,25 @@ def process_evm_bytes(  # noqa: D103
     return opcodes
 
 
+@dataclass(kw_only=True)
+class RepeatingOpcodeWithOperands:
+    """Opcode that can be repeated `count` times."""
+
+    opcode: OpcodeWithOperands
+    count: int = 1
+
+    def __str__(self) -> str:
+        """Format into a string."""
+        assert self.count > 0
+        if self.count == 1:
+            return f"{self.opcode}"
+        return f"{self.opcode} * {self.count}"
+
+
 def format_opcodes(  # noqa: D103
-    opcodes: List[OpcodeWithOperands], assembly: bool = False
+    opcodes: List[OpcodeWithOperands],
+    assembly: bool = False,
+    skip_simplify: bool = False,
 ) -> str:
     if assembly:
         opcodes_with_empty_lines: List[OpcodeWithOperandsAssembly | str] = []
@@ -165,11 +195,24 @@ def format_opcodes(  # noqa: D103
             ):
                 opcodes_with_empty_lines.append("")
         return "\n".join(f"{op}" for op in opcodes_with_empty_lines)
-    return " + ".join(f"{op}" for op in opcodes)
+    if skip_simplify or len(opcodes) < 2:
+        return " + ".join(f"{op}" for op in opcodes)
+    previous_opcode = RepeatingOpcodeWithOperands(opcode=opcodes[0])
+    opcodes_with_multiply: List[RepeatingOpcodeWithOperands] = []
+    for op in opcodes[1:]:
+        if op == previous_opcode.opcode:
+            previous_opcode.count += 1
+        else:
+            opcodes_with_multiply.append(previous_opcode)
+            previous_opcode = RepeatingOpcodeWithOperands(opcode=op)
+    opcodes_with_multiply.append(previous_opcode)
+    return " + ".join(f"{op}" for op in opcodes_with_multiply)
 
 
 def process_evm_bytes_string(
-    evm_bytes_hex_string: str, assembly: bool = False
+    evm_bytes_hex_string: str,
+    assembly: bool = False,
+    skip_simplify: bool = False,
 ) -> str:
     """Process the given EVM bytes hex string."""
     if evm_bytes_hex_string.startswith("0x"):
@@ -177,7 +220,9 @@ def process_evm_bytes_string(
 
     evm_bytes = bytes.fromhex(evm_bytes_hex_string)
     return format_opcodes(
-        process_evm_bytes(evm_bytes, assembly=assembly), assembly=assembly
+        process_evm_bytes(evm_bytes, assembly=assembly),
+        assembly=assembly,
+        skip_simplify=skip_simplify,
     )
 
 
