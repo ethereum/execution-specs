@@ -264,9 +264,8 @@ class WitnessState:
                 secured=True,
                 default=U256(0),
             )
-            # Mirror host-side witness construction: replay insert/update
-            # writes first, then deletions, to avoid transient branch
-            # compressions that would incorrectly require extra witness nodes.
+            # We must do insertions+updates before deletions to minimize branch
+            # compressions.
             for key, value in slots.items():
                 if value != 0:
                     mpt_set(storage_mpt, key, value)
