@@ -30,6 +30,7 @@ from ethereum.exceptions import (
 )
 from ethereum.forks.bpo5.blocks import Header as PreviousHeader
 from ethereum.state import EMPTY_CODE_HASH, Address, BlockDiff, PreState
+from ethereum.utils.byte import left_pad_zero_bytes
 
 from . import vm
 from .block_access_lists import (
