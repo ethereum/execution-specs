@@ -499,14 +499,15 @@ def test_sstore_erc20_approve(
         function_dispatch_cost += function_dispatch_allowance.gas_cost(fork)
 
     # Transaction Loops
-    txs = []
-    cache_txs = []
     gas_remaining = gas_benchmark_value
     # This sender is a stub account, the first initialized
     # slot is 371 on perfnet. The initialized slots range
     # is 371-45139; existing slots fall within that range.
     slot_offset = 371 if existing_slot else START_SLOT
 
+    # Collect tx params first, then build Transaction objects
+    # so that nonces are allocated contiguously per block.
+    tx_params: list[tuple[int, bytes]] = []
     while gas_remaining > intrinsic_gas_with_access_list:
         gas_available = min(gas_remaining, tx_gas_limit)
 
@@ -521,9 +522,15 @@ def test_sstore_erc20_approve(
             break
 
         calldata = Hash(num_calls) + Hash(slot_offset)
+        tx_params.append((gas_available, calldata))
 
-        if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
-            with TestPhaseManager.setup():
+        gas_remaining -= gas_available
+        slot_offset += num_calls
+
+    cache_txs = []
+    if cache_strategy == CacheStrategy.CACHE_PREVIOUS_BLOCK:
+        with TestPhaseManager.setup():
+            for gas_available, calldata in tx_params:
                 cache_txs.append(
                     Transaction(
                         gas_limit=gas_available,
@@ -534,7 +541,9 @@ def test_sstore_erc20_approve(
                     )
                 )
 
-        with TestPhaseManager.execution():
+    txs = []
+    with TestPhaseManager.execution():
+        for gas_available, calldata in tx_params:
             txs.append(
                 Transaction(
                     gas_limit=gas_available,
@@ -544,9 +553,6 @@ def test_sstore_erc20_approve(
                     access_list=access_list,
                 )
             )
-
-        gas_remaining -= gas_available
-        slot_offset += num_calls
 
     blocks = [delegation_block] + build_cache_strategy_blocks(
         cache_strategy, txs, cache_txs
