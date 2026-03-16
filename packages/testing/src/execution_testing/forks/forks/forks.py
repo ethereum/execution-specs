@@ -2591,6 +2591,19 @@ class Cancun(Shanghai):
         ]
 
     @classmethod
+    def execution_witness_implicit_code_addresses(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
+        """Cancun witnesses implicitly include beacon roots code."""
+        del block_number, timestamp
+        return [
+            Address(
+                0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02,
+                label="BEACON_ROOTS_ADDRESS",
+            )
+        ]
+
+    @classmethod
     def pre_allocation_blockchain(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Mapping:
@@ -2809,6 +2822,28 @@ class Prague(Cancun):
                 label="HISTORY_STORAGE_ADDRESS",
             ),
         ] + super(Prague, cls).system_contracts(
+            block_number=block_number, timestamp=timestamp
+        )
+
+    @classmethod
+    def execution_witness_implicit_code_addresses(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
+        """Prague witnesses implicitly include tracked block-level system code."""
+        return [
+            Address(
+                0x00000961EF480EB55E80D19AD83579A64C007002,
+                label="WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+            Address(
+                0x0000BBDDC7CE488642FB579F8B00F3A590007251,
+                label="CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+            Address(
+                0x0000F90827F1C53A10CB7A02335B175320002935,
+                label="HISTORY_STORAGE_ADDRESS",
+            ),
+        ] + super(Prague, cls).execution_witness_implicit_code_addresses(
             block_number=block_number, timestamp=timestamp
         )
 
@@ -3468,6 +3503,31 @@ class Amsterdam(BPO2):
         """
         del block_number, timestamp
         return 15
+
+    @classmethod
+    def execution_witness_implicit_code_addresses(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> List[Address]:
+        """Amsterdam witnesses implicitly include tracked block-level system code."""
+        del block_number, timestamp
+        return [
+            Address(
+                0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02,
+                label="BEACON_ROOTS_ADDRESS",
+            ),
+            Address(
+                0x00000961EF480EB55E80D19AD83579A64C007002,
+                label="WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+            Address(
+                0x0000BBDDC7CE488642FB579F8B00F3A590007251,
+                label="CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS",
+            ),
+            Address(
+                0x0000F90827F1C53A10CB7A02335B175320002935,
+                label="HISTORY_STORAGE_ADDRESS",
+            ),
+        ]
 
     @classmethod
     def is_deployed(cls) -> bool:
