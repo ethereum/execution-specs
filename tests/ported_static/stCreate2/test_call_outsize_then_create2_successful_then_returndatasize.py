@@ -104,6 +104,8 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
         gas_limit=100000,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(storage={0: 0}),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

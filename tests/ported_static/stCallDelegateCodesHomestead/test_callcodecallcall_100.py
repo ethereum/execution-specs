@@ -48,7 +48,7 @@ def test_callcodecallcall_100(
         gas_limit=30000000,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x3, value=0x1)
             + Op.SSTORE(key=0x4, value=Op.CALLER)
@@ -84,7 +84,7 @@ def test_callcodecallcall_100(
         nonce=0,
         address=Address("0x3c83297c6dcbc0520cd68714f85dc444469fb287"),  # noqa: E501
     )
-    callee_2 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x2,
@@ -134,24 +134,26 @@ def test_callcodecallcall_100(
     )
 
     post = {
-        callee: Account(
-            storage={
-                3: 1,
-                4: 0x5F6EACDE5A1E97F48C5DB4EE84FDF614F9DD9756,
-                7: 2,
-                330: 0x181B4ED322E192361633CC3C0A418F259AB0CF4B,
-                332: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
-                336: 64,
-                338: 39,
-                340: 10,
-            },
-        ),
-        callee_2: Account(storage={2: 1}),
-        contract: Account(
+        Address("0x1000000000000000000000000000000000000000"): Account(
             storage={
                 0: 1,
                 1: 1,
-                5: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
+                5: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+            },
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={2: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000003"): Account(
+            storage={
+                3: 1,
+                4: 0x1000000000000000000000000000000000000002,
+                7: 2,
+                330: 0x1000000000000000000000000000000000000003,
+                332: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                336: 64,
+                338: 39,
+                340: 10,
             },
         ),
     }

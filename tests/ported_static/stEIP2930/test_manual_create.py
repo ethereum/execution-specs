@@ -27,65 +27,38 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_access_list, expected_post",
+    "tx_access_list",
     [
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0xec0e71ad0a90ffe1909d27dac207f7680abba42d"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
-                        )
-                    ],
-                )
-            ],
-            {
-                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
-                    storage={0: 22108, 1: 106}
-                )
-            },
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000100"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-                        )
-                    ],
-                )
-            ],
-            {
-                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
-                    storage={0: 22108, 1: 106}
-                )
-            },
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0xec0e71ad0a90ffe1909d27dac207f7680abba42d"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-                        )
-                    ],
-                )
-            ],
-            {
-                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
-                    storage={0: 20008, 1: 106}
-                )
-            },
-        ),
+        [
+            AccessList(
+                address=Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"),
+                storage_keys=[
+                    Hash(
+                        "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+                    )
+                ],
+            )
+        ],
+        [
+            AccessList(
+                address=Address("0x0000000000000000000000000000000000000100"),
+                storage_keys=[
+                    Hash(
+                        "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                    )
+                ],
+            )
+        ],
+        [
+            AccessList(
+                address=Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"),
+                storage_keys=[
+                    Hash(
+                        "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                    )
+                ],
+            )
+        ],
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -94,7 +67,6 @@ def test_manual_create(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_access_list: list | None,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -122,6 +94,12 @@ def test_manual_create(
         access_list=tx_access_list,
     )
 
-    post = expected_post
+    post = {
+        Address(
+            "0x1347643934918410483264248204649189527119862670381"
+        ): Account(
+            storage={0: 20008, 1: 106},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

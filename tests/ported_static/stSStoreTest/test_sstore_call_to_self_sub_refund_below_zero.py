@@ -80,7 +80,14 @@ def test_sstore_call_to_self_sub_refund_below_zero(
     )
 
     post = {
-        contract: Account(storage={1: 3}),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xe12d6474ac4964b9f23812bf3375c1fe637ad3b6"): Account(
+            storage={1: 3},
+            nonce=0,
+            balance=0,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

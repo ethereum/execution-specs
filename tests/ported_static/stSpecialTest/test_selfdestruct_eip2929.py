@@ -268,7 +268,9 @@ def test_selfdestruct_eip2929(
     )
 
     post = {
-        contract: Account(storage={1: 1}),
+        Address("0x000000000000000000000000000000000000c411"): Account(
+            storage={1: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

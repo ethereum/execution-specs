@@ -184,6 +184,7 @@ def test_wallet_kill(
     )
 
     post = {
+        sender: Account(storage={}, nonce=2),
         contract: Account(
             storage={
                 0: 1,
@@ -193,6 +194,8 @@ def test_wallet_kill(
                 262: 0xC22E4,
                 0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
             },
+            nonce=0,
+            balance=0,
         ),
     }
 

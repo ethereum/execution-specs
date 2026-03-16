@@ -127,7 +127,26 @@ def test_callcallcallcode_001_suicide_end(
     )
 
     post = {
-        contract: Account(storage={0: 1, 1: 1, 2: 1, 3: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 1: 1, 2: 1, 3: 1},
+            nonce=0,
+            balance=0,
+            code=bytes.fromhex(
+                "60406000604060006000731000000000000000000000000000000000000001620249f0f260005500"  # noqa: E501
+            ),
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={1: 0, 3: 0},
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={0: 0, 2: 0},
+        ),
+        Address("0x1000000000000000000000000000000000000003"): Account(
+            storage={3: 0},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 0, 2: 0},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

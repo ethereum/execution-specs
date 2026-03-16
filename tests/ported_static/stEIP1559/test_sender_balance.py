@@ -69,7 +69,9 @@ def test_sender_balance(
     )
 
     post = {
-        contract: Account(storage={0: 0xDE0B6B3A6FE6060}),
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
+            storage={0: 0xDE0B6B3A6FE6060},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

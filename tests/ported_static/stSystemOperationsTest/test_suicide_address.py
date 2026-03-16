@@ -69,8 +69,8 @@ def test_suicide_address(
     )
 
     post = {
-        contract: Account(
-            storage={0: 0xAB0CEFFAA4BD275F5819261E06029439647112C1},
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            balance=0xDE0B6B3A76586A0,
         ),
     }
 

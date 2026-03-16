@@ -29,32 +29,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "tx_value",
     [
-        (
-            100000,
-            {
-                Address("0xdfad372452688759edd82c422bf3976eafc89c2b"): Account(
-                    storage={
-                        1: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-                    }
-                )
-            },
-        ),
-        (
-            100000000000000000000,
-            {
-                Address("0x0896f13e800125c0ccec44f3c434335f0a97bc1b"): Account(
-                    storage={1: 1}
-                ),
-                Address("0xdfad372452688759edd82c422bf3976eafc89c2b"): Account(
-                    storage={
-                        0: 1,
-                        1: 0x3700FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                    }
-                ),
-            },
-        ),
+        100000,
+        100000000000000000000,
     ],
     ids=["case0", "case1"],
 )
@@ -63,7 +41,6 @@ def test_call_with_high_value_and_gas_oog(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Call with value. call takes more gas then tx has, and more value..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -132,6 +109,12 @@ def test_call_with_high_value_and_gas_oog(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={
+                1: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            },
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

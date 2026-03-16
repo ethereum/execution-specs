@@ -33,7 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "1a8451e60000000000000000000000009f5c4c430e37b429d18f8aba147e2302af08f2100000000000000000000000000000000000000000000000000000000000000036",  # noqa: E501
             {
-                Address("0xebd3191dd8150f47e30f87927db4592163ee9224"): Account(
+                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={0: 0xDEAD60A7, 1: 0xDEAD60A7}
                 )
             },
@@ -41,7 +41,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "1a8451e6000000000000000000000000cee9f0c6117cc881ad7b4c378c2bebee8fcd04a90000000000000000000000000000000000000000000000000000000000000036",  # noqa: E501
             {
-                Address("0xebd3191dd8150f47e30f87927db4592163ee9224"): Account(
+                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={0: 0xDEAD60A7, 1: 0xDEAD60A7}
                 )
             },
@@ -49,7 +49,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "1a8451e60000000000000000000000009f5c4c430e37b429d18f8aba147e2302af08f2100000000000000000000000000000000000000000000000000000000000000025",  # noqa: E501
             {
-                Address("0xebd3191dd8150f47e30f87927db4592163ee9224"): Account(
+                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={0: 0x60A760A7}
                 )
             },
@@ -57,7 +57,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "1a8451e6000000000000000000000000cee9f0c6117cc881ad7b4c378c2bebee8fcd04a90000000000000000000000000000000000000000000000000000000000000025",  # noqa: E501
             {
-                Address("0xebd3191dd8150f47e30f87927db4592163ee9224"): Account(
+                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={0: 0x60A760A7}
                 )
             },
@@ -65,7 +65,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "1a8451e60000000000000000000000009f5c4c430e37b429d18f8aba147e2302af08f2100000000000000000000000000000000000000000000000000000000000000010",  # noqa: E501
             {
-                Address("0xebd3191dd8150f47e30f87927db4592163ee9224"): Account(
+                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={0: 0x60A760A7}
                 )
             },
@@ -73,7 +73,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "1a8451e6000000000000000000000000cee9f0c6117cc881ad7b4c378c2bebee8fcd04a90000000000000000000000000000000000000000000000000000000000000010",  # noqa: E501
             {
-                Address("0xebd3191dd8150f47e30f87927db4592163ee9224"): Account(
+                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={0: 0x60A760A7}
                 )
             },

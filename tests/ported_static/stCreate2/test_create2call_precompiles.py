@@ -32,13 +32,16 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "6000609b80601360003960006000f5500000fe7f18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c600052601c6020527f73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f6040527feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549606052602060806080600060006001620493e0f160025560a060020a6080510660005560005432146001550000",  # noqa: E501
             {
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
                 Address("0xf68e26002db0f9ca9b54367c57c25e474c581622"): Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         1: 1,
                         2: 1,
                     }
-                )
+                ),
             },
         ),
         (
@@ -49,7 +52,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                         0: 0xCB39B3BDE22925B2F931111130C774761D8895E0E08437C9B396C1E97D10F34D,  # noqa: E501
                         2: 1,
                     }
-                )
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
@@ -60,7 +66,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                         0: 0x9C1185A5C5E9FC54612808977EE8F548B2258D31,
                         2: 1,
                     }
-                )
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
@@ -68,43 +77,58 @@ REFERENCE_SPEC_VERSION = "N/A"
             {
                 Address("0x0ee431db7c48fc10a9a56c909bfefa87661442fb"): Account(
                     storage={0: 0xF34578907F, 2: 1}
-                )
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
             "6000609680601360003960006000f5500000fe6001600052602060205260206040527f03fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc6060527f2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc6080527f2f0000000000000000000000000000000000000000000000000000000000000060965260206103e860976000600060055af26001556103e8516002550000",  # noqa: E501
             {
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
                 Address("0xbbd394930b408da783ee071ced240ece997bc8b2"): Account(
                     storage={
                         1: 1,
                         2: 0x162EAD82CADEFAEAF6E9283248FDF2F2845F6396F6F17C4D5A39F820B6F6B5F9,  # noqa: E501
                     }
-                )
+                ),
             },
         ),
         (
             "6000602280601360003960006000f5500000fe600160005260206000610100600060006006620927c0f16002556000516000550000",  # noqa: E501
             {
                 Address("0x2e3ec33a50ed32c2fcbef07a1bab8643db4dc670"): Account(
-                    storage={0: 1}
-                )
+                    storage={0: 1, 2: 0}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
             "600060b780601360003960006000f5500000fe7f0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd26000527f16da2f5cb6be7a0aa72c440c53c9bbdfec6c36c7d515536431b3a865468acbba6020527f1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc2866040527f0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d46060526000600060806000600073addf5374fce5edbc8e2a8697c15331677e6ebf0b6207a120f2500000",  # noqa: E501
             {
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
                 Address("0xaa0ab87aa0e27e22e21671040c11f3537cdc7b3e"): Account(
                     storage={
                         0: 1,
                         1: 0x1F4D1D80177B1377743D1901F70D7389BE7F7A35A35BFD234A8AAEE615B88C49,  # noqa: E501
                         2: 0x18683193AE021A2F8920FED186CDE5D9B1365116865281CCF884C1F28B1DF8F,  # noqa: E501
                     }
-                )
+                ),
             },
         ),
         (
             "600060c680601360003960006000f5500000fe7f1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc2866000527f0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4602052600060405260006060527f1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc2866080527f0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d460a052600160c0526000600060e06000600073b94f5374fce5edbc8e2a8697c15331677e6ebf0b6207a120f2500000",  # noqa: E501
             {
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
                 Address("0xab7cf4e4980432e892fa512ec2b9e8532c23ac15"): Account(
                     storage={
                         0: 1,
@@ -116,7 +140,7 @@ REFERENCE_SPEC_VERSION = "N/A"
                         20: 0x1DE49A4B0233273BBA8146AF82042D004F2085EC982397DB0D97DA17204CC286,  # noqa: E501
                         21: 0x217327FFC463919BEF80CC166D09C6172639D8589799928761BCD9F22C903D4,  # noqa: E501
                     }
-                )
+                ),
             },
         ),
     ],
@@ -259,13 +283,16 @@ def test_create2call_precompiles(
         (
             "6000609b80601360003960006000f5500000fe7f18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c600052601c6020527f73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f6040527feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549606052602060806080600060006001620493e0f160025560a060020a6080510660005560005432146001550000",  # noqa: E501
             {
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
                 Address("0xf68e26002db0f9ca9b54367c57c25e474c581622"): Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         1: 1,
                         2: 1,
                     }
-                )
+                ),
             },
         ),
         (
@@ -276,7 +303,10 @@ def test_create2call_precompiles(
                         0: 0xCB39B3BDE22925B2F931111130C774761D8895E0E08437C9B396C1E97D10F34D,  # noqa: E501
                         2: 1,
                     }
-                )
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
@@ -287,7 +317,10 @@ def test_create2call_precompiles(
                         0: 0x9C1185A5C5E9FC54612808977EE8F548B2258D31,
                         2: 1,
                     }
-                )
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
@@ -295,43 +328,58 @@ def test_create2call_precompiles(
             {
                 Address("0x0ee431db7c48fc10a9a56c909bfefa87661442fb"): Account(
                     storage={0: 0xF34578907F, 2: 1}
-                )
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
             "6000609680601360003960006000f5500000fe6001600052602060205260206040527f03fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc6060527f2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc6080527f2f0000000000000000000000000000000000000000000000000000000000000060965260206103e860976000600060055af26001556103e8516002550000",  # noqa: E501
             {
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
                 Address("0xbbd394930b408da783ee071ced240ece997bc8b2"): Account(
                     storage={
                         1: 1,
                         2: 0x162EAD82CADEFAEAF6E9283248FDF2F2845F6396F6F17C4D5A39F820B6F6B5F9,  # noqa: E501
                     }
-                )
+                ),
             },
         ),
         (
             "6000602280601360003960006000f5500000fe600160005260206000610100600060006006620927c0f16002556000516000550000",  # noqa: E501
             {
                 Address("0x2e3ec33a50ed32c2fcbef07a1bab8643db4dc670"): Account(
-                    storage={0: 1}
-                )
+                    storage={0: 1, 2: 0}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
             "600060b780601360003960006000f5500000fe7f0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd26000527f16da2f5cb6be7a0aa72c440c53c9bbdfec6c36c7d515536431b3a865468acbba6020527f1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc2866040527f0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d46060526000600060806000600073addf5374fce5edbc8e2a8697c15331677e6ebf0b6207a120f2500000",  # noqa: E501
             {
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
                 Address("0xaa0ab87aa0e27e22e21671040c11f3537cdc7b3e"): Account(
                     storage={
                         0: 1,
                         1: 0x1F4D1D80177B1377743D1901F70D7389BE7F7A35A35BFD234A8AAEE615B88C49,  # noqa: E501
                         2: 0x18683193AE021A2F8920FED186CDE5D9B1365116865281CCF884C1F28B1DF8F,  # noqa: E501
                     }
-                )
+                ),
             },
         ),
         (
             "600060c680601360003960006000f5500000fe7f1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc2866000527f0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4602052600060405260006060527f1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc2866080527f0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d460a052600160c0526000600060e06000600073b94f5374fce5edbc8e2a8697c15331677e6ebf0b6207a120f2500000",  # noqa: E501
             {
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
                 Address("0xab7cf4e4980432e892fa512ec2b9e8532c23ac15"): Account(
                     storage={
                         0: 1,
@@ -343,7 +391,7 @@ def test_create2call_precompiles(
                         20: 0x1DE49A4B0233273BBA8146AF82042D004F2085EC982397DB0D97DA17204CC286,  # noqa: E501
                         21: 0x217327FFC463919BEF80CC166D09C6172639D8589799928761BCD9F22C903D4,  # noqa: E501
                     }
-                )
+                ),
             },
         ),
     ],

@@ -29,17 +29,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (54000, {}),
-        (
-            95000,
-            {
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={2: 0x6460016001556000526005601BF3}
-                )
-            },
-        ),
+        54000,
+        95000,
     ],
     ids=["case0", "case1"],
 )
@@ -48,7 +41,6 @@ def test_create_oo_gafter_init_code_returndata2(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Call RETURNDATASIZE and RETURNDATACOPY after CREATE deploy a..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -87,6 +79,11 @@ def test_create_oo_gafter_init_code_returndata2(
         gas_limit=tx_gas_limit,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(storage={1: 0}),
+        Address(
+            "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

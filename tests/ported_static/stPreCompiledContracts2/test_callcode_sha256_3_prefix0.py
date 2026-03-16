@@ -82,7 +82,7 @@ def test_callcode_sha256_3_prefix0(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0x7392925565D67BE8E9620AACBCFAECD8CB6EC58D709D25DA9ECCF1D08A41CE35,  # noqa: E501
                 2: 1,

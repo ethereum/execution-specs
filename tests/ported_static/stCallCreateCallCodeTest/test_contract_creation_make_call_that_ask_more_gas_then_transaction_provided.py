@@ -29,17 +29,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (
-            96000,
-            {
-                Address("0x1000000000000000000000000000000000000001"): Account(
-                    storage={1: 1}
-                )
-            },
-        ),
-        (60000, {}),
+        96000,
+        60000,
     ],
     ids=["case0", "case1"],
 )
@@ -48,7 +41,6 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -67,7 +59,7 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
 
     # Source: LLL
     # {(SSTORE 1 1)}
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         balance=0x186A0,
         nonce=0,
@@ -103,6 +95,11 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
         gas_limit=tx_gas_limit,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(storage={1: 1}),
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            balance=0,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

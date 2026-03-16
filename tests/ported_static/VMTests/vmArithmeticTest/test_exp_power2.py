@@ -176,7 +176,7 @@ def test_exp_power2(
     )
 
     post = {
-        contract: Account(
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
             storage={
                 16: 4,
                 17: 2,

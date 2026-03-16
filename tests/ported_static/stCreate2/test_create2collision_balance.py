@@ -27,17 +27,65 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.parametrize(
     "tx_data_hex, expected_post",
     [
-        ("6000600060006000f500", {}),
+        (
+            "6000600060006000f500",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2, balance=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xe2b35478fdd26477cc576dd906e6277761246a3c"): Account(
+                    nonce=1, balance=1
+                ),
+            },
+        ),
         (
             "64600160015560005260006005601b6000f500",
             {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2, balance=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
                 Address("0xaf3ecba2fe09a4f6c19f16a9d119e44e08c2da01"): Account(
-                    storage={1: 1}
-                )
+                    storage={1: 1}, nonce=1, balance=1, code=b""
+                ),
             },
         ),
-        ("6d6460016001556000526005601bf36000526000600e60126000f500", {}),
-        ("6000600060006001f500", {}),
+        (
+            "6d6460016001556000526005601bf36000526000600e60126000f500",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2, balance=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xec2c6832d00680ece8ff9254f81fdab0a5a2ac50"): Account(
+                    storage={},
+                    nonce=1,
+                    balance=1,
+                    code=bytes.fromhex("6001600155"),
+                ),
+            },
+        ),
+        (
+            "6000600060006001f500",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2, balance=0
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xe2b35478fdd26477cc576dd906e6277761246a3c"): Account(
+                    nonce=1, balance=2
+                ),
+            },
+        ),
     ],
     ids=["case0", "case1", "case2", "case3"],
 )

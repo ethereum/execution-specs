@@ -99,7 +99,7 @@ def test_static_call_ecrecover_check_length_wrong_v(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0x1122334455667788990011223344556677889900112233445566778899001122,  # noqa: E501
                 1: 160,

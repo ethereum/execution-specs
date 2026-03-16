@@ -30,10 +30,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (150000, {}),
-        (250000000, {}),
+        150000,
+        250000000,
     ],
     ids=["case0", "case1"],
 )
@@ -43,7 +43,6 @@ def test_quadratic_complexity_solidity_call_data_copy(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -125,7 +124,7 @@ def test_quadratic_complexity_solidity_call_data_copy(
     )
     # Source: LLL
     # { (CALLDATACOPY 0 0 50000) }
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.CALLDATACOPY(dest_offset=0x0, offset=0x0, size=0xC350) + Op.STOP
         ),
@@ -145,6 +144,19 @@ def test_quadratic_complexity_solidity_call_data_copy(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(
+            storage={},
+            nonce=0,
+            code=bytes.fromhex(
+                "60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056"  # noqa: E501
+            ),
+        ),
+        callee: Account(
+            storage={},
+            nonce=0,
+            code=bytes.fromhex("61c350600060003700"),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

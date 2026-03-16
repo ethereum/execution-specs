@@ -28,7 +28,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_access_list, expected_post",
+    "tx_data_hex, tx_access_list",
     [
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
@@ -44,20 +44,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={1: 2903}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
@@ -73,23 +59,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001005"): Account(
-                    storage={1: 103}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
@@ -105,20 +74,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743, 1: 103}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
@@ -134,23 +89,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001001"): Account(
-                    storage={1: 100}
-                ),
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
@@ -166,23 +104,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001021"): Account(
-                    storage={1: 97}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000011",  # noqa: E501
@@ -198,23 +119,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001011"): Account(
-                    storage={0: 24743, 1: 100}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
@@ -230,20 +134,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 48879, 1: 2903}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
@@ -334,23 +224,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 ),
             ],
-            {
-                Address("0x0000000000000000000000000000000000001000"): Account(
-                    storage={0: 2, 1: 20003}
-                ),
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
@@ -366,23 +239,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001000"): Account(
-                    storage={0: 2, 1: 20003}
-                ),
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
@@ -398,23 +254,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001020"): Account(
-                    storage={0: 2, 1: 20000}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000010",  # noqa: E501
@@ -430,23 +269,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001010"): Account(
-                    storage={0: 2, 1: 103}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000fff",  # noqa: E501
@@ -471,20 +293,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 100, 2: 20000, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
@@ -500,38 +308,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={1: 5003}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
             None,
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={1: 5003}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
@@ -547,20 +327,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={1: 5003}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
@@ -576,38 +342,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743, 1: 2203}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
             None,
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743, 1: 2203}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
@@ -623,44 +361,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001005"): Account(
-                    storage={1: 2203}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
             None,
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001005"): Account(
-                    storage={1: 2203}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
@@ -676,23 +380,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001005"): Account(
-                    storage={1: 2203}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
@@ -708,20 +395,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743, 1: 2203}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
@@ -737,44 +410,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001001"): Account(
-                    storage={1: 2100}
-                ),
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
             None,
-            {
-                Address("0x0000000000000000000000000000000000001001"): Account(
-                    storage={1: 2100}
-                ),
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
@@ -790,23 +429,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001001"): Account(
-                    storage={1: 2100}
-                ),
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
@@ -822,23 +444,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001021"): Account(
-                    storage={1: 97}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000011",  # noqa: E501
@@ -854,23 +459,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001011"): Account(
-                    storage={0: 24743, 1: 100}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
@@ -886,38 +474,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 48879, 1: 5003}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
             None,
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 48879, 1: 5003}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
@@ -933,20 +493,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 48879, 1: 5003}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
@@ -962,44 +508,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001000"): Account(
-                    storage={0: 2, 1: 22103}
-                ),
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             None,
-            {
-                Address("0x0000000000000000000000000000000000001000"): Account(
-                    storage={0: 2, 1: 22103}
-                ),
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
@@ -1015,23 +527,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001000"): Account(
-                    storage={0: 2, 1: 22103}
-                ),
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
@@ -1047,23 +542,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001020"): Account(
-                    storage={0: 2, 1: 20000}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000010",  # noqa: E501
@@ -1079,23 +557,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001010"): Account(
-                    storage={0: 2, 1: 103}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000fff",  # noqa: E501
@@ -1120,20 +581,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
         (
             "693c61390000000000000000000000000000000000000000000000000000000000000fff",  # noqa: E501
@@ -1158,20 +605,6 @@ REFERENCE_SPEC_VERSION = "N/A"
                     ],
                 )
             ],
-            {
-                Address("0x0000000000000000000000000000000000001002"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001003"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0x0000000000000000000000000000000000001004"): Account(
-                    storage={0: 24743}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2, 1: 2100, 2: 22100, 24743: 57005}
-                ),
-            },
         ),
     ],
     ids=[
@@ -1219,7 +652,6 @@ def test_storage_costs(
     pre: Alloc,
     tx_data_hex: str,
     tx_access_list: list | None,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -1467,6 +899,10 @@ def test_storage_costs(
         access_list=tx_access_list,
     )
 
-    post = expected_post
+    post = {
+        Address("0x0000000000000000000000000000000000000512"): Account(
+            storage={0: 2, 1: 20003},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

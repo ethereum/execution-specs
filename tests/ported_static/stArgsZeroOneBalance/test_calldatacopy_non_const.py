@@ -28,12 +28,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_value, expected_post",
+    "tx_data_hex, tx_value",
     [
-        ("", 0, {}),
-        ("", 1, {}),
-        ("11223344", 0, {}),
-        ("11223344", 1, {}),
+        ("", 0),
+        ("", 1),
+        ("11223344", 0),
+        ("11223344", 1),
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -43,7 +43,6 @@ def test_calldatacopy_non_const(
     pre: Alloc,
     tx_data_hex: str,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -92,6 +91,10 @@ def test_calldatacopy_non_const(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

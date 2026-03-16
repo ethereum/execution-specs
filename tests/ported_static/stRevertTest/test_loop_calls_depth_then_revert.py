@@ -47,7 +47,7 @@ def test_loop_calls_depth_then_revert(
         gas_limit=100000000,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
             + Op.CALL(
@@ -92,8 +92,12 @@ def test_loop_calls_depth_then_revert(
     )
 
     post = {
-        callee: Account(storage={0: 192}),
-        contract: Account(storage={0: 193}),
+        Address("0xa000000000000000000000000000000000000000"): Account(
+            storage={0: 193},
+        ),
+        Address("0xb000000000000000000000000000000000000000"): Account(
+            storage={0: 192},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -106,6 +106,16 @@ def test_call_goes_oog_on_second_level2(
         gas_limit=160000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000113"): Account(
+            storage={},
+        ),
+        Address("0x1000000000000000000000000000000000000114"): Account(
+            storage={},
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

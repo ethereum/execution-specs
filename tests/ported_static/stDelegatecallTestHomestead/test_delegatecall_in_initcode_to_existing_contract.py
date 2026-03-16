@@ -106,6 +106,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
                 2: 1,
                 11: 0x1000000000000000000000000000000000000000,
             },
+            balance=1,
         ),
     }
 

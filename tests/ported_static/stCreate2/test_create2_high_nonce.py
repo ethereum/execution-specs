@@ -78,7 +78,11 @@ def test_create2_high_nonce(
     )
 
     post = {
-        contract: Account(storage={1: 1}),
+        Address(
+            "0x77dd5d2a2b742ca01ee2cfff306445e3741ef744"
+        ): Account.NONEXISTENT,
+        sender: Account(nonce=1),
+        contract: Account(storage={0: 0, 1: 1}, nonce=18446744073709551615),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

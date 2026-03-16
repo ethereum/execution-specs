@@ -61,6 +61,10 @@ def test_high_gas_price_paris(
         ],
     )
 
-    post: dict = {}
+    post = {
+        Address("0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0"): Account(
+            balance=10,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

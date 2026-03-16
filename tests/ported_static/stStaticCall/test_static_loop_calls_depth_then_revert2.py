@@ -88,6 +88,10 @@ def test_static_loop_calls_depth_then_revert2(
         gas_limit=9214364837600034817,
     )
 
-    post: dict = {}
+    post = {
+        Address(
+            "0x7db299e0885c85039f56fa504a13dd8ce8a56aa7"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

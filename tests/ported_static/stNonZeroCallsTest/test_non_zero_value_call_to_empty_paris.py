@@ -83,7 +83,12 @@ def test_non_zero_value_call_to_empty_paris(
     )
 
     post = {
-        contract: Account(storage={1: 1, 100: 31435}),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 1, 100: 31435},
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=11,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

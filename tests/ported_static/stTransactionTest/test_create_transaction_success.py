@@ -59,6 +59,15 @@ def test_create_transaction_success(
         value=100,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            storage={},
+            nonce=1,
+            balance=100,
+            code=bytes.fromhex(
+                "60e060020a600035048063f8a8fd6d14601457005b601a6020565b60006000f35b56"  # noqa: E501
+            ),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

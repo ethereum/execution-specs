@@ -60,7 +60,12 @@ def test_overflow_gas_require2(
         gas_price=80,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+            balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE6357F,  # noqa: E501
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -105,6 +110,11 @@ def test_overflow_gas_require2_from_prague(
         gas_price=80,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+            balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE6357F,  # noqa: E501
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

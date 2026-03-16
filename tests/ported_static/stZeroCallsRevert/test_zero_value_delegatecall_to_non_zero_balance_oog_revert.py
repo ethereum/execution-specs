@@ -83,6 +83,16 @@ def test_zero_value_delegatecall_to_non_zero_balance_oog_revert(
         gas_limit=135000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 0, 1: 0, 100: 0},
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=100,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

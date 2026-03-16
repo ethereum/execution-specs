@@ -26,10 +26,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (150000, {}),
-        (16777216, {}),
+        150000,
+        16777216,
     ],
     ids=["case0", "case1"],
 )
@@ -38,7 +38,6 @@ def test_create2_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -83,6 +82,14 @@ def test_create2_bounds(
         gas_limit=tx_gas_limit,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(balance=100),
+        Address(
+            "0x13136008b64ff592819b2fa6d43f2835c452020e"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x7c5a2c91b22d7a9226523d4ba717db6afb741ebd"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

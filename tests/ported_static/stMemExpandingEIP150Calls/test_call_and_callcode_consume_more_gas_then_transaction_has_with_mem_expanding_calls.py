@@ -82,7 +82,7 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
     )
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: raw bytecode
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x12),
         nonce=0,
         address=Address("0xa1f6e75a455896613053d45331763a07f4718969"),  # noqa: E501
@@ -95,8 +95,15 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has_with_mem_expand
     )
 
     post = {
-        contract: Account(storage={0: 18, 8: 0x8D5B6, 9: 1, 10: 1}),
-        callee: Account(storage={0: 18}),
+        Address("0x1000000000000000000000000000000000000103"): Account(
+            storage={0: 18},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 18, 8: 0x8D5B6, 9: 1, 10: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

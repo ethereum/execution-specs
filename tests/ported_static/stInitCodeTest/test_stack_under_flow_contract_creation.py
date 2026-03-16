@@ -57,6 +57,11 @@ def test_stack_under_flow_contract_creation(
         gas_limit=72000,
     )
 
-    post: dict = {}
+    post = {
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
+        sender: Account(nonce=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -70,7 +70,7 @@ def test_raw_call_gas_value_transfer_ask(
         nonce=0,
         address=Address("0x75da17be9a3b7768a69e918c1574a320a6f9e59f"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x2, value=Op.GAS) + Op.STOP,
         nonce=0,
         address=Address("0xe497cd0909c3691e0b6d2a42e26f36696fc27ba5"),  # noqa: E501
@@ -85,8 +85,12 @@ def test_raw_call_gas_value_transfer_ask(
     )
 
     post = {
-        contract: Account(storage={1: 31439}),
-        callee: Account(storage={2: 0x70E1C}),
+        Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={2: 0x70E1C},
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 31439},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

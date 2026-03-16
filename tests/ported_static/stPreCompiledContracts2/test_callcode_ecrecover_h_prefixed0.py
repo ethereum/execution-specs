@@ -98,9 +98,10 @@ def test_callcode_ecrecover_h_prefixed0(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0xA0B29AF6A56D6CFEF6415CB195CCBE540E006D0A,
+                1: 0,
                 2: 1,
             },
         ),

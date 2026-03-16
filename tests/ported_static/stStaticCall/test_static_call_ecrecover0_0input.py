@@ -34,7 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000000000000000000000000000000000000000000000",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -42,7 +42,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000000000000000000000000000000000000000000001",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -50,7 +50,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000000000000000000000000000000000000000000002",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={
                         0: 0x8209944E898F69A7BD10A23C839D341E935FD5CA,
                         2: 1,
@@ -61,7 +61,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000000000000000000000000000000000000000000003",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={
                         0: 0x4300A157335CB7C9FC9423E011D7DD51090D093F,
                         2: 1,
@@ -72,7 +72,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000000000000000000000000000000000000000000004",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -80,7 +80,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000000000000000000000000000000000000000000005",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -88,7 +88,7 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000000000000000000000000000000000000000000006",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -96,14 +96,18 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000000000000000000000000000000000000000000007",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
         ),
         (
             "0000000000000000000000000000000000000000000000000000000000000008",
-            {},
+            {
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+                    storage={2: 0}
+                )
+            },
         ),
     ],
     ids=[
@@ -195,7 +199,7 @@ def test_static_call_ecrecover0_0input(
         (
             "0000000000000000000000000000000000000000000000000000000000000000",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -203,7 +207,7 @@ def test_static_call_ecrecover0_0input(
         (
             "0000000000000000000000000000000000000000000000000000000000000001",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -211,7 +215,7 @@ def test_static_call_ecrecover0_0input(
         (
             "0000000000000000000000000000000000000000000000000000000000000002",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={
                         0: 0x8209944E898F69A7BD10A23C839D341E935FD5CA,
                         2: 1,
@@ -222,7 +226,7 @@ def test_static_call_ecrecover0_0input(
         (
             "0000000000000000000000000000000000000000000000000000000000000003",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={
                         0: 0x4300A157335CB7C9FC9423E011D7DD51090D093F,
                         2: 1,
@@ -233,7 +237,7 @@ def test_static_call_ecrecover0_0input(
         (
             "0000000000000000000000000000000000000000000000000000000000000004",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -241,7 +245,7 @@ def test_static_call_ecrecover0_0input(
         (
             "0000000000000000000000000000000000000000000000000000000000000005",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -249,7 +253,7 @@ def test_static_call_ecrecover0_0input(
         (
             "0000000000000000000000000000000000000000000000000000000000000006",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
@@ -257,14 +261,18 @@ def test_static_call_ecrecover0_0input(
         (
             "0000000000000000000000000000000000000000000000000000000000000007",
             {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={2: 1}
                 )
             },
         ),
         (
             "0000000000000000000000000000000000000000000000000000000000000008",
-            {},
+            {
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+                    storage={2: 0}
+                )
+            },
         ),
     ],
     ids=[

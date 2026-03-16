@@ -50,7 +50,7 @@ def test_suicides_and_internal_call_suicides_bonus_gas_at_call_failed(
 
     # Source: LLL
     # {(SELFDESTRUCT 0x0000000000000000000000000000000000000001)}
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000000000"),  # noqa: E501
@@ -86,6 +86,8 @@ def test_suicides_and_internal_call_suicides_bonus_gas_at_call_failed(
         value=10,
     )
 
-    post: dict = {}
+    post = {
+        callee: Account(balance=20, code=bytes.fromhex("6001ff00")),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

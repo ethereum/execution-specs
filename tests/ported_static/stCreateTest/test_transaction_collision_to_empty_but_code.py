@@ -28,12 +28,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, tx_value, expected_post",
+    "tx_gas_limit, tx_value",
     [
-        (600000, 0, {}),
-        (600000, 1, {}),
-        (54000, 0, {}),
-        (54000, 1, {}),
+        (600000, 0),
+        (600000, 1),
+        (54000, 0),
+        (54000, 1),
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -43,7 +43,6 @@ def test_transaction_collision_to_empty_but_code(
     pre: Alloc,
     tx_gas_limit: int,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -61,7 +60,7 @@ def test_transaction_collision_to_empty_but_code(
     )
 
     # Source: raw bytecode
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=bytes.fromhex("1122334455"),
         nonce=0,
         address=Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"),  # noqa: E501
@@ -76,6 +75,13 @@ def test_transaction_collision_to_empty_but_code(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(
+            storage={1: 0},
+            nonce=0,
+            code=bytes.fromhex("1122334455"),
+        ),
+        sender: Account(nonce=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

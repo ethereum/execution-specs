@@ -28,884 +28,118 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        ("000000", {}),
-        (
-            "960003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "970003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "980003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "990003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "9a0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "9b0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "9c0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "9d0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "9e0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "9f0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "0b0005",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 5}
-                )
-            },
-        ),
-        (
-            "100003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "110003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "120003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "130003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "140003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "150003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "160003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "170003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "180003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "010003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "190003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "1a0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "300002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "310a28",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2600}
-                )
-            },
-        ),
-        (
-            "320002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "330002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "340002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "350003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "360002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "380002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "020005",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 5}
-                )
-            },
-        ),
-        (
-            "3a0002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "3b0a28",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2600}
-                )
-            },
-        ),
-        (
-            "400014",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 20}
-                )
-            },
-        ),
-        (
-            "410002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "420002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "430002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "440002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "450002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "500002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "540834",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2100}
-                )
-            },
-        ),
-        (
-            "030003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "555654",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 22100}
-                ),
-                Address("0xfaba096ee63239c821f1dfdd7fa180664a9cb7a2"): Account(
-                    storage={55930: 55930}
-                ),
-            },
-        ),
-        (
-            "580002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "590002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "5a0002",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 2}
-                )
-            },
-        ),
-        (
-            "5b0001",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 1}
-                )
-            },
-        ),
-        (
-            "ff1db0",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 7600}
-                )
-            },
-        ),
-        (
-            "600003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "610003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "620003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "630003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "040005",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 5}
-                )
-            },
-        ),
-        (
-            "640003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "650003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "660003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "670003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "680003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "690003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "6a0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "6b0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "6c0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "6d0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "050005",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 5}
-                )
-            },
-        ),
-        (
-            "6e0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "6f0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "700003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "710003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "720003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "730003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "740003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "750003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "760003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "770003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "060005",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 5}
-                )
-            },
-        ),
-        (
-            "780003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "790003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "7a0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "7b0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "7c0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "7d0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "7e0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "7f0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "800003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "810003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "070005",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 5}
-                )
-            },
-        ),
-        (
-            "820003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "830003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "840003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "850003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "860003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "870003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "880003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "890003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "8a0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "8b0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "080008",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 8}
-                )
-            },
-        ),
-        (
-            "8c0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "8d0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "8e0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "8f0003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "900003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "910003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "920003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "930003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "940003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "950003",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 3}
-                )
-            },
-        ),
-        (
-            "090008",
-            {
-                Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"): Account(
-                    storage={1: 8}
-                )
-            },
-        ),
+        "000000",
+        "960003",
+        "970003",
+        "980003",
+        "990003",
+        "9a0003",
+        "9b0003",
+        "9c0003",
+        "9d0003",
+        "9e0003",
+        "9f0003",
+        "0b0005",
+        "100003",
+        "110003",
+        "120003",
+        "130003",
+        "140003",
+        "150003",
+        "160003",
+        "170003",
+        "180003",
+        "010003",
+        "190003",
+        "1a0003",
+        "300002",
+        "310a28",
+        "320002",
+        "330002",
+        "340002",
+        "350003",
+        "360002",
+        "380002",
+        "020005",
+        "3a0002",
+        "3b0a28",
+        "400014",
+        "410002",
+        "420002",
+        "430002",
+        "440002",
+        "450002",
+        "500002",
+        "540834",
+        "030003",
+        "555654",
+        "580002",
+        "590002",
+        "5a0002",
+        "5b0001",
+        "ff1db0",
+        "600003",
+        "610003",
+        "620003",
+        "630003",
+        "040005",
+        "640003",
+        "650003",
+        "660003",
+        "670003",
+        "680003",
+        "690003",
+        "6a0003",
+        "6b0003",
+        "6c0003",
+        "6d0003",
+        "050005",
+        "6e0003",
+        "6f0003",
+        "700003",
+        "710003",
+        "720003",
+        "730003",
+        "740003",
+        "750003",
+        "760003",
+        "770003",
+        "060005",
+        "780003",
+        "790003",
+        "7a0003",
+        "7b0003",
+        "7c0003",
+        "7d0003",
+        "7e0003",
+        "7f0003",
+        "800003",
+        "810003",
+        "070005",
+        "820003",
+        "830003",
+        "840003",
+        "850003",
+        "860003",
+        "870003",
+        "880003",
+        "890003",
+        "8a0003",
+        "8b0003",
+        "080008",
+        "8c0003",
+        "8d0003",
+        "8e0003",
+        "8f0003",
+        "900003",
+        "910003",
+        "920003",
+        "930003",
+        "940003",
+        "950003",
+        "090008",
     ],
     ids=[
         "case0",
@@ -1025,7 +259,6 @@ def test_gas_cost_berlin(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -1159,6 +392,10 @@ def test_gas_cost_berlin(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 0, 1: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

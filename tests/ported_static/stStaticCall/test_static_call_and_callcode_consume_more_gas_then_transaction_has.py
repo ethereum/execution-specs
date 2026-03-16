@@ -33,16 +33,23 @@ REFERENCE_SPEC_VERSION = "N/A"
     [
         (
             "000000000000000000000000438f316ba8e30f69666a3477a7f5cd26235d3cbb",
-            {},
+            {
+                Address("0x1000000000000000000000000000000000000103"): Account(
+                    storage={}, nonce=0, code=bytes.fromhex("601260005500")
+                ),
+                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    storage={0: 0, 8: 0, 9: 0, 10: 0}
+                ),
+            },
         ),
         (
             "0000000000000000000000007d77eaf6dc93e2b7b83a8e06314af1ce47cd2596",
             {
-                Address("0x7d77eaf6dc93e2b7b83a8e06314af1ce47cd2596"): Account(
-                    storage={0: 18, 9: 1, 10: 1}
+                Address("0x2000000000000000000000000000000000000103"): Account(
+                    storage={}, nonce=0, code=bytes.fromhex("601260005200")
                 ),
-                Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"): Account(
-                    storage={0: 1, 1: 1}
+                Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    storage={0: 18, 9: 1, 10: 1}
                 ),
             },
         ),

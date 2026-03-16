@@ -32,69 +32,181 @@ REFERENCE_SPEC_VERSION = "N/A"
             "0000000000000000000000001963fd2c717f5b4b9fa3d6baf38d66241e1ec005",
             800000,
             {
-                Address("0x1fc98371f1a058f1a6042e30a141aa8bb67dd1bc"): Account(
-                    storage={2: 0x726576657274206D657373616765}
-                )
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0x726576657274206D657373616765}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
             "0000000000000000000000001963fd2c717f5b4b9fa3d6baf38d66241e1ec005",
             80000,
             {
-                Address("0x1fc98371f1a058f1a6042e30a141aa8bb67dd1bc"): Account(
-                    storage={2: 0x726576657274206D657373616765}
-                )
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0x726576657274206D657373616765}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
             "000000000000000000000000745e52346d8549444323699e9fc383ae89bdd24f",
             800000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "000000000000000000000000745e52346d8549444323699e9fc383ae89bdd24f",
             80000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "00000000000000000000000050eaca0a040ac6242d0c01cc1ff82f5b95cc10e4",
             800000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "00000000000000000000000050eaca0a040ac6242d0c01cc1ff82f5b95cc10e4",
             80000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "000000000000000000000000f933d2374d5875de033a8ed9d9c1ce5dea25c78b",
             800000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "000000000000000000000000f933d2374d5875de033a8ed9d9c1ce5dea25c78b",
             80000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "000000000000000000000000e5b2dfe7f932f2d5eaa7c8fb2e1e9a8b6a846fd7",
             800000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "000000000000000000000000e5b2dfe7f932f2d5eaa7c8fb2e1e9a8b6a846fd7",
             80000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "000000000000000000000000858f82bbfd84fc9eb91291458511df77311dbd0d",
             800000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "000000000000000000000000858f82bbfd84fc9eb91291458511df77311dbd0d",
             80000,
-            {},
+            {
+                Address("0xa000000000000000000000000000000000000000"): Account(
+                    storage={1: 0, 2: 0}
+                ),
+                Address("0xa100000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
     ],
     ids=[

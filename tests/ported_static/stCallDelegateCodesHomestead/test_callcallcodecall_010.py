@@ -48,7 +48,7 @@ def test_callcallcodecall_010(
         gas_limit=30000000,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x3, value=0x1)
             + Op.SSTORE(key=0x4, value=Op.CALLER)
@@ -107,7 +107,7 @@ def test_callcallcodecall_010(
         address=Address("0xeb09ff15547417853f6f4b240b8804769c37b0f1"),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    callee_2 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -134,24 +134,29 @@ def test_callcallcodecall_010(
     )
 
     post = {
-        callee: Account(
-            storage={
-                3: 1,
-                4: 0xFED08E44AE95ECE264BC94A1FC45AF8BC4EF4F1D,
-                7: 2,
-                330: 0x7E63847AAD8CA50FB7C04777DCE6871A6BF8DE0C,
-                332: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
-                336: 64,
-                338: 39,
-                340: 10,
-            },
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 2: 0},
         ),
-        contract: Account(storage={0: 1}),
-        callee_2: Account(
+        Address("0x1000000000000000000000000000000000000001"): Account(
             storage={
                 1: 1,
                 2: 1,
-                5: 0xEB09FF15547417853F6F4B240B8804769C37B0F1,
+                5: 0x1000000000000000000000000000000000000000,
+            },
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={2: 0},
+        ),
+        Address("0x1000000000000000000000000000000000000003"): Account(
+            storage={
+                3: 1,
+                4: 0x1000000000000000000000000000000000000001,
+                7: 2,
+                330: 0x1000000000000000000000000000000000000003,
+                332: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                336: 64,
+                338: 39,
+                340: 10,
             },
         ),
     }

@@ -67,7 +67,14 @@ def test_refund_change_non_zero_storage(
     )
 
     post = {
-        contract: Account(storage={1: 23}),
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={1: 23},
+            balance=0xDE0B6B3A764000A,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+            balance=0x3C2F689A,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

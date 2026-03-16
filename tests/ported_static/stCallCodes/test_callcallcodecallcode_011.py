@@ -82,7 +82,7 @@ def test_callcallcodecallcode_011(
         nonce=0,
         address=Address("0x181b4ed322e192361633cc3c0a418f259ab0cf4b"),  # noqa: E501
     )
-    callee_2 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -133,21 +133,20 @@ def test_callcallcodecallcode_011(
     )
 
     post = {
-        callee_2: Account(
+        Address("0x1000000000000000000000000000000000000001"): Account(
             storage={
                 1: 1,
                 2: 1,
                 3: 1,
-                4: 0x4C0DE71B93DE6B7055A3686E4BF93ADD02B39ED8,
+                4: 0x1000000000000000000000000000000000000001,
                 7: 3,
-                330: 0x4C0DE71B93DE6B7055A3686E4BF93ADD02B39ED8,
-                332: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
+                330: 0x1000000000000000000000000000000000000001,
+                332: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                 336: 64,
                 338: 39,
                 340: 10,
             },
         ),
-        contract: Account(storage={0: 1}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -75,7 +75,7 @@ def test_call_output1(
         address=Address("0x62c381fd04b6e4f31ba6d6f58c6a0d34eee4fc52"),  # noqa: E501
     )
     # Source: raw bytecode
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)),
         balance=0xDE0B6B3A7640000,
         nonce=0,
@@ -90,12 +90,11 @@ def test_call_output1(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0x5E20A0453CECD065EA59C37AC63E079EE08998B6045136A8CE6635C7912EC0B6,  # noqa: E501
             },
         ),
-        callee: Account(storage={0: 2}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

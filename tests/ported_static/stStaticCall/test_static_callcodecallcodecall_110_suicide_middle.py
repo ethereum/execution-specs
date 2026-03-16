@@ -118,7 +118,9 @@ def test_static_callcodecallcodecall_110_suicide_middle(
     )
 
     post = {
-        contract: Account(storage={0: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            balance=0xDE0B6B3A7640000,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

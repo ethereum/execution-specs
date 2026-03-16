@@ -129,6 +129,8 @@ def test_day_limit_construction_oog(
         value=100,
     )
 
-    post: dict = {}
+    post = {
+        sender: Account(storage={}, nonce=2, code=b""),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -409,6 +409,7 @@ def test_delegatecall_to_precompile_from_contract_initialization(
                 1: 0xFD7776B1A634B0DC19301B174CCF30D4D24070A8,
                 2: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
             },
+            balance=1100,
         ),
         Address("0xfd7776b1a634b0dc19301b174ccf30d4d24070a8"): Account(
             storage={
@@ -825,6 +826,7 @@ def test_delegatecall_to_precompile_from_contract_initialization_from_osaka(
                 1: 0xFD7776B1A634B0DC19301B174CCF30D4D24070A8,
                 2: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
             },
+            balance=1100,
         ),
         Address("0xfd7776b1a634b0dc19301b174ccf30d4d24070a8"): Account(
             storage={

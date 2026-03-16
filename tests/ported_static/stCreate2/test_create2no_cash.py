@@ -30,15 +30,45 @@ REFERENCE_SPEC_VERSION = "N/A"
     [
         (
             "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c620249f0f100",  # noqa: E501
-            {},
+            {
+                Address(
+                    "0x12aaefbc0350a026228076e5369e6ce148ce67be"
+                ): Account.NONEXISTENT,
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xe2b35478fdd26477cc576dd906e6277761246a3c"): Account(
+                    balance=100
+                ),
+            },
         ),
         (
             "6000600060006000600173e2b35478fdd26477cc576dd906e6277761246a3c620249f0f100",  # noqa: E501
-            {},
+            {
+                Address("0x12aaefbc0350a026228076e5369e6ce148ce67be"): Account(
+                    balance=101
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xe2b35478fdd26477cc576dd906e6277761246a3c"): Account(
+                    balance=0
+                ),
+            },
         ),
         (
             "600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c620249f0fa00",  # noqa: E501
-            {},
+            {
+                Address(
+                    "0x12aaefbc0350a026228076e5369e6ce148ce67be"
+                ): Account.NONEXISTENT,
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xe2b35478fdd26477cc576dd906e6277761246a3c"): Account(
+                    balance=100
+                ),
+            },
         ),
     ],
     ids=["case0", "case1", "case2"],

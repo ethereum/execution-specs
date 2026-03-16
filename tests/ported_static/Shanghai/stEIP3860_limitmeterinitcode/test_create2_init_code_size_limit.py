@@ -29,30 +29,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "000000000000000000000000000000000000000000000000000000000000c001",
-            {
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={1: 1}
-                )
-            },
-        ),
-        (
-            "000000000000000000000000000000000000000000000000000000000000c000",
-            {
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={0: 1, 1: 1}
-                ),
-                Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={
-                        0: 0x9E7A3337D18C31FE4C1FE51AB2DA6CFD3629923D,
-                        10: 55539,
-                    }
-                ),
-            },
-        ),
+        "000000000000000000000000000000000000000000000000000000000000c001",
+        "000000000000000000000000000000000000000000000000000000000000c000",
     ],
     ids=["case0", "case1"],
 )
@@ -61,7 +41,6 @@ def test_create2_init_code_size_limit(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -118,7 +97,7 @@ def test_create2_init_code_size_limit(
     #   sstore(10, sub(gas_before, gas()))
     #   sstore(0, create_result)
     # }
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SHL(0xB0, 0x600A80600080396000F3)
             + Op.PUSH1[0x0]
@@ -153,6 +132,16 @@ def test_create2_init_code_size_limit(
         gas_limit=15000000,
     )
 
-    post = expected_post
+    post = {
+        Address("0x9e7a3337d18c31fe4c1fe51ab2da6cfd3629923d"): Account(
+            storage={},
+            nonce=1,
+            balance=0,
+            code=bytes.fromhex("600a80600080396000f3"),
+        ),
+        sender: Account(nonce=1),
+        contract: Account(storage={0: 1, 1: 1}),
+        callee: Account(storage={0: 0, 10: 55539}),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

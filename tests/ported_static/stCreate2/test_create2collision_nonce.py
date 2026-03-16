@@ -25,11 +25,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        ("6000600060006000f500", {}),
-        ("64600160015560005260006005601b6000f500", {}),
-        ("6d6460016001556000526005601bf36000526000600e60126000f500", {}),
+        "6000600060006000f500",
+        "64600160015560005260006005601b6000f500",
+        "6d6460016001556000526005601bf36000526000600e60126000f500",
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -38,7 +38,6 @@ def test_create2collision_nonce(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Create2 generates an account that already exists and has nonce != 0."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -73,6 +72,15 @@ def test_create2collision_nonce(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            nonce=2,
+            balance=1,
+        ),
+        sender: Account(nonce=1),
+        contract: Account(storage={}, nonce=1, balance=0, code=b""),
+        callee_1: Account(storage={}, nonce=1, balance=0, code=b""),
+        callee_2: Account(storage={}, nonce=1, balance=0, code=b""),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

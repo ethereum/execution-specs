@@ -75,7 +75,7 @@ def test_callcallcall_000_suicide_middle(
         nonce=0,
         address=Address("0x73b954ebc05bb0ff4a0f6a13a054d50ad1584099"),  # noqa: E501
     )
-    callee_1 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -125,8 +125,14 @@ def test_callcallcall_000_suicide_middle(
     )
 
     post = {
-        contract: Account(storage={0: 1}),
-        callee_1: Account(storage={1: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1},
+            balance=0xDE0B6B5FB6FE400,
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={1: 1},
+            balance=0x2540BE400,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

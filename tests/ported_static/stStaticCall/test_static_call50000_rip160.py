@@ -149,7 +149,20 @@ def test_static_call50000_rip160(
     )
 
     post = {
-        contract: Account(storage={1: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 0, 1: 1},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+        ),
+        Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 0, 1: 0},
+            nonce=0,
+            code=bytes.fromhex(
+                "5b61c3506080511015602b576000600061c3506000600362013178fa6000556001608051016080526000565b60805160015500"  # noqa: E501
+            ),
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

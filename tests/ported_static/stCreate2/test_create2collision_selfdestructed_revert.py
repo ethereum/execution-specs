@@ -30,20 +30,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506000600060006000f550621122336000526003601dfd00",  # noqa: E501
-            {},
-        ),
-        (
-            "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f15064600160015560005260006005601b6000f550621122336000526003601dfd00",  # noqa: E501
-            {},
-        ),
-        (
-            "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506d6460016001556000526005601bf36000526000600e60126000f550621122336000526003601dfd00",  # noqa: E501
-            {},
-        ),
+        "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506000600060006000f550621122336000526003601dfd00",  # noqa: E501
+        "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f15064600160015560005260006005601b6000f550621122336000526003601dfd00",  # noqa: E501
+        "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506d6460016001556000526005601bf36000526000600e60126000f550621122336000526003601dfd00",  # noqa: E501
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -52,7 +43,6 @@ def test_create2collision_selfdestructed_revert(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Collision with address that has been selfdestructed in the same..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -72,7 +62,7 @@ def test_create2collision_selfdestructed_revert(
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: LLL
     # { (SELFDESTRUCT 0x10) }
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
@@ -80,7 +70,7 @@ def test_create2collision_selfdestructed_revert(
     )
     # Source: LLL
     # { (SELFDESTRUCT 0x10) }
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
@@ -88,7 +78,7 @@ def test_create2collision_selfdestructed_revert(
     )
     # Source: LLL
     # { (SELFDESTRUCT 0x10) }
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
@@ -105,7 +95,18 @@ def test_create2collision_selfdestructed_revert(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        Address(
+            "0x0000000000000000000000000000000000000010"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
+        sender: Account(nonce=1),
+        contract: Account(balance=1, code=bytes.fromhex("6010ff00")),
+        callee_1: Account(balance=1, code=bytes.fromhex("6010ff00")),
+        callee_2: Account(balance=1, code=bytes.fromhex("6010ff00")),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -117,20 +118,11 @@ def test_create2collision_selfdestructed_revert(
 )
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506000600060006000f550621122336000526003601dfd00",  # noqa: E501
-            {},
-        ),
-        (
-            "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f15064600160015560005260006005601b6000f550621122336000526003601dfd00",  # noqa: E501
-            {},
-        ),
-        (
-            "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506d6460016001556000526005601bf36000526000600e60126000f550621122336000526003601dfd00",  # noqa: E501
-            {},
-        ),
+        "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506000600060006000f550621122336000526003601dfd00",  # noqa: E501
+        "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f15064600160015560005260006005601b6000f550621122336000526003601dfd00",  # noqa: E501
+        "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c61c350f1506d6460016001556000526005601bf36000526000600e60126000f550621122336000526003601dfd00",  # noqa: E501
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -139,7 +131,6 @@ def test_create2collision_selfdestructed_revert_from_prague(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Collision with address that has been selfdestructed in the same..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -159,7 +150,7 @@ def test_create2collision_selfdestructed_revert_from_prague(
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: LLL
     # { (SELFDESTRUCT 0x10) }
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
@@ -167,7 +158,7 @@ def test_create2collision_selfdestructed_revert_from_prague(
     )
     # Source: LLL
     # { (SELFDESTRUCT 0x10) }
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
@@ -175,7 +166,7 @@ def test_create2collision_selfdestructed_revert_from_prague(
     )
     # Source: LLL
     # { (SELFDESTRUCT 0x10) }
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
@@ -192,6 +183,17 @@ def test_create2collision_selfdestructed_revert_from_prague(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        Address(
+            "0x0000000000000000000000000000000000000010"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
+        sender: Account(nonce=1),
+        contract: Account(balance=1, code=bytes.fromhex("6010ff00")),
+        callee_1: Account(balance=1, code=bytes.fromhex("6010ff00")),
+        callee_2: Account(balance=1, code=bytes.fromhex("6010ff00")),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

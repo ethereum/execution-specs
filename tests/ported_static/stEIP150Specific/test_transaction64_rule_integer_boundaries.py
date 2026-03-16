@@ -29,104 +29,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "000000000000000000000000000000007fffffffffffffffffffffffffffffff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000007fff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "000000000000000000000000000000000000000000000000000000007fffffff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000007fffffffffffffff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "000000000000000000000000000000000000000000000000000000000000007f",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "000000000000000000000000000000008fffffffffffffffffffffffffffffff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000008fff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "8fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "000000000000000000000000000000000000000000000000000000008fffffff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000008fffffffffffffff",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
-        (
-            "000000000000000000000000000000000000000000000000000000000000008f",
-            {
-                Address("0x000000000000000000000000000000000000c0de"): Account(
-                    storage={0: 1, 1: 1, 2: 1, 3: 1}
-                )
-            },
-        ),
+        "000000000000000000000000000000007fffffffffffffffffffffffffffffff",
+        "0000000000000000000000000000000000000000000000000000000000007fff",
+        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "000000000000000000000000000000000000000000000000000000007fffffff",
+        "0000000000000000000000000000000000000000000000007fffffffffffffff",
+        "000000000000000000000000000000000000000000000000000000000000007f",
+        "000000000000000000000000000000008fffffffffffffffffffffffffffffff",
+        "0000000000000000000000000000000000000000000000000000000000008fff",
+        "8fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "000000000000000000000000000000000000000000000000000000008fffffff",
+        "0000000000000000000000000000000000000000000000008fffffffffffffff",
+        "000000000000000000000000000000000000000000000000000000000000008f",
     ],
     ids=[
         "case0",
@@ -148,7 +64,6 @@ def test_transaction64_rule_integer_boundaries(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Danno Ferrin danno.ferrin@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -253,6 +168,8 @@ def test_transaction64_rule_integer_boundaries(
         gas_limit=800000,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(storage={0: 1, 1: 1, 2: 1, 3: 1}),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

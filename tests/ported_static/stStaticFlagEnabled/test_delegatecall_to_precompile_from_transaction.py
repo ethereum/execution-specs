@@ -84,7 +84,7 @@ def test_delegatecall_to_precompile_from_transaction(
     #   [ 0x0a0600 ] (DELEGATECALL (GAS) 3 0 32 0x2000 32)
     #   [ 0x0a0700 ] @0
     # ... (82 more lines)
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -422,6 +422,7 @@ def test_delegatecall_to_precompile_from_transaction(
     )
 
     post = {
+        callee: Account(storage={}, balance=1000),
         contract: Account(
             storage={
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
@@ -448,6 +449,7 @@ def test_delegatecall_to_precompile_from_transaction(
                 2585: 1,
                 2592: 1,
             },
+            balance=1100,
         ),
     }
 
@@ -512,7 +514,7 @@ def test_delegatecall_to_precompile_from_transaction_from_osaka(
     #   [ 0x0a0600 ] (DELEGATECALL (GAS) 3 0 32 0x2000 32)
     #   [ 0x0a0700 ] @0
     # ... (82 more lines)
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -850,6 +852,7 @@ def test_delegatecall_to_precompile_from_transaction_from_osaka(
     )
 
     post = {
+        callee: Account(storage={}, balance=1000),
         contract: Account(
             storage={
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
@@ -876,6 +879,7 @@ def test_delegatecall_to_precompile_from_transaction_from_osaka(
                 2585: 1,
                 2592: 1,
             },
+            balance=1100,
         ),
     }
 

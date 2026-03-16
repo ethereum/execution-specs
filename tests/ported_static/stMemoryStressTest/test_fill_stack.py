@@ -26,10 +26,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (3141592, {}),
-        (16777216, {}),
+        3141592,
+        16777216,
     ],
     ids=["case0", "case1"],
 )
@@ -38,7 +38,6 @@ def test_fill_stack(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
@@ -116,6 +115,25 @@ def test_fill_stack(
         value=264050067,
     )
 
-    post = expected_post
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={},
+            nonce=0,
+            balance=0,
+            code=bytes.fromhex(
+                "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155"  # noqa: E501
+            ),
+        ),
+        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
+            storage={},
+            nonce=0,
+            code=bytes.fromhex("6000355415600957005b60203560003555"),
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+            code=b"",
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

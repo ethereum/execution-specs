@@ -82,7 +82,9 @@ def test_raw_ext_code_copy_memory_gas(
     )
 
     post = {
-        contract: Account(storage={1: 4948}),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 4948},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

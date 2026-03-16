@@ -49,7 +49,7 @@ def test_suicides_stop_after_suicide(
 
     # Source: LLL
     # {(SELFDESTRUCT 0x0000000000000000000000000000000000000001)}
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         balance=1110,
         nonce=0,
@@ -84,6 +84,15 @@ def test_suicides_stop_after_suicide(
         value=10,
     )
 
-    post: dict = {}
+    post = {
+        callee: Account(storage={}),
+        sender: Account(nonce=1),
+        contract: Account(
+            storage={},
+            nonce=0,
+            balance=0,
+            code=bytes.fromhex("6000ff600060006000600060006000617530f100"),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

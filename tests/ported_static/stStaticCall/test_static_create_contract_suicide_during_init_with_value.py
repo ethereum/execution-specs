@@ -29,16 +29,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273c94f5374fce5edbc8e2a8697c15331677e6ebf0bff",  # noqa: E501
-            {},
-        ),
-        (
-            "600060006000600073d94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273c94f5374fce5edbc8e2a8697c15331677e6ebf0bff",  # noqa: E501
-            {},
-        ),
+        "600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273c94f5374fce5edbc8e2a8697c15331677e6ebf0bff",  # noqa: E501
+        "600060006000600073d94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273c94f5374fce5edbc8e2a8697c15331677e6ebf0bff",  # noqa: E501
     ],
     ids=["case0", "case1"],
 )
@@ -48,7 +42,6 @@ def test_static_create_contract_suicide_during_init_with_value(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -68,7 +61,7 @@ def test_static_create_contract_suicide_during_init_with_value(
     pre[sender] = Account(balance=0xE8D4A51000)
     # Source: LLL
     # {[[1]]12}
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         nonce=0,
         address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
@@ -91,6 +84,11 @@ def test_static_create_contract_suicide_during_init_with_value(
         value=10,
     )
 
-    post = expected_post
+    post = {
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
+        contract: Account(storage={1: 0}, balance=10),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

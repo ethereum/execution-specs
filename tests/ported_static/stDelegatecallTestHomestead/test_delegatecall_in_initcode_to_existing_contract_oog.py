@@ -84,11 +84,7 @@ def test_delegatecall_in_initcode_to_existing_contract_oog(
 
     post = {
         Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-            storage={
-                2: 1,
-                10: 1,
-                11: 0x1000000000000000000000000000000000000000,
-            },
+            balance=5,
         ),
     }
 

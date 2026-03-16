@@ -90,7 +90,9 @@ def test_returndatasize_after_successful_delegatecall(
     )
 
     post = {
-        contract: Account(storage={0: 20}),
+        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
+            storage={0: 20},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

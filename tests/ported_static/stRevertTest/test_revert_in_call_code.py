@@ -88,7 +88,9 @@ def test_revert_in_call_code(
     )
 
     post = {
-        contract: Account(storage={1: 32, 2: 8754}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={1: 32, 2: 8754},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -86,6 +86,16 @@ def test_static_make_money(
         value=10,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            balance=0xDE0B6B3A764000A,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=0x5D38038,
+        ),
+        Address("0xaaaaaaaaace5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=0xDE0B6B3A7640000,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

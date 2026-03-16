@@ -27,7 +27,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_gas_limit, tx_value, tx_access_list, tx_error, expected_post",  # noqa: E501
+    "tx_data_hex, tx_gas_limit, tx_value, tx_access_list, tx_error",
     [
         pytest.param(
             "00",
@@ -35,7 +35,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             None,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case0",
             marks=pytest.mark.exception_test,
         ),
@@ -45,18 +44,16 @@ REFERENCE_SPEC_VERSION = "N/A"
             1000000000000000000,
             None,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case1",
             marks=pytest.mark.exception_test,
         ),
-        pytest.param("00", 40000, 0, None, None, {}, id="case2"),
+        pytest.param("00", 40000, 0, None, None, id="case2"),
         pytest.param(
             "00",
             40000,
             1000000000000000000,
             None,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case3",
             marks=pytest.mark.exception_test,
         ),
@@ -66,7 +63,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             [],
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case4",
             marks=pytest.mark.exception_test,
         ),
@@ -76,18 +72,16 @@ REFERENCE_SPEC_VERSION = "N/A"
             1000000000000000000,
             [],
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case5",
             marks=pytest.mark.exception_test,
         ),
-        pytest.param("01", 40000, 0, [], None, {}, id="case6"),
+        pytest.param("01", 40000, 0, [], None, id="case6"),
         pytest.param(
             "01",
             40000,
             1000000000000000000,
             [],
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case7",
             marks=pytest.mark.exception_test,
         ),
@@ -102,7 +96,6 @@ def test_out_of_funds_old_types(
     tx_value: int,
     tx_access_list: list | None,
     tx_error: object,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -145,6 +138,6 @@ def test_out_of_funds_old_types(
         error=tx_error,
     )
 
-    post = expected_post
+    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

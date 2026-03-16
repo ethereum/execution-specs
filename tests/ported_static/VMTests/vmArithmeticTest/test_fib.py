@@ -141,8 +141,9 @@ def test_fib(
     )
 
     post = {
-        contract: Account(
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
             storage={
+                0: 0,
                 1: 1,
                 2: 1,
                 3: 2,

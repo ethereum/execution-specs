@@ -67,7 +67,7 @@ def test_loop_calls_then_revert(
         nonce=0,
         address=Address("0x0347aff20d9d3c574e18f3b17dc267ddcd2d75ca"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0))) + Op.STOP
         ),
@@ -83,7 +83,12 @@ def test_loop_calls_then_revert(
     )
 
     post = {
-        callee: Account(storage={0: 850}),
+        Address("0xa000000000000000000000000000000000000000"): Account(
+            storage={0: 0},
+        ),
+        Address("0xb000000000000000000000000000000000000000"): Account(
+            storage={0: 850},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

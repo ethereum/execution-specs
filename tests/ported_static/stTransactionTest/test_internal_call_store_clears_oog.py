@@ -68,7 +68,7 @@ def test_internal_call_store_clears_oog(
         address=Address("0x30bfe899ef735d5aaca102952664a74b1de046af"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x3B9ACA00)
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=0x0)
             + Op.SSTORE(key=0x1, value=0x0)
@@ -106,7 +106,7 @@ def test_internal_call_store_clears_oog(
     )
 
     post = {
-        callee: Account(
+        Address("0x0000000000000000000000000000000000000000"): Account(
             storage={
                 0: 12,
                 1: 12,
@@ -119,6 +119,13 @@ def test_internal_call_store_clears_oog(
                 8: 12,
                 9: 12,
             },
+            balance=0,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=20,
         ),
     }
 

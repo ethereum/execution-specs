@@ -70,7 +70,7 @@ def test_static_refund_call_a(
         nonce=0,
         address=Address("0xd15bdaf597badaa25173c995d18f65d1b514a062"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={0x1: 0x1},
         balance=0xDE0B6B3A7640000,
@@ -86,8 +86,13 @@ def test_static_refund_call_a(
     )
 
     post = {
-        contract: Account(storage={1: 1}),
-        callee: Account(storage={1: 1}),
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 0, 1: 1},
+            balance=0xDE0B6B3A764000A,
+        ),
+        Address("0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa"): Account(
+            storage={1: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

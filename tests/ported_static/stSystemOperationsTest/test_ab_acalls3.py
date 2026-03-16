@@ -65,7 +65,7 @@ def test_ab_acalls3(
         nonce=0,
         address=Address("0x4776b53deb22f16581088f679dba75e205b65d34"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
             + Op.CALL(
@@ -92,8 +92,12 @@ def test_ab_acalls3(
     )
 
     post = {
-        contract: Account(storage={0: 52}),
-        callee: Account(storage={0: 52}),
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 52},
+        ),
+        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
+            storage={0: 52},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

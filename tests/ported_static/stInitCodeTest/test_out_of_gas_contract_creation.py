@@ -29,20 +29,52 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.parametrize(
     "tx_data_hex, tx_gas_limit, expected_post",
     [
-        ("600a80600c6000396000f200600160008035811a8100", 56000, {}),
-        ("600a80600c6000396000f200600160008035811a8100", 150000, {}),
+        (
+            "600a80600c6000396000f200600160008035811a8100",
+            56000,
+            {
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "600a80600c6000396000f200600160008035811a8100",
+            150000,
+            {
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "600160015560026001556003600155600460015560056001556006600155",
             56000,
-            {},
+            {
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "600160015560026001556003600155600460015560056001556006600155",
             150000,
             {
                 Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={1: 6}
-                )
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
     ],

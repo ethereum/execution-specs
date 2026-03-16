@@ -26,10 +26,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (170685, {}),
-        (136685, {}),
+        170685,
+        136685,
     ],
     ids=["case0", "case1"],
 )
@@ -38,7 +38,6 @@ def test_revert_depth2(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -145,6 +144,22 @@ def test_revert_depth2(
         gas_limit=tx_gas_limit,
     )
 
-    post = expected_post
+    post = {
+        Address("0xa000000000000000000000000000000000000000"): Account(
+            storage={0: 0, 1: 0, 2: 0},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb000000000000000000000000000000000000000"): Account(
+            storage={0: 0, 1: 0},
+        ),
+        Address("0xc000000000000000000000000000000000000000"): Account(
+            storage={0: 0},
+        ),
+        Address("0xd000000000000000000000000000000000000000"): Account(
+            storage={0: 0, 1: 0, 2: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

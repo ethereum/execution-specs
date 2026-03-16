@@ -83,6 +83,7 @@ def test_test_random_test(
     post = {
         contract: Account(
             storage={0xEBCCE5F60530275EE9318CE1EFF9E4BFEE810172: 1000},
+            nonce=2,
         ),
     }
 

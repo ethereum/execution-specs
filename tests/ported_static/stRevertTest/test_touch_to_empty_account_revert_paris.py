@@ -99,6 +99,13 @@ def test_touch_to_empty_account_revert_paris(
         gas_limit=70000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+            nonce=0,
+            balance=10,
+            code=b"",
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

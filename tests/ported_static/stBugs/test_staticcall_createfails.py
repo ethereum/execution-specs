@@ -105,6 +105,11 @@ def test_staticcall_createfails(
         gas_limit=120000,
     )
 
-    post: dict = {}
+    post = {
+        Address(
+            "0x1d0384eb7c2b1a9d9862c8e180f9e4d1696a2a8e"
+        ): Account.NONEXISTENT,
+        contract: Account(storage={1: 0}),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

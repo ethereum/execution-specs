@@ -69,6 +69,22 @@ def test_vitalik_transaction_test_paris(
         nonce=335,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1bc78ae0e5ec5cb439f1d5355d6f90d38343e109"): Account(
+            storage={},
+            nonce=3,
+            code=b"",
+        ),
+        Address("0x51f9d7f98e997bdd6bebde4c2dd27be8c99303aa"): Account(
+            storage={},
+            nonce=1,
+            balance=0,
+            code=bytes.fromhex(
+                "6000603f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050fe"  # noqa: E501
+            ),
+        ),
+        sender: Account(storage={}, nonce=336, code=b""),
+        contract: Account(storage={}, nonce=0, balance=10, code=b""),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -74,7 +74,7 @@ def test_callcodecallcallcode_101_suicide_end(
         nonce=0,
         address=Address("0x77b749ffff7ec61d31c79ed104f230a7959b2879"),  # noqa: E501
     )
-    callee_2 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x2,
@@ -128,8 +128,13 @@ def test_callcodecallcallcode_101_suicide_end(
     )
 
     post = {
-        callee_2: Account(storage={2: 1, 3: 1}),
-        contract: Account(storage={0: 1, 1: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 1: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={2: 0},
+            balance=0x4A817C800,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

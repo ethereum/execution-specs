@@ -166,6 +166,13 @@ def test_ecrecover_short_buff(
     post = {
         contract: Account(
             storage={
+                0: 0,
+                1: 0,
+                159: 0,
+                4096: 0,
+                4112: 0,
+                4144: 0,
+                4192: 0,
                 4193: 0x8E5817968F74FFB0255AE41EEFA6F89DD0183FA1,
                 4194: 0xB7529ED60A10291754A635ED9FD67C1723F4D83B,
                 4195: 0x669457CE81442F235FFC4123662BA14A72B3D68,

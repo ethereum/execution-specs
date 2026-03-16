@@ -57,6 +57,11 @@ def test_stack_depth_limit_sec(
         value=10,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            balance=10,
+            code=bytes.fromhex("600060006000600060003060405a03f1"),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

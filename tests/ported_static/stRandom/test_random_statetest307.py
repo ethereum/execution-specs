@@ -101,6 +101,18 @@ def test_random_statetest307(
         value=1254784781,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(storage={}, nonce=0),
+        Address(
+            "0x62c01474f089b07dae603491675dc5b5748f7049"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x91ed00a0a906270d466af043c4e111dadca970a3"
+        ): Account.NONEXISTENT,
+        coinbase: Account(storage={}, nonce=0),
+        Address(
+            "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

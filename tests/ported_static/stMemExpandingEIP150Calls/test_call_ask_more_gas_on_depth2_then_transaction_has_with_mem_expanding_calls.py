@@ -70,12 +70,12 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_cal
         address=Address("0x97442da68a5f2b1be1728c655c0f395cffb999cf"),  # noqa: E501
     )
     # Source: raw bytecode
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x8, value=Op.GAS),
         nonce=0,
         address=Address("0x9edefdfb5a11a6b30dba1bff8726f94f9d9e1232"),  # noqa: E501
     )
-    callee_1 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x8, value=Op.GAS)
             + Op.SSTORE(
@@ -102,9 +102,18 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_cal
     )
 
     post = {
-        contract: Account(storage={8: 0x8D5B6, 9: 1}),
-        callee: Account(storage={8: 0x2A1C7}),
-        callee_1: Account(storage={8: 0x30D3E, 9: 1}),
+        Address("0x1000000000000000000000000000000000000107"): Account(
+            storage={8: 0x30D3E, 9: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000108"): Account(
+            storage={8: 0x2A1C7},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={8: 0x8D5B6, 9: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

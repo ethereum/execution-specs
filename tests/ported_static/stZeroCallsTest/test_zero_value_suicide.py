@@ -63,6 +63,18 @@ def test_zero_value_suicide(
         gas_limit=600000,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(
+            storage={},
+            nonce=0,
+            balance=0,
+            code=bytes.fromhex(
+                "73c94f5374fce5edbc8e2a8697c15331677e6ebf0bff00"
+            ),
+        ),
+        Address(
+            "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

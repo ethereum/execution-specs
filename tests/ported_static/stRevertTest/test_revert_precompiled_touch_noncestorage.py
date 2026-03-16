@@ -482,14 +482,38 @@ def test_revert_precompiled_touch_noncestorage(
     )
 
     post = {
-        callee: Account(storage={0: 1}),
-        callee_1: Account(storage={0: 1}),
-        callee_3: Account(storage={0: 1}),
-        callee_6: Account(storage={0: 1}),
-        callee_7: Account(storage={0: 1}),
-        callee_8: Account(storage={0: 1}),
-        callee_10: Account(storage={0: 1}),
-        callee_11: Account(storage={0: 1}),
+        Address("0x0000000000000000000000000000000000000001"): Account(
+            storage={0: 1},
+            nonce=1,
+        ),
+        Address("0x0000000000000000000000000000000000000002"): Account(
+            storage={0: 1},
+            nonce=1,
+        ),
+        Address("0x0000000000000000000000000000000000000003"): Account(
+            storage={0: 1},
+            nonce=1,
+        ),
+        Address("0x0000000000000000000000000000000000000004"): Account(
+            storage={0: 1},
+            nonce=1,
+        ),
+        Address("0x0000000000000000000000000000000000000005"): Account(
+            storage={0: 1},
+            nonce=1,
+        ),
+        Address("0x0000000000000000000000000000000000000006"): Account(
+            storage={0: 1},
+            nonce=1,
+        ),
+        Address("0x0000000000000000000000000000000000000007"): Account(
+            storage={0: 1},
+            nonce=1,
+        ),
+        Address("0x0000000000000000000000000000000000000008"): Account(
+            storage={0: 1},
+            nonce=1,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

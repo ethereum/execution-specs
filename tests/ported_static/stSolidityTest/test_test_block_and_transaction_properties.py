@@ -266,6 +266,10 @@ def test_test_block_and_transaction_properties(
         value=100,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

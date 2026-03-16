@@ -67,7 +67,14 @@ def test_add11_yml(
     )
 
     post = {
-        contract: Account(storage={0: 2}),
+        contract: Account(
+            storage={0: 2},
+            code=bytes.fromhex("600160010160005500"),
+        ),
+        sender: Account(storage={}, nonce=1, code=b""),
+        Address(
+            "0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

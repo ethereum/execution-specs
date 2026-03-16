@@ -27,46 +27,21 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_access_list, expected_post",
+    "tx_access_list",
     [
-        (
-            None,
-            {
-                Address("0x30873f83c35401e315e6e5994c012f1ee8119585"): Account(
-                    storage={0: 6800}
-                )
-            },
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3"
-                    ),
-                    storage_keys=[],
-                )
-            ],
-            {
-                Address("0x30873f83c35401e315e6e5994c012f1ee8119585"): Account(
-                    storage={0: 6800}
-                )
-            },
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x000000000000000000000000000000000000ba5a"
-                    ),
-                    storage_keys=[],
-                )
-            ],
-            {
-                Address("0x30873f83c35401e315e6e5994c012f1ee8119585"): Account(
-                    storage={0: 6800}
-                )
-            },
-        ),
+        None,
+        [
+            AccessList(
+                address=Address("0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3"),
+                storage_keys=[],
+            )
+        ],
+        [
+            AccessList(
+                address=Address("0x000000000000000000000000000000000000ba5a"),
+                storage_keys=[],
+            )
+        ],
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -75,7 +50,6 @@ def test_coinbase_t01(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_access_list: list | None,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3")
@@ -143,6 +117,10 @@ def test_coinbase_t01(
         access_list=tx_access_list,
     )
 
-    post = expected_post
+    post = {
+        Address("0x000000000000000000000000000000000000c0de"): Account(
+            storage={0: 6800},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

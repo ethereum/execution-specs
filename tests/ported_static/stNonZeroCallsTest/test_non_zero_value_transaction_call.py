@@ -57,6 +57,8 @@ def test_non_zero_value_transaction_call(
         value=1,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(storage={}, balance=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -82,7 +82,15 @@ def test_delegate_call_on_eip_with_mem_expanding_calls(
     )
 
     post = {
-        contract: Account(storage={0: 18, 8: 0x8D5B6, 9: 1}),
+        Address("0x1000000000000000000000000000000000000105"): Account(
+            storage={},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 18, 8: 0x8D5B6, 9: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

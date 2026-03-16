@@ -137,6 +137,16 @@ def test_create_contract_from_method(
         value=1,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(nonce=1),
+        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+            storage={},
+            nonce=1,
+            balance=0,
+            code=bytes.fromhex(
+                "60003560e060020a90048062f55d9d14601e578063b9c3d0a514602d57005b60276004356046565b60006000f35b6033603d565b8060005260206000f35b600060e1905090565b80600160a060020a0316ff5056"  # noqa: E501
+            ),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

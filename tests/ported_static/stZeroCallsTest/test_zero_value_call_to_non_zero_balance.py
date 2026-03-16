@@ -82,7 +82,12 @@ def test_zero_value_call_to_non_zero_balance(
     )
 
     post = {
-        contract: Account(storage={0: 0x8D5B6, 1: 1, 100: 1}),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 0x8D5B6, 1: 1, 100: 1},
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=100,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

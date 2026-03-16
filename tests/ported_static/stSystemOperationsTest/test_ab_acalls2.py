@@ -46,7 +46,7 @@ def test_ab_acalls2(
         gas_limit=10000000000,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
             + Op.CALL(
@@ -93,8 +93,12 @@ def test_ab_acalls2(
     )
 
     post = {
-        callee: Account(storage={0: 201}),
-        contract: Account(storage={0: 201}),
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 201},
+        ),
+        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
+            storage={0: 201},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

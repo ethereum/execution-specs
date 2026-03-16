@@ -81,7 +81,7 @@ def test_call_ripemd160_2(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0xDBC100F916BFBC53535573D98CF0CBB3A5B36124,
                 2: 1,

@@ -58,7 +58,12 @@ def test_high_gas_limit(
         value=900,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        contract: Account(balance=900),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -100,6 +105,11 @@ def test_high_gas_limit_from_prague(
         value=900,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        contract: Account(balance=900),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -61,10 +61,10 @@ def test_revert_in_create_in_init_paris(
     )
 
     post = {
-        Address("0x1775da0b19ad27f26c9de9e2b1e61a91cf8134cc"): Account(
-            storage={0: 32, 1: 0x112233},
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            storage={0: 1},
+            balance=10,
         ),
-        contract: Account(storage={0: 1}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

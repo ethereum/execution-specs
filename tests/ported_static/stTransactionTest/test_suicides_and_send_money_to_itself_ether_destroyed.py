@@ -69,6 +69,14 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
         value=10,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=0,
+            balance=1010,
+            code=bytes.fromhex(
+                "73c94f5374fce5edbc8e2a8697c15331677e6ebf0bff00"
+            ),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

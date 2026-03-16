@@ -92,7 +92,7 @@ def test_returndatacopy_following_call(
     )
 
     post = {
-        contract: Account(
+        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
             storage={
                 0: 0x111122223333444455556666777788889999AAAABBBBCCCCDDDDEEEEFFFF,  # noqa: E501
             },

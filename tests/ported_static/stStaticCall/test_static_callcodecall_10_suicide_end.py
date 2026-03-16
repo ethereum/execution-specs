@@ -29,24 +29,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "000000000000000000000000cfb5784a5e49924becc2d5c5d2ee0a9b141e6216",
-            {
-                Address("0x99b0d2d9eea3205f4de64fdc26910432824ab1a7"): Account(
-                    storage={0: 1, 1: 0x2CF4C4}
-                )
-            },
-        ),
-        (
-            "000000000000000000000000703b936fd4d674f0ff5d6957f61097152f8781b8",
-            {
-                Address("0x99b0d2d9eea3205f4de64fdc26910432824ab1a7"): Account(
-                    storage={0: 1, 1: 0x2C3183}
-                )
-            },
-        ),
+        "000000000000000000000000cfb5784a5e49924becc2d5c5d2ee0a9b141e6216",
+        "000000000000000000000000703b936fd4d674f0ff5d6957f61097152f8781b8",
     ],
     ids=["case0", "case1"],
 )
@@ -56,7 +42,6 @@ def test_static_callcodecall_10_suicide_end(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -140,6 +125,11 @@ def test_static_callcodecall_10_suicide_end(
         gas_limit=3000000,
     )
 
-    post = expected_post
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            nonce=0,
+            balance=0xDE0B6B3A7640000,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

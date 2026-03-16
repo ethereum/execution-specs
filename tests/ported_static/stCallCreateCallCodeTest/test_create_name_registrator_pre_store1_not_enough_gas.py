@@ -74,6 +74,11 @@ def test_create_name_registrator_pre_store1_not_enough_gas(
         value=100000,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(nonce=1),
+        Address(
+            "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

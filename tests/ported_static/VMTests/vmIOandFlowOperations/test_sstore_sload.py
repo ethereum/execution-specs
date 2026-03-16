@@ -28,32 +28,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 255, 10: 238, 20: 255}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 255, 1: 238, 2: 221, 10: 238, 20: 221}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 255, 10: 238}
-                )
-            },
-        ),
+        "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -62,7 +41,6 @@ def test_sstore_sload(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -147,6 +125,8 @@ def test_sstore_sload(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(storage={0: 255, 10: 238, 20: 255}),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

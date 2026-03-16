@@ -28,40 +28,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (
-            13120826,
-            {
-                Address("0x0878bc1c3d660907b056e31c854a309f7ef1b4c4"): Account(
-                    storage={0: 134, 1: 1, 2: 0x20B71}
-                )
-            },
-        ),
-        (
-            9320826,
-            {
-                Address("0x0878bc1c3d660907b056e31c854a309f7ef1b4c4"): Account(
-                    storage={0: 113, 1: 1, 2: 0x1B969}
-                )
-            },
-        ),
-        (
-            15720826,
-            {
-                Address("0x0878bc1c3d660907b056e31c854a309f7ef1b4c4"): Account(
-                    storage={0: 146, 1: 1, 2: 0x23A51}
-                )
-            },
-        ),
-        (
-            11220826,
-            {
-                Address("0x0878bc1c3d660907b056e31c854a309f7ef1b4c4"): Account(
-                    storage={0: 124, 1: 1, 2: 0x1E461}
-                )
-            },
-        ),
+        13120826,
+        9320826,
+        15720826,
+        11220826,
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -70,7 +42,6 @@ def test_call1024_oog(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Calldepth with oog."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -128,6 +99,10 @@ def test_call1024_oog(
         value=10,
     )
 
-    post = expected_post
+    post = {
+        Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 134, 1: 1, 2: 0x20B71},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

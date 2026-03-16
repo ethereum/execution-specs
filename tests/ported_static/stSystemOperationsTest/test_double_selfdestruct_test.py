@@ -34,16 +34,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        ("f210011002", {}),
-        ("f410011002", {}),
-        ("f110011002", {}),
-        ("fa1001c0de", {}),
-        ("fa10011002", {}),
-        ("f21001c0de", {}),
-        ("f41001c0de", {}),
-        ("f11001c0de", {}),
+        "f210011002",
+        "f410011002",
+        "f110011002",
+        "fa1001c0de",
+        "fa10011002",
+        "f21001c0de",
+        "f41001c0de",
+        "f11001c0de",
     ],
     ids=[
         "case0",
@@ -61,7 +61,6 @@ def test_double_selfdestruct_test(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """The first test case required here."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -204,6 +203,13 @@ def test_double_selfdestruct_test(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        Address(
+            "0x0000000000000000000000000000000000000513"
+        ): Account.NONEXISTENT,
+        Address("0x0000000000000000000000000000000000000514"): Account(
+            balance=0xF4241,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -67,7 +67,7 @@ def test_static_call_value_inherit_from_call(
         nonce=0,
         address=Address("0x0af4ae2156e6347e93d875a9d46085e31e57bbe9"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x0,
@@ -108,7 +108,9 @@ def test_static_call_value_inherit_from_call(
     )
 
     post = {
-        callee: Account(storage={0: 1}),
+        Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 1, 1: 0},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

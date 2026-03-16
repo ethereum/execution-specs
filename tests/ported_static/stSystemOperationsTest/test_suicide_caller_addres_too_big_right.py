@@ -72,8 +72,8 @@ def test_suicide_caller_addres_too_big_right(
     )
 
     post = {
-        contract: Account(
-            storage={0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B},
+        Address("0x4f5374fce5edbc8e2a8697c15331677e6ebf0baa"): Account(
+            balance=0xDE0B6B3A76586A0,
         ),
     }
 

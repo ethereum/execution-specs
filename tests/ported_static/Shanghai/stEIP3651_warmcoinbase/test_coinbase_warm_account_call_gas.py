@@ -29,72 +29,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            {
-                Address("0xa4a48fc5f3526a9bc06a0136ab0ba1d9574d15ba"): Account(
-                    storage={0: 100}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
-            {
-                Address("0xa4a48fc5f3526a9bc06a0136ab0ba1d9574d15ba"): Account(
-                    storage={0: 100}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
-            {
-                Address("0xa4a48fc5f3526a9bc06a0136ab0ba1d9574d15ba"): Account(
-                    storage={0: 100}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
-            {
-                Address("0xa4a48fc5f3526a9bc06a0136ab0ba1d9574d15ba"): Account(
-                    storage={0: 100}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
-            {
-                Address("0xa4a48fc5f3526a9bc06a0136ab0ba1d9574d15ba"): Account(
-                    storage={0: 100}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
-            {
-                Address("0xa4a48fc5f3526a9bc06a0136ab0ba1d9574d15ba"): Account(
-                    storage={0: 100}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
-            {
-                Address("0xa4a48fc5f3526a9bc06a0136ab0ba1d9574d15ba"): Account(
-                    storage={0: 100}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000007",  # noqa: E501
-            {
-                Address("0xa4a48fc5f3526a9bc06a0136ab0ba1d9574d15ba"): Account(
-                    storage={0: 100}
-                )
-            },
-        ),
+        "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000007",  # noqa: E501
     ],
     ids=[
         "case0",
@@ -112,7 +56,6 @@ def test_coinbase_warm_account_call_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x50228c44ed92561d94511e8518a75aa463bd444b")
@@ -305,6 +248,10 @@ def test_coinbase_warm_account_call_gas(
         nonce=1,
     )
 
-    post = expected_post
+    post = {
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
+            storage={0: 100},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

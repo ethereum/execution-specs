@@ -149,7 +149,7 @@ def test_new_gas_price_for_codes(
     )
 
     post = {
-        contract: Account(
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
             storage={
                 0: 18,
                 1: 32,

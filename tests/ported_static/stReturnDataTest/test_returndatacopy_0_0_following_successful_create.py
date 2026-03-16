@@ -79,6 +79,7 @@ def test_returndatacopy_0_0_following_successful_create(
     )
 
     post = {
+        contract: Account(storage={0: 0}),
         Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
             storage={0: 1},
         ),

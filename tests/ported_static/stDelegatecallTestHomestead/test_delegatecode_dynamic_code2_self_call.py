@@ -81,6 +81,7 @@ def test_delegatecode_dynamic_code2_self_call(
                 11: 1,
                 12: 0x1000000000000000000000000000000000000000,
             },
+            balance=1,
         ),
     }
 

@@ -43,13 +43,23 @@ REFERENCE_SPEC_VERSION = "N/A"
             "0000000000000000000000001000000000000000000000000000000000000001",
             {
                 Address("0x1000000000000000000000000000000000000001"): Account(
-                    storage={0: 0x5DDDFCE53EE040D9EB21AFBC0AE1BB4DBB0BA643}
-                )
+                    storage={
+                        0: 0x5DDDFCE53EE040D9EB21AFBC0AE1BB4DBB0BA643,
+                        1: 0,
+                    }
+                ),
+                Address("0x5dddfce53ee040d9eb21afbc0ae1bb4dbb0ba643"): Account(
+                    storage={}, code=bytes.fromhex("6001600155")
+                ),
             },
         ),
         (
             "0000000000000000000000001000000000000000000000000000000000000002",
-            {},
+            {
+                Address("0x1000000000000000000000000000000000000001"): Account(
+                    storage={0: 0, 1: 0}
+                )
+            },
         ),
     ],
     ids=["case0", "case1", "case2"],

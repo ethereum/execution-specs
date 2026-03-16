@@ -70,7 +70,7 @@ def test_raw_call_memory_gas(
         nonce=0,
         address=Address("0x590b5b415a9a5f546bdb1a7781b31b91c53902ed"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x2, value=Op.GAS) + Op.STOP,
         nonce=0,
         address=Address("0xe497cd0909c3691e0b6d2a42e26f36696fc27ba5"),  # noqa: E501
@@ -84,8 +84,12 @@ def test_raw_call_memory_gas(
     )
 
     post = {
-        contract: Account(storage={1: 25608}),
-        callee: Account(storage={2: 29998}),
+        Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={2: 29998},
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 25608},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

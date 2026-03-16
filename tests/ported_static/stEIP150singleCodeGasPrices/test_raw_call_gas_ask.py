@@ -69,7 +69,7 @@ def test_raw_call_gas_ask(
         nonce=0,
         address=Address("0x18817869e5f5b3f55f57bb7791ea8ee6f62604c8"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x2, value=Op.GAS) + Op.STOP,
         nonce=0,
         address=Address("0xe497cd0909c3691e0b6d2a42e26f36696fc27ba5"),  # noqa: E501
@@ -83,8 +83,12 @@ def test_raw_call_gas_ask(
     )
 
     post = {
-        contract: Account(storage={1: 24739}),
-        callee: Account(storage={2: 0x727BB}),
+        Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={2: 0x727BB},
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 24739},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

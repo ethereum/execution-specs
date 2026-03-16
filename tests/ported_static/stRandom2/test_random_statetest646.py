@@ -82,6 +82,13 @@ def test_random_statetest646(
         value=1451538698,
     )
 
-    post: dict = {}
+    post = {
+        sender: Account(storage={}, nonce=1, code=b""),
+        Address(
+            "0xb1c0d37237a1f6bd6202aed4b5a7290dfcda6591"
+        ): Account.NONEXISTENT,
+        callee: Account(storage={}, nonce=7, code=b""),
+        contract: Account(storage={}, nonce=28),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

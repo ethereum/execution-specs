@@ -28,17 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (56157, {}),
-        (
-            86157,
-            {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={1: 1}
-                )
-            },
-        ),
+        56157,
+        86157,
     ],
     ids=["case0", "case1"],
 )
@@ -47,7 +40,6 @@ def test_create_name_registrator_per_txs_not_enough_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Legacy Test from Christoph. J."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -76,6 +68,11 @@ def test_create_name_registrator_per_txs_not_enough_gas(
         value=100000,
     )
 
-    post = expected_post
+    post = {
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
+        sender: Account(nonce=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

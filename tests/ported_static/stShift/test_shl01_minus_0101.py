@@ -62,6 +62,17 @@ def test_shl01_minus_0101(
         value=100000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 0},
+            balance=0xDE0B6B3A76586A0,
+            code=bytes.fromhex("60016101011b600055"),
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+            code=b"",
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

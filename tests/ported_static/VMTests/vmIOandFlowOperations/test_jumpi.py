@@ -26,216 +26,34 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001005",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000100a",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001009",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001007",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001006",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001008",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001001",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001003",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000100d",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000100e",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000100f",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000100b",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000100c",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001004",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000001002",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000110",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000111",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000208",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000201",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000203",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000020d",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000020e",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000020f",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000200",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 24589}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000202",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2989}
-                )
-            },
-        ),
+        "693c61390000000000000000000000000000000000000000000000000000000000001005",  # noqa: E501
+        "693c6139000000000000000000000000000000000000000000000000000000000000100a",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000001009",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000001007",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000001006",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000001008",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000001001",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000001003",  # noqa: E501
+        "693c6139000000000000000000000000000000000000000000000000000000000000100d",  # noqa: E501
+        "693c6139000000000000000000000000000000000000000000000000000000000000100e",  # noqa: E501
+        "693c6139000000000000000000000000000000000000000000000000000000000000100f",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000001000",  # noqa: E501
+        "693c6139000000000000000000000000000000000000000000000000000000000000100b",  # noqa: E501
+        "693c6139000000000000000000000000000000000000000000000000000000000000100c",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000001004",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000001002",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000110",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000111",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000208",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000201",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000203",  # noqa: E501
+        "693c6139000000000000000000000000000000000000000000000000000000000000020d",  # noqa: E501
+        "693c6139000000000000000000000000000000000000000000000000000000000000020e",  # noqa: E501
+        "693c6139000000000000000000000000000000000000000000000000000000000000020f",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000200",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000202",  # noqa: E501
     ],
     ids=[
         "case0",
@@ -271,7 +89,6 @@ def test_jumpi(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -662,6 +479,8 @@ def test_jumpi(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(storage={0: 2989}),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

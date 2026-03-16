@@ -81,7 +81,7 @@ def test_static_call_sha256_3_postfix0(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0x3B745A1C00D035C334F358D007A430E4CF0AE63AA0556FB05529706DE546464D,  # noqa: E501
                 2: 1,

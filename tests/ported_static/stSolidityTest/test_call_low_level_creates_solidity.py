@@ -181,11 +181,12 @@ def test_call_low_level_creates_solidity(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 225,
-                1: 0x5DA6FBE439A0C3AB33F813671A4E7767EE0A263B,
+                1: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87,
             },
+            nonce=1,
         ),
     }
 

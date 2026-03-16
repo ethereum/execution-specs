@@ -68,7 +68,14 @@ def test_refund_tx_to_suicide_oog(
     )
 
     post = {
-        contract: Account(storage={1: 1}),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+            balance=0x5F2AC9C,
+        ),
+        Address("0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa"): Account(
+            storage={1: 1},
+            balance=0xDE0B6B3A7640000,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

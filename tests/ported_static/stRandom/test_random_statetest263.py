@@ -111,7 +111,10 @@ def test_random_statetest263(
             storage={
                 0: 0x14F8B588E368F08461F9F95EB620FACA1C09044BCFAFAE26DE901D3A614F5,  # noqa: E501
             },
+            nonce=0,
         ),
+        coinbase: Account(storage={}, nonce=0),
+        sender: Account(storage={}, nonce=1, code=b""),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

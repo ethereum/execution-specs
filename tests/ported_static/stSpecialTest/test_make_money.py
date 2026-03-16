@@ -69,7 +69,7 @@ def test_make_money(
         address=Address("0x56f6da36928bffd1fdb9eade8a5b8baffde0dea4"),  # noqa: E501
     )
     # Source: raw bytecode
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x1, value=0x1) + Op.SSTORE(key=0x2, value=Op.ORIGIN)
         ),
@@ -87,11 +87,14 @@ def test_make_money(
     )
 
     post = {
-        callee: Account(
-            storage={
-                1: 1,
-                2: 0xC4A2CA1058DF329E5DA4755F9921DDAF05CBAA06,
-            },
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            balance=0xDE0B6B3A763FFF3,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=0x3B8F6A16,
+        ),
+        Address("0xaaaaaaaaace5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=0xDE0B6B3A7640017,
         ),
     }
 

@@ -84,7 +84,9 @@ def test_static_callcode_check_pc(
     )
 
     post = {
-        contract: Account(storage={3: 35}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={3: 35},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

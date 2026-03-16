@@ -27,13 +27,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, tx_value, tx_error, expected_post",
+    "tx_gas_limit, tx_value, tx_error",
     [
         pytest.param(
             16777216,
             0,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case0",
             marks=pytest.mark.exception_test,
         ),
@@ -41,16 +40,14 @@ REFERENCE_SPEC_VERSION = "N/A"
             16777216,
             1000000000000000000,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case1",
             marks=pytest.mark.exception_test,
         ),
-        pytest.param(40000, 0, None, {}, id="case2"),
+        pytest.param(40000, 0, None, id="case2"),
         pytest.param(
             40000,
             1000000000000000000,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case3",
             marks=pytest.mark.exception_test,
         ),
@@ -63,7 +60,6 @@ def test_out_of_funds(
     tx_gas_limit: int,
     tx_value: int,
     tx_error: object,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -104,6 +100,6 @@ def test_out_of_funds(
         error=tx_error,
     )
 
-    post = expected_post
+    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

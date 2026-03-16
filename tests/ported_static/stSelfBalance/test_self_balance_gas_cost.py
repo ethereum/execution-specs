@@ -73,7 +73,9 @@ def test_self_balance_gas_cost(
     )
 
     post = {
-        contract: Account(storage={1: 5}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={1: 5},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

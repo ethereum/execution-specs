@@ -74,7 +74,7 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
         address=Address("0x1d63510fcd4f3069306ebae45ec6910c0bc944c8"),  # noqa: E501
     )
     pre[callee] = Account(balance=10, nonce=0, storage={0x0: 0x1})
-    callee_1 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SELFDESTRUCT(address=0x4757608F18B70777AE788DD4056EEED52F7AA68F)
             + Op.STOP
@@ -92,9 +92,16 @@ def test_zero_value_suicide_to_one_storage_key_oog_revert_paris(
     )
 
     post = {
-        contract: Account(storage={0: 1}),
-        callee: Account(storage={0: 1}),
-        callee_1: Account(storage={0: 1}),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 1},
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 1},
+            balance=10,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

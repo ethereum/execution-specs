@@ -54,6 +54,11 @@ def test_transaction_sending_to_empty(
         gas_limit=53000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            code=b"",
+        ),
+        sender: Account(nonce=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

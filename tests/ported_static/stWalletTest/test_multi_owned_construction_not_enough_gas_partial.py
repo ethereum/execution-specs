@@ -28,22 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (601249, {}),
-        (
-            751249,
-            {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={
-                        0: 1,
-                        1: 1,
-                        3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
-                    }
-                )
-            },
-        ),
+        601249,
+        751249,
     ],
     ids=["case0", "case1"],
 )
@@ -52,7 +40,6 @@ def test_multi_owned_construction_not_enough_gas_partial(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -146,6 +133,11 @@ def test_multi_owned_construction_not_enough_gas_partial(
         value=100,
     )
 
-    post = expected_post
+    post = {
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
+        sender: Account(storage={}, nonce=1, code=b""),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

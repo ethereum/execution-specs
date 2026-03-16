@@ -485,7 +485,23 @@ def test_python_revert_test_tue201814_minus_1430(
         value=625999040,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+        Address("0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -953,6 +969,22 @@ def test_python_revert_test_tue201814_minus_1430_from_prague(
         value=625999040,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+        Address("0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

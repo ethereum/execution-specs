@@ -65,6 +65,15 @@ def test_call_the_contract_to_create_empty_contract(
         value=1,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(nonce=1, balance=1),
+        sender: Account(nonce=1),
+        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+            storage={},
+            nonce=1,
+            balance=0,
+            code=b"",
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

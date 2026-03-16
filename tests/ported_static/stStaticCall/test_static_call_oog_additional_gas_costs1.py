@@ -79,6 +79,10 @@ def test_static_call_oog_additional_gas_costs1(
         gas_limit=30000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

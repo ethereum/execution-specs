@@ -97,6 +97,10 @@ def test_stack_overflow_dup(
         gas_limit=6000000,
     )
 
-    post: dict = {}
+    post = {
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

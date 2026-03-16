@@ -35,7 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             "0000000000000000000000001000000000000000000000000000000000000000",
             {
                 Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={1: 1, 2: 1}
+                    storage={1: 1, 2: 1}, balance=1
                 )
             },
         ),
@@ -43,7 +43,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             "0000000000000000000000002000000000000000000000000000000000000000",
             {
                 Address("0x11b62573be8f72b4085bafe5b675b3e7f08ed522"): Account(
-                    storage={1: 1, 2: 1}
+                    storage={1: 1, 2: 1}, balance=1
                 )
             },
         ),

@@ -89,7 +89,7 @@ def test_callcallcodecall_abcb_recursive(
         nonce=0,
         address=Address("0x91a8703c1bef34c1e76e152c1f7fb8c336c3be24"),  # noqa: E501
     )
-    callee_1 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -118,8 +118,15 @@ def test_callcallcodecall_abcb_recursive(
     )
 
     post = {
-        contract: Account(storage={0: 1}),
-        callee_1: Account(storage={1: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 1: 0},
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={1: 1, 2: 0},
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={1: 0, 2: 0},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

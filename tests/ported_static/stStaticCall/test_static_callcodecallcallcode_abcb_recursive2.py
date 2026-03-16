@@ -29,43 +29,23 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_value, expected_post",
+    "tx_data_hex, tx_value",
     [
         (
             "0000000000000000000000002733821fa13c4ead1c9631c76820333f42059b7c",
             0,
-            {
-                Address("0xba3c5101ad0b43de0f1853243eb3f9811eaee1e0"): Account(
-                    storage={0: 1, 1: 1}
-                )
-            },
         ),
         (
             "0000000000000000000000002733821fa13c4ead1c9631c76820333f42059b7c",
             1,
-            {
-                Address("0xba3c5101ad0b43de0f1853243eb3f9811eaee1e0"): Account(
-                    storage={0: 1, 1: 1}
-                )
-            },
         ),
         (
             "0000000000000000000000006acc177800643d95ab1daee1bd55cf99e3814e07",
             0,
-            {
-                Address("0xba3c5101ad0b43de0f1853243eb3f9811eaee1e0"): Account(
-                    storage={0: 1, 1: 1}
-                )
-            },
         ),
         (
             "0000000000000000000000006acc177800643d95ab1daee1bd55cf99e3814e07",
             1,
-            {
-                Address("0xba3c5101ad0b43de0f1853243eb3f9811eaee1e0"): Account(
-                    storage={0: 1, 1: 1}
-                )
-            },
         ),
     ],
     ids=["case0", "case1", "case2", "case3"],
@@ -77,7 +57,6 @@ def test_static_callcodecallcallcode_abcb_recursive2(
     pre: Alloc,
     tx_data_hex: str,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -195,6 +174,10 @@ def test_static_callcodecallcallcode_abcb_recursive2(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 1: 1},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

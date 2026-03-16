@@ -176,7 +176,25 @@ def test_random_statetest644(
         value=4077944035,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+            nonce=148,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+            code=b"",
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=28,
+        ),
+        Address("0xffffffffffffffffffffffffffffffffffffffff"): Account(
+            storage={},
+            nonce=28,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -335,6 +353,24 @@ def test_random_statetest644_from_prague(
         value=4077944035,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+            nonce=148,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+            code=b"",
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=28,
+        ),
+        Address("0xffffffffffffffffffffffffffffffffffffffff"): Account(
+            storage={},
+            nonce=28,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

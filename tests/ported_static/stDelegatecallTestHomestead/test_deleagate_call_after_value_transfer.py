@@ -86,11 +86,15 @@ def test_deleagate_call_after_value_transfer(
     )
 
     post = {
-        contract: Account(
+        Address("0x1000000000000000000000000000000000000000"): Account(
             storage={
-                1: 0x6FDA566D1950D7E0A4DAC1DE87109B2CA7D12DA4,
+                0: 0,
+                1: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                 2: 1,
             },
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={0: 0, 1: 0, 2: 0},
         ),
     }
 

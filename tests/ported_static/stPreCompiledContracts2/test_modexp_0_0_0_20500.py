@@ -29,39 +29,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (42540, {}),
-        (
-            90000,
-            {
-                Address("0xc305c901078781c232a2a521c2af7980f8385ee9"): Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A  # noqa: E501
-                    }
-                )
-            },
-        ),
-        (
-            110000,
-            {
-                Address("0xc305c901078781c232a2a521c2af7980f8385ee9"): Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A  # noqa: E501
-                    }
-                )
-            },
-        ),
-        (
-            200000,
-            {
-                Address("0xc305c901078781c232a2a521c2af7980f8385ee9"): Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A  # noqa: E501
-                    }
-                )
-            },
-        ),
+        42540,
+        90000,
+        110000,
+        200000,
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -70,7 +43,6 @@ def test_modexp_0_0_0_20500(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Puts the base 0, exponent 0 and modulus 0 into the MODEXP..."""
     coinbase = Address("0x3535353535353535353535353535353535353535")
@@ -222,7 +194,26 @@ def test_modexp_0_0_0_20500(
         nonce=1,
     )
 
-    post = expected_post
+    post = {
+        callee: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_1: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_2: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_3: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_4: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_5: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_6: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_7: Account(storage={}, nonce=0, balance=1, code=b""),
+        coinbase: Account(storage={}, nonce=0, code=b""),
+        sender: Account(storage={}, nonce=2, code=b""),
+        contract: Account(
+            storage={},
+            nonce=1,
+            balance=0,
+            code=bytes.fromhex(
+                "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
+            ),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -234,39 +225,12 @@ def test_modexp_0_0_0_20500(
 )
 @pytest.mark.valid_from("Osaka")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (42540, {}),
-        (
-            90000,
-            {
-                Address("0xc305c901078781c232a2a521c2af7980f8385ee9"): Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A  # noqa: E501
-                    }
-                )
-            },
-        ),
-        (
-            110000,
-            {
-                Address("0xc305c901078781c232a2a521c2af7980f8385ee9"): Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A  # noqa: E501
-                    }
-                )
-            },
-        ),
-        (
-            200000,
-            {
-                Address("0xc305c901078781c232a2a521c2af7980f8385ee9"): Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A  # noqa: E501
-                    }
-                )
-            },
-        ),
+        42540,
+        90000,
+        110000,
+        200000,
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -275,7 +239,6 @@ def test_modexp_0_0_0_20500_from_osaka(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Puts the base 0, exponent 0 and modulus 0 into the MODEXP..."""
     coinbase = Address("0x3535353535353535353535353535353535353535")
@@ -427,6 +390,25 @@ def test_modexp_0_0_0_20500_from_osaka(
         nonce=1,
     )
 
-    post = expected_post
+    post = {
+        callee: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_1: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_2: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_3: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_4: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_5: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_6: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_7: Account(storage={}, nonce=0, balance=1, code=b""),
+        coinbase: Account(storage={}, nonce=0, code=b""),
+        sender: Account(storage={}, nonce=2, code=b""),
+        contract: Account(
+            storage={},
+            nonce=1,
+            balance=0,
+            code=bytes.fromhex(
+                "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
+            ),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

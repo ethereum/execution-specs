@@ -27,17 +27,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (110000, {}),
-        (
-            150000,
-            {
-                Address("0xf3059e18a327c662766f6ba11808c400635847ef"): Account(
-                    storage={0: 12, 1: 13}
-                )
-            },
-        ),
+        110000,
+        150000,
     ],
     ids=["case0", "case1"],
 )
@@ -46,7 +39,6 @@ def test_create_message_reverted_oog_in_init2(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Create2 oog during the init code, + when create2 is from..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -75,6 +67,11 @@ def test_create_message_reverted_oog_in_init2(
         value=100,
     )
 
-    post = expected_post
+    post = {
+        sender: Account(nonce=1),
+        Address(
+            "0xf3059e18a327c662766f6ba11808c400635847ef"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

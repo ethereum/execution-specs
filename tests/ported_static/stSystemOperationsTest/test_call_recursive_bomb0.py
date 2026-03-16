@@ -67,7 +67,7 @@ def test_call_recursive_bomb0(
         nonce=0,
         address=Address("0x6904e15f2a58e4c22dbb37ffeb39ab1f64002eb4"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
             + Op.SSTORE(
@@ -98,7 +98,12 @@ def test_call_recursive_bomb0(
     )
 
     post = {
-        callee: Account(storage={0: 313, 1: 1}),
+        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
+            storage={0: 313, 1: 1},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

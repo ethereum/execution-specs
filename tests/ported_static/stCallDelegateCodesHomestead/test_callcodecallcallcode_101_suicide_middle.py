@@ -93,7 +93,7 @@ def test_callcodecallcallcode_101_suicide_middle(
     )
     # Source: LLL
     # { (SELFDESTRUCT 0x1000000000000000000000000000000000000000) [[ 2 ]] (DELEGATECALL 50000 0x1000000000000000000000000000000000000003 0 64 0 64 ) }  # noqa: E501
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.SELFDESTRUCT(address=0x1000000000000000000000000000000000000000)
             + Op.SSTORE(
@@ -115,7 +115,7 @@ def test_callcodecallcallcode_101_suicide_middle(
     )
     # Source: LLL
     # {  (SSTORE 3 1) }
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x3, value=0x1) + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
@@ -130,7 +130,17 @@ def test_callcodecallcallcode_101_suicide_middle(
     )
 
     post = {
-        contract: Account(storage={0: 1, 1: 1}),
+        contract: Account(storage={0: 1, 1: 1}, balance=0xDE0B6B5FB6FE400),
+        callee_1: Account(
+            storage={},
+            nonce=0,
+            balance=0,
+            code=bytes.fromhex(
+                "731000000000000000000000000000000000000000ff604060006040600073100000000000000000000000000000000000000361c350f460025500"  # noqa: E501
+            ),
+        ),
+        callee_2: Account(storage={3: 0}, balance=0x2540BE400),
+        sender: Account(storage={1: 0}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

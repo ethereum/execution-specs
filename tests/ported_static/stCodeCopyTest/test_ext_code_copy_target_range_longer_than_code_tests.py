@@ -92,9 +92,12 @@ def test_ext_code_copy_target_range_longer_than_code_tests(
     )
 
     post = {
-        contract: Account(
+        Address("0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
             storage={
                 0: 0x1122334455667788991011121314151617181920212223242526272829303132,  # noqa: E501
+                1: 0,
+                2: 0,
+                3: 0,
             },
         ),
     }

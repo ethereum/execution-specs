@@ -86,12 +86,18 @@ def test_create_e_contract_then_call_to_non_existent_acc(
     post = {
         contract: Account(
             storage={
-                0: 0x8D5B6,
+                0: 0,
                 1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
                 2: 0x7ABF8,
                 3: 1,
                 100: 0x6F50B,
             },
+        ),
+        Address(
+            "0xe1ecf98489fa9ed60a664fc4998db699cfa39d40"
+        ): Account.NONEXISTENT,
+        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+            nonce=1,
         ),
     }
 

@@ -111,7 +111,7 @@ def test_static_create_empty_contract_with_storage_and_call_it_0wei(
         ),
         callee: Account(storage={1: 12}),
         Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-            storage={0: 12},
+            nonce=1,
         ),
     }
 

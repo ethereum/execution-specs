@@ -88,7 +88,10 @@ def test_contract_store_clears_oog(
     )
 
     post = {
-        contract: Account(
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
             storage={
                 0: 12,
                 1: 12,

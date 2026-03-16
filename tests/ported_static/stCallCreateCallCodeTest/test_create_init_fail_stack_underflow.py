@@ -71,6 +71,10 @@ def test_create_init_fail_stack_underflow(
         value=100000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x0000000000000000000000000000000000000000"): Account(
+            balance=0xDE0B6B3A76586A0,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

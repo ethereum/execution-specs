@@ -195,10 +195,21 @@ def test_modexp_0_0_0_22000(
     )
 
     post = {
+        callee: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_1: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_2: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_3: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_4: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_5: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_6: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_7: Account(storage={}, nonce=0, balance=1, code=b""),
+        sender: Account(nonce=2),
         contract: Account(
             storage={
                 0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
             },
+            nonce=1,
+            balance=0,
         ),
     }
 
@@ -378,10 +389,21 @@ def test_modexp_0_0_0_22000_from_osaka(
     )
 
     post = {
+        callee: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_1: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_2: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_3: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_4: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_5: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_6: Account(storage={}, nonce=0, balance=1, code=b""),
+        callee_7: Account(storage={}, nonce=0, balance=1, code=b""),
+        sender: Account(nonce=2),
         contract: Account(
             storage={
                 0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
             },
+            nonce=1,
+            balance=0,
         ),
     }
 

@@ -78,6 +78,7 @@ def test_create_name_registrator(
     post = {
         contract: Account(
             storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+            nonce=1,
         ),
     }
 

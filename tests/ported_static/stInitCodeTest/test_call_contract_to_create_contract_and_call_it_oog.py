@@ -86,9 +86,13 @@ def test_call_contract_to_create_contract_and_call_it_oog(
     post = {
         contract: Account(
             storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+            nonce=1,
         ),
+        sender: Account(nonce=1),
         Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
             storage={0: 12},
+            nonce=1,
+            balance=1,
         ),
     }
 

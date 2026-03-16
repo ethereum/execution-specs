@@ -114,7 +114,7 @@ def test_mem_copy_self(
     )
 
     post = {
-        contract: Account(
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
             storage={
                 0: 0x112233445566778899AABBCCDDEEFF0000000000000000000000000000000000,  # noqa: E501
                 1: 0x1122112233445566778899AADDEEFF0000000000000000000000000000000000,  # noqa: E501

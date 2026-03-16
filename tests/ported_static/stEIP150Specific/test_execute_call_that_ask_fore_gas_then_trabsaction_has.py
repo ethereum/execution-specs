@@ -70,7 +70,7 @@ def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
         address=Address("0x1819cf5bff62f0d379f146b85baaf9bd18239832"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x5F5E100)
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         balance=0x186A0,
         nonce=0,
@@ -84,8 +84,9 @@ def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
     )
 
     post = {
-        contract: Account(storage={1: 1}),
-        callee: Account(storage={1: 12}),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={1: 12},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

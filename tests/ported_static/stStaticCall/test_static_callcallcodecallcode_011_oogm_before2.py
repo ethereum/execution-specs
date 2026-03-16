@@ -29,32 +29,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "00000000000000000000000087f0bb05316a8d8146646a151a64f38ae9d25176",
-            {
-                Address("0x6e143211e9d36eaeebe65f6ed69d6c28500040d6"): Account(
-                    storage={0: 1, 1: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000001dffdbfbe33709f17b6e90137242c109917a994b",
-            {
-                Address("0x6e143211e9d36eaeebe65f6ed69d6c28500040d6"): Account(
-                    storage={0: 1, 1: 1}
-                )
-            },
-        ),
-        (
-            "00000000000000000000000094c82267a4e8333afb80073fbaed3fe5973adc7c",
-            {
-                Address("0x6e143211e9d36eaeebe65f6ed69d6c28500040d6"): Account(
-                    storage={0: 1, 1: 1}
-                )
-            },
-        ),
+        "00000000000000000000000087f0bb05316a8d8146646a151a64f38ae9d25176",
+        "0000000000000000000000001dffdbfbe33709f17b6e90137242c109917a994b",
+        "00000000000000000000000094c82267a4e8333afb80073fbaed3fe5973adc7c",
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -64,7 +43,6 @@ def test_static_callcallcodecallcode_011_oogm_before2(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -208,6 +186,10 @@ def test_static_callcallcodecallcode_011_oogm_before2(
         gas_limit=172000,
     )
 
-    post = expected_post
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 1: 1},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

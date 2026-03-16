@@ -83,7 +83,9 @@ def test_call1024_balance_too_low(
     )
 
     post = {
-        contract: Account(storage={0: 1025, 1: 1}),
+        Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 1025, 1: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

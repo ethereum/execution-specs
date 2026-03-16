@@ -70,12 +70,14 @@ def test_create_and_gas_inside_create_with_mem_expanding_calls(
     )
 
     post = {
+        sender: Account(nonce=1),
         contract: Account(
             storage={
                 9: 0x75596,
                 10: 0x8D5B6,
                 11: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
             },
+            nonce=1,
         ),
         Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
             storage={253: 0x7E23D},

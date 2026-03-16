@@ -70,10 +70,13 @@ def test_create_empty_contract(
     post = {
         contract: Account(
             storage={
-                0: 0x8D5B6,
+                0: 0,
                 1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
                 100: 0x7ABF8,
             },
+        ),
+        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+            nonce=1,
         ),
     }
 

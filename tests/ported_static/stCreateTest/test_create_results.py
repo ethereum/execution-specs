@@ -46,8 +46,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }
@@ -61,8 +61,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }
@@ -76,8 +76,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }
@@ -91,8 +91,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }
@@ -106,8 +106,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }
@@ -121,8 +121,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }
@@ -138,8 +138,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                         17: 24743,
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }
@@ -155,8 +155,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                         17: 24743,
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }
@@ -169,6 +169,7 @@ REFERENCE_SPEC_VERSION = "N/A"
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={
                         16: 24743,
+                        17: 0,
                         18: 24743,
                         19: 24743,
                         20: 24743,
@@ -185,6 +186,7 @@ REFERENCE_SPEC_VERSION = "N/A"
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={
                         16: 24743,
+                        17: 0,
                         18: 24743,
                         19: 24743,
                         20: 24743,
@@ -212,6 +214,7 @@ REFERENCE_SPEC_VERSION = "N/A"
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={
                         16: 24743,
+                        17: 0,
                         18: 24743,
                         19: 24743,
                         20: 24743,
@@ -228,6 +231,7 @@ REFERENCE_SPEC_VERSION = "N/A"
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={
                         16: 24743,
+                        17: 0,
                         18: 24743,
                         19: 24743,
                         20: 24743,
@@ -244,6 +248,7 @@ REFERENCE_SPEC_VERSION = "N/A"
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={
                         16: 24743,
+                        17: 0,
                         18: 24743,
                         19: 24743,
                         20: 24743,
@@ -260,6 +265,7 @@ REFERENCE_SPEC_VERSION = "N/A"
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={
                         16: 24743,
+                        17: 0,
                         18: 24743,
                         19: 24743,
                         20: 24743,
@@ -276,6 +282,7 @@ REFERENCE_SPEC_VERSION = "N/A"
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={
                         16: 24743,
+                        17: 0,
                         18: 24743,
                         19: 24743,
                         20: 24743,
@@ -292,6 +299,7 @@ REFERENCE_SPEC_VERSION = "N/A"
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
                     storage={
                         16: 24743,
+                        17: 0,
                         18: 24743,
                         19: 24743,
                         20: 24743,
@@ -369,8 +377,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }
@@ -384,8 +392,8 @@ REFERENCE_SPEC_VERSION = "N/A"
                     storage={
                         18: 18,
                         19: 0x600060006000600060006160A761FFFFF1000000000000000000000000000000,  # noqa: E501
-                        20: 24743,
-                        21: 24743,
+                        20: 0,
+                        21: 0,
                         32: 295,
                         33: 551,
                     }

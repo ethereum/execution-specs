@@ -91,8 +91,8 @@ def test_returndatacopy_after_successful_delegatecall(
     )
 
     post = {
-        contract: Account(
-            storage={0: 0xC102734F6A1E4747310179C0A0FC16E674AA901D},
+        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
+            storage={0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B},
         ),
     }
 

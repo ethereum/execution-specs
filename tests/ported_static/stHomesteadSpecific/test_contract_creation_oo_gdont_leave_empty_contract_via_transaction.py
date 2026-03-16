@@ -50,7 +50,7 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
 
     # Source: LLL
     # {(SSTORE 1 1)}
-    contract = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x1000000000000000000000000000000000000001"),  # noqa: E501
@@ -86,7 +86,9 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
     )
 
     post = {
-        contract: Account(storage={1: 1}),
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            balance=0,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

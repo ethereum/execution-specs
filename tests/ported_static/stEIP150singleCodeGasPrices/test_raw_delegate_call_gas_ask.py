@@ -83,7 +83,12 @@ def test_raw_delegate_call_gas_ask(
     )
 
     post = {
-        contract: Account(storage={1: 24736, 2: 0x727BE}),
+        Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 24736, 2: 0x727BE},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

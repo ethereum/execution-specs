@@ -93,7 +93,7 @@ def test_returndatacopy_after_failing_staticcall(
     )
 
     post = {
-        contract: Account(
+        Address("0x1000000000000000000000000000000000000001"): Account(
             storage={
                 0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
             },

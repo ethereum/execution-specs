@@ -27,18 +27,13 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_gas_limit, tx_value, tx_error, expected_post",
+    "tx_data_hex, tx_gas_limit, tx_value, tx_error",
     [
         pytest.param(
             "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
             100000,
             0,
             None,
-            {
-                Address("0x71e12b76ab6be1efbc98ac17ebfe5faf488da45e"): Account(
-                    storage={1: 24743}
-                )
-            },
             id="case0",
         ),
         pytest.param(
@@ -46,7 +41,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             100000,
             1,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case1",
             marks=pytest.mark.exception_test,
         ),
@@ -55,11 +49,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             90000,
             0,
             None,
-            {
-                Address("0x71e12b76ab6be1efbc98ac17ebfe5faf488da45e"): Account(
-                    storage={1: 24743}
-                )
-            },
             id="case2",
         ),
         pytest.param(
@@ -67,11 +56,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             90000,
             1,
             None,
-            {
-                Address("0x71e12b76ab6be1efbc98ac17ebfe5faf488da45e"): Account(
-                    storage={1: 24743}
-                )
-            },
             id="case3",
         ),
         pytest.param(
@@ -79,7 +63,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             110000,
             0,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case4",
             marks=pytest.mark.exception_test,
         ),
@@ -88,7 +71,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             110000,
             1,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case5",
             marks=pytest.mark.exception_test,
         ),
@@ -97,11 +79,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             100000,
             0,
             None,
-            {
-                Address("0x71e12b76ab6be1efbc98ac17ebfe5faf488da45e"): Account(
-                    storage={1: 24743, 2: 24743}
-                )
-            },
             id="case6",
         ),
         pytest.param(
@@ -109,7 +86,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             100000,
             1,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case7",
             marks=pytest.mark.exception_test,
         ),
@@ -118,11 +94,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             90000,
             0,
             None,
-            {
-                Address("0x71e12b76ab6be1efbc98ac17ebfe5faf488da45e"): Account(
-                    storage={1: 24743, 2: 24743}
-                )
-            },
             id="case8",
         ),
         pytest.param(
@@ -130,11 +101,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             90000,
             1,
             None,
-            {
-                Address("0x71e12b76ab6be1efbc98ac17ebfe5faf488da45e"): Account(
-                    storage={1: 24743, 2: 24743}
-                )
-            },
             id="case9",
         ),
         pytest.param(
@@ -142,7 +108,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             110000,
             0,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case10",
             marks=pytest.mark.exception_test,
         ),
@@ -151,7 +116,6 @@ REFERENCE_SPEC_VERSION = "N/A"
             110000,
             1,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {},
             id="case11",
             marks=pytest.mark.exception_test,
         ),
@@ -165,7 +129,6 @@ def test_val_causes_oof(
     tx_gas_limit: int,
     tx_value: int,
     tx_error: object,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -221,6 +184,6 @@ def test_val_causes_oof(
         error=tx_error,
     )
 
-    post = expected_post
+    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

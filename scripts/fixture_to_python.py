@@ -723,6 +723,23 @@ def _strip_label(s: str) -> str:
     return s.strip().lower()
 
 
+def _resolve_code_labels(code: str) -> str:
+    """
+    Resolve label syntax embedded in bytecode hex strings.
+
+    Replace each ``<contract:0xADDR>``, ``<contract:target:0xADDR>``,
+    or ``<eoa:0xADDR>`` with the raw hex address (no ``0x`` prefix,
+    zero-padded to 40 chars).
+    """
+
+    def _replace(m: re.Match) -> str:
+        addr = m.group(1).lower()
+        raw = addr[2:] if addr.startswith("0x") else addr
+        return raw.zfill(40)
+
+    return _LABEL_RE.sub(_replace, code)
+
+
 def _normalize_address(addr: str) -> str:
     """Normalize an address to lowercase with 0x prefix."""
     addr = _strip_label(addr)
@@ -876,11 +893,22 @@ def extract_case_indices(fixture_key: str) -> tuple[int, int, int]:
     """
     Extract (data_idx, gas_idx, value_idx) from fixture key.
 
-    Key format: "tests/.../XFiller.json::TestName[d0g0v0-Cancun]"
+    Key formats:
+        "tests/.../XFiller.json::TestName[d0g0v0-Cancun]"
+        "[fork_Cancun-state_test-d0-g0-v0]"
+        "[...-d1]" (g/v default to 0)
     """
+    # Old format: [d0g0v0-Cancun]
     m = re.search(r"\[d(\d+)g(\d+)v(\d+)-", fixture_key)
     if m:
         return int(m.group(1)), int(m.group(2)), int(m.group(3))
+    # Dash-separated format: -d0-g0-v0] (g and v optional)
+    m = re.search(r"-d(\d+)(?:-g(\d+))?(?:-v(\d+))?\]", fixture_key)
+    if m:
+        d = int(m.group(1))
+        g = int(m.group(2)) if m.group(2) is not None else 0
+        v = int(m.group(3)) if m.group(3) is not None else 0
+        return d, g, v
     return 0, 0, 0
 
 
@@ -1188,10 +1216,12 @@ def _format_storage_flat(storage: dict) -> str:
     """Format storage dict on a single line (for parametrize values)."""
     if not storage:
         return "{}"
+    # Deduplicate by int key (last value wins for duplicate keys)
+    deduped: dict[int, int] = {}
+    for k, v in storage.items():
+        deduped[_parse_result_int(k)] = _parse_result_int(v)
     items = []
-    for k, v in sorted(storage.items(), key=lambda x: _parse_result_int(x[0])):
-        key_int = _parse_result_int(k)
-        val_int = _parse_result_int(v)
+    for key_int, val_int in sorted(deduped.items()):
         items.append(f"{format_int(key_int)}: {format_int(val_int)}")
     return "{" + ", ".join(items) + "}"
 
@@ -1203,10 +1233,12 @@ def _format_storage_from_result(
     """Format storage dict from filler result."""
     if not storage:
         return "{}"
+    # Deduplicate by int key (last value wins for duplicate keys)
+    deduped: dict[int, int] = {}
+    for k, v in storage.items():
+        deduped[_parse_result_int(k)] = _parse_result_int(v)
     items = []
-    for k, v in sorted(storage.items(), key=lambda x: _parse_result_int(x[0])):
-        key_int = _parse_result_int(k)
-        val_int = _parse_result_int(v)
+    for key_int, val_int in sorted(deduped.items()):
         item = f"{format_int(key_int)}: {format_int(val_int)}"
         items.append(item)
     single = "{" + ", ".join(items) + "}"
@@ -1255,6 +1287,23 @@ def generate_post_dict(
         if "balance" in fields:
             val = _parse_result_int(fields["balance"])
             parts.append(f"balance={format_balance(val)}")
+        if "code" in fields:
+            code_val = fields["code"]
+            if isinstance(code_val, int):
+                raw = hex(code_val)[2:]
+                if len(raw) % 2:
+                    raw = "0" + raw
+                parts.append(f'code=bytes.fromhex("{raw}")')
+            elif isinstance(code_val, str) and "<" in code_val:
+                # Resolve label syntax: <contract:0xADDR> -> ADDR
+                resolved = _resolve_code_labels(code_val)
+                raw = resolved[2:] if resolved.startswith("0x") else resolved
+                parts.append(f'code=bytes.fromhex("{raw}")')
+            elif code_val in ("", "0x"):
+                parts.append('code=b""')
+            else:
+                raw = code_val[2:] if code_val.startswith("0x") else code_val
+                parts.append(f'code=bytes.fromhex("{raw}")')
         if parts:
             parts_str = ", ".join(parts)
             single = f"        {var}: Account({parts_str}),"
@@ -1326,6 +1375,22 @@ def generate_post_value_string(result: dict | None) -> str:
         if "balance" in fields:
             val = _parse_result_int(fields["balance"])
             acct_parts.append(f"balance={format_balance(val)}")
+        if "code" in fields:
+            code_val = fields["code"]
+            if isinstance(code_val, int):
+                raw = hex(code_val)[2:]
+                if len(raw) % 2:
+                    raw = "0" + raw
+                acct_parts.append(f'code=bytes.fromhex("{raw}")')
+            elif isinstance(code_val, str) and "<" in code_val:
+                resolved = _resolve_code_labels(code_val)
+                raw = resolved[2:] if resolved.startswith("0x") else resolved
+                acct_parts.append(f'code=bytes.fromhex("{raw}")')
+            elif code_val in ("", "0x"):
+                acct_parts.append('code=b""')
+            else:
+                raw = code_val[2:] if code_val.startswith("0x") else code_val
+                acct_parts.append(f'code=bytes.fromhex("{raw}")')
 
         if acct_parts:
             acct_str = ", ".join(acct_parts)
@@ -1444,6 +1509,7 @@ def generate_test_file(
     slow: bool = False,
     fork_for_post: str | None = None,
     func_name_suffix: str = "",
+    expect_entries: list[dict] | None = None,
 ) -> str:
     """
     Generate a complete Python test file from fixture data.
@@ -1471,6 +1537,8 @@ def generate_test_file(
         earliest fork.  Used for fork-range-specific test functions.
     func_name_suffix
         Appended to the test function name (e.g. "_from_prague").
+    expect_entries
+        Parsed filler expect entries for Path A post generation.
 
     """
     # Compiled fixtures have one top-level key per (case × fork).
@@ -1516,6 +1584,15 @@ def generate_test_file(
                 access_lists[0] if access_lists else None
             )  # None = no access list
             case_to = (tx.get("to") or "").lower()
+
+            # Resolve filler expect result for this case
+            filler_result = None
+            if expect_entries:
+                d, g, v = extract_case_indices(key)
+                filler_result = resolve_expect_for_case(
+                    expect_entries, d, g, v
+                )
+
             cases_for_fork.append(
                 {
                     "data": tx["data"][0] if tx["data"] else "0x",
@@ -1526,6 +1603,7 @@ def generate_test_file(
                     "access_list": al,
                     "expect_exception": expect_exception,
                     "post_state": post_state,
+                    "filler_result": filler_result,
                     "to": case_to,
                 }
             )
@@ -1910,37 +1988,66 @@ def generate_test_file(
             tx_parts.append(f"error={_format_exception(expect_exception)}")
 
     # -----------------------------------------------------------------------
-    # Compute post-state assertions from compiled fixture post state
+    # Compute post-state assertions
     # -----------------------------------------------------------------------
+    # Prefer filler expect results (Path A) over compiled fixture state
+    # (Path B).  Path A captures shouldnotexist, zero-storage, nonce,
+    # balance, and code assertions that Path B silently drops.
     post_code = "    post: dict = {}"
     extra_param_name: str | None = None  # e.g. "expected_storage"
     extra_param_vals: list[str] = []  # per-case values
     extra_func_param: str | None = None  # e.g. "    expected_storage: dict,"
 
-    if not is_multi:
-        # Single-case: use compiled fixture's post state directly
-        ps = cases_for_fork[0].get("post_state", {})
-        if ps:
-            post_code = _generate_post_from_fixture_state(ps, addr_vars)
-    else:
-        # Multi-case: check if all post states are identical
-        all_post_states = [c.get("post_state", {}) for c in cases_for_fork]
-        all_same = len(all_post_states) > 0 and all(
-            ps == all_post_states[0] for ps in all_post_states
-        )
+    all_filler_results = [c.get("filler_result") for c in cases_for_fork]
+    has_filler = any(fr is not None for fr in all_filler_results)
 
-        if all_same and all_post_states[0]:
-            post_code = _generate_post_from_fixture_state(
-                all_post_states[0], addr_vars
+    if has_filler:
+        # --- Path A: filler-based post generation ---
+        if not is_multi:
+            fr = all_filler_results[0]
+            if fr:
+                post_code = generate_post_dict(fr, addr_vars)
+        else:
+            # Check if all filler results are identical
+            non_none = [fr for fr in all_filler_results if fr is not None]
+            all_same = (
+                len(non_none) == len(all_filler_results)
+                and len(non_none) > 0
+                and all(fr == non_none[0] for fr in non_none)
             )
-        elif any(all_post_states):
-            extra_param_name = "expected_post"
-            extra_func_param = "    expected_post: dict,"
-            for ps in all_post_states:
-                extra_param_vals.append(
-                    _generate_post_value_from_fixture_state(ps)
+
+            if all_same and non_none[0]:
+                post_code = generate_post_dict(non_none[0], addr_vars)
+            elif any(non_none):
+                extra_param_name = "expected_post"
+                extra_func_param = "    expected_post: dict,"
+                for fr in all_filler_results:
+                    extra_param_vals.append(generate_post_value_string(fr))
+                post_code = "    post = expected_post"
+    else:
+        # --- Path B fallback: compiled fixture state ---
+        if not is_multi:
+            ps = cases_for_fork[0].get("post_state", {})
+            if ps:
+                post_code = _generate_post_from_fixture_state(ps, addr_vars)
+        else:
+            all_post_states = [c.get("post_state", {}) for c in cases_for_fork]
+            all_same = len(all_post_states) > 0 and all(
+                ps == all_post_states[0] for ps in all_post_states
+            )
+
+            if all_same and all_post_states[0]:
+                post_code = _generate_post_from_fixture_state(
+                    all_post_states[0], addr_vars
                 )
-            post_code = "    post = expected_post"
+            elif any(all_post_states):
+                extra_param_name = "expected_post"
+                extra_func_param = "    expected_post: dict,"
+                for ps in all_post_states:
+                    extra_param_vals.append(
+                        _generate_post_value_from_fixture_state(ps)
+                    )
+                post_code = "    post = expected_post"
 
     # Check if post assertions use Op (needs import)
     if "Op." in post_code:
@@ -2441,6 +2548,9 @@ def process_single_fixture(
     filler_data = _load_filler_data(filler_full_path)
     code_sources = _extract_filler_code_sources(filler_data)
 
+    # Load filler expect entries for Path A post generation
+    expect_entries = load_filler_expect_results(filler_full_path)
+
     # Detect fork bounds from filler network (e.g. ">=Cancun<Osaka")
     upper_bound = load_filler_network_upper_bound(filler_full_path)
     valid_until = fork_before(upper_bound) if upper_bound else None
@@ -2490,6 +2600,7 @@ def process_single_fixture(
                 filler_full_path=filler_full_path,
                 code_sources=code_sources,
                 slow=is_slow,
+                expect_entries=expect_entries or None,
             )
         except Exception as e:
             return False, f"Error generating {fixture_path}: {e}"
@@ -2530,6 +2641,7 @@ def process_single_fixture(
                     slow=is_slow,
                     fork_for_post=vf,
                     func_name_suffix=suffix,
+                    expect_entries=expect_entries or None,
                 )
             except Exception as e:
                 return (

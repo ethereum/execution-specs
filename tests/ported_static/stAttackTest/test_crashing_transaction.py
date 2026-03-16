@@ -61,6 +61,13 @@ def test_crashing_transaction(
         value=1,
     )
 
-    post: dict = {}
+    post = {
+        sender: Account(nonce=3271),
+        Address("0xecbf9aa676d9e0bbba7e517d1350c1b64f8c6779"): Account(
+            nonce=124,
+            balance=1,
+            code=bytes.fromhex("60606040526008565b00"),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

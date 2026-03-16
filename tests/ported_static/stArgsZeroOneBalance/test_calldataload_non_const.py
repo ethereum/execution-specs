@@ -30,15 +30,31 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.parametrize(
     "tx_data_hex, tx_value, expected_post",
     [
-        ("", 0, {}),
-        ("", 1, {}),
+        (
+            "",
+            0,
+            {
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+                    storage={0: 0}
+                )
+            },
+        ),
+        (
+            "",
+            1,
+            {
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+                    storage={0: 0}
+                )
+            },
+        ),
         (
             "11223344",
             0,
             {
-                Address("0x148f97630d3668441f1a33a5e509f268b64f998f"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={
-                        0: 0x1122334400000000000000000000000000000000000000000000000000000000  # noqa: E501
+                        0: 0x1122334400000000000000000000000000000000000000000000000000000000,  # noqa: E501
                     }
                 )
             },
@@ -47,9 +63,9 @@ REFERENCE_SPEC_VERSION = "N/A"
             "11223344",
             1,
             {
-                Address("0x148f97630d3668441f1a33a5e509f268b64f998f"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={
-                        0: 0x2233440000000000000000000000000000000000000000000000000000000000  # noqa: E501
+                        0: 0x2233440000000000000000000000000000000000000000000000000000000000,  # noqa: E501
                     }
                 )
             },

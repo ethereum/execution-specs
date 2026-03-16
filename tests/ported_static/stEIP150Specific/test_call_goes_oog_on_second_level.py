@@ -47,7 +47,7 @@ def test_call_goes_oog_on_second_level(
         gas_limit=10000000,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x8, value=Op.GAS)
             + Op.SSTORE(
@@ -110,8 +110,15 @@ def test_call_goes_oog_on_second_level(
     )
 
     post = {
-        callee: Account(storage={8: 0x927BE, 12: 1}),
-        contract: Account(storage={8: 0x213FB6, 9: 1}),
+        Address("0x1000000000000000000000000000000000000110"): Account(
+            storage={8: 0x927BE, 12: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000111"): Account(
+            storage={},
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={8: 0x213FB6, 9: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

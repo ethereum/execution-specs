@@ -84,6 +84,16 @@ def test_suicides_and_internal_call_suicides_oog(
         value=10,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x0000000000000000000000000000000000000000"): Account(
+            balance=0,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=10,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

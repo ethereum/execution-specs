@@ -128,7 +128,9 @@ def test_touch_to_empty_account_revert3_paris(
     )
 
     post = {
-        contract: Account(storage={0: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            balance=10,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

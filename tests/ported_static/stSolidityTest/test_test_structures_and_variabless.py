@@ -245,14 +245,14 @@ def test_test_structures_and_variabless(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 1,
                 1: 255,
-                2: 0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,
+                2: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                 3: 255,
                 4: 0x676C6F62616C2064617461203332206C656E67746820737472696E6700000000,  # noqa: E501
-                0x5B8CCBB9D4D8FB16EA74CE3C29A41F1B461FBDAFF4714A0D9A8EB05499746BC: 0xD96ED4431B417993AB4F4D4A656959D13C66E1DC,  # noqa: E501
+                0x5B8CCBB9D4D8FB16EA74CE3C29A41F1B461FBDAFF4714A0D9A8EB05499746BC: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,  # noqa: E501
             },
         ),
     }

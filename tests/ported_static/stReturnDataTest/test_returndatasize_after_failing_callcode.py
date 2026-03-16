@@ -87,6 +87,10 @@ def test_returndatasize_after_failing_callcode(
         gas_limit=200000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={0: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -354,7 +354,7 @@ def test_static_return_bounds(
     )
 
     post = {
-        contract: Account(
+        Address("0x1000000000000000000000000000000000000000"): Account(
             storage={
                 1: 1,
                 2: 1,
@@ -373,6 +373,7 @@ def test_static_return_bounds(
                 15: 1,
                 16: 1,
             },
+            balance=1,
         ),
     }
 

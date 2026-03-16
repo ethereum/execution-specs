@@ -83,7 +83,7 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has(
         address=Address("0x9bdb308c9b567e1dbc906d9d592a8464a05ffd44"),  # noqa: E501
     )
     pre[sender] = Account(balance=0xE8D4A51000)
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x12) + Op.STOP,
         nonce=0,
         address=Address("0xfd59abae521384b5731ac657616680219fbc423d"),  # noqa: E501
@@ -96,8 +96,9 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has(
     )
 
     post = {
-        contract: Account(storage={0: 18, 8: 0x8D5B6, 9: 1, 10: 1}),
-        callee: Account(storage={0: 18}),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 18, 8: 0x8D5B6, 9: 1, 10: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

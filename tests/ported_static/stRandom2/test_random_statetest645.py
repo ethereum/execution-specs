@@ -27,10 +27,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Cancun")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "tx_value",
     [
-        (4074160023, {}),
-        (0, {}),
+        4074160023,
+        0,
     ],
     ids=["case0", "case1"],
 )
@@ -39,7 +39,6 @@ def test_random_statetest645(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Geth Failed this test on Frontier and Homestead."""
     coinbase = Address("0xaa0103980a7c3113d3a8f81478b0281492eb3d38")
@@ -102,7 +101,26 @@ def test_random_statetest645(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+            nonce=29,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+            code=b"",
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=175,
+        ),
+        Address("0xffffffffffffffffffffffffffffffffffffffff"): Account(
+            storage={},
+            nonce=28,
+            code=b"",
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -112,10 +130,10 @@ def test_random_statetest645(
 )
 @pytest.mark.valid_from("Prague")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "tx_value",
     [
-        (4074160023, {}),
-        (0, {}),
+        4074160023,
+        0,
     ],
     ids=["case0", "case1"],
 )
@@ -124,7 +142,6 @@ def test_random_statetest645_from_prague(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Geth Failed this test on Frontier and Homestead."""
     coinbase = Address("0xaa0103980a7c3113d3a8f81478b0281492eb3d38")
@@ -187,6 +204,25 @@ def test_random_statetest645_from_prague(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+            nonce=29,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+            code=b"",
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=175,
+        ),
+        Address("0xffffffffffffffffffffffffffffffffffffffff"): Account(
+            storage={},
+            nonce=28,
+            code=b"",
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

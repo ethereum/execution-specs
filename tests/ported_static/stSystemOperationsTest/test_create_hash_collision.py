@@ -67,7 +67,7 @@ def test_create_hash_collision(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.ADD(0x1, 0x1) + Op.PUSH1[0x55],
         balance=42,
         nonce=0,
@@ -81,6 +81,13 @@ def test_create_hash_collision(
         value=100000,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(storage={0: 0}),
+        callee: Account(
+            storage={},
+            balance=42,
+            code=bytes.fromhex("60016001016055"),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

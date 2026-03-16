@@ -69,8 +69,13 @@ def test_suicide_caller(
     )
 
     post = {
-        contract: Account(
-            storage={0: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297},
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B},
+            nonce=0,
+            balance=0,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
         ),
     }
 

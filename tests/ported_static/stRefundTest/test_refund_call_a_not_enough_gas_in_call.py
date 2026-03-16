@@ -73,7 +73,7 @@ def test_refund_call_a_not_enough_gas_in_call(
     )
     pre[coinbase] = Account(balance=0, nonce=1)
     pre[sender] = Account(balance=0xF4240)
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={0x1: 0x1},
         balance=0xDE0B6B3A7640000,
@@ -89,8 +89,17 @@ def test_refund_call_a_not_enough_gas_in_call(
     )
 
     post = {
-        contract: Account(storage={1: 1}),
-        callee: Account(storage={1: 1}),
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={1: 1},
+            balance=0xDE0B6B3A764000A,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+            balance=0xA8DF4,
+        ),
+        Address("0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa"): Account(
+            storage={1: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

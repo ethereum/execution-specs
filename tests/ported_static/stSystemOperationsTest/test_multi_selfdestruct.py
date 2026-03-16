@@ -33,41 +33,56 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "01",
             {
+                Address("0x000000000000000000000000000000000000dead"): Account(
+                    nonce=1, balance=2
+                ),
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 1, 1: 3, 16: 1, 17: 3, 18: 2}
-                )
+                    storage={0: 1, 1: 3, 2: 0, 16: 1, 17: 3, 18: 2}
+                ),
             },
         ),
         (
             "02",
             {
+                Address("0x000000000000000000000000000000000000dead"): Account(
+                    nonce=1, balance=0
+                ),
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 1, 1: 3, 16: 1, 17: 5}
-                )
+                    storage={0: 1, 1: 3, 2: 0, 16: 1, 17: 5, 18: 0}
+                ),
             },
         ),
         (
             "03",
             {
+                Address("0x000000000000000000000000000000000000dead"): Account(
+                    nonce=1, balance=0
+                ),
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 1, 1: 3, 16: 1, 17: 3, 19: 2}
-                )
+                    storage={0: 1, 1: 3, 2: 0, 16: 1, 17: 3, 18: 0, 19: 2}
+                ),
             },
         ),
         (
             "04",
             {
+                Address("0x000000000000000000000000000000000000dead"): Account(
+                    nonce=1, balance=0
+                ),
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 1, 1: 3, 17: 3}
-                )
+                    storage={0: 1, 1: 3, 2: 0, 16: 0, 17: 3, 18: 0, 19: 0}
+                ),
             },
         ),
         (
             "05",
             {
+                Address("0x000000000000000000000000000000000000dead"): Account(
+                    nonce=1, balance=1
+                ),
                 Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 1, 1: 3, 16: 1, 17: 3, 18: 1, 19: 1}
-                )
+                    storage={0: 1, 1: 3, 2: 0, 16: 1, 17: 3, 18: 1, 19: 1}
+                ),
             },
         ),
     ],

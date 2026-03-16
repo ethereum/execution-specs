@@ -93,8 +93,8 @@ def test_returndatacopy_after_revert_in_staticcall(
     )
 
     post = {
-        contract: Account(
-            storage={0: 0x4BEDF636CB41E5DCF09D038DE843004824DFBB3A},
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={0: 0x1000000000000000000000000000000000000001},
         ),
     }
 

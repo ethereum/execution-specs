@@ -68,7 +68,7 @@ def test_callcode_check_pc(
         address=Address("0x6861b8d2ba9a24e77f63623e4a5e83e2bc6a30df"),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x1) + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
@@ -82,8 +82,9 @@ def test_callcode_check_pc(
     )
 
     post = {
-        contract: Account(storage={3: 37}),
-        callee: Account(storage={0: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={3: 37},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

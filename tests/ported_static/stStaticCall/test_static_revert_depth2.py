@@ -128,7 +128,21 @@ def test_static_revert_depth2(
     )
 
     post = {
-        contract: Account(storage={0: 1, 1: 1}),
+        Address("0xa000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 1: 1, 2: 0},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb000000000000000000000000000000000000000"): Account(
+            storage={0: 0, 1: 0},
+        ),
+        Address("0xc000000000000000000000000000000000000000"): Account(
+            storage={0: 0},
+        ),
+        Address("0xd000000000000000000000000000000000000000"): Account(
+            storage={0: 0, 1: 0, 2: 0},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -105,6 +105,15 @@ def test_static_callcall_00_suicide_end(
         gas_limit=3000000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 0},
+            balance=0xDE0B6B3A7640000,
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={2: 0},
+            balance=0x2540BE400,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

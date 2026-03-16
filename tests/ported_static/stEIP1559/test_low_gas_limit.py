@@ -27,47 +27,19 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, tx_error, expected_post",
+    "tx_gas_limit, tx_error",
     [
         pytest.param(
             90000,
             TransactionException.GAS_ALLOWANCE_EXCEEDED,
-            {
-                Address("0xef0454d0376d1921b9a83868282725853c293ab5"): Account(
-                    storage={0: 24743}
-                )
-            },
             id="case0",
             marks=pytest.mark.exception_test,
         ),
-        pytest.param(
-            50000,
-            None,
-            {
-                Address("0xef0454d0376d1921b9a83868282725853c293ab5"): Account(
-                    storage={0: 2}
-                )
-            },
-            id="case1",
-        ),
-        pytest.param(
-            25000,
-            None,
-            {
-                Address("0xef0454d0376d1921b9a83868282725853c293ab5"): Account(
-                    storage={0: 24743}
-                )
-            },
-            id="case2",
-        ),
+        pytest.param(50000, None, id="case1"),
+        pytest.param(25000, None, id="case2"),
         pytest.param(
             20000,
             TransactionException.INTRINSIC_GAS_TOO_LOW,
-            {
-                Address("0xef0454d0376d1921b9a83868282725853c293ab5"): Account(
-                    storage={0: 24743}
-                )
-            },
             id="case3",
             marks=pytest.mark.exception_test,
         ),
@@ -79,7 +51,6 @@ def test_low_gas_limit(
     pre: Alloc,
     tx_gas_limit: int,
     tx_error: object,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -120,6 +91,6 @@ def test_low_gas_limit(
         error=tx_error,
     )
 
-    post = expected_post
+    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

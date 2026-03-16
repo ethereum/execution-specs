@@ -480,6 +480,31 @@ def test_revert_precompiled_touch_paris(
         nonce=1,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x0000000000000000000000000000000000000001"): Account(
+            nonce=0,
+        ),
+        Address("0x0000000000000000000000000000000000000002"): Account(
+            nonce=0,
+        ),
+        Address("0x0000000000000000000000000000000000000003"): Account(
+            nonce=0,
+        ),
+        Address("0x0000000000000000000000000000000000000004"): Account(
+            nonce=0,
+        ),
+        Address("0x0000000000000000000000000000000000000005"): Account(
+            nonce=0,
+        ),
+        Address("0x0000000000000000000000000000000000000006"): Account(
+            nonce=0,
+        ),
+        Address("0x0000000000000000000000000000000000000007"): Account(
+            nonce=0,
+        ),
+        Address("0x0000000000000000000000000000000000000008"): Account(
+            nonce=0,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

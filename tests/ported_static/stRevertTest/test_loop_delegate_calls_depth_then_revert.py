@@ -91,7 +91,12 @@ def test_loop_delegate_calls_depth_then_revert(
     )
 
     post = {
-        contract: Account(storage={0: 386}),
+        Address("0xa000000000000000000000000000000000000000"): Account(
+            storage={0: 386},
+        ),
+        Address("0xb000000000000000000000000000000000000000"): Account(
+            storage={},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

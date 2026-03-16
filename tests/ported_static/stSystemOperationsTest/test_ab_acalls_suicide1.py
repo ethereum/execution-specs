@@ -28,16 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "00000000000000000000000000000000000000000000000000000000000186a0",
-            {},
-        ),
-        (
-            "00000000000000000000000000000000000000000000000000000000000486a0",
-            {},
-        ),
+        "00000000000000000000000000000000000000000000000000000000000186a0",
+        "00000000000000000000000000000000000000000000000000000000000486a0",
     ],
     ids=["case0", "case1"],
 )
@@ -46,7 +40,6 @@ def test_ab_acalls_suicide1(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -88,7 +81,7 @@ def test_ab_acalls_suicide1(
     )
     # Source: LLL
     # {  (MSTORE 0 (CALLDATALOAD 0)) [[ (PC) ]] (ADD 1 (CALL (SUB (CALLDATALOAD 0) 50000) 0x095e7baea6a6c7c4c2dfeb977efac326af552d87 23 0 32 0 0)) (SELFDESTRUCT 0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6) }  # noqa: E501
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
             + Op.SSTORE(
@@ -127,6 +120,13 @@ def test_ab_acalls_suicide1(
         value=100000,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(storage={}),
+        Address(
+            "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"
+        ): Account.NONEXISTENT,
+        callee: Account(storage={}, balance=23),
+        sender: Account(nonce=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

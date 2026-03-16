@@ -49,7 +49,7 @@ def test_returndatacopy_after_failing_delegatecall(
         gas_limit=111669149696,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.POP(
                 Op.DELEGATECALL(
@@ -88,7 +88,7 @@ def test_returndatacopy_after_failing_delegatecall(
     )
 
     post = {
-        callee: Account(
+        Address("0x1000000000000000000000000000000000000001"): Account(
             storage={
                 0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
             },

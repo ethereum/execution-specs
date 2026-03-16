@@ -81,7 +81,10 @@ def test_revert_prefound_empty_call_paris(
     )
 
     post = {
-        contract: Account(storage={0: 1, 1: 12}),
+        Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7"): Account(
+            nonce=0,
+            balance=10,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

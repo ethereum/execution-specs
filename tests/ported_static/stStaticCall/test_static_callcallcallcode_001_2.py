@@ -28,30 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "0000000000000000000000002f9ec0afcb4edcd7d38c6a48f5e36038263ca3cd",
-            {
-                Address("0x2f9ec0afcb4edcd7d38c6a48f5e36038263ca3cd"): Account(
-                    storage={0: 1}
-                ),
-                Address("0xe4552fdc3736d39144e64ad1a1e8253017b0c974"): Account(
-                    storage={0: 1, 1: 1}
-                ),
-            },
-        ),
-        (
-            "000000000000000000000000bf23f3306533431b2ee5e4ca95e0a0834c090105",
-            {
-                Address("0xbf23f3306533431b2ee5e4ca95e0a0834c090105"): Account(
-                    storage={0: 1}
-                ),
-                Address("0xe4552fdc3736d39144e64ad1a1e8253017b0c974"): Account(
-                    storage={0: 1, 1: 1}
-                ),
-            },
-        ),
+        "0000000000000000000000002f9ec0afcb4edcd7d38c6a48f5e36038263ca3cd",
+        "000000000000000000000000bf23f3306533431b2ee5e4ca95e0a0834c090105",
     ],
     ids=["case0", "case1"],
 )
@@ -61,7 +41,6 @@ def test_static_callcallcallcode_001_2(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -238,6 +217,23 @@ def test_static_callcallcallcode_001_2(
         gas_limit=3000000,
     )
 
-    post = expected_post
+    post = {
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={
+                2: 0,
+                3: 0,
+                4: 0,
+                7: 0,
+                330: 0,
+                332: 0,
+                336: 0,
+                338: 0,
+                340: 0,
+            },
+        ),
+        Address("0xa000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 1: 1},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

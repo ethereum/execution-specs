@@ -27,41 +27,149 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.parametrize(
     "tx_data_hex, expected_post",
     [
-        ("626001ff60005260006003601d6000f500", {}),
+        (
+            "626001ff60005260006003601d6000f500",
+            {
+                Address(
+                    "0x0000000000000000000000000000000000000001"
+                ): Account.NONEXISTENT,
+                Address(
+                    "0x5649527a8464a86cae579719d347065f6eb27279"
+                ): Account.NONEXISTENT,
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+            },
+        ),
         (
             "6a6130ff6000526002601ef36000526000600b60156000f5506000600060006000736cd0e5133771823da00d4cb545ec8cdab0e38203620249f0fa00",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+                Address("0x6cd0e5133771823da00d4cb545ec8cdab0e38203"): Account(
+                    code=bytes.fromhex("30ff")
+                ),
+            },
         ),
         (
             "6a6130ff6000526002601ef36000526000600b60156001f5506000600060006000736cd0e5133771823da00d4cb545ec8cdab0e38203620249f0fa00",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+                Address("0x6cd0e5133771823da00d4cb545ec8cdab0e38203"): Account(
+                    code=bytes.fromhex("30ff")
+                ),
+            },
         ),
         (
             "6b626001ff6000526003601df36000526000600c60146000f55060006000600060006000735649527a8464a86cae579719d347065f6eb27279620249f0f100",  # noqa: E501
-            {},
+            {
+                Address(
+                    "0x0000000000000000000000000000000000000001"
+                ): Account.NONEXISTENT,
+                Address(
+                    "0x5649527a8464a86cae579719d347065f6eb27279"
+                ): Account.NONEXISTENT,
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+            },
         ),
-        ("626001ff60005260006003601d6001f500", {}),
+        (
+            "626001ff60005260006003601d6001f500",
+            {
+                Address("0x0000000000000000000000000000000000000001"): Account(
+                    balance=1
+                ),
+                Address(
+                    "0x5649527a8464a86cae579719d347065f6eb27279"
+                ): Account.NONEXISTENT,
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+            },
+        ),
         (
             "6b626001ff6000526003601df36000526000600c60146001f55060006000600060006000735649527a8464a86cae579719d347065f6eb27279620249f0f100",  # noqa: E501
-            {},
+            {
+                Address("0x0000000000000000000000000000000000000001"): Account(
+                    balance=1
+                ),
+                Address(
+                    "0x5649527a8464a86cae579719d347065f6eb27279"
+                ): Account.NONEXISTENT,
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+            },
         ),
-        ("6130ff60005260006002601e6000f500", {}),
+        (
+            "6130ff60005260006002601e6000f500",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+                Address(
+                    "0x6cd0e5133771823da00d4cb545ec8cdab0e38203"
+                ): Account.NONEXISTENT,
+            },
+        ),
         (
             "6a6130ff6000526002601ef36000526000600b60156000f55060006000600060006000736cd0e5133771823da00d4cb545ec8cdab0e38203620249f0f100",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+                Address(
+                    "0x6cd0e5133771823da00d4cb545ec8cdab0e38203"
+                ): Account.NONEXISTENT,
+            },
         ),
-        ("6130ff60005260006002601e6001f500", {}),
+        (
+            "6130ff60005260006002601e6001f500",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2, balance=9
+                ),
+                Address(
+                    "0x6cd0e5133771823da00d4cb545ec8cdab0e38203"
+                ): Account.NONEXISTENT,
+            },
+        ),
         (
             "6a6130ff6000526002601ef36000526000600b60156001f55060006000600060006000736cd0e5133771823da00d4cb545ec8cdab0e38203620249f0f100",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2, balance=9
+                ),
+                Address(
+                    "0x6cd0e5133771823da00d4cb545ec8cdab0e38203"
+                ): Account.NONEXISTENT,
+            },
         ),
         (
             "6b626001ff6000526003601df36000526000600c60146000f5506000600060006000735649527a8464a86cae579719d347065f6eb27279620249f0fa00",  # noqa: E501
-            {},
+            {
+                Address("0x5649527a8464a86cae579719d347065f6eb27279"): Account(
+                    code=bytes.fromhex("6001ff")
+                ),
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+            },
         ),
         (
             "6b626001ff6000526003601df36000526000600c60146001f5506000600060006000735649527a8464a86cae579719d347065f6eb27279620249f0fa00",  # noqa: E501
-            {},
+            {
+                Address("0x5649527a8464a86cae579719d347065f6eb27279"): Account(
+                    code=bytes.fromhex("6001ff")
+                ),
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+            },
         ),
     ],
     ids=[

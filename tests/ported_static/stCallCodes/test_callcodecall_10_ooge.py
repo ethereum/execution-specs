@@ -105,7 +105,15 @@ def test_callcodecall_10_ooge(
     )
 
     post = {
-        contract: Account(storage={0: 1, 11: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 11: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={},
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

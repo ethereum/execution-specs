@@ -45,7 +45,7 @@ def test_code_copy_offset(
         gas_limit=1000000,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -87,7 +87,9 @@ def test_code_copy_offset(
     )
 
     post = {
-        callee: Account(storage={0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF}),
+        Address("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"): Account(
+            storage={0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

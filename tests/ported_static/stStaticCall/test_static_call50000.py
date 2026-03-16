@@ -32,34 +32,34 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000002e396fd4f6f2799d61f534b43175f5344c65ecac",
             {
-                Address("0x2e396fd4f6f2799d61f534b43175f5344c65ecac"): Account(
-                    storage={1: 50000}
-                ),
-                Address("0x6d440cd3e818056e21914c856e3712f4186b06c8"): Account(
-                    storage={0: 1}
-                ),
-                Address("0x7efd7e4e34d1783f5d86b7862a37b3bbbd13deb8"): Account(
-                    storage={0: 1}
-                ),
-                Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"): Account(
+                Address("0x1000000000000000000000000000000000000000"): Account(
                     storage={0: 1, 1: 1}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    storage={}, nonce=1, code=b""
+                ),
+                Address("0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    storage={0: 1}, nonce=0
+                ),
+                Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    storage={0: 0, 1: 50000}, nonce=0, balance=0x10000000000009
                 ),
             },
         ),
         (
             "000000000000000000000000b00a8701f877b1152cd955e957fcbaf51a15f55f",
             {
-                Address("0x6d440cd3e818056e21914c856e3712f4186b06c8"): Account(
-                    storage={0: 1}
-                ),
-                Address("0x7efd7e4e34d1783f5d86b7862a37b3bbbd13deb8"): Account(
-                    storage={0: 1}
-                ),
-                Address("0xb00a8701f877b1152cd955e957fcbaf51a15f55f"): Account(
-                    storage={0: 1, 32: 50000}
-                ),
-                Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"): Account(
+                Address("0x1000000000000000000000000000000000000000"): Account(
                     storage={0: 1, 1: 1}
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    storage={}, nonce=1
+                ),
+                Address("0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    storage={0: 1}, nonce=0, balance=7000
+                ),
+                Address("0xcccf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    storage={0: 1, 32: 50000}, nonce=0
                 ),
             },
         ),

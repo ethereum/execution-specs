@@ -83,7 +83,14 @@ def test_loop_calls_depth_then_revert3(
     )
 
     post = {
-        contract: Account(storage={0: 1022}),
+        Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7"): Account(
+            nonce=2,
+            balance=1,
+        ),
+        Address("0xcd6807039caffddbd1c28a749ec91bef15f448e5"): Account(
+            nonce=1,
+            balance=2,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

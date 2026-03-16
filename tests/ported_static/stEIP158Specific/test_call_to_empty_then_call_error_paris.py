@@ -92,6 +92,10 @@ def test_call_to_empty_then_call_error_paris(
         gas_limit=600000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4"): Account(
+            balance=10,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

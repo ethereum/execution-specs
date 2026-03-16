@@ -67,7 +67,7 @@ def test_store_gas_on_create(
 
     post = {
         Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-            storage={253: 0x12F39},
+            storage={0: 0, 253: 0x12F39},
         ),
     }
 

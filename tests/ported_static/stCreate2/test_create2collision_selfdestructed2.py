@@ -33,11 +33,34 @@ REFERENCE_SPEC_VERSION = "N/A"
     [
         (
             "6000600060006000600073fce41d047b4a1d4450382dcc29ec7e5fedc5f9a361c350f1506b620102036000526003601df36000526000600c60146000f500",  # noqa: E501
-            {},
+            {
+                Address("0x0000000000000000000000000000000000000010"): Account(
+                    balance=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3"): Account(
+                    storage={},
+                    nonce=0,
+                    balance=0,
+                    code=bytes.fromhex("6010ff00"),
+                ),
+            },
         ),
         (
             "6000600060006000600073cff64f4c5df8f436c4f2c1af4b2e3f9e3004c77961c350f1506b626010ff6000526003601df36000526000600c60146000f500",  # noqa: E501
-            {},
+            {
+                Address("0x0000000000000000000000000000000000000010"): Account(
+                    balance=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xcff64f4c5df8f436c4f2c1af4b2e3f9e3004c779"): Account(
+                    nonce=1, balance=0
+                ),
+            },
         ),
     ],
     ids=["case0", "case1"],
@@ -105,11 +128,34 @@ def test_create2collision_selfdestructed2(
     [
         (
             "6000600060006000600073fce41d047b4a1d4450382dcc29ec7e5fedc5f9a361c350f1506b620102036000526003601df36000526000600c60146000f500",  # noqa: E501
-            {},
+            {
+                Address("0x0000000000000000000000000000000000000010"): Account(
+                    balance=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3"): Account(
+                    storage={},
+                    nonce=0,
+                    balance=0,
+                    code=bytes.fromhex("6010ff00"),
+                ),
+            },
         ),
         (
             "6000600060006000600073cff64f4c5df8f436c4f2c1af4b2e3f9e3004c77961c350f1506b626010ff6000526003601df36000526000600c60146000f500",  # noqa: E501
-            {},
+            {
+                Address("0x0000000000000000000000000000000000000010"): Account(
+                    balance=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address("0xcff64f4c5df8f436c4f2c1af4b2e3f9e3004c779"): Account(
+                    nonce=1, balance=0
+                ),
+            },
         ),
     ],
     ids=["case0", "case1"],

@@ -87,7 +87,9 @@ def test_eip1559(
     )
 
     post = {
-        contract: Account(storage={0: 1010, 1: 1000}),
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
+            storage={0: 1010, 1: 1000},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

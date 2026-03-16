@@ -30,20 +30,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (
-            20000000,
-            {
-                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6}
-                ),
-                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-                    storage={0: 12}
-                ),
-            },
-        ),
-        (80000, {}),
+        20000000,
+        80000,
     ],
     ids=["case0", "case1"],
 )
@@ -53,7 +43,6 @@ def test_static_call_contract_to_create_contract_oog_bonus_gas(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Gas analysis showed this test's gas can go as low as 101174, and..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -106,6 +95,17 @@ def test_static_call_contract_to_create_contract_oog_bonus_gas(
         gas_limit=tx_gas_limit,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(
+            storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+            nonce=1,
+        ),
+        sender: Account(nonce=1),
+        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+            storage={0: 12, 1: 0},
+            nonce=1,
+            balance=1,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

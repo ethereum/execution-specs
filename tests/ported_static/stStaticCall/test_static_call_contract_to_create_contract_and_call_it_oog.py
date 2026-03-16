@@ -31,15 +31,32 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.parametrize(
     "tx_data_hex, expected_post",
     [
-        ("00", {}),
+        (
+            "00",
+            {
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+                    storage={0: 0, 2: 0}, nonce=0
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+                Address(
+                    "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+                ): Account.NONEXISTENT,
+            },
+        ),
         (
             "01",
             {
                 Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6}
+                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+                    nonce=1,
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
                 ),
                 Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-                    storage={0: 12}
+                    storage={0: 12}, nonce=1, balance=1
                 ),
             },
         ),

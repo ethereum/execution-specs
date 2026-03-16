@@ -55,6 +55,11 @@ def test_transaction_to_itself(
         value=1,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+            balance=0x3B9795B0,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

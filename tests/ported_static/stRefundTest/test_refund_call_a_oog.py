@@ -70,7 +70,7 @@ def test_refund_call_a_oog(
         address=Address("0x1b98d6b82e06b90c71c779925ae5b84e28401256"),  # noqa: E501
     )
     pre[coinbase] = Account(balance=0, nonce=1)
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={0x1: 0x1},
         balance=0xDE0B6B3A7640000,
@@ -86,8 +86,17 @@ def test_refund_call_a_oog(
     )
 
     post = {
-        contract: Account(storage={1: 1}),
-        callee: Account(storage={1: 1}),
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={1: 1},
+            balance=0xDE0B6B3A7640000,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+            balance=0x29091E,
+        ),
+        Address("0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa"): Account(
+            storage={1: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

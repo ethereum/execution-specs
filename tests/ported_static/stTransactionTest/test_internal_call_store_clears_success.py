@@ -105,6 +105,17 @@ def test_internal_call_store_clears_success(
         value=10,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x0000000000000000000000000000000000000000"): Account(
+            storage={},
+            balance=1,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=19,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

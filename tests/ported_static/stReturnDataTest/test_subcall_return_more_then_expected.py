@@ -228,7 +228,7 @@ def test_subcall_return_more_then_expected(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
                 1: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
@@ -239,6 +239,7 @@ def test_subcall_return_more_then_expected(
                 6: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
                 7: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
             },
+            balance=0xDE0B6B3A7640001,
         ),
     }
 

@@ -49,7 +49,7 @@ def test_execute_call_that_ask_more_gas_then_transaction_has_with_mem_expanding_
     )
 
     # Source: raw bytecode
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC),
         balance=0x186A0,
         nonce=0,
@@ -83,8 +83,16 @@ def test_execute_call_that_ask_more_gas_then_transaction_has_with_mem_expanding_
     )
 
     post = {
-        callee: Account(storage={1: 12}),
-        contract: Account(storage={1: 1}),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={1: 12},
+            balance=0x186A0,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

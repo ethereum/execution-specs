@@ -55,7 +55,8 @@ def test_codesize_init(
 
     post = {
         Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-            storage={1: 10},
+            storage={1: 10, 2: 0},
+            balance=0,
         ),
     }
 

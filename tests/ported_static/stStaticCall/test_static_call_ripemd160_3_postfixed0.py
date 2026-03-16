@@ -82,7 +82,7 @@ def test_static_call_ripemd160_3_postfixed0(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0x7730B4642169B0F16752696DA8DA830A4B429C9D,
                 2: 1,

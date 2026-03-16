@@ -26,28 +26,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "tx_value",
     [
-        (
-            0,
-            {
-                Address("0x8f7eceea4b37c6f7faf5d64d64fbffbcd14b79a4"): Account(
-                    storage={
-                        0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470  # noqa: E501
-                    }
-                )
-            },
-        ),
-        (
-            1,
-            {
-                Address("0x8f7eceea4b37c6f7faf5d64d64fbffbcd14b79a4"): Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A  # noqa: E501
-                    }
-                )
-            },
-        ),
+        0,
+        1,
     ],
     ids=["case0", "case1"],
 )
@@ -56,7 +38,6 @@ def test_sha3_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -102,6 +83,12 @@ def test_sha3_non_const(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={
+                0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+            },
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

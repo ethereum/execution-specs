@@ -149,7 +149,9 @@ def test_14_revert_after_nested_staticcall(
     )
 
     post = {
-        contract: Account(storage={0: 10, 2: 1, 3: 10}),
+        Address("0xa00000000000000000000000000000000000000a"): Account(
+            storage={0: 10, 1: 0, 2: 1, 3: 10},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

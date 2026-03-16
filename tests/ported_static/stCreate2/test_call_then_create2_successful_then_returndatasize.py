@@ -105,6 +105,13 @@ def test_call_then_create2_successful_then_returndatasize(
         gas_limit=100000,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(storage={0: 0}),
+        Address("0xc0c06666fad9e52251740536e21fc0f3db0e0fa0"): Account(
+            code=bytes.fromhex(
+                "0000000000000000000000000000000000000000000000000000000000112233"  # noqa: E501
+            ),
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

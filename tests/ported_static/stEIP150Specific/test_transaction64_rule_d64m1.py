@@ -69,7 +69,7 @@ def test_transaction64_rule_d64m1(
         nonce=0,
         address=Address("0x4cbc458d12c7f73a3b12ef4515c3eb1bb7430798"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         nonce=0,
         address=Address("0x6b7466044211f090b767199794f6f7041829ba85"),  # noqa: E501
@@ -83,8 +83,12 @@ def test_transaction64_rule_d64m1(
     )
 
     post = {
-        contract: Account(storage={2: 24740}),
-        callee: Account(storage={1: 12}),
+        Address("0x1000000000000000000000000000000000000118"): Account(
+            storage={1: 12},
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={2: 24740},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

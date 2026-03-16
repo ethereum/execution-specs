@@ -89,12 +89,13 @@ def test_merge_test(
     )
 
     post = {
-        contract: Account(
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
             storage={
                 0: 1010,
                 1: 1000,
                 2: 0x1500000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
             },
+            nonce=1,
         ),
     }
 

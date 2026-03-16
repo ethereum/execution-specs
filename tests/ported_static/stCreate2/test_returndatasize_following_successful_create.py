@@ -78,6 +78,8 @@ def test_returndatasize_following_successful_create(
         gas_limit=100000,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(storage={0: 0}),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

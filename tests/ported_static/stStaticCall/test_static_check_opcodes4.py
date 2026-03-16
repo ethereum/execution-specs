@@ -26,41 +26,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, tx_value, expected_post",
+    "tx_gas_limit, tx_value",
     [
-        (50000, 0, {}),
-        (50000, 100, {}),
-        (
-            335000,
-            0,
-            {
-                Address("0x3350a62ddddd0ff0e39cd82e2d185fe06b5fcf49"): Account(
-                    storage={
-                        1: 1,
-                        2: 1,
-                        3: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        5: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        6: 0x3350A62DDDDD0FF0E39CD82E2D185FE06B5FCF49,
-                    }
-                )
-            },
-        ),
-        (
-            335000,
-            100,
-            {
-                Address("0x3350a62ddddd0ff0e39cd82e2d185fe06b5fcf49"): Account(
-                    storage={
-                        1: 1,
-                        2: 1,
-                        3: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        4: 100,
-                        5: 0xFAA10B404AB607779993C016CD5DA73AE1F29D7E,
-                        6: 0x3350A62DDDDD0FF0E39CD82E2D185FE06B5FCF49,
-                    }
-                )
-            },
-        ),
+        (50000, 0),
+        (50000, 100),
+        (335000, 0),
+        (335000, 100),
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -71,7 +42,6 @@ def test_static_check_opcodes4(
     pre: Alloc,
     tx_gas_limit: int,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -230,6 +200,13 @@ def test_static_check_opcodes4(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

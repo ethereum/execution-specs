@@ -102,10 +102,20 @@ def test_random_statetest49(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
-                34204: 0x4F3F701464972E74606D6EA82D4D3080599A0E79,
+                34204: 0x945304EB96065B2A98B57A48A06AE28D285A71B5,
             },
+            nonce=0,
+        ),
+        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
+            storage={},
+            nonce=0,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+            code=b"",
         ),
     }
 

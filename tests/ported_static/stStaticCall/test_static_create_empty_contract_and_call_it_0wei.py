@@ -93,6 +93,9 @@ def test_static_create_empty_contract_and_call_it_0wei(
                 100: 0x6FE6E,
             },
         ),
+        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+            nonce=1,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -80,7 +80,7 @@ def test_static_return50000_2(
         nonce=0,
         address=Address("0x9a8ca98b299a0220faad60948d01ce83ccc97831"),  # noqa: E501
     )
-    callee_1 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.JUMPDEST
             + Op.JUMPI(
@@ -117,8 +117,15 @@ def test_static_return50000_2(
     )
 
     post = {
-        contract: Account(storage={0: 1, 1: 1}),
-        callee_1: Account(storage={0: 1, 1: 50000}),
+        Address("0x10bf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 1, 1: 1},
+            nonce=0,
+        ),
+        Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 1, 1: 50000},
+            nonce=0,
+            balance=0xFFFFFFFFFFFFF,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

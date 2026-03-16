@@ -54,6 +54,10 @@ def test_overflow_gas_make_money(
         value=501,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

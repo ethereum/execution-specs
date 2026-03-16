@@ -70,6 +70,19 @@ def test_stack_limit_gas_1024(
         value=10,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
+            storage={},
+            nonce=0,
+            code=bytes.fromhex(
+                "6103fe6000525b5a6001600051036000526000516006570000"
+            ),
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+            code=b"",
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

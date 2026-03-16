@@ -70,7 +70,7 @@ def test_callcallcodecallcode_011_oogm_before(
         nonce=0,
         address=Address("0x335b558774699d81f685543cfbcde5c4e5407686"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -124,8 +124,18 @@ def test_callcallcodecallcode_011_oogm_before(
     )
 
     post = {
-        contract: Account(storage={0: 1}),
-        callee: Account(storage={11: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={11: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={},
+        ),
+        Address("0x1000000000000000000000000000000000000003"): Account(
+            storage={},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

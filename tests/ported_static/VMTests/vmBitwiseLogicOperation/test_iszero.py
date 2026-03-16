@@ -28,24 +28,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
-            {
-                Address("0x0000000000000000000000000000000000001001"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            {},
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
-            {},
-        ),
+        "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -54,7 +41,6 @@ def test_iszero(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -130,6 +116,10 @@ def test_iszero(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        Address("0x0000000000000000000000000000000000000512"): Account(
+            storage={0: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

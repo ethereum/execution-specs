@@ -97,6 +97,9 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
     )
 
     post = {
+        Address("0x0000000000000000000000000000000000000001"): Account(
+            balance=1,
+        ),
         contract: Account(
             storage={
                 1: 0x6000526005601BF36000526001FF000000000000000000000000000000000000,  # noqa: E501

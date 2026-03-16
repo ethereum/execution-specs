@@ -79,6 +79,10 @@ def test_sload_bounds(
         value=1,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            balance=1,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

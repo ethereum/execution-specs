@@ -67,6 +67,10 @@ def test_create_contract_via_contract_oog_init_code(
         gas_limit=105044,
     )
 
-    post: dict = {}
+    post = {
+        Address(
+            "0x4ff884bffc83e888ae11b32b1d94bf9bc8d1732f"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

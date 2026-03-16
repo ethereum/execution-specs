@@ -26,48 +26,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "01",
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
-        ),
-        (
-            "02",
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x200000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
-        ),
-        (
-            "03",
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x300000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
-        ),
-        (
-            "03",
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x300000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
-        ),
+        "01",
+        "02",
+        "03",
+        "03",
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -76,7 +40,6 @@ def test_labels_example(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """An example how to use labels in expect section."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -115,6 +78,12 @@ def test_labels_example(
         value=100000,
     )
 
-    post = expected_post
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={
+                0: 0x100000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+            },
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

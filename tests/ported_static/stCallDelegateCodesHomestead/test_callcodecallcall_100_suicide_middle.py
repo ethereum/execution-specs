@@ -125,7 +125,25 @@ def test_callcodecallcall_100_suicide_middle(
     )
 
     post = {
-        contract: Account(storage={0: 1, 1: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 1: 1},
+            balance=0xDE0B6B5FB6FE400,
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={},
+            nonce=0,
+            balance=0,
+            code=bytes.fromhex(
+                "731000000000000000000000000000000000000000ff6040600060406000600073100000000000000000000000000000000000000361c350f160025500"  # noqa: E501
+            ),
+        ),
+        Address("0x1000000000000000000000000000000000000003"): Account(
+            storage={3: 0},
+            balance=0x2540BE400,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 0},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

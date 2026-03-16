@@ -86,7 +86,12 @@ def test_call_oog_additional_gas_costs2(
     )
 
     post = {
-        contract: Account(storage={0: 2}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 2},
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            balance=0,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

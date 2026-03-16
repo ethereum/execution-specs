@@ -45,7 +45,7 @@ def test_not(
         gas_limit=100000000,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.NOT(0x123456789ABCDEF)) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
@@ -85,7 +85,7 @@ def test_not(
     )
 
     post = {
-        callee: Account(
+        Address("0x0000000000000000000000000000000000000512"): Account(
             storage={
                 0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEDCBA9876543210,  # noqa: E501
             },

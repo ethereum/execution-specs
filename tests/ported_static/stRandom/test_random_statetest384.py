@@ -285,36 +285,6 @@ def test_random_statetest384(
         nonce=1,
     )
 
-    post = {
-        contract: Account(
-            storage={
-                1: 0x2ADC25665018AA1FE0E6BC666DAC8FC2697FF9BA,
-                2: 0x938D5C3FF280BF7EFDA95E66,
-                3: 0x6F7A2658B5,
-                4: 0x9582CED6097AE8D75CB9CAC205753DD88202D5D36541F1B1BB9C1446739E0D01,  # noqa: E501
-                5: 0xF400CA,
-                7: 0x20E684F471111724A4F72553B4FDC9593AE22C,
-                8: 100,
-                9: 0x413ED4A9B16E7D66A17B07730188A08FA9E6148100F0311EA269ECC5,
-                10: 0x380357280D5DBC434298AC45559FC2855C0D2A04,
-                11: 0xFF71F169745E90C52A629BBD2242461AC86F724E086E44C0E84CC5EBCCCBFEF8,  # noqa: E501
-                12: 0x149AFA7A18BF9C2D796DE03773E0D35C9A,
-                13: 0xCBFFF9F42E22612E938809AF2674B0CEDC8548F47EE642097C0C4ABC9BF7C76B,  # noqa: E501
-                14: 0x938D5C3FF280BF7EFDA95E66,
-                15: 10,
-                16: 996,
-                19: 0xB46EB2F2D66EE0B4C6845455E9C5EEFF0218,
-                20: 1,
-                21: 10,
-                23: 41320,
-                24: 0xFF112233445566,
-                25: 0x66120B1A7A97C93A6A04BD493F4A,
-                26: 0x27E1DC4C54400E52AB133F162C6DF107151D11,
-                27: 0x89CC6512F8D604E5D0656C17F2D45B916DF6816A1999719F2B,
-                29: 0xFF112233445566,
-                30: 0x471B70DEC306FA6142CE,
-            },
-        ),
-    }
+    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -97,6 +97,13 @@ def test_returndatasize_bug(
         gas_limit=100000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
+            storage={0: 0},
+        ),
+        Address("0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
+            storage={1: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

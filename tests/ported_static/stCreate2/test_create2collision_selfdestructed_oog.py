@@ -60,7 +60,7 @@ def test_create2collision_selfdestructed_oog(
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: LLL
     # { (SELFDESTRUCT 0x10) }
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
@@ -68,7 +68,7 @@ def test_create2collision_selfdestructed_oog(
     )
     # Source: LLL
     # { (SELFDESTRUCT 0x10) }
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
@@ -76,7 +76,7 @@ def test_create2collision_selfdestructed_oog(
     )
     # Source: LLL
     # { (SELFDESTRUCT 0x10) }
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x10) + Op.STOP,
         balance=1,
         nonce=0,
@@ -93,6 +93,17 @@ def test_create2collision_selfdestructed_oog(
         value=1,
     )
 
-    post: dict = {}
+    post = {
+        Address(
+            "0x0000000000000000000000000000000000000010"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
+        sender: Account(nonce=1),
+        contract: Account(balance=1, code=bytes.fromhex("6010ff00")),
+        callee_1: Account(balance=1, code=bytes.fromhex("6010ff00")),
+        callee_2: Account(balance=1, code=bytes.fromhex("6010ff00")),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

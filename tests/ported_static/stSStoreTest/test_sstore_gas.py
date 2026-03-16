@@ -183,7 +183,7 @@ def test_sstore_gas(
     )
 
     post = {
-        contract: Account(
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
             storage={
                 4096: 5000,
                 4097: 100,

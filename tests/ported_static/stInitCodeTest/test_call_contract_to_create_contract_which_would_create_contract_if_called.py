@@ -86,9 +86,16 @@ def test_call_contract_to_create_contract_which_would_create_contract_if_called(
     post = {
         contract: Account(
             storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+            nonce=1,
         ),
+        Address(
+            "0x62c01474f089b07dae603491675dc5b5748f7049"
+        ): Account.NONEXISTENT,
+        sender: Account(nonce=1),
         Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
             storage={0: 12},
+            nonce=2,
+            balance=2,
         ),
     }
 

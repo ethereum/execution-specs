@@ -34,21 +34,18 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "000000000000000000000000a5b789cb3b73deb59cef5b261568362db2f967dd",
             {
-                Address("0xa5b789cb3b73deb59cef5b261568362db2f967dd"): Account(
+                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={
                         0: 1,
                         1: 0x3700FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
                     }
-                ),
-                Address("0xbe9c847927d7e832ff5655392c160933d99cb4e8"): Account(
-                    storage={0: 1, 1: 1}
-                ),
+                )
             },
         ),
         (
             "000000000000000000000000be9c847927d7e832ff5655392c160933d99cb4e8",
             {
-                Address("0xbe9c847927d7e832ff5655392c160933d99cb4e8"): Account(
+                Address("0x195e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
                     storage={0: 1, 1: 1}
                 )
             },

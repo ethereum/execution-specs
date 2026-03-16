@@ -351,7 +351,7 @@ def test_shift_signed_combinations(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 256: 0x1000001D,
                 257: 128,
@@ -1182,6 +1182,7 @@ def test_shift_signed_combinations(
                 1261: 0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
                 1262: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,  # noqa: E501
             },
+            balance=0xDE0B6B3A7640001,
         ),
     }
 

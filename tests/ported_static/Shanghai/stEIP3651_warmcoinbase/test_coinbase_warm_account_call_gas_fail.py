@@ -29,40 +29,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "693c61390000000000000000000000008ddf5d9a5251c41efd2949f53db0a464116c7c6e",  # noqa: E501
-            {
-                Address("0x0a92fc97bb4c47b3d5e9e96fbb1c3fc2f07dba81"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000498516b6b2f25cb6a8e011a7c37a617b77e7d500",  # noqa: E501
-            {
-                Address("0x0a92fc97bb4c47b3d5e9e96fbb1c3fc2f07dba81"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000008873820bb96daa39db93ae64a9d6397e4c6a48d7",  # noqa: E501
-            {
-                Address("0x0a92fc97bb4c47b3d5e9e96fbb1c3fc2f07dba81"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
-        (
-            "693c6139000000000000000000000000303b6790d019874a107418eb549e4e7766a64728",  # noqa: E501
-            {
-                Address("0x0a92fc97bb4c47b3d5e9e96fbb1c3fc2f07dba81"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
+        "693c61390000000000000000000000008ddf5d9a5251c41efd2949f53db0a464116c7c6e",  # noqa: E501
+        "693c6139000000000000000000000000498516b6b2f25cb6a8e011a7c37a617b77e7d500",  # noqa: E501
+        "693c61390000000000000000000000008873820bb96daa39db93ae64a9d6397e4c6a48d7",  # noqa: E501
+        "693c6139000000000000000000000000303b6790d019874a107418eb549e4e7766a64728",  # noqa: E501
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -71,7 +43,6 @@ def test_coinbase_warm_account_call_gas_fail(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x50228c44ed92561d94511e8518a75aa463bd444b")
@@ -246,6 +217,10 @@ def test_coinbase_warm_account_call_gas_fail(
         nonce=1,
     )
 
-    post = expected_post
+    post = {
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
+            storage={0: 1},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

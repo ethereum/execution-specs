@@ -60,7 +60,10 @@ def test_zero_value_transaction_cal_lwith_data_to_one_storage_key_paris(
     )
 
     post = {
-        contract: Account(storage={0: 1}),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 1},
+            balance=10,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
@@ -104,7 +107,10 @@ def test_zero_value_transaction_cal_lwith_data_to_one_storage_key_paris_from_pra
     )
 
     post = {
-        contract: Account(storage={0: 1}),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 1},
+            balance=10,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

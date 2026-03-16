@@ -98,9 +98,10 @@ def test_static_call_ecrecover_s_prefixed0(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0xB4950A7FAD428434B11C357FA6D4B4BCD3096A5D,
+                1: 0,
                 2: 1,
             },
         ),

@@ -92,6 +92,10 @@ def test_random_statetest1(
         value=100000,
     )
 
-    post: dict = {}
+    post = {
+        contract: Account(storage={}, nonce=0, balance=0xDE0B6B3A7640000),
+        coinbase: Account(storage={}, nonce=0),
+        sender: Account(storage={}, nonce=1, code=b""),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

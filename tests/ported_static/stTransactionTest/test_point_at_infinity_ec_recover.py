@@ -68,11 +68,15 @@ def test_point_at_infinity_ec_recover(
     )
 
     post = {
-        contract: Account(
+        Address("0x000000000000000000000000000000000000ff0a"): Account(
             storage={
                 0: 1,
                 1: 0x6B8D2C81B11B2D699528DDE488DBDF2F94293D0D33C32E347F255FA4A6C1F0A9,  # noqa: E501
             },
+            nonce=0,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
         ),
     }
 

@@ -76,6 +76,10 @@ def test_create_init_fail_oo_gduring_init2(
         value=100000,
     )
 
-    post: dict = {}
+    post = {
+        Address(
+            "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+        ): Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

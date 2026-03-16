@@ -103,8 +103,8 @@ def test_create_callprecompile_returndatasize(
     )
 
     post = {
-        Address("0xf234137fe508cc371f3da359ab482e4138d0b0c9"): Account(
-            storage={0: 32},
+        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
+            storage={0: 0},
         ),
     }
 

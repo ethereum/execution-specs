@@ -26,24 +26,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "tx_value",
     [
-        (
-            0,
-            {
-                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6}
-                )
-            },
-        ),
-        (
-            1,
-            {
-                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6}
-                )
-            },
-        ),
+        0,
+        1,
     ],
     ids=["case0", "case1"],
 )
@@ -52,7 +38,6 @@ def test_create_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -101,6 +86,10 @@ def test_create_non_const(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        contract: Account(
+            storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

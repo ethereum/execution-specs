@@ -108,6 +108,9 @@ def test_create_oo_gafter_init_code_revert(
 
     post = {
         contract: Account(storage={1: 0x6460016001556000526005601BF3}),
+        Address(
+            "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

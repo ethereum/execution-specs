@@ -58,7 +58,10 @@ def test_zero_value_transaction_cal_lwith_data(
         gas_limit=600000,
     )
 
-    post: dict = {}
+    post = {
+        sender: Account(nonce=1),
+        contract: Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)
 
@@ -99,6 +102,9 @@ def test_zero_value_transaction_cal_lwith_data_from_prague(
         gas_limit=600000,
     )
 
-    post: dict = {}
+    post = {
+        sender: Account(nonce=1),
+        contract: Account.NONEXISTENT,
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

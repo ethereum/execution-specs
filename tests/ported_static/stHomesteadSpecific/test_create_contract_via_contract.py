@@ -63,6 +63,8 @@ def test_create_contract_via_contract(
         gas_limit=100000,
     )
 
-    post: dict = {}
+    post = {
+        sender: Account(nonce=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1324,7 +1324,7 @@ def test_exp_power256_of256(
     )
 
     post = {
-        contract: Account(
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
             storage={
                 0: 256,
                 1: 256,

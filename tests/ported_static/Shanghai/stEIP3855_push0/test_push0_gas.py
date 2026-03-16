@@ -65,7 +65,9 @@ def test_push0_gas(
     )
 
     post = {
-        contract: Account(storage={0: 0x13496, 1: 22107}),
+        Address("0x0000000000000000000000000000000000001000"): Account(
+            storage={0: 0x13496, 1: 22107},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -113,6 +113,9 @@ def test_create2_refund_ef(
 
     post = {
         callee: Account(storage={0: 1}),
+        Address(
+            "0xbe8f87148d0767989cce2e6a6a5d91c7d0c840e0"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

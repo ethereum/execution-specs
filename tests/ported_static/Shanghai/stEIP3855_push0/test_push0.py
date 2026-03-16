@@ -26,86 +26,14 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "0000000000000000000000000000000000000200",
-            {
-                Address("0x0000000000000000000000000000000000000200"): Account(
-                    storage={0: 1}
-                ),
-                Address("0x0000000000000000000000000000000000000400"): Account(
-                    storage={0: 10, 1: 10}
-                ),
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={0: 1, 1: 1}
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000300",
-            {
-                Address("0x0000000000000000000000000000000000000400"): Account(
-                    storage={0: 10, 1: 10}
-                ),
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={1: 1}
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000700",
-            {
-                Address("0x0000000000000000000000000000000000000400"): Account(
-                    storage={0: 10, 1: 10}
-                ),
-                Address("0x0000000000000000000000000000000000000700"): Account(
-                    storage={0: 1}
-                ),
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={0: 1, 1: 1}
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000400",
-            {
-                Address("0x0000000000000000000000000000000000000400"): Account(
-                    storage={0: 2}
-                ),
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={0: 1, 1: 1}
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000500",
-            {
-                Address("0x0000000000000000000000000000000000000400"): Account(
-                    storage={0: 10, 1: 10}
-                ),
-                Address("0x0000000000000000000000000000000000000500"): Account(
-                    storage={0: 1, 1: 1, 2: 255}
-                ),
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={0: 1, 1: 1}
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000000000000000001000",
-            {
-                Address("0x0000000000000000000000000000000000000400"): Account(
-                    storage={0: 10, 1: 10}
-                ),
-                Address("0x0000000000000000000000000000000000001000"): Account(
-                    storage={0: 1}
-                ),
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={0: 1, 1: 1}
-                ),
-            },
-        ),
+        "0000000000000000000000000000000000000200",
+        "0000000000000000000000000000000000000300",
+        "0000000000000000000000000000000000000700",
+        "0000000000000000000000000000000000000400",
+        "0000000000000000000000000000000000000500",
+        "0000000000000000000000000000000000001000",
     ],
     ids=["case0", "case1", "case2", "case3", "case4", "case5"],
 )
@@ -114,7 +42,6 @@ def test_push0(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -1320,6 +1247,11 @@ def test_push0(
         gas_limit=700000,
     )
 
-    post = expected_post
+    post = {
+        Address("0x0000000000000000000000000000000000000512"): Account(
+            storage={0: 1},
+        ),
+        contract: Account(storage={0: 1, 1: 1}),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

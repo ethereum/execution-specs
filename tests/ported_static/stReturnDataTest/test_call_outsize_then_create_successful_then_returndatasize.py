@@ -102,6 +102,10 @@ def test_call_outsize_then_create_successful_then_returndatasize(
         gas_limit=100000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
+            storage={0: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

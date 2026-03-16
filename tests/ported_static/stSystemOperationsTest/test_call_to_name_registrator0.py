@@ -49,7 +49,7 @@ def test_call_to_name_registrator0(
     )
 
     # Source: raw bytecode
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.JUMPI(
                 pc=0x9,
@@ -106,12 +106,10 @@ def test_call_to_name_registrator0(
     )
 
     post = {
-        callee: Account(
-            storage={
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF: 0xAAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFAA,  # noqa: E501
-            },
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 1},
+            nonce=0,
         ),
-        contract: Account(storage={0: 1}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -72,12 +72,7 @@ def test_revert_prefound_empty_paris(
     )
 
     post = {
-        contract: Account(
-            storage={
-                0: 0x7DB299E0885C85039F56FA504A13DD8CE8A56AA7,
-                1: 12,
-            },
-        ),
+        callee: Account(storage={}, nonce=1, balance=10, code=b""),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

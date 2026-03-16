@@ -117,7 +117,15 @@ def test_callcallcodecallcode_abcb_recursive(
     )
 
     post = {
-        contract: Account(storage={0: 1, 1: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1, 1: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={1: 0, 2: 0},
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={1: 0, 2: 0},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

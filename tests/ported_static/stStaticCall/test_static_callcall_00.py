@@ -31,10 +31,22 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "0000000000000000000000002f9ec0afcb4edcd7d38c6a48f5e36038263ca3cd",
             {
-                Address("0x2f9ec0afcb4edcd7d38c6a48f5e36038263ca3cd"): Account(
+                Address("0x1000000000000000000000000000000000000000"): Account(
                     storage={0: 1}
                 ),
-                Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"): Account(
+                Address("0x1000000000000000000000000000000000000002"): Account(
+                    storage={
+                        2: 0,
+                        4: 0,
+                        7: 0,
+                        230: 0,
+                        232: 0,
+                        236: 0,
+                        238: 0,
+                        240: 0,
+                    }
+                ),
+                Address("0xa000000000000000000000000000000000000000"): Account(
                     storage={0: 1, 1: 1}
                 ),
             },
@@ -42,10 +54,22 @@ REFERENCE_SPEC_VERSION = "N/A"
         (
             "000000000000000000000000bf23f3306533431b2ee5e4ca95e0a0834c090105",
             {
-                Address("0xbf23f3306533431b2ee5e4ca95e0a0834c090105"): Account(
+                Address("0x2000000000000000000000000000000000000000"): Account(
                     storage={0: 1}
                 ),
-                Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"): Account(
+                Address("0x2000000000000000000000000000000000000002"): Account(
+                    storage={
+                        2: 0,
+                        4: 0,
+                        7: 0,
+                        230: 0,
+                        232: 0,
+                        236: 0,
+                        238: 0,
+                        240: 0,
+                    }
+                ),
+                Address("0xa000000000000000000000000000000000000000"): Account(
                     storage={0: 1, 1: 1}
                 ),
             },

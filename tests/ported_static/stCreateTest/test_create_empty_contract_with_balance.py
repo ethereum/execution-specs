@@ -79,6 +79,9 @@ def test_create_empty_contract_with_balance(
                 100: 0x7ABF8,
             },
         ),
+        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+            balance=1,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

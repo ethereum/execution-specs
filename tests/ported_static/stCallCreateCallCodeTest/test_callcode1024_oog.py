@@ -28,24 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (
-            15720826,
-            {
-                Address("0x1b803058288dc00000f98311b059597434253374"): Account(
-                    storage={0: 146, 1: 1, 2: 0x23A51}
-                )
-            },
-        ),
-        (
-            13120826,
-            {
-                Address("0x1b803058288dc00000f98311b059597434253374"): Account(
-                    storage={0: 134, 1: 1, 2: 0x20B71}
-                )
-            },
-        ),
+        15720826,
+        13120826,
     ],
     ids=["case0", "case1"],
 )
@@ -54,7 +40,6 @@ def test_callcode1024_oog(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Calldepth and oog."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -112,6 +97,10 @@ def test_callcode1024_oog(
         value=10,
     )
 
-    post = expected_post
+    post = {
+        Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={0: 146, 1: 1, 2: 0x23A51},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -30,256 +30,1460 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.parametrize(
     "tx_data_hex, expected_post",
     [
-        ("0060016000f3", {}),
-        ("60ff60ff60ff9150505060006000f3", {}),
-        ("60ff60ff60ff60ff925050505060006000f3", {}),
-        ("60ff60ff60ff60ff60ff93505050505060006000f3", {}),
-        ("60ff60ff60ff60ff60ff60ff9450505050505060006000f3", {}),
-        ("60ff60ff60ff60ff60ff60ff60ff955050505050505060006000f3", {}),
-        ("60ff60ff60ff60ff60ff60ff60ff60ff96505050505050505060006000f3", {}),
+        (
+            "0060016000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff9150505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff925050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff60ff93505050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff60ff60ff9450505050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff60ff60ff60ff955050505050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff60ff60ff60ff60ff96505050505050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "600060ff60ff60ff60ff60ff60ff60ff60ff9750505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "600060ff60ff60ff60ff60ff60ff60ff60ff60ff985050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff99505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9a50505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
-        ("600160010a5060006000f3", {}),
+        (
+            "600160010a5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9b5050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9c505050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9d50505050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9e5050505050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "600060ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff9f505050505050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
-        ("60006000a060006000f3", {}),
-        ("60ff60006000a160006000f3", {}),
-        ("60ff60ff60006000a260006000f3", {}),
-        ("60ff60ff60ff60006000a360006000f3", {}),
-        ("60ff60ff60ff60ff60006000a460006000f3", {}),
-        ("600160010b5060006000f3", {}),
-        ("6000600060fff05060006000f3", {}),
+        (
+            "60006000a060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60006000a160006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60006000a260006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60006000a360006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff60006000a460006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "600160010b5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6000600060fff05060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "60006000600060006017730f572e5295c57f15886f9b263e2f6d2d6c7b5ec66064f15060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "60006000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec66064f25060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
-        ("60006000f3", {}),
+        (
+            "60006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "6000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec6620186a0f45060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "6000600060006000730f572e5295c57f15886f9b263e2f6d2d6c7b5ec6612710fa5060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
-        ("60006000fd60006000f3", {}),
-        ("32ff", {}),
-        ("60016001105060006000f3", {}),
-        ("60016001115060006000f3", {}),
-        ("60016001125060006000f3", {}),
-        ("60016001135060006000f3", {}),
-        ("60016001145060006000f3", {}),
-        ("6000155060006000f3", {}),
-        ("60006000165060006000f3", {}),
-        ("60006000175060006000f3", {}),
-        ("60016001015060006000f3", {}),
-        ("60006000185060006000f3", {}),
-        ("6000195060006000f3", {}),
-        ("67805020100804020160001a5060006000f3", {}),
-        ("600060002060006000f3", {}),
-        ("305060006000f3", {}),
-        ("6000315060006000f3", {}),
-        ("325060006000f3", {}),
-        ("335060006000f3", {}),
-        ("345060006000f3", {}),
-        ("6000355060006000f3", {}),
-        ("60016001025060006000f3", {}),
-        ("365060006000f3", {}),
-        ("6000600060003760006000f3", {}),
-        ("385060006000f3", {}),
+        (
+            "60006000fd60006000f3",
+            {
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "32ff",
+            {
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001105060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001115060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001125060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001135060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001145060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6000155060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60006000165060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60006000175060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001015060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60006000185060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6000195060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "67805020100804020160001a5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "600060002060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "305060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6000315060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "325060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "335060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "345060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6000355060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001025060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "365060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6000600060003760006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "385060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "38600060013960015160005560006000f3",
             {
                 Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
                     storage={
-                        0: 0x38600060013960015160005560006000F3000000000000000000000000000000  # noqa: E501
-                    }
-                )
+                        0: 0x38600060013960015160005560006000F3000000000000000000000000000000,  # noqa: E501
+                    },
+                    nonce=1,
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
-        ("3a5060006000f3", {}),
-        ("60003b5060006000f3", {}),
+        (
+            "3a5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60003b5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "6014600060007310000000000000000000000000000000000000103c60006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
-        ("3d5060006000f3", {}),
-        ("6000600060003e60006000f3", {}),
-        ("60005060005060006000f3", {}),
-        ("60016001035060006000f3", {}),
-        ("6000515060006000f3", {}),
-        ("600060005260006000f3", {}),
-        ("60ff60005360006000f3", {}),
-        ("6000545060006000f3", {}),
+        (
+            "3d5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6000600060003e60006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60005060005060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001035060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6000515060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "600060005260006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60005360006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6000545060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "600160015560006000f3",
             {
                 Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={1: 1}
-                )
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
-        ("600456005b60006000f3", {}),
-        ("6001600657005b60006000f3", {}),
-        ("585060006000f3", {}),
-        ("595060006000f3", {}),
-        ("5a5060006000f3", {}),
-        ("60016001045060006000f3", {}),
-        ("5b60006000f3", {}),
-        ("60ff5060006000f3", {}),
-        ("61ffff5060006000f3", {}),
-        ("62ffffff5060006000f3", {}),
-        ("63ffffffff5060006000f3", {}),
-        ("64ffffffffff5060006000f3", {}),
-        ("65ffffffffffff5060006000f3", {}),
-        ("66ffffffffffffff5060006000f3", {}),
-        ("67ffffffffffffffff5060006000f3", {}),
-        ("68ffffffffffffffffff5060006000f3", {}),
-        ("60016001055060006000f3", {}),
-        ("69ffffffffffffffffffff5060006000f3", {}),
-        ("6affffffffffffffffffffff5060006000f3", {}),
-        ("6bffffffffffffffffffffffff5060006000f3", {}),
-        ("6cffffffffffffffffffffffffff5060006000f3", {}),
-        ("6dffffffffffffffffffffffffffff5060006000f3", {}),
-        ("6effffffffffffffffffffffffffffff5060006000f3", {}),
-        ("6fffffffffffffffffffffffffffffffff5060006000f3", {}),
-        ("70ffffffffffffffffffffffffffffffffff5060006000f3", {}),
-        ("71ffffffffffffffffffffffffffffffffffff5060006000f3", {}),
-        ("72ffffffffffffffffffffffffffffffffffffff5060006000f3", {}),
-        ("60016001065060006000f3", {}),
-        ("73ffffffffffffffffffffffffffffffffffffffff5060006000f3", {}),
-        ("74ffffffffffffffffffffffffffffffffffffffffff5060006000f3", {}),
-        ("75ffffffffffffffffffffffffffffffffffffffffffff5060006000f3", {}),
-        ("76ffffffffffffffffffffffffffffffffffffffffffffff5060006000f3", {}),
-        ("77ffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3", {}),
+        (
+            "600456005b60006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6001600657005b60006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "585060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "595060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "5a5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001045060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "5b60006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "61ffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "62ffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "63ffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "64ffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "65ffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "66ffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "67ffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "68ffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001055060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "69ffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6affffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6bffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6cffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6dffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6effffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "6fffffffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "70ffffffffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "71ffffffffffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "72ffffffffffffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60016001065060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "73ffffffffffffffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "74ffffffffffffffffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "75ffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "76ffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "77ffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "78ffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "79ffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "7affffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "7bffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "7cffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
-        ("60016001075060006000f3", {}),
+        (
+            "60016001075060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "7dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "7effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff5060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
-        ("60ff80505060006000f3", {}),
-        ("60ff60ff8150505060006000f3", {}),
-        ("60ff60ff60ff825050505060006000f3", {}),
-        ("60ff60ff60ff60ff83505050505060006000f3", {}),
-        ("60ff60ff60ff60ff60ff8450505050505060006000f3", {}),
-        ("60ff60ff60ff60ff60ff60ff855050505050505060006000f3", {}),
-        ("60ff60ff60ff60ff60ff60ff60ff86505050505050505060006000f3", {}),
-        ("600160016001085060006000f3", {}),
-        ("60ff60ff60ff60ff60ff60ff60ff60ff8750505050505050505060006000f3", {}),
+        (
+            "60ff80505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff8150505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff825050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff83505050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff60ff8450505050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff60ff60ff855050505050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff60ff60ff60ff86505050505050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "600160016001085060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "60ff60ff60ff60ff60ff60ff60ff60ff8750505050505050505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "60ff60ff60ff60ff60ff60ff60ff60ff60ff885050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff89505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8a50505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8b5050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8c505050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8d50505050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8e5050505050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff60ff8f505050505050505050505050505050505060006000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
-        ("60ff60ff90505060006000f3", {}),
-        ("600160016001095060006000f3", {}),
-        ("ef", {}),
+        (
+            "60ff60ff90505060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "600160016001095060006000f3",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
+        (
+            "ef",
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
+        ),
         (
             "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f100",
             {
-                Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    storage={0: 1}
-                )
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
             },
         ),
         (
             "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f150fe",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
         (
             "60008080808073b94f5374fce5edbc8e2a8697c15331677e6ebf0b61c350f15060ef60005360016000f3",  # noqa: E501
-            {},
+            {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
+                ),
+            },
         ),
     ],
     ids=[

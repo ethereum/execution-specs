@@ -162,6 +162,16 @@ def test_extcodecopy(
         value=614700887,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x00000000002147c39fd6b5c19b7b89fc003e6b16"): Account(
+            storage={},
+            nonce=0,
+        ),
+        coinbase: Account(storage={}, nonce=0),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=1,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

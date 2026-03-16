@@ -29,12 +29,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, tx_value, expected_post",
+    "tx_gas_limit, tx_value",
     [
-        (8777204, 2759170368, {}),
-        (8777204, 0, {}),
-        (3000000, 2759170368, {}),
-        (3000000, 0, {}),
+        (8777204, 2759170368),
+        (8777204, 0),
+        (3000000, 2759170368),
+        (3000000, 0),
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -44,7 +44,6 @@ def test_returndatacopy_python_bug_tue_03_48_41_minus_1432(
     pre: Alloc,
     tx_gas_limit: int,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """Fuzzer generated bug. No code source."""
     coinbase = Address("0x1000000000000000000000000000000000000000")
@@ -256,6 +255,13 @@ def test_returndatacopy_python_bug_tue_03_48_41_minus_1432(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xffffffffffffffffffffffffffffffffffffffff"): Account(
+            storage={1: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

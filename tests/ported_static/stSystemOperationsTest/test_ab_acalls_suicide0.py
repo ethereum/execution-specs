@@ -72,7 +72,7 @@ def test_ab_acalls_suicide0(
         nonce=0,
         address=Address("0x10481e52c494fd0d78604b0f9207a89008f7e9a9"),  # noqa: E501
     )
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=Op.PC,
@@ -105,8 +105,9 @@ def test_ab_acalls_suicide0(
     )
 
     post = {
-        contract: Account(storage={36: 1}),
-        callee: Account(storage={38: 1}),
+        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
+            storage={38: 1},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -74,7 +74,10 @@ def test_suicide_caller_addres_too_big_left(
     post = {
         contract: Account(
             storage={0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B},
+            nonce=0,
+            balance=0,
         ),
+        sender: Account(nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

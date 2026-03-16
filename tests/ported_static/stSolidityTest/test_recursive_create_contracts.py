@@ -288,9 +288,13 @@ def test_recursive_create_contracts(
                 0: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87,
                 1: 772,
             },
+            nonce=1,
+            balance=0x314DC6448D9338C15B0A00000001,
         ),
+        sender: Account(nonce=1),
         Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
             storage={0: 771},
+            nonce=1,
         ),
     }
 

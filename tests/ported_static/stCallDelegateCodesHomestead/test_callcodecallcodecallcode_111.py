@@ -131,19 +131,22 @@ def test_callcodecallcodecallcode_111(
     )
 
     post = {
-        contract: Account(
+        Address("0x1000000000000000000000000000000000000000"): Account(
             storage={
                 0: 1,
                 1: 1,
                 2: 1,
                 3: 1,
-                4: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
-                330: 0xD26E26D5A4796D450BFA296D70C05F02DBC1A4B9,
-                332: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
+                4: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                330: 0x1000000000000000000000000000000000000000,
+                332: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                 336: 64,
                 338: 39,
                 340: 10,
             },
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 0, 2: 0, 3: 0, 4: 0},
         ),
     }
 

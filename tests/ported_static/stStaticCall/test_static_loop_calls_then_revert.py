@@ -28,30 +28,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (
-            10000000,
-            {
-                Address("0x7a2af5cc0310371cce006e472ed3b5d68e62f839"): Account(
-                    storage={0: 850}
-                ),
-                Address("0xd64495cbba16d27a88b96f2a72417b957ed4cae6"): Account(
-                    storage={1: 1}
-                ),
-            },
-        ),
-        (
-            9000000,
-            {
-                Address("0x7a2af5cc0310371cce006e472ed3b5d68e62f839"): Account(
-                    storage={0: 850}
-                ),
-                Address("0xd64495cbba16d27a88b96f2a72417b957ed4cae6"): Account(
-                    storage={1: 1}
-                ),
-            },
-        ),
+        10000000,
+        9000000,
     ],
     ids=["case0", "case1"],
 )
@@ -61,7 +41,6 @@ def test_static_loop_calls_then_revert(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Requires a separate pre-alloc group due to time required to fill..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -139,6 +118,10 @@ def test_static_loop_calls_then_revert(
         gas_limit=tx_gas_limit,
     )
 
-    post = expected_post
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={1: 1},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

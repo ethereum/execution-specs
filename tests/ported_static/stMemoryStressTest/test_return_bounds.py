@@ -26,59 +26,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "tx_gas_limit",
     [
-        (150000, {}),
-        (
-            500000,
-            {
-                Address("0xd66a0237ee5d25106fc05bc767734bddba1fab35"): Account(
-                    storage={
-                        1: 1,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        6: 1,
-                        7: 1,
-                        8: 1,
-                        9: 1,
-                        10: 1,
-                        11: 1,
-                        12: 1,
-                        13: 1,
-                        14: 1,
-                        15: 1,
-                        16: 1,
-                    }
-                )
-            },
-        ),
-        (
-            15000000,
-            {
-                Address("0xd66a0237ee5d25106fc05bc767734bddba1fab35"): Account(
-                    storage={
-                        1: 1,
-                        2: 1,
-                        3: 1,
-                        4: 1,
-                        5: 1,
-                        6: 1,
-                        7: 1,
-                        8: 1,
-                        9: 1,
-                        10: 1,
-                        11: 1,
-                        12: 1,
-                        13: 1,
-                        14: 1,
-                        15: 1,
-                        16: 1,
-                    }
-                )
-            },
-        ),
+        150000,
+        500000,
+        15000000,
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -87,7 +39,6 @@ def test_return_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_gas_limit: int,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -427,6 +378,11 @@ def test_return_bounds(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+            balance=0,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

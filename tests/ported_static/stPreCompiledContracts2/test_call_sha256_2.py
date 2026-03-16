@@ -81,7 +81,7 @@ def test_call_sha256_2(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0xCB39B3BDE22925B2F931111130C774761D8895E0E08437C9B396C1E97D10F34D,  # noqa: E501
                 2: 1,

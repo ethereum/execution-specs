@@ -29,11 +29,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        ("6001600080376000516000556020600160003760005160015500", {}),
-        ("60003560005560213560015500", {}),
-        ("3860008039386000f3", {}),
+        "6001600080376000516000556020600160003760005160015500",
+        "60003560005560213560015500",
+        "3860008039386000f3",
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -42,7 +42,6 @@ def test_create_transaction_call_data(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Tests if CALLDATALOAD, CALLDATACOPY, CODECOPY and CODESIZE work..."""
     coinbase = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -70,6 +69,12 @@ def test_create_transaction_call_data(
         gas_limit=100000,
     )
 
-    post = expected_post
+    post = {
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            storage={},
+            nonce=1,
+            code=b"",
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

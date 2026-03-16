@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["tests/static/state_tests/stAttackTest/ContractCreationSpamFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_contract_creation_spam(
     state_test: StateTestFiller,
@@ -634,7 +633,35 @@ def test_contract_creation_spam(
     )
 
     post = {
-        contract: Account(storage={0: 0x10C20}),
+        Address(
+            "0x0000000000000000000000000000000000000001"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x0000000000000000000000000000000000000002"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x0000000000000000000000000000000000000003"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x0000000000000000000000000000000000000004"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x0000000000000000000000000000000000000005"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x0000000000000000000000000000000000000006"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x0000000000000000000000000000000000000015"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x000000000000000000000000000000000000006e"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x0000000000000000000000000000000000002170"
+        ): Account.NONEXISTENT,
+        contract: Account(storage={0: 0x10C20}, nonce=1),
+        sender: Account(storage={}, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -114,10 +114,18 @@ def test_ext_code_copy_tests_paris(
     post = {
         contract: Account(
             storage={
+                2: 0,
+                3: 0,
+                4: 0,
                 5: 0x11120000000000000000000000000000000000000000000000000000000000,  # noqa: E501
                 6: 0x11121314151617181920212223242526272829303132000000000000000000,  # noqa: E501
             },
         ),
+        Address(
+            "0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"
+        ): Account.NONEXISTENT,
+        callee: Account(balance=10),
+        callee_1: Account(nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -91,6 +91,10 @@ def test_static_log0_log_memsize_zero(
         value=100000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

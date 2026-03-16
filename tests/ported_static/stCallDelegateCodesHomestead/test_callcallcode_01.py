@@ -48,7 +48,7 @@ def test_callcallcode_01(
         gas_limit=30000000,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -112,20 +112,25 @@ def test_callcallcode_01(
     )
 
     post = {
-        callee: Account(
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
             storage={
                 1: 1,
                 2: 1,
-                4: 0xEB09FF15547417853F6F4B240B8804769C37B0F1,
+                4: 0x1000000000000000000000000000000000000000,
                 7: 1,
-                230: 0x2B0691CD58A1CF4628D642E9ACA9AB04946E3EC9,
-                232: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
+                230: 0x1000000000000000000000000000000000000001,
+                232: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                 236: 64,
                 238: 34,
                 240: 10,
             },
         ),
-        contract: Account(storage={0: 1}),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={4: 0},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -86,7 +86,17 @@ def test_suicide_to_existing_contract(
     )
 
     post = {
-        contract: Account(storage={1: 7637}),
+        Address("0x1000000000000000000000000000000000000118"): Account(
+            storage={},
+            nonce=0,
+            balance=0,
+            code=bytes.fromhex(
+                "73b94f5374fce5edbc8e2a8697c15331677e6ebf0bff00"
+            ),
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={1: 7637},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

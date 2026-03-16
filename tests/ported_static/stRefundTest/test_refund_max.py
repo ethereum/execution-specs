@@ -98,6 +98,10 @@ def test_refund_max(
         nonce=1,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=0xE8D55F7E90,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

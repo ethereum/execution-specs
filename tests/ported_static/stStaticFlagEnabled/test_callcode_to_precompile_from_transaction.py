@@ -84,7 +84,7 @@ def test_callcode_to_precompile_from_transaction(
     #   ;; non zero value
     #   [ 0x0b0300 ] (CALLCODE (GAS) 2 1 0 32 0x2020 32)
     # ... (121 more lines)
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -586,6 +586,7 @@ def test_callcode_to_precompile_from_transaction(
     )
 
     post = {
+        callee: Account(storage={}, balance=1000),
         contract: Account(
             storage={
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
@@ -633,6 +634,7 @@ def test_callcode_to_precompile_from_transaction(
                 2841: 1,
                 2848: 1,
             },
+            balance=1100,
         ),
     }
 
@@ -697,7 +699,7 @@ def test_callcode_to_precompile_from_transaction_from_osaka(
     #   ;; non zero value
     #   [ 0x0b0300 ] (CALLCODE (GAS) 2 1 0 32 0x2020 32)
     # ... (121 more lines)
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -1199,6 +1201,7 @@ def test_callcode_to_precompile_from_transaction_from_osaka(
     )
 
     post = {
+        callee: Account(storage={}, balance=1000),
         contract: Account(
             storage={
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
@@ -1246,6 +1249,7 @@ def test_callcode_to_precompile_from_transaction_from_osaka(
                 2841: 1,
                 2848: 1,
             },
+            balance=1100,
         ),
     }
 

@@ -79,6 +79,10 @@ def test_revert_in_static_call(
         gas_limit=105044,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -69,7 +69,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                         20: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
                         21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         22: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
-                    }
+                    },
+                    nonce=2,
+                    balance=0,
+                    code=b"",
                 )
             },
         ),
@@ -84,7 +87,10 @@ REFERENCE_SPEC_VERSION = "N/A"
                         20: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
                         21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         22: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
-                    }
+                    },
+                    nonce=2,
+                    balance=0,
+                    code=b"",
                 )
             },
         ),

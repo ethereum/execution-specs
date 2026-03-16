@@ -81,7 +81,9 @@ def test_arith(
     )
 
     post = {
-        contract: Account(storage={0: 0x1B9C636491}),
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
+            storage={0: 0x1B9C636491},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

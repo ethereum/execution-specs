@@ -69,6 +69,18 @@ def test_non_zero_value_suicide_to_non_non_zero_balance(
         gas_limit=600000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={},
+            nonce=0,
+            balance=0,
+            code=bytes.fromhex(
+                "73c94f5374fce5edbc8e2a8697c15331677e6ebf0bff00"
+            ),
+        ),
+        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=101,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

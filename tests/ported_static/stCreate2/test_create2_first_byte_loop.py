@@ -26,32 +26,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "1a8451e6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ef",  # noqa: E501
-            {
-                Address("0x09fdd11d68be787a4c43f692a0778befc011cd35"): Account(
-                    storage={256: 1}
-                )
-            },
-        ),
-        (
-            "1a8451e600000000000000000000000000000000000000000000000000000000000000ef00000000000000000000000000000000000000000000000000000000000000f0",  # noqa: E501
-            {
-                Address("0x09fdd11d68be787a4c43f692a0778befc011cd35"): Account(
-                    storage={239: 1, 256: 1}
-                )
-            },
-        ),
-        (
-            "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000100",  # noqa: E501
-            {
-                Address("0x09fdd11d68be787a4c43f692a0778befc011cd35"): Account(
-                    storage={256: 1}
-                )
-            },
-        ),
+        "1a8451e6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ef",  # noqa: E501
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000ef00000000000000000000000000000000000000000000000000000000000000f0",  # noqa: E501
+        "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000100",  # noqa: E501
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -60,7 +39,6 @@ def test_create2_first_byte_loop(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -137,6 +115,20 @@ def test_create2_first_byte_loop(
         gas_limit=16777216,
     )
 
-    post = expected_post
+    post = {
+        Address("0x00000000000000000000600060005360016000f3"): Account(
+            nonce=1,
+        ),
+        Address("0x0000000000000000000060ee60005360016000f3"): Account(
+            nonce=1,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={256: 1},
+            nonce=239,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -26,64 +26,15 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
-            {
-                Address("0x3559afe49654b532b7e67e6acd87deb8c569e7ad"): Account(
-                    storage={0: 24743}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
-            {
-                Address("0x3559afe49654b532b7e67e6acd87deb8c569e7ad"): Account(
-                    storage={0: 24743}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
-            {
-                Address("0x3559afe49654b532b7e67e6acd87deb8c569e7ad"): Account(
-                    storage={0: 24743}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            {
-                Address("0x3559afe49654b532b7e67e6acd87deb8c569e7ad"): Account(
-                    storage={0: 24743}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
-            {
-                Address("0x3559afe49654b532b7e67e6acd87deb8c569e7ad"): Account(
-                    storage={0: 24743}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
-            {
-                Address("0x3559afe49654b532b7e67e6acd87deb8c569e7ad"): Account(
-                    storage={0: 24743}
-                )
-            },
-        ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
-            {
-                Address("0x3559afe49654b532b7e67e6acd87deb8c569e7ad"): Account(
-                    storage={0: 24743}
-                )
-            },
-        ),
+        "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
+        "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
     ],
     ids=["case0", "case1", "case2", "case3", "case4", "case5", "case6"],
 )
@@ -92,7 +43,6 @@ def test_state_revert(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -284,6 +234,10 @@ def test_state_revert(
         value=1,
     )
 
-    post = expected_post
+    post = {
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
+            storage={0: 24743, 1: 0, 2: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

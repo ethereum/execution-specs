@@ -61,7 +61,10 @@ def test_failed_create_reverts_deletion_paris(
     )
 
     post = {
-        contract: Account(storage={0: 1}),
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            storage={0: 1},
+            balance=10,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

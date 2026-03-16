@@ -72,7 +72,7 @@ def test_callcodecallcallcode_101_suicide_middle(
     )
     # Source: LLL
     # {  [[ 1 ]] (CALL 100000 0x1000000000000000000000000000000000000002 0 0 64 0 64 ) }  # noqa: E501
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -117,7 +117,7 @@ def test_callcodecallcallcode_101_suicide_middle(
     )
     # Source: LLL
     # {  (SSTORE 3 1) }
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=Op.SSTORE(key=0x3, value=0x1) + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
@@ -132,7 +132,9 @@ def test_callcodecallcallcode_101_suicide_middle(
     )
 
     post = {
-        contract: Account(storage={0: 1, 1: 1}),
+        contract: Account(storage={0: 1, 1: 1}, balance=0xDE0B6B5FB6FE400),
+        callee: Account(storage={2: 0, 3: 0}, balance=0x2540BE400),
+        callee_2: Account(storage={2: 0, 3: 0}, balance=0x2540BE400),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

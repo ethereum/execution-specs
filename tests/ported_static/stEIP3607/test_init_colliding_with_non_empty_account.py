@@ -61,7 +61,7 @@ def test_init_colliding_with_non_empty_account(
 
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: raw bytecode
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0),
         balance=0xDE0B6B3A7640000,
         nonce=0,
@@ -69,7 +69,7 @@ def test_init_colliding_with_non_empty_account(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=bytes.fromhex("00"),
         nonce=0,
         address=Address("0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0"),  # noqa: E501
@@ -85,6 +85,21 @@ def test_init_colliding_with_non_empty_account(
         value=100000,
     )
 
-    post: dict = {}
+    post = {
+        Address(
+            "0x05cd8493115c3299094a269e839e2f5f25691785"
+        ): Account.NONEXISTENT,
+        contract: Account(
+            storage={},
+            nonce=0,
+            balance=0xDE0B6B3A7640000,
+            code=bytes.fromhex("6000600155"),
+        ),
+        Address(
+            "0xa42676447b7cedfa5fde894d1d3df24aab362701"
+        ): Account.NONEXISTENT,
+        sender: Account(nonce=1),
+        callee_1: Account(balance=0),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

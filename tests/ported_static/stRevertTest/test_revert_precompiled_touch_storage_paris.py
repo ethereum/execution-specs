@@ -29,12 +29,124 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex",
+    "tx_data_hex, expected_post",
     [
-        "00000000000000000000000087aaeb9e422487283b0b008ef445e32acb9dd1ae",
-        "00000000000000000000000031f52a66cf9d94c60f089a2ca9c4e784261c57fa",
-        "000000000000000000000000de1200b7ecaea2d15b57d0f331ad5ade8e924255",
-        "00000000000000000000000010ef6d6218ada53728683cec4d5160c8c72159bd",
+        (
+            "00000000000000000000000087aaeb9e422487283b0b008ef445e32acb9dd1ae",
+            {
+                Address("0x0000000000000000000000000000000000000001"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000002"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000003"): Account(
+                    balance=10
+                ),
+                Address("0x0000000000000000000000000000000000000004"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000005"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000006"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000007"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000008"): Account(
+                    storage={0: 1}
+                ),
+            },
+        ),
+        (
+            "00000000000000000000000031f52a66cf9d94c60f089a2ca9c4e784261c57fa",
+            {
+                Address("0x0000000000000000000000000000000000000001"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000002"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000003"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000004"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000005"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000006"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000007"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000008"): Account(
+                    storage={0: 1}
+                ),
+            },
+        ),
+        (
+            "000000000000000000000000de1200b7ecaea2d15b57d0f331ad5ade8e924255",
+            {
+                Address("0x0000000000000000000000000000000000000001"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000002"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000003"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000004"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000005"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000006"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000007"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000008"): Account(
+                    storage={0: 1}
+                ),
+            },
+        ),
+        (
+            "00000000000000000000000010ef6d6218ada53728683cec4d5160c8c72159bd",
+            {
+                Address("0x0000000000000000000000000000000000000001"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000002"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000003"): Account(
+                    balance=10
+                ),
+                Address("0x0000000000000000000000000000000000000004"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000005"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000006"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000007"): Account(
+                    storage={0: 1}
+                ),
+                Address("0x0000000000000000000000000000000000000008"): Account(
+                    storage={0: 1}
+                ),
+            },
+        ),
     ],
     ids=["case0", "case1", "case2", "case3"],
 )
@@ -43,6 +155,7 @@ def test_revert_precompiled_touch_storage_paris(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
+    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x68795c4aa09d6f4ed3e5deddf8c2ad3049a601da")
@@ -481,15 +594,6 @@ def test_revert_precompiled_touch_storage_paris(
         nonce=1,
     )
 
-    post = {
-        callee: Account(storage={0: 1}),
-        callee_3: Account(storage={0: 1}),
-        callee_4: Account(storage={0: 1}),
-        callee_5: Account(storage={0: 1}),
-        callee_6: Account(storage={0: 1}),
-        callee_8: Account(storage={0: 1}),
-        callee_9: Account(storage={0: 1}),
-        callee_10: Account(storage={0: 1}),
-    }
+    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

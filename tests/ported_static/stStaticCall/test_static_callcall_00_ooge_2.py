@@ -193,6 +193,16 @@ def test_static_callcall_00_ooge_2(
         gas_limit=150066,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 0},
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={2: 0, 5: 0},
+        ),
+        Address("0xa000000000000000000000000000000000000000"): Account(
+            storage={0: 0, 1: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -32,44 +32,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "tx_value",
     [
-        (
-            0,
-            {
-                Address("0x29e4504a3d2a0e0ae0ebbbefedd4570639b3ebee"): Account(
-                    storage={
-                        0: 2,
-                        1: 0x68FA59E127B7526718EB0A4E113DF5793628CB91,
-                        2: 0x76FAE819612A29489A1A43208613D8F8557B8898,
-                    }
-                )
-            },
-        ),
-        (
-            1,
-            {
-                Address("0x29e4504a3d2a0e0ae0ebbbefedd4570639b3ebee"): Account(
-                    storage={
-                        0: 2,
-                        1: 0x68FA59E127B7526718EB0A4E113DF5793628CB91,
-                        2: 0x76FAE819612A29489A1A43208613D8F8557B8898,
-                    }
-                )
-            },
-        ),
-        (
-            2,
-            {
-                Address("0x29e4504a3d2a0e0ae0ebbbefedd4570639b3ebee"): Account(
-                    storage={
-                        0: 2,
-                        1: 0x68FA59E127B7526718EB0A4E113DF5793628CB91,
-                        2: 0x76FAE819612A29489A1A43208613D8F8557B8898,
-                    }
-                )
-            },
-        ),
+        0,
+        1,
+        2,
     ],
     ids=["case0", "case1", "case2"],
 )
@@ -78,7 +45,6 @@ def test_double_selfdestruct_touch_paris(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_value: int,
-    expected_post: dict,
 ) -> None:
     """A single contract can execute SELFDESTRUCT multiple times using..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -159,6 +125,21 @@ def test_double_selfdestruct_touch_paris(
         value=tx_value,
     )
 
-    post = expected_post
+    post = {
+        Address("0x000000000000000000000000000000000000c0de"): Account(
+            storage={},
+            nonce=0,
+            balance=0,
+        ),
+        Address("0x0000000000000000000000000000000000e49701"): Account(
+            balance=10,
+        ),
+        Address("0x0000000000000000000000000000000000e49702"): Account(
+            balance=10,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

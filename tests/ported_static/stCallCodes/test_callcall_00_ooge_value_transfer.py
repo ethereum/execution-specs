@@ -56,7 +56,7 @@ def test_callcall_00_ooge_value_transfer(
         nonce=0,
         address=Address("0x766b2cf0691f51029181fc511395b7ab71353a88"),  # noqa: E501
     )
-    callee_1 = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -107,8 +107,15 @@ def test_callcall_00_ooge_value_transfer(
     )
 
     post = {
-        callee_1: Account(storage={11: 1}),
-        contract: Account(storage={0: 1}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={0: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            storage={11: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000002"): Account(
+            storage={},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

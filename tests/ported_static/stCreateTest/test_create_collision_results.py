@@ -26,52 +26,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "01",
-            {
-                Address("0x40f1299359ea754ac29eb2662a1900752bf8275f"): Account(
-                    storage={0: 29}
-                ),
-                Address("0x8af6a7af30d840ba137e8f3f34d54cfb8beba6e2"): Account(
-                    storage={0: 29}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={
-                        32: 89,
-                        33: 143,
-                        34: 200,
-                        48: 6,
-                        49: 0x601D600055000000000000000000000000000000000000000000000000000000,  # noqa: E501
-                        50: 6,
-                        51: 0x601D600055000000000000000000000000000000000000000000000000000000,  # noqa: E501
-                    }
-                ),
-            },
-        ),
-        (
-            "02",
-            {
-                Address("0x40f1299359ea754ac29eb2662a1900752bf8275f"): Account(
-                    storage={0: 29}
-                ),
-                Address("0x8af6a7af30d840ba137e8f3f34d54cfb8beba6e2"): Account(
-                    storage={0: 29}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={
-                        32: 89,
-                        33: 143,
-                        34: 200,
-                        48: 6,
-                        49: 0x601D600055000000000000000000000000000000000000000000000000000000,  # noqa: E501
-                        50: 6,
-                        51: 0x601D600055000000000000000000000000000000000000000000000000000000,  # noqa: E501
-                    }
-                ),
-            },
-        ),
+        "01",
+        "02",
     ],
     ids=["case0", "case1"],
 )
@@ -80,7 +38,6 @@ def test_create_collision_results(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -101,7 +58,7 @@ def test_create_collision_results(
     # {
     #   [[0]] 0x001D
     # }
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x1D) + Op.STOP,
         storage={0x0: 0x60A7},
         balance=0xBA1A9CE0BA1A9CE,
@@ -112,7 +69,7 @@ def test_create_collision_results(
     # {
     #   [[0]] 0x001D
     # }
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x1D) + Op.STOP,
         storage={0x0: 0x60A7},
         balance=0xBA1A9CE0BA1A9CE,
@@ -287,6 +244,20 @@ def test_create_collision_results(
         gas_limit=16777216,
     )
 
-    post = expected_post
+    post = {
+        callee: Account(storage={0: 29}, code=bytes.fromhex("601d60005500")),
+        callee_1: Account(storage={0: 29}, code=bytes.fromhex("601d60005500")),
+        contract: Account(
+            storage={
+                32: 89,
+                33: 143,
+                34: 200,
+                48: 6,
+                49: 0x601D600055000000000000000000000000000000000000000000000000000000,  # noqa: E501
+                50: 6,
+                51: 0x601D600055000000000000000000000000000000000000000000000000000000,  # noqa: E501
+            },
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

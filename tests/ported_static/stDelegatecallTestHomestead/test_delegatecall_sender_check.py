@@ -84,10 +84,10 @@ def test_delegatecall_sender_check(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 1,
-                1: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
+                1: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
             },
         ),
     }

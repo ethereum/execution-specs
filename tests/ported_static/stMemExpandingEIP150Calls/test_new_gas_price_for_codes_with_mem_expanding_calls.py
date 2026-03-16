@@ -148,7 +148,13 @@ def test_new_gas_price_for_codes_with_mem_expanding_calls(
     )
 
     post = {
-        contract: Account(
+        Address("0x1000000000000000000000000000000000000010"): Account(
+            balance=111,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
             storage={
                 0: 18,
                 1: 32,

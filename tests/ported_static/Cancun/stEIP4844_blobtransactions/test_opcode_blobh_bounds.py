@@ -125,7 +125,7 @@ def test_opcode_blobh_bounds(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0x1A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8,  # noqa: E501
             },

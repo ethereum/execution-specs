@@ -289,15 +289,25 @@ def test_recursive_create_contracts_create4_contracts(
                 0: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87,
                 1: 4,
             },
+            nonce=3,
         ),
         Address("0x2b25ae4b13cb6e06869f694d29de45e7614ebd97"): Account(
             storage={0: 1},
+            nonce=1,
         ),
+        Address("0x5d35480c6e7f8952363fa280a0a96906da981f63"): Account(
+            nonce=1,
+            balance=2,
+        ),
+        sender: Account(nonce=1),
         Address("0xb88de88b35ecbf3c141e3caae2baf35834d18f63"): Account(
             storage={0: 2},
+            nonce=2,
+            balance=2,
         ),
         Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
             storage={0: 3},
+            nonce=1,
         ),
     }
 

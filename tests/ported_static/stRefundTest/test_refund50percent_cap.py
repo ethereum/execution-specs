@@ -83,11 +83,14 @@ def test_refund50percent_cap(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 10: 0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
                 11: 0xDE0B6B3A7640000,
             },
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=0x8CF0A0,
         ),
     }
 

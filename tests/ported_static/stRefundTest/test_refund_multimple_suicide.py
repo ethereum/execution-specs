@@ -164,6 +164,14 @@ def test_refund_multimple_suicide(
         gas_limit=300000,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x1000000000000000000000000000000000000001"): Account(
+            balance=0xDE0B6B3A7640000,
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+            balance=0x61EC43A,
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

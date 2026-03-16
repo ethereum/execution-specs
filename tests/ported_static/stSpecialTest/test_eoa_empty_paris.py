@@ -35,20 +35,23 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             None,
             {
-                Address("0x000000000000000000000000000000000000bad4"): Account(
-                    storage={57005: 48879}
-                ),
                 Address("0x000000000000000000000000000000000000c0de"): Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 0,
+                        59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         241: 118,
                         255: 7626,
+                        319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     }
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
                 ),
             },
             id="case0",
@@ -58,11 +61,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             10000000,
             100,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {
-                Address("0x000000000000000000000000000000000000bad4"): Account(
-                    storage={57005: 48879}
-                )
-            },
+            {},
             id="case1",
             marks=pytest.mark.exception_test,
         ),
@@ -72,21 +71,23 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             None,
             {
-                Address("0x000000000000000000000000000000000000bad4"): Account(
-                    storage={57005: 48879}
-                ),
                 Address("0x000000000000000000000000000000000000c0de"): Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         49: 100,
+                        59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         241: 118,
                         255: 7626,
+                        319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     }
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
                 ),
             },
             id="case2",
@@ -97,20 +98,23 @@ REFERENCE_SPEC_VERSION = "N/A"
             100,
             None,
             {
-                Address("0x000000000000000000000000000000000000bad4"): Account(
-                    storage={57005: 48879}
-                ),
                 Address("0x000000000000000000000000000000000000c0de"): Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 0,
+                        59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         241: 118,
                         255: 7626,
+                        319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     }
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
                 ),
             },
             id="case3",
@@ -121,20 +125,23 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             None,
             {
-                Address("0x000000000000000000000000000000000000bad4"): Account(
-                    storage={57005: 48879}
-                ),
                 Address("0x000000000000000000000000000000000000c0de"): Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 0,
+                        59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         241: 6818,
                         255: 7626,
+                        319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     }
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
                 ),
             },
             id="case4",
@@ -144,11 +151,7 @@ REFERENCE_SPEC_VERSION = "N/A"
             10000000,
             100,
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            {
-                Address("0x000000000000000000000000000000000000bad4"): Account(
-                    storage={57005: 48879}
-                )
-            },
+            {},
             id="case5",
             marks=pytest.mark.exception_test,
         ),
@@ -158,21 +161,23 @@ REFERENCE_SPEC_VERSION = "N/A"
             0,
             None,
             {
-                Address("0x000000000000000000000000000000000000bad4"): Account(
-                    storage={57005: 48879}
-                ),
                 Address("0x000000000000000000000000000000000000c0de"): Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         49: 100,
+                        59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         241: 6818,
                         255: 7626,
+                        319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     }
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
                 ),
             },
             id="case6",
@@ -183,20 +188,23 @@ REFERENCE_SPEC_VERSION = "N/A"
             100,
             None,
             {
-                Address("0x000000000000000000000000000000000000bad4"): Account(
-                    storage={57005: 48879}
-                ),
                 Address("0x000000000000000000000000000000000000c0de"): Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 0,
+                        59: 0,
                         63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         241: 6818,
                         255: 7626,
+                        319: 0,
                         47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                         47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
                     }
+                ),
+                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    nonce=1
                 ),
             },
             id="case7",

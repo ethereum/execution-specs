@@ -62,7 +62,9 @@ def test_self_balance(
     )
 
     post = {
-        contract: Account(storage={1: 500}),
+        Address("0x1000000000000000000000000000000000000000"): Account(
+            storage={1: 500},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

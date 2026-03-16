@@ -48,7 +48,7 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has(
         gas_limit=10000000,
     )
 
-    callee = pre.deploy_contract(
+    pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x8, value=Op.GAS)
             + Op.SSTORE(
@@ -90,7 +90,7 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has(
         nonce=0,
         address=Address("0x8553d06001d46f3b0b18a938acf8c552d87c5837"),  # noqa: E501
     )
-    callee_1 = pre.deploy_contract(
+    pre.deploy_contract(
         code=Op.SSTORE(key=0x8, value=Op.GAS) + Op.STOP,
         nonce=0,
         address=Address("0xf39d40eacb6d2c685ac10664e759d1cf8f775dff"),  # noqa: E501
@@ -104,9 +104,12 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has(
     )
 
     post = {
-        callee: Account(storage={8: 0x30D3E, 9: 1}),
-        contract: Account(storage={8: 0x8D5B6, 9: 1}),
-        callee_1: Account(storage={8: 0x2A1F6}),
+        Address("0x1000000000000000000000000000000000000107"): Account(
+            storage={8: 0x30D3E, 9: 1},
+        ),
+        Address("0x1000000000000000000000000000000000000108"): Account(
+            storage={8: 0x2A1F6},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -108,7 +108,12 @@ def test_static_call_recursive_bomb_pre_call(
     )
 
     post = {
-        contract: Account(storage={0: 1, 1: 1}),
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={0: 1, 1: 1},
+        ),
+        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            nonce=1,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

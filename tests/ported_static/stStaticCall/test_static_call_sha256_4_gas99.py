@@ -84,7 +84,7 @@ def test_static_call_sha256_4_gas99(
     )
 
     post = {
-        contract: Account(
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
             storage={
                 0: 0xAF9613760F72635FBDB44A5A0A63C39F12AF30F950A6EE5C971BE188E89C4051,  # noqa: E501
                 2: 1,

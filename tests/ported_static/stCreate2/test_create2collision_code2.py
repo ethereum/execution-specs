@@ -56,7 +56,7 @@ def test_create2collision_code2(
 
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw bytecode
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.SUB(Op.MUL, Op.ADD),
         address=Address("0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3"),  # noqa: E501
     )
@@ -71,6 +71,14 @@ def test_create2collision_code2(
         value=1,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            nonce=2,
+            balance=1,
+            code=b"",
+        ),
+        sender: Account(nonce=1),
+        contract: Account(nonce=1, balance=0, code=bytes.fromhex("010203")),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

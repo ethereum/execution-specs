@@ -69,7 +69,10 @@ def test_by_zero(
     post = {
         Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
             storage={0: 1},
+            balance=0,
+            code=b"",
         ),
+        sender: Account(storage={}, nonce=1, code=b""),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

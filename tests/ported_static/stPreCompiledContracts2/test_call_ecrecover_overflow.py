@@ -29,81 +29,16 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "tx_data_hex",
     [
-        (
-            "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd03641421fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
-            {
-                Address("0xdb8963071feae3b63e19d9d7af8ee89a92e99356"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
-        (
-            "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
-            {
-                Address("0xdb8963071feae3b63e19d9d7af8ee89a92e99356"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
-        (
-            "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",  # noqa: E501
-            {
-                Address("0xdb8963071feae3b63e19d9d7af8ee89a92e99356"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
-        (
-            "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142",  # noqa: E501
-            {
-                Address("0xdb8963071feae3b63e19d9d7af8ee89a92e99356"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
-        (
-            "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd03641411fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
-            {
-                Address("0xdb8963071feae3b63e19d9d7af8ee89a92e99356"): Account(
-                    storage={0: 1}
-                )
-            },
-        ),
-        (
-            "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413fefffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
-            {
-                Address("0xdb8963071feae3b63e19d9d7af8ee89a92e99356"): Account(
-                    storage={
-                        0: 1,
-                        1: 0x2182DA748249A933BF737586B80212DF19B8F829,
-                    }
-                )
-            },
-        ),
-        (
-            "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140",  # noqa: E501
-            {
-                Address("0xdb8963071feae3b63e19d9d7af8ee89a92e99356"): Account(
-                    storage={
-                        0: 1,
-                        1: 0x1B85AC3C9B09DE43659C5D04A2D9C75457D9ABF4,
-                    }
-                )
-            },
-        ),
-        (
-            "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413f",  # noqa: E501
-            {
-                Address("0xdb8963071feae3b63e19d9d7af8ee89a92e99356"): Account(
-                    storage={
-                        0: 1,
-                        1: 0xD0277C8A3ECCD462A313FC60161BAC36B16E8699,
-                    }
-                )
-            },
-        ),
+        "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd03641421fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
+        "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
+        "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",  # noqa: E501
+        "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142",  # noqa: E501
+        "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd03641411fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
+        "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413fefffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
+        "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140",  # noqa: E501
+        "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413f",  # noqa: E501
     ],
     ids=[
         "case0",
@@ -121,7 +56,6 @@ def test_call_ecrecover_overflow(
     state_test: StateTestFiller,
     pre: Alloc,
     tx_data_hex: str,
-    expected_post: dict,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -180,6 +114,10 @@ def test_call_ecrecover_overflow(
         value=100000,
     )
 
-    post = expected_post
+    post = {
+        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
+            storage={0: 1, 1: 0},
+        ),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

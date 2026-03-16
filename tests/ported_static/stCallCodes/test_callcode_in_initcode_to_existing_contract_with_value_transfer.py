@@ -85,6 +85,7 @@ def test_callcode_in_initcode_to_existing_contract_with_value_transfer(
     post = {
         Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
             storage={0: 1, 2: 1},
+            balance=5,
         ),
     }
 
