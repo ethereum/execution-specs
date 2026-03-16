@@ -765,7 +765,9 @@ test_module_environment_variables = textwrap.dedent(
     def test_max_gas_limit(state_test, pre, block_gas_limit) -> None:
         env = Environment()
         assert block_gas_limit == {expected_gas_limit}
-        tx = Transaction(gas_limit=block_gas_limit, sender=pre.fund_eoa())
+        tx = Transaction(
+            gas_limit=block_gas_limit, sender=pre.fund_eoa()
+        ).with_signature_and_sender()
         state_test(env=env, pre=pre, post={{}}, tx=tx)
     """
 )

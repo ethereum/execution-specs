@@ -1147,7 +1147,9 @@ def test_consensus_fixtures_split_by_fork(
 
         @pytest.mark.valid_from("Prague")
         def test_fork_split_example(state_test, pre) -> None:
-            tx = Transaction(to=0, gas_limit=21_000, sender=pre.fund_eoa())
+            tx = Transaction(
+                to=0, gas_limit=21_000, sender=pre.fund_eoa()
+            ).with_signature_and_sender()
             state_test(pre=pre, post={}, tx=tx)
         """
     )

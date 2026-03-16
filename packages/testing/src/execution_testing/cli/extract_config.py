@@ -182,7 +182,7 @@ class GenesisState(BaseModel):
             return cls(
                 header=pre_alloc_group.genesis,
                 alloc=pre_alloc_group.pre,
-                chain_id=1,  # TODO: PreAllocGroups don't contain chain ID
+                chain_id=pre_alloc_group.chain_id,
                 fork=pre_alloc_group.fork,
             )
         except ValidationError:

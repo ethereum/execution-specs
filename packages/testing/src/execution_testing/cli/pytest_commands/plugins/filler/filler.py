@@ -69,7 +69,10 @@ from execution_testing.forks import (
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import FillResult, OpMode
 from execution_testing.test_types import EnvironmentDefaults
-from execution_testing.test_types.chain_config_types import ChainConfigDefaults
+from execution_testing.test_types.chain_config_types import (
+    DEFAULT_CHAIN_ID,
+    ChainConfigDefaults,
+)
 from execution_testing.tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
@@ -939,6 +942,7 @@ def pytest_configure(config: pytest.Config) -> None:
             TransitionToolCacheStats()
         )
 
+    ChainConfigDefaults.chain_id = DEFAULT_CHAIN_ID
     chain_id = config.getoption("chain_id")
 
     if chain_id is None:
@@ -1714,6 +1718,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         pre_alloc_hash=pre_alloc_hash,
                         test_id=test_id,
                         fork=fork,
+                        chain_id=ChainConfigDefaults.chain_id,
                         environment=genesis_environment,
                         pre=pre,
                     )
