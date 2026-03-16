@@ -466,6 +466,9 @@ class BuiltBlock(CamelModel):
                     in self.expected_exception
                     else fixture_block.without_rlp()
                 ),
+                execution_witness=self.execution_witness,
+                stateless_input_bytes=self.stateless_input_bytes,
+                stateless_output_bytes=self.stateless_output_bytes,
             )
 
         return fixture_block
