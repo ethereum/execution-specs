@@ -43,6 +43,21 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
         ).parents and not item.get_closest_marker("benchmark"):
             item.add_marker(benchmark_marker)
 
+    # If user explicitly requested benchmarks via -m, keep them
+    marker_expr = config.getoption("-m", default="")
+    if "benchmark" in marker_expr or "repricing" in marker_expr:
+        return
+
+    # If user targeted benchmark dir directly (all items are
+    # benchmarks), keep them
+    if items and all(item.get_closest_marker("benchmark") for item in items):
+        return
+
+    # Mixed collection (e.g. fill tests/) — exclude benchmarks
+    items[:] = [
+        item for item in items if not item.get_closest_marker("benchmark")
+    ]
+
 
 @pytest.fixture
 def tx_gas_limit(fork: Fork, gas_benchmark_value: int) -> int:
