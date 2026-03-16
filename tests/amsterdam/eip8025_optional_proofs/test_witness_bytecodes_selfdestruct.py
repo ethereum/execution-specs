@@ -25,7 +25,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 def test_witness_codes_selfdestruct(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -56,13 +55,11 @@ def test_witness_codes_selfdestruct(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes
-                        + [
+                        codes_present=[
                             Bytes(bytes(caller_code)),
                             Bytes(bytes(target_code)),
                         ],
                         codes_absent=[Bytes(bytes(beneficiary_code))],
-                        allow_unexpected=False,
                     )
                 ),
             )
@@ -77,7 +74,6 @@ def test_witness_codes_selfdestruct(
 
 def test_witness_codes_selfdestruct_top_level_tx(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -105,12 +101,10 @@ def test_witness_codes_selfdestruct_top_level_tx(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes
-                        + [
+                        codes_present=[
                             Bytes(bytes(target_code)),
                         ],
                         codes_absent=[Bytes(bytes(beneficiary_code))],
-                        allow_unexpected=False,
                     )
                 ),
             )
@@ -125,7 +119,6 @@ def test_witness_codes_selfdestruct_top_level_tx(
 
 def test_witness_codes_create_then_selfdestruct_same_tx(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -167,14 +160,12 @@ def test_witness_codes_create_then_selfdestruct_same_tx(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes
-                        + [
+                        codes_present=[
                             Bytes(bytes(factory_code)),
                         ],
                         codes_absent=[
                             Bytes(runtime_code),
                         ],
-                        allow_unexpected=False,
                     )
                 ),
             )
@@ -189,7 +180,6 @@ def test_witness_codes_create_then_selfdestruct_same_tx(
 
 def test_witness_codes_selfdestruct_in_initcode(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -223,12 +213,10 @@ def test_witness_codes_selfdestruct_in_initcode(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes,
                         codes_absent=[
                             Bytes(initcode),
                             Bytes(bytes(beneficiary_code)),
                         ],
-                        allow_unexpected=False,
                     )
                 ),
             )
@@ -243,7 +231,6 @@ def test_witness_codes_selfdestruct_in_initcode(
 
 def test_witness_codes_selfdestruct_beneficiary_delegated_eoa(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -281,8 +268,7 @@ def test_witness_codes_selfdestruct_beneficiary_delegated_eoa(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes
-                        + [
+                        codes_present=[
                             Bytes(bytes(caller_code)),
                             Bytes(bytes(target_code)),
                         ],
@@ -290,7 +276,6 @@ def test_witness_codes_selfdestruct_beneficiary_delegated_eoa(
                             Bytes(marker),
                             Bytes(bytes(delegate_code)),
                         ],
-                        allow_unexpected=False,
                     )
                 ),
             )
@@ -314,7 +299,6 @@ def test_witness_codes_selfdestruct_beneficiary_delegated_eoa(
 )
 def test_witness_codes_selfdestruct_beneficiary_no_code(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
     beneficiary_type: str,
 ) -> None:
@@ -351,12 +335,10 @@ def test_witness_codes_selfdestruct_beneficiary_no_code(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes
-                        + [
+                        codes_present=[
                             Bytes(bytes(caller_code)),
                             Bytes(bytes(target_code)),
                         ],
-                        allow_unexpected=False,
                     )
                 ),
             )

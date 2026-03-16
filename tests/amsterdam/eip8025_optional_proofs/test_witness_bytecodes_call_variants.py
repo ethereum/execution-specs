@@ -58,7 +58,10 @@ def test_witness_codes_call_existing_contract(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(bytes(target_code))],
+                        codes_present=[
+                            Bytes(bytes(caller_code)),
+                            Bytes(bytes(target_code)),
+                        ],
                     )
                 ),
             )
@@ -115,7 +118,6 @@ def test_witness_codes_nested_calls(
 
 def test_witness_codes_dedup_identical_bytecode(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -147,12 +149,10 @@ def test_witness_codes_dedup_identical_bytecode(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes
-                        + [
+                        codes_present=[
                             Bytes(bytes(caller_code)),
                             Bytes(bytes(shared_code)),
                         ],
-                        allow_unexpected=False,
                     )
                 ),
             )

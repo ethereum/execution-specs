@@ -21,7 +21,6 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.with_all_precompiles()
 def test_witness_codes_call_precompile(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
     precompile: Address,
 ) -> None:
@@ -41,10 +40,7 @@ def test_witness_codes_call_precompile(
             Block(
                 txs=[tx],
                 expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes,
-                        allow_unexpected=False,
-                    )
+                    ExecutionWitnessCodesExpectation()
                 ),
             )
         ],
@@ -56,7 +52,6 @@ def test_witness_codes_call_precompile(
 
 def test_witness_codes_call_eoa(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -82,10 +77,7 @@ def test_witness_codes_call_eoa(
             Block(
                 txs=[tx],
                 expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes,
-                        allow_unexpected=False,
-                    )
+                    ExecutionWitnessCodesExpectation()
                 ),
             )
         ],
