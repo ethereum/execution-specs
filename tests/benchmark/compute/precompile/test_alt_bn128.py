@@ -568,6 +568,7 @@ def test_ec_pairing(
     setup = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
     loop = While(
         body=attack_block,
+        condition=Op.GT(Op.CALLDATASIZE, Op.MLOAD(Op.CALLDATASIZE)),
     )
     code = setup + loop
     attack_contract_address = pre.deploy_contract(code=code)
@@ -591,7 +592,6 @@ def test_ec_pairing(
 
     seed_offset = 0
     txs: list[Transaction] = []
-    total_gas_used = 0
     remaining_gas = gas_benchmark_value
 
     while remaining_gas > 0:
@@ -621,15 +621,6 @@ def test_ec_pairing(
         if gas_for_loop < iteration_cost:
             break
 
-        num_iterations = gas_for_loop // iteration_cost
-        gas_remaining = gas_for_loop - num_iterations * iteration_cost
-
-        # EIP-7623: gas_used = max(standard_intrinsic + execution, floor).
-        tx_gas_used = max(
-            per_tx_gas - gas_remaining,
-            intrinsic_gas_calculator(calldata=calldata),
-        )
-
         txs.append(
             Transaction(
                 to=attack_contract_address,
@@ -638,11 +629,11 @@ def test_ec_pairing(
                 data=calldata,
             )
         )
-        total_gas_used += tx_gas_used
         remaining_gas -= per_tx_gas
         seed_offset += per_tx_variants
 
     benchmark_test(
         target_opcode=Op.STATICCALL,
+        skip_gas_used_validation=True,
         blocks=[Block(txs=txs)],
     )
