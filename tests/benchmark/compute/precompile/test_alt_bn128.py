@@ -637,3 +637,73 @@ def test_ec_pairing(
         skip_gas_used_validation=True,
         blocks=[Block(txs=txs)],
     )
+
+
+@pytest.mark.repricing
+@pytest.mark.parametrize(
+    "precompile_address,calldata",
+    [
+        pytest.param(
+            0x06,
+            concatenate_parameters(
+                [
+                    "18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9",
+                    "063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266",
+                    "07C2B7F58A84BD6145F00C9C2BC0BB1A187F20FF2C92963A88019E7C6A014EED",
+                    "06614E20C147E940F2D70DA3F74C9A17DF361706A4485C742BD6788478FA17D7",
+                ]
+            ),
+            id="ec_add",
+        ),
+        pytest.param(
+            0x07,
+            concatenate_parameters(
+                [
+                    "1A87B0584CE92F4593D161480614F2989035225609F08058CCFA3D0F940FEBE3",
+                    "1A2F3C951F6DADCC7EE9007DFF81504B0FCD6D7CF59996EFDC33D92BF7F9F8F6",
+                    "0000000000000000000000000000000000000000000000000000000000000002",
+                ]
+            ),
+            id="ec_mul_small_scalar",
+        ),
+        pytest.param(
+            0x07,
+            concatenate_parameters(
+                [
+                    "1A87B0584CE92F4593D161480614F2989035225609F08058CCFA3D0F940FEBE3",
+                    "1A2F3C951F6DADCC7EE9007DFF81504B0FCD6D7CF59996EFDC33D92BF7F9F8F6",
+                    "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+                ]
+            ),
+            id="ec_mul_max_scalar",
+        ),
+    ],
+)
+def test_alt_bn128_uncachable(
+    benchmark_test: BenchmarkTestFiller,
+    precompile_address: Address,
+    calldata: bytes,
+) -> None:
+    """
+    Benchmark ecAdd/ecMul with chained output-to-input feedback.
+
+    Result overwrites the input point each iteration, so every call
+    has unique input and cannot benefit from precompile caching.
+    """
+    attack_block = Op.POP(
+        Op.STATICCALL(
+            gas=Op.GAS,
+            address=precompile_address,
+            args_size=Op.CALLDATASIZE,
+            ret_size=64,  # One G1 point (2 * 32 bytes), overwrites input.
+        ),
+    )
+
+    benchmark_test(
+        target_opcode=Op.STATICCALL,
+        code_generator=JumpLoopGenerator(
+            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
+            attack_block=attack_block,
+            tx_kwargs={"data": calldata},
+        ),
+    )
