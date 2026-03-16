@@ -26,6 +26,10 @@ class ExecutionWitnessCodesExpectation(CamelModel):
     Define which bytecodes should or should not appear in
     executionWitness.codes.
 
+    Ambient block-level codes (system contracts called every block)
+    are automatically added to codes_present by the framework before
+    verification. Tests only need to declare scenario-specific codes.
+
     Example:
         expected_execution_witness_codes = ExecutionWitnessCodesExpectation(
             codes_present=[Bytes(runtime_code)],
