@@ -2,6 +2,9 @@
 
 The `extract_config` command extracts configuration files from Ethereum clients by spawning them via Hive and retrieving the generated files from the Docker container.
 
+!!! note "Benchmark workflows"
+    For benchmark test workflows, `extract_config` is no longer required. The `fill` command now generates `hive/{hash}.json` files alongside `pre_alloc/` groups, and benchmarkoor generates client-native genesis files dynamically using hive's `mapper.jq` scripts. This tool remains useful for debugging and inspecting client configuration outside of benchmarking.
+
 ## Purpose
 
 When Ethereum clients start up with a genesis configuration, they generate various configuration files such as:
