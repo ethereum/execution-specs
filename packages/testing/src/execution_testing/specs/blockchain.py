@@ -195,7 +195,7 @@ def with_execution_witness_implicit_codes(
     block_number: int,
     timestamp: int,
 ) -> ExecutionWitnessCodesExpectation:
-    """Return a copy of the expectation with ambient block-level codes added."""
+    """Return expectation copy with ambient block-level codes added."""
     codes_present = list(expectation.codes_present)
     seen = set(codes_present)
 

@@ -2829,7 +2829,7 @@ class Prague(Cancun):
     def execution_witness_implicit_code_addresses(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """Prague witnesses implicitly include tracked block-level system code."""
+        """Include tracked block-level system code."""
         return [
             Address(
                 0x00000961EF480EB55E80D19AD83579A64C007002,
@@ -3508,7 +3508,7 @@ class Amsterdam(BPO2):
     def execution_witness_implicit_code_addresses(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
-        """Amsterdam witnesses implicitly include tracked block-level system code."""
+        """Include tracked block-level system code."""
         del block_number, timestamp
         return [
             Address(

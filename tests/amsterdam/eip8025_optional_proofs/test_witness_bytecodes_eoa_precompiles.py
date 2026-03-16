@@ -7,7 +7,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Bytes,
     ExecutionWitnessCodesExpectation,
     Transaction,
 )
