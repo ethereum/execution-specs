@@ -171,6 +171,7 @@ def test_witness_codes_create2_excludes_new_bytecode(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
+                        codes_present=[Bytes(factory_code)],
                         codes_absent=[Bytes(runtime_code)],
                     )
                 ),
@@ -275,6 +276,7 @@ def test_witness_codes_create_then_call_same_block(
                 txs=[tx1_create, tx2_call],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
+                        codes_present=[Bytes(bytes(caller_code))],
                         codes_absent=[Bytes(runtime_code)],
                     )
                 ),
@@ -382,6 +384,7 @@ def test_witness_codes_create_then_call_same_tx(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
+                        codes_present=[Bytes(bytes(factory_code))],
                         codes_absent=[Bytes(runtime_code)],
                     )
                 ),
@@ -547,7 +550,10 @@ def test_witness_codes_reverted_create_same_hash_then_read(
                 txs=[tx1_reverted_create, tx2_read],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=[Bytes(runtime_code)],
+                        codes_present=[
+                            Bytes(bytes(factory_code)),
+                            Bytes(runtime_code),
+                        ],
                     )
                 ),
             )

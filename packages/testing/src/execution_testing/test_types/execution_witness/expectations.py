@@ -26,6 +26,10 @@ class ExecutionWitnessCodesExpectation(CamelModel):
     Define which bytecodes should or should not appear in
     executionWitness.codes.
 
+    Ambient block-level codes (system contracts called every block)
+    are automatically added to codes_present by the framework before
+    verification. Tests only need to declare scenario-specific codes.
+
     Example:
         expected_execution_witness_codes = ExecutionWitnessCodesExpectation(
             codes_present=[Bytes(runtime_code)],
@@ -41,13 +45,6 @@ class ExecutionWitnessCodesExpectation(CamelModel):
     codes_absent: List[Bytes] = Field(
         default_factory=list,
         description=("Bytecodes that must NOT be present in witness codes"),
-    )
-    allow_unexpected: bool = Field(
-        default=True,
-        description=(
-            "If False, fail when witness codes contains bytecodes "
-            "not listed in codes_present"
-        ),
     )
 
     _modifier: Callable[["ExecutionWitness"], "ExecutionWitness"] | None = (
@@ -99,7 +96,7 @@ class ExecutionWitnessCodesExpectation(CamelModel):
            ascending order
         2. Presence checks: codes_present entries exist
         3. Absence checks: codes_absent entries do not exist
-        4. Exhaustiveness: if allow_unexpected=False, no extra codes
+        4. Exhaustiveness: no extra codes are allowed
 
         Args:
             actual_witness: The ExecutionWitness from the t8n tool
@@ -146,14 +143,13 @@ class ExecutionWitnessCodesExpectation(CamelModel):
                 )
 
         # 4. Exhaustiveness check
-        if not self.allow_unexpected:
-            expected_set = set(self.codes_present)
-            unexpected = actual_set - expected_set
-            if unexpected:
-                raise ExecutionWitnessValidationError(
-                    f"Unexpected bytecodes in witness codes: "
-                    f"{[c.hex() for c in unexpected]}"
-                )
+        expected_set = set(self.codes_present)
+        unexpected = actual_set - expected_set
+        if unexpected:
+            raise ExecutionWitnessValidationError(
+                f"Unexpected bytecodes in witness codes: "
+                f"{[c.hex() for c in unexpected]}"
+            )
 
 
 class ExecutionWitnessStateExpectation(CamelModel):

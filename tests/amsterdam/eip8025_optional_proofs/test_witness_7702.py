@@ -63,6 +63,7 @@ def test_witness_codes_delegated_eoa(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
+                            Bytes(bytes(caller_code)),
                             Bytes(marker),
                             Bytes(bytes(delegate_code)),
                         ],
@@ -136,6 +137,7 @@ def test_witness_codes_delegated_eoa_insufficient_balance(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
+                            Bytes(bytes(caller_code)),
                             Bytes(marker),
                             Bytes(bytes(delegate_code)),
                         ],
@@ -309,6 +311,7 @@ def test_witness_codes_delegation_set_in_same_block(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
+                            Bytes(bytes(caller_code)),
                             Bytes(bytes(delegate_code)),
                         ],
                         codes_absent=[
@@ -455,10 +458,13 @@ def test_witness_codes_extcode_delegated_eoa(
     marker = Spec7702.delegation_designation(delegate)
 
     if extcode_opcode in ("extcodesize", "extcodecopy"):
-        codes_present = [Bytes(marker)]
+        codes_present = [
+            Bytes(bytes(caller_code)),
+            Bytes(marker),
+        ]
         codes_absent = [Bytes(bytes(delegate_code))]
     else:
-        codes_present = []
+        codes_present = [Bytes(bytes(caller_code))]
         codes_absent = [
             Bytes(marker),
             Bytes(bytes(delegate_code)),
@@ -530,6 +536,7 @@ def test_witness_codes_delegation_chain(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
+                            Bytes(bytes(caller_code)),
                             Bytes(marker_alice),
                             Bytes(marker_bob),
                         ],
@@ -548,7 +555,6 @@ def test_witness_codes_delegation_chain(
 
 def test_witness_codes_reset_delegation(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -600,8 +606,7 @@ def test_witness_codes_reset_delegation(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes + [Bytes(old_marker)],
-                        allow_unexpected=False,
+                        codes_present=[Bytes(old_marker)],
                     )
                 ),
             )
@@ -617,7 +622,6 @@ def test_witness_codes_reset_delegation(
 
 def test_witness_codes_delegation_to_empty_account(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -659,8 +663,7 @@ def test_witness_codes_delegation_to_empty_account(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes + [Bytes(marker)],
-                        allow_unexpected=False,
+                        codes_present=[Bytes(marker)],
                     )
                 ),
             )
@@ -673,7 +676,6 @@ def test_witness_codes_delegation_to_empty_account(
 
 def test_witness_codes_auth_nonce_mismatch(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -715,8 +717,7 @@ def test_witness_codes_auth_nonce_mismatch(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes + [Bytes(old_marker)],
-                        allow_unexpected=False,
+                        codes_present=[Bytes(old_marker)],
                     )
                 ),
             )

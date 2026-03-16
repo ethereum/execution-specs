@@ -148,6 +148,71 @@ def count_blobs(txs: List[Transaction]) -> int:
     )
 
 
+def execution_witness_implicit_codes_for_block(
+    *,
+    fork: Fork,
+    alloc: Alloc | LazyAlloc,
+    block_number: int,
+    timestamp: int,
+) -> List[Bytes]:
+    """
+    Return ambient witness bytecodes implied by block-level execution.
+
+    These codes are resolved from the effective pre-state for the block, not
+    from raw fork defaults, so test `pre` overrides are respected.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    addresses = active_fork.execution_witness_implicit_code_addresses(
+        block_number=block_number,
+        timestamp=timestamp,
+    )
+    if not addresses:
+        return []
+
+    effective_alloc = alloc.get() if isinstance(alloc, LazyAlloc) else alloc
+
+    codes: List[Bytes] = []
+    seen: set[Bytes] = set()
+    for address in addresses:
+        if address not in effective_alloc:
+            continue
+        account = effective_alloc[address]
+        if account is None or len(account.code) == 0:
+            continue
+        code = Bytes(account.code)
+        if code in seen:
+            continue
+        codes.append(code)
+        seen.add(code)
+    return codes
+
+
+def with_execution_witness_implicit_codes(
+    *,
+    expectation: ExecutionWitnessCodesExpectation,
+    fork: Fork,
+    alloc: Alloc | LazyAlloc,
+    block_number: int,
+    timestamp: int,
+) -> ExecutionWitnessCodesExpectation:
+    """Return expectation copy with ambient block-level codes added."""
+    codes_present = list(expectation.codes_present)
+    seen = set(codes_present)
+
+    for code in execution_witness_implicit_codes_for_block(
+        fork=fork,
+        alloc=alloc,
+        block_number=block_number,
+        timestamp=timestamp,
+    ):
+        if code in seen:
+            continue
+        codes_present.append(code)
+        seen.add(code)
+
+    return expectation.model_copy(update={"codes_present": codes_present})
+
+
 class Header(CamelModel):
     """Header type used to describe block header properties in test specs."""
 
@@ -819,9 +884,16 @@ class BlockchainTest(BaseTest):
             block.expected_execution_witness_codes is not None
             and execution_witness is not None
         ):
-            block.expected_execution_witness_codes.verify_against(
-                execution_witness
+            effective_codes_expectation = (
+                with_execution_witness_implicit_codes(
+                    expectation=block.expected_execution_witness_codes,
+                    fork=self.fork,
+                    alloc=previous_alloc,
+                    block_number=env.number,
+                    timestamp=env.timestamp,
+                )
             )
+            effective_codes_expectation.verify_against(execution_witness)
             execution_witness = (
                 block.expected_execution_witness_codes.modify_if_invalid_test(
                     execution_witness
