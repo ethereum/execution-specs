@@ -111,14 +111,14 @@ def test_evm_bytes(evm_bytes: str, python_opcodes: str) -> None:
 
 
 @pytest.mark.parametrize(("evm_bytes", "python_opcodes"), edge_case_vectors)
-def test_evm_bytes_edge_cases(
-    evm_bytes: str, python_opcodes: str
-) -> None:
+def test_evm_bytes_edge_cases(evm_bytes: str, python_opcodes: str) -> None:
     """Cover decoding and simplification edge cases for evm_bytes."""
     assert process_evm_bytes_string(evm_bytes) == python_opcodes
 
 
-@pytest.mark.parametrize(("evm_bytes", "python_opcodes"), truncated_push_vectors)
+@pytest.mark.parametrize(
+    ("evm_bytes", "python_opcodes"), truncated_push_vectors
+)
 def test_evm_bytes_truncated_push_zero_padding(
     evm_bytes: str, python_opcodes: str
 ) -> None:
