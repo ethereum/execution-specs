@@ -53,53 +53,39 @@ def test_blockchain_via_engine(
     """
     Execute blockchain test fixtures against a client using the Engine API.
 
-    This function supports two modes:
+    This function supports both engine mode (`BlockchainEngineFixture`)
+    with per-test clients and enginex mode (`BlockchainEngineXFixture`)
+    with client reuse across tests sharing a pre-alloc group.
 
-    1. **Engine Mode** (`BlockchainEngineFixture`):
-       - Uses per-test clients (started fresh for each test).
-       - Always performs initial FCU to genesis.
-       - Always performs FCU after valid payloads.
-       - genesis_header comes from fixture.genesis (via fixture).
-       - needs_genesis_init is always True (via fixture).
+    Both modes follow the same test sequence for equivalence:
 
-    2. **EngineX Mode** (`BlockchainEngineXFixture`):
-       - Reuses clients across tests with same pre-alloc group.
-       - Skips initial FCU for reused clients.
-       - Skips FCU after valid payloads to keep client at genesis.
-       - genesis_header comes from separate pre_alloc_group fixture.
-       - needs_genesis_init is False for reused clients.
-
-    Steps:
-    1. Check the client genesis block hash matches genesis_header.block_hash
-    2. Execute test fixture blocks using engine_newPayloadVX
-    3. For valid payloads, perform forkchoice update to finalize chain
-       (unless client is being reused, in which case skip FCU)
+    1. Send initial FCU to genesis to establish the chain head.
+    2. Verify the client genesis block hash matches genesis_header.
+    3. Execute test fixture blocks using engine_newPayloadVX.
+    4. For valid payloads, send FCU to advance the chain head.
     """
-    if isinstance(fixture, BlockchainEngineFixture):
-        with timing_data.time("Initial forkchoice update"):
-            logger.info(
-                "Sending initial forkchoice update to genesis block..."
+    with timing_data.time("Initial forkchoice update"):
+        logger.info("Sending initial forkchoice update to genesis block...")
+        try:
+            response = engine_rpc.forkchoice_updated_with_retry(
+                forkchoice_state=ForkchoiceState(
+                    head_block_hash=genesis_header.block_hash,
+                ),
+                forkchoice_version=fixture.payloads[
+                    0
+                ].forkchoice_updated_version,
+                max_attempts=30,
+                wait_fixed=1.0,
             )
-            try:
-                response = engine_rpc.forkchoice_updated_with_retry(
-                    forkchoice_state=ForkchoiceState(
-                        head_block_hash=fixture.genesis.block_hash,
-                    ),
-                    forkchoice_version=fixture.payloads[
-                        0
-                    ].forkchoice_updated_version,
-                    max_attempts=30,
-                    wait_fixed=1.0,
-                )
-                if response.payload_status.status != PayloadStatusEnum.VALID:
-                    raise LoggedError(
-                        f"Unexpected status on forkchoice updated to genesis: "
-                        f"{response.payload_status.status}"
-                    )
-            except ForkchoiceUpdateTimeoutError as e:
+            if response.payload_status.status != PayloadStatusEnum.VALID:
                 raise LoggedError(
-                    f"Timed out waiting for forkchoice update to genesis: {e}"
-                ) from None
+                    f"Unexpected status on forkchoice updated to genesis: "
+                    f"{response.payload_status.status}"
+                )
+        except ForkchoiceUpdateTimeoutError as e:
+            raise LoggedError(
+                f"Timed out waiting for forkchoice update to genesis: {e}"
+            ) from None
 
     with timing_data.time("Get genesis block"):
         logger.info("Calling getBlockByNumber to get genesis block...")
@@ -214,9 +200,7 @@ def test_blockchain_via_engine(
                                 f"expected: {payload.error_code}"
                             ) from e
 
-                if payload.valid() and isinstance(
-                    fixture, BlockchainEngineFixture
-                ):
+                if payload.valid():
                     with payload_timing.time(
                         f"engine_forkchoiceUpdatedV{payload.forkchoice_updated_version}"
                     ):
