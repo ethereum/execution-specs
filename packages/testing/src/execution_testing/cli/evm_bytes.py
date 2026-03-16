@@ -1,6 +1,6 @@
 """Define an entry point wrapper for pytest."""
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 import click
@@ -187,7 +187,12 @@ def format_opcodes(  # noqa: D103
             ):
                 opcodes_with_empty_lines.append("")
             opcodes_with_empty_lines.append(
-                OpcodeWithOperandsAssembly(**asdict(op_with_operands))
+                OpcodeWithOperandsAssembly(
+                    opcode=op_with_operands.opcode,
+                    operands=list(op_with_operands.operands),
+                    args=list(op_with_operands.args),
+                    kwargs=dict(op_with_operands.kwargs),
+                )
             )
             if (
                 op_with_operands.opcode in OPCODES_WITH_EMPTY_LINES_AFTER
