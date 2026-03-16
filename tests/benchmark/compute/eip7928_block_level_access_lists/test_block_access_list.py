@@ -14,6 +14,11 @@ Tests target different BAL optimization paths:
 import math
 from enum import Enum, auto
 
+# TODO: Due to directory name this is required, link this to the
+# corresponding reference in amsterdam tests?
+REFERENCE_SPEC_GIT_PATH = "DUMMY/BAL.md"
+REFERENCE_SPEC_VERSION = "1.0"
+
 import pytest
 from execution_testing import (
     Alloc,
@@ -61,11 +66,12 @@ def _derive_loop_gas(body: Bytecode, fork: Fork) -> tuple[int, int]:
     Return ``(per_iter_gas, exit_overhead)``.
 
     Uses a placeholder condition (``GT(GAS, 0)``) to measure the loop
-    overhead.  ``PUSH`` costs 3 gas regardless of the pushed value, so
-    the real condition (which pushes ``reserve_gas``) has the same cost.
+    overhead.  ``PUSH`` costs 3 gas regardless of the pushed value if
+    the value is nonzero, so the real condition (which pushes ``reserve_gas``)
+    has the same cost.
     """
     body_gas = body.gas_cost(fork)
-    placeholder = Op.GT(Op.GAS, 0)
+    placeholder = Op.GT(Op.GAS, Op.PUSH1(0))
     per_iter_gas = While(body=body, condition=placeholder).gas_cost(fork)
     exit_overhead = per_iter_gas - body_gas - Op.JUMPDEST.gas_cost(fork)
     return per_iter_gas, exit_overhead
