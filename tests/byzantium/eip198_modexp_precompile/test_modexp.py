@@ -449,32 +449,6 @@ REFERENCE_SPEC_VERSION = "5c8f066acb210c704ef80c1033a941aa5374aac5"
             ),
             id="truncated_input_4",
         ),
-        # Packed vs padded exponent
-        # The padded form has a higher gas cost due to the larger declared
-        # exponent length in the iteration count formula. Clients should
-        # charges the higher gas for the padded exponent encoding.
-        pytest.param(
-            ModExpInput(
-                base="02",
-                exponent="010001",
-                modulus="ff" * 32,
-            ),
-            ModExpOutput(
-                returned_data="00" * 31 + "02",
-            ),
-            id="exponent-packed-3-bytes",
-        ),
-        pytest.param(
-            ModExpInput(
-                base="02",
-                exponent="00" * 125 + "010001",
-                modulus="ff" * 32,
-            ),
-            ModExpOutput(
-                returned_data="00" * 31 + "02",
-            ),
-            id="exponent-padded-128-bytes",
-        ),
     ],
     ids=lambda param: param.__repr__(),  # only required to remove parameter
     # names (input/output)

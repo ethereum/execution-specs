@@ -661,6 +661,18 @@ def create_modexp_variable_gas_test_cases() -> Generator:
         ("FF" * 32, "FF" * 32, "", "", None, "IC9"),  # N/A case
         # IC10: Power-of-2 boundary with high bit
         ("01" * 32, "80" + "00" * 31, "02" * 32, "01" * 32, 4080, "IC10"),
+        # Packed vs padded exponent: the padded form has a higher gas cost
+        # due to the larger declared exponent length in the iteration count
+        # formula. Clients must not strip leading zeros before computing gas.
+        ("02", "010001", "ff" * 32, "00" * 31 + "02", 500, "PAD1"),
+        (
+            "02",
+            "00" * 125 + "010001",
+            "ff" * 32,
+            "00" * 31 + "02",
+            24576,
+            "PAD2",
+        ),
     ]
 
     # Gas calculation parameters:
@@ -747,6 +759,8 @@ def create_modexp_variable_gas_test_cases() -> Generator:
     │ IC7 │  L   │  =  │  B   │ True  │   500   │ Vector optimization 128-bit boundary          │
     │ IC9 │  S   │  =  │  B   │  N/A  │   N/A   │ Zero modulus handling                         │
     │ IC10│  S   │  =  │  B   │ False │  4080   │ Power-of-2 boundary with high bit             │
+    │ PAD1│  S   │  <  │  B   │ True  │   500   │ Packed exponent (3 bytes, no padding)         │
+    │ PAD2│  S   │  <  │  C   │ False │ 24576   │ Padded exponent (128 bytes, 125 zero prefix)  │
     └─────┴──────┴─────┴──────┴───────┴─────────┴───────────────────────────────────────────────┘
     """  # noqa: W505, E501
     for (
