@@ -446,7 +446,9 @@ def test_state_root_computation(
     high_start = 2**256 - 1
     contracts = []
     for _ in range(num_contracts):
-        storage = {high_start - i: 1 for i in range(slots_per_contract)}
+        storage: Storage.StorageDictType = {
+            high_start - i: 1 for i in range(slots_per_contract)
+        }
         addr = pre.deploy_contract(
             code=runtime_code,
             storage=storage,
