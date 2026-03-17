@@ -25,8 +25,8 @@ from execution_testing.base_types import (
     Hash,
 )
 from execution_testing.forks import Fork
-from execution_testing.test_types.chain_config_types import DEFAULT_CHAIN_ID
 from execution_testing.test_types import Alloc, Environment
+from execution_testing.test_types.chain_config_types import DEFAULT_CHAIN_ID
 
 from .blockchain import FixtureHeader
 
