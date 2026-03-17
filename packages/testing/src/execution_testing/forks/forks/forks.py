@@ -195,7 +195,7 @@ class Frontier(
             GAS_OPCODE_MSTORE=GAS_VERY_LOW,
             GAS_OPCODE_MSTORE8=GAS_VERY_LOW,
             GAS_OPCODE_PUSH_N=GAS_VERY_LOW,
-            GAS_OPCODE_DUP_N=GAS_VERY_LOW,
+            GAS_OPCODE_DUP=GAS_VERY_LOW,
             GAS_OPCODE_SWAP_N=GAS_VERY_LOW,
         )
 
@@ -436,7 +436,7 @@ class Frontier(
             },
             # Dup operations (DUP1 through DUP16)
             **{
-                getattr(Opcodes, f"DUP{i}"): gas_costs.GAS_OPCODE_DUP_N
+                getattr(Opcodes, f"DUP{i}"): gas_costs.GAS_OPCODE_DUP
                 for i in range(1, 17)
             },
             # Swap operations (SWAP1 through SWAP16)
