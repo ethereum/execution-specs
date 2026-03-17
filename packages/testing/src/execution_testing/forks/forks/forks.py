@@ -197,7 +197,7 @@ class Frontier(
             GAS_OPCODE_MSTORE8=GAS_VERY_LOW,
             GAS_OPCODE_PUSH_N=GAS_VERY_LOW,
             GAS_OPCODE_DUP=GAS_VERY_LOW,
-            GAS_OPCODE_SWAP_N=GAS_VERY_LOW,
+            GAS_OPCODE_SWAP=GAS_VERY_LOW,
         )
 
     @classmethod
@@ -442,7 +442,7 @@ class Frontier(
             },
             # Swap operations (SWAP1 through SWAP16)
             **{
-                getattr(Opcodes, f"SWAP{i}"): gas_costs.GAS_OPCODE_SWAP_N
+                getattr(Opcodes, f"SWAP{i}"): gas_costs.GAS_OPCODE_SWAP
                 for i in range(1, 17)
             },
             # Logging operations
