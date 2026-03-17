@@ -95,7 +95,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
     pass
 
     # GAS
-    charge_gas(evm, gas.GAS_OPCODE_DUP_N)
+    charge_gas(evm, gas.GAS_OPCODE_DUP)
     if item_number >= len(evm.stack):
         raise StackUnderflowError
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
