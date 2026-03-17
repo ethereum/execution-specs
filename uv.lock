@@ -1110,7 +1110,7 @@ requires-dist = [
     { name = "colorlog", specifier = ">=6.7.0,<7" },
     { name = "eth-abi", specifier = ">=5.2.0" },
     { name = "ethereum-execution", editable = "." },
-    { name = "ethereum-hive", specifier = ">=0.1.0a1,<1.0.0" },
+    { name = "ethereum-hive", specifier = ">=0.1.0a5,<1.0.0" },
     { name = "ethereum-rlp", specifier = ">=0.1.5,<0.2" },
     { name = "ethereum-types", specifier = ">=0.3.0,<0.4" },
     { name = "filelock", specifier = ">=3.15.1,<4" },
@@ -1155,14 +1155,14 @@ test = [{ name = "pytest-cov", specifier = ">=4.1.0,<5" }]
 
 [[package]]
 name = "ethereum-hive"
-version = "0.1.0a2"
+version = "0.1.0a5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b3/9b/f15c86866245ad5c22dbc98f433158fdeaab3e96eae4efd1bf6a12a7717c/ethereum_hive-0.1.0a2.tar.gz", hash = "sha256:9ddc08a8dfe2828a9a4abfca1c0972f88882fa06fb6a3e111ec013b66906f843", size = 74796, upload-time = "2025-07-15T05:38:36.983Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/40/a8/95676acd86095a5dcf5dacfa5a991175b3a547dcd5729735fea777b8feec/ethereum_hive-0.1.0a5.tar.gz", hash = "sha256:bf91d3144c263a1a6407c931b3864ab3edd40bc5c34b812e571e7c49cc70f9eb", size = 75064, upload-time = "2026-03-11T07:36:24.532Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/60/1daf13c49bbefed6b67dd8a5d1280386e1ad22c9ec61737d44047064632e/ethereum_hive-0.1.0a2-py3-none-any.whl", hash = "sha256:0b0253146428240725e2b83a86bbc9eab975c460b8d76ce3937ba5295aa2448b", size = 37578, upload-time = "2025-07-15T05:38:35.334Z" },
+    { url = "https://files.pythonhosted.org/packages/73/95/986727018ac0401562d91961e2f46462ed65a08e2d5162a255d9f871a7ad/ethereum_hive-0.1.0a5-py3-none-any.whl", hash = "sha256:3225747ed83a9124a697db0ab8d736c4820117462e64aa3395bbc1588c4d40d0", size = 37589, upload-time = "2026-03-11T07:36:23.286Z" },
 ]
 
 [[package]]

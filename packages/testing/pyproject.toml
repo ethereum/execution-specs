@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.1.0,<9",
-    "ethereum-hive>=0.1.0a1,<1.0.0",
+    "ethereum-hive>=0.1.0a5,<1.0.0",
     "ethereum-execution",
     "gitpython>=3.1.31,<4",
     "PyJWT>=2.3.0,<3",
