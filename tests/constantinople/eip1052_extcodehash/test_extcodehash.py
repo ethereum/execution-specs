@@ -43,6 +43,7 @@ pytestmark = [
 def test_extcodehash_self(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test EXTCODEHASH/EXTCODESIZE of the currently executing account.
@@ -60,10 +61,13 @@ def test_extcodehash_self(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -84,6 +88,7 @@ def test_extcodehash_self(
 def test_extcodehash_of_empty(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     target_exists: bool,
 ) -> None:
     """
@@ -106,11 +111,14 @@ def test_extcodehash_of_empty(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=(pre.fund_eoa()),
         to=code_address,
         value=1,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -131,6 +139,7 @@ def test_extcodehash_of_empty(
 def test_extcodehash_empty_send_value(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test EXTCODEHASH of non-existent account before and after sending value.
@@ -160,10 +169,13 @@ def test_extcodehash_empty_send_value(
         code, balance=10**18, storage=storage.canary()
     )
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -233,6 +245,7 @@ def test_extcodehash_empty_send_value(
 def test_extcodehash_empty_account_variants(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     account: Account,
     call_before: bool,
     expected_hash: bytes,
@@ -272,11 +285,14 @@ def test_extcodehash_empty_account_variants(
         code, balance=10**18, storage=storage.canary()
     )
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
         value=1,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -298,6 +314,7 @@ def test_extcodehash_empty_account_variants(
 def test_extcodehash_empty_contract_creation(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     opcode: Op,
 ) -> None:
     """
@@ -347,10 +364,13 @@ def test_extcodehash_empty_contract_creation(
     )
     storage[created_slot] = created_address
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -572,6 +592,7 @@ def test_extcodehash_dynamic_account_overwrite(
 def test_extcodehash_precompile(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     precompile: Address,
 ) -> None:
     """
@@ -591,10 +612,13 @@ def test_extcodehash_precompile(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -622,6 +646,7 @@ def test_extcodehash_precompile(
 def test_extcodehash_new_account(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     deployed_code: bytes,
     opcode: Opcodes,
 ) -> None:
@@ -662,10 +687,13 @@ def test_extcodehash_new_account(
     )
     storage[created_slot] = created_address
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -694,6 +722,7 @@ def test_extcodehash_new_account(
 def test_extcodehash_via_call(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     opcode: Opcodes,
 ) -> None:
     """
@@ -729,10 +758,13 @@ def test_extcodehash_via_call(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -834,10 +866,13 @@ def test_extcodehash_after_selfdestruct(
         )
         storage[created_slot] = target_address
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     post: dict[Address, Account | None] = {
@@ -861,6 +896,7 @@ def test_extcodehash_after_selfdestruct(
 def test_extcodehash_changed_account(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test EXTCODEHASH/EXTCODESIZE before and after changing account state.
@@ -901,10 +937,13 @@ def test_extcodehash_changed_account(
         code, balance=1, storage=storage.canary()
     )
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -957,10 +996,13 @@ def test_extcodehash_max_code_size(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -982,6 +1024,7 @@ def test_extcodehash_max_code_size(
 def test_extcodehash_in_init_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     create_opcode: Opcodes | None,
 ) -> None:
     """
@@ -1009,6 +1052,10 @@ def test_extcodehash_in_init_code(
     )
     initcode = checks + Op.RETURN(0, 0)
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
+
     if create_opcode is None:
         # Transaction-level creation: init code runs directly.
         sender = pre.fund_eoa()
@@ -1016,7 +1063,7 @@ def test_extcodehash_in_init_code(
             sender=sender,
             to=None,
             data=initcode,
-            gas_limit=400_000,
+            gas_limit=gas_limit,
         )
         created = compute_create_address(
             address=sender,
@@ -1038,7 +1085,7 @@ def test_extcodehash_in_init_code(
             sender=pre.fund_eoa(),
             to=factory,
             data=initcode,
-            gas_limit=400_000,
+            gas_limit=gas_limit,
         )
         created = compute_create_address(
             address=factory,
@@ -1067,6 +1114,7 @@ def test_extcodehash_in_init_code(
 def test_extcodehash_self_in_init(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     create_opcode: Opcodes | None,
 ) -> None:
     """
@@ -1090,13 +1138,17 @@ def test_extcodehash_self_in_init(
     )
     initcode = checks + Op.RETURN(0, 0)
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
+
     if create_opcode is None:
         sender = pre.fund_eoa()
         tx = Transaction(
             sender=sender,
             to=None,
             data=initcode,
-            gas_limit=400_000,
+            gas_limit=gas_limit,
         )
         created = compute_create_address(
             address=sender,
@@ -1117,7 +1169,7 @@ def test_extcodehash_self_in_init(
             sender=pre.fund_eoa(),
             to=factory,
             data=initcode,
-            gas_limit=400_000,
+            gas_limit=gas_limit,
         )
         created = compute_create_address(
             address=factory,
@@ -1153,6 +1205,7 @@ def test_extcodehash_self_in_init(
 def test_extcodehash_dynamic_argument(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     target_type: str,
 ) -> None:
     """
@@ -1198,11 +1251,14 @@ def test_extcodehash_dynamic_argument(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
         data=bytes(target_address).rjust(32, b"\0"),
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -1222,6 +1278,7 @@ def test_extcodehash_dynamic_argument(
 def test_extcodehash_call_to_nonexistent(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     call_opcode: Opcodes,
 ) -> None:
     """
@@ -1243,10 +1300,13 @@ def test_extcodehash_call_to_nonexistent(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
@@ -1296,10 +1356,13 @@ def test_extcodehash_call_to_selfdestruct(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     # Pre-Cancun, CALLCODE/DELEGATECALL execute SELFDESTRUCT in the
@@ -1336,6 +1399,7 @@ def test_extcodehash_call_to_selfdestruct(
 def test_extcodehash_created_and_deleted(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     trigger: Opcodes,
 ) -> None:
     """
@@ -1398,10 +1462,13 @@ def test_extcodehash_created_and_deleted(
     )
     storage[created_slot] = created
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     post: dict[Address, Account | None] = {
@@ -1424,6 +1491,7 @@ def test_extcodehash_created_and_deleted(
 def test_extcodehash_created_and_deleted_recheck_outer(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """
     Test EXTCODEHASH of a created-and-selfdestructed account rechecked
@@ -1504,10 +1572,13 @@ def test_extcodehash_created_and_deleted_recheck_outer(
     )
     outer = pre.deploy_contract(outer_code, storage=outer_storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=outer,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     post: dict[Address, Account | None] = {
@@ -1619,10 +1690,13 @@ def test_extcodehash_subcall_selfdestruct(
         a = compute_create_address(address=code_address, nonce=1)
         storage[created_slot] = a
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
     )
 
     # Pre-Cancun, CALLCODE/DELEGATECALL executes SELFDESTRUCT in A's
@@ -1659,6 +1733,7 @@ def test_extcodehash_subcall_selfdestruct(
 def test_extcodehash_subcall_create2_oog(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     call_opcode: Opcodes,
     oog: bool,
 ) -> None:
@@ -1732,10 +1807,13 @@ def test_extcodehash_subcall_create2_oog(
     else:
         post[created] = Account(nonce=1, code=deploy_code)
 
+    gas_limit = 500_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=500_000,
+        gas_limit=gas_limit,
         data=created.rjust(32, b"\0"),
     )
 
@@ -1757,6 +1835,7 @@ def test_extcodehash_subcall_create2_oog(
 def test_extcodecopy_zero_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     target_type: str,
 ) -> None:
     """
@@ -1799,10 +1878,13 @@ def test_extcodecopy_zero_code(
 
     code_address = pre.deploy_contract(code, storage=storage.canary())
 
+    gas_limit = 400_000
+    if fork.is_eip_enabled(eip_number=8037):
+        gas_limit = 1_000_000
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=code_address,
-        gas_limit=400_000,
+        gas_limit=gas_limit,
     )
 
     state_test(
