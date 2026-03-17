@@ -130,7 +130,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
     pass
 
     # GAS
-    charge_gas(evm, gas.GAS_OPCODE_SWAP_N)
+    charge_gas(evm, gas.GAS_OPCODE_SWAP)
     if item_number >= len(evm.stack):
         raise StackUnderflowError
     evm.stack[-1], evm.stack[-1 - item_number] = (
