@@ -28,6 +28,40 @@ def add_code(
     return transform
 
 
+def add_state_node(
+    node: Bytes,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Add an encoded trie node entry to the witness state list."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        new_state = list(witness.state)
+        new_state.append(node)
+        new_state.sort()
+        return witness.model_copy(update={"state": new_state})
+
+    return transform
+
+
+def remove_state_node(
+    node: Bytes,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Remove an encoded trie node entry from the witness state list."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        new_state = [entry for entry in witness.state if entry != node]
+        if len(new_state) == len(witness.state):
+            raise ValueError(
+                f"Trie node {node.hex()} not found in witness state to remove"
+            )
+        return witness.model_copy(update={"state": new_state})
+
+    return transform
+
+
 def remove_code(
     code: Bytes,
 ) -> Callable[[ExecutionWitness], ExecutionWitness]:
@@ -47,6 +81,8 @@ def remove_code(
 
 
 __all__ = [
+    "add_state_node",
     "add_code",
+    "remove_state_node",
     "remove_code",
 ]

@@ -63,6 +63,7 @@ def test_witness_codes_delegated_eoa(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
+                            Bytes(bytes(caller_code)),
                             Bytes(marker),
                             Bytes(bytes(delegate_code)),
                         ],
@@ -72,6 +73,81 @@ def test_witness_codes_delegated_eoa(
         ],
         post={
             sender: Account(nonce=1),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "call_opcode",
+    [
+        pytest.param(Op.CALL, id="call"),
+        pytest.param(Op.CALLCODE, id="callcode"),
+    ],
+)
+def test_witness_codes_delegated_eoa_insufficient_balance(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+    call_opcode: Op,
+) -> None:
+    """
+    CALL/CALLCODE to a delegated EOA with value greater than caller balance.
+
+    The call must fail and return 0, but delegation resolution still reads
+    both the marker code and the delegated bytecode into the witness before
+    the insufficient-balance early return.
+    """
+    delegate_code = Op.PUSH1(0x42) + Op.POP + Op.STOP
+    delegate = pre.deploy_contract(code=delegate_code)
+
+    delegated_eoa = pre.fund_eoa(amount=0, delegation=delegate)
+
+    caller_balance = 100
+    transfer_value = 1_000
+    caller_code = (
+        Op.SSTORE(
+            0,
+            call_opcode(
+                Op.GAS,
+                delegated_eoa,
+                transfer_value,
+                0,
+                0,
+                0,
+                0,
+            ),
+        )
+        + Op.STOP
+    )
+    caller = pre.deploy_contract(
+        code=caller_code,
+        balance=caller_balance,
+        storage={0: 1},
+    )
+
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
+
+    marker = Spec7702.delegation_designation(delegate)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_codes=(
+                    ExecutionWitnessCodesExpectation(
+                        codes_present=[
+                            Bytes(bytes(caller_code)),
+                            Bytes(marker),
+                            Bytes(bytes(delegate_code)),
+                        ],
+                    )
+                ),
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            caller: Account(balance=caller_balance, storage={0: 0}),
         },
     )
 
@@ -235,6 +311,7 @@ def test_witness_codes_delegation_set_in_same_block(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
+                            Bytes(bytes(caller_code)),
                             Bytes(bytes(delegate_code)),
                         ],
                         codes_absent=[
@@ -381,10 +458,13 @@ def test_witness_codes_extcode_delegated_eoa(
     marker = Spec7702.delegation_designation(delegate)
 
     if extcode_opcode in ("extcodesize", "extcodecopy"):
-        codes_present = [Bytes(marker)]
+        codes_present = [
+            Bytes(bytes(caller_code)),
+            Bytes(marker),
+        ]
         codes_absent = [Bytes(bytes(delegate_code))]
     else:
-        codes_present = []
+        codes_present = [Bytes(bytes(caller_code))]
         codes_absent = [
             Bytes(marker),
             Bytes(bytes(delegate_code)),
@@ -456,6 +536,7 @@ def test_witness_codes_delegation_chain(
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
                         codes_present=[
+                            Bytes(bytes(caller_code)),
                             Bytes(marker_alice),
                             Bytes(marker_bob),
                         ],
@@ -474,7 +555,6 @@ def test_witness_codes_delegation_chain(
 
 def test_witness_codes_reset_delegation(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -526,8 +606,7 @@ def test_witness_codes_reset_delegation(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes + [Bytes(old_marker)],
-                        allow_unexpected=False,
+                        codes_present=[Bytes(old_marker)],
                     )
                 ),
             )
@@ -543,7 +622,6 @@ def test_witness_codes_reset_delegation(
 
 def test_witness_codes_delegation_to_empty_account(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -585,8 +663,7 @@ def test_witness_codes_delegation_to_empty_account(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes + [Bytes(marker)],
-                        allow_unexpected=False,
+                        codes_present=[Bytes(marker)],
                     )
                 ),
             )
@@ -599,7 +676,6 @@ def test_witness_codes_delegation_to_empty_account(
 
 def test_witness_codes_auth_nonce_mismatch(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -641,8 +717,7 @@ def test_witness_codes_auth_nonce_mismatch(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes + [Bytes(old_marker)],
-                        allow_unexpected=False,
+                        codes_present=[Bytes(old_marker)],
                     )
                 ),
             )

@@ -678,7 +678,14 @@ class FixtureBlock(FixtureBlockBase):
     def without_rlp(self) -> FixtureBlockBase:
         """Return FixtureBlockBase without the RLP bytes set."""
         return FixtureBlockBase(
-            **self.model_dump(exclude={"rlp"}),
+            **self.model_dump(
+                exclude={
+                    "rlp",
+                    "execution_witness",
+                    "stateless_input_bytes",
+                    "stateless_output_bytes",
+                },
+            ),
         )
 
 
@@ -698,6 +705,9 @@ class InvalidFixtureBlock(CamelModel):
     rlp: Bytes
     expect_exception: ExceptionInstanceOrList
     rlp_decoded: FixtureBlockBase | None = Field(None, alias="rlp_decoded")
+    execution_witness: ExecutionWitness | None = None
+    stateless_input_bytes: Bytes | None = None
+    stateless_output_bytes: Bytes | None = None
 
 
 @post_state_validator()

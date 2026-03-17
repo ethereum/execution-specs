@@ -92,6 +92,7 @@ from execution_testing.test_types.block_access_list import (
 from execution_testing.test_types.execution_witness import (
     ExecutionWitnessCodesExpectation,
     ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
 )
 
 from .base import BaseTest, FillResult, OpMode, verify_result
@@ -146,6 +147,71 @@ def count_blobs(txs: List[Transaction]) -> int:
             if tx.blob_versioned_hashes is not None
         ]
     )
+
+
+def execution_witness_implicit_codes_for_block(
+    *,
+    fork: Fork,
+    alloc: Alloc | LazyAlloc,
+    block_number: int,
+    timestamp: int,
+) -> List[Bytes]:
+    """
+    Return ambient witness bytecodes implied by block-level execution.
+
+    These codes are resolved from the effective pre-state for the block, not
+    from raw fork defaults, so test `pre` overrides are respected.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    addresses = active_fork.execution_witness_implicit_code_addresses(
+        block_number=block_number,
+        timestamp=timestamp,
+    )
+    if not addresses:
+        return []
+
+    effective_alloc = alloc.get() if isinstance(alloc, LazyAlloc) else alloc
+
+    codes: List[Bytes] = []
+    seen: set[Bytes] = set()
+    for address in addresses:
+        if address not in effective_alloc:
+            continue
+        account = effective_alloc[address]
+        if account is None or len(account.code) == 0:
+            continue
+        code = Bytes(account.code)
+        if code in seen:
+            continue
+        codes.append(code)
+        seen.add(code)
+    return codes
+
+
+def with_execution_witness_implicit_codes(
+    *,
+    expectation: ExecutionWitnessCodesExpectation,
+    fork: Fork,
+    alloc: Alloc | LazyAlloc,
+    block_number: int,
+    timestamp: int,
+) -> ExecutionWitnessCodesExpectation:
+    """Return expectation copy with ambient block-level codes added."""
+    codes_present = list(expectation.codes_present)
+    seen = set(codes_present)
+
+    for code in execution_witness_implicit_codes_for_block(
+        fork=fork,
+        alloc=alloc,
+        block_number=block_number,
+        timestamp=timestamp,
+    ):
+        if code in seen:
+            continue
+        codes_present.append(code)
+        seen.add(code)
+
+    return expectation.model_copy(update={"codes_present": codes_present})
 
 
 class Header(CamelModel):
@@ -281,6 +347,13 @@ class Block(Header):
     ) = None
     """
     If set, the execution witness codes will be verified and potentially
+    modified for invalid tests.
+    """
+    expected_execution_witness_state: (
+        ExecutionWitnessStateExpectation | None
+    ) = None
+    """
+    If set, the execution witness state will be verified and potentially
     modified for invalid tests.
     """
     expected_execution_witness_headers: (
@@ -464,6 +537,9 @@ class BuiltBlock(CamelModel):
                     in self.expected_exception
                     else fixture_block.without_rlp()
                 ),
+                execution_witness=self.execution_witness,
+                stateless_input_bytes=self.stateless_input_bytes,
+                stateless_output_bytes=self.stateless_output_bytes,
             )
 
         return fixture_block
@@ -830,17 +906,33 @@ class BlockchainTest(BaseTest):
                 # update the header hash
                 header.block_access_list_hash = Hash(bal.rlp.keccak256())
 
-        # If expected witness codes defined, verify against actual
+        # If expected witness state/codes defined, verify against actual
         t8n_witness = transition_tool_output.result.execution_witness
         execution_witness = t8n_witness
+        state_expectation = block.expected_execution_witness_state
+        if state_expectation is not None and execution_witness is not None:
+            state_expectation.verify_against(execution_witness)
+            execution_witness = state_expectation.modify_if_invalid_test(
+                execution_witness
+            )
+
         if (
             block.expected_execution_witness_codes is not None
-            and t8n_witness is not None
+            and execution_witness is not None
         ):
-            block.expected_execution_witness_codes.verify_against(t8n_witness)
+            effective_codes_expectation = (
+                with_execution_witness_implicit_codes(
+                    expectation=block.expected_execution_witness_codes,
+                    fork=self.fork,
+                    alloc=previous_alloc,
+                    block_number=env.number,
+                    timestamp=env.timestamp,
+                )
+            )
+            effective_codes_expectation.verify_against(execution_witness)
             execution_witness = (
                 block.expected_execution_witness_codes.modify_if_invalid_test(
-                    t8n_witness
+                    execution_witness
                 )
             )
 
@@ -891,6 +983,11 @@ class BlockchainTest(BaseTest):
                 and not (
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list._modifier is not None
+                )
+                and not (
+                    block.expected_execution_witness_state is not None
+                    and block.expected_execution_witness_state._modifier
+                    is not None
                 )
                 and not (
                     block.expected_execution_witness_codes is not None

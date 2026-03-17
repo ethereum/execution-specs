@@ -5,7 +5,6 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Bytes,
     ExecutionWitnessCodesExpectation,
 )
 
@@ -17,16 +16,14 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 def test_witness_codes_empty_block_has_system_contracts(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
     Verify an empty block contains only system contract bytecodes.
 
-    System contracts are called every block via process_system_call,
-    which calls get_code() on a tracked TransactionState. An empty
-    block (no user transactions) should have exactly the four system
-    contract bytecodes in executionWitness.codes and nothing else.
+    System contract codes are automatically added to codes_present
+    by the testing framework, so an empty expectation is sufficient.
+    The exhaustiveness check ensures no extra codes appear.
     """
     blockchain_test(
         pre=pre,
@@ -34,10 +31,7 @@ def test_witness_codes_empty_block_has_system_contracts(
             Block(
                 txs=[],
                 expected_execution_witness_codes=(
-                    ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes,
-                        allow_unexpected=False,
-                    )
+                    ExecutionWitnessCodesExpectation()
                 ),
             )
         ],

@@ -55,6 +55,7 @@ from execution_testing.test_types import (
     Environment,
     ExecutionWitnessCodesExpectation,
     ExecutionWitnessHeadersExpectation,
+    ExecutionWitnessStateExpectation,
     Transaction,
 )
 
@@ -87,6 +88,9 @@ class StateTest(BaseTest):
     expected_block_access_list: Optional[BlockAccessListExpectation] = None
     expected_execution_witness_codes: Optional[
         ExecutionWitnessCodesExpectation
+    ] = None
+    expected_execution_witness_state: Optional[
+        ExecutionWitnessStateExpectation
     ] = None
     expected_execution_witness_headers: Optional[
         ExecutionWitnessHeadersExpectation
@@ -325,6 +329,9 @@ class StateTest(BaseTest):
             "expected_block_access_list": self.expected_block_access_list,
             "expected_execution_witness_codes": (
                 self.expected_execution_witness_codes
+            ),
+            "expected_execution_witness_state": (
+                self.expected_execution_witness_state
             ),
             "expected_execution_witness_headers": (
                 self.expected_execution_witness_headers

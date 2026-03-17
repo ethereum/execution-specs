@@ -61,7 +61,6 @@ def test_witness_codes_extcodesize(
 
 def test_witness_codes_extcodesize_empty_code(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -86,9 +85,7 @@ def test_witness_codes_extcodesize_empty_code(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes
-                        + [Bytes(bytes(caller_code))],
-                        allow_unexpected=False,
+                        codes_present=[Bytes(bytes(caller_code))],
                     )
                 ),
             )
@@ -101,7 +98,6 @@ def test_witness_codes_extcodesize_empty_code(
 
 def test_witness_codes_extcodecopy_empty_code(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """
@@ -126,9 +122,7 @@ def test_witness_codes_extcodecopy_empty_code(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes
-                        + [Bytes(bytes(caller_code))],
-                        allow_unexpected=False,
+                        codes_present=[Bytes(bytes(caller_code))],
                     )
                 ),
             )
@@ -351,7 +345,6 @@ def test_witness_codes_extcodesize_cold_gas_boundary(
 )
 def test_witness_codes_extcode_precompile(
     pre: Alloc,
-    system_codes: list[Bytes],
     blockchain_test: BlockchainTestFiller,
     precompile: Address,
     extcode_opcode: str,
@@ -382,9 +375,7 @@ def test_witness_codes_extcode_precompile(
                 txs=[tx],
                 expected_execution_witness_codes=(
                     ExecutionWitnessCodesExpectation(
-                        codes_present=system_codes
-                        + [Bytes(bytes(caller_code))],
-                        allow_unexpected=False,
+                        codes_present=[Bytes(bytes(caller_code))],
                     )
                 ),
             )

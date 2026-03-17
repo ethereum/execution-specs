@@ -2,7 +2,7 @@
 Execution witness expectation classes for test validation.
 
 This module contains classes for defining and validating expected
-execution witness codes and headers in tests.
+execution witness state, codes, and headers in tests.
 """
 
 from __future__ import annotations
@@ -26,6 +26,10 @@ class ExecutionWitnessCodesExpectation(CamelModel):
     Define which bytecodes should or should not appear in
     executionWitness.codes.
 
+    Ambient block-level codes (system contracts called every block)
+    are automatically added to codes_present by the framework before
+    verification. Tests only need to declare scenario-specific codes.
+
     Example:
         expected_execution_witness_codes = ExecutionWitnessCodesExpectation(
             codes_present=[Bytes(runtime_code)],
@@ -41,13 +45,6 @@ class ExecutionWitnessCodesExpectation(CamelModel):
     codes_absent: List[Bytes] = Field(
         default_factory=list,
         description=("Bytecodes that must NOT be present in witness codes"),
-    )
-    allow_unexpected: bool = Field(
-        default=True,
-        description=(
-            "If False, fail when witness codes contains bytecodes "
-            "not listed in codes_present"
-        ),
     )
 
     _modifier: Callable[["ExecutionWitness"], "ExecutionWitness"] | None = (
@@ -95,10 +92,11 @@ class ExecutionWitnessCodesExpectation(CamelModel):
         Verify that the actual witness codes match this expectation.
 
         Validation steps:
-        1. Structural invariants: no duplicates and sorted order
+        1. Structural invariants: no duplicates and lexicographic
+           ascending order
         2. Presence checks: codes_present entries exist
         3. Absence checks: codes_absent entries do not exist
-        4. Exhaustiveness: if allow_unexpected=False, no extra codes
+        4. Exhaustiveness: no extra codes are allowed
 
         Args:
             actual_witness: The ExecutionWitness from the t8n tool
@@ -123,7 +121,7 @@ class ExecutionWitnessCodesExpectation(CamelModel):
 
         if actual_codes != sorted(actual_codes):
             raise ExecutionWitnessValidationError(
-                "Witness codes are not sorted in lexicographic order"
+                "Witness codes are not sorted in lexicographic ascending order"
             )
 
         actual_set = set(actual_codes)
@@ -145,13 +143,130 @@ class ExecutionWitnessCodesExpectation(CamelModel):
                 )
 
         # 4. Exhaustiveness check
-        if not self.allow_unexpected:
-            expected_set = set(self.codes_present)
-            unexpected = actual_set - expected_set
-            if unexpected:
+        expected_set = set(self.codes_present)
+        unexpected = actual_set - expected_set
+        if unexpected:
+            raise ExecutionWitnessValidationError(
+                f"Unexpected bytecodes in witness codes: "
+                f"{[c.hex() for c in unexpected]}"
+            )
+
+
+class ExecutionWitnessStateExpectation(CamelModel):
+    """
+    Execution witness state expectation model for test writing.
+
+    Define which encoded trie nodes should or should not appear in
+    executionWitness.state.
+
+    Example:
+        expected_execution_witness_state = ExecutionWitnessStateExpectation(
+            nodes_present=[Bytes(derived_node_rlp)],
+        )
+
+    """
+
+    nodes_present: List[Bytes] = Field(
+        default_factory=list,
+        description="Encoded trie nodes that must be present in witness state",
+    )
+    nodes_absent: List[Bytes] = Field(
+        default_factory=list,
+        description=(
+            "Encoded trie nodes that must NOT be present in witness state"
+        ),
+    )
+
+    _modifier: Callable[["ExecutionWitness"], "ExecutionWitness"] | None = (
+        PrivateAttr(default=None)
+    )
+
+    def modify(
+        self,
+        *modifiers: Callable[["ExecutionWitness"], "ExecutionWitness"],
+    ) -> "ExecutionWitnessStateExpectation":
+        """
+        Create a new expectation with a modifier for invalid test cases.
+
+        Args:
+            modifiers: One or more functions that take and return
+                       an ExecutionWitness
+
+        Returns:
+            A new ExecutionWitnessStateExpectation with modifiers applied
+
+        """
+        new_instance = self.model_copy(deep=True)
+        new_instance._modifier = _compose(*modifiers)
+        return new_instance
+
+    def modify_if_invalid_test(
+        self, t8n_witness: "ExecutionWitness"
+    ) -> "ExecutionWitness":
+        """
+        Apply the modifier to the given witness if this is an invalid test.
+
+        Args:
+            t8n_witness: The ExecutionWitness from the t8n tool
+
+        Returns:
+            The potentially transformed ExecutionWitness for the fixture
+
+        """
+        if self._modifier:
+            return self._modifier(t8n_witness)
+        return t8n_witness
+
+    def verify_against(self, actual_witness: "ExecutionWitness") -> None:
+        """
+        Verify that the actual witness state matches this expectation.
+
+        Validation steps:
+        1. Structural invariants: no duplicates and lexicographic
+           ascending order
+        2. Presence checks: nodes_present entries exist
+        3. Absence checks: nodes_absent entries do not exist
+
+        Args:
+            actual_witness: The ExecutionWitness from the t8n tool
+
+        Raises:
+            ExecutionWitnessValidationError: If verification fails
+
+        """
+        actual_nodes = actual_witness.state
+
+        if len(actual_nodes) != len(set(actual_nodes)):
+            seen: set[Bytes] = set()
+            dupes: list[Bytes] = []
+            for node in actual_nodes:
+                if node in seen:
+                    dupes.append(node)
+                seen.add(node)
+            raise ExecutionWitnessValidationError(
+                "Witness state contains duplicates: "
+                f"{[n.hex() for n in dupes]}"
+            )
+
+        if actual_nodes != sorted(actual_nodes):
+            raise ExecutionWitnessValidationError(
+                "Witness state is not sorted in lexicographic ascending order"
+            )
+
+        actual_set = set(actual_nodes)
+
+        for node in self.nodes_present:
+            if node not in actual_set:
                 raise ExecutionWitnessValidationError(
-                    f"Unexpected bytecodes in witness codes: "
-                    f"{[c.hex() for c in unexpected]}"
+                    f"Expected trie node {node.hex()} not found "
+                    f"in witness state"
+                )
+
+        for node in self.nodes_absent:
+            if node in actual_set:
+                raise ExecutionWitnessValidationError(
+                    f"Trie node {node.hex()} should not be in "
+                    f"witness state but was found"
                 )
 
 
@@ -327,4 +442,5 @@ def _compose(
 __all__ = [
     "ExecutionWitnessCodesExpectation",
     "ExecutionWitnessHeadersExpectation",
+    "ExecutionWitnessStateExpectation",
 ]
