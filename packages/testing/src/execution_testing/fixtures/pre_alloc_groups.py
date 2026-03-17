@@ -25,6 +25,7 @@ from execution_testing.base_types import (
     Hash,
 )
 from execution_testing.forks import Fork
+from execution_testing.test_types.chain_config_types import DEFAULT_CHAIN_ID
 from execution_testing.test_types import Alloc, Environment
 
 from .blockchain import FixtureHeader
@@ -38,7 +39,7 @@ class PreAllocGroupBuilder(CamelModel):
         ..., description="Grouping environment for this test group"
     )
     fork: Fork = Field(..., alias="network")
-    chain_id: int = 1
+    chain_id: int = DEFAULT_CHAIN_ID
     pre: Alloc
 
     def get_pre_account_count(self) -> int:
