@@ -11,6 +11,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Fork,
     Initcode,
     Op,
     StateTestFiller,
@@ -270,6 +271,7 @@ class TestTransientStorageInContractCreation:
 def test_tstore_rollback_on_failed_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     create_opcode: Op,
 ) -> None:
     """
@@ -324,11 +326,21 @@ def test_tstore_rollback_on_failed_create(
     )
     caller_address = pre.deploy_contract(caller_code, storage={0: 1, 1: 1})
 
+    # Amsterdam EIP-8037 charges state gas for CREATE (new account +
+    # code deposit). Each CREATE here deploys ~24K bytes, so state gas
+    # alone exceeds the regular gas cap. Supply extra via reservoir.
+    gas_limit = 16_000_000
+    if fork.code_deposit_state_gas(code_size=1) > 0:
+        gas_limit_cap = fork.transaction_gas_limit_cap() or gas_limit
+        code_deposit_state = fork.code_deposit_state_gas(code_size=0x600A)
+        new_account_state = fork.gas_costs().GAS_NEW_ACCOUNT
+        gas_limit = gas_limit_cap + 2 * (code_deposit_state + new_account_state)
+
     sender = pre.fund_eoa()
     tx = Transaction(
         sender=sender,
         to=caller_address,
-        gas_limit=16_000_000,
+        gas_limit=gas_limit,
         access_list=[
             AccessList(address=caller_address, storage_keys=[0, 1]),
         ],
