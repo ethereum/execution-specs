@@ -639,71 +639,83 @@ def test_ec_pairing(
     )
 
 
+def _generate_g1_point(seed: int) -> Bytes:
+    """Generate a valid random G1 point from a deterministic seed."""
+    rng = random.Random(seed)
+    priv_key = rng.randint(1, 2**32 - 1)
+    point = multiply(G1, priv_key)
+    assert point is not None
+    return Bytes(
+        point[0].n.to_bytes(32, "big") + point[1].n.to_bytes(32, "big")
+    )
+
+
 @pytest.mark.repricing
 @pytest.mark.parametrize(
-    "precompile_address,calldata",
+    "precompile_address,scalar",
     [
-        pytest.param(
-            0x06,
-            concatenate_parameters(
-                [
-                    "18B18ACFB4C2C30276DB5411368E7185B311DD124691610C5D3B74034E093DC9",
-                    "063C909C4720840CB5134CB9F59FA749755796819658D32EFC0D288198F37266",
-                    "07C2B7F58A84BD6145F00C9C2BC0BB1A187F20FF2C92963A88019E7C6A014EED",
-                    "06614E20C147E940F2D70DA3F74C9A17DF361706A4485C742BD6788478FA17D7",
-                ]
-            ),
-            id="ec_add",
-        ),
-        pytest.param(
-            0x07,
-            concatenate_parameters(
-                [
-                    "1A87B0584CE92F4593D161480614F2989035225609F08058CCFA3D0F940FEBE3",
-                    "1A2F3C951F6DADCC7EE9007DFF81504B0FCD6D7CF59996EFDC33D92BF7F9F8F6",
-                    "0000000000000000000000000000000000000000000000000000000000000002",
-                ]
-            ),
-            id="ec_mul_small_scalar",
-        ),
-        pytest.param(
-            0x07,
-            concatenate_parameters(
-                [
-                    "1A87B0584CE92F4593D161480614F2989035225609F08058CCFA3D0F940FEBE3",
-                    "1A2F3C951F6DADCC7EE9007DFF81504B0FCD6D7CF59996EFDC33D92BF7F9F8F6",
-                    "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
-                ]
-            ),
-            id="ec_mul_max_scalar",
-        ),
+        pytest.param(0x06, None, id="ec_add"),
+        pytest.param(0x07, 2, id="ec_mul_small_scalar"),
+        pytest.param(0x07, 2**256 - 1, id="ec_mul_max_scalar"),
     ],
 )
 def test_alt_bn128_uncachable(
     benchmark_test: BenchmarkTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_benchmark_value: int,
+    tx_gas_limit: int,
     precompile_address: Address,
-    calldata: bytes,
+    scalar: int | None,
 ) -> None:
-    """
-    Benchmark ecAdd/ecMul with chained output-to-input feedback.
+    """Benchmark ecAdd/ecMul with unique input per call."""
+    intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
 
-    Result overwrites the input point each iteration, so every call
-    has unique input and cannot benefit from precompile caching.
-    """
     attack_block = Op.POP(
         Op.STATICCALL(
             gas=Op.GAS,
             address=precompile_address,
             args_size=Op.CALLDATASIZE,
-            ret_size=64,  # One G1 point (2 * 32 bytes), overwrites input.
+            # One G1 point (2 * 32 bytes), overwrites the input point
+            # so each iteration has unique precompile input.
+            ret_size=64,
         ),
     )
 
+    setup = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+    loop = While(body=attack_block, condition=Op.GAS)
+    code = setup + loop
+    attack_contract_address = pre.deploy_contract(code=code)
+
+    txs: list[Transaction] = []
+    remaining_gas = gas_benchmark_value
+
+    seed = 0
+    while remaining_gas > 0:
+        gas_available = min(tx_gas_limit, remaining_gas)
+
+        calldata = Bytes(
+            _generate_g1_point(seed) + _generate_g1_point(seed + 1000)
+            if scalar is None
+            else scalar.to_bytes(32, "big")
+        )
+
+        intrinsic = intrinsic_gas_calculator(calldata=calldata)
+        if gas_available <= intrinsic:
+            break
+
+        txs.append(
+            Transaction(
+                to=attack_contract_address,
+                sender=pre.fund_eoa(),
+                gas_limit=gas_available,
+                data=calldata,
+            )
+        )
+        remaining_gas -= gas_available
+        seed += 1
+
     benchmark_test(
         target_opcode=Op.STATICCALL,
-        code_generator=JumpLoopGenerator(
-            setup=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE),
-            attack_block=attack_block,
-            tx_kwargs={"data": calldata},
-        ),
+        blocks=[Block(txs=txs)],
     )
