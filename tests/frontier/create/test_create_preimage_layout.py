@@ -117,6 +117,7 @@ def test_create_preimage_layout_increment_nonce(
 def test_create_address_dynamic_nonce(
     pre: Alloc,
     state_test: StateTestFiller,
+    fork: Fork,
 ) -> None:
     """
     Verify CreatePreimageLayout dynamic nonce encoding matches CREATE.
@@ -162,9 +163,18 @@ def test_create_address_dynamic_nonce(
     contract = pre.deploy_contract(code=code)
     sender = pre.fund_eoa()
 
+    # Amsterdam EIP-8037 charges state gas per CREATE (new account).
+    # 260 CREATEs need ~34M state gas supplied via the reservoir.
+    gas_limit = 15_000_000
+    if fork.create_state_gas(code_size=0) > 0:
+        gas_limit_cap = fork.transaction_gas_limit_cap() or gas_limit
+        gas_limit = gas_limit_cap + iterations * fork.create_state_gas(
+            code_size=0
+        )
+
     tx = Transaction(
         to=contract,
-        gas_limit=15_000_000,
+        gas_limit=gas_limit,
         sender=sender,
     )
 
