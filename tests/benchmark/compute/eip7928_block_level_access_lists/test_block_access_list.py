@@ -784,8 +784,15 @@ def test_mixed_dependency_graph(
         gas_benchmark_value, min_per_tx_gas, tx_gas_limit, tx_density
     )
 
-    # Round down to complete groups.
-    num_groups = max(1, len(tx_gas_schedule) // group_size)
+    # Round down to complete groups; skip if the gas budget cannot
+    # fill even one complete group.
+    total_txs = len(tx_gas_schedule)
+    num_groups = total_txs // group_size
+    if num_groups == 0:
+        pytest.skip(
+            f"Gas budget too low for group_size={group_size} "
+            f"(only {total_txs} txs fit)"
+        )
     num_exec_txs = num_groups * group_size
     tx_gas_schedule = tx_gas_schedule[:num_exec_txs]
 
