@@ -140,7 +140,7 @@ def test_create_preimage(
     tx = Transaction(
         sender=sender,
         to=contract_address,
-        gas_limit=500_000,
+        gas_limit=1_000_000,
     )
     fork = get_deployed_forks()[-1]
 
@@ -228,7 +228,7 @@ def test_create2_preimage(
     tx = Transaction(
         sender=sender,
         to=contract_address,
-        gas_limit=500_000,
+        gas_limit=1_000_000,
     )
     fork = get_deployed_forks()[-1]
 
