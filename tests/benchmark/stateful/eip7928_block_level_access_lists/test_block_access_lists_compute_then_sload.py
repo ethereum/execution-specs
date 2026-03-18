@@ -28,7 +28,10 @@ from .helpers import (
     ITEMS_PER_TX_SLOT,
     build_contract_expectation,
     cursor_overhead_gas,
+    cursor_read,
+    cursor_write,
     run_bal_benchmark,
+    sload_loop_iteration,
 )
 from .spec import ref_spec_7928
 
@@ -38,14 +41,22 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _compute_loop_iteration() -> Bytecode:
-    """Return bytecode for one compute loop iteration."""
+def _compute_loop_iteration(
+    loop_start: int = 0,
+    loop_end: int = 0,
+) -> Bytecode:
+    """
+    Return bytecode for one compute loop iteration.
+
+    Pass loop_start/loop_end for contract assembly; omit them
+    (defaults to 0) when calling ``.gas_cost(fork)``.
+    """
     return (
         Op.JUMPDEST
         + Op.SWAP1
         + Op.DUP1
         + Op.ISZERO
-        + Op.PUSH2(0)
+        + Op.PUSH2(loop_end)
         + Op.JUMPI
         + Op.PUSH1(0x01)
         + Op.SWAP1
@@ -55,43 +66,20 @@ def _compute_loop_iteration() -> Bytecode:
         + Op.MUL
         + Op.PUSH1(0x07)
         + Op.ADD
-        + Op.PUSH2(0)
-        + Op.JUMP
-    )
-
-
-def _sload_loop_iteration() -> Bytecode:
-    """Return bytecode for one SLOAD loop iteration."""
-    return (
-        Op.JUMPDEST
-        + Op.DUP1
-        + Op.ISZERO
-        + Op.PUSH2(0)
-        + Op.JUMPI
-        + Op.DUP2
-        + Op.SLOAD
-        + Op.POP
-        + Op.SWAP1
-        + Op.PUSH1(0x01)
-        + Op.ADD
-        + Op.SWAP1
-        + Op.PUSH1(0x01)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.PUSH2(0)
+        + Op.PUSH2(loop_start)
         + Op.JUMP
     )
 
 
 def _extra_overhead(fork: Fork) -> int:
-    """Return cursor overhead plus the third SLOAD (COMPUTE_ITERS_SLOT)."""
+    """Return cursor overhead plus the extra SLOAD for COMPUTE_ITERS_SLOT."""
     extra_sload = Op.PUSH3(COMPUTE_ITERS_SLOT) + Op.SLOAD
     return cursor_overhead_gas(fork) + extra_sload.gas_cost(fork)
 
 
 def create_compute_then_sload_contract() -> Bytecode:
     """
-    Create contract with compute phase then SLOAD phase via cursor.
+    Create contract with compute phase then SLOAD phase.
 
     1. cursor         = SLOAD(CURSOR_SLOT)
     2. sload_count    = SLOAD(ITEMS_PER_TX_SLOT)
@@ -100,73 +88,46 @@ def create_compute_then_sload_contract() -> Bytecode:
     5. SLOAD loop:    SLOAD(cursor + i) for i in 0..sload_count-1
     6. SSTORE(CURSOR_SLOT, cursor + sload_count)
     """
-    compute_loop_start = 17
-    compute_end = 40
-    sload_loop_start = 45
-    sload_end = 68
-
-    code = (
-        # 1-3. Read cursor, sload_count, compute_iters
-        Op.PUSH3(CURSOR_SLOT)
-        + Op.SLOAD  # stack: [cursor]
-        + Op.PUSH3(ITEMS_PER_TX_SLOT)
-        + Op.SLOAD  # stack: [sload_count, cursor]
+    # 1-3. Read cursor, sload_count, compute_iters
+    # stack: [compute_iters, sload_count, cursor]
+    setup = (
+        cursor_read()
         + Op.PUSH3(COMPUTE_ITERS_SLOT)
-        + Op.SLOAD  # stack: [compute_iters, sload_count, cursor]
+        + Op.SLOAD
         # 4. Compute loop: accumulator = 1
         + Op.PUSH1(0x01)  # stack: [acc, iters, sload_count, cursor]
-        + Op.JUMPDEST  # compute_loop_start
-        + Op.SWAP1
-        + Op.DUP1
-        + Op.ISZERO
-        + Op.PUSH2(compute_end)
-        + Op.JUMPI
-        + Op.PUSH1(0x01)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.SWAP1
-        + Op.PUSH1(0x03)
-        + Op.MUL
-        + Op.PUSH1(0x07)
-        + Op.ADD
-        + Op.PUSH2(compute_loop_start)
-        + Op.JUMP
-        + Op.JUMPDEST  # compute_end
+    )
+
+    # Compute loop
+    compute_start = len(setup)
+    compute_end = compute_start + len(_compute_loop_iteration())
+    compute_loop = _compute_loop_iteration(compute_start, compute_end)
+
+    # Transition: drop compute results, prepare SLOAD loop
+    transition = (
+        Op.JUMPDEST  # compute_end
         + Op.POP  # drop iters=0
         + Op.POP  # drop accumulator
         # stack: [sload_count, cursor]
-        # 5. SLOAD loop: current = cursor
         + Op.DUP2  # stack: [current, sload_count, cursor]
         + Op.SWAP1  # stack: [sload_count, current, cursor]
-        + Op.JUMPDEST  # sload_loop_start
-        + Op.DUP1
-        + Op.ISZERO
-        + Op.PUSH2(sload_end)
-        + Op.JUMPI
-        + Op.DUP2
-        + Op.SLOAD
-        + Op.POP
-        # current += 1
-        + Op.SWAP1
-        + Op.PUSH1(0x01)
-        + Op.ADD
-        + Op.SWAP1
-        # count -= 1
-        + Op.PUSH1(0x01)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.PUSH2(sload_loop_start)
-        + Op.JUMP
-        + Op.JUMPDEST  # sload_end
+    )
+
+    # SLOAD loop
+    sload_start = compute_end + len(transition)
+    sload_end = sload_start + len(sload_loop_iteration())
+    sload_loop = sload_loop_iteration(sload_start, sload_end)
+
+    teardown = (
+        Op.JUMPDEST  # sload_end
         # stack: [0, cursor_end, cursor_start]
         + Op.POP
         # 6. Write updated cursor
-        + Op.PUSH3(CURSOR_SLOT)
-        + Op.SSTORE  # SSTORE(CURSOR_SLOT, cursor_end)
+        + cursor_write()  # SSTORE(CURSOR_SLOT, cursor_end)
         + Op.POP  # drop cursor_start
         + Op.STOP
     )
-    return code
+    return setup + compute_loop + transition + sload_loop + teardown
 
 
 def _compute_params(
@@ -187,7 +148,7 @@ def _compute_params(
     sload_gas = available - compute_gas
 
     gas_per_compute = _compute_loop_iteration().gas_cost(fork)
-    gas_per_sload = _sload_loop_iteration().gas_cost(fork)
+    gas_per_sload = sload_loop_iteration().gas_cost(fork)
     compute_per_tx = compute_gas // gas_per_compute
     sload_per_tx = sload_gas // gas_per_sload
     total = num_txs * sload_per_tx
@@ -206,8 +167,8 @@ def test_bal_compute_then_sload(
     compute_percent: int,
 ) -> None:
     """Test BAL with computation phase followed by SLOAD phase."""
-    num_txs, sload_per_tx, compute_per_tx, total, max_gas = _compute_params(
-        fork, compute_percent
+    num_txs, sload_per_tx, compute_per_tx, total, max_gas = (
+        _compute_params(fork, compute_percent)
     )
     storage = Storage(
         {i: i + 1 for i in range(total)}  # type: ignore

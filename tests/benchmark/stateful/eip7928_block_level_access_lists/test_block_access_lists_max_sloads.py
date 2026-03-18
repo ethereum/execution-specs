@@ -25,7 +25,10 @@ from .helpers import (
     ITEMS_PER_TX_SLOT,
     build_contract_expectation,
     calculate_benchmark_params,
+    cursor_read,
+    cursor_write,
     run_bal_benchmark,
+    sload_loop_iteration,
 )
 from .spec import ref_spec_7928
 
@@ -33,29 +36,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
-
-
-def _sload_loop_iteration() -> Bytecode:
-    """Return bytecode for one SLOAD loop iteration."""
-    return (
-        Op.JUMPDEST
-        + Op.DUP1
-        + Op.ISZERO
-        + Op.PUSH2(0)
-        + Op.JUMPI
-        + Op.DUP2
-        + Op.SLOAD
-        + Op.POP
-        + Op.SWAP1
-        + Op.PUSH1(0x01)
-        + Op.ADD
-        + Op.SWAP1
-        + Op.PUSH1(0x01)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.PUSH2(0)
-        + Op.JUMP
-    )
 
 
 def create_sload_loop_contract() -> Bytecode:
@@ -67,48 +47,20 @@ def create_sload_loop_contract() -> Bytecode:
     3. Loop: SLOAD(cursor + i) for i in 0..count-1
     4. SSTORE(CURSOR_SLOT, cursor + count)
     """
-    loop_start = 12
-    loop_end = 35
-    code = (
-        # 1. Read cursor and count
-        Op.PUSH3(CURSOR_SLOT)
-        + Op.SLOAD  # stack: [cursor]
-        + Op.PUSH3(ITEMS_PER_TX_SLOT)
-        + Op.SLOAD  # stack: [count, cursor]
-        # 2. current = cursor (DUP cursor as loop variable)
-        + Op.DUP2  # stack: [cursor_copy, count, cursor]
-        + Op.SWAP1  # stack: [count, cursor_copy, cursor]
-        # Loop: while count > 0
-        + Op.JUMPDEST  # loop_start
-        + Op.DUP1
-        + Op.ISZERO
-        + Op.PUSH2(loop_end)
-        + Op.JUMPI
-        # SLOAD(current)
-        + Op.DUP2
-        + Op.SLOAD
-        + Op.POP
-        # current += 1
-        + Op.SWAP1
-        + Op.PUSH1(0x01)
-        + Op.ADD
-        + Op.SWAP1
-        # count -= 1
-        + Op.PUSH1(0x01)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.PUSH2(loop_start)
-        + Op.JUMP
-        + Op.JUMPDEST  # loop_end
+    # stack after setup: [count, cursor_copy, cursor]
+    setup = cursor_read() + Op.DUP2 + Op.SWAP1
+    loop_start = len(setup)
+    loop_end = loop_start + len(sload_loop_iteration())
+    loop = sload_loop_iteration(loop_start, loop_end)
+    teardown = (
+        Op.JUMPDEST  # loop_end
         # stack: [0, cursor_end, cursor_start]
         + Op.POP  # drop count=0
-        # SSTORE(CURSOR_SLOT, cursor_end)
-        + Op.PUSH3(CURSOR_SLOT)
-        + Op.SSTORE
+        + cursor_write()  # SSTORE(CURSOR_SLOT, cursor_end)
         + Op.POP  # drop cursor_start
         + Op.STOP
     )
-    return code
+    return setup + loop + teardown
 
 
 def test_bal_max_sloads(
@@ -117,7 +69,7 @@ def test_bal_max_sloads(
     fork: Fork,
 ) -> None:
     """Test BAL with maximum sequential SLOADs via cursor."""
-    gas_per_iteration = _sload_loop_iteration().gas_cost(fork)
+    gas_per_iteration = sload_loop_iteration().gas_cost(fork)
     num_txs, items_per_tx, total, max_gas = calculate_benchmark_params(
         fork, gas_per_iteration
     )

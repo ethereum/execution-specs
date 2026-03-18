@@ -41,24 +41,61 @@ ITEMS_PER_TX_SLOT = 0x100001
 COMPUTE_ITERS_SLOT = 0x100002
 
 
-def cursor_overhead_gas(fork: Fork) -> int:
-    """
-    Return gas overhead per TX for cursor reads + write.
-
-    Two cold SLOADs (CURSOR_SLOT, ITEMS_PER_TX_SLOT) + one cold SSTORE
-    (CURSOR_SLOT writeback) + associated PUSH/POP/STOP.
-    """
-    cursor_ops = (
+def cursor_read() -> Bytecode:
+    """Read CURSOR_SLOT and ITEMS_PER_TX_SLOT from storage."""
+    return (
         Op.PUSH3(CURSOR_SLOT)
         + Op.SLOAD
         + Op.PUSH3(ITEMS_PER_TX_SLOT)
         + Op.SLOAD
-        + Op.PUSH3(CURSOR_SLOT)
-        + Op.SSTORE
-        + Op.POP
-        + Op.STOP
     )
-    return cursor_ops.gas_cost(fork)
+
+
+def cursor_write() -> Bytecode:
+    """Write updated cursor back to CURSOR_SLOT."""
+    return Op.PUSH3(CURSOR_SLOT) + Op.SSTORE
+
+
+def cursor_overhead_gas(fork: Fork) -> int:
+    """
+    Return gas overhead per TX for cursor reads + write.
+
+    Two cold SLOADs (CURSOR_SLOT, ITEMS_PER_TX_SLOT) + one cold
+    SSTORE (CURSOR_SLOT writeback) + associated POP/STOP.
+    """
+    overhead = cursor_read() + cursor_write() + Op.POP + Op.STOP
+    return overhead.gas_cost(fork)
+
+
+def sload_loop_iteration(
+    loop_start: int = 0,
+    loop_end: int = 0,
+) -> Bytecode:
+    """
+    Return bytecode for one sequential-SLOAD loop iteration.
+
+    Pass loop_start/loop_end for contract assembly; omit them
+    (defaults to 0) when calling ``.gas_cost(fork)``.
+    """
+    return (
+        Op.JUMPDEST
+        + Op.DUP1
+        + Op.ISZERO
+        + Op.PUSH2(loop_end)
+        + Op.JUMPI
+        + Op.DUP2
+        + Op.SLOAD
+        + Op.POP
+        + Op.SWAP1
+        + Op.PUSH1(0x01)
+        + Op.ADD
+        + Op.SWAP1
+        + Op.PUSH1(0x01)
+        + Op.SWAP1
+        + Op.SUB
+        + Op.PUSH2(loop_start)
+        + Op.JUMP
+    )
 
 
 def calculate_benchmark_params(
