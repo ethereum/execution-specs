@@ -820,7 +820,7 @@ def test_call_pre_charged_costs_excluded_from_forwarding(
     child = pre.deploy_contract(child_code)
 
     child_regular_gas = (
-        2 * gas_costs.GAS_VERY_LOW + gas_costs.GAS_COLD_STORAGE_WRITE
+        2 * gas_costs.GAS_VERY_LOW + gas_costs.GAS_STORAGE_UPDATE
     )
 
     # Memory expansion triggered by ret_size on the wrapper's CALL
