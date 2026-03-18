@@ -167,8 +167,8 @@ def test_bal_compute_then_sload(
     compute_percent: int,
 ) -> None:
     """Test BAL with computation phase followed by SLOAD phase."""
-    num_txs, sload_per_tx, compute_per_tx, total, max_gas = (
-        _compute_params(fork, compute_percent)
+    num_txs, sload_per_tx, compute_per_tx, total, max_gas = _compute_params(
+        fork, compute_percent
     )
     storage = Storage(
         {i: i + 1 for i in range(total)}  # type: ignore

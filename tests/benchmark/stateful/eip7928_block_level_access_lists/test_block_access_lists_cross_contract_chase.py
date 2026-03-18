@@ -120,9 +120,7 @@ def _calculate_params(block_gas_limit: int, fork: Fork) -> tuple[int, int]:
     num_transactions = block_gas_limit // max_tx_gas
     dispatcher_cost = create_dispatcher_contract().gas_cost(fork)
     chain_hop_cost = create_chain_contract().gas_cost(fork)
-    available_gas = (
-        max_tx_gas - gas_costs.G_TRANSACTION - dispatcher_cost
-    )
+    available_gas = max_tx_gas - gas_costs.G_TRANSACTION - dispatcher_cost
     chain_by_gas = available_gas // chain_hop_cost
     chain_length = min(chain_by_gas, MAX_CALL_DEPTH)
     return num_transactions, chain_length
