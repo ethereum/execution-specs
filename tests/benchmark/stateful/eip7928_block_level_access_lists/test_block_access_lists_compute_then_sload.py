@@ -24,10 +24,10 @@ from execution_testing import (
 
 from .helpers import (
     COMPUTE_ITERS_SLOT,
-    CURSOR_OVERHEAD_GAS,
     CURSOR_SLOT,
     ITEMS_PER_TX_SLOT,
     build_contract_expectation,
+    cursor_overhead_gas,
     run_bal_benchmark,
 )
 from .spec import ref_spec_7928
@@ -37,11 +37,56 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-GAS_PER_COMPUTE_ITERATION = 60
-GAS_PER_SLOAD_ITERATION = 2_200
 
-# Extra overhead for the third SLOAD (COMPUTE_ITERS_SLOT).
-_EXTRA_OVERHEAD = CURSOR_OVERHEAD_GAS + 2_100
+def _compute_loop_iteration() -> Bytecode:
+    """Return bytecode for one compute loop iteration."""
+    return (
+        Op.JUMPDEST
+        + Op.SWAP1
+        + Op.DUP1
+        + Op.ISZERO
+        + Op.PUSH2(0)
+        + Op.JUMPI
+        + Op.PUSH1(0x01)
+        + Op.SWAP1
+        + Op.SUB
+        + Op.SWAP1
+        + Op.PUSH1(0x03)
+        + Op.MUL
+        + Op.PUSH1(0x07)
+        + Op.ADD
+        + Op.PUSH2(0)
+        + Op.JUMP
+    )
+
+
+def _sload_loop_iteration() -> Bytecode:
+    """Return bytecode for one SLOAD loop iteration."""
+    return (
+        Op.JUMPDEST
+        + Op.DUP1
+        + Op.ISZERO
+        + Op.PUSH2(0)
+        + Op.JUMPI
+        + Op.DUP2
+        + Op.SLOAD
+        + Op.POP
+        + Op.SWAP1
+        + Op.PUSH1(0x01)
+        + Op.ADD
+        + Op.SWAP1
+        + Op.PUSH1(0x01)
+        + Op.SWAP1
+        + Op.SUB
+        + Op.PUSH2(0)
+        + Op.JUMP
+    )
+
+
+def _extra_overhead(fork: Fork) -> int:
+    """Return cursor overhead plus the third SLOAD (COMPUTE_ITERS_SLOT)."""
+    extra_sload = Op.PUSH3(COMPUTE_ITERS_SLOT) + Op.SLOAD
+    return cursor_overhead_gas(fork) + extra_sload.gas_cost(fork)
 
 
 def create_compute_then_sload_contract() -> Bytecode:
@@ -136,12 +181,15 @@ def _compute_params(
     block_gas_limit = int(Environment().gas_limit)
     num_txs = block_gas_limit // max_tx_gas
 
-    available = max_tx_gas - gas_costs.G_TRANSACTION - _EXTRA_OVERHEAD
+    overhead = _extra_overhead(fork)
+    available = max_tx_gas - gas_costs.G_TRANSACTION - overhead
     compute_gas = int(available * compute_percent / 100)
     sload_gas = available - compute_gas
 
-    compute_per_tx = compute_gas // GAS_PER_COMPUTE_ITERATION
-    sload_per_tx = sload_gas // GAS_PER_SLOAD_ITERATION
+    gas_per_compute = _compute_loop_iteration().gas_cost(fork)
+    gas_per_sload = _sload_loop_iteration().gas_cost(fork)
+    compute_per_tx = compute_gas // gas_per_compute
+    sload_per_tx = sload_gas // gas_per_sload
     total = num_txs * sload_per_tx
     return num_txs, sload_per_tx, compute_per_tx, total, max_tx_gas
 
@@ -203,7 +251,8 @@ def test_bal_compute_then_sload_simple(
 
     gas_budget = 400_000
     compute_gas = int(gas_budget * compute_percent / 100)
-    compute_iters = compute_gas // GAS_PER_COMPUTE_ITERATION
+    gas_per_compute = _compute_loop_iteration().gas_cost(fork)
+    compute_iters = compute_gas // gas_per_compute
 
     storage = Storage(
         {i: i + 1 for i in range(total_slots)}  # type: ignore

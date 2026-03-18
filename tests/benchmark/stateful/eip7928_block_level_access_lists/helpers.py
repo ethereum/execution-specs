@@ -29,6 +29,7 @@ from execution_testing import (
     Bytecode,
     Environment,
     Fork,
+    Op,
     Storage,
     Transaction,
 )
@@ -39,15 +40,31 @@ CURSOR_SLOT = 0x100000
 ITEMS_PER_TX_SLOT = 0x100001
 COMPUTE_ITERS_SLOT = 0x100002
 
-# Extra gas overhead per TX for cursor reads + write.
-# Two cold SLOADs (2 × 2 100) + one cold SSTORE (≤ 22 100).
-CURSOR_OVERHEAD_GAS = 25_000
+
+def cursor_overhead_gas(fork: Fork) -> int:
+    """
+    Return gas overhead per TX for cursor reads + write.
+
+    Two cold SLOADs (CURSOR_SLOT, ITEMS_PER_TX_SLOT) + one cold SSTORE
+    (CURSOR_SLOT writeback) + associated PUSH/POP/STOP.
+    """
+    cursor_ops = (
+        Op.PUSH3(CURSOR_SLOT)
+        + Op.SLOAD
+        + Op.PUSH3(ITEMS_PER_TX_SLOT)
+        + Op.SLOAD
+        + Op.PUSH3(CURSOR_SLOT)
+        + Op.SSTORE
+        + Op.POP
+        + Op.STOP
+    )
+    return cursor_ops.gas_cost(fork)
 
 
 def calculate_benchmark_params(
     fork: Fork,
     gas_per_item: int,
-    extra_overhead: int = CURSOR_OVERHEAD_GAS,
+    extra_overhead: int | None = None,
 ) -> tuple[int, int, int, int]:
     """Return (num_transactions, items_per_tx, total_items, max_tx_gas)."""
     gas_costs = fork.gas_costs()
@@ -56,6 +73,9 @@ def calculate_benchmark_params(
 
     env = Environment()
     block_gas_limit = int(env.gas_limit)
+
+    if extra_overhead is None:
+        extra_overhead = cursor_overhead_gas(fork)
 
     num_transactions = block_gas_limit // max_tx_gas
     available_gas = max_tx_gas - gas_costs.G_TRANSACTION - extra_overhead

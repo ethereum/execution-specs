@@ -42,7 +42,6 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-GAS_PER_CALL_HOP = 50_000
 MAX_CALL_DEPTH = 100
 
 
@@ -119,9 +118,12 @@ def _calculate_params(block_gas_limit: int, fork: Fork) -> tuple[int, int]:
     assert max_tx_gas is not None
 
     num_transactions = block_gas_limit // max_tx_gas
-    loop_overhead = gas_costs.G_TRANSACTION + 500
-    available_gas = max_tx_gas - loop_overhead
-    chain_by_gas = available_gas // GAS_PER_CALL_HOP
+    dispatcher_cost = create_dispatcher_contract().gas_cost(fork)
+    chain_hop_cost = create_chain_contract().gas_cost(fork)
+    available_gas = (
+        max_tx_gas - gas_costs.G_TRANSACTION - dispatcher_cost
+    )
+    chain_by_gas = available_gas // chain_hop_cost
     chain_length = min(chain_by_gas, MAX_CALL_DEPTH)
     return num_transactions, chain_length
 

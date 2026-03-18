@@ -31,7 +31,27 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-GAS_PER_CHASE_ITERATION = 2_200
+
+def _chase_loop_iteration() -> Bytecode:
+    """Return bytecode for one pointer-chase loop iteration."""
+    return (
+        Op.JUMPDEST
+        + Op.DUP2
+        + Op.ISZERO
+        + Op.PUSH2(0)
+        + Op.JUMPI
+        + Op.DUP1
+        + Op.SLOAD
+        + Op.SWAP1
+        + Op.POP
+        + Op.SWAP1
+        + Op.PUSH1(0x01)
+        + Op.SWAP1
+        + Op.SUB
+        + Op.SWAP1
+        + Op.PUSH2(0)
+        + Op.JUMP
+    )
 
 
 def create_pointer_chase_contract() -> Bytecode:
@@ -87,8 +107,9 @@ def test_bal_max_pointer_chase(
     fork: Fork,
 ) -> None:
     """Test BAL with maximum dependent pointer-chasing SLOADs."""
+    gas_per_iteration = _chase_loop_iteration().gas_cost(fork)
     num_txs, items_per_tx, total, max_gas = calculate_benchmark_params(
-        fork, GAS_PER_CHASE_ITERATION
+        fork, gas_per_iteration
     )
     storage = Storage(
         {i: i + 1 for i in range(total)}  # type: ignore

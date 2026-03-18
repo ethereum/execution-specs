@@ -33,10 +33,31 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
-GAS_PER_BALANCE_ITERATION = 2_700
-
 # Start addresses above precompiles and system contracts.
 BASE_ADDR = 0x10000
+
+
+def _balance_loop_iteration() -> Bytecode:
+    """Return bytecode for one BALANCE loop iteration."""
+    return (
+        Op.JUMPDEST
+        + Op.DUP1
+        + Op.ISZERO
+        + Op.PUSH2(0)
+        + Op.JUMPI
+        + Op.DUP2
+        + Op.BALANCE
+        + Op.POP
+        + Op.SWAP1
+        + Op.PUSH1(0x01)
+        + Op.ADD
+        + Op.SWAP1
+        + Op.PUSH1(0x01)
+        + Op.SWAP1
+        + Op.SUB
+        + Op.PUSH2(0)
+        + Op.JUMP
+    )
 
 
 def create_balance_loop_contract() -> Bytecode:
@@ -103,8 +124,9 @@ def test_bal_max_account_access(
     fork: Fork,
 ) -> None:
     """Test BAL with maximum unique account accesses via BALANCE."""
+    gas_per_iteration = _balance_loop_iteration().gas_cost(fork)
     num_txs, items_per_tx, total, max_gas = calculate_benchmark_params(
-        fork, GAS_PER_BALANCE_ITERATION
+        fork, gas_per_iteration
     )
     storage = Storage({CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx})
     extra = {
