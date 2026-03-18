@@ -1,5 +1,6 @@
 """Fixtures for the EIP-7002 withdrawal tests."""
 
+import copy
 from itertools import zip_longest
 from typing import List
 
@@ -92,6 +93,9 @@ def blocks(
 ) -> List[Block]:
     """Return the list of blocks that should be included in the test."""
     if fork >= Amsterdam:
+        # Deep copy to avoid mutating shared pytest parameter objects, which
+        # compounds across fixture format runs (--generate-all-formats).
+        blocks_withdrawal_requests = copy.deepcopy(blocks_withdrawal_requests)
         gas_costs = fork.gas_costs()
         for block_requests in blocks_withdrawal_requests:
             for r in block_requests:
