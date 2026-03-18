@@ -697,7 +697,7 @@ def test_alt_bn128_uncachable(
         calldata = Bytes(
             _generate_g1_point(seed) + _generate_g1_point(seed + 1000)
             if scalar is None
-            else scalar.to_bytes(32, "big")
+            else _generate_g1_point(seed) + scalar.to_bytes(32, "big")
         )
 
         intrinsic = intrinsic_gas_calculator(calldata=calldata)
