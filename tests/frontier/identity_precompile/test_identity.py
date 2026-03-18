@@ -113,7 +113,7 @@ from .common import CallArgs, generate_identity_call_bytecode
         ),
     ],
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_call_identity_precompile(
     state_test: StateTestFiller,
     pre: Alloc,

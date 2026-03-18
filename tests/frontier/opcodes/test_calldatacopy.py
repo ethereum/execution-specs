@@ -154,7 +154,7 @@ from execution_testing import (
         "sec",
     ],
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_calldatacopy(
     state_test: StateTestFiller,
     code: Bytecode,

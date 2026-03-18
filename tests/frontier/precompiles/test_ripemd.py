@@ -141,7 +141,7 @@ from execution_testing.vm import Opcodes as Op
     ],
 )
 @pytest.mark.parametrize("oog", [True, False])
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_precompiles(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -75,7 +75,7 @@ pytestmark = [pytest.mark.valid_at("Prague"), pytest.mark.mainnet]
         ),
     ],
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_eip_2537(
     state_test: StateTestFiller,
     pre: Alloc,

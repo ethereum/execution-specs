@@ -607,7 +607,7 @@ class ZeroAmountTestCases(Enum):  # noqa: D101
     list(ZeroAmountTestCases),
     ids=[case.value for case in ZeroAmountTestCases],
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_zero_amount(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

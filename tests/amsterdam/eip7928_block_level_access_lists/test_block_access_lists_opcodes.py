@@ -538,7 +538,7 @@ def test_bal_call_no_delegation_and_oog_before_target_access(
 @pytest.mark.parametrize(
     "memory_expansion", [False, True], ids=["no_memory", "with_memory"]
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_bal_call_no_delegation_oog_after_target_access(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

@@ -392,7 +392,7 @@ def test_modexp_gas_usage_contract_wrapper(
 @EIPChecklist.Precompile.Test.CallContexts.TxEntry()
 @EIPChecklist.Precompile.Test.ValueTransfer.NoFee()
 @pytest.mark.valid_from("Berlin")
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_modexp_used_in_transaction_entry_points(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -786,7 +786,7 @@ def create_modexp_variable_gas_test_cases() -> Generator:
 @EIPChecklist.Precompile.Test.InputLengths.Zero()
 @EIPChecklist.GasCostChanges.Test.GasUpdatesMeasurement()
 @pytest.mark.valid_from("Berlin")
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_modexp_variable_gas_cost(
     state_test: StateTestFiller,
     precompile_gas: int,

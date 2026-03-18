@@ -305,7 +305,7 @@ def test_valid(
         "https://github.com/ethereum/execution-specs/pull/2477",
     ],
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_invalid(
     state_test: StateTestFiller,
     pre: Alloc,

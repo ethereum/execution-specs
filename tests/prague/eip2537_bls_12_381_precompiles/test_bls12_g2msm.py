@@ -254,7 +254,7 @@ def test_valid(
     "precompile_gas_modifier", [100_000], ids=[""]
 )  # Add gas so that won't be the cause of failure
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_invalid(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -293,7 +293,7 @@ def test_invalid(
         ),
     ],
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_call_types(
     state_test: StateTestFiller,
     pre: Alloc,

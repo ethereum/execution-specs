@@ -218,7 +218,7 @@ pytestmark = [
         ),
     ],
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_valid(
     state_test: StateTestFiller,
     pre: Alloc,

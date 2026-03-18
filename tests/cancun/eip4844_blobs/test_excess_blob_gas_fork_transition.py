@@ -453,7 +453,7 @@ def test_invalid_post_fork_block_without_blob_fields(
         ),
     ],
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_fork_transition_excess_blob_gas_at_blob_genesis(
     blockchain_test: BlockchainTestFiller,
     genesis_environment: Environment,

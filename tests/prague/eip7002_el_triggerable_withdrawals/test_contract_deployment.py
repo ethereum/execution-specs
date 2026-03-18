@@ -25,7 +25,7 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_7002.git_path
 REFERENCE_SPEC_VERSION = ref_spec_7002.version
 
 
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 @generate_system_contract_deploy_test(
     fork=Prague,
     tx_json_path=Path(realpath(__file__)).parent / "contract_deploy_tx.json",

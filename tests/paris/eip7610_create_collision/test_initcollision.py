@@ -61,7 +61,7 @@ pytestmark = [
 
 
 @pytest.mark.with_all_contract_creating_tx_types
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_init_collision_create_tx(
     state_test: StateTestFiller,
     pre: Alloc,

@@ -353,7 +353,7 @@ def test_valid_inputs(
 )
 @pytest.mark.parametrize("result", [Result.FAILURE])
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_invalid_inputs(
     state_test: StateTestFiller,
     pre: Alloc,

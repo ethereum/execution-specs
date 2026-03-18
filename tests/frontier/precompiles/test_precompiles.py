@@ -57,7 +57,7 @@ def precompile_addresses(fork: Fork) -> Iterator[Tuple[Address, bool]]:
 @pytest.mark.parametrize_by_fork(
     "address,precompile_exists", precompile_addresses
 )
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_precompiles(
     state_test: StateTestFiller,
     address: Address,

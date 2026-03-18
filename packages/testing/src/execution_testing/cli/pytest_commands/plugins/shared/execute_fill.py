@@ -199,8 +199,8 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "json_loader: tests forming a minimized test set that is used by "
-        "tests/json_loader/",
+        "eels_base_coverage: Minimized subset selected to preserve high "
+        "EELS line-coverage parity.",
     )
 
 

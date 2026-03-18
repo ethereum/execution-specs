@@ -365,7 +365,7 @@ def test_clz_fork_transition(
 @pytest.mark.parametrize("valid_jump", [True, False])
 @pytest.mark.parametrize("jumpi_condition", [True, False])
 @pytest.mark.parametrize("bits", [0, 16, 64, 128, 255])
-@pytest.mark.json_loader
+@pytest.mark.eels_base_coverage
 def test_clz_jump_operation(
     state_test: StateTestFiller,
     pre: Alloc,
