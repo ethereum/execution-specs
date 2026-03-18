@@ -211,6 +211,7 @@ test = [
     "requests-cache>=1.2.1,<2",
     "libcst>=1.8,<2",
     "ethereum-execution-testing",
+    "pytest-split>=0.11.0",
 ]
 lint = [
     "codespell==2.4.1",
