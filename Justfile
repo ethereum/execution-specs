@@ -17,15 +17,43 @@ fix:
     uv run ruff format
     uv run ruff check --fix
 
-# Run spelling, lint, typechecking and dependency checks
+# Run all static checks (spellcheck, lint, format, mypy, ...)
 [group('static analysis')]
-static:
+static: spellcheck lint format-check typecheck ethereum-spec-lint lock-check actionlint
+
+# Check spelling
+[group('static analysis')]
+spellcheck:
     uv run codespell
+
+# Lint with ruff
+[group('static analysis')]
+lint:
     uv run ruff check
+
+# Check formatting with ruff
+[group('static analysis')]
+format-check:
     uv run ruff format --check
+
+# Run type checking with mypy
+[group('static analysis')]
+typecheck:
     uv run mypy
+
+# Check EELS import isolation
+[group('static analysis')]
+ethereum-spec-lint:
     uv run ethereum-spec-lint
+
+# Verify uv.lock is up to date
+[group('static analysis')]
+lock-check:
     uv lock --check
+
+# Lint GitHub Actions workflows
+[group('static analysis')]
+actionlint:
     uv run actionlint -pyflakes pyflakes -shellcheck "shellcheck -S warning"
 
 # --- Fill Tests ---
@@ -119,6 +147,7 @@ tests_pytest_pypy3 *args:
 
 # Run benchmark framework unit tests (with Python)
 [group('unit tests')]
+[group('benchmarks')]
 tests_benchmark_pytest_py3 *args:
     uv run pytest \
         --basetemp="{{ output_dir }}/tmp/pytest" \
