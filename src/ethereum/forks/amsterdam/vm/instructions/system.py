@@ -470,7 +470,7 @@ def call(evm: Evm) -> None:
         value,
         gas,
         Uint(evm.gas_left),
-        extend_memory.cost,
+        memory_cost=Uint(0),
         extra_gas=Uint(0),
     )
     charge_gas(evm, message_call_gas.cost)
