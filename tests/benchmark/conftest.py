@@ -45,7 +45,13 @@ def pytest_collection_modifyitems(config: Any, items: Any) -> None:
 
     # If user explicitly requested benchmarks via -m, keep them
     marker_expr = config.getoption("-m", default="")
-    if "benchmark" in marker_expr or "repricing" in marker_expr:
+    benchmark_requested = (
+        "benchmark" in marker_expr and "not benchmark" not in marker_expr
+    )
+    repricing_requested = (
+        "repricing" in marker_expr and "not repricing" not in marker_expr
+    )
+    if benchmark_requested or repricing_requested:
         return
 
     # If user targeted benchmark dir directly (all items are

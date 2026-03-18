@@ -995,6 +995,53 @@ def test_benchmark_excluded_from_default_fill(
     )
 
 
+@pytest.mark.parametrize(
+    "marker_expr",
+    [
+        pytest.param("not benchmark", id="not-benchmark"),
+        pytest.param("not repricing", id="not-repricing"),
+    ],
+)
+def test_benchmark_not_collected_with_negated_marker(
+    testdir: pytest.Testdir,
+    marker_expr: str,
+) -> None:
+    """Verify negated marker expressions exclude benchmark tests."""
+    tests_dir = testdir.mkdir("tests")
+
+    paris_tests_dir = tests_dir.mkdir("paris")
+    paris_tests_dir.join("test_module_paris.py").write(test_module_paris)
+
+    benchmark_tests_dir = tests_dir.mkdir("benchmark")
+    benchmark_tests_dir.join("conftest.py").write(
+        BENCHMARK_CONFTEST_PATH.read_text()
+    )
+    benchmark_tests_dir.join("test_module_benchmark.py").write(
+        test_module_benchmark
+    )
+
+    testdir.copy_example(
+        name=(
+            "src/execution_testing/cli/pytest_commands"
+            "/pytest_ini_files/pytest-fill.ini"
+        )
+    )
+    args = [
+        "-c",
+        "pytest-fill.ini",
+        "--collect-only",
+        "-q",
+        "--no-html",
+        "-m",
+        marker_expr,
+    ]
+
+    result = testdir.runpytest(*args)
+    result.stdout.fnmatch_lines(["*test_paris_one*"])
+    result.stdout.fnmatch_lines(["*test_paris_two*"])
+    result.stdout.no_fnmatch_line("*test_benchmark_one*")
+
+
 def test_benchmark_collected_when_targeted_directly(
     testdir: pytest.Testdir,
 ) -> None:
@@ -1213,6 +1260,56 @@ def test_execute_benchmark_excluded_from_default_collection(
         "1",
         "-m",
         "not benchmark",
+    ]
+
+    result = testdir.runpytest(*args)
+    result.stdout.fnmatch_lines(["*test_paris_one*"])
+    result.stdout.fnmatch_lines(["*test_paris_two*"])
+    result.stdout.no_fnmatch_line("*test_benchmark_one*")
+
+
+@pytest.mark.parametrize(
+    "marker_expr",
+    [
+        pytest.param("not benchmark", id="not-benchmark"),
+        pytest.param("not repricing", id="not-repricing"),
+    ],
+)
+@pytest.mark.usefixtures("_mock_execute_rpc")
+def test_execute_benchmark_not_collected_with_negated_marker(
+    testdir: pytest.Testdir,
+    marker_expr: str,
+) -> None:
+    """Verify negated marker expressions exclude benchmark tests
+    in execute mode."""
+    tests_dir = testdir.mkdir("tests")
+
+    paris_tests_dir = tests_dir.mkdir("paris")
+    paris_tests_dir.join("test_module_paris.py").write(test_module_paris)
+
+    benchmark_tests_dir = tests_dir.mkdir("benchmark")
+    benchmark_tests_dir.join("conftest.py").write(
+        BENCHMARK_CONFTEST_PATH.read_text()
+    )
+    benchmark_tests_dir.join("test_module_benchmark.py").write(
+        test_module_benchmark
+    )
+
+    testdir.copy_example(
+        name=(
+            "src/execution_testing/cli/pytest_commands"
+            "/pytest_ini_files/pytest-execute.ini"
+        )
+    )
+    args = [
+        "-c",
+        "pytest-execute.ini",
+        "--collect-only",
+        "-q",
+        "--chain-id",
+        "1",
+        "-m",
+        marker_expr,
     ]
 
     result = testdir.runpytest(*args)
