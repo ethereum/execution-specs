@@ -20,6 +20,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionException,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -129,3 +130,63 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
 
     post = {contract: Account(storage=storage)}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "exceeds_cap",
+    [
+        pytest.param(False, id="at_cap"),
+        pytest.param(True, id="exceeds_cap", marks=pytest.mark.exception_test),
+    ],
+)
+@pytest.mark.valid_from("Amsterdam")
+def test_calldata_floor_exceeding_tx_gas_limit_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    exceeds_cap: bool,
+) -> None:
+    """
+    Verify calldata floor > TX_MAX_GAS_LIMIT rejects the transaction.
+
+    When the EIP-7623 calldata floor cost exceeds the EIP-7825 transaction
+    gas limit cap, the transaction must be rejected at validation —
+    even though the regular intrinsic gas may be within the cap.
+
+    at_cap: calldata floor exactly equals the cap — transaction accepted.
+    exceeds_cap: calldata floor exceeds the cap by 1 — transaction rejected.
+    """
+    gas_costs = fork.gas_costs()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+
+    # calldata_floor = tokens * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
+    # For non-zero bytes: tokens = 4 per byte.
+    # Solve: num_bytes * 4 * floor_token + GAS_TX_BASE = target
+    floor_token = gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+    tx_base = gas_costs.GAS_TX_BASE
+    tokens_per_nonzero = 4
+
+    # For at_cap: find max bytes where floor <= cap (floor division).
+    # For exceeds_cap: add 1 more byte so floor > cap.
+    max_tokens = (gas_limit_cap - tx_base) // floor_token
+    max_bytes = max_tokens // tokens_per_nonzero
+    num_bytes = max_bytes + (1 if exceeds_cap else 0)
+
+    actual_tokens = num_bytes * tokens_per_nonzero
+    actual_floor = actual_tokens * floor_token + tx_base
+
+    calldata = b"\x01" * num_bytes
+    contract = pre.deploy_contract(Op.STOP)
+
+    tx = Transaction(
+        to=contract,
+        data=calldata,
+        gas_limit=gas_limit_cap,
+        sender=pre.fund_eoa(),
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW
+        if exceeds_cap
+        else None,
+    )
+
+    post = {contract: Account(code=Op.STOP)} if not exceeds_cap else {}
+    state_test(pre=pre, post=post, tx=tx)
