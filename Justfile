@@ -11,6 +11,12 @@ evm_bin := env("EVM_BIN", "evm")
 
 # --- Static Analysis ---
 
+# Auto-fix formatting and lint issues
+[group('static analysis')]
+fix:
+    uv run ruff format
+    uv run ruff check --fix
+
 # Run spelling, lint, typechecking and dependency checks
 [group('static analysis')]
 static:
