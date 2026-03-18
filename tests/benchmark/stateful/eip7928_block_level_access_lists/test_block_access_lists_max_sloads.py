@@ -11,7 +11,6 @@ updated cursor back.
 """
 
 import pytest
-
 from execution_testing import (
     Alloc,
     BlockchainTestFiller,

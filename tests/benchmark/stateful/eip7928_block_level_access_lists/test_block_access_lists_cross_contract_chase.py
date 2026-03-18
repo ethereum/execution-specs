@@ -15,7 +15,6 @@ requiring the BAL to parallelize execution.
 """
 
 import pytest
-
 from execution_testing import (
     Account,
     Address,
@@ -113,9 +112,7 @@ def create_chain_contract() -> Bytecode:
     return code
 
 
-def _calculate_params(
-    block_gas_limit: int, fork: Fork
-) -> tuple[int, int]:
+def _calculate_params(block_gas_limit: int, fork: Fork) -> tuple[int, int]:
     """Return (num_transactions, chain_length)."""
     gas_costs = fork.gas_costs()
     max_tx_gas = fork.transaction_gas_limit_cap()
@@ -152,9 +149,7 @@ def _run_cross_contract_chase(
         for i in range(chain_length - 1):
             current = contracts[start + i]
             next_addr = contracts[start + i + 1]
-            pre[current].storage[0] = int.from_bytes(
-                Address(next_addr), "big"
-            )
+            pre[current].storage[0] = int.from_bytes(Address(next_addr), "big")
 
     # Deploy dispatcher with entry-point lookup table.
     entry_storage: dict[int, int] = {
@@ -205,9 +200,7 @@ def _run_cross_contract_chase(
     for tx_idx, sender in enumerate(senders):
         account_expectations[sender] = BalAccountExpectation(
             nonce_changes=[
-                BalNonceChange(
-                    block_access_index=tx_idx + 1, post_nonce=1
-                )
+                BalNonceChange(block_access_index=tx_idx + 1, post_nonce=1)
             ],
         )
 
@@ -242,9 +235,7 @@ def test_bal_cross_contract_chase(
     max_tx_gas = fork.transaction_gas_limit_cap()
     assert max_tx_gas is not None
 
-    num_transactions, chain_length = _calculate_params(
-        block_gas_limit, fork
-    )
+    num_transactions, chain_length = _calculate_params(block_gas_limit, fork)
     _run_cross_contract_chase(
         pre, blockchain_test, num_transactions, chain_length, max_tx_gas
     )
@@ -257,7 +248,8 @@ def test_bal_cross_contract_chase_simple(
 ) -> None:
     """Simple validation test with 10 contracts across 2 transactions."""
     _run_cross_contract_chase(
-        pre, blockchain_test,
+        pre,
+        blockchain_test,
         num_transactions=2,
         chain_length=5,
         gas_limit=500_000,

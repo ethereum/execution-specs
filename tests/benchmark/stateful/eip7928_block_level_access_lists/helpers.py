@@ -1,4 +1,5 @@
-"""Shared constants and helpers for BAL benchmark tests.
+"""
+Shared constants and helpers for BAL benchmark tests.
 
 All cursor-based BAL benchmarks follow the same pattern:
 1. Contract reads a cursor from CURSOR_SLOT to know where to start.
@@ -87,7 +88,8 @@ def build_contract_expectation(
     items_per_tx: int,
     data_slot_reads: list[int],
 ) -> BalAccountExpectation:
-    """Build BAL expectations for a cursor-based benchmark contract.
+    """
+    Build BAL expectations for a cursor-based benchmark contract.
 
     ``data_slot_reads`` should list every read-only slot beyond
     ITEMS_PER_TX_SLOT (which is auto-included).
@@ -135,9 +137,7 @@ def run_bal_benchmark(
     for tx_idx, sender in enumerate(senders):
         account_expectations[sender] = BalAccountExpectation(
             nonce_changes=[
-                BalNonceChange(
-                    block_access_index=tx_idx + 1, post_nonce=1
-                )
+                BalNonceChange(block_access_index=tx_idx + 1, post_nonce=1)
             ],
         )
     if extra_expectations:

@@ -8,7 +8,6 @@ back to CURSOR_SLOT, creating inter-transaction dependencies.
 """
 
 import pytest
-
 from execution_testing import (
     Alloc,
     BlockchainTestFiller,

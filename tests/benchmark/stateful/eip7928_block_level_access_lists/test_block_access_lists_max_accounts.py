@@ -8,7 +8,6 @@ creating inter-transaction dependencies that require the BAL.
 """
 
 import pytest
-
 from execution_testing import (
     Address,
     Alloc,
@@ -107,9 +106,7 @@ def test_bal_max_account_access(
     num_txs, items_per_tx, total, max_gas = calculate_benchmark_params(
         fork, GAS_PER_BALANCE_ITERATION
     )
-    storage = Storage(
-        {CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx}
-    )
+    storage = Storage({CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx})
     extra = {
         Address(BASE_ADDR + i): BalAccountExpectation.empty()
         for i in range(total)
@@ -138,9 +135,7 @@ def test_bal_account_access_simple(
     total_accounts = 20
     items_per_tx = 10
     num_txs = 2
-    storage = Storage(
-        {CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx}
-    )
+    storage = Storage({CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx})
     extra = {
         Address(BASE_ADDR + i): BalAccountExpectation.empty()
         for i in range(total_accounts)
