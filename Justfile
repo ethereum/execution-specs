@@ -68,7 +68,7 @@ pypy3 *args:
 
 # --- Integration Tests ---
 
-# Fill and run the spec against test fixtures
+# Fill and run EELS against the resulting test fixtures
 [group('integration tests')]
 json_loader *args:
     uv run fill \
@@ -121,7 +121,7 @@ tests_benchmark_pytest_py3 *args:
 
 # --- Benchmarks ---
 
-# Run benchmark tests with --gas-benchmark-values
+# Fill benchmark tests with --gas-benchmark-values
 [group('benchmarks')]
 benchmark-gas-values *args:
     uv run fill \
@@ -137,7 +137,7 @@ benchmark-gas-values *args:
         "$@" \
         tests/benchmark/compute
 
-# Run benchmark tests with --fixed-opcode-count 1
+# Fill benchmark tests with --fixed-opcode-count 1
 [group('benchmarks')]
 benchmark-fixed-opcode-cli *args:
     uv run fill \
@@ -172,7 +172,7 @@ benchmark-fixed-opcode-config *args:
 
 # --- Docs ---
 
-# Generate documentation for the specification code using docc
+# Generate documentation for EELS using docc
 [group('docs')]
 spec-docs:
     uv run docc --output "{{ output_dir }}/docs"
