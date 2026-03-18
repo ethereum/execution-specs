@@ -30,8 +30,8 @@ jobs:
       - name: Checkout ethereum/execution-specs
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
-      - name: Build html documentation with mkdocs via tox
-        run: tox -e mkdocs
+      - name: Build html documentation with mkdocs
+        run: just docs
 
   changelog:
     name: Validate changelog entries
@@ -40,8 +40,8 @@ jobs:
       - name: Checkout ethereum/execution-specs
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-uv
-      - name: Run changelog validation via tox
-        run: tox -e changelog
+      - name: Run changelog validation
+        run: just changelog
 
   markdownlint:
     name: Lint markdown files with markdownlint

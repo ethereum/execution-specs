@@ -1,5 +1,5 @@
 """
-CLI commands used by tox.ini.
+CLI helper commands for static checks.
 
 Contains wrappers to the external commands markdownlint-cli2 and pyspelling
 (requires aspell) that fail silently if the command is not available. The aim
@@ -20,15 +20,14 @@ from rich.console import Console
 
 
 def write_github_summary(
-    title: str, tox_env: str, error_message: str, fix_commands: list[str]
+    title: str, recipe: str, error_message: str, fix_commands: list[str]
 ) -> None:
     """
     Write a summary to GitHub Actions when a check fails.
 
     Args:
-      title: The title of the check that failed tox_env: The tox
-             environment name (e.g., "spellcheck")
-      tox_env: The tox environment
+      title: The title of the check that failed
+      recipe: The just recipe name (e.g., "static")
       error_message: Description of what went wrong
       fix_commands: List of commands to fix the issue locally
 
@@ -45,7 +44,7 @@ def write_github_summary(
         f.write(f"{error_message}\n\n")
         f.write("### To reproduce this check locally:\n")
         f.write("```bash\n")
-        f.write(f"uvx tox -e {tox_env}\n")
+        f.write(f"just {recipe}\n")
         f.write("```\n\n")
 
         if fix_commands:
@@ -153,7 +152,7 @@ def pyspelling() -> None:
         if os.environ.get("GITHUB_ACTIONS"):
             write_github_summary(
                 title="Pyspelling Check Failed",
-                tox_env="spellcheck",
+                recipe="spellcheck",
                 error_message=(
                     "aspell is not installed. This tool is required for "
                     "spell checking documentation."
@@ -178,7 +177,7 @@ def pyspelling() -> None:
     if result != 0:
         write_github_summary(
             title="Pyspelling Check Failed",
-            tox_env="spellcheck",
+            recipe="spellcheck",
             error_message=(
                 "Pyspelling found spelling errors in the documentation."
             ),
@@ -233,7 +232,7 @@ def codespell() -> None:
         # Write to GitHub Actions summary
         write_github_summary(
             title="Spellcheck Failed",
-            tox_env="spellcheck",
+            recipe="spellcheck",
             error_message="Codespell found spelling errors in the code.",
             fix_commands=[
                 "# Ensure codespell is installed (part of docs extras)",

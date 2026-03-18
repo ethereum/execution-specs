@@ -44,7 +44,7 @@ jobs:
           type: benchmark
 
       - name: Run benchmark unit tests
-        run: tox -e tests_benchmark_pytest_py3
+        run: just tests_benchmark_pytest_py3
         env:
           EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 
@@ -57,11 +57,11 @@ jobs:
       matrix:
         include:
           - name: Benchmark Gas Values
-            tox-env: benchmark-gas-values
+            recipe: benchmark-gas-values
           - name: Fixed Opcode Count CLI
-            tox-env: benchmark-fixed-opcode-cli
+            recipe: benchmark-fixed-opcode-cli
           - name: Fixed Opcode Count Config
-            tox-env: benchmark-fixed-opcode-config
+            recipe: benchmark-fixed-opcode-config
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -77,7 +77,7 @@ jobs:
           type: benchmark
 
       - name: Run ${{ matrix.name }}
-        run: tox -e ${{ matrix.tox-env }}
+        run: just ${{ matrix.recipe }}
         env:
           EVM_BIN: ${{ steps.evm-builder.outputs.evm-bin }}
 

@@ -85,7 +85,7 @@ runs:
           echo "Rebase of ${EIP_BRANCH} successful"
 
           echo "Running static checks on ${EIP_BRANCH}"
-          uvx --with=tox-uv tox -e static
+          just static
         done
 
     - name: Push rebased branches

@@ -12,7 +12,7 @@ on:
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
-      - "docs/**"                                                                                                                     
+      - "docs/**"
       - "mkdocs.yml"
   workflow_dispatch:
   pull_request:
@@ -22,7 +22,7 @@ on:
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
-      - "docs/**"                                                                                                                     
+      - "docs/**"
       - "mkdocs.yml"
 
 concurrency:
@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: echo "version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')" >> "$GITHUB_OUTPUT"
       - name: Restore mypy cache
-        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5.0.3
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: .mypy_cache
           key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}-${{ github.sha }}
@@ -55,10 +55,10 @@ jobs:
             mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}-
             mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-
       - name: Run static checks
-        run: tox -e static
+        run: just static
       - name: Save mypy cache
         if: always()
-        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5.0.3
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: .mypy_cache
           key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}-${{ github.sha }}
@@ -105,13 +105,13 @@ jobs:
           python-version: "3.14"
       - uses: ./.github/actions/setup-env
       - name: Run py3 tests (${{ matrix.label }})
-        run: tox -e py3 -- --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+        run: just py3 --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
-          files: .tox/coverage.xml
+          files: .just/coverage.xml
           flags: unittests
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -127,7 +127,7 @@ jobs:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env
       - name: Run pypy3 tests
-        run: tox -e pypy3
+        run: just pypy3
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
@@ -142,7 +142,7 @@ jobs:
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-env
       - name: Fill and run json_loader tests
-        run: tox -e json_loader
+        run: just json_loader
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
@@ -157,7 +157,7 @@ jobs:
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
       - name: Run py3 tests
-        run: tox -e tests_pytest_py3
+        run: just tests_pytest_py3
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
 
@@ -174,7 +174,7 @@ jobs:
       - uses: ./.github/actions/setup-env
       - uses: ./.github/actions/build-evmone
       - name: Run pypy3 tests
-        run: tox -e tests_pytest_pypy3
+        run: just tests_pytest_pypy3
         env:
           PYPY_GC_MAX: "2G"
           PYPY_GC_MIN: "1G"
