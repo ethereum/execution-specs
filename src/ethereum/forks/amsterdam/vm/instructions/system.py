@@ -453,11 +453,6 @@ def call(evm: Evm) -> None:
     code_hash = get_account(tx_state, code_address).code_hash
     code = get_code(tx_state, code_hash)
 
-    # Charge regular overhead first, then state gas, before the
-    # child gas calculation. This ensures:
-    # 1. Regular-gas OOG does not consume state gas (no inflation).
-    # 2. State gas spill into gas_left reduces the child's gas
-    #    (matching reth's ordering).
     charge_gas(evm, extra_gas + extend_memory.cost)
     if value != 0 and not is_account_alive(tx_state, to):
         cost_per_state_byte = state_gas_per_byte(
