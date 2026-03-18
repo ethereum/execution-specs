@@ -787,3 +787,82 @@ def test_call_stack_depth_returns_reservoir(
 
     post = {recursive: Account(storage=storage)}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_call_pre_charged_costs_excluded_from_forwarding(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify pre-charged CALL costs do not reduce the 63/64 forwarding budget.
+
+    CALL charges access gas and memory expansion up front, before
+    computing the 63/64 sub-call gas.  Those costs must not be
+    subtracted again during the forwarding calculation.
+
+    A wrapper contract receives a precise gas budget and calls a child
+    with maximum gas and a large ret_size (triggering memory expansion).
+    The child does a cold zero-to-nonzero SSTORE as proof of execution.
+    The gas budget is tight enough that any double-counting of the
+    pre-charged costs (access gas, memory expansion, or both) causes
+    the child to OOG and the SSTORE to revert.
+    """
+    gas_costs = fork.gas_costs()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    sstore_state_gas = fork.sstore_state_gas()
+
+    # Child: SSTORE(0, 1) as proof of execution
+    child_storage = Storage()
+    child_code = Op.SSTORE(child_storage.store_next(1, "child_ran"), 1)
+    child = pre.deploy_contract(child_code)
+
+    child_regular_gas = (
+        2 * gas_costs.GAS_VERY_LOW + gas_costs.GAS_COLD_STORAGE_WRITE
+    )
+
+    # Memory expansion triggered by ret_size on the wrapper's CALL
+    ret_size = 512 * 32  # 512 words
+    memory_cost = fork.memory_expansion_gas_calculator()(new_bytes=ret_size)
+
+    extra_gas = gas_costs.GAS_COLD_ACCOUNT_ACCESS  # cold call, value=0
+
+    # Wrapper: CALL child requesting max gas with memory expansion
+    wrapper_code = Op.CALL(
+        gas=0xFFFFFFFF,
+        address=child,
+        value=0,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=ret_size,
+    )
+    wrapper = pre.deploy_contract(wrapper_code)
+
+    wrapper_pushes = 7 * gas_costs.GAS_VERY_LOW  # 7 CALL args
+
+    # After the pre-charge of extra_gas + memory_cost, the wrapper has
+    # gas_remaining left.  The 63/64 rule should forward
+    # gas_remaining * 63/64 to the child — just enough for its SSTORE.
+    gas_remaining = child_regular_gas * 64 // 63 + memory_cost // 2
+
+    wrapper_gas = wrapper_pushes + extra_gas + memory_cost + gas_remaining
+
+    caller = pre.deploy_contract(
+        Op.POP(Op.CALL(gas=wrapper_gas, address=wrapper))
+    )
+
+    sender = pre.fund_eoa()
+    tx = Transaction(
+        sender=sender,
+        to=caller,
+        gas_limit=gas_limit_cap + sstore_state_gas,
+    )
+
+    post = {
+        child: Account(storage=child_storage),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
