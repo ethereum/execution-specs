@@ -80,9 +80,64 @@ def remove_code(
     return transform
 
 
+def clear_headers() -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Remove all header entries from the witness."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        return witness.model_copy(update={"headers": []})
+
+    return transform
+
+
+def remove_header_at(
+    index: int,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Remove the header entry at `index` from the witness."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        new_headers = list(witness.headers)
+        try:
+            new_headers.pop(index)
+        except IndexError as exc:
+            raise IndexError(
+                f"Header index {index} out of range for witness headers"
+            ) from exc
+        return witness.model_copy(update={"headers": new_headers})
+
+    return transform
+
+
+def replace_header_at(
+    index: int,
+    header: Bytes,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Replace the header entry at `index` with `header`."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        new_headers = list(witness.headers)
+        try:
+            new_headers[index] = header
+        except IndexError as exc:
+            raise IndexError(
+                f"Header index {index} out of range for witness headers"
+            ) from exc
+        return witness.model_copy(update={"headers": new_headers})
+
+    return transform
+
+
 __all__ = [
     "add_state_node",
     "add_code",
+    "clear_headers",
     "remove_state_node",
     "remove_code",
+    "remove_header_at",
+    "replace_header_at",
 ]

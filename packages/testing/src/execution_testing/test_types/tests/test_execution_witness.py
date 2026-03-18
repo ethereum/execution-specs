@@ -10,7 +10,10 @@ from execution_testing.test_types.execution_witness import (
 )
 from execution_testing.test_types.execution_witness.modifiers import (
     add_state_node,
+    clear_headers,
     remove_state_node,
+    remove_header_at,
+    replace_header_at,
 )
 
 
@@ -76,3 +79,21 @@ def test_execution_witness_state_modifiers_add_and_remove() -> None:
 
     restored = remove_state_node(Bytes(b"bb"))(modified)
     assert restored.state == [Bytes(b"aa")]
+
+
+def test_execution_witness_header_modifiers() -> None:
+    """Header modifiers should update witness headers predictably."""
+    witness = ExecutionWitness(
+        state=[],
+        codes=[],
+        headers=[Bytes(b"aa"), Bytes(b"bb")],
+    )
+
+    removed = remove_header_at(-1)(witness)
+    assert removed.headers == [Bytes(b"aa")]
+
+    replaced = replace_header_at(0, Bytes(b"cc"))(witness)
+    assert replaced.headers == [Bytes(b"cc"), Bytes(b"bb")]
+
+    cleared = clear_headers()(witness)
+    assert cleared.headers == []
