@@ -480,23 +480,20 @@ def test_sstore_oog_no_reservoir_inflation(
     initcode = Initcode(deploy_code=Op.STOP)
     initcode_len = len(initcode)
 
-    factory_code = (
-        Op.CALLDATACOPY(
-            0,
-            0,
-            Op.CALLDATASIZE,
-            data_size=initcode_len,
-            new_memory_size=initcode_len,
-        )
-        + Op.SSTORE(
-            0,
-            Op.CREATE(
-                value=0,
-                offset=0,
-                size=Op.CALLDATASIZE,
-                init_code_size=initcode_len,
-            ),
-        )
+    factory_code = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        data_size=initcode_len,
+        new_memory_size=initcode_len,
+    ) + Op.SSTORE(
+        0,
+        Op.CREATE(
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            init_code_size=initcode_len,
+        ),
     )
     factory = pre.deploy_contract(factory_code)
     create_address = compute_create_address(address=factory, nonce=1)
@@ -700,6 +697,7 @@ def test_create_no_double_charge_new_account(
     )
 
     gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,

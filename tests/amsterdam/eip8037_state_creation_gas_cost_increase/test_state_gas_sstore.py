@@ -398,7 +398,8 @@ def test_sstore_stipend_check_excludes_reservoir(
         Op.SSTORE(
             caller_storage.store_next(
                 1 if sstore_succeeds else 0,
-                "sstore_succeeds" if sstore_succeeds
+                "sstore_succeeds"
+                if sstore_succeeds
                 else "sstore_fails_stipend",
             ),
             Op.CALL(gas=child_gas, address=child),
@@ -406,6 +407,7 @@ def test_sstore_stipend_check_excludes_reservoir(
     )
 
     gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     tx = Transaction(
         sender=pre.fund_eoa(),
         to=caller,

@@ -157,6 +157,7 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     """
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
 
     # calldata_floor = tokens * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
     # For non-zero bytes: tokens = 4 per byte.
@@ -170,9 +171,6 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     max_tokens = (gas_limit_cap - tx_base) // floor_token
     max_bytes = max_tokens // tokens_per_nonzero
     num_bytes = max_bytes + (1 if exceeds_cap else 0)
-
-    actual_tokens = num_bytes * tokens_per_nonzero
-    actual_floor = actual_tokens * floor_token + tx_base
 
     calldata = b"\x01" * num_bytes
     contract = pre.deploy_contract(Op.STOP)
