@@ -152,26 +152,32 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     gas limit cap, the transaction must be rejected at validation —
     even though the regular intrinsic gas may be within the cap.
 
-    at_cap: calldata floor exactly equals the cap — transaction accepted.
-    exceeds_cap: calldata floor exceeds the cap by 1 — transaction rejected.
+    at_cap: tightest calldata floor that fits within the cap —
+    transaction accepted.
+    exceeds_cap: one zero byte more tips the floor over the cap —
+    transaction rejected.
     """
     gas_costs = fork.gas_costs()
     gas_limit_cap = fork.transaction_gas_limit_cap()
 
     # calldata_floor = tokens * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
-    # For non-zero bytes: tokens = 4 per byte.
-    # Solve: num_bytes * 4 * floor_token + GAS_TX_BASE = target
+    # Non-zero bytes contribute 4 tokens each, zero bytes 1 token.
+    # Exact equality with the cap is not always reachable because
+    # the floor advances in steps of GAS_TX_DATA_TOKEN_FLOOR.
+    # Use nonzero bytes for bulk tokens, then zero bytes (1 token
+    # each) to get as close to the cap as possible.
     floor_token = gas_costs.GAS_TX_DATA_TOKEN_FLOOR
     tx_base = gas_costs.GAS_TX_BASE
     tokens_per_nonzero = 4
 
-    # For at_cap: find max bytes where floor <= cap (floor division).
-    # For exceeds_cap: add 1 more byte so floor > cap.
     max_tokens = (gas_limit_cap - tx_base) // floor_token
-    max_bytes = max_tokens // tokens_per_nonzero
-    num_bytes = max_bytes + (1 if exceeds_cap else 0)
+    nonzero_bytes = max_tokens // tokens_per_nonzero
+    zero_bytes = max_tokens - nonzero_bytes * tokens_per_nonzero
 
-    calldata = b"\x01" * num_bytes
+    if exceeds_cap:
+        zero_bytes += 1
+
+    calldata = b"\x01" * nonzero_bytes + b"\x00" * zero_bytes
     contract = pre.deploy_contract(Op.STOP)
 
     tx = Transaction(
