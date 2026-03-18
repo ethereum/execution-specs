@@ -30,7 +30,6 @@ REFERENCE_SPEC_GIT_PATH = ref_spec_8037.git_path
 REFERENCE_SPEC_VERSION = ref_spec_8037.version
 
 
-
 @EIPChecklist.GasRefundsChanges.Test.CrossFunctional.CalldataCost()
 @pytest.mark.valid_from("Amsterdam")
 def test_calldata_floor_with_sstore(
@@ -171,9 +170,6 @@ def test_calldata_floor_exceeding_tx_gas_limit_cap(
     max_tokens = (gas_limit_cap - tx_base) // floor_token
     max_bytes = max_tokens // tokens_per_nonzero
     num_bytes = max_bytes + (1 if exceeds_cap else 0)
-
-    actual_tokens = num_bytes * tokens_per_nonzero
-    actual_floor = actual_tokens * floor_token + tx_base
 
     calldata = b"\x01" * num_bytes
     contract = pre.deploy_contract(Op.STOP)

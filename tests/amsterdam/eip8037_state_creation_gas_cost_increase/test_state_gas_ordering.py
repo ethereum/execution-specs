@@ -23,7 +23,6 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
-    compute_create_address,
 )
 
 from .spec import ref_spec_8037
@@ -69,23 +68,20 @@ def test_sstore_oog_reservoir_inflation_detection(
     initcode = Initcode(deploy_code=Op.STOP)
     initcode_len = len(initcode)
 
-    factory_code = (
-        Op.CALLDATACOPY(
-            0,
-            0,
-            Op.CALLDATASIZE,
-            data_size=initcode_len,
-            new_memory_size=initcode_len,
-        )
-        + Op.SSTORE(
-            0,
-            Op.CREATE(
-                value=0,
-                offset=0,
-                size=Op.CALLDATASIZE,
-                init_code_size=initcode_len,
-            ),
-        )
+    factory_code = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        data_size=initcode_len,
+        new_memory_size=initcode_len,
+    ) + Op.SSTORE(
+        0,
+        Op.CREATE(
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            init_code_size=initcode_len,
+        ),
     )
     factory = pre.deploy_contract(factory_code)
 
@@ -99,10 +95,7 @@ def test_sstore_oog_reservoir_inflation_detection(
     # correct reservoir (CREATE state gas only) but fits within the
     # inflated reservoir (CREATE + SSTORE state gas).
     probe = pre.deploy_contract(
-        Op.SSTORE(0, 1)
-        + Op.SSTORE(1, 1)
-        + Op.SSTORE(2, 1)
-        + Op.SSTORE(3, 1)
+        Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.SSTORE(2, 1) + Op.SSTORE(3, 1)
     )
 
     # Compute probe gas: enough for 4 SSTOREs' regular gas + pushes,
@@ -172,8 +165,13 @@ def test_call_oog_reservoir_inflation_detection(
 
     dead_address = 0xDEAD
     child_code = Op.CALL(
-        gas=0, address=dead_address, value=1,
-        args_offset=0, args_size=0, ret_offset=0, ret_size=0,
+        gas=0,
+        address=dead_address,
+        value=1,
+        args_offset=0,
+        args_size=0,
+        ret_offset=0,
+        ret_size=0,
     )
     pushes_gas = 7 * gas_costs.GAS_VERY_LOW
     call_regular_gas = (
@@ -277,22 +275,19 @@ def test_code_deposit_oog_reservoir_inflation_detection(
     initcode = Initcode(deploy_code=Op.STOP)
     initcode_len = len(initcode)
 
-    factory_code = (
-        Op.CALLDATACOPY(
-            0,
-            0,
-            Op.CALLDATASIZE,
-            data_size=initcode_len,
-            new_memory_size=initcode_len,
-        )
-        + Op.POP(
-            Op.CREATE(
-                value=0,
-                offset=0,
-                size=Op.CALLDATASIZE,
-                init_code_size=initcode_len,
-            ),
-        )
+    factory_code = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        data_size=initcode_len,
+        new_memory_size=initcode_len,
+    ) + Op.POP(
+        Op.CREATE(
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            init_code_size=initcode_len,
+        ),
     )
     factory = pre.deploy_contract(factory_code)
 
@@ -366,9 +361,7 @@ def test_create_oog_reservoir_inflation_detection(
         pushes_gas = 4 * gas_costs.GAS_VERY_LOW
 
     create_regular_gas = gas_costs.GAS_CREATE - new_account_state_gas
-    child_gas = (
-        pushes_gas + create_regular_gas + new_account_state_gas - 1
-    )
+    child_gas = pushes_gas + create_regular_gas + new_account_state_gas - 1
     child = pre.deploy_contract(child_code)
 
     probe = pre.deploy_contract(Op.SSTORE(0, 1))

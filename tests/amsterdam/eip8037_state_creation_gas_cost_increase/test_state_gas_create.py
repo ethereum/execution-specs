@@ -500,17 +500,14 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
             )
         ),
     )
-    created = compute_create_address(
-        address=factory, nonce=1
-    )
+    created = compute_create_address(address=factory, nonce=1)
 
     # Gas consumed before the child CREATE frame receives gas:
     # Intrinsic + factory code (PUSH32+PUSH1+MSTORE+mem +
     # 3xPUSH1) + CREATE regular (+ init_code_cost) + new account
     # state gas (spilled from gas_left, no reservoir).
-    init_code_word_cost = (
-        gas_costs.GAS_CODE_INIT_PER_WORD
-        * ((len(init_code) + 31) // 32)
+    init_code_word_cost = gas_costs.GAS_CODE_INIT_PER_WORD * (
+        (len(init_code) + 31) // 32
     )
     pre_child_gas = (
         gas_costs.GAS_TX_BASE
@@ -540,7 +537,6 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
         created: Account.NONEXISTENT,
     }
     state_test(pre=pre, post=post, tx=tx)
-
 
 
 @pytest.mark.parametrize(
@@ -573,23 +569,20 @@ def test_sstore_oog_no_reservoir_inflation(
     initcode = Initcode(deploy_code=Op.STOP)
     initcode_len = len(initcode)
 
-    factory_code = (
-        Op.CALLDATACOPY(
-            0,
-            0,
-            Op.CALLDATASIZE,
-            data_size=initcode_len,
-            new_memory_size=initcode_len,
-        )
-        + Op.SSTORE(
-            0,
-            Op.CREATE(
-                value=0,
-                offset=0,
-                size=Op.CALLDATASIZE,
-                init_code_size=initcode_len,
-            ),
-        )
+    factory_code = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        data_size=initcode_len,
+        new_memory_size=initcode_len,
+    ) + Op.SSTORE(
+        0,
+        Op.CREATE(
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            init_code_size=initcode_len,
+        ),
     )
     factory = pre.deploy_contract(factory_code)
     create_address = compute_create_address(address=factory, nonce=1)
@@ -713,9 +706,10 @@ def test_max_initcode_size_gas_metering_via_create(
         + initcode.execution_gas(fork)
         + initcode.deployment_gas(fork)
     )
-    factory_state_gas = fork.create_state_gas(
-        code_size=len(initcode.deploy_code)
-    ) + fork.sstore_state_gas()
+    factory_state_gas = (
+        fork.create_state_gas(code_size=len(initcode.deploy_code))
+        + fork.sstore_state_gas()
+    )
     factory_regular_gas = factory_gas - factory_state_gas
 
     caller = pre.deploy_contract(
