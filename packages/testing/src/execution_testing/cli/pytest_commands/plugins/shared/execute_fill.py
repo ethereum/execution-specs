@@ -3,21 +3,28 @@ Shared pytest fixtures and hooks for EEST generation modes (fill and execute).
 """
 
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import pytest
 
+from execution_testing.base_types import Account
+from execution_testing.base_types import Alloc as BaseAlloc
 from execution_testing.execution import (
     BaseExecute,
     LabeledExecuteFormat,
 )
 from execution_testing.fixtures import BaseFixture, LabeledFixtureFormat
+from execution_testing.logging import get_logger
+from execution_testing.rpc import EthRPC
 from execution_testing.specs import BaseTest
 from execution_testing.specs.base import OpMode
 from execution_testing.test_types import EOA, Alloc, ChainConfig
 
+from ..shared.address_stubs import AddressStubs
 from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
+
+logger = get_logger(__name__)
 
 ALL_FIXTURE_PARAMETERS = {
     "gas_benchmark_value",
@@ -33,6 +40,47 @@ when calling from the test function.
 All parameter names included in this list must define a fixture in one of the
 plugins.
 """
+
+
+def _validate_and_cache_address_stubs(
+    address_stubs: AddressStubs, rpc_endpoint: str
+) -> Dict[str, Account]:
+    """
+    Validate that every stub address has code on-chain and return a cache.
+
+    Perform a single batched RPC call to fetch the full account state
+    (nonce, balance, code) for every stub address. Exit the session if
+    any address has no deployed code. The returned cache maps stub names
+    to their on-chain ``Account``.
+    """
+    eth_rpc = EthRPC(rpc_endpoint)
+    labels = list(address_stubs.root.keys())
+    addresses = list(address_stubs.root.values())
+    query = BaseAlloc(
+        root={addr: Account() for addr in addresses}
+    )
+    alloc = eth_rpc.get_alloc(query)
+    empty: list[str] = []
+    accounts: list[Account] = []
+    for i, addr in enumerate(addresses):
+        account = alloc.root.get(addr)
+        if account is None or not account.code:
+            empty.append(f"  '{labels[i]}' at {addr}")
+        else:
+            accounts.append(account)
+    if empty:
+        pytest.exit(
+            "The following address stubs have no code on-chain:\n"
+            + "\n".join(empty)
+            + "\nPlease verify the addresses in --address-stubs."
+        )
+    cache: Dict[str, Account] = dict(
+        zip(labels, accounts, strict=True)
+    )
+    logger.info(
+        f"Validated {len(cache)} address stubs: all have code on-chain"
+    )
+    return cache
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -51,6 +99,21 @@ def pytest_configure(config: pytest.Config) -> None:
        called before the pytest-html plugin's pytest_configure to ensure that
        it uses the modified `htmlpath` option.
     """
+    address_stubs = config.getoption("address_stubs", None)
+    rpc_endpoint = config.getoption("rpc_endpoint", None)
+    if address_stubs is not None and rpc_endpoint is None:
+        pytest.exit(
+            "--address-stubs requires --rpc-endpoint to fetch "
+            "contract code from the network."
+        )
+    if (
+        address_stubs is not None
+        and rpc_endpoint is not None
+        and not config.getoption("collectonly", default=False)
+    ):
+        config.stub_accounts = _validate_and_cache_address_stubs(  # type: ignore
+            address_stubs, rpc_endpoint
+        )
     if config.pluginmanager.has_plugin(
         "execution_testing.cli.pytest_commands.plugins.filler.filler"
     ):
@@ -338,4 +401,19 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         dest="fill_static_tests_enabled",
         default=None,
         help=("Enable reading and filling from static test files."),
+    )
+    common_group = parser.getgroup(
+        "common_options",
+        "Common arguments shared across subcommands.",
+    )
+    common_group.addoption(
+        "--address-stubs",
+        action="store",
+        dest="address_stubs",
+        default=None,
+        type=AddressStubs.model_validate_json_or_file,
+        help=(
+            "Address stubs mapping stub names to on-chain addresses. "
+            "Can be a JSON string or path to a JSON file."
+        ),
     )

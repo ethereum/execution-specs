@@ -48,9 +48,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "pre_alloc",
         "Arguments defining pre-allocation behavior during test filling.",
     )
-
-    # No options for now
-    del pre_alloc_group
+    pre_alloc_group.addoption(
+        "--rpc-endpoint",
+        action="store",
+        dest="rpc_endpoint",
+        default=None,
+        help="RPC endpoint to an execution client.",
+    )
 
 
 DELEGATION_DESIGNATION = b"\xef\x01\x00"
@@ -62,12 +66,20 @@ class Alloc(SharedAlloc):
 
     _eoa_fund_amount_default: int = PrivateAttr(10**21)
     _account_salt: Dict[Hash, int] = PrivateAttr(default_factory=dict)
+    _stub_accounts: Dict[str, Account] = PrivateAttr(default_factory=dict)
 
     def __init__(
-        self, *args: Any, fork: Fork, flags: AllocFlags, **kwargs: Any
+        self,
+        *args: Any,
+        fork: Fork,
+        flags: AllocFlags,
+        stub_accounts: Dict[str, Account] | None = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize the pre-alloc."""
         super().__init__(*args, fork=fork, flags=flags, **kwargs)
+        if stub_accounts is not None:
+            self._stub_accounts = stub_accounts
 
     def get_next_account_salt(self, account_hash: Hash) -> int:
         """Retrieve the next salt for this account."""
@@ -232,28 +244,32 @@ class Alloc(SharedAlloc):
         label: str | None,
         stub: str | None,
     ) -> Address:
-        """
-        Filler implementation of contract deployment.
-        """
-        del stub
+        """Filler implementation of contract deployment."""
+        if stub is not None:
+            if stub not in self._stub_accounts:
+                raise ValueError(
+                    f"Stub '{stub}' not found in address stubs. "
+                    "Provide --address-stubs with a mapping file."
+                )
+            account = self._stub_accounts[stub]
+        else:
+            if storage is None:
+                storage = {}
+            code = self.code_pre_processor(code)
+            code_bytes = (
+                bytes(code) if not isinstance(code, (bytes, str)) else code
+            )
+            max_code_size = self._fork.transitions_from().max_code_size()
+            assert len(code_bytes) <= max_code_size, (
+                f"code too large: {len(code_bytes)} > {max_code_size}"
+            )
 
-        if storage is None:
-            storage = {}
-        code = self.code_pre_processor(code)
-        code_bytes = (
-            bytes(code) if not isinstance(code, (bytes, str)) else code
-        )
-        max_code_size = self._fork.transitions_from().max_code_size()
-        assert len(code_bytes) <= max_code_size, (
-            f"code too large: {len(code_bytes)} > {max_code_size}"
-        )
-
-        account = Account(
-            nonce=nonce,
-            balance=balance,
-            code=code,
-            storage=storage,
-        )
+            account = Account(
+                nonce=nonce,
+                balance=balance,
+                code=code,
+                storage=storage,
+            )
 
         if address is not None:
             assert address not in self, (
@@ -451,11 +467,20 @@ def eoa_by_index(i: int) -> EOA:
     return EOA(key=TestPrivateKey + i if i != 1 else TestPrivateKey2, nonce=0)
 
 
+@pytest.fixture(scope="session")
+def stub_accounts(
+    request: pytest.FixtureRequest,
+) -> Dict[str, Account]:
+    """Return stub accounts pre-populated during configuration."""
+    return getattr(request.config, "stub_accounts", {})  # type: ignore
+
+
 @pytest.fixture(scope="function")
 def pre(
     alloc_flags: AllocFlags,
     fork: Fork | None,
     request: pytest.FixtureRequest,
+    stub_accounts: Dict[str, Account],
 ) -> Alloc:
     """Return default pre allocation for all tests (Empty alloc)."""
     # FIXME: Static tests don't have a fork so we need to get it from the node.
@@ -467,4 +492,5 @@ def pre(
     return Alloc(
         flags=alloc_flags,
         fork=actual_fork,
+        stub_accounts=stub_accounts,
     )

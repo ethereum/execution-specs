@@ -4,10 +4,9 @@ from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
 from random import randint
-from typing import Any, Dict, Generator, Iterator, List, Literal, Self, Tuple
+from typing import Any, Dict, Generator, Iterator, List, Literal, Tuple
 
 import pytest
-import yaml
 from filelock import FileLock
 from pydantic import PrivateAttr
 
@@ -15,7 +14,6 @@ from execution_testing.base_types import (
     Account,
     Address,
     Bytes,
-    EthereumTestRootModel,
     Hash,
     HexNumber,
     Number,
@@ -45,6 +43,7 @@ from execution_testing.test_types import (
 from execution_testing.tools import Initcode
 from execution_testing.vm import Bytecode, Op
 
+from ..shared.address_stubs import AddressStubs
 from ..shared.pre_alloc import Alloc as SharedAlloc
 from ..shared.pre_alloc import AllocFlags
 from .contracts import (
@@ -53,52 +52,6 @@ from .contracts import (
 )
 
 logger = get_logger(__name__)
-
-
-class AddressStubs(EthereumTestRootModel[Dict[str, Address]]):
-    """
-    Address stubs class.
-
-    The key represents the label that is used in the test to tag the contract,
-    and the value is the address where the contract is already located at in
-    the current network.
-    """
-
-    root: Dict[str, Address]
-
-    def __contains__(self, item: str) -> bool:
-        """Check if an item is in the address stubs."""
-        return item in self.root
-
-    def __getitem__(self, item: str) -> Address:
-        """Get an item from the address stubs."""
-        return self.root[item]
-
-    @classmethod
-    def model_validate_json_or_file(cls, json_data_or_path: str) -> Self:
-        """
-        Try to load from file if the value resembles a path that ends with
-        .json/.yml and the file exists.
-        """
-        lower_json_data_or_path = json_data_or_path.lower()
-        if (
-            lower_json_data_or_path.endswith(".json")
-            or lower_json_data_or_path.endswith(".yml")
-            or lower_json_data_or_path.endswith(".yaml")
-        ):
-            path = Path(json_data_or_path)
-            if path.is_file():
-                path_suffix = path.suffix.lower()
-                if path_suffix == ".json":
-                    return cls.model_validate_json(path.read_text())
-                elif path_suffix in [".yml", ".yaml"]:
-                    loaded_yaml = yaml.safe_load(path.read_text())
-                    if loaded_yaml is None:
-                        return cls(root={})
-                    return cls.model_validate(loaded_yaml)
-        if json_data_or_path.strip() == "":
-            return cls(root={})
-        return cls.model_validate_json(json_data_or_path)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

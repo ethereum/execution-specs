@@ -11,7 +11,6 @@ from execution_testing.test_types.chain_config_types import (
     ChainConfigDefaults,
 )
 
-from ..pre_alloc import AddressStubs
 from .chain_builder_eth_rpc import ChainBuilderEthRPC, TestingRPC
 
 
@@ -25,7 +24,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         required=False,
         action="store",
         dest="rpc_endpoint",
-        help="RPC endpoint to an execution client",
+        default=None,
+        help="RPC endpoint to an execution client.",
     )
     remote_rpc_group.addoption(
         "--tx-wait-timeout",
@@ -36,18 +36,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help=(
             "Maximum time in seconds to wait for a transaction to be "
             "included in a block"
-        ),
-    )
-    remote_rpc_group.addoption(
-        "--address-stubs",
-        action="store",
-        dest="address_stubs",
-        default=AddressStubs(root={}),
-        type=AddressStubs.model_validate_json_or_file,
-        help=(
-            "The address stubs for contracts that have already been placed "
-            "in the chain and to use for the test. Can be a JSON formatted "
-            "string or a path to a YAML or JSON file."
         ),
     )
 
