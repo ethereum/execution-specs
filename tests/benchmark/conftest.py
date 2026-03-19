@@ -34,28 +34,23 @@ def pytest_generate_tests(metafunc: Any) -> None:
             metafunc.definition.add_marker(benchmark_marker)
 
 
-def pytest_collection_modifyitems(config: Any, items: Any) -> None:
-    """Exclude benchmark tests from non-benchmark test runs."""
-    # If user explicitly requested benchmarks via -m, keep them
-    marker_expr = config.getoption("-m", default="")
-    benchmark_requested = (
-        "benchmark" in marker_expr and "not benchmark" not in marker_expr
-    )
-    repricing_requested = (
-        "repricing" in marker_expr and "not repricing" not in marker_expr
-    )
-    if benchmark_requested or repricing_requested:
-        return
+def pytest_ignore_collect(collection_path: Path, config: Any) -> bool | None:
+    """Skip benchmark directory unless explicitly targeted."""
+    benchmark_dir = Path(__file__).parent
+    if benchmark_dir not in collection_path.parents and (
+        collection_path != benchmark_dir
+    ):
+        return None
 
-    # If user targeted benchmark dir directly (all items are
-    # benchmarks), keep them
-    if items and all(item.get_closest_marker("benchmark") for item in items):
-        return
+    args = config.invocation_params.args or ()
+    if any(
+        benchmark_dir in Path(a).resolve().parents
+        or Path(a).resolve() == benchmark_dir
+        for a in args
+    ):
+        return False
 
-    # Mixed collection (e.g. fill tests/) — exclude benchmarks
-    items[:] = [
-        item for item in items if not item.get_closest_marker("benchmark")
-    ]
+    return True
 
 
 @pytest.fixture
