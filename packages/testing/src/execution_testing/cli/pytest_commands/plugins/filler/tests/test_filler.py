@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
+from typing import Any
+
 import pytest
 
 from execution_testing.test_types import Environment
@@ -90,6 +92,69 @@ test_module_shanghai = textwrap.dedent(
 
 test_count_shanghai = 8
 total_test_count = test_count_paris + test_count_shanghai
+
+
+@pytest.fixture()
+def tests_dir(testdir: pytest.Testdir) -> Any:
+    """Create the top-level tests/ directory."""
+    return testdir.mkdir("tests")
+
+
+@pytest.fixture()
+def paris_tests_dir(tests_dir: Any) -> Any:
+    """Populate tests/paris/ with test_module_paris."""
+    paris_dir = tests_dir.mkdir("paris")
+    paris_dir.join("test_module_paris.py").write(test_module_paris)
+    return paris_dir
+
+
+@pytest.fixture()
+def benchmark_dir(tests_dir: Any) -> Any:
+    """Create tests/benchmark/ with conftest and test module."""
+    bm_dir = tests_dir.mkdir("benchmark")
+    bm_dir.join("conftest.py").write(BENCHMARK_CONFTEST_PATH.read_text())
+    bm_dir.join("test_module_benchmark.py").write(test_module_benchmark)
+    return bm_dir
+
+
+@pytest.fixture()
+def all_benchmark_dirs(benchmark_dir: Any) -> Any:
+    """Extend benchmark/ with compute/ and stateful/ subdirectories."""
+    for subdir in ("compute", "stateful"):
+        d = benchmark_dir.mkdir(subdir)
+        d.join(f"test_module_{subdir}.py").write(test_module_benchmark)
+    return benchmark_dir
+
+
+@pytest.fixture()
+def fill_base_args(testdir: pytest.Testdir) -> list[str]:
+    """Copy fill ini and return base pytest args."""
+    testdir.copy_example(
+        name=(
+            "src/execution_testing/cli/pytest_commands"
+            "/pytest_ini_files/pytest-fill.ini"
+        )
+    )
+    return ["-c", "pytest-fill.ini", "--no-html"]
+
+
+@pytest.fixture()
+def execute_base_args(testdir: pytest.Testdir) -> list[str]:
+    """Copy execute ini and return base pytest args."""
+    testdir.copy_example(
+        name=(
+            "src/execution_testing/cli/pytest_commands"
+            "/pytest_ini_files/pytest-execute.ini"
+        )
+    )
+    return [
+        "-c",
+        "pytest-execute.ini",
+        "--collect-only",
+        "-q",
+        "--chain-id",
+        "1",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -957,36 +1022,13 @@ test_module_benchmark_repricing = textwrap.dedent(
 # Fill: exclusion & collection
 
 
+@pytest.mark.usefixtures("paris_tests_dir", "benchmark_dir")
 def test_benchmark_excluded_from_default_fill(
     testdir: pytest.Testdir,
+    fill_base_args: list[str],
 ) -> None:
-    """Verify ``-m 'not benchmark'`` excludes tests under benchmark/."""
-    tests_dir = testdir.mkdir("tests")
-
-    paris_tests_dir = tests_dir.mkdir("paris")
-    test_module = paris_tests_dir.join("test_module_paris.py")
-    test_module.write(test_module_paris)
-
-    benchmark_tests_dir = tests_dir.mkdir("benchmark")
-    benchmark_tests_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
-    )
-    benchmark_module = benchmark_tests_dir.join("test_module_benchmark.py")
-    benchmark_module.write(test_module_benchmark)
-
-    testdir.copy_example(
-        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
-    )
-    args = [
-        "-c",
-        "pytest-fill.ini",
-        "-v",
-        "--no-html",
-        "-m",
-        "not benchmark",
-    ]
-
-    result = testdir.runpytest(*args)
+    """Verify normal fill excludes tests under benchmark/."""
+    result = testdir.runpytest(*fill_base_args, "-v", "-m", "not benchmark")
     result.assert_outcomes(
         passed=test_count_paris * 3,
         failed=0,
@@ -1002,78 +1044,30 @@ def test_benchmark_excluded_from_default_fill(
         pytest.param("not repricing", id="not-repricing"),
     ],
 )
+@pytest.mark.usefixtures("paris_tests_dir", "benchmark_dir")
 def test_benchmark_not_collected_with_negated_marker(
     testdir: pytest.Testdir,
     marker_expr: str,
+    fill_base_args: list[str],
 ) -> None:
     """Verify negated marker expressions exclude benchmark tests."""
-    tests_dir = testdir.mkdir("tests")
-
-    paris_tests_dir = tests_dir.mkdir("paris")
-    paris_tests_dir.join("test_module_paris.py").write(test_module_paris)
-
-    benchmark_tests_dir = tests_dir.mkdir("benchmark")
-    benchmark_tests_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
+    result = testdir.runpytest(
+        *fill_base_args, "--collect-only", "-q", "-m", marker_expr
     )
-    benchmark_tests_dir.join("test_module_benchmark.py").write(
-        test_module_benchmark
-    )
-
-    testdir.copy_example(
-        name=(
-            "src/execution_testing/cli/pytest_commands"
-            "/pytest_ini_files/pytest-fill.ini"
-        )
-    )
-    args = [
-        "-c",
-        "pytest-fill.ini",
-        "--collect-only",
-        "-q",
-        "--no-html",
-        "-m",
-        marker_expr,
-    ]
-
-    result = testdir.runpytest(*args)
     result.stdout.fnmatch_lines(["*test_paris_one*"])
     result.stdout.fnmatch_lines(["*test_paris_two*"])
     result.stdout.no_fnmatch_line("*test_benchmark_one*")
 
 
+@pytest.mark.usefixtures("all_benchmark_dirs")
 def test_benchmark_collected_when_targeted_directly(
     testdir: pytest.Testdir,
+    fill_base_args: list[str],
 ) -> None:
     """Verify targeting tests/benchmark/ collects all subdirectories."""
-    tests_dir = testdir.mkdir("tests")
-    benchmark_dir = tests_dir.mkdir("benchmark")
-    benchmark_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
+    result = testdir.runpytest(
+        *fill_base_args, "-v", "--fork", "Prague", "tests/benchmark"
     )
-
-    benchmark_dir.join("test_module_benchmark.py").write(test_module_benchmark)
-
-    compute_dir = benchmark_dir.mkdir("compute")
-    compute_dir.join("test_module_compute.py").write(test_module_benchmark)
-
-    stateful_dir = benchmark_dir.mkdir("stateful")
-    stateful_dir.join("test_module_stateful.py").write(test_module_benchmark)
-
-    testdir.copy_example(
-        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
-    )
-    args = [
-        "-c",
-        "pytest-fill.ini",
-        "-v",
-        "--no-html",
-        "--fork",
-        "Prague",
-        "tests/benchmark",
-    ]
-
-    result = testdir.runpytest(*args)
     # 3 modules * 1 test * 1 fork (Prague) * 3 formats = 9
     result.assert_outcomes(
         passed=9,
@@ -1086,31 +1080,15 @@ def test_benchmark_collected_when_targeted_directly(
 # Fill: default mode & fixture output
 
 
+@pytest.mark.usefixtures("benchmark_dir")
 def test_benchmark_default_uses_gas_benchmark_mode(
     testdir: pytest.Testdir,
+    fill_base_args: list[str],
 ) -> None:
     """Verify the default mode produces fixtures under for_prague/."""
-    tests_dir = testdir.mkdir("tests")
-    benchmark_dir = tests_dir.mkdir("benchmark")
-    benchmark_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
+    result = testdir.runpytest(
+        *fill_base_args, "-v", "--fork", "Prague", "tests/benchmark"
     )
-    benchmark_dir.join("test_module_benchmark.py").write(test_module_benchmark)
-
-    testdir.copy_example(
-        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
-    )
-    args = [
-        "-c",
-        "pytest-fill.ini",
-        "-v",
-        "--no-html",
-        "--fork",
-        "Prague",
-        "tests/benchmark",
-    ]
-
-    result = testdir.runpytest(*args)
     # 1 test * 1 fork (Prague) * 3 formats = 3
     result.assert_outcomes(
         passed=3,
@@ -1168,6 +1146,8 @@ def test_benchmark_default_uses_gas_benchmark_mode(
 )
 def test_benchmark_conftest_matrix(
     testdir: pytest.Testdir,
+    benchmark_dir: Any,
+    fill_base_args: list[str],
     subdir: str,
     benchmark_option: str,
     benchmark_value: str,
@@ -1180,21 +1160,11 @@ def test_benchmark_conftest_matrix(
       - benchmark option: --gas-benchmark-values | --fixed-opcode-count
       - repricing:        -m repricing | (all tests)
     """
-    tests_dir = testdir.mkdir("tests")
-    benchmark_dir = tests_dir.mkdir("benchmark")
-    benchmark_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
-    )
-
     target_dir = benchmark_dir.mkdir(subdir)
     target_dir.join("test_module.py").write(test_module_benchmark_repricing)
 
-    testdir.copy_example(
-        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
-    )
     args = [
-        "-c",
-        "pytest-fill.ini",
+        *fill_base_args,
         "--collect-only",
         "-q",
         benchmark_option,
@@ -1230,39 +1200,15 @@ def _mock_execute_rpc(
         yield
 
 
-@pytest.mark.usefixtures("_mock_execute_rpc")
+@pytest.mark.usefixtures(
+    "_mock_execute_rpc", "paris_tests_dir", "benchmark_dir"
+)
 def test_execute_benchmark_excluded_from_default_collection(
     testdir: pytest.Testdir,
+    execute_base_args: list[str],
 ) -> None:
     """Verify ``-m 'not benchmark'`` excludes benchmark/ in execute mode."""
-    tests_dir = testdir.mkdir("tests")
-
-    paris_tests_dir = tests_dir.mkdir("paris")
-    paris_tests_dir.join("test_module_paris.py").write(test_module_paris)
-
-    benchmark_tests_dir = tests_dir.mkdir("benchmark")
-    benchmark_tests_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
-    )
-    benchmark_tests_dir.join("test_module_benchmark.py").write(
-        test_module_benchmark
-    )
-
-    testdir.copy_example(
-        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-execute.ini"
-    )
-    args = [
-        "-c",
-        "pytest-execute.ini",
-        "--collect-only",
-        "-q",
-        "--chain-id",
-        "1",
-        "-m",
-        "not benchmark",
-    ]
-
-    result = testdir.runpytest(*args)
+    result = testdir.runpytest(*execute_base_args, "-m", "not benchmark")
     result.stdout.fnmatch_lines(["*test_paris_one*"])
     result.stdout.fnmatch_lines(["*test_paris_two*"])
     result.stdout.no_fnmatch_line("*test_benchmark_one*")
@@ -1275,115 +1221,43 @@ def test_execute_benchmark_excluded_from_default_collection(
         pytest.param("not repricing", id="not-repricing"),
     ],
 )
-@pytest.mark.usefixtures("_mock_execute_rpc")
+@pytest.mark.usefixtures(
+    "_mock_execute_rpc", "paris_tests_dir", "benchmark_dir"
+)
 def test_execute_benchmark_not_collected_with_negated_marker(
     testdir: pytest.Testdir,
     marker_expr: str,
+    execute_base_args: list[str],
 ) -> None:
     """Verify negated marker expressions exclude benchmark tests
     in execute mode."""
-    tests_dir = testdir.mkdir("tests")
-
-    paris_tests_dir = tests_dir.mkdir("paris")
-    paris_tests_dir.join("test_module_paris.py").write(test_module_paris)
-
-    benchmark_tests_dir = tests_dir.mkdir("benchmark")
-    benchmark_tests_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
-    )
-    benchmark_tests_dir.join("test_module_benchmark.py").write(
-        test_module_benchmark
-    )
-
-    testdir.copy_example(
-        name=(
-            "src/execution_testing/cli/pytest_commands"
-            "/pytest_ini_files/pytest-execute.ini"
-        )
-    )
-    args = [
-        "-c",
-        "pytest-execute.ini",
-        "--collect-only",
-        "-q",
-        "--chain-id",
-        "1",
-        "-m",
-        marker_expr,
-    ]
-
-    result = testdir.runpytest(*args)
+    result = testdir.runpytest(*execute_base_args, "-m", marker_expr)
     result.stdout.fnmatch_lines(["*test_paris_one*"])
     result.stdout.fnmatch_lines(["*test_paris_two*"])
     result.stdout.no_fnmatch_line("*test_benchmark_one*")
 
 
-@pytest.mark.usefixtures("_mock_execute_rpc")
+@pytest.mark.usefixtures("_mock_execute_rpc", "all_benchmark_dirs")
 def test_execute_benchmark_collected_when_targeted_directly(
     testdir: pytest.Testdir,
+    execute_base_args: list[str],
 ) -> None:
     """Verify targeting tests/benchmark/ collects all subdirectories
     in execute mode."""
-    tests_dir = testdir.mkdir("tests")
-    benchmark_dir = tests_dir.mkdir("benchmark")
-    benchmark_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
-    )
-
-    benchmark_dir.join("test_module_benchmark.py").write(test_module_benchmark)
-
-    compute_dir = benchmark_dir.mkdir("compute")
-    compute_dir.join("test_module_compute.py").write(test_module_benchmark)
-
-    stateful_dir = benchmark_dir.mkdir("stateful")
-    stateful_dir.join("test_module_stateful.py").write(test_module_benchmark)
-
-    testdir.copy_example(
-        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-execute.ini"
-    )
-    args = [
-        "-c",
-        "pytest-execute.ini",
-        "--collect-only",
-        "-q",
-        "--chain-id",
-        "1",
-        "tests/benchmark",
-    ]
-
-    result = testdir.runpytest(*args)
+    result = testdir.runpytest(*execute_base_args, "tests/benchmark")
     result.stdout.fnmatch_lines(["*test_module_benchmark*test_benchmark_one*"])
     result.stdout.fnmatch_lines(["*test_module_compute*test_benchmark_one*"])
     result.stdout.fnmatch_lines(["*test_module_stateful*test_benchmark_one*"])
 
 
-@pytest.mark.usefixtures("_mock_execute_rpc")
+@pytest.mark.usefixtures("_mock_execute_rpc", "benchmark_dir")
 def test_execute_benchmark_default_collects_without_flags(
     testdir: pytest.Testdir,
+    execute_base_args: list[str],
 ) -> None:
     """Verify benchmark tests are collected in execute mode without
     explicit benchmark flags."""
-    tests_dir = testdir.mkdir("tests")
-    benchmark_dir = tests_dir.mkdir("benchmark")
-    benchmark_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
-    )
-    benchmark_dir.join("test_module_benchmark.py").write(test_module_benchmark)
-
-    testdir.copy_example(
-        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-execute.ini"
-    )
-    args = [
-        "-c",
-        "pytest-execute.ini",
-        "--collect-only",
-        "-q",
-        "--chain-id",
-        "1",
-        "tests/benchmark",
-    ]
-
-    result = testdir.runpytest(*args)
+    result = testdir.runpytest(*execute_base_args, "tests/benchmark")
     result.stdout.fnmatch_lines(["*test_benchmark_one*"])
 
 
@@ -1416,6 +1290,8 @@ def test_execute_benchmark_default_collects_without_flags(
 @pytest.mark.usefixtures("_mock_execute_rpc")
 def test_execute_benchmark_conftest_matrix(
     testdir: pytest.Testdir,
+    benchmark_dir: Any,
+    execute_base_args: list[str],
     subdir: str,
     benchmark_option: str,
     benchmark_value: str,
@@ -1429,28 +1305,10 @@ def test_execute_benchmark_conftest_matrix(
       - benchmark option: --gas-benchmark-values | --fixed-opcode-count
       - repricing:        -m repricing | (all tests)
     """
-    tests_dir = testdir.mkdir("tests")
-    benchmark_dir = tests_dir.mkdir("benchmark")
-    benchmark_dir.join("conftest.py").write(
-        BENCHMARK_CONFTEST_PATH.read_text()
-    )
-
     target_dir = benchmark_dir.mkdir(subdir)
     target_dir.join("test_module.py").write(test_module_benchmark_repricing)
 
-    testdir.copy_example(
-        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-execute.ini"
-    )
-    args = [
-        "-c",
-        "pytest-execute.ini",
-        "--collect-only",
-        "-q",
-        "--chain-id",
-        "1",
-        benchmark_option,
-        benchmark_value,
-    ]
+    args = [*execute_base_args, benchmark_option, benchmark_value]
     if use_repricing:
         args.extend(["-m", "repricing"])
     args.append(f"tests/benchmark/{subdir}")
