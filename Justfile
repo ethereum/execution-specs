@@ -61,6 +61,7 @@ actionlint:
 # Fill the tests using EELS (with Python)
 [group('fill')]
 py3 *args:
+    @mkdir -p "{{ output_dir }}/py3/tmp" "{{ output_dir }}/py3/logs"
     uv run fill \
         -m "not slow" \
         -n {{ xdist_workers }} --dist=loadgroup \
@@ -68,11 +69,11 @@ py3 *args:
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-report=term \
-        --cov-report "xml:{{ output_dir }}/coverage.xml" \
+        --cov-report "xml:{{ output_dir }}/py3/coverage.xml" \
         --no-cov-on-fail \
         --cov-branch \
-        --basetemp="{{ output_dir }}/tmp/pytest" \
-        --log-to "{{ output_dir }}/logs" \
+        --basetemp="{{ output_dir }}/py3/tmp" \
+        --log-to "{{ output_dir }}/py3/logs" \
         --clean \
         --until Amsterdam \
         --durations=50 \
@@ -82,6 +83,7 @@ py3 *args:
 # Fill the tests using EELS (with PyPy)
 [group('fill')]
 pypy3 *args:
+    @mkdir -p "{{ output_dir }}/pypy3/tmp" "{{ output_dir }}/pypy3/logs"
     uv run --python pypy3.11 fill \
         --skip-index \
         --no-html \
@@ -92,8 +94,8 @@ pypy3 *args:
         -m "eels_base_coverage and not derived_test" \
         -n auto --maxprocesses 7 \
         --dist=loadgroup \
-        --basetemp="{{ output_dir }}/tmp/pytest" \
-        --log-to "{{ output_dir }}/logs" \
+        --basetemp="{{ output_dir }}/pypy3/tmp" \
+        --log-to "{{ output_dir }}/pypy3/logs" \
         --clean \
         --until Amsterdam \
         --ignore=tests/ported_static \
@@ -105,6 +107,7 @@ pypy3 *args:
 # Fill and run EELS against the resulting test fixtures
 [group('integration tests')]
 json_loader *args:
+    @mkdir -p "{{ output_dir }}/json_loader/tmp"
     uv run fill \
         -m "eels_base_coverage and not derived_test" \
         --until Amsterdam \
@@ -119,7 +122,7 @@ json_loader *args:
     uv run pytest \
         -m "not slow" \
         -n auto --maxprocesses 6 --dist=loadfile \
-        --basetemp="{{ output_dir }}/tmp/pytest" \
+        --basetemp="{{ output_dir }}/json_loader/tmp" \
         "$@" \
         tests/json_loader
 
@@ -128,9 +131,10 @@ json_loader *args:
 # Run the testing package unit tests (with Python)
 [group('unit tests')]
 tests_pytest_py3 *args:
+    @mkdir -p "{{ output_dir }}/tests_pytest_py3/tmp"
     cd packages/testing && uv run pytest \
         -n {{ xdist_workers }} \
-        --basetemp="{{ root }}/.just/tmp/pytest" \
+        --basetemp="{{ output_dir }}/tests_pytest_py3/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
         "$@" \
         src
@@ -138,9 +142,10 @@ tests_pytest_py3 *args:
 # Run the testing package unit tests (with PyPy)
 [group('unit tests')]
 tests_pytest_pypy3 *args:
+    @mkdir -p "{{ output_dir }}/tests_pytest_pypy3/tmp"
     cd packages/testing && uv run --python pypy3.11 pytest \
         -n auto --maxprocesses 6 \
-        --basetemp="{{ root }}/.just/tmp/pytest" \
+        --basetemp="{{ output_dir }}/tests_pytest_pypy3/tmp" \
         --ignore=src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py \
         "$@" \
         src
@@ -149,8 +154,9 @@ tests_pytest_pypy3 *args:
 [group('unit tests')]
 [group('benchmarks')]
 tests_benchmark_pytest_py3 *args:
+    @mkdir -p "{{ output_dir }}/tests_benchmark_pytest_py3/tmp"
     uv run pytest \
-        --basetemp="{{ output_dir }}/tmp/pytest" \
+        --basetemp="{{ output_dir }}/tests_benchmark_pytest_py3/tmp" \
         "$@" \
         packages/testing/src/execution_testing/cli/pytest_commands/plugins/filler/tests/test_benchmarking.py
 
@@ -159,6 +165,7 @@ tests_benchmark_pytest_py3 *args:
 # Fill benchmark tests with --gas-benchmark-values
 [group('benchmarks')]
 benchmark-gas-values *args:
+    @mkdir -p "{{ output_dir }}/benchmark-gas-values/tmp" "{{ output_dir }}/benchmark-gas-values/logs"
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --gas-benchmark-values 1 \
@@ -166,8 +173,8 @@ benchmark-gas-values *args:
         --fork Osaka \
         -m "not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
-        --basetemp="{{ output_dir }}/tmp/pytest" \
-        --log-to "{{ output_dir }}/logs" \
+        --basetemp="{{ output_dir }}/benchmark-gas-values/tmp" \
+        --log-to "{{ output_dir }}/benchmark-gas-values/logs" \
         --clean \
         "$@" \
         tests/benchmark/compute
@@ -175,6 +182,7 @@ benchmark-gas-values *args:
 # Fill benchmark tests with --fixed-opcode-count 1
 [group('benchmarks')]
 benchmark-fixed-opcode-cli *args:
+    @mkdir -p "{{ output_dir }}/benchmark-fixed-opcode-cli/tmp" "{{ output_dir }}/benchmark-fixed-opcode-cli/logs"
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
         --fixed-opcode-count 1 \
@@ -182,8 +190,8 @@ benchmark-fixed-opcode-cli *args:
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp" \
-        --basetemp="{{ output_dir }}/tmp/pytest" \
-        --log-to "{{ output_dir }}/logs" \
+        --basetemp="{{ output_dir }}/benchmark-fixed-opcode-cli/tmp" \
+        --log-to "{{ output_dir }}/benchmark-fixed-opcode-cli/logs" \
         --clean \
         "$@" \
         tests/benchmark/compute
@@ -191,6 +199,7 @@ benchmark-fixed-opcode-cli *args:
 # Run benchmark_parser, then fill benchmark tests using its config
 [group('benchmarks')]
 benchmark-fixed-opcode-config *args:
+    @mkdir -p "{{ output_dir }}/benchmark-fixed-opcode-config/tmp" "{{ output_dir }}/benchmark-fixed-opcode-config/logs"
     uv run benchmark_parser
     uv run fill \
         --evm-bin="{{ evm_bin }}" \
@@ -199,8 +208,8 @@ benchmark-fixed-opcode-config *args:
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp" \
-        --basetemp="{{ output_dir }}/tmp/pytest" \
-        --log-to "{{ output_dir }}/logs" \
+        --basetemp="{{ output_dir }}/benchmark-fixed-opcode-config/tmp" \
+        --log-to "{{ output_dir }}/benchmark-fixed-opcode-config/logs" \
         --clean \
         "$@" \
         tests/benchmark/compute
@@ -210,8 +219,8 @@ benchmark-fixed-opcode-config *args:
 # Generate documentation for EELS using docc
 [group('docs')]
 spec-docs:
-    uv run docc --output "{{ output_dir }}/docs"
-    uv run python -c 'import pathlib; print("documentation available under file://{0}".format(pathlib.Path(r"{{ output_dir }}") / "docs" / "index.html"))'
+    uv run docc --output "{{ output_dir }}/spec-docs"
+    uv run python -c 'import pathlib; print("documentation available under file://{0}".format(pathlib.Path(r"{{ output_dir }}") / "spec-docs" / "index.html"))'
 
 # Build HTML site documentation with mkdocs
 [group('docs')]

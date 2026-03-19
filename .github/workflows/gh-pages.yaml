@@ -36,7 +36,7 @@ jobs:
       - name: Build Documentation
         run: |
           just spec-docs
-          touch .just/docs/.nojekyll
+          touch .just/spec-docs/.nojekyll
         env:
           DOCC_SKIP_DIFFS: ${{ case(github.event_name == 'push' && github.ref_name == github.event.repository.default_branch, '', '1') }}
 
@@ -44,7 +44,7 @@ jobs:
         id: artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
-          path: .just/docs
+          path: .just/spec-docs
 
   deploy:
     needs: build
