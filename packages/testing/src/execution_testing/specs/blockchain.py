@@ -870,6 +870,11 @@ class BlockchainTest(BaseTest):
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = int(built_block.result.gas_used)
                 benchmark_opcode_count = built_block.result.opcode_count
+            if built_block.result.receipts:
+                self.validate_receipt_status(
+                    receipts=built_block.result.receipts,
+                    block_number=i,
+                )
             include_receipts = (
                 block.include_receipts_in_output
                 if block.include_receipts_in_output is not None
@@ -962,6 +967,11 @@ class BlockchainTest(BaseTest):
             if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = int(built_block.result.gas_used)
                 benchmark_opcode_count = built_block.result.opcode_count
+            if built_block.result.receipts:
+                self.validate_receipt_status(
+                    receipts=built_block.result.receipts,
+                    block_number=i,
+                )
             fixture_payloads.append(
                 built_block.get_fixture_engine_new_payload()
             )
