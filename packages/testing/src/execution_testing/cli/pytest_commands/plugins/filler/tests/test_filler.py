@@ -1078,7 +1078,8 @@ def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
     assert stateless_output.successful_validation is False
     assert len(stateless_input.witness.headers) == 1
     assert [
-        "0x" + bytes(header).hex() for header in stateless_input.witness.headers
+        "0x" + bytes(header).hex()
+        for header in stateless_input.witness.headers
     ] == block["executionWitness"]["headers"]
 
 

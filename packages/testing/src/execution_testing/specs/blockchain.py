@@ -235,6 +235,8 @@ def rerun_amsterdam_stateless_guest_with_witness(
 
     from ethereum.forks.amsterdam.stateless import (
         ExecutionWitness as AmsterdamExecutionWitness,
+    )
+    from ethereum.forks.amsterdam.stateless import (
         StatelessInput as AmsterdamStatelessInput,
     )
     from ethereum.forks.amsterdam.stateless_guest import (
@@ -1016,7 +1018,10 @@ class BlockchainTest(BaseTest):
         has_witness_modifier = (
             (
                 block.expected_execution_witness_state is not None
-                and block.expected_execution_witness_state._modifier is not None
+                and (
+                    block.expected_execution_witness_state._modifier
+                    is not None
+                )
             )
             or (
                 block.expected_execution_witness_codes is not None
@@ -1029,7 +1034,9 @@ class BlockchainTest(BaseTest):
                 is not None
             )
         )
-        stateless_input_bytes = transition_tool_output.result.stateless_input_bytes
+        stateless_input_bytes = (
+            transition_tool_output.result.stateless_input_bytes
+        )
         stateless_output_bytes = (
             transition_tool_output.result.stateless_output_bytes
         )

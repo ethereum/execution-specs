@@ -11,8 +11,8 @@ from execution_testing.test_types.execution_witness import (
 from execution_testing.test_types.execution_witness.modifiers import (
     add_state_node,
     clear_headers,
-    remove_state_node,
     remove_header_at,
+    remove_state_node,
     replace_header_at,
 )
 
