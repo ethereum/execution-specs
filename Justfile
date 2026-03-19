@@ -66,6 +66,7 @@ py3 *args:
         -m "not slow" \
         -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
+        --output="{{ output_dir }}/py3/fixtures" \
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-report=term \
@@ -86,6 +87,7 @@ pypy3 *args:
     @mkdir -p "{{ output_dir }}/pypy3/tmp" "{{ output_dir }}/pypy3/logs"
     uv run --python pypy3.11 fill \
         --skip-index \
+        --output="{{ output_dir }}/pypy3/fixtures" \
         --no-html \
         --tb=long \
         -ra \
@@ -115,7 +117,7 @@ json_loader *args:
         --skip-index \
         --clean \
         --ignore=tests/ported_static \
-        --output="tests/json_loader/fixtures" \
+        --output="{{ output_dir }}/json_loader/fixtures" \
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-fail-under=85
@@ -124,7 +126,8 @@ json_loader *args:
         -n auto --maxprocesses 6 --dist=loadfile \
         --basetemp="{{ output_dir }}/json_loader/tmp" \
         "$@" \
-        tests/json_loader
+        tests/json_loader \
+        "{{ output_dir }}/json_loader/fixtures"
 
 # --- Unit Tests ---
 
@@ -173,6 +176,7 @@ benchmark-gas-values *args:
         --fork Osaka \
         -m "not slow" \
         -n auto --maxprocesses 10 --dist=loadgroup \
+        --output="{{ output_dir }}/benchmark-gas-values/fixtures" \
         --basetemp="{{ output_dir }}/benchmark-gas-values/tmp" \
         --log-to "{{ output_dir }}/benchmark-gas-values/logs" \
         --clean \
@@ -190,6 +194,7 @@ benchmark-fixed-opcode-cli *args:
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp" \
+        --output="{{ output_dir }}/benchmark-fixed-opcode-cli/fixtures" \
         --basetemp="{{ output_dir }}/benchmark-fixed-opcode-cli/tmp" \
         --log-to "{{ output_dir }}/benchmark-fixed-opcode-cli/logs" \
         --clean \
@@ -208,6 +213,7 @@ benchmark-fixed-opcode-config *args:
         -m repricing \
         -n auto --maxprocesses 10 --dist=loadgroup \
         -k "not test_alt_bn128 and not test_bls12_381 and not test_modexp" \
+        --output="{{ output_dir }}/benchmark-fixed-opcode-config/fixtures" \
         --basetemp="{{ output_dir }}/benchmark-fixed-opcode-config/tmp" \
         --log-to "{{ output_dir }}/benchmark-fixed-opcode-config/logs" \
         --clean \
