@@ -942,8 +942,13 @@ def pytest_configure(config: pytest.Config) -> None:
             TransitionToolCacheStats()
         )
 
+    # Default chain id can be overwritten by user flag or env var
     ChainConfigDefaults.chain_id = DEFAULT_CHAIN_ID
-    chain_id = config.getoption("chain_id") or os.environ.get("CHAIN_ID")
+    chain_id = config.getoption("chain_id")
+    if chain_id is None:
+        env_chain_id = os.environ.get("CHAIN_ID")
+        if env_chain_id is not None:
+            chain_id = int(env_chain_id)
 
     if chain_id is not None:
         ChainConfigDefaults.chain_id = int(chain_id)
