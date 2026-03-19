@@ -5,11 +5,9 @@ from typing import List
 
 import pytest
 from execution_testing import Alloc, Block, Fork, Header, Requests
-from execution_testing.forks import Amsterdam
 
 from .helpers import (
     WithdrawalRequest,
-    WithdrawalRequestContract,
     WithdrawalRequestInteractionBase,
 )
 from .spec import Spec
@@ -91,22 +89,6 @@ def blocks(
     timestamp: int,
 ) -> List[Block]:
     """Return the list of blocks that should be included in the test."""
-    if fork >= Amsterdam:
-        gas_costs = fork.gas_costs()
-        for block_requests in blocks_withdrawal_requests:
-            for r in block_requests:
-                if isinstance(r, WithdrawalRequestContract):
-                    # Each withdrawal request writes 3 new storage slots
-                    # in the system contract queue (source, pubkey, amount).
-                    # Store the base gas limit to avoid accumulating the
-                    # extra cost on repeated fixture format runs that share
-                    # the same pytest parameter object.
-                    if not hasattr(r, "_base_tx_gas_limit"):
-                        r._base_tx_gas_limit = r.tx_gas_limit  # type: ignore[attr-defined]
-                    r.tx_gas_limit = r._base_tx_gas_limit + (  # type: ignore[attr-defined]
-                        len(r.requests) * 3 * gas_costs.GAS_STORAGE_SET
-                    )
-
     blocks: List[Block] = []
 
     for block_requests, block_included_requests in zip_longest(  # type: ignore
@@ -128,7 +110,7 @@ def blocks(
             assert not block_included_requests
         blocks.append(
             Block(
-                txs=sum((r.transactions() for r in block_requests), []),
+                txs=sum((r.transactions(fork) for r in block_requests), []),
                 header_verify=header_verify,
                 timestamp=timestamp,
             )
