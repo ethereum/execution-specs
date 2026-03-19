@@ -9,11 +9,15 @@ from execution_testing.test_types.execution_witness import (
     ExecutionWitnessValidationError,
 )
 from execution_testing.test_types.execution_witness.modifiers import (
+    add_code,
     add_state_node,
     clear_headers,
+    remove_code,
+    remove_code_at,
     remove_state_node,
     remove_header_at,
     replace_header_at,
+    reverse_headers,
 )
 
 
@@ -81,6 +85,24 @@ def test_execution_witness_state_modifiers_add_and_remove() -> None:
     assert restored.state == [Bytes(b"aa")]
 
 
+def test_execution_witness_code_modifiers() -> None:
+    """Code modifiers should update witness codes predictably."""
+    witness = ExecutionWitness(
+        state=[],
+        codes=[Bytes(b"aa")],
+        headers=[],
+    )
+
+    added = add_code(Bytes(b"bb"))(witness)
+    assert added.codes == [Bytes(b"aa"), Bytes(b"bb")]
+
+    removed = remove_code(Bytes(b"bb"))(added)
+    assert removed.codes == [Bytes(b"aa")]
+
+    removed_by_index = remove_code_at(0)(added)
+    assert removed_by_index.codes == [Bytes(b"bb")]
+
+
 def test_execution_witness_header_modifiers() -> None:
     """Header modifiers should update witness headers predictably."""
     witness = ExecutionWitness(
@@ -94,6 +116,9 @@ def test_execution_witness_header_modifiers() -> None:
 
     replaced = replace_header_at(0, Bytes(b"cc"))(witness)
     assert replaced.headers == [Bytes(b"cc"), Bytes(b"bb")]
+
+    reversed_headers = reverse_headers()(witness)
+    assert reversed_headers.headers == [Bytes(b"bb"), Bytes(b"aa")]
 
     cleared = clear_headers()(witness)
     assert cleared.headers == []
