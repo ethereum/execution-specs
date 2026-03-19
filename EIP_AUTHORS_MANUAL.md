@@ -54,7 +54,7 @@ Implementing a new EIP in the `execution-specs` repository involves the followin
 
 1. **Create a new branch**: Create a new branch for the EIP under the appropriate fork. For example, if you are implementing an EIP for the Prague fork, create a new branch under `eips/<FORK_NAME>/eip-<EIP_NUMBER>`.
 2. **Implement the EIP**: Implement the EIP in the `src/ethereum/<FORK_NAME>` folder.
-3. **Basic sanity checks**: Run `tox -e static` to run basic formatting and linting checks.
+3. **Basic sanity checks**: Run `just static` to run basic formatting and linting checks.
 4. **Raise a PR**: Raise a PR against the appropriate branch. For example, if you are implementing an EIP for the Prague fork, raise a PR against the `forks/prague` branch.
 
 An EIP can only be CFI'd (Considered For Inclusion) if it has a reference `execution-specs` implementation. The EIP author is responsible for maintaining their EIP up-to-date with the latest changes. For example, if an author had written their EIP for Cancun under `eips/cancun/eip-x`, but for some reason it didn't make it into Cancun, they would need to rebase their EIP to reflect the changes in Prague under `eips/prague/eip-x`.
