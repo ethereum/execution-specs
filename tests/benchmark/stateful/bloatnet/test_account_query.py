@@ -164,6 +164,7 @@ def test_account_query(
                 # Gas accounting
                 address_warm=access_warm,
                 new_memory_size=max(mem_size, 96),
+                value_transfer=value_sent > 0,
             )
         )
     elif opcode in (Op.STATICCALL, Op.DELEGATECALL):
