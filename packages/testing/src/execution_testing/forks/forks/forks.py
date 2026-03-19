@@ -3691,17 +3691,21 @@ class Amsterdam(BPO2):
             current_value = original_value
         new_value = metadata["new_value"]
 
-        gas_cost = 0 if metadata["key_warm"] else gas_costs.GAS_COLD_STORAGE_ACCESS
+        gas_cost = (
+            0 if metadata["key_warm"] else gas_costs.GAS_COLD_STORAGE_ACCESS
+        )
 
         if original_value == current_value and current_value != new_value:
             if original_value == 0:
                 # EIP-8037: regular portion + state gas
                 gas_cost += (
-                    gas_costs.GAS_COLD_STORAGE_WRITE - gas_costs.GAS_COLD_STORAGE_ACCESS
+                    gas_costs.GAS_COLD_STORAGE_WRITE
+                    - gas_costs.GAS_COLD_STORAGE_ACCESS
                 ) + (32 * cpsb)
             else:
                 gas_cost += (
-                    gas_costs.GAS_COLD_STORAGE_WRITE - gas_costs.GAS_COLD_STORAGE_ACCESS
+                    gas_costs.GAS_COLD_STORAGE_WRITE
+                    - gas_costs.GAS_COLD_STORAGE_ACCESS
                 )
         else:
             gas_cost += gas_costs.GAS_WARM_SLOAD
