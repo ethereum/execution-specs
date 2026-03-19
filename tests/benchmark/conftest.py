@@ -8,6 +8,8 @@ from execution_testing import Fork
 
 DEFAULT_BENCHMARK_FORK = "Prague"
 
+pytestmark = pytest.mark.benchmark
+
 
 def pytest_generate_tests(metafunc: Any) -> None:
     """
@@ -33,16 +35,7 @@ def pytest_generate_tests(metafunc: Any) -> None:
 
 
 def pytest_collection_modifyitems(config: Any, items: Any) -> None:
-    """Add the `benchmark` marker to all tests under `./tests/benchmark`."""
-    benchmark_dir = Path(__file__).parent
-    benchmark_marker = pytest.mark.benchmark
-
-    for item in items:
-        if benchmark_dir in Path(
-            item.fspath
-        ).parents and not item.get_closest_marker("benchmark"):
-            item.add_marker(benchmark_marker)
-
+    """Exclude benchmark tests from non-benchmark test runs."""
     # If user explicitly requested benchmarks via -m, keep them
     marker_expr = config.getoption("-m", default="")
     benchmark_requested = (
