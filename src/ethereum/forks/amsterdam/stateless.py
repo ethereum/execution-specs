@@ -200,26 +200,27 @@ def verify_stateless_new_payload(
     """
     Statelessly validate the execution payload.
     """
+    new_payload_request_root = compute_new_payload_request_root(stateless_input)
     witness = stateless_input.witness
 
-    # Validate the headers are contiguous and compute their
-    # blockhashes.
-    decoded_headers, block_hashes = validate_headers(witness.headers)
-    parent_header = decoded_headers[-1]
-
-    chain_context = ChainContext(
-        chain_id=stateless_input.chain_config.chain_id,
-        block_hashes=block_hashes,
-        parent_header=parent_header,
-    )
-
-    pre_state = WitnessState(
-        _node_db=build_node_db(witness.state),
-        _state_root=parent_header.state_root,
-        _code_db=build_code_db(witness.codes),
-    )
-
     try:
+        # Validate the headers are contiguous and compute their
+        # blockhashes.
+        decoded_headers, block_hashes = validate_headers(witness.headers)
+        parent_header = decoded_headers[-1]
+
+        chain_context = ChainContext(
+            chain_id=stateless_input.chain_config.chain_id,
+            block_hashes=block_hashes,
+            parent_header=parent_header,
+        )
+
+        pre_state = WitnessState(
+            _node_db=build_node_db(witness.state),
+            _state_root=parent_header.state_root,
+            _code_db=build_code_db(witness.codes),
+        )
+
         execute_new_payload_request(
             stateless_input.new_payload_request,
             pre_state,
@@ -230,9 +231,7 @@ def verify_stateless_new_payload(
         successful_validation = False
 
     return StatelessValidationResult(
-        new_payload_request_root=compute_new_payload_request_root(
-            stateless_input
-        ),
+        new_payload_request_root=new_payload_request_root,
         successful_validation=successful_validation,
         chain_config=stateless_input.chain_config,
     )
