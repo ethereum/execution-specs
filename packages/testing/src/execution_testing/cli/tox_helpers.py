@@ -250,7 +250,6 @@ def codespell() -> None:
         sys.exit(1)
 
     sys.exit(0)
-    sys.exit(pyspelling_main.main())
 
 
 @click.command()
