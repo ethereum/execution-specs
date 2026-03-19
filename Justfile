@@ -24,22 +24,36 @@ static: spellcheck lint format-check typecheck ethereum-spec-lint lock-check act
 # Check spelling
 [group('static analysis')]
 spellcheck:
-    uv run codespell
+    #!/usr/bin/env bash
+    if ! uv run codespell; then
+        echo ""
+        echo "If false positive, add to whitelist:"
+        echo "  just whitelist <word>"
+        echo ""
+        echo "To auto-fix interactively:"
+        echo "  uv run codespell -i 3"
+        exit 1
+    fi
+
+# Add a word to the spellcheck whitelist
+[group('static analysis')]
+whitelist *words:
+    uv run whitelist "$@"
 
 # Lint with ruff
 [group('static analysis')]
-lint:
-    uv run ruff check
+lint *args:
+    uv run ruff check "$@"
 
 # Check formatting with ruff
 [group('static analysis')]
-format-check:
-    uv run ruff format --check
+format-check *args:
+    uv run ruff format --check "$@"
 
 # Run type checking with mypy
 [group('static analysis')]
-typecheck:
-    uv run mypy
+typecheck *args:
+    uv run mypy "$@"
 
 # Check EELS import isolation
 [group('static analysis')]
@@ -49,7 +63,15 @@ ethereum-spec-lint:
 # Verify uv.lock is up to date
 [group('static analysis')]
 lock-check:
-    uv lock --check
+    #!/usr/bin/env bash
+    if ! uv lock --check; then
+        echo ""
+        echo "To sync the lock file:"
+        echo "  uv lock"
+        echo ""
+        echo "Then commit the updated uv.lock."
+        exit 1
+    fi
 
 # Lint GitHub Actions workflows
 [group('static analysis')]
