@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -33,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_recursive_bomb_pre_call(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Recursive call."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -49,7 +54,7 @@ def test_call_recursive_bomb_pre_call(
         gas_limit=9223372036854775807,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
             + Op.SSTORE(
@@ -102,19 +107,33 @@ def test_call_recursive_bomb_pre_call(
     )
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={0: 1024, 1: 1},
+                    code=bytes.fromhex(
+                        "600160005401600055600060006000600060003062036b005a03f160015500"  # noqa: E501
+                    ),
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6000600060006000601773bad304eb96065b2a98b57a48a06ae28d285a71b5620186a0f15060006000600060006017731b3f200856856edc2e98efcd637775c6e341e3c06707fffffffffffffff100"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=9214364837600034817,
+        error=_exc,
     )
-
-    post = {
-        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
-            storage={0: 1024, 1: 1},
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

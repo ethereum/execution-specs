@@ -15,10 +15,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a97",  # noqa: E501
+    "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a97",  # noqa: E501
+]
+
+TX_GAS = [3141592, 16777216]
+
+TX_VALUE = [264050067]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -26,18 +44,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit",
+    "d, g, v",
     [
-        3141592,
-        16777216,
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 1, 0, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_fill_stack(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
@@ -101,39 +121,46 @@ def test_fill_stack(
     )
     pre[sender] = Account(balance=0x152D02C7E14AF6800000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                coinbase: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155"  # noqa: E501
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                coinbase: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=bytes.fromhex(
-            "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fff"  # noqa: E501
-            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f000000"  # noqa: E501
-            "00000000000000000100000000000000000000000000000000000000007f000000000000"  # noqa: E501
-            "00000000000000000000000000000000000000000000000000017f000000000000000000"  # noqa: E501
-            "000000000000000000000000000000000000000000c3504357155320803a97"
-        ),
-        gas_limit=tx_gas_limit,
-        value=264050067,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={},
-            nonce=0,
-            balance=0,
-            code=bytes.fromhex(
-                "5b7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe457f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3504357155320803a975560005155"  # noqa: E501
-            ),
-        ),
-        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
-            storage={},
-            nonce=0,
-            code=bytes.fromhex("6000355415600957005b60203560003555"),
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={},
-            nonce=1,
-            code=b"",
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_deleagate_call_after_value_transfer(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -48,7 +53,7 @@ def test_deleagate_call_after_value_transfer(
         gas_limit=1000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=Op.CALLVALUE)
             + Op.SSTORE(key=0x1, value=Op.CALLER)
@@ -79,23 +84,34 @@ def test_deleagate_call_after_value_transfer(
         address=Address("0xdd657898b318b3d967472eaa82bb75c4141b6735"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("346000553360015560003560025500")
+                ),
+                contract: Account(
+                    storage={
+                        1: 0x6FDA566D1950D7E0A4DAC1DE87109B2CA7D12DA4,
+                        2: 1,
+                    },
+                    code=bytes.fromhex(
+                        "60016000526040600060406000730346aa231cb52f55ddf201dc19ca469cc73e6495620186a0f400"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=453081,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000000"): Account(
-            storage={
-                0: 0,
-                1: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                2: 1,
-            },
-        ),
-        Address("0x1000000000000000000000000000000000000001"): Account(
-            storage={0: 0, 1: 0, 2: 0},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

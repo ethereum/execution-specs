@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_sstore_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -175,27 +180,39 @@ def test_sstore_gas(
         address=Address("0x84e1dc6705b8b9b7ffaca256c9266792bdd0943b"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        4096: 5000,
+                        4097: 100,
+                        4098: 100,
+                        4099: 100,
+                        4100: 100,
+                        4101: 5000,
+                        4102: 22100,
+                        4103: 2200,
+                        4104: 20000,
+                    },
+                    code=bytes.fromhex(
+                        "600160088180808080808080611000895a61beef6000555a900303815501885a63deadbeef6000555a900303815501875a600080555a900303815501865a600080555a900303815501855a6112346000555a900303815501845a600084555a900303815501835a6160a76002555a900303815501825a60006003555a900303815501905a6160a76003555a900303815550506000805560006001556000600255600060035500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=16777216,
         nonce=1,
+        error=_exc,
     )
-
-    post = {
-        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-            storage={
-                4096: 5000,
-                4097: 100,
-                4098: 100,
-                4099: 100,
-                4100: 100,
-                4101: 5000,
-                4102: 22100,
-                4103: 2200,
-                4104: 20000,
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -16,10 +16,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+    "",
+]
+
+TX_GAS = [6000000]
+
+TX_VALUE = [100000, 100000000000000000000]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -29,18 +47,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value",
+    "d, g, v",
     [
-        100000,
-        100000000000000000000,
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 0, 1, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_call_with_high_value_and_gas_oog(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_value: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Call with value. call takes more gas then tx has, and more value..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -58,7 +78,7 @@ def test_call_with_high_value_and_gas_oog(
     )
 
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x1, value=0x1)
             + Op.MSTORE8(offset=0x0, value=0x37)
@@ -102,19 +122,54 @@ def test_call_with_high_value_and_gas_oog(
         address=Address("0xdfad372452688759edd82c422bf3976eafc89c2b"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("6001600155603760005360026000f3")
+                ),
+                contract: Account(
+                    storage={
+                        1: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                    },
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6000527faaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa602052600260006040600068056bc75e2d63100000730896f13e800125c0ccec44f3c434335f0a97bc1b6bfffffffffffffffffffffffff160005560005160015500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 1},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex("6001600155603760005360026000f3"),
+                ),
+                contract: Account(
+                    storage={
+                        0: 1,
+                        1: 0x3700FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                    },
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6000527faaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa602052600260006040600068056bc75e2d63100000730896f13e800125c0ccec44f3c434335f0a97bc1b6bfffffffffffffffffffffffff160005560005160015500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
-        gas_limit=6000000,
-        value=tx_value,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={
-                1: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

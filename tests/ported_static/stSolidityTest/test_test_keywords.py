@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_test_keywords(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -150,18 +155,30 @@ def test_test_keywords(
         address=Address("0xe7dcb339943a6db535ffe618ec32d1e4e5a50f37"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "7c01000000000000000000000000000000000000000000000000000000006000350463380e439681146037578063c040622614604757005b603d6084565b8060005260206000f35b604d6057565b8060005260206000f35b6000605f6084565b600060006101000a81548160ff0219169083021790555060ff60016000540416905090565b6000808160011560cd575b600a82121560a157600190910190608f565b81600a1460ac5760c9565b50600a5b60008160ff16111560c85760019182900391900360b0565b5b60d5565b6000925060ed565b8160001460e05760e8565b6001925060ed565b600092505b50509056"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         data=bytes.fromhex("c0406226"),
         gas_limit=350000,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={0: 1},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

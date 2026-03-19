@@ -15,9 +15,27 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "00000000000000000000112233445566778f32",
+    "00000000000000000000112233445566778f32",
+]
+
+TX_GAS = [22000, 72000]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -26,20 +44,21 @@ REFERENCE_SPEC_VERSION = "N/A"
     ],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit",
+    "d, g, v",
     [
-        22000,
-        72000,
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 1, 0, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_transaction_data_costs652(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -59,71 +78,28 @@ def test_transaction_data_costs652(
 
     pre[sender] = Account(balance=0x989680)
 
-    tx = Transaction(
-        sender=sender,
-        to=contract,
-        data=bytes.fromhex("00000000000000000000112233445566778f32"),
-        gas_limit=tx_gas_limit,
-    )
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+    ]
 
-    post = {
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-    }
-
-    state_test(env=env, pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stTransactionTest/TransactionDataCosts652Filler.json",  # noqa: E501
-    ],
-)
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "tx_gas_limit",
-    [
-        22000,
-        72000,
-    ],
-    ids=["case0", "case1"],
-)
-@pytest.mark.pre_alloc_mutable
-def test_transaction_data_costs652_from_prague(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    tx_gas_limit: int,
-) -> None:
-    """Test ported from static filler."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    sender = EOA(
-        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
-    )
-    contract = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    pre[sender] = Account(balance=0x989680)
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=bytes.fromhex("00000000000000000000112233445566778f32"),
-        gas_limit=tx_gas_limit,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

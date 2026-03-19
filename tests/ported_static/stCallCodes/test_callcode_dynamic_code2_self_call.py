@@ -15,10 +15,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "000000000000000000000000a000000000000000000000000000000000000000",
+    "0000000000000000000000001000000000000000000000000000000000000000",
+]
+
+TX_GAS = [1453081]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -28,48 +46,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "d, g, v",
     [
-        (
-            "000000000000000000000000a000000000000000000000000000000000000000",
-            {
-                Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7"): Account(
-                    storage={
-                        11: 1,
-                        12: 0xA000000000000000000000000000000000000000,
-                    },
-                    balance=1,
-                )
-            },
-        ),
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            {
-                Address("0x1000000000000000000000000000000000000000"): Account(
-                    storage={
-                        0: 1,
-                        10: 0x13136008B64FF592819B2FA6D43F2835C452020E,
-                        11: 1,
-                        20: 0x1000000000000000000000000000000000000000,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x1000000000000000000000000000000000000000,
-                    },
-                    nonce=1,
-                ),
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={122: 1}, nonce=1
-                ),
-            },
-        ),
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 0, 0, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_callcode_dynamic_code2_self_call(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Callcode happen to a contract that is dynamically created from..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -88,7 +78,7 @@ def test_callcode_dynamic_code2_self_call(
 
     # Source: LLL
     # {(seq [[10]] (CREATE 0 0 (lll(seq  [[122]] (CALLCODE 100000 0x13136008b64ff592819b2fa6d43f2835c452020e 0 0 64 0 64)  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)   )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.PUSH1[0x46]
             + Op.CODECOPY(dest_offset=0x0, offset=0x27, size=Op.DUP1)
@@ -176,15 +166,51 @@ def test_callcode_dynamic_code2_self_call(
     )
     pre[sender] = Account(balance=0x2386F26FC10000)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7"): Account(
+                    storage={
+                        11: 1,
+                        12: 0xA000000000000000000000000000000000000000,
+                    },
+                    balance=1,
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={
+                        0: 1,
+                        10: 0x13136008B64FF592819B2FA6D43F2835C452020E,
+                        11: 1,
+                        20: 0x1000000000000000000000000000000000000000,
+                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        22: 0x1000000000000000000000000000000000000000,
+                    },
+                    nonce=1,
+                ),
+                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                    storage={122: 1}, nonce=1
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=1453081,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

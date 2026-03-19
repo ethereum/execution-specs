@@ -1,0 +1,72 @@
+CREATE2_RefundEF:
+  _info:
+    comment: |
+      Test combination of gas refund and EF-prefixed CREATE2 failure.
+  env:
+    currentCoinbase: a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+    currentDifficulty: 1
+    currentGasLimit: 1000000
+    currentNumber: 1
+    currentTimestamp: 1000
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      nonce: 0
+      balance: 100000000000000
+      storage: { }
+      code: ''
+
+    # Provides gas refund.
+    00000000000000000000000000000000005ef94d:
+      nonce: 0
+      balance: 0
+      storage:
+        0: 1
+      code: |
+        :yul london {
+          sstore(0,0)
+        }
+
+    # Contract creator.
+    000000000000000000000000000000000c5ea705:
+      nonce: 0
+      balance: 0
+      storage: { }
+      code: |
+        :yul london object "C" {
+          code {
+            let s := datasize("initcode")
+            let o := dataoffset("initcode")
+            codecopy(0, o, s)
+            let r := create2(0, 0, s, 0)
+            sstore(0, r)
+            stop()
+          }
+        
+          object "initcode" {
+            code {
+              // call gas refund provider
+              let r := call(50000, 0x5ef94d, 0, 0, 0, 0, 0)
+              // return 0xEF
+              mstore8(0,0xEF)
+              return(0,1)
+            }
+          }
+        }
+
+  transaction:
+    data: [ '' ]
+    gasLimit: [ 100000 ]
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 000000000000000000000000000000000c5ea705
+    value: [ 0 ]
+  expect:
+    - network:
+        - ">=Cancun"
+      result:
+        00000000000000000000000000000000005ef94d:
+          storage:
+            0: 1
+        be8f87148d0767989cce2e6a6a5d91c7d0c840e0:
+          shouldnotexist: true

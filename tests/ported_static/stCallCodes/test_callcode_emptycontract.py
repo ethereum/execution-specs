@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcode_emptycontract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -69,16 +74,28 @@ def test_callcode_emptycontract(
     )
     pre[sender] = Account(balance=0x5F5E100)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "60406000604060006103e873945304eb96065b2a98b57a48a06ae28d285a71b561c350f260005500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=1050440,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000000"): Account(
-            storage={0: 1},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

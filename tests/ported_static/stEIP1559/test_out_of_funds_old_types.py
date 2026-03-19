@@ -14,12 +14,29 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
-    TransactionException,
+)
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
 )
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "00",
+    "01",
+]
+
+TX_GAS = [16777216, 40000]
+
+TX_VALUE = [0, 1000000000000000000]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -27,63 +44,27 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_gas_limit, tx_value, tx_access_list, tx_error",
+    "d, g, v, tx_access_list",
     [
         pytest.param(
-            "00",
-            16777216,
-            0,
-            None,
-            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            id="case0",
-            marks=pytest.mark.exception_test,
+            0, 0, 0, None, id="case0", marks=pytest.mark.exception_test
         ),
         pytest.param(
-            "00",
-            16777216,
-            1000000000000000000,
-            None,
-            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            id="case1",
-            marks=pytest.mark.exception_test,
+            0, 0, 1, None, id="case1", marks=pytest.mark.exception_test
         ),
-        pytest.param("00", 40000, 0, None, None, id="case2"),
+        pytest.param(0, 1, 0, None, id="case2"),
         pytest.param(
-            "00",
-            40000,
-            1000000000000000000,
-            None,
-            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            id="case3",
-            marks=pytest.mark.exception_test,
+            0, 1, 1, None, id="case3", marks=pytest.mark.exception_test
         ),
         pytest.param(
-            "01",
-            16777216,
-            0,
-            [],
-            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            id="case4",
-            marks=pytest.mark.exception_test,
+            1, 0, 0, [], id="case4", marks=pytest.mark.exception_test
         ),
         pytest.param(
-            "01",
-            16777216,
-            1000000000000000000,
-            [],
-            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            id="case5",
-            marks=pytest.mark.exception_test,
+            1, 0, 1, [], id="case5", marks=pytest.mark.exception_test
         ),
-        pytest.param("01", 40000, 0, [], None, id="case6"),
+        pytest.param(1, 1, 0, [], id="case6"),
         pytest.param(
-            "01",
-            40000,
-            1000000000000000000,
-            [],
-            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
-            id="case7",
-            marks=pytest.mark.exception_test,
+            1, 1, 1, [], id="case7", marks=pytest.mark.exception_test
         ),
     ],
 )
@@ -91,11 +72,11 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_out_of_funds_old_types(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    tx_gas_limit: int,
-    tx_value: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
     tx_access_list: list | None,
-    tx_error: object,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -124,20 +105,42 @@ def test_out_of_funds_old_types(
         address=Address("0xd71b14c239fc39327f25764dd784c85ef0285fda"),  # noqa: E501
     )
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
+            "result": {},
+            "expect_exception": {
+                ">=Cancun": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+            },
+        },
+        {
+            "indexes": {"data": -1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": -1, "gas": 1, "value": 1},
+            "network": [">=Cancun"],
+            "result": {},
+            "expect_exception": {
+                ">=Cancun": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=tx_gas_limit,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         gas_price=100000000000,
         nonce=1,
-        value=tx_value,
+        value=TX_VALUE[v],
         access_list=tx_access_list,
-        error=tx_error,
+        error=_exc,
     )
-
-    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

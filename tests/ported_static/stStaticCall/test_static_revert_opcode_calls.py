@@ -15,10 +15,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+    "",
+]
+
+TX_GAS = [460000, 88000]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -28,19 +46,21 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit",
+    "d, g, v",
     [
-        460000,
-        88000,
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 1, 0, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.slow
 def test_static_revert_opcode_calls(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -79,7 +99,7 @@ def test_static_revert_opcode_calls(
         nonce=0,
         address=Address("0x187c91277deeedf062a07b44de3c96c6e7cbc7bb"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.REVERT(offset=0x0, size=0x1) + Op.STOP,
         balance=1,
         nonce=0,
@@ -87,16 +107,44 @@ def test_static_revert_opcode_calls(
     )
     pre[sender] = Account(balance=0xE8D4A51000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex(
+                        "600060006000600073be254b4aceb5b7495f1a5646be06fe5a158581ec61c350fa6000553d60015500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(code=bytes.fromhex("60016000fd00")),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex(
+                        "600060006000600073be254b4aceb5b7495f1a5646be06fe5a158581ec61c350fa6000553d60015500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(code=bytes.fromhex("60016000fd00")),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
-        gas_limit=tx_gas_limit,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={1: 1},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

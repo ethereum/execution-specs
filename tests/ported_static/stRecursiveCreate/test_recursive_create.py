@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_recursive_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -59,17 +64,26 @@ def test_recursive_create(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+                    nonce=2
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=465224,
         value=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-            nonce=2,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

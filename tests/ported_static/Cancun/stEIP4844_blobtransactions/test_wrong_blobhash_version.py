@@ -17,7 +17,10 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
-    TransactionException,
+)
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
 )
 from execution_testing.vm import Op
 
@@ -36,6 +39,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_wrong_blobhash_version(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """BLOB001."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -64,6 +68,18 @@ def test_wrong_blobhash_version(
         nonce=0,
         address=Address("0xc4dcf66bd4cdefe4ce7fba4951be4e9f580122c5"),  # noqa: E501
     )
+
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(code=bytes.fromhex("60004960005500"))
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,
@@ -95,13 +111,7 @@ def test_wrong_blobhash_version(
                 ],
             ),
         ],
-        error=TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={0: 0},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

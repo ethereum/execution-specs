@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_oog_additional_gas_costs1(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Call(oog during init) ->  code."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
@@ -48,7 +53,7 @@ def test_call_oog_additional_gas_costs1(
     )
 
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.PUSH1[0x0],
         balance=0xDE0B6B3A7640000,
         nonce=0,
@@ -76,16 +81,28 @@ def test_call_oog_additional_gas_costs1(
         address=Address("0xef8dd89dea93dc2bff0ce3a1196188496e6c28dc"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(code=bytes.fromhex("6000")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6040600060406000600073d0735f094c16e509e8d76999d9ee2e4fd5166c2e611770f100"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=30000,
+        error=_exc,
     )
-
-    post = {
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -28,6 +32,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_wallet_kill(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -172,6 +177,30 @@ def test_wallet_kill(
         address=Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                sender: Account(storage={}, nonce=2),
+                contract: Account(
+                    storage={
+                        0: 1,
+                        1: 1,
+                        3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        260: 1,
+                        262: 0xC22E4,
+                        0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
+                    },
+                    nonce=0,
+                    balance=0,
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
@@ -181,22 +210,7 @@ def test_wallet_kill(
         gas_limit=10000000,
         nonce=1,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        sender: Account(storage={}, nonce=2),
-        contract: Account(
-            storage={
-                0: 1,
-                1: 1,
-                3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                260: 1,
-                262: 0xC22E4,
-                0x6E369836487C234B9E553EF3F787C2D8865520739D340C67B3D251A33986E58D: 1,  # noqa: E501
-            },
-            nonce=0,
-            balance=0,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

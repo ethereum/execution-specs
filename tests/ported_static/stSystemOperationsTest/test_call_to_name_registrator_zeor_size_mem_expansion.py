@@ -16,10 +16,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+    "",
+]
+
+TX_GAS = [500000, 50000]
+
+TX_VALUE = [100000]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -29,18 +47,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit",
+    "d, g, v",
     [
-        500000,
-        50000,
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 1, 0, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_call_to_name_registrator_zeor_size_mem_expansion(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -88,7 +108,7 @@ def test_call_to_name_registrator_zeor_size_mem_expansion(
         address=Address("0x04c4cbdf0b0877c4619b10524dc13744ee0b69f6"),  # noqa: E501
     )
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.JUMPI(
                 pc=0x9,
@@ -107,18 +127,47 @@ def test_call_to_name_registrator_zeor_size_mem_expansion(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6000527faaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa602052600060006000600060177315eb18969e0925c8e4a76fd7cbce36a2b056b27e611388f160005500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6000527faaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa602052600060006000600060177315eb18969e0925c8e4a76fd7cbce36a2b056b27e611388f160005500"  # noqa: E501
+                    )
+                ),
+                callee: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
-        gas_limit=tx_gas_limit,
-        value=100000,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={0: 1},
-            nonce=0,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

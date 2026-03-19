@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_transaction_create_random_init_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Stack underflow in init code."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -50,19 +55,23 @@ def test_transaction_create_random_init_code(
     pre[coinbase] = Account(balance=0, nonce=1)
     pre[sender] = Account(balance=0x2540BE400)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=None,
         data=bytes.fromhex("600a80600c6000396000f200600160008035811a8100"),
         gas_limit=64599,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        Address(
-            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
-        ): Account.NONEXISTENT,
-        sender: Account(nonce=1),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

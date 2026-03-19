@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -33,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_recursive_bomb_log2(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -49,7 +54,7 @@ def test_call_recursive_bomb_log2(
         gas_limit=11000000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=Op.GAS)
             + Op.LOG0(offset=0x0, size=0x20)
@@ -93,20 +98,34 @@ def test_call_recursive_bomb_log2(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={0: 322, 1: 1},
+                    code=bytes.fromhex(
+                        "5a60005260206000a060016000540160005560006000600060006000306161a85a03f160015500"  # noqa: E501
+                    ),
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006017734f046f9952c30de8430278a978358e998784a4ca6305f5e100f100"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=10000000000,
         value=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
-            storage={0: 322, 1: 1},
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

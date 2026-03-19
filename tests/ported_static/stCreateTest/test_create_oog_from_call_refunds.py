@@ -15,10 +15,50 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+    "693c6139000000000000000000000000000000000000000000000000000000000000006c",
+    "",
+    "",
+    "693c6139000000000000000000000000000000000000000000000000000000000000008c",
+    "",
+    "",
+    "693c6139000000000000000000000000000000000000000000000000000000000000007c",
+    "",
+    "693c6139000000000000000000000000000000000000000000000000000000000000002a",
+    "693c6139000000000000000000000000000000000000000000000000000000000000003a",
+    "693c6139000000000000000000000000000000000000000000000000000000000000004a",
+    "693c6139000000000000000000000000000000000000000000000000000000000000005a",
+    "693c6139000000000000000000000000000000000000000000000000000000000000001c",
+    "693c6139000000000000000000000000000000000000000000000000000000000000002b",
+    "693c6139000000000000000000000000000000000000000000000000000000000000006a",
+    "693c6139000000000000000000000000000000000000000000000000000000000000003b",
+    "693c6139000000000000000000000000000000000000000000000000000000000000006b",
+    "693c6139000000000000000000000000000000000000000000000000000000000000007a",
+    "693c6139000000000000000000000000000000000000000000000000000000000000004c",
+    "693c6139000000000000000000000000000000000000000000000000000000000000007b",
+    "693c6139000000000000000000000000000000000000000000000000000000000000008a",
+    "693c6139000000000000000000000000000000000000000000000000000000000000005c",
+    "693c6139000000000000000000000000000000000000000000000000000000000000008b",
+]
+
+TX_GAS = [400000]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -28,65 +68,42 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex",
+    "d, g, v",
     [
-        "693c6139000000000000000000000000000000000000000000000000000000000000006a",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000006c",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000006b",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000008a",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000008c",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000008b",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000007a",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000007c",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000007b",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000002a",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000003a",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000004a",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000001a",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000001c",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000002b",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000002c",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000003b",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000003c",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000004b",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000004c",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000001b",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000005a",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000005c",  # noqa: E501
-        "693c6139000000000000000000000000000000000000000000000000000000000000005b",  # noqa: E501
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
-        "case10",
-        "case11",
-        "case12",
-        "case13",
-        "case14",
-        "case15",
-        "case16",
-        "case17",
-        "case18",
-        "case19",
-        "case20",
-        "case21",
-        "case22",
-        "case23",
+        pytest.param(15, 0, 0, id="case0"),
+        pytest.param(1, 0, 0, id="case1"),
+        pytest.param(17, 0, 0, id="case2"),
+        pytest.param(21, 0, 0, id="case3"),
+        pytest.param(4, 0, 0, id="case4"),
+        pytest.param(23, 0, 0, id="case5"),
+        pytest.param(18, 0, 0, id="case6"),
+        pytest.param(7, 0, 0, id="case7"),
+        pytest.param(20, 0, 0, id="case8"),
+        pytest.param(9, 0, 0, id="case9"),
+        pytest.param(10, 0, 0, id="case10"),
+        pytest.param(11, 0, 0, id="case11"),
+        pytest.param(9, 0, 0, id="case12"),
+        pytest.param(13, 0, 0, id="case13"),
+        pytest.param(14, 0, 0, id="case14"),
+        pytest.param(15, 0, 0, id="case15"),
+        pytest.param(16, 0, 0, id="case16"),
+        pytest.param(17, 0, 0, id="case17"),
+        pytest.param(18, 0, 0, id="case18"),
+        pytest.param(19, 0, 0, id="case19"),
+        pytest.param(11, 0, 0, id="case20"),
+        pytest.param(12, 0, 0, id="case21"),
+        pytest.param(22, 0, 0, id="case22"),
+        pytest.param(14, 0, 0, id="case23"),
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_create_oog_from_call_refunds(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -795,7 +812,7 @@ def test_create_oog_from_call_refunds(
     # {
     #   selfdestruct(origin())
     # }
-    pre.deploy_contract(
+    callee_27 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=Op.ORIGIN),
         storage={0x1: 0x1},
         address=Address("0x00000000000000000000000000000000000c0ded"),  # noqa: E501
@@ -832,23 +849,139 @@ def test_create_oog_from_call_refunds(
         address=Address("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),  # noqa: E501
     )
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": [0, 9, 3, 6], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                    storage={0: 1}, nonce=1, code=bytes.fromhex("00")
+                ),
+                sender: Account(nonce=2),
+            },
+        },
+        {
+            "indexes": {
+                "data": [1, 2, 4, 5, 7, 8, 10, 11],
+                "gas": -1,
+                "value": -1,
+            },
+            "network": [">=Cancun"],
+            "result": {
+                Address(
+                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                ): Account.NONEXISTENT,
+                sender: Account(nonce=2, balance=0),
+            },
+        },
+        {
+            "indexes": {"data": [12], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_27: Account(nonce=1, balance=0),
+                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                    storage={0: 1}, nonce=1, code=bytes.fromhex("00")
+                ),
+                sender: Account(nonce=2),
+            },
+        },
+        {
+            "indexes": {"data": [13, 14], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_27: Account(
+                    storage={1: 1}, nonce=1, code=bytes.fromhex("32FF")
+                ),
+                Address(
+                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                ): Account.NONEXISTENT,
+                sender: Account(nonce=2, balance=0),
+            },
+        },
+        {
+            "indexes": {"data": [15], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                    storage={0: 1}, nonce=1, code=bytes.fromhex("00")
+                ),
+                sender: Account(nonce=2),
+            },
+        },
+        {
+            "indexes": {"data": [16, 17], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address(
+                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                ): Account.NONEXISTENT,
+                sender: Account(nonce=2, balance=0),
+            },
+        },
+        {
+            "indexes": {"data": [18], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                    storage={0: 1}, nonce=2, code=bytes.fromhex("00")
+                ),
+                Address("0x522c2e1c5da65010908ef9929e327fe8b6cc86da"): Account(
+                    storage={}, nonce=1, code=bytes.fromhex("00")
+                ),
+                sender: Account(nonce=2),
+            },
+        },
+        {
+            "indexes": {"data": [19, 20], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address(
+                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                ): Account.NONEXISTENT,
+                Address(
+                    "0x522c2e1c5da65010908ef9929e327fe8b6cc86da"
+                ): Account.NONEXISTENT,
+                sender: Account(nonce=2, balance=0),
+            },
+        },
+        {
+            "indexes": {"data": [21], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x06019547b6e360abdafeade158a9667cc6106c17"): Account(
+                    storage={}, nonce=1, code=bytes.fromhex("00")
+                ),
+                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                    storage={0: 1}, nonce=2, code=bytes.fromhex("00")
+                ),
+                sender: Account(nonce=2),
+            },
+        },
+        {
+            "indexes": {"data": [22, 23], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address(
+                    "0x06019547b6e360abdafeade158a9667cc6106c17"
+                ): Account.NONEXISTENT,
+                Address(
+                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                ): Account.NONEXISTENT,
+                sender: Account(nonce=2, balance=0),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=400000,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         nonce=1,
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
-            storage={0: 1},
-            nonce=1,
-            code=bytes.fromhex("00"),
-        ),
-        sender: Account(nonce=2),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

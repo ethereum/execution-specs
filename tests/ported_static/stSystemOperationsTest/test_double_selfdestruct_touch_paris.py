@@ -19,10 +19,29 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+    "",
+    "",
+]
+
+TX_GAS = [10000000]
+
+TX_VALUE = [0, 1, 2]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -32,19 +51,21 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value",
+    "d, g, v",
     [
-        0,
-        1,
-        2,
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 0, 1, id="case1"),
+        pytest.param(2, 0, 2, id="case2"),
     ],
-    ids=["case0", "case1", "case2"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_double_selfdestruct_touch_paris(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_value: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """A single contract can execute SELFDESTRUCT multiple times using..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -63,7 +84,7 @@ def test_double_selfdestruct_touch_paris(
         gas_limit=30000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.ADD(Op.SLOAD(key=0x0), 0x1)
             + Op.SSTORE(key=0x0, value=Op.DUP1)
@@ -118,28 +139,75 @@ def test_double_selfdestruct_touch_paris(
         address=Address("0x8ec7465877d3957084dc907c0f6d8f2911a17a52"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={
+                        0: 2,
+                        1: 0x68FA59E127B7526718EB0A4E113DF5793628CB91,
+                        2: 0x76FAE819612A29489A1A43208613D8F8557B8898,
+                    },
+                    code=bytes.fromhex("6001600054018060005554ff"),
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6000808080348060011c9082808080857329e4504a3d2a0e0ae0ebbbefedd4570639b3ebee62011170f150037329e4504a3d2a0e0ae0ebbbefedd4570639b3ebee62011170f100"  # noqa: E501
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 1},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={
+                        0: 2,
+                        1: 0x68FA59E127B7526718EB0A4E113DF5793628CB91,
+                        2: 0x76FAE819612A29489A1A43208613D8F8557B8898,
+                    },
+                    code=bytes.fromhex("6001600054018060005554ff"),
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6000808080348060011c9082808080857329e4504a3d2a0e0ae0ebbbefedd4570639b3ebee62011170f150037329e4504a3d2a0e0ae0ebbbefedd4570639b3ebee62011170f100"  # noqa: E501
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 0, "value": 2},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={
+                        0: 2,
+                        1: 0x68FA59E127B7526718EB0A4E113DF5793628CB91,
+                        2: 0x76FAE819612A29489A1A43208613D8F8557B8898,
+                    },
+                    code=bytes.fromhex("6001600054018060005554ff"),
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6000808080348060011c9082808080857329e4504a3d2a0e0ae0ebbbefedd4570639b3ebee62011170f150037329e4504a3d2a0e0ae0ebbbefedd4570639b3ebee62011170f100"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
-        gas_limit=10000000,
-        value=tx_value,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address("0x000000000000000000000000000000000000c0de"): Account(
-            storage={},
-            nonce=0,
-            balance=0,
-        ),
-        Address("0x0000000000000000000000000000000000e49701"): Account(
-            balance=10,
-        ),
-        Address("0x0000000000000000000000000000000000e49702"): Account(
-            balance=10,
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

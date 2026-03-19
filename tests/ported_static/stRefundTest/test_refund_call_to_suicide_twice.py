@@ -15,10 +15,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "00000000000000000000000000000000000000000000000000000000000001f4",
+    "0000000000000000000000000000000000000000000000000000000000010000",
+]
+
+TX_GAS = [10000000]
+
+TX_VALUE = [10]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -28,45 +46,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "d, g, v",
     [
-        (
-            "00000000000000000000000000000000000000000000000000000000000001f4",
-            {
-                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-                    storage={0: 0, 1: 1}, balance=0xDE0B6B3A764000A
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-                Address("0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa"): Account(
-                    storage={1: 1}
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000010000",
-            {
-                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-                    storage={0: 1, 1: 1}, balance=0x1BC16D674EC8000A
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-                Address("0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa"): Account(
-                    storage={1: 1}, nonce=0, balance=0
-                ),
-            },
-        ),
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 0, 0, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_refund_call_to_suicide_twice(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -115,7 +108,7 @@ def test_refund_call_to_suicide_twice(
         nonce=0,
         address=Address("0x81bdbaa560b5ad52b0f9857cf4ca40b74d4b6996"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SELFDESTRUCT(address=0x81BDBAA560B5AD52B0F9857CF4CA40B74D4B6996)
             + Op.STOP
@@ -127,16 +120,54 @@ def test_refund_call_to_suicide_twice(
     )
     pre[sender] = Account(balance=0x2540BE400)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex(
+                        "60006000600060006000739dea1ad5123f3d8b91cfc830b1c602597883e97c600035f160005560006000600060006000739dea1ad5123f3d8b91cfc830b1c602597883e97c600035f100"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex(
+                        "7381bdbaa560b5ad52b0f9857cf4ca40b74d4b6996ff00"
+                    ),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1, 1: 1},
+                    code=bytes.fromhex(
+                        "60006000600060006000739dea1ad5123f3d8b91cfc830b1c602597883e97c600035f160005560006000600060006000739dea1ad5123f3d8b91cfc830b1c602597883e97c600035f100"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex(
+                        "7381bdbaa560b5ad52b0f9857cf4ca40b74d4b6996ff00"
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=10000000,
-        value=10,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

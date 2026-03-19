@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_random_statetest646(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Geth Failed this test on all networks."""
     coinbase = Address("0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -66,6 +71,22 @@ def test_random_statetest646(
         address=Address("0xffffffffffffffffffffffffffffffffffffffff"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "64ba8b878e0154689b908f27acb42e5269603972609834bf9a7e578e45609242172907dd75a92555656c5aa6e9248162013ffa6203864863446d325df0336d2c38cfa2f1cdf8cb623c0591987419"  # noqa: E501
+                    )
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
@@ -80,15 +101,7 @@ def test_random_statetest646(
         ),
         gas_limit=5786929,
         value=1451538698,
+        error=_exc,
     )
-
-    post = {
-        sender: Account(storage={}, nonce=1, code=b""),
-        Address(
-            "0xb1c0d37237a1f6bd6202aed4b5a7290dfcda6591"
-        ): Account.NONEXISTENT,
-        callee: Account(storage={}, nonce=7, code=b""),
-        contract: Account(storage={}, nonce=28),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

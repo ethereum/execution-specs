@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_lose_gas_oog(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Recursive call."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -78,17 +83,29 @@ def test_call_lose_gas_oog(
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     pre[callee] = Account(balance=7000, nonce=0)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1, 2: 1001},
+                    code=bytes.fromhex(
+                        "6001600054016000556000600060006000600073180f2d7e0c9a56b7bb287e2f50101660110b641f620186a060005402600101f16001556103e86000540260010160025500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=200000,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={0: 1, 2: 1001},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

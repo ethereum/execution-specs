@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_return_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -46,17 +51,17 @@ def test_static_return_bounds(
         gas_limit=9223372036854775807,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.RETURN(offset=0xFFFFFFF, size=0xFFFFFFF) + Op.STOP,
         nonce=0,
         address=Address("0x07084994c5891b1467d74bedb0477da4909e4c0e"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.RETURN(offset=0x0, size=0xFFFFFFFFFFFFFFFF) + Op.STOP,
         nonce=0,
         address=Address("0x0b09ca4308585f026b8d02be147fea0739ec463a"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=(
             Op.RETURN(
                 offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFF,
@@ -67,7 +72,7 @@ def test_static_return_bounds(
         nonce=0,
         address=Address("0x2548bda95a3831abcd613f4d24e4634615a71cca"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_3 = pre.deploy_contract(
         code=(
             Op.RETURN(
                 offset=0x0,
@@ -78,12 +83,12 @@ def test_static_return_bounds(
         nonce=0,
         address=Address("0x28463490948d21efc49949b4d394989bf52c57f1"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_4 = pre.deploy_contract(
         code=Op.RETURN(offset=0x0, size=0xFFFFFFFF) + Op.STOP,
         nonce=0,
         address=Address("0x2ceb88d6c420e5c65593d9ebed9a25600ab9e113"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_5 = pre.deploy_contract(
         code=(
             Op.RETURN(offset=0xFFFFFFFFFFFFFFFF, size=0xFFFFFFFFFFFFFFFF)
             + Op.STOP
@@ -91,7 +96,7 @@ def test_static_return_bounds(
         nonce=0,
         address=Address("0x416408c1d7fda274ddeb45ffe4817068808121ca"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_6 = pre.deploy_contract(
         code=(
             Op.RETURN(
                 offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
@@ -102,17 +107,17 @@ def test_static_return_bounds(
         nonce=0,
         address=Address("0x4912bc7b66a3bf27adfa54ab049e90e8c9c4dc63"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_7 = pre.deploy_contract(
         code=Op.RETURN(offset=0x0, size=0x0) + Op.STOP,
         nonce=0,
         address=Address("0x5efbf04d8e1cc5b6b3719b16b5744a09bacfc18b"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_8 = pre.deploy_contract(
         code=Op.RETURN(offset=0x0, size=0xFFFFFFF) + Op.STOP,
         nonce=0,
         address=Address("0x7266f1c07958d55ce36de0592604f1a915bdf1c2"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_9 = pre.deploy_contract(
         code=(
             Op.RETURN(
                 offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
@@ -123,14 +128,14 @@ def test_static_return_bounds(
         nonce=0,
         address=Address("0x76006c948f3a0529479c6d18a6f95908426e8092"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_10 = pre.deploy_contract(
         code=(
             Op.RETURN(offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFF, size=0x0) + Op.STOP
         ),
         nonce=0,
         address=Address("0x7a4461ac9f9cd13f40f9514a7c60e23a71c1dff3"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_11 = pre.deploy_contract(
         code=Op.RETURN(offset=0xFFFFFFFFFFFFFFFF, size=0x0) + Op.STOP,
         nonce=0,
         address=Address("0x7bbcf24c83493c4e733cb54079b51873d3211ad2"),  # noqa: E501
@@ -138,12 +143,12 @@ def test_static_return_bounds(
     pre[sender] = Account(
         balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_12 = pre.deploy_contract(
         code=Op.RETURN(offset=0xFFFFFFFF, size=0xFFFFFFFF) + Op.STOP,
         nonce=0,
         address=Address("0xad7754a8a56cc5ad4e319fa94194e435628dee67"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_13 = pre.deploy_contract(
         code=Op.RETURN(offset=0xFFFFFFF, size=0x0) + Op.STOP,
         nonce=0,
         address=Address("0xc7aa750fe05c7e38475a49fe98a301024d0c1d54"),  # noqa: E501
@@ -333,48 +338,111 @@ def test_static_return_bounds(
         nonce=0,
         address=Address("0xdaaed08adba0dd97804c34dd17b55766d54fc392"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_14 = pre.deploy_contract(
         code=(
             Op.RETURN(offset=0x0, size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFF) + Op.STOP
         ),
         nonce=0,
         address=Address("0xf519de4dcb9aaa53f8f0db9b18c715c928caade8"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_15 = pre.deploy_contract(
         code=Op.RETURN(offset=0xFFFFFFFF, size=0x0) + Op.STOP,
         nonce=0,
         address=Address("0xff6b6d23be161344e86eb7b174acedd4b1dc6dc7"),  # noqa: E501
     )
+
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("630fffffff630ffffffff300")
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex("67ffffffffffffffff6000f300")
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "6d0fffffffffffffffffffffffffff6d0ffffffffffffffffffffffffffff300"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6000f300"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(code=bytes.fromhex("63ffffffff6000f300")),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "67ffffffffffffffff67fffffffffffffffff300"
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "60007ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff300"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(code=bytes.fromhex("60006000f300")),
+                callee_8: Account(code=bytes.fromhex("630fffffff6000f300")),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff300"  # noqa: E501
+                    )
+                ),
+                callee_10: Account(
+                    code=bytes.fromhex(
+                        "60006d0ffffffffffffffffffffffffffff300"
+                    )
+                ),
+                callee_11: Account(
+                    code=bytes.fromhex("600067fffffffffffffffff300")
+                ),
+                callee_12: Account(
+                    code=bytes.fromhex("63ffffffff63fffffffff300")
+                ),
+                callee_13: Account(code=bytes.fromhex("6000630ffffffff300")),
+                contract: Account(
+                    storage={
+                        1: 1,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        6: 1,
+                        7: 1,
+                        8: 1,
+                        9: 1,
+                        10: 1,
+                        11: 1,
+                        12: 1,
+                        13: 1,
+                        14: 1,
+                        15: 1,
+                        16: 1,
+                    },
+                    code=bytes.fromhex(
+                        "6000600060006000735efbf04d8e1cc5b6b3719b16b5744a09bacfc18b6707fffffffffffffffa600155600060006000600073c7aa750fe05c7e38475a49fe98a301024d0c1d546707fffffffffffffffa600255600060006000600073ff6b6d23be161344e86eb7b174acedd4b1dc6dc76707fffffffffffffffa6003556000600060006000737bbcf24c83493c4e733cb54079b51873d3211ad26707fffffffffffffffa6004556000600060006000737a4461ac9f9cd13f40f9514a7c60e23a71c1dff36707fffffffffffffffa6005556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa6006556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa6007556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa6008556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa6009556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa600a556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa600b556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa600c556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa600d556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa600e556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa600f556000600060006000734912bc7b66a3bf27adfa54ab049e90e8c9c4dc636707fffffffffffffffa60105500"  # noqa: E501
+                    ),
+                ),
+                callee_14: Account(
+                    code=bytes.fromhex(
+                        "6d0fffffffffffffffffffffffffff6000f300"
+                    )
+                ),
+                callee_15: Account(code=bytes.fromhex("600063fffffffff300")),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=15000000,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000000"): Account(
-            storage={
-                1: 1,
-                2: 1,
-                3: 1,
-                4: 1,
-                5: 1,
-                6: 1,
-                7: 1,
-                8: 1,
-                9: 1,
-                10: 1,
-                11: 1,
-                12: 1,
-                13: 1,
-                14: 1,
-                15: 1,
-                16: 1,
-            },
-            balance=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

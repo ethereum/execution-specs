@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_ab_acalls_suicide0(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -72,7 +77,7 @@ def test_ab_acalls_suicide0(
         nonce=0,
         address=Address("0x10481e52c494fd0d78604b0f9207a89008f7e9a9"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=Op.PC,
@@ -97,17 +102,35 @@ def test_ab_acalls_suicide0(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={36: 1},
+                    code=bytes.fromhex(
+                        "600060006000600060187324940009f045e4134ed2ab242be610d312fe9a29620186a0f158557324940009f045e4134ed2ab242be610d312fe9a29ff00"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    storage={38: 1},
+                    code=bytes.fromhex(
+                        "600060006000600060177310481e52c494fd0d78604b0f9207a89008f7e9a961c350f1600101585500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=10000000,
         value=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
-            storage={38: 1},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

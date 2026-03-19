@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192_london(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Is a canon example of a test found by fuzzing with EVMlab,..."""
     coinbase = Address("0xdf5277352f687058bec2d433f2e2d1b7f0c970ae")
@@ -49,7 +54,7 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192_lo
     )
 
     # Source: raw bytecode
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0xABCDEF),
         nonce=28,
         address=Address("0x589d1b72331c25effee38732d79f48f729681853"),  # noqa: E501
@@ -74,26 +79,29 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192_lo
         address=coinbase,  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(code=bytes.fromhex("62abcdefff")),
+                coinbase: Account(
+                    code=bytes.fromhex(
+                        "61dead6000600060006000600061dead5af162abcdef3f600155"
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=coinbase,
         gas_limit=6282759,
         nonce=28,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000000"): Account(
-            storage={},
-            nonce=28,
-            code=bytes.fromhex(
-                "61dead6000600060006000600061dead5af162abcdef3f600155"
-            ),
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={},
-            nonce=29,
-            code=b"",
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

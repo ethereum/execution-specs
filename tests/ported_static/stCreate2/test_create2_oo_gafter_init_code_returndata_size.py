@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create2_oo_gafter_init_code_returndata_size(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Calls a contract that runs CREATE2 which deploy a code. then OOG..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -64,18 +69,28 @@ def test_create2_oo_gafter_init_code_returndata_size(
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "726960016001556001600255600052600a6016f360005260006013600d6000f5503d60020a00"  # noqa: E501
+                    )
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=55054,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        contract: Account(balance=1),
-        Address(
-            "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
-        ): Account.NONEXISTENT,
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

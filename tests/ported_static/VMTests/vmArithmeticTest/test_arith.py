@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_arith(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -72,18 +77,30 @@ def test_arith(
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 0x1B9C636491},
+                    code=bytes.fromhex(
+                        "600160019001600702600501600290046004906021900560170160030260059007600303600960110a60005560086000f3"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         data=bytes.fromhex("00"),
         gas_limit=16777216,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-            storage={0: 0x1B9C636491},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

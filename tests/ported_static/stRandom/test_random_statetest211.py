@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_random_statetest211(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
@@ -99,6 +104,25 @@ def test_random_statetest211(
         address=Address("0xd7eb1ddc2f83f5620bd387bc6409be3cc2d2422f"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                coinbase: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7e7a980b5b1c50ebb63d8e2211d3a79e841ee5e5946b7969dfb6ca1309c99e8f68d4ee9a50996902ee4e6937e1d07ad872cf04eb2a61fc336025a3648d5818a6457dc24f19f38d3deebb09968c812740339c6df46af95b7b0283acb1944a8ca37fbaaafeac115b9ec5adc16fea5a3a828d3483e495506a790ca75d8238ebbed6477c213d0177c10b33b6cf9362273973809ac39f11dffee928f3fb18e975186fb4a74e56142d4431bfa392dd5f71d32b6c40a2bd0beb6a8b24fc592b25f0680306f11e049124ec396ea3858d3339145af8c1c16747bea056639a7faf446cd9c7bf446ed2de67f1665adc479874053c2c53f0fc53a12af3c1951fdc7a5d20aee8f96874f392a4aa2a84a99c9390ab4bd4c39f521a2b91c2ea90"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
@@ -138,22 +162,7 @@ def test_random_statetest211(
         ),
         gas_limit=600000,
         value=1548974135,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={},
-            nonce=0,
-        ),
-        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
-            storage={},
-            nonce=0,
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={},
-            nonce=1,
-            code=b"",
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

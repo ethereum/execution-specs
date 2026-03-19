@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -25,11 +29,11 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["tests/static/state_tests/stRandom/randomStatetest209Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Cancun")
 @pytest.mark.pre_alloc_mutable
 def test_random_statetest209(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
@@ -78,94 +82,24 @@ def test_random_statetest209(
         address=Address("0x8bcae160c58323e76f465e719b7f38a0049b17c9"),  # noqa: E501
     )
 
-    tx = Transaction(
-        sender=sender,
-        to=contract,
-        data=bytes.fromhex(
-            "7f00000000000000000000000000000000000000000000000000000000000000017f0000"  # noqa: E501
-            "00000000000000000000000000000000000000000000000000000000c3507f0000000000"  # noqa: E501
-            "00000000000000ffffffffffffffffffffffffffffffffffffffff7fffffffffffffffff"  # noqa: E501
-            "fffffffffffffffffffffffffffffffffffffffffffffffe7f0000000000000000000000"  # noqa: E501
-            "00ffffffffffffffffffffffffffffffffffffffff0951537d3c6474623b781181a3"  # noqa: E501
-        ),
-        gas_limit=100000,
-        value=833511346,
-    )
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                coinbase: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff0951537d3c6474623b781181a355"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
 
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={},
-            nonce=0,
-        ),
-        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
-            storage={},
-            nonce=0,
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={},
-            nonce=1,
-            code=b"",
-        ),
-    }
-
-    state_test(env=env, pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.ported_from(
-    ["tests/static/state_tests/stRandom/randomStatetest209Filler.json"],
-)
-@pytest.mark.valid_from("Prague")
-@pytest.mark.pre_alloc_mutable
-def test_random_statetest209_from_prague(
-    state_test: StateTestFiller,
-    pre: Alloc,
-) -> None:
-    """Test ported from static filler."""
-    coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
-    sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=9223372036854775807,
-    )
-
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    # Source: raw bytecode
-    pre.deploy_contract(
-        code=(
-            Op.JUMPI(
-                pc=0x9,
-                condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
-            )
-            + Op.STOP
-            + Op.JUMPDEST
-            + Op.SSTORE(
-                key=Op.CALLDATALOAD(offset=0x0),
-                value=Op.CALLDATALOAD(offset=0x20),
-            )
-        ),
-        balance=46,
-        nonce=0,
-        address=coinbase,  # noqa: E501
-    )
-    # Source: raw bytecode
-    contract = pre.deploy_contract(
-        code=bytes.fromhex(
-            "7f00000000000000000000000000000000000000000000000000000000000000017f0000"  # noqa: E501
-            "00000000000000000000000000000000000000000000000000000000c3507f0000000000"  # noqa: E501
-            "00000000000000ffffffffffffffffffffffffffffffffffffffff7fffffffffffffffff"  # noqa: E501
-            "fffffffffffffffffffffffffffffffffffffffffffffffe7f0000000000000000000000"  # noqa: E501
-            "00ffffffffffffffffffffffffffffffffffffffff0951537d3c6474623b781181a355"  # noqa: E501
-        ),
-        nonce=0,
-        address=Address("0x8bcae160c58323e76f465e719b7f38a0049b17c9"),  # noqa: E501
-    )
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,
@@ -179,22 +113,7 @@ def test_random_statetest209_from_prague(
         ),
         gas_limit=100000,
         value=833511346,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={},
-            nonce=0,
-        ),
-        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
-            storage={},
-            nonce=0,
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={},
-            nonce=1,
-            code=b"",
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

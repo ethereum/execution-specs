@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_then_call_value_fail_then_returndatasize(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -81,7 +86,7 @@ def test_call_then_call_value_fail_then_returndatasize(
         nonce=0,
         address=Address("0x0e496b29ad2f0e55adf292c08a6a9289cb163835"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -95,16 +100,32 @@ def test_call_then_call_value_fail_then_returndatasize(
     )
     pre[sender] = Account(balance=0x6400000000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60206000600060006000739898dd5e5c526b55ec49b1047e298705c13279f1640900000000f150602060006000600065ffffffffffff739898dd5e5c526b55ec49b1047e298705c13279f1640900000000f1503d60005500"  # noqa: E501
+                    )
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "7d111122223333444455556666777788889999aaaabbbbccccddddeeeeffff60005260206000f300"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
-            storage={0: 0},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

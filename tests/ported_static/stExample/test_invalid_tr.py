@@ -14,7 +14,10 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
-    TransactionException,
+)
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
 )
 from execution_testing.vm import Op
 
@@ -31,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_invalid_tr(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """A state test with invalid transaction example filler."""
     coinbase = Address("0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3")
@@ -58,21 +62,24 @@ def test_invalid_tr(
     )
     pre[coinbase] = Account(balance=0, nonce=1)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(code=bytes.fromhex("600160010160005500"))
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=1000,
         value=100000,
-        error=TransactionException.INTRINSIC_GAS_TOO_LOW,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={0: 0},
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=0,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

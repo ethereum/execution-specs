@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_returndatacopy_after_successful_staticcall(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -73,7 +78,7 @@ def test_returndatacopy_after_successful_staticcall(
         nonce=0,
         address=Address("0x4bedf636cb41e5dcf09d038de843004824dfbb3a"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=Op.CALLER)
             + Op.RETURN(offset=0x0, size=0x20)
@@ -86,16 +91,29 @@ def test_returndatacopy_after_successful_staticcall(
     pre[callee_1] = Account(balance=0x1000000, nonce=0)
     pre[sender] = Account(balance=0x6400000000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 0x4BEDF636CB41E5DCF09D038DE843004824DFBB3A},
+                    code=bytes.fromhex(
+                        "60006000600060007352fd0cbc013ee33577eec035031dbc4489a1e0bd61ea60fa506020600060003e60005160005500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(code=bytes.fromhex("3360005260206000f300")),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000001"): Account(
-            storage={0: 0x1000000000000000000000000000000000000001},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

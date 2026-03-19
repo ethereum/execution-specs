@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcode_check_pc(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Check the PC after doing call to a contract."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -68,23 +73,38 @@ def test_callcode_check_pc(
         address=Address("0x6861b8d2ba9a24e77f63623e4a5e83e2bc6a30df"),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x1) + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
         address=Address("0xfa7fc61138ee12431f8693335fb2bf5af4051632"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={3: 37},
+                    code=bytes.fromhex(
+                        "6040600060406000600073fa7fc61138ee12431f8693335fb2bf5af4051632620f4240f1505860035500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    storage={0: 1}, code=bytes.fromhex("600160005500")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=1100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000000"): Account(
-            storage={3: 37},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

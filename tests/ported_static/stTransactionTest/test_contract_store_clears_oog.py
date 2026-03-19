@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_contract_store_clears_oog(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -80,31 +85,40 @@ def test_contract_store_clears_oog(
     )
     pre[sender] = Account(balance=0x1C9C380)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 12,
+                        1: 12,
+                        2: 12,
+                        3: 12,
+                        4: 12,
+                        5: 12,
+                        6: 12,
+                        7: 12,
+                        8: 12,
+                        9: 12,
+                    },
+                    code=bytes.fromhex(
+                        "600060005560006001556000600255600060035560006004556000600555600060065560006007556000600855600c60095500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=23000,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-            storage={
-                0: 12,
-                1: 12,
-                2: 12,
-                3: 12,
-                4: 12,
-                5: 12,
-                6: 12,
-                7: 12,
-                8: 12,
-                9: 12,
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

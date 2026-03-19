@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_10_revert_undoes_store_after_return(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Revert undoes the transient storage writes after a successful call."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -142,18 +147,30 @@ def test_10_revert_undoes_store_after_return(
         address=Address("0xe42b9e92d5348b0fc6353d40e3d220c316d3c685"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 5, 2: 1, 3: 5},
+                    code=bytes.fromhex(
+                        "5f3560e01c806370ac643e14602f57806376b85d2314602b57634ccca55314602357005b60296076565b005b605c565b50602960055f5d5f5c5f556376b85d2360e01b5f5260205f818180305af16001555f516002555f5c600355565b634ccca55360e01b5f525f8060208180305af15f5260205ffd5b60065f5d56"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         data=bytes.fromhex("70ac643e"),
         gas_limit=400000,
         max_fee_per_gas=2000,
+        error=_exc,
     )
-
-    post = {
-        Address("0xa00000000000000000000000000000000000000a"): Account(
-            storage={0: 5, 1: 0, 2: 1, 3: 5},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

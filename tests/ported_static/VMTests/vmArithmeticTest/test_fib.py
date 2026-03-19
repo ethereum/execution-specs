@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_fib(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -132,30 +137,41 @@ def test_fib(
         address=Address("0xf8d9ff3e0cf16acf51098c85f2cb8f082ef588c2"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        1: 1,
+                        2: 1,
+                        3: 2,
+                        4: 3,
+                        5: 5,
+                        6: 8,
+                        7: 13,
+                        8: 21,
+                        9: 34,
+                        10: 55,
+                    },
+                    code=bytes.fromhex(
+                        "60026002035460016002035401600255600260030354600160030354016003556002600403546001600403540160045560026005035460016005035401600555600260060354600160060354016006556002600703546001600703540160075560026008035460016008035401600855600260090354600160090354016009556002600a03546001600a035401600a5500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         data=bytes.fromhex("01"),
         gas_limit=16777216,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-            storage={
-                0: 0,
-                1: 1,
-                2: 1,
-                3: 2,
-                4: 3,
-                5: 5,
-                6: 8,
-                7: 13,
-                8: 21,
-                9: 34,
-                10: 55,
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

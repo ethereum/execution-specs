@@ -1,0 +1,229 @@
+# EIP-3855: PUSH0 instruction
+push0:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: ''
+      nonce: '0'
+      storage: {}
+
+    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: |
+        :yul berlin
+          {
+            sstore(0, call(100000, shr(96, calldataload(0)), 0, 0, 0, 0, 0))
+            sstore(1, 1)
+          }
+      nonce: 0
+      storage: {}
+
+    0000000000000000000000000000000000001000:
+      balance: 0
+      # push1(01) push0 sstore
+      code: ':raw 0x60015f55'
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000200:
+      balance: 0
+      # 1024 push0's, 1023 or's, push1(01) swap1 sstore
+      code: ":raw 0x\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        17171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717171717\
+        60019055"
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000300:
+      balance: 0
+      # 1025 push0's
+      code: ":raw 0x\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f\
+        5f"
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000400:
+      balance: 0
+      # Update already existing storage value
+      # push1(02) push0 sstore push1(00) push1(01) sstore
+      code: ':raw 0x60025f556000600155'
+      nonce: '0'
+      storage: {0: 0x0a, 1: 0x0a}
+
+    0000000000000000000000000000000000000500:
+      balance: 0
+      code: |
+        :yul berlin
+        {
+           sstore(0,
+             staticcall(100000, 0x0000000000000000000000000000000000000600, 0, 0, 0, 0))
+           sstore(1, 1)
+           returndatacopy(0x1f, 0x0, 0x1)
+           sstore(0x2, mload(0x00))
+        }
+      nonce: 0
+      storage: {}
+
+    0000000000000000000000000000000000000600:
+      balance: 0
+      # push1(0xff) push0 mstore8 push1(0x01) push1(0x00) return
+      code: ':raw 0x60ff5f5360016000f3'
+      nonce: 0
+      storage: {}
+    0000000000000000000000000000000000000700:
+      balance: 0
+      # Jumps to a JUMPDEST next to PUSH0
+      # push1(4) jump push0 jumpdest push1(1) push0 sstore stop
+      code: ':raw 0x6004565f5b60015f5500'
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data:
+      - ':label single_push0 :raw 0x0000000000000000000000000000000000001000'
+      - ':label 1024_push0   :raw 0x0000000000000000000000000000000000000200'
+      - ':label 1025_push0   :raw 0x0000000000000000000000000000000000000300'
+      - ':label push0_upd_storage :raw 0x0000000000000000000000000000000000000400'
+      - ':label push0_upd_storage_sc :raw 0x0000000000000000000000000000000000000500'
+      - ':label jumpdest :raw 0x0000000000000000000000000000000000000700'
+    gasLimit:
+      - 700000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    value:
+    - 0
+
+  expect:
+    - indexes:
+        data: ':label single_push0'
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000001000:
+          storage:
+            0x00: 0x01 # Contract executed correctly and saved data to storage
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            0x00: 0x01 # Call to contract containing opcode PUSH0 (0x0..100) succeeded
+            0x01: 0x01 # Key 1 is filled after the call, indicating contract 0xb94... continued executing
+    - indexes:
+        data: ':label 1024_push0'
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000000200:
+          storage:
+            0x00: 0x01 # Contract executed correctly and saved data to storage
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            0x00: 0x01 # Call to contract containing opcode PUSH0 (0x0..200) succeeded
+            0x01: 0x01 # Key 1 is filled after the call, indicating contract 0xb94... continued executing
+    # Same expectation, but for London execution fails on 5f opcode, for 3855 it fails with stack overflow
+    - indexes:
+        data: ':label 1025_push0'
+      network:
+        - '>=Cancun'
+      result:
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:      # Key 0 remained empty, contract 0x0..300 failed
+            0x01: 0x01  # Key 1 filled after the call as the contract 0xb94... continued executing
+    - indexes:
+        data: ':label push0_upd_storage'
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000000400:
+          storage:     # Contract executed and changed initial storage
+            0x00: 0x02
+            0x01: 0x00
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            0x00: 0x01 # Call to contract 0x0..400 was successful
+            0x01: 0x01 # Filled after the call, indicating contract 0xb84 continued executing
+    - indexes:
+        data: ':label push0_upd_storage_sc'
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000000500:
+          storage:
+            0x00: 0x01 # Call to contract 0x0..0600 succeeded
+            0x01: 0x01 # Contract 0x0..500 continued executed and stored value 1.
+            0x02: 0xff # Value returned by contract 0x0..0600
+        0000000000000000000000000000000000000600:
+          storage: {}
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            0x00: 0x01 # Call to contract 0x0..500 succeeded
+            0x01: 0x01 # Contract 0xb94f... continued executing and stored value 1.
+    - indexes:
+        data: ':label jumpdest'
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Cancun'
+      result:
+        0000000000000000000000000000000000000700:
+          storage:
+            0x00: 0x01 # Contract 0x0..700 jumped to correct destination and stored value 1.
+        b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          storage:
+            0x00: 0x01 # Call to contract 0x0..700 succeeded
+            0x01: 0x01 # Contract 0xb94f... continued executing and stored value 1.

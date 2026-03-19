@@ -1,0 +1,94 @@
+{
+    "create2collisionCode2" : {
+	    "_info" : {
+	        "comment" : "collision with the contract that already has the same init code that we are about to create"
+	    },
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "1000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : 0,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "fce41d047b4a1d4450382dcc29ec7e5fedc5f9a3" : {
+                        "balance" : "0",
+						"nonce" : "1",
+						"code" : "0x010203"
+                    },
+                    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+                        "balance" : "1",
+                        "nonce" : "2",
+						"code" : ""
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            },
+            {
+                "indexes" : {
+                    "data" : 1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "fce41d047b4a1d4450382dcc29ec7e5fedc5f9a3" : {
+                        "balance" : "0",
+						"nonce" : "1",
+						"code" : "0x010203"
+                    },
+                    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+                        "balance" : "1",
+                        "nonce" : "2",
+						"code" : ""
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3" : {
+                "balance" : "0x00",
+                "code" : ":raw 0x010203",
+                "nonce" : "0x01",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "{ (MSTORE 0 0x620102036000526003601df3) (CREATE2 0 20 12 0) }",
+				"{ (MSTORE 0 0x620102036000526003601df3) (CREATE2 1 20 12 0) }"
+            ],
+            "gasLimit" : [
+                "400000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "",
+            "value" : [
+                "1"
+            ]
+        }
+    }
+}

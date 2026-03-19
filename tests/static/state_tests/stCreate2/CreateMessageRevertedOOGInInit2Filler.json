@@ -1,0 +1,84 @@
+{
+    "CreateMessageRevertedOOGInInit2" : {
+	    "_info" : {
+	        "comment" : "create2 oog during the init code, + when create2 is from transaction init code. but oog still in create2 init code"
+	    },
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "1000000000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : 0,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "f3059e18a327c662766f6ba11808c400635847ef" : {
+                        "shouldnotexist" : "1"
+                    }
+                }
+            },
+    	    {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : 1,
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    },
+                    "f3059e18a327c662766f6ba11808c400635847ef" : {
+                        "balance" : "0",
+                        "nonce" : "1",
+			            "storage" : {
+			                "0x00" : "0x0c",
+			                "0x01" : "0x0d"
+			            }
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "3000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "10",
+                "code" : "0x",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "{(MSTORE 0 0x600c600055600d600155) (CREATE2 0 22 10 0)}"
+            ],
+            "gasLimit" : [
+                "110000", "150000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "",
+            "value" : [
+                "100"
+            ]
+        }
+    }
+}

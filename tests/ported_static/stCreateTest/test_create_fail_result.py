@@ -15,10 +15,36 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000f50000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000f5000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000f50000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000ff0000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000ee000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
+    "1a8451e600000000000000000000000000000000000000000000000000000000000000ee0000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
+]
+
+TX_GAS = [16777216]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -26,37 +52,28 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex",
+    "d, g, v",
     [
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000ee0000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000ee000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000f0000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000ff0000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000f50000000000000000000000000000000000000000000000000000000000000bad",  # noqa: E501
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000f5000000000000000000000000000000000000000000000000000000000000600d",  # noqa: E501
-        "1a8451e600000000000000000000000000000000000000000000000000000000000000f50000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
+        pytest.param(9, 0, 0, id="case0"),
+        pytest.param(4, 0, 0, id="case1"),
+        pytest.param(8, 0, 0, id="case2"),
+        pytest.param(2, 0, 0, id="case3"),
+        pytest.param(0, 0, 0, id="case4"),
+        pytest.param(7, 0, 0, id="case5"),
+        pytest.param(5, 0, 0, id="case6"),
+        pytest.param(6, 0, 0, id="case7"),
+        pytest.param(3, 0, 0, id="case8"),
+        pytest.param(1, 0, 0, id="case9"),
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_create_fail_result(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -139,7 +156,7 @@ def test_create_fail_result(
     #    sstore(2, mload(0x200))
     #    sstore(3, mload(0x220))
     # }
-    pre.deploy_contract(
+    callee_3 = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x10,
@@ -204,7 +221,7 @@ def test_create_fail_result(
     #    sstore(2, mload(0x200))
     #    sstore(3, mload(0x220))
     # }
-    pre.deploy_contract(
+    callee_4 = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x10,
@@ -268,7 +285,7 @@ def test_create_fail_result(
     #    sstore(2, mload(0x200))
     #    sstore(3, mload(0x220))
     # }
-    pre.deploy_contract(
+    callee_5 = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x10,
@@ -333,7 +350,7 @@ def test_create_fail_result(
     #    sstore(2, mload(0x200))
     #    sstore(3, mload(0x220))
     # }
-    pre.deploy_contract(
+    callee_6 = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x10,
@@ -470,28 +487,170 @@ def test_create_fail_result(
         address=Address("0xf9d1ea8eab6963659ee85b3e0b4d8a57e7edba2b"),  # noqa: E501
     )
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        1: 0,
+                        2: 0,
+                        16: 1,
+                        17: 64,
+                        18: 0xDEADBEEF,
+                        19: 24743,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_4: Account(
+                    storage={
+                        0: 0xB44F2C88D3D4283CD1E54E418C4FF7E6A6C73202,
+                        1: 0,
+                        2: 0,
+                        3: 0,
+                        16: 1,
+                        17: 64,
+                        18: 0xDEADBEEF,
+                        19: 24743,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_5: Account(
+                    storage={
+                        0: 0x65EE26A034447B6AC64ABDCA1CCCB7B747E4A231,
+                        1: 0,
+                        2: 0,
+                        3: 0,
+                        16: 1,
+                        17: 64,
+                        18: 0xDEADBEEF,
+                        19: 24743,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_4: Account(
+                    storage={
+                        0: 0,
+                        1: 32,
+                        2: 0xBAD0BAD0BAD,
+                        16: 1,
+                        17: 64,
+                        18: 0xDEADBEEF,
+                        19: 24743,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [5], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_5: Account(
+                    storage={
+                        0: 0,
+                        1: 32,
+                        2: 0xBAD0BAD0BAD,
+                        16: 1,
+                        17: 64,
+                        18: 0xDEADBEEF,
+                        19: 24743,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [6], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_6: Account(
+                    storage={
+                        0: 0,
+                        1: 0,
+                        16: 1,
+                        17: 64,
+                        18: 0xDEADBEEF,
+                        19: 24743,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [7], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_6: Account(
+                    storage={
+                        0: 0,
+                        1: 0,
+                        16: 1,
+                        17: 64,
+                        18: 0xDEADBEEF,
+                        19: 24743,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [8], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_3: Account(
+                    storage={
+                        0: 0,
+                        1: 0,
+                        16: 1,
+                        17: 64,
+                        18: 0xDEADBEEF,
+                        19: 24743,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [9], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_3: Account(
+                    storage={
+                        0: 0,
+                        1: 0,
+                        16: 1,
+                        17: 64,
+                        18: 0xDEADBEEF,
+                        19: 24743,
+                    }
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=16777216,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         nonce=1,
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        contract: Account(
-            storage={
-                0: 0,
-                1: 0,
-                2: 0,
-                16: 1,
-                17: 64,
-                18: 0xDEADBEEF,
-                19: 24743,
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

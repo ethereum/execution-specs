@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_test_contract_interaction(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -175,19 +180,35 @@ def test_test_contract_interaction(
     )
     pre[sender] = Account(balance=0x5F5E100)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "7c01000000000000000000000000000000000000000000000000000000006000350463c04062268114610039578063ed973fe91461004b57005b6100416100ea565b8060005260206000f35b61005361005d565b8060005260206000f35b60006000608161011a600039608160006000f0905073ffffffffffffffffffffffffffffffffffffffff811663b9c3d0a5602060007fb9c3d0a50000000000000000000000000000000000000000000000000000000081526004600060008660325a03f16100c757005b505060005160e1146100d8576100e1565b600191506100e6565b600091505b5090565b60006100f461005d565b600060006101000a81548160ff0219169083021790555060ff600160005404169050905600607580600c6000396000f3007c01000000000000000000000000000000000000000000000000000000006000350462f55d9d81146036578063b9c3d0a514604557005b603f6004356055565b60006000f35b604b6070565b8060005260206000f35b8073ffffffffffffffffffffffffffffffffffffffff16ff50565b60e19056"  # noqa: E501
+                    ),
+                ),
+                Address("0xd0a4f234edb751a767cc39613d2204399d6cc464"): Account(
+                    code=bytes.fromhex(
+                        "7c01000000000000000000000000000000000000000000000000000000006000350462f55d9d81146036578063b9c3d0a514604557005b603f6004356055565b60006000f35b604b6070565b8060005260206000f35b8073ffffffffffffffffffffffffffffffffffffffff16ff50565b60e19056"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         data=bytes.fromhex("c0406226"),
         gas_limit=350000,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={0: 1},
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

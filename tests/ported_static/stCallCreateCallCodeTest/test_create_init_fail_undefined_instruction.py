@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create_init_fail_undefined_instruction(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Create fails because init code has undefined opcode, trying to..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -48,7 +53,7 @@ def test_create_init_fail_undefined_instruction(
         gas_limit=1000000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE8(offset=0x0, value=0xF9)
             + Op.SELFDESTRUCT(
@@ -60,7 +65,7 @@ def test_create_init_fail_undefined_instruction(
         nonce=0,
         address=Address("0x0183feb7335d767d4d6ae41bbdea7afb27227860"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.MSTORE8(offset=0x0, value=0xF9)
             + Op.SELFDESTRUCT(
@@ -109,17 +114,35 @@ def test_create_init_fail_undefined_instruction(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("60f96000536000600160006001f5ff00")
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex("60f9600053600160006001f0ff00")
+                ),
+                contract: Account(
+                    storage={2: 1},
+                    code=bytes.fromhex(
+                        "6000600060006000600073552f200b75457440ee6df9159d6b188e9d18c22262061a80f160005560006000600060006000730183feb7335d767d4d6ae41bbdea7afb2722786062061a80f1600155600160025500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=900000,
         value=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={2: 1},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

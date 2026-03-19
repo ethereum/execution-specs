@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_revert_depth2(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -46,7 +51,7 @@ def test_static_revert_depth2(
         gas_limit=10000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x15b1327fe926a2172adfd10efdef1505c8e15461"),  # noqa: E501
@@ -83,7 +88,7 @@ def test_static_revert_depth2(
         nonce=0,
         address=Address("0x57c111943c5e6f1817ee85fd1212409b7d1f7f26"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.POP(
                 Op.STATICCALL(
@@ -101,7 +106,7 @@ def test_static_revert_depth2(
         nonce=0,
         address=Address("0x5dd18f4768e54de1443f70ec11ad95d5db424293"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=(
             Op.POP(
                 Op.STATICCALL(
@@ -121,28 +126,39 @@ def test_static_revert_depth2(
     )
     pre[sender] = Account(balance=0xE8D4A51000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(code=bytes.fromhex("600160015200")),
+                contract: Account(
+                    storage={0: 1, 1: 1},
+                    code=bytes.fromhex(
+                        "6000546001016000556000600060006000735dd18f4768e54de1443f70ec11ad95d5db424293620249f0fa600155600060006000600073a61140a1c2699a13c619940208a513d42f654e98620249f0fa60025500"  # noqa: E501
+                    ),
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "60006000600060007315b1327fe926a2172adfd10efdef1505c8e1546161c350fa50600160015200"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "60006000600060007315b1327fe926a2172adfd10efdef1505c8e1546161c350fa50622fffff60002000"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=1706850,
+        error=_exc,
     )
-
-    post = {
-        Address("0xa000000000000000000000000000000000000000"): Account(
-            storage={0: 1, 1: 1, 2: 0},
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-        Address("0xb000000000000000000000000000000000000000"): Account(
-            storage={0: 0, 1: 0},
-        ),
-        Address("0xc000000000000000000000000000000000000000"): Account(
-            storage={0: 0},
-        ),
-        Address("0xd000000000000000000000000000000000000000"): Account(
-            storage={0: 0, 1: 0, 2: 0},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -15,10 +15,29 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "0000000000000000000000001000000000000000000000000000000000000000",
+    "0000000000000000000000002000000000000000000000000000000000000000",
+    "0000000000000000000000003000000000000000000000000000000000000000",
+]
+
+TX_GAS = [600000, 54000]
+
+TX_VALUE = [0, 1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -28,226 +47,30 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_gas_limit, tx_value, expected_post",
+    "d, g, v",
     [
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            600000,
-            0,
-            {
-                Address("0x1000000000000000000000000000000000000000"): Account(
-                    storage={1: 0x13136008B64FF592819B2FA6D43F2835C452020E},
-                    nonce=1,
-                ),
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={1: 1}, nonce=1, balance=10, code=b""
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            600000,
-            1,
-            {
-                Address("0x1000000000000000000000000000000000000000"): Account(
-                    storage={1: 0x13136008B64FF592819B2FA6D43F2835C452020E},
-                    nonce=1,
-                ),
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={1: 1}, nonce=1, balance=10, code=b""
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            54000,
-            0,
-            {
-                Address("0x1000000000000000000000000000000000000000"): Account(
-                    storage={}, nonce=0
-                ),
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={}, nonce=0, balance=10, code=b""
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            54000,
-            1,
-            {
-                Address("0x1000000000000000000000000000000000000000"): Account(
-                    storage={}, nonce=0
-                ),
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={}, nonce=0, balance=10, code=b""
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            600000,
-            0,
-            {
-                Address("0x0bf4c804e0579073baf54ec4ec37cd04f3455c65"): Account(
-                    storage={}, nonce=2, code=b""
-                ),
-                Address("0x2000000000000000000000000000000000000000"): Account(
-                    storage={1: 0}, nonce=0
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            600000,
-            1,
-            {
-                Address("0x0bf4c804e0579073baf54ec4ec37cd04f3455c65"): Account(
-                    storage={}, nonce=2, code=b""
-                ),
-                Address("0x2000000000000000000000000000000000000000"): Account(
-                    storage={1: 0}, nonce=0
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            54000,
-            0,
-            {
-                Address("0x0bf4c804e0579073baf54ec4ec37cd04f3455c65"): Account(
-                    storage={}, nonce=2, code=b""
-                ),
-                Address("0x2000000000000000000000000000000000000000"): Account(
-                    storage={1: 0}, nonce=0
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            54000,
-            1,
-            {
-                Address("0x0bf4c804e0579073baf54ec4ec37cd04f3455c65"): Account(
-                    storage={}, nonce=2, code=b""
-                ),
-                Address("0x2000000000000000000000000000000000000000"): Account(
-                    storage={1: 0}, nonce=0
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000003000000000000000000000000000000000000000",
-            600000,
-            0,
-            {
-                Address("0x3000000000000000000000000000000000000000"): Account(
-                    storage={1: 0}, nonce=0
-                ),
-                Address("0x4b86c4ed99b87f0f396bc0c76885453c343916ed"): Account(
-                    storage={}, nonce=0, code=bytes.fromhex("1122334455")
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000003000000000000000000000000000000000000000",
-            600000,
-            1,
-            {
-                Address("0x3000000000000000000000000000000000000000"): Account(
-                    storage={1: 0}, nonce=0
-                ),
-                Address("0x4b86c4ed99b87f0f396bc0c76885453c343916ed"): Account(
-                    storage={}, nonce=0, code=bytes.fromhex("1122334455")
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000003000000000000000000000000000000000000000",
-            54000,
-            0,
-            {
-                Address("0x0bf4c804e0579073baf54ec4ec37cd04f3455c65"): Account(
-                    storage={}, nonce=2, code=b""
-                ),
-                Address("0x2000000000000000000000000000000000000000"): Account(
-                    storage={1: 0}, nonce=0
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-        (
-            "0000000000000000000000003000000000000000000000000000000000000000",
-            54000,
-            1,
-            {
-                Address("0x0bf4c804e0579073baf54ec4ec37cd04f3455c65"): Account(
-                    storage={}, nonce=2, code=b""
-                ),
-                Address("0x2000000000000000000000000000000000000000"): Account(
-                    storage={1: 0}, nonce=0
-                ),
-                Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    nonce=1
-                ),
-            },
-        ),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
-        "case10",
-        "case11",
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(0, 0, 1, id="case1"),
+        pytest.param(0, 1, 0, id="case2"),
+        pytest.param(0, 1, 1, id="case3"),
+        pytest.param(1, 0, 0, id="case4"),
+        pytest.param(1, 0, 1, id="case5"),
+        pytest.param(1, 1, 0, id="case6"),
+        pytest.param(1, 1, 1, id="case7"),
+        pytest.param(2, 0, 0, id="case8"),
+        pytest.param(2, 0, 1, id="case9"),
+        pytest.param(2, 1, 0, id="case10"),
+        pytest.param(2, 1, 1, id="case11"),
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_create_collision_to_empty2(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    tx_gas_limit: int,
-    tx_value: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Data0 - create collision to empty, data1 - to empty but nonce,..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -269,7 +92,7 @@ def test_create_collision_to_empty2(
     pre[callee] = Account(balance=0, nonce=2)
     # Source: LLL
     # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=0x6001600155)
             + Op.SSTORE(
@@ -301,7 +124,7 @@ def test_create_collision_to_empty2(
     )
     # Source: LLL
     # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
-    pre.deploy_contract(
+    callee_3 = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=0x6001600155)
             + Op.SSTORE(
@@ -314,7 +137,7 @@ def test_create_collision_to_empty2(
     )
     # Source: LLL
     # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
-    pre.deploy_contract(
+    callee_4 = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=0x6001600155)
             + Op.SSTORE(
@@ -326,23 +149,77 @@ def test_create_collision_to_empty2(
         address=Address("0x3000000000000000000000000000000000000000"),  # noqa: E501
     )
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee_5 = pre.deploy_contract(
         code=bytes.fromhex("1122334455"),
         nonce=0,
         address=Address("0x4b86c4ed99b87f0f396bc0c76885453c343916ed"),  # noqa: E501
     )
     pre[sender] = Account(balance=0xE8D4A51000)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_1: Account(storage={}, nonce=0),
+                callee_2: Account(storage={}, nonce=0, balance=10, code=b""),
+                sender: Account(nonce=1),
+            },
+        },
+        {
+            "indexes": {"data": 0, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_1: Account(
+                    storage={1: 0x13136008B64FF592819B2FA6D43F2835C452020E},
+                    nonce=1,
+                ),
+                callee_2: Account(
+                    storage={1: 1}, nonce=1, balance=10, code=b""
+                ),
+                sender: Account(nonce=1),
+            },
+        },
+        {
+            "indexes": {"data": [1, 2], "gas": 1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(storage={}, nonce=2, code=b""),
+                callee_3: Account(storage={1: 0}, nonce=0),
+                sender: Account(nonce=1),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(storage={}, nonce=2, code=b""),
+                callee_3: Account(storage={1: 0}, nonce=0),
+                sender: Account(nonce=1),
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_4: Account(storage={1: 0}, nonce=0),
+                callee_5: Account(
+                    storage={}, nonce=0, code=bytes.fromhex("1122334455")
+                ),
+                sender: Account(nonce=1),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=tx_gas_limit,
-        value=tx_value,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

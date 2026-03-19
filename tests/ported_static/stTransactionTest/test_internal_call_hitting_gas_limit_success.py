@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_internal_call_hitting_gas_limit_success(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adf5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -66,25 +71,38 @@ def test_internal_call_hitting_gas_limit_success(
         nonce=0,
         address=Address("0x786a1ab68bb1c7eb88a1b844d6f4d4a51022de2c"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x37) + Op.STOP,
         nonce=0,
         address=Address("0x9f499a40cbc961c5230197401ce369d5c53ed896"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x3B9ACA00)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006001739f499a40cbc961c5230197401ce369d5c53ed8966161a8f100"  # noqa: E501
+                    )
+                ),
+                callee: Account(
+                    storage={1: 55}, code=bytes.fromhex("603760015500")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=150000,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={1: 55},
-            balance=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

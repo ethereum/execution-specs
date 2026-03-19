@@ -16,10 +16,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "000000000000000000000000000000000000000000000000000000000000c000",
+    "000000000000000000000000000000000000000000000000000000000000c001",
+]
+
+TX_GAS = [15000000]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -29,18 +47,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex",
+    "d, g, v",
     [
-        "000000000000000000000000000000000000000000000000000000000000c001",
-        "000000000000000000000000000000000000000000000000000000000000c000",
+        pytest.param(1, 0, 0, id="case0"),
+        pytest.param(0, 0, 0, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_create_init_code_size_limit(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -120,31 +140,60 @@ def test_create_init_code_size_limit(
         address=Address("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),  # noqa: E501
     )
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "69600a80600080396000f360b01b6000908152355a90600080f0905a9003600a5560005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex(
+                        "60003560005260008036818061c0de62989680f16000556001805500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={
+                        0: 0x5F6BAAEB5B7C97725F84D1569C4ABC85135F4716,
+                        10: 46323,
+                    },
+                    code=bytes.fromhex(
+                        "69600a80600080396000f360b01b6000908152355a90600080f0905a9003600a5560005500"  # noqa: E501
+                    ),
+                ),
+                Address("0x5f6baaeb5b7c97725f84d1569c4abc85135f4716"): Account(
+                    code=bytes.fromhex("600a80600080396000f3")
+                ),
+                contract: Account(
+                    storage={0: 1, 1: 1},
+                    code=bytes.fromhex(
+                        "60003560005260008036818061c0de62989680f16000556001805500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=15000000,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         nonce=1,
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        callee: Account(
-            storage={
-                0: 0x5F6BAAEB5B7C97725F84D1569C4ABC85135F4716,
-                10: 46323,
-            },
-        ),
-        Address("0x5f6baaeb5b7c97725f84d1569c4abc85135f4716"): Account(
-            storage={},
-            nonce=1,
-            balance=0,
-            code=bytes.fromhex("600a80600080396000f3"),
-        ),
-        sender: Account(nonce=2),
-        contract: Account(storage={0: 1, 1: 1}),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

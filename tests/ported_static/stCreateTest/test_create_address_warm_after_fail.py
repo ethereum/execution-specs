@@ -21,10 +21,56 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000006",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000006",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000001",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000001",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000000",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000000",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000005",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000005",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000002",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000002",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000007",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000007",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000003",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000003",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000004",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000004",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000010",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000010",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000b",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000b",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000a",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000a",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000c",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000c",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000011",
+    "52c3fd240000000000000000000000000000000000000000000000000000000000000011",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000d",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000d",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000e",
+    "52c3fd24000000000000000000000000000000000000000000000000000000000000000e",
+]
+
+TX_GAS = [16777216]
+
+TX_VALUE = [0, 1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -34,168 +80,48 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_value",
+    "d, g, v",
     [
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000007",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000007",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000010",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000010",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000b",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000b",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000a",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000a",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000c",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000c",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000011",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd240000000000000000000000000000000000000000000000000000000000000011",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000d",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000d",  # noqa: E501
-            1,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000e",  # noqa: E501
-            0,
-        ),
-        (
-            "52c3fd24000000000000000000000000000000000000000000000000000000000000000e",  # noqa: E501
-            1,
-        ),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
-        "case10",
-        "case11",
-        "case12",
-        "case13",
-        "case14",
-        "case15",
-        "case16",
-        "case17",
-        "case18",
-        "case19",
-        "case20",
-        "case21",
-        "case22",
-        "case23",
-        "case24",
-        "case25",
-        "case26",
-        "case27",
-        "case28",
-        "case29",
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 0, 1, id="case1"),
+        pytest.param(2, 0, 0, id="case2"),
+        pytest.param(3, 0, 1, id="case3"),
+        pytest.param(4, 0, 0, id="case4"),
+        pytest.param(5, 0, 1, id="case5"),
+        pytest.param(6, 0, 0, id="case6"),
+        pytest.param(7, 0, 1, id="case7"),
+        pytest.param(8, 0, 0, id="case8"),
+        pytest.param(9, 0, 1, id="case9"),
+        pytest.param(10, 0, 0, id="case10"),
+        pytest.param(11, 0, 1, id="case11"),
+        pytest.param(12, 0, 0, id="case12"),
+        pytest.param(13, 0, 1, id="case13"),
+        pytest.param(14, 0, 0, id="case14"),
+        pytest.param(15, 0, 1, id="case15"),
+        pytest.param(16, 0, 0, id="case16"),
+        pytest.param(17, 0, 1, id="case17"),
+        pytest.param(18, 0, 0, id="case18"),
+        pytest.param(19, 0, 1, id="case19"),
+        pytest.param(20, 0, 0, id="case20"),
+        pytest.param(21, 0, 1, id="case21"),
+        pytest.param(22, 0, 0, id="case22"),
+        pytest.param(23, 0, 1, id="case23"),
+        pytest.param(24, 0, 0, id="case24"),
+        pytest.param(25, 0, 1, id="case25"),
+        pytest.param(26, 0, 0, id="case26"),
+        pytest.param(27, 0, 1, id="case27"),
+        pytest.param(28, 0, 0, id="case28"),
+        pytest.param(29, 0, 1, id="case29"),
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_create_address_warm_after_fail(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    tx_value: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Invokes failing CREATE (because initcode fails) and checks."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -374,35 +300,477 @@ def test_create_address_warm_after_fail(
     )
     pre[sender] = Account(balance=0xE8D4A51001)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": [0, 2, 11, 4], "gas": -1, "value": [0]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 328,
+                        13: 316,
+                        14: 2828,
+                        15: 316,
+                    },
+                    nonce=1,
+                ),
+                sender: Account(nonce=1),
+                Address(
+                    "0xd4e7ae083132925a4927c1f5816238ba17b82a65"
+                ): Account.NONEXISTENT,
+            },
+        },
+        {
+            "indexes": {"data": [0, 2, 11, 4], "gas": -1, "value": [1]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 32028,
+                        13: 7016,
+                        14: 34528,
+                        15: 7016,
+                    },
+                    nonce=1,
+                ),
+                sender: Account(nonce=1),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a65"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [1], "gas": -1, "value": [0]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 328,
+                        13: 316,
+                        14: 2828,
+                        15: 316,
+                    },
+                    nonce=1,
+                ),
+                sender: Account(nonce=1),
+                Address(
+                    "0xd4e7ae083132925a4927c1f5816238ba17b82a65"
+                ): Account.NONEXISTENT,
+            },
+        },
+        {
+            "indexes": {"data": [1], "gas": -1, "value": [1]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 32028,
+                        13: 7016,
+                        14: 34528,
+                        15: 7016,
+                    },
+                    nonce=1,
+                ),
+                Address("0x43255ee039968e0254887fc8c7172736983d878c"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+                sender: Account(nonce=1),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [12], "gas": -1, "value": [0]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 328,
+                        13: 316,
+                        14: 2828,
+                        15: 316,
+                    },
+                    nonce=1,
+                ),
+                Address(
+                    "0x562d97e3e4d6d3c6e791ea64bb73d820871aa219"
+                ): Account.NONEXISTENT,
+                sender: Account(nonce=1),
+            },
+        },
+        {
+            "indexes": {"data": [12], "gas": -1, "value": [1]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 32028,
+                        13: 7016,
+                        14: 34528,
+                        15: 7016,
+                    },
+                    nonce=1,
+                ),
+                Address("0x562d97e3e4d6d3c6e791ea64bb73d820871aa219"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+                sender: Account(nonce=1),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [3], "gas": -1, "value": [0]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 328,
+                        13: 316,
+                        14: 2828,
+                        15: 316,
+                    },
+                    nonce=1,
+                ),
+                Address(
+                    "0x014001fdbede82315f4b8c2a7d45e980a8a4a12e"
+                ): Account.NONEXISTENT,
+                sender: Account(nonce=1),
+            },
+        },
+        {
+            "indexes": {"data": [3], "gas": -1, "value": [1]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 32028,
+                        13: 7016,
+                        14: 34528,
+                        15: 7016,
+                    },
+                    nonce=1,
+                ),
+                Address("0x014001fdbede82315f4b8c2a7d45e980a8a4a12e"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+                sender: Account(nonce=1),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [5], "gas": -1, "value": [0]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 328,
+                        13: 316,
+                        14: 2828,
+                        15: 316,
+                    },
+                    nonce=1,
+                ),
+                Address(
+                    "0xa13d43586820e5d97a3fd1960625d537c86dc4e7"
+                ): Account.NONEXISTENT,
+                sender: Account(nonce=1),
+            },
+        },
+        {
+            "indexes": {"data": [5], "gas": -1, "value": [1]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 32028,
+                        13: 7016,
+                        14: 34528,
+                        15: 7016,
+                    },
+                    nonce=1,
+                ),
+                Address("0xa13d43586820e5d97a3fd1960625d537c86dc4e7"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+                sender: Account(nonce=1),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [10], "gas": -1, "value": [0]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 1,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 2828,
+                        13: 316,
+                        14: 2828,
+                        15: 316,
+                    },
+                    nonce=0,
+                ),
+                sender: Account(nonce=1),
+                Address(
+                    "0xb2050fc27ab6d6d42dc0ce6f7c0bf9481a4c3fc3"
+                ): Account.NONEXISTENT,
+                Address(
+                    "0xd4e7ae083132925a4927c1f5816238ba17b82a00"
+                ): Account.NONEXISTENT,
+            },
+        },
+        {
+            "indexes": {"data": [10], "gas": -1, "value": [1]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 1,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 34528,
+                        13: 7016,
+                        14: 34528,
+                        15: 7016,
+                    },
+                    nonce=0,
+                ),
+                sender: Account(nonce=1),
+                Address("0xb2050fc27ab6d6d42dc0ce6f7c0bf9481a4c3fc3"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [8, 9, 6, 7], "gas": -1, "value": [0]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 2828,
+                        13: 316,
+                        14: 2828,
+                        15: 316,
+                    },
+                    nonce=0,
+                ),
+                sender: Account(nonce=1),
+                Address(
+                    "0xd4e7ae083132925a4927c1f5816238ba17b82a65"
+                ): Account.NONEXISTENT,
+            },
+        },
+        {
+            "indexes": {"data": [8, 9, 6, 7], "gas": -1, "value": [1]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 34528,
+                        13: 7016,
+                        14: 34528,
+                        15: 7016,
+                    },
+                    nonce=0,
+                ),
+                sender: Account(nonce=1),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [13], "gas": -1, "value": [0]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0xD4E7AE083132925A4927C1F5816238BA17B82A65,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 328,
+                        13: 316,
+                        14: 2828,
+                        15: 316,
+                    },
+                    nonce=1,
+                ),
+                sender: Account(nonce=1),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a65"): Account(
+                    code=bytes.fromhex("00")
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [13], "gas": -1, "value": [1]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0xD4E7AE083132925A4927C1F5816238BA17B82A65,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 7028,
+                        13: 7016,
+                        14: 34528,
+                        15: 7016,
+                    },
+                    nonce=1,
+                ),
+                sender: Account(nonce=1),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a65"): Account(
+                    nonce=1, balance=2, code=bytes.fromhex("00")
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [14], "gas": -1, "value": [0]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 328,
+                        13: 316,
+                        14: 2828,
+                        15: 316,
+                    },
+                    nonce=1,
+                ),
+                sender: Account(nonce=1),
+                Address("0xf7fef4b66b1570a057d7d5cec5c58846befa5b5c"): Account(
+                    nonce=1, code=bytes.fromhex("00")
+                ),
+            },
+        },
+        {
+            "indexes": {"data": [14], "gas": -1, "value": [1]},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C,
+                        2: 1,
+                        3: 1,
+                        4: 1,
+                        5: 1,
+                        12: 7028,
+                        13: 7016,
+                        14: 34528,
+                        15: 7016,
+                    },
+                    nonce=1,
+                ),
+                sender: Account(nonce=1),
+                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                    nonce=0, balance=2, code=b""
+                ),
+                Address("0xf7fef4b66b1570a057d7d5cec5c58846befa5b5c"): Account(
+                    nonce=1, balance=2, code=bytes.fromhex("00")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=16777216,
-        value=tx_value,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        contract: Account(
-            storage={
-                0: 0,
-                2: 1,
-                3: 1,
-                4: 1,
-                5: 1,
-                12: 328,
-                13: 316,
-                14: 2828,
-                15: 316,
-            },
-            nonce=1,
-        ),
-        sender: Account(nonce=1),
-        Address(
-            "0xd4e7ae083132925a4927c1f5816238ba17b82a65"
-        ): Account.NONEXISTENT,
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

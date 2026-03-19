@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcode_in_initcode_to_existing_contract_with_value_transfer(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Callcode inside create/create2 contract init to existing contract."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -76,17 +81,25 @@ def test_callcode_in_initcode_to_existing_contract_with_value_transfer(
     )
     pre[sender] = Account(balance=0x2386F26FC10000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                    storage={0: 1, 2: 1}, balance=5
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=453081,
+        error=_exc,
     )
-
-    post = {
-        Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-            storage={0: 1, 2: 1},
-            balance=5,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

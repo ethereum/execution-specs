@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_call_one_v_call_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -47,7 +52,7 @@ def test_call_one_v_call_suicide(
         gas_limit=10000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SELFDESTRUCT(address=0xEA04224539257FBE043981AA6058FBC1D5E21B1A)
             + Op.STOP
@@ -80,21 +85,33 @@ def test_call_one_v_call_suicide(
     )
     pre[sender] = Account(balance=0xE8D4A51000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "73ea04224539257fbe043981aa6058fbc1d5e21b1aff00"
+                    )
+                ),
+                contract: Account(
+                    storage={100: 14337},
+                    code=bytes.fromhex(
+                        "5a600052600060006000600060017379968a94dbedb20475585e9dd4dae6333add4c0161ea60f1505a6000510360645500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=600000,
+        error=_exc,
     )
-
-    post = {
-        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={100: 14337},
-            balance=100,
-        ),
-        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={},
-            balance=0,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

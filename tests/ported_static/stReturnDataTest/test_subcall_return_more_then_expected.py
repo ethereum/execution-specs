@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_subcall_return_more_then_expected(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Https://github.com/ethereum/tests/issues/558 (subcall/opcode..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -48,7 +53,7 @@ def test_subcall_return_more_then_expected(
         gas_limit=10000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -65,7 +70,7 @@ def test_subcall_return_more_then_expected(
         nonce=0,
         address=Address("0x028cdafc3d5d27d006ffb88e1ecf2fa4b412ee4f"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -220,27 +225,48 @@ def test_subcall_return_more_then_expected(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "7f11223344556677889910111213141516171819202122232425262728293031326000527f333435363738394041424344454647484950515253545556575859606162636460205260406000fd00"  # noqa: E501
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7f11223344556677889910111213141516171819202122232425262728293031326000527f333435363738394041424344454647484950515253545556575859606162636460205260406000f300"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={
+                        0: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
+                        1: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
+                        2: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
+                        3: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
+                        4: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
+                        5: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
+                        6: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
+                        7: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
+                    },
+                    code=bytes.fromhex(
+                        "600c600060006000600073a8592f39b32943f9f464090497722b4f9c15f59862030d40f1506000516000556000600052600c60006000600073a8592f39b32943f9f464090497722b4f9c15f59862030d40f4506000516001556000600052600c60006000600073a8592f39b32943f9f464090497722b4f9c15f59862030d40fa506000516002556000600052600c600060006000600073a8592f39b32943f9f464090497722b4f9c15f59862030d40f2506000516003556000600052600c600060006000600073028cdafc3d5d27d006ffb88e1ecf2fa4b412ee4f62030d40f1506000516004556000600052600c60006000600073028cdafc3d5d27d006ffb88e1ecf2fa4b412ee4f62030d40f4506000516005556000600052600c60006000600073028cdafc3d5d27d006ffb88e1ecf2fa4b412ee4f62030d40fa506000516006556000600052600c600060006000600073028cdafc3d5d27d006ffb88e1ecf2fa4b412ee4f62030d40f25060005160075500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=400000,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={
-                0: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
-                1: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
-                2: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
-                3: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
-                4: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
-                5: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
-                6: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
-                7: 0x1122334455667788991011120000000000000000000000000000000000000000,  # noqa: E501
-            },
-            balance=0xDE0B6B3A7640001,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

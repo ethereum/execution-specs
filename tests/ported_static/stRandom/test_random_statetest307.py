@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_random_statetest307(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5")
@@ -85,6 +90,25 @@ def test_random_statetest307(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b5547f000000000000000000000000000000000000000000000000000000000000c3507f000000000000000000000000000000000000000000000000000000000000c3507f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000000000000000000000000000000000000000000037f055"  # noqa: E501
+                    )
+                ),
+                coinbase: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
@@ -99,20 +123,7 @@ def test_random_statetest307(
         ),
         gas_limit=100000,
         value=1254784781,
+        error=_exc,
     )
-
-    post = {
-        contract: Account(storage={}, nonce=0),
-        Address(
-            "0x62c01474f089b07dae603491675dc5b5748f7049"
-        ): Account.NONEXISTENT,
-        Address(
-            "0x91ed00a0a906270d466af043c4e111dadca970a3"
-        ): Account.NONEXISTENT,
-        coinbase: Account(storage={}, nonce=0),
-        Address(
-            "0xd2571607e241ecf590ed94b12d87c94babe36db6"
-        ): Account.NONEXISTENT,
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

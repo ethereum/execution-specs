@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_revert_in_static_call(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -66,23 +71,35 @@ def test_revert_in_static_call(
         nonce=0,
         address=Address("0x30f7398d20afe518491069c036185caf69d5aae9"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.REVERT(offset=0x0, size=0x0) + Op.STOP,
         nonce=0,
         address=Address("0x33fcf0576ab8b4527c9426094e2e355a7ffc7e71"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x5F5E100)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60406000604060007333fcf0576ab8b4527c9426094e2e355a7ffc7e7161c350fa60005500"  # noqa: E501
+                    )
+                ),
+                callee: Account(code=bytes.fromhex("60006000fd00")),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=105044,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000000"): Account(
-            storage={},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

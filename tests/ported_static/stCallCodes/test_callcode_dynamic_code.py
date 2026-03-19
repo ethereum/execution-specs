@@ -15,10 +15,30 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "0000000000000000000000001000000000000000000000000000000000000000",
+    "0000000000000000000000002000000000000000000000000000000000000000",
+    "0000000000000000000000003000000000000000000000000000000000000000",
+    "0000000000000000000000004000000000000000000000000000000000000000",
+]
+
+TX_GAS = [1000000]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -26,83 +46,22 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "d, g, v",
     [
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            {
-                Address("0x1000000000000000000000000000000000000000"): Account(
-                    storage={
-                        0: 1,
-                        10: 0x13136008B64FF592819B2FA6D43F2835C452020E,
-                        11: 1,
-                        20: 0x1000000000000000000000000000000000000000,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x1000000000000000000000000000000000000000,
-                    }
-                )
-            },
-        ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            {
-                Address("0x2000000000000000000000000000000000000000"): Account(
-                    storage={
-                        0: 1,
-                        10: 0x2D39FAD743351D4CF3F4717907D3DDA5E0A689A7,
-                        11: 1,
-                        20: 0x2000000000000000000000000000000000000000,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x2000000000000000000000000000000000000000,
-                    }
-                )
-            },
-        ),
-        (
-            "0000000000000000000000003000000000000000000000000000000000000000",
-            {
-                Address("0x4b86c4ed99b87f0f396bc0c76885453c343916ed"): Account(
-                    storage={
-                        0: 1,
-                        10: 0xBF1676BE6038AB86D66E00824C2E3577858040F6,
-                        11: 1,
-                        20: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
-                    },
-                    nonce=2,
-                    balance=0,
-                    code=b"",
-                )
-            },
-        ),
-        (
-            "0000000000000000000000004000000000000000000000000000000000000000",
-            {
-                Address("0xa51c188504a60578914fcae68f7a1f0dcbb856a9"): Account(
-                    storage={
-                        0: 1,
-                        10: 0xF2D6BF688FAE45DA62AB2DD4F36945BC924CC61,
-                        11: 1,
-                        20: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
-                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                        22: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
-                    },
-                    nonce=2,
-                    balance=0,
-                    code=b"",
-                )
-            },
-        ),
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 0, 0, id="case1"),
+        pytest.param(2, 0, 0, id="case2"),
+        pytest.param(3, 0, 0, id="case3"),
     ],
-    ids=["case0", "case1", "case2", "case3"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_callcode_dynamic_code(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Callcode to a contract that is being created in the same transaction."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -121,7 +80,7 @@ def test_callcode_dynamic_code(
 
     # Source: LLL
     # {(seq [[10]] (CREATE 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)   )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.PUSH1[0x1F]
             + Op.CODECOPY(dest_offset=0x0, offset=0x27, size=Op.DUP1)
@@ -178,7 +137,7 @@ def test_callcode_dynamic_code(
     )
     # Source: LLL
     # {(seq [[10]] (CREATE2 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS) [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)  0 )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)                   )}  # noqa: E501
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.PUSH1[0x0]
             + Op.PUSH1[0x1F]
@@ -311,15 +270,88 @@ def test_callcode_dynamic_code(
     )
     pre[sender] = Account(balance=0x2386F26FC10000)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={
+                        0: 1,
+                        10: 0x13136008B64FF592819B2FA6D43F2835C452020E,
+                        11: 1,
+                        20: 0x1000000000000000000000000000000000000000,
+                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        22: 0x1000000000000000000000000000000000000000,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee_1: Account(
+                    storage={
+                        0: 1,
+                        10: 0x2D39FAD743351D4CF3F4717907D3DDA5E0A689A7,
+                        11: 1,
+                        20: 0x2000000000000000000000000000000000000000,
+                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        22: 0x2000000000000000000000000000000000000000,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x4b86c4ed99b87f0f396bc0c76885453c343916ed"): Account(
+                    storage={
+                        0: 1,
+                        10: 0xBF1676BE6038AB86D66E00824C2E3577858040F6,
+                        11: 1,
+                        20: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
+                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        22: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
+                    },
+                    nonce=2,
+                    balance=0,
+                    code=b"",
+                )
+            },
+        },
+        {
+            "indexes": {"data": 3, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0xa51c188504a60578914fcae68f7a1f0dcbb856a9"): Account(
+                    storage={
+                        0: 1,
+                        10: 0xF2D6BF688FAE45DA62AB2DD4F36945BC924CC61,
+                        11: 1,
+                        20: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
+                        21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        22: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
+                    },
+                    nonce=2,
+                    balance=0,
+                    code=b"",
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=1000000,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

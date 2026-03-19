@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcodecallcallcode_101_suicide_middle(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -123,24 +128,35 @@ def test_callcodecallcallcode_101_suicide_middle(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1, 1: 1}, balance=0xDE0B6B5FB6FE400
+                ),
+                callee_1: Account(
+                    storage={},
+                    nonce=0,
+                    balance=0,
+                    code=bytes.fromhex(
+                        "731000000000000000000000000000000000000000ff604060006040600073100000000000000000000000000000000000000361c350f460025500"  # noqa: E501
+                    ),
+                ),
+                callee_2: Account(storage={3: 0}, balance=0x2540BE400),
+                sender: Account(storage={1: 0}),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=3000000,
+        error=_exc,
     )
-
-    post = {
-        contract: Account(storage={0: 1, 1: 1}, balance=0xDE0B6B5FB6FE400),
-        callee_1: Account(
-            storage={},
-            nonce=0,
-            balance=0,
-            code=bytes.fromhex(
-                "731000000000000000000000000000000000000000ff604060006040600073100000000000000000000000000000000000000361c350f460025500"  # noqa: E501
-            ),
-        ),
-        callee_2: Account(storage={3: 0}, balance=0x2540BE400),
-        sender: Account(storage={1: 0}),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

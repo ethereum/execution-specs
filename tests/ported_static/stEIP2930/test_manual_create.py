@@ -17,9 +17,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "5a3031505a90036001555a60ff6000555a900360005500",
+    "5a3031505a90036001555a60ff6000555a900360005500",
+    "5a3031505a90036001555a60ff6000555a900360005500",
+]
+
+TX_GAS = [400000]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -27,45 +46,72 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_access_list",
+    "d, g, v, tx_access_list",
     [
-        [
-            AccessList(
-                address=Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"),
-                storage_keys=[
-                    Hash(
-                        "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
-                    )
-                ],
-            )
-        ],
-        [
-            AccessList(
-                address=Address("0x0000000000000000000000000000000000000100"),
-                storage_keys=[
-                    Hash(
-                        "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-                    )
-                ],
-            )
-        ],
-        [
-            AccessList(
-                address=Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"),
-                storage_keys=[
-                    Hash(
-                        "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-                    )
-                ],
-            )
-        ],
+        pytest.param(
+            0,
+            0,
+            0,
+            [
+                AccessList(
+                    address=Address(
+                        "0xec0e71ad0a90ffe1909d27dac207f7680abba42d"
+                    ),
+                    storage_keys=[
+                        Hash(
+                            "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+                        )
+                    ],
+                )
+            ],
+            id="case0",
+        ),
+        pytest.param(
+            1,
+            0,
+            0,
+            [
+                AccessList(
+                    address=Address(
+                        "0x0000000000000000000000000000000000000100"
+                    ),
+                    storage_keys=[
+                        Hash(
+                            "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                        )
+                    ],
+                )
+            ],
+            id="case1",
+        ),
+        pytest.param(
+            2,
+            0,
+            0,
+            [
+                AccessList(
+                    address=Address(
+                        "0xec0e71ad0a90ffe1909d27dac207f7680abba42d"
+                    ),
+                    storage_keys=[
+                        Hash(
+                            "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                        )
+                    ],
+                )
+            ],
+            id="case2",
+        ),
     ],
-    ids=["case0", "case1", "case2"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_manual_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
     tx_access_list: list | None,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
@@ -85,21 +131,47 @@ def test_manual_create(
 
     pre[sender] = Account(balance=0x1000000000000000000, nonce=1)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
+                    storage={0: 22108, 1: 106}
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
+                    storage={0: 22108, 1: 106}
+                )
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
+                    storage={0: 20008, 1: 106}
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex("5a3031505a90036001555a60ff6000555a900360005500"),
-        gas_limit=400000,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         nonce=1,
+        value=TX_VALUE[v],
         access_list=tx_access_list,
+        error=_exc,
     )
-
-    post = {
-        Address(
-            "0x1347643934918410483264248204649189527119862670381"
-        ): Account(
-            storage={0: 20008, 1: 106},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

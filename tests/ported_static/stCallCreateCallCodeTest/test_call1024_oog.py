@@ -15,10 +15,30 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+    "",
+    "",
+    "",
+]
+
+TX_GAS = [13120826, 9320826, 15720826, 11220826]
+
+TX_VALUE = [10]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -28,20 +48,22 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit",
+    "d, g, v",
     [
-        13120826,
-        9320826,
-        15720826,
-        11220826,
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 1, 0, id="case1"),
+        pytest.param(2, 2, 0, id="case2"),
+        pytest.param(3, 3, 0, id="case3"),
     ],
-    ids=["case0", "case1", "case2", "case3"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_call1024_oog(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Calldepth with oog."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -92,17 +114,66 @@ def test_call1024_oog(
     pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     pre[callee] = Account(balance=7000, nonce=0)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 134, 1: 1, 2: 0x20B71},
+                    code=bytes.fromhex(
+                        "60016000540160005560006000600060006000730878bc1c3d660907b056e31c854a309f7ef1b4c4610401600054046001036127105a0302f16001556103e86000540260010160025500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 113, 1: 1, 2: 0x1B969},
+                    code=bytes.fromhex(
+                        "60016000540160005560006000600060006000730878bc1c3d660907b056e31c854a309f7ef1b4c4610401600054046001036127105a0302f16001556103e86000540260010160025500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 2, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 146, 1: 1, 2: 0x23A51},
+                    code=bytes.fromhex(
+                        "60016000540160005560006000600060006000730878bc1c3d660907b056e31c854a309f7ef1b4c4610401600054046001036127105a0302f16001556103e86000540260010160025500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 3, "gas": 3, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 124, 1: 1, 2: 0x1E461},
+                    code=bytes.fromhex(
+                        "60016000540160005560006000600060006000730878bc1c3d660907b056e31c854a309f7ef1b4c4610401600054046001036127105a0302f16001556103e86000540260010160025500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
-        gas_limit=tx_gas_limit,
-        value=10,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={0: 134, 1: 1, 2: 0x20B71},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

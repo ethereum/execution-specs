@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create2_on_depth1023(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Create2OnDepth1023, 0x0400 indicates 1022 level."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -100,22 +105,31 @@ def test_create2_on_depth1023(
         address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
+            "result": {
+                Address("0x4f05179f0987710f94f2cbde67c5357bc1815af3"): Account(
+                    nonce=1
+                ),
+                Address("0xa3da9580897e90044fa0de6969815406b3172e3a"): Account(
+                    storage={1: 0x4F05179F0987710F94F2CBDE67C5357BC1815AF3}
+                ),
+                contract: Account(
+                    storage={1: 0xA3DA9580897E90044FA0DE6969815406B3172E3A}
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=9151314442816847871,
+        error=_exc,
     )
-
-    post = {
-        Address("0x4f05179f0987710f94f2cbde67c5357bc1815af3"): Account(
-            nonce=1,
-        ),
-        Address("0xa3da9580897e90044fa0de6969815406b3172e3a"): Account(
-            storage={1: 0x4F05179F0987710F94F2CBDE67C5357BC1815AF3},
-        ),
-        contract: Account(
-            storage={1: 0xA3DA9580897E90044FA0DE6969815406B3172E3A},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

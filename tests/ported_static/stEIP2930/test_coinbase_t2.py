@@ -16,10 +16,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "693c61390000000000000000000000000000000000000000000000000000000000000000",
+    "693c61390000000000000000000000000000000000000000000000000000000000000000",
+]
+
+TX_GAS = [16777216]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -27,27 +45,46 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_access_list",
+    "d, g, v, tx_access_list",
     [
-        [
-            AccessList(
-                address=Address("0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3"),
-                storage_keys=[],
-            )
-        ],
-        [
-            AccessList(
-                address=Address("0x000000000000000000000000000000000000ba5a"),
-                storage_keys=[],
-            )
-        ],
+        pytest.param(
+            0,
+            0,
+            0,
+            [
+                AccessList(
+                    address=Address(
+                        "0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3"
+                    ),
+                    storage_keys=[],
+                )
+            ],
+            id="case0",
+        ),
+        pytest.param(
+            1,
+            0,
+            0,
+            [
+                AccessList(
+                    address=Address(
+                        "0x000000000000000000000000000000000000ba5a"
+                    ),
+                    storage_keys=[],
+                )
+            ],
+            id="case1",
+        ),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_coinbase_t2(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
     tx_access_list: list | None,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
@@ -104,23 +141,46 @@ def test_coinbase_t2(
     pre[coinbase] = Account(balance=0, nonce=1)
     pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 6800},
+                    code=bytes.fromhex(
+                        "5a6000526000808080620f4240737704d8a022a1ba8f3539fc82c7d7fb065abc0df35af1505a6020526021602051600051030360005500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 6800},
+                    code=bytes.fromhex(
+                        "5a6000526000808080620f4240737704d8a022a1ba8f3539fc82c7d7fb065abc0df35af1505a6020526021602051600051030360005500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=bytes.fromhex(
-            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-        ),
-        gas_limit=16777216,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         max_fee_per_gas=10000,
         max_priority_fee_per_gas=100,
         nonce=1,
+        value=TX_VALUE[v],
         access_list=tx_access_list,
+        error=_exc,
     )
-
-    post = {
-        Address("0x000000000000000000000000000000000000c0de"): Account(
-            storage={0: 6800},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

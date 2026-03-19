@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_suicide_to_not_existing_contract(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -48,7 +53,7 @@ def test_suicide_to_not_existing_contract(
         gas_limit=10000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SELFDESTRUCT(address=0x2000000000000000000000000000000000000115)
             + Op.STOP
@@ -80,24 +85,33 @@ def test_suicide_to_not_existing_contract(
     )
     pre[sender] = Account(balance=0xE8D4A51000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "732000000000000000000000000000000000000115ff00"
+                    )
+                ),
+                contract: Account(
+                    storage={1: 10237},
+                    code=bytes.fromhex(
+                        "5a600052600060006000600060007309d6d7885d3d58a49c8352635776c205f722501c61ea60f1505a6000510360015500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=600000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000116"): Account(
-            storage={},
-            nonce=0,
-            balance=0,
-            code=bytes.fromhex(
-                "732000000000000000000000000000000000000115ff00"
-            ),
-        ),
-        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={1: 10237},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

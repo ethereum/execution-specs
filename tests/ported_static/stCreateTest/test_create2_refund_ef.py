@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create2_refund_ef(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test combination of gas refund and EF-prefixed CREATE2 failure."""
     coinbase = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -105,17 +110,30 @@ def test_create2_refund_ef(
     )
     pre[sender] = Account(balance=0x5AF3107A4000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={0: 1}, code=bytes.fromhex("6000805500")
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6000601980601183398180f560005500fe600080808080625ef94d61c350f15060ef60005360016000f3"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=100000,
+        error=_exc,
     )
-
-    post = {
-        callee: Account(storage={0: 1}),
-        Address(
-            "0xbe8f87148d0767989cce2e6a6a5d91c7d0c840e0"
-        ): Account.NONEXISTENT,
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

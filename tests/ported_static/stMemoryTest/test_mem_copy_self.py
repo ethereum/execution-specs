@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_mem_copy_self(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -106,21 +111,33 @@ def test_mem_copy_self(
         address=Address("0xb595300ac049b84c5277c7ca68a96d74ae377b85"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0x112233445566778899AABBCCDDEEFF0000000000000000000000000000000000,  # noqa: E501
+                        1: 0x1122112233445566778899AADDEEFF0000000000000000000000000000000000,  # noqa: E501
+                        2: 0x112233445566778899AA00000000000000000000000000000000000000000000,  # noqa: E501
+                    },
+                    code=bytes.fromhex(
+                        "600460005b600f8110603057600a60028160008086815182555af150600051600155600a600060203e602051600255005b806011600180930102815301600456"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=16777216,
         nonce=1,
+        error=_exc,
     )
-
-    post = {
-        Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-            storage={
-                0: 0x112233445566778899AABBCCDDEEFF0000000000000000000000000000000000,  # noqa: E501
-                1: 0x1122112233445566778899AADDEEFF0000000000000000000000000000000000,  # noqa: E501
-                2: 0x112233445566778899AA00000000000000000000000000000000000000000000,  # noqa: E501
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

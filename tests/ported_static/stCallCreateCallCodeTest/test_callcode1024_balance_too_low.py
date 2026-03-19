@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -33,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcode1024_balance_too_low(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Calldepth and balance."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -76,17 +81,29 @@ def test_callcode1024_balance_too_low(
     )
     pre[callee] = Account(balance=7000, nonce=0)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1025, 1: 1},
+                    code=bytes.fromhex(
+                        "60016000540160005560006000600060006000547363e310ada77469a7a18b4cbf231fccefb6f18267650ffffffffffff260015500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=9151332035002892287,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={0: 1025, 1: 1},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

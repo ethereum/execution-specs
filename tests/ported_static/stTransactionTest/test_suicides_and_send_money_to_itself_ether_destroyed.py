@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_suicides_and_send_money_to_itself_ether_destroyed(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
@@ -62,21 +67,28 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
     )
     pre[coinbase] = Account(balance=0, nonce=1)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "73ccbd97bed823989bf91c6ac4ceac020b2881f3a5ff00"
+                    )
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=31700,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=0,
-            balance=1010,
-            code=bytes.fromhex(
-                "73c94f5374fce5edbc8e2a8697c15331677e6ebf0bff00"
-            ),
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

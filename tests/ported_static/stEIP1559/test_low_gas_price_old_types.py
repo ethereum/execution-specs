@@ -14,12 +14,29 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
-    TransactionException,
+)
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
 )
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "00",
+    "01",
+]
+
+TX_GAS = [400000]
+
+TX_VALUE = [100000]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -27,19 +44,25 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_access_list",
+    "d, g, v, tx_access_list",
     [
-        ("00", None),
-        ("01", []),
+        pytest.param(
+            0, 0, 0, None, id="case0", marks=pytest.mark.exception_test
+        ),
+        pytest.param(
+            1, 0, 0, [], id="case1", marks=pytest.mark.exception_test
+        ),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.exception_test
 def test_low_gas_price_old_types(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
     tx_access_list: list | None,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
@@ -69,20 +92,29 @@ def test_low_gas_price_old_types(
         address=Address("0xd71b14c239fc39327f25764dd784c85ef0285fda"),  # noqa: E501
     )
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {},
+            "expect_exception": {
+                ">=Cancun": "TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS"
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=400000,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         gas_price=999,
         nonce=1,
-        value=100000,
+        value=TX_VALUE[v],
         access_list=tx_access_list,
-        error=TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
+        error=_exc,
     )
-
-    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

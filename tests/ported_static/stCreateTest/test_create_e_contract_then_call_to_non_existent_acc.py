@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create_e_contract_then_call_to_non_existent_acc(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -77,28 +82,34 @@ def test_create_e_contract_then_call_to_non_existent_acc(
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0x8D5B6,
+                        1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                        2: 0x7ABF8,
+                        3: 1,
+                        100: 0x6F50B,
+                    },
+                    code=bytes.fromhex(
+                        "5a600055602060006000f06001555a6002556000600060006000600073e1ecf98489fa9ed60a664fc4998db699cfa39d4061ea60f16003555a60645500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=600000,
+        error=_exc,
     )
-
-    post = {
-        contract: Account(
-            storage={
-                0: 0,
-                1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
-                2: 0x7ABF8,
-                3: 1,
-                100: 0x6F50B,
-            },
-        ),
-        Address(
-            "0xe1ecf98489fa9ed60a664fc4998db699cfa39d40"
-        ): Account.NONEXISTENT,
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

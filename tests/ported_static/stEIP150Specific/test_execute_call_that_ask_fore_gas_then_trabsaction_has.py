@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -70,23 +75,38 @@ def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
         address=Address("0x1819cf5bff62f0d379f146b85baaf9bd18239832"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x5F5E100)
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         balance=0x186A0,
         nonce=0,
         address=Address("0xbfdd294028701b119d416c68eff7dd9f7effd249"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex(
+                        "6000600060006000600073bfdd294028701b119d416c68eff7dd9f7effd249620927c0f160015500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    storage={1: 12}, code=bytes.fromhex("600c60015500")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000001"): Account(
-            storage={1: 12},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

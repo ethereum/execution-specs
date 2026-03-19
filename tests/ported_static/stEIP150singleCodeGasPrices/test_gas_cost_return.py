@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_gas_cost_return(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -126,7 +131,7 @@ def test_gas_cost_return(
         address=Address("0x155665fb22995bb5b9dc1d8d9d57a00ac64dc1e0"),  # noqa: E501
     )
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.RETURN(offset=0xFF, size=0x0),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
@@ -134,12 +139,30 @@ def test_gas_cost_return(
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.PUSH1[0x0] + Op.PUSH1[0xFF] + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xeb0e68b88a12fc84ad4a1eeb07b289638c4d9f3c"),  # noqa: E501
     )
+
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6160a76000526160a76020526160a76040525a6000526000600060006000600061100062010000f1505a600051036020525a6000526000600060006000600061200062010000f1505a600051036040526040516020510360005500"  # noqa: E501
+                    )
+                ),
+                callee: Account(code=bytes.fromhex("600060fff3")),
+                callee_1: Account(code=bytes.fromhex("600060ff00")),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,
@@ -147,12 +170,7 @@ def test_gas_cost_return(
         data=bytes.fromhex("00"),
         gas_limit=16777216,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={0: 0, 1: 0},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

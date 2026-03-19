@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_loop_calls_depth_then_revert(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -47,7 +52,7 @@ def test_loop_calls_depth_then_revert(
         gas_limit=100000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
             + Op.CALL(
@@ -85,19 +90,34 @@ def test_loop_calls_depth_then_revert(
     )
     pre[sender] = Account(balance=0xE8D4A51000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={0: 192},
+                    code=bytes.fromhex(
+                        "6001600054016000556000600060006000600073f59fd1c021541704a4a52c0674543045667176665af100"  # noqa: E501
+                    ),
+                ),
+                contract: Account(
+                    storage={0: 193},
+                    code=bytes.fromhex(
+                        "600160005401600055600060006000600060007380d46fa47b41ab46a227915ae4f63559c0d4dfe25af100"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=10000000,
+        error=_exc,
     )
-
-    post = {
-        Address("0xa000000000000000000000000000000000000000"): Account(
-            storage={0: 193},
-        ),
-        Address("0xb000000000000000000000000000000000000000"): Account(
-            storage={0: 192},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

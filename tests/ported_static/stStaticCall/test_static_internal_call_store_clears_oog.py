@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -33,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_internal_call_store_clears_oog(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -103,31 +108,40 @@ def test_static_internal_call_store_clears_oog(
         address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={
+                        0: 12,
+                        1: 12,
+                        2: 12,
+                        3: 12,
+                        4: 12,
+                        5: 12,
+                        6: 12,
+                        7: 12,
+                        8: 12,
+                        9: 12,
+                    },
+                    balance=0,
+                ),
+                sender: Account(nonce=1),
+                contract: Account(storage={1: 0}, balance=20),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=160000,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        callee: Account(
-            storage={
-                0: 12,
-                1: 12,
-                2: 12,
-                3: 12,
-                4: 12,
-                5: 12,
-                6: 12,
-                7: 12,
-                8: 12,
-                9: 12,
-            },
-            balance=0,
-        ),
-        sender: Account(nonce=1),
-        contract: Account(storage={1: 0}, balance=20),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

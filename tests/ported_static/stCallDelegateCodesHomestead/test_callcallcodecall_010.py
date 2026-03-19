@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcallcodecall_010(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -48,7 +53,7 @@ def test_callcallcodecall_010(
         gas_limit=30000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x3, value=0x1)
             + Op.SSTORE(key=0x4, value=Op.CALLER)
@@ -63,7 +68,7 @@ def test_callcallcodecall_010(
         nonce=0,
         address=Address("0x7e63847aad8ca50fb7c04777dce6871a6bf8de0c"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x2,
@@ -107,7 +112,7 @@ def test_callcallcodecall_010(
         address=Address("0xeb09ff15547417853f6f4b240b8804769c37b0f1"),  # noqa: E501
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -127,38 +132,58 @@ def test_callcallcodecall_010(
         address=Address("0xfed08e44ae95ece264bc94a1fc45af8bc4ef4f1d"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={
+                        3: 1,
+                        4: 0xFED08E44AE95ECE264BC94A1FC45AF8BC4EF4F1D,
+                        7: 2,
+                        330: 0x7E63847AAD8CA50FB7C04777DCE6871A6BF8DE0C,
+                        332: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297,
+                        336: 64,
+                        338: 39,
+                        340: 10,
+                    },
+                    code=bytes.fromhex(
+                        "600160035533600455346007553061014a553261014c55366101505538610152553a6101545500"  # noqa: E501
+                    ),
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "60406000604060006002737e63847aad8ca50fb7c04777dce6871a6bf8de0c6203d090f16002553360055500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "6040600060406000600173fed08e44ae95ece264bc94a1fc45af8bc4ef4f1d62055730f160005500"  # noqa: E501
+                    ),
+                ),
+                callee_2: Account(
+                    storage={
+                        1: 1,
+                        2: 1,
+                        5: 0xEB09FF15547417853F6F4B240B8804769C37B0F1,
+                    },
+                    code=bytes.fromhex(
+                        "604060006040600073a297e445dc76a67bf6fc17c444c1ec2c389ce53d620493e0f460015500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=3000000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000000"): Account(
-            storage={0: 1, 2: 0},
-        ),
-        Address("0x1000000000000000000000000000000000000001"): Account(
-            storage={
-                1: 1,
-                2: 1,
-                5: 0x1000000000000000000000000000000000000000,
-            },
-        ),
-        Address("0x1000000000000000000000000000000000000002"): Account(
-            storage={2: 0},
-        ),
-        Address("0x1000000000000000000000000000000000000003"): Account(
-            storage={
-                3: 1,
-                4: 0x1000000000000000000000000000000000000001,
-                7: 2,
-                330: 0x1000000000000000000000000000000000000003,
-                332: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                336: 64,
-                338: 39,
-                340: 10,
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

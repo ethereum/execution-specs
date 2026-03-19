@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create2_contract_suicide_during_init_then_store_then_return(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -89,23 +94,32 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
         address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x0000000000000000000000000000000000000001"): Account(
+                    balance=1
+                ),
+                contract: Account(
+                    storage={
+                        1: 0x6000526005601BF36000526001FF000000000000000000000000000000000000,  # noqa: E501
+                    }
+                ),
+                callee: Account(storage={0: 11}),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=600000,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        Address("0x0000000000000000000000000000000000000001"): Account(
-            balance=1,
-        ),
-        contract: Account(
-            storage={
-                1: 0x6000526005601BF36000526001FF000000000000000000000000000000000000,  # noqa: E501
-            },
-        ),
-        callee: Account(storage={0: 11}),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

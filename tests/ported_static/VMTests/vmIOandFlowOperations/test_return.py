@@ -15,10 +15,31 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "693c61390000000000000000000000000000000000000000000000000000000000000000",
+    "693c61390000000000000000000000000000000000000000000000000000000000000001",
+    "693c61390000000000000000000000000000000000000000000000000000000000000002",
+    "693c61390000000000000000000000000000000000000000000000000000000000000003",
+    "693c61390000000000000000000000000000000000000000000000000000000000000004",
+]
+
+TX_GAS = [16777216]
+
+TX_VALUE = [1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -28,21 +49,23 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex",
+    "d, g, v",
     [
-        "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
-        "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
-        "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
-        "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
-        "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+        pytest.param(2, 0, 0, id="case0"),
+        pytest.param(1, 0, 0, id="case1"),
+        pytest.param(3, 0, 0, id="case2"),
+        pytest.param(4, 0, 0, id="case3"),
+        pytest.param(0, 0, 0, id="case4"),
     ],
-    ids=["case0", "case1", "case2", "case3", "case4"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_return(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -165,24 +188,54 @@ def test_return(
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": [0, 2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,  # noqa: E501
+                        1: 0,
+                        255: 24589,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {contract: Account(storage={255: 2989})},
+        },
+        {
+            "indexes": {"data": [3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0xABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0000000000,  # noqa: E501
+                        1: 0,
+                        255: 24589,
+                    }
+                )
+            },
+        },
+        {
+            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {contract: Account(storage={0: 39, 255: 2989})},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=16777216,
-        value=1,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        contract: Account(
-            storage={
-                0: 0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF,  # noqa: E501
-                1: 0,
-                255: 24589,
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_14_revert_after_nested_staticcall(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Transient storage can't be manipulated from nested staticcall."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -140,18 +145,30 @@ def test_14_revert_after_nested_staticcall(
     )
     pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 10, 2: 1, 3: 10},
+                    code=bytes.fromhex(
+                        "5f3560e01c8063f5f4059014602f578063f8dfc2d014602b576362fdb9be14602357005b60296077565b005b605d565b506029600a5f5d5f5c5f55630f8dfc2d60e41b5f5260205f81813061fffffa5f516001556002555f5c600355565b63317edcdf60e11b5f525f8060208180305af15f5260205ff35b600b5f5d56"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         data=bytes.fromhex("f5f40590"),
         gas_limit=400000,
         max_fee_per_gas=2000,
+        error=_exc,
     )
-
-    post = {
-        Address("0xa00000000000000000000000000000000000000a"): Account(
-            storage={0: 10, 1: 0, 2: 1, 3: 10},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

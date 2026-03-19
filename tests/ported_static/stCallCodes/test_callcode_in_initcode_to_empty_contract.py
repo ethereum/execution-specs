@@ -16,10 +16,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "0000000000000000000000001000000000000000000000000000000000000000",
+    "0000000000000000000000002000000000000000000000000000000000000000",
+]
+
+TX_GAS = [1453081]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -29,33 +47,20 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "d, g, v",
     [
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            {
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={2: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            {
-                Address("0x9f9f2f99f78bfedcd1f32d936203bd1c0cb00853"): Account(
-                    storage={2: 1}
-                )
-            },
-        ),
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 0, 0, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_callcode_in_initcode_to_empty_contract(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Callcode inside create contract init to non-existent contract."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -153,15 +158,36 @@ def test_callcode_in_initcode_to_empty_contract(
     )
     pre[sender] = Account(balance=0x2386F26FC10000)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                    storage={2: 1}
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x9f9f2f99f78bfedcd1f32d936203bd1c0cb00853"): Account(
+                    storage={2: 1}
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=1453081,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

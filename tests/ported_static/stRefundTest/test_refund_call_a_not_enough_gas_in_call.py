@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_refund_call_a_not_enough_gas_in_call(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
@@ -73,7 +78,7 @@ def test_refund_call_a_not_enough_gas_in_call(
     )
     pre[coinbase] = Account(balance=0, nonce=1)
     pre[sender] = Account(balance=0xF4240)
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={0x1: 0x1},
         balance=0xDE0B6B3A7640000,
@@ -81,25 +86,32 @@ def test_refund_call_a_not_enough_gas_in_call(
         address=Address("0xf4c9fc42faeda49049e3b8e2b97a17cc2fe95718"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex(
+                        "6000600060006000600073f4c9fc42faeda49049e3b8e2b97a17cc2fe9571861138df160005500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    storage={1: 1}, code=bytes.fromhex("600060015500")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=85000,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={1: 1},
-            balance=0xDE0B6B3A764000A,
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-            balance=0xA8DF4,
-        ),
-        Address("0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa"): Account(
-            storage={1: 1},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

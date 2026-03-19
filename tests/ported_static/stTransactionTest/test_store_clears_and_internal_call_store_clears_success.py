@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_store_clears_and_internal_call_store_clears_success(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -73,7 +78,7 @@ def test_store_clears_and_internal_call_store_clears_success(
         nonce=0,
         address=Address("0x8989e867016031a6730f2b84d5e47e1f0f83bdd9"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=0x0)
             + Op.SSTORE(key=0x1, value=0x0)
@@ -103,22 +108,34 @@ def test_store_clears_and_internal_call_store_clears_success(
         address=Address("0xd61e0564fab2b0da5136f75db579b663bd9f2bd8"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={4: 12},
+                    code=bytes.fromhex(
+                        "60006000556000600155600060025560006003556000600060006000600173d61e0564fab2b0da5136f75db579b663bd9f2bd861c350f100"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060005560006001556000600255600060035560006004556000600555600060065560006007556000600855600060095500"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=200000,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        Address("0x0000000000000000000000000000000000000000"): Account(
-            storage={},
-            balance=1,
-        ),
-        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={4: 12},
-            balance=19,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

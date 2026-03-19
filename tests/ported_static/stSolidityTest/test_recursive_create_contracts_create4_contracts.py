@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_recursive_create_contracts_create4_contracts(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -273,6 +278,37 @@ def test_recursive_create_contracts_create4_contracts(
     )
     pre[sender] = Account(balance=0x1DCD6500)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87,
+                        1: 4,
+                    },
+                    nonce=3,
+                ),
+                Address("0x2b25ae4b13cb6e06869f694d29de45e7614ebd97"): Account(
+                    storage={0: 1}, nonce=1
+                ),
+                Address("0x5d35480c6e7f8952363fa280a0a96906da981f63"): Account(
+                    nonce=1, balance=2
+                ),
+                sender: Account(nonce=1),
+                Address("0xb88de88b35ecbf3c141e3caae2baf35834d18f63"): Account(
+                    storage={0: 2}, nonce=2, balance=2
+                ),
+                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+                    storage={0: 3}, nonce=1
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
@@ -281,34 +317,7 @@ def test_recursive_create_contracts_create4_contracts(
         ),
         gas_limit=300000,
         value=1,
+        error=_exc,
     )
-
-    post = {
-        contract: Account(
-            storage={
-                0: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87,
-                1: 4,
-            },
-            nonce=3,
-        ),
-        Address("0x2b25ae4b13cb6e06869f694d29de45e7614ebd97"): Account(
-            storage={0: 1},
-            nonce=1,
-        ),
-        Address("0x5d35480c6e7f8952363fa280a0a96906da981f63"): Account(
-            nonce=1,
-            balance=2,
-        ),
-        sender: Account(nonce=1),
-        Address("0xb88de88b35ecbf3c141e3caae2baf35834d18f63"): Account(
-            storage={0: 2},
-            nonce=2,
-            balance=2,
-        ),
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-            storage={0: 3},
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

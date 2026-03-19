@@ -14,12 +14,31 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
-    TransactionException,
+)
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
 )
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "00",
+    "00",
+    "00",
+    "00",
+]
+
+TX_GAS = [90000, 50000, 25000, 20000]
+
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -27,30 +46,22 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, tx_error",
+    "d, g, v",
     [
-        pytest.param(
-            90000,
-            TransactionException.GAS_ALLOWANCE_EXCEEDED,
-            id="case0",
-            marks=pytest.mark.exception_test,
-        ),
-        pytest.param(50000, None, id="case1"),
-        pytest.param(25000, None, id="case2"),
-        pytest.param(
-            20000,
-            TransactionException.INTRINSIC_GAS_TOO_LOW,
-            id="case3",
-            marks=pytest.mark.exception_test,
-        ),
+        pytest.param(0, 0, 0, id="case0", marks=pytest.mark.exception_test),
+        pytest.param(1, 1, 0, id="case1"),
+        pytest.param(2, 2, 0, id="case2"),
+        pytest.param(3, 3, 0, id="case3", marks=pytest.mark.exception_test),
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_low_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
-    tx_error: object,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -80,17 +91,57 @@ def test_low_gas_limit(
         address=Address("0xef0454d0376d1921b9a83868282725853c293ab5"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 24743}, code=bytes.fromhex("600260005500")
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 2}, code=bytes.fromhex("600260005500")
+                )
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 2, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 24743}, code=bytes.fromhex("600260005500")
+                )
+            },
+        },
+        {
+            "indexes": {"data": 3, "gas": 3, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 24743}, code=bytes.fromhex("600260005500")
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=bytes.fromhex("00"),
-        gas_limit=tx_gas_limit,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=1000,
         nonce=1,
-        error=tx_error,
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

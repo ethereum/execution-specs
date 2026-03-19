@@ -15,10 +15,32 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "693c61390000000000000000000000000000000000000000000000000000000000000000",
+    "693c61390000000000000000000000000000000000000000000000000000000000000001",
+    "693c61390000000000000000000000000000000000000000000000000000000000000002",
+    "693c61390000000000000000000000000000000000000000000000000000000000000003",
+    "693c61390000000000000000000000000000000000000000000000000000000000000004",
+    "693c61390000000000000000000000000000000000000000000000000000000000000005",
+]
+
+TX_GAS = [16777216]
+
+TX_VALUE = [1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -26,22 +48,24 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex",
+    "d, g, v",
     [
-        "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-        "693c61390000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
-        "693c61390000000000000000000000000000000000000000000000000000000000000002",  # noqa: E501
-        "693c61390000000000000000000000000000000000000000000000000000000000000003",  # noqa: E501
-        "693c61390000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
-        "693c61390000000000000000000000000000000000000000000000000000000000000005",  # noqa: E501
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 0, 0, id="case1"),
+        pytest.param(2, 0, 0, id="case2"),
+        pytest.param(3, 0, 0, id="case3"),
+        pytest.param(4, 0, 0, id="case4"),
+        pytest.param(5, 0, 0, id="case5"),
     ],
-    ids=["case0", "case1", "case2", "case3", "case4", "case5"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_random(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Ori Pomerantz qbzzt1@gmail.com."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -58,19 +82,19 @@ def test_random(
         gas_limit=100000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=bytes.fromhex("4040459143404144809759886d608f"),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x15adfb805be4f3ee3e5c535abc860890a3a2a6c9"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.BLOCKHASH + Op.COINBASE,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x2e3b99613a2e74ebb0cd62d7b9eb38bad240cec6"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=(
             Op.BLOCKHASH
             + Op.BLOCKHASH(block_number=Op.GASLIMIT)
@@ -92,7 +116,7 @@ def test_random(
         address=Address("0x3412d3ebac3fcacfb451708aef7cc8e5bf1e5261"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x10000000000000)
-    pre.deploy_contract(
+    callee_3 = pre.deploy_contract(
         code=(
             Op.NUMBER
             + Op.NUMBER
@@ -129,33 +153,169 @@ def test_random(
         nonce=0,
         address=Address("0xa83db56c7ce68c06129b80c7be0d0f5e0869d536"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_4 = pre.deploy_contract(
         code=bytes.fromhex("65424555"),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xacd000f275b1a28d0c3b7dee7f114c4d28fb1636"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_5 = pre.deploy_contract(
         code=bytes.fromhex("7745414245403745f31387900a8d55"),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xdfe69e96fb3aafde261565670b1fea29869c6950"),  # noqa: E501
     )
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("4040459143404144809759886d608f")
+                ),
+                callee_1: Account(code=bytes.fromhex("4041")),
+                callee_2: Account(
+                    code=bytes.fromhex("4045404145454441343987ff3735043055")
+                ),
+                callee_3: Account(code=bytes.fromhex("434342444244454597")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600435611000015af100"
+                    )
+                ),
+                callee_4: Account(code=bytes.fromhex("65424555")),
+                callee_5: Account(
+                    code=bytes.fromhex("7745414245403745f31387900a8d55")
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("4040459143404144809759886d608f")
+                ),
+                callee_1: Account(code=bytes.fromhex("4041")),
+                callee_2: Account(
+                    code=bytes.fromhex("4045404145454441343987ff3735043055")
+                ),
+                callee_3: Account(code=bytes.fromhex("434342444244454597")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600435611000015af100"
+                    )
+                ),
+                callee_4: Account(code=bytes.fromhex("65424555")),
+                callee_5: Account(
+                    code=bytes.fromhex("7745414245403745f31387900a8d55")
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("4040459143404144809759886d608f")
+                ),
+                callee_1: Account(code=bytes.fromhex("4041")),
+                callee_2: Account(
+                    code=bytes.fromhex("4045404145454441343987ff3735043055")
+                ),
+                callee_3: Account(code=bytes.fromhex("434342444244454597")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600435611000015af100"
+                    )
+                ),
+                callee_4: Account(code=bytes.fromhex("65424555")),
+                callee_5: Account(
+                    code=bytes.fromhex("7745414245403745f31387900a8d55")
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 3, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("4040459143404144809759886d608f")
+                ),
+                callee_1: Account(code=bytes.fromhex("4041")),
+                callee_2: Account(
+                    code=bytes.fromhex("4045404145454441343987ff3735043055")
+                ),
+                callee_3: Account(code=bytes.fromhex("434342444244454597")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600435611000015af100"
+                    )
+                ),
+                callee_4: Account(code=bytes.fromhex("65424555")),
+                callee_5: Account(
+                    code=bytes.fromhex("7745414245403745f31387900a8d55")
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 4, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("4040459143404144809759886d608f")
+                ),
+                callee_1: Account(code=bytes.fromhex("4041")),
+                callee_2: Account(
+                    code=bytes.fromhex("4045404145454441343987ff3735043055")
+                ),
+                callee_3: Account(code=bytes.fromhex("434342444244454597")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600435611000015af100"
+                    )
+                ),
+                callee_4: Account(code=bytes.fromhex("65424555")),
+                callee_5: Account(
+                    code=bytes.fromhex("7745414245403745f31387900a8d55")
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 5, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("4040459143404144809759886d608f")
+                ),
+                callee_1: Account(code=bytes.fromhex("4041")),
+                callee_2: Account(
+                    code=bytes.fromhex("4045404145454441343987ff3735043055")
+                ),
+                callee_3: Account(code=bytes.fromhex("434342444244454597")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600435611000015af100"
+                    )
+                ),
+                callee_4: Account(code=bytes.fromhex("65424555")),
+                callee_5: Account(
+                    code=bytes.fromhex("7745414245403745f31387900a8d55")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=contract,
-        data=tx_data,
-        gas_limit=16777216,
-        value=1,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

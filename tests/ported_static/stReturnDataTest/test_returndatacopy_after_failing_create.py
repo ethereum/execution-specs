@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_returndatacopy_after_failing_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Returndatacopy after failing create case due to 0xfd code."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -65,16 +70,28 @@ def test_returndatacopy_after_failing_create(
     )
     pre[sender] = Account(balance=0x6400000000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 32, 1: 2},
+                    code=bytes.fromhex(
+                        "69600260005260206000fd600052600a60166000f0503d6000556020600060003e60005160015500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
-            storage={0: 32, 1: 2},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

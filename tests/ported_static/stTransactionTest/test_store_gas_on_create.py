@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_store_gas_on_create(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -58,17 +63,26 @@ def test_store_gas_on_create(
         address=coinbase,  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+                    storage={0: 0, 253: 0x12F39}
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=coinbase,
         gas_limit=131882,
         value=100,
+        error=_exc,
     )
-
-    post = {
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-            storage={0: 0, 253: 0x12F39},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

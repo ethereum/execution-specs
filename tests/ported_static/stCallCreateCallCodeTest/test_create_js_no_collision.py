@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create_js_no_collision(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Deploy legacy contract normally."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -48,6 +53,26 @@ def test_create_js_no_collision(
     )
 
     pre[sender] = Account(balance=0x9184E72A000)
+
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    storage={
+                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        1: 66,
+                        2: 35,
+                        3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        5: 1000,
+                    }
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,
@@ -85,18 +110,7 @@ def test_create_js_no_collision(
         ),
         gas_limit=600000,
         value=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-            storage={
-                0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                1: 66,
-                2: 35,
-                3: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
-                5: 1000,
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

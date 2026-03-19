@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_random_statetest648(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Consensus issue test produced by fuzz testing team..."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -47,7 +52,7 @@ def test_random_statetest648(
 
     pre[sender] = Account(balance=0xFFFFFFFF)
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.POP(0x0),
         nonce=0,
         address=Address("0xa828265d4b2db08e65a1c68d2878f15368b5ae75"),  # noqa: E501
@@ -74,6 +79,23 @@ def test_random_statetest648(
         address=Address("0xca5c69fa03b9dff4d059971ac17edac7ef758725"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(code=bytes.fromhex("600050")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060f15af450600060005060f5fffd"
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
@@ -84,12 +106,7 @@ def test_random_statetest648(
         ),
         gas_limit=343469,
         value=14361094,
+        error=_exc,
     )
-
-    post = {
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

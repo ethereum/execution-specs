@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -33,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_call_contract_to_create_contract_which_would_create_contract_if_called(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -79,29 +84,31 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
     )
     pre[sender] = Account(balance=0x2540BE400)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+                    code=bytes.fromhex(
+                        "74600c60005566602060406000f060205260076039f36000526015600b6001f06000556000600060006000600054620249f0fa60015500"  # noqa: E501
+                    ),
+                ),
+                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+                    storage={0: 12}, code=bytes.fromhex("602060406000f0")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=300000,
+        error=_exc,
     )
-
-    post = {
-        contract: Account(
-            storage={
-                0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6,
-                1: 0,
-            },
-            nonce=1,
-        ),
-        Address(
-            "0x62c01474f089b07dae603491675dc5b5748f7049"
-        ): Account.NONEXISTENT,
-        sender: Account(nonce=1),
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-            storage={0: 12},
-            nonce=1,
-            balance=1,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

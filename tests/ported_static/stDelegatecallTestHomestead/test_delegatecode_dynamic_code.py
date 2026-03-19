@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_delegatecode_dynamic_code(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -73,25 +78,36 @@ def test_delegatecode_dynamic_code(
     )
     pre[sender] = Account(balance=0x2386F26FC10000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f716860016000553360145560005260096017f36000526012600e6001f0600a556000527f604060006040600073ffe4ebd2a68c02d9dcb0a17283d13346beb2d8b66201866020527fa0f4600b55000000000000000000000000000000000000000000000000000000604052606060006001f000"  # noqa: E501
+                    )
+                ),
+                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                    storage={
+                        10: 0x568A95F77B047BECE6AA68843D2019332C46A585,
+                        11: 1,
+                    }
+                ),
+                Address("0x568a95f77b047bece6aa68843d2019332c46a585"): Account(
+                    code=bytes.fromhex("600160005533601455")
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=453081,
+        error=_exc,
     )
-
-    post = {
-        Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-            storage={
-                0: 0,
-                10: 0x568A95F77B047BECE6AA68843D2019332C46A585,
-                11: 1,
-                20: 0,
-            },
-            balance=0,
-        ),
-        Address(
-            "0xffe4ebd2a68c02d9dcb0a17283d13346beb2d8b6"
-        ): Account.NONEXISTENT,
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

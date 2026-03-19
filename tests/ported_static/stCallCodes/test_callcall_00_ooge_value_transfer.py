@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_callcall_00_ooge_value_transfer(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Call -> call -> code oog."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -47,7 +52,7 @@ def test_callcall_00_ooge_value_transfer(
         gas_limit=30000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x2, value=0x1)
             + Op.SHA3(offset=0x0, size=0x2FFFFF)
@@ -56,7 +61,7 @@ def test_callcall_00_ooge_value_transfer(
         nonce=0,
         address=Address("0x766b2cf0691f51029181fc511395b7ab71353a88"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.SSTORE(
                 key=0x1,
@@ -100,22 +105,37 @@ def test_callcall_00_ooge_value_transfer(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex("6001600255622fffff60002000")
+                ),
+                callee_1: Account(
+                    storage={11: 1},
+                    code=bytes.fromhex(
+                        "6040600060406000600a73766b2cf0691f51029181fc511395b7ab71353a88620927c0f16001556001600b5500"  # noqa: E501
+                    ),
+                ),
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "6040600060406000601473a781ad010268e97d590d07e5b442975243b2f05b620c3500f160005500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=1000000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000000"): Account(
-            storage={0: 1},
-        ),
-        Address("0x1000000000000000000000000000000000000001"): Account(
-            storage={11: 1},
-        ),
-        Address("0x1000000000000000000000000000000000000002"): Account(
-            storage={},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

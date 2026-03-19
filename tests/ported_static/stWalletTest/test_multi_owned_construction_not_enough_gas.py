@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
@@ -31,6 +35,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_multi_owned_construction_not_enough_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -48,6 +53,16 @@ def test_multi_owned_construction_not_enough_gas(
     )
 
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
+
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {sender: Account(storage={}, nonce=1, code=b"")},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,
@@ -121,10 +136,7 @@ def test_multi_owned_construction_not_enough_gas(
             "004c0be60200faa20559308cb7b5a1bb3255c16cb1cab91f525b5ae7a03d02fabe"  # noqa: E501
         ),
         gas_limit=256449,
+        error=_exc,
     )
-
-    post = {
-        sender: Account(storage={}, nonce=1, code=b""),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

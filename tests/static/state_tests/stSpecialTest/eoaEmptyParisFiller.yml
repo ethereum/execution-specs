@@ -1,0 +1,284 @@
+# When an externally owned account empties itself by sending all its wei to a contract, what happens?
+# Based on https://github.com/ethereumjs/ethereumjs-monorepo/pull/2383
+
+eoaEmptyParis:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000
+      code: ''
+      nonce: 0
+      storage: {}
+
+
+    # EOA with only a balance
+    000000000000000000000000000000000000BAD1:
+      balance: 1
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    # EOA with only a nonce
+    000000000000000000000000000000000000BAD2:
+      balance: 0
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+    # EOA with balance and nonce
+    000000000000000000000000000000000000BAD3:
+      balance: 1
+      code: 0x
+      nonce: 1
+      storage: {}
+
+    # EOA with storage (shouldn't happen)
+    000000000000000000000000000000000000BAD4:
+      balance: 10
+      code: 0x
+      nonce: 0
+      storage:
+        0xDEAD: 0xBEEF
+
+
+    # A suicidal contract that sends its value to the EOA
+    000000000000000000000000000000000000DEAD:
+      balance: 10000
+      code: |
+        :yul berlin
+        {
+           selfdestruct(origin())
+        }
+      nonce: 1
+      storage: {}
+
+
+    000000000000000000000000000000000000C0DE:
+      balance: 0
+      code: |
+        :yul berlin
+        {
+           let eoa := origin()   // external owner account
+           sstore(0, eoa)
+           sstore(0x31, balance(eoa))   // balance at this point, where it is assumed we used gasLimit gas
+           sstore(0x3B, extcodesize(eoa))
+           sstore(0x3F, extcodehash(eoa))
+           sstore(0x013F, extcodehash(add(eoa, 0x1)))
+           sstore(0xBAD1, extcodehash(0xBAD1))
+           sstore(0xBAD2, extcodehash(0xBAD2))
+           sstore(0xBAD3, extcodehash(0xBAD3))
+           sstore(0xBAD4, extcodehash(0xBAD4))
+           sstore(0xBAD5, extcodehash(0xBAD5))
+
+           // The gas cost of calling the EOA (it should be warm)
+           let gas0 := gas()
+           pop(call(gas(), eoa, calldataload(4), 0, 0, 0, 0))
+           sstore(0xF1, sub(gas0, gas()))
+
+           // Gas cost of selfdestruct going to the EOA (should also be warm)
+           gas0 := gas()
+           pop(call(gas(), 0xDEAD, 0, 0, 0, 0, 0))
+           sstore(0xFF, sub(gas0, gas()))           
+        }
+      nonce: 1
+      storage: {}
+
+  transaction:
+    data: 
+      # First parameter - value to send when calling our caller
+      - :abi f(uint) 0
+      - :abi f(uint) 1
+    gasLimit:
+      - 10000000   # gasLimit*gasPrice = EOA balance
+      -  9999999   # Lower gas limit, should only affect BALANCE
+    gasPrice: 100
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 0x000000000000000000000000000000000000C0DE
+    value:
+    - 0
+    - 100
+
+  expect:
+    - indexes:
+       data: !!int 0
+       gas: !!int 0      # gasLimit*gasPrice = EOA balance
+       value: !!int 0
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+
+       000000000000000000000000000000000000C0DE:
+          storage: 
+            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b   # EOA account
+            0x31: 0    # Balance (zero)
+            0x3B: 0    # EXTCODESIZE
+            0x3F: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # EXTCODEHASH of active EOA
+            0x13F: 0                                                                 # EXTCODEHASH of empty addr
+            0xF1: 118  # CALL to a warm address (100) + misc. costs
+            0xFF: 7626 # CALL to an address that then SELFDESTRUCTS sending the EOA its balance + misc. costs
+
+            # EXTHASHCODE for various nearly empty EOAs 
+            0xBAD1: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance only
+            0xBAD2: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Nonce only
+            0xBAD3: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance and nonce
+            0xBAD4: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Storage only, which can't happen in an EOA
+
+
+    - indexes:
+       data: !!int 1     # Send some value
+       gas: !!int 0      # gasLimit*gasPrice = EOA balance
+       value: !!int 0
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+
+       000000000000000000000000000000000000C0DE:
+          storage: 
+            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b   # EOA account
+            0x31: 0    # Balance (zero)
+            0x3B: 0    # EXTCODESIZE
+            0x3F: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # EXTCODEHASH of active EOA
+            0x13F: 0                                                                 # EXTCODEHASH of empty addr
+            0xF1: 6818  # Call with a value costs 6700 more + misc. costs
+            0xFF: 7626 # CALL to an address that then SELFDESTRUCTS sending the EOA its balance + misc. costs
+
+            # EXTHASHCODE for various nearly empty EOAs 
+            0xBAD1: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance only
+            0xBAD2: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Nonce only
+            0xBAD3: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance and nonce
+            0xBAD4: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Storage only, which can't happen in an EOA        
+
+
+    - indexes:
+       data: !!int -1
+       gas: !!int 0      # gasLimit*gasPrice = EOA balance
+       value: !!int 1    # But there is also a value, so this fails
+      network:
+        - '>=Cancun'
+      result: {}
+      expectException: 
+        '>=Cancun': TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+
+
+
+    - indexes:
+       data: !!int 0
+       gas: !!int 1      # gasLimit*gasPrice < EOA balance
+       value: !!int 0
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+
+       000000000000000000000000000000000000C0DE:
+          storage: 
+            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b   # EOA account
+            0x31: 100  # Balance (100 wei at this point)
+            0x3B: 0    # EXTCODESIZE
+            0x3F: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # EXTCODEHASH of active EOA
+            0x13F: 0                                                                 # EXTCODEHASH of empty addr
+            0xF1: 118  # CALL to a warm address (100) + misc. costs
+            0xFF: 7626 # CALL to an address that then SELFDESTRUCTS sending the EOA its balance + misc. costs
+
+            # EXTHASHCODE for various nearly empty EOAs 
+            0xBAD1: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance only
+            0xBAD2: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Nonce only
+            0xBAD3: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance and nonce
+            0xBAD4: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Storage only, which can't happen in an EOA
+
+
+    - indexes:
+       data: !!int 1     # Have value, which increases the cost of call
+       gas: !!int 1      # gasLimit*gasPrice < EOA balance
+       value: !!int 0
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+
+       000000000000000000000000000000000000C0DE:
+          storage: 
+            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b   # EOA account
+            0x31: 100  # Balance (100 wei at this point)
+            0x3B: 0    # EXTCODESIZE
+            0x3F: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # EXTCODEHASH of active EOA
+            0x13F: 0                                                                 # EXTCODEHASH of empty addr
+            0xF1: 6818  # CALL to a warm address (100) + sending a value + misc. costs
+            0xFF: 7626 # CALL to an address that then SELFDESTRUCTS sending the EOA its balance + misc. costs
+
+            # EXTHASHCODE for various nearly empty EOAs 
+            0xBAD1: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance only
+            0xBAD2: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Nonce only
+            0xBAD3: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance and nonce
+            0xBAD4: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Storage only, which can't happen in an EOA
+        
+
+    - indexes:
+       data: !!int 0
+       gas: !!int 1      # gasLimit*gasPrice + value = EOA balance
+       value: !!int 1
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+
+       000000000000000000000000000000000000C0DE:
+          storage: 
+            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b   # EOA account
+            0x31: 0    # Balance (zero)
+            0x3B: 0    # EXTCODESIZE
+            0x3F: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # EXTCODEHASH of active EOA
+            0x13F: 0                                                                 # EXTCODEHASH of empty addr
+            0xF1: 118  # CALL to a warm address (100) + misc. costs
+            0xFF: 7626 # CALL to an address that then SELFDESTRUCTS sending the EOA its balance + misc. costs
+
+            # EXTHASHCODE for various nearly empty EOAs 
+            0xBAD1: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance only
+            0xBAD2: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Nonce only
+            0xBAD3: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance and nonce
+            0xBAD4: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Storage only, which can't happen in an EOA
+
+
+    - indexes:
+       data: !!int 1     # Send value
+       gas: !!int 1      # gasLimit*gasPrice + value = EOA balance
+       value: !!int 1
+      network:
+        - '>=Cancun'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+
+       000000000000000000000000000000000000C0DE:
+          storage: 
+            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b   # EOA account
+            0x31: 0    # Balance (zero)
+            0x3B: 0    # EXTCODESIZE
+            0x3F: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # EXTCODEHASH of active EOA
+            0x13F: 0                                                                 # EXTCODEHASH of empty addr
+            0xF1: 6818  # CALL to a warm address (100) + cost of sending value + misc. costs
+            0xFF: 7626 # CALL to an address that then SELFDESTRUCTS sending the EOA its balance + misc. costs
+
+            # EXTHASHCODE for various nearly empty EOAs 
+            0xBAD1: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance only
+            0xBAD2: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Nonce only
+            0xBAD3: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Balance and nonce
+            0xBAD4: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 # Storage only, which can't happen in an EOA
+

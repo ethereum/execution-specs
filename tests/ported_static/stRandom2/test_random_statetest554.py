@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_random_statetest554(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
@@ -142,6 +147,25 @@ def test_random_statetest554(
         address=Address("0xd4932c914a13bd1791675290fdd56965c3fcbd03"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                coinbase: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "601460dca06029728b67ba4c2fc8c63c46f19bb45a4be3f678b30669ba571e944074c21b140a7a65d14a921ec804a45ecf4d952aa923fb23a0574acd8ef9f82c7db17e157f651bbeb520203bd398160345137b0419a395630fce1a7ed24c0cccfd91766140e0682f6bd571db701b4616b567f215faf42fb37d2a7c43c05a634612322eda99f09cc2907a6cba01bb6869b7d24b897ec43b9b63a8747a897af14c1f4c0b186c6311d36de86b8c8172aa43c3dfe3ea16503380877fa7f32deb9f60254d124338105942b4b5b88c443351de5ebf14c2380f4a91327d68a0da66abd627db75739942675f5855728fd677646cafec536e37d0da8122cf8681bc106013601b600360086307efe33a73d4932c914a13bd1791675290fdd56965c3fcbd0363176fe819f16566b603cccf387c5f10e5cdb2ba1b456d2a0386ee72ddf3ff65b33a551afa423f8af05e347b5c50b6fe69c77f0682ef890d8ed8ab3833f128389f6407911fb20590642c9765e97c7f31dfa251377a47ca45b72ce5c1896a697990d60a01cabaf5e4d8f55f11fd37427351d1f8e89810c7aeec6482fd03d7e7ca58fbaae361e3936936543d6dacb1f97f19c3721866491bad73f32faea37b4a8c273668e04dff8863a542e11775a693c3b4bcd4fc1a87ddb6450f8f6c2f1ba807aaffb67e62af22cd93175b5ffb428ee9116dad4a695aa514b8ca4d615fd728a61c124c796554a98241320ac2d6b9f16ee1c203dbba537a211142df4c2e626e4108f87ab6d5b8e9ce86f92aba50a47acc60d734e7a066131d99dad149451b386120eed210723bd8304caa61048c67512ca417ae8857a46ad24ca1f2cb75f75ef86a927152bd86981a216d8147f49ead4be46967dd10751491f9f1ac2f50fd5dad394b7838a9eb89b372698362647bddbb90586e4e921a8cc96ea0c50d07da472b3e6360a39c"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
@@ -169,22 +193,7 @@ def test_random_statetest554(
         ),
         gas_limit=1845353713,
         value=1213415884,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={},
-            nonce=0,
-        ),
-        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
-            storage={},
-            nonce=0,
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            storage={},
-            nonce=1,
-            code=b"",
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

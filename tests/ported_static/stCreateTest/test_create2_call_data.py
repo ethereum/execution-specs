@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_create2_call_data(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test if calldata is empty in initcode context."""
     coinbase = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -83,19 +88,28 @@ def test_create2_call_data(
     )
     pre[sender] = Account(balance=0x5AF3107A4000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(storage={0: 0}),
+                Address("0x7f8330ad7bc2afe0dffb2fdc76bbad8bc326296a"): Account(
+                    code=bytes.fromhex(
+                        "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=100000,
+        error=_exc,
     )
-
-    post = {
-        contract: Account(storage={0: 0}),
-        Address("0x7f8330ad7bc2afe0dffb2fdc76bbad8bc326296a"): Account(
-            code=bytes.fromhex(
-                "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-            ),
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

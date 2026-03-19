@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -30,6 +34,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_call_create3(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -96,6 +101,24 @@ def test_static_call_create3(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    storage={
+                        0: 0x13136008B64FF592819B2FA6D43F2835C452020E,
+                        1: 1,
+                        2: 1,
+                    }
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
@@ -104,16 +127,7 @@ def test_static_call_create3(
         ),
         gas_limit=1000000,
         value=100000,
+        error=_exc,
     )
-
-    post = {
-        callee: Account(
-            storage={
-                0: 0x13136008B64FF592819B2FA6D43F2835C452020E,
-                1: 1,
-                2: 1,
-            },
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

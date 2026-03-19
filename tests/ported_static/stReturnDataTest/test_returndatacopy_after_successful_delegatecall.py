@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_returndatacopy_after_successful_delegatecall(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -48,7 +53,7 @@ def test_returndatacopy_after_successful_delegatecall(
         gas_limit=111669149696,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=Op.CALLER)
             + Op.RETURN(offset=0x0, size=0x20)
@@ -84,16 +89,29 @@ def test_returndatacopy_after_successful_delegatecall(
     )
     pre[sender] = Account(balance=0x6400000000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(code=bytes.fromhex("3360005260206000f300")),
+                contract: Account(
+                    storage={0: 0xC102734F6A1E4747310179C0A0FC16E674AA901D},
+                    code=bytes.fromhex(
+                        "60006000600060007352fd0cbc013ee33577eec035031dbc4489a1e0bd61ea60f4506020600060003e60005160005500"  # noqa: E501
+                    ),
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"): Account(
-            storage={0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -392,3 +392,79 @@ class ExpectSectionInStateTestFiller(CamelModel):
             v_match = True if self.indexes.value.count(v) else False
 
         return d_match and g_match and v_match
+
+
+def _idx_matches(selector: Union[int, List[int]], idx: int) -> bool:
+    """Check if an index selector matches a case index."""
+    if isinstance(selector, int):
+        return selector == -1 or selector == idx
+    if isinstance(selector, list):
+        return idx in selector
+    return True
+
+
+def resolve_expect_post(
+    expect_entries: List[dict],
+    d: int,
+    g: int,
+    v: int,
+    fork: "Fork",
+) -> tuple[dict, str | None]:
+    """
+    Resolve the post-state for the given (d, g, v, fork) from expect entries.
+
+    Mirror the static-filler algorithm: iterate entries in order, first match
+    on both index and fork wins.
+
+    Return ``(result_dict, expect_exception_string_or_None)``.
+
+    Each entry has:
+        indexes: {"data": int | List[int], "gas": ..., "value": ...}
+        network: List[str]  (e.g. [">=Cancun"], ["Cancun"], [">=Cancun<Osaka"])
+        result: dict        (the post-state dict, already materialized)
+        expect_exception: dict | None  (fork -> exception string)
+    """
+    for entry in expect_entries:
+        indexes = entry.get("indexes", {})
+        if not (
+            _idx_matches(indexes.get("data", -1), d)
+            and _idx_matches(indexes.get("gas", -1), g)
+            and _idx_matches(indexes.get("value", -1), v)
+        ):
+            continue
+        network = entry.get("network", [])
+        if network:
+            fork_set = ForkSet.model_validate(network)
+            if fork not in fork_set:
+                continue
+        # Resolve expect_exception for this fork
+        exc = entry.get("expect_exception")
+        exc_val: Any = None
+        if isinstance(exc, dict):
+            # Find matching fork in exception dict
+            for exc_network, exc_raw in exc.items():
+                exc_fork_set = ForkSet.model_validate([exc_network])
+                if fork in exc_fork_set:
+                    exc_val = _parse_exception(str(exc_raw))
+                    break
+        elif isinstance(exc, str):
+            exc_val = _parse_exception(exc)
+        return entry.get("result", {}), exc_val
+    return {}, None
+
+
+def _parse_exception(exc_str: str) -> Any:
+    """Convert an exception string to TransactionException enum(s)."""
+    from execution_testing import TransactionException
+
+    parts = [p.strip() for p in exc_str.split("|")]
+    resolved = []
+    for p in parts:
+        name = p.replace("TransactionException.", "")
+        try:
+            resolved.append(TransactionException[name])
+        except KeyError:
+            resolved.append(p)  # keep as string if not recognized
+    if len(resolved) == 1:
+        return resolved[0]
+    return resolved

@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_delegatecall_value_check(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -69,7 +74,7 @@ def test_delegatecall_value_check(
         nonce=0,
         address=Address("0x55bb8a8658b848ebbbb73cbf6ac9d59d715aec58"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=Op.CALLVALUE) + Op.STOP,
         balance=23,
         nonce=0,
@@ -77,17 +82,30 @@ def test_delegatecall_value_check(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1, 1: 23},
+                    code=bytes.fromhex(
+                        "6002600060406000735d25ad2a26f849e9400d6b65244f26f4eea11adf6207a120f460005500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(code=bytes.fromhex("3460015500")),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=3000000,
         value=23,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={0: 1, 1: 23},
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

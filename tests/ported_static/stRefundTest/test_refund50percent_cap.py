@@ -15,6 +15,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -29,6 +33,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_refund50percent_cap(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
@@ -76,22 +81,31 @@ def test_refund50percent_cap(
         address=Address("0xef67f354c8505e1056889970c3d9b5e0fe65d1e2"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        10: 0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+                        11: 0xDE0B6B3A7640000,
+                    },
+                    code=bytes.fromhex(
+                        "600154506002545060ff60020a600a553031600b5560006001556000600255600060035560006004556000600555600060065500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=100000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-            storage={
-                10: 0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
-                11: 0xDE0B6B3A7640000,
-            },
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            balance=0x8CF0A0,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

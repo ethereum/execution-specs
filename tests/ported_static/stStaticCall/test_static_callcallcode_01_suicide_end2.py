@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -33,6 +37,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_static_callcallcode_01_suicide_end2(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
@@ -49,7 +54,7 @@ def test_static_callcallcode_01_suicide_end2(
         gas_limit=30000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.POP(
                 Op.CALLCODE(
@@ -93,7 +98,7 @@ def test_static_callcallcode_01_suicide_end2(
         nonce=0,
         address=Address("0x9e10a6afffcf5bba3b47582f2575d787016a56ca"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x2, value=0x1) + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
@@ -101,21 +106,34 @@ def test_static_callcallcode_01_suicide_end2(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "6040600060406000600073cfb5784a5e49924becc2d5c5d2ee0a9b141e621661c350f250739e10a6afffcf5bba3b47582f2575d787016a56caff00"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={1: 1},
+                    code=bytes.fromhex(
+                        "6040600060406000735de1c119e1fc3598726f4d9411debd7ed1402187620249f0fa600055600160015500"  # noqa: E501
+                    ),
+                ),
+                callee_1: Account(code=bytes.fromhex("600160025200")),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=3000000,
+        error=_exc,
     )
-
-    post = {
-        Address("0x1000000000000000000000000000000000000000"): Account(
-            storage={0: 0, 1: 1},
-            balance=0xDE0B6B3A7640000,
-        ),
-        Address("0x1000000000000000000000000000000000000002"): Account(
-            storage={2: 0},
-            balance=0x2540BE400,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

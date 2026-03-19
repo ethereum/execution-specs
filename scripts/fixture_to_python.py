@@ -91,70 +91,6 @@ def _next_fork(fork_name: str) -> str | None:
     return FORK_ORDER[idx + 1]
 
 
-def detect_fork_ranges(
-    earliest_fixture: dict[str, Any],
-    other_fixtures: dict[str, dict[str, Any]],
-    earliest_fork: str,
-) -> list[tuple[str, str | None, dict[str, Any]]]:
-    """
-    Detect fork ranges where post-states are identical.
-
-    Compare post-state hashes from the earliest fork's fixture against
-    other forks' fixtures.  Return a list of
-    (valid_from, valid_until, fixture_data) tuples where valid_until
-    is the last fork in the range (None = no upper bound).
-
-    If no divergence is found, returns a single range covering all forks.
-    """
-    # Available forks in order
-    avail_forks = sorted(
-        [earliest_fork] + list(other_fixtures.keys()),
-        key=lambda f: FORK_RANK.get(f, 999),
-    )
-
-    # Build per-case post-state hashes for each fork
-    def _post_hashes(data: dict, fork: str) -> list[str]:
-        hashes = []
-        for key in sorted(data.keys()):
-            post = data[key].get("post", {})
-            entries = post.get(fork, [])
-            if isinstance(entries, list) and entries:
-                hashes.append(entries[0].get("hash", ""))
-            else:
-                hashes.append("")
-        return hashes
-
-    fork_hashes: dict[str, list[str]] = {}
-    fork_hashes[earliest_fork] = _post_hashes(earliest_fixture, earliest_fork)
-    for fork, data in other_fixtures.items():
-        fork_hashes[fork] = _post_hashes(data, fork)
-
-    # Find fork transitions where hashes change
-    # Group consecutive forks with identical hashes into ranges
-    ranges: list[tuple[str, str | None, dict[str, Any]]] = []
-    range_start = avail_forks[0]
-    range_fixture = earliest_fixture
-
-    for i in range(len(avail_forks) - 1):
-        cur = avail_forks[i]
-        nxt = avail_forks[i + 1]
-        cur_h = fork_hashes.get(cur, [])
-        nxt_h = fork_hashes.get(nxt, [])
-        if cur_h != nxt_h:
-            # Hashes differ — close current range
-            ranges.append((range_start, cur, range_fixture))
-            range_start = nxt
-            range_fixture = (
-                other_fixtures[nxt]
-                if nxt in other_fixtures
-                else earliest_fixture
-            )
-
-    # Close the final range (no upper bound)
-    ranges.append((range_start, None, range_fixture))
-    return ranges
-
-
 def parse_network_upper_bound(network_str: str) -> str | None:
     """
     Parse the upper fork bound from a network string.
@@ -780,6 +716,7 @@ def load_filler_expect_results(filler_path: Path) -> list[dict]:
                     for k, v in raw_indexes.items()
                     if not str(k).startswith("//")
                 }
+
                 result: dict[str, dict] = {}
                 for addr_key, fields in raw_result.items():
                     if str(addr_key).startswith("//"):
@@ -796,25 +733,107 @@ def load_filler_expect_results(filler_path: Path) -> list[dict]:
                     if clean_fields:
                         result[norm_addr] = clean_fields
 
-                entries.append(
-                    {
-                        "indexes": indexes,
-                        "result": result,
-                    }
-                )
+                entry_dict: dict[str, Any] = {
+                    "indexes": indexes,
+                    "network": expect_entry.get("network", []),
+                    "result": result,
+                }
+                exc = expect_entry.get("expectException")
+                if exc:
+                    entry_dict["expect_exception"] = exc
+                entries.append(entry_dict)
             return entries
         return []
     except Exception:
         return []
 
 
-def load_filler_tx_dimensions(
+def _resolve_filler_labels(
     filler_path: Path,
-) -> tuple[int, int, int] | None:
+    expect_entries: list[dict],
+) -> list[dict]:
     """
-    Load transaction dimensions (data, gas, value) from a filler.
+    Resolve ``:label`` selectors in expect entries to integer indices.
 
-    Return (num_data, num_gas, num_value) or None on failure.
+    Mirror the static-filler algorithm (``StateStaticTest.match_labels``):
+    scan ``transaction.data`` for label matches and substitute the
+    ``:label <name>`` string with a list of matching integer indices.
+    """
+    data = _load_filler_data(filler_path)
+    if not data:
+        return expect_entries
+
+    # Build label → [indices] map from transaction.data
+    label_map: dict[str, list[int]] = {}
+    for _test_name, test_data in data.items():
+        if not isinstance(test_data, dict):
+            continue
+        tx = test_data.get("transaction", {})
+        if not isinstance(tx, dict):
+            continue
+        data_list = tx.get("data", [])
+        if not isinstance(data_list, list):
+            continue
+        for idx, entry in enumerate(data_list):
+            s = str(entry).strip()
+            m = re.match(r"^:label\s+(\S+)", s)
+            if m:
+                label_map.setdefault(m.group(1), []).append(idx)
+        break  # only first test in filler
+
+    if not label_map:
+        return expect_entries
+
+    def _resolve_selector(sel: Any) -> Any:
+        """Resolve a single index selector."""
+        if isinstance(sel, str):
+            s = sel.strip()
+            if s.startswith(":label"):
+                name = s.replace(":label ", "").strip()
+                return label_map.get(name, [-2])  # -2 = never matches
+            # Range like "0-2"
+            range_m = re.match(r"^(\d+)-(\d+)$", s)
+            if range_m:
+                lo, hi = int(range_m.group(1)), int(range_m.group(2))
+                return list(range(lo, hi + 1))
+            try:
+                return int(s)
+            except ValueError:
+                return sel
+        if isinstance(sel, list):
+            resolved: list[int] = []
+            for item in sel:
+                r = _resolve_selector(item)
+                if isinstance(r, list):
+                    resolved.extend(r)
+                elif isinstance(r, int):
+                    resolved.append(r)
+            return list(set(resolved))
+        return sel
+
+    resolved_entries = []
+    for entry in expect_entries:
+        indexes = entry.get("indexes", {})
+        new_indexes = {}
+        for dim in ("data", "gas", "value"):
+            sel = indexes.get(dim, -1)
+            new_indexes[dim] = _resolve_selector(sel)
+        resolved_entries.append(
+            {**entry, "indexes": new_indexes}
+        )
+    return resolved_entries
+
+
+def load_filler_tx_arrays(
+    filler_path: Path,
+) -> dict[str, list] | None:
+    """
+    Load transaction data/gas/value arrays from a filler.
+
+    Return dict with keys "data", "gas", "value", each a list of raw
+    values.  Data entries are stripped of ``:label`` / ``:abi`` /
+    ``:raw`` prefixes and converted to hex strings.  Returns None on
+    failure.
     """
     data = _load_filler_data(filler_path)
     if not data:
@@ -826,10 +845,11 @@ def load_filler_tx_dimensions(
             tx = test_data.get("transaction", {})
             if not isinstance(tx, dict):
                 continue
-            num_data = len(tx.get("data", [""]))
-            num_gas = len(tx.get("gasLimit", [""]))
-            num_value = len(tx.get("value", [""]))
-            return (num_data, num_gas, num_value)
+            return {
+                "data": tx.get("data", [""]),
+                "gas": tx.get("gasLimit", [""]),
+                "value": tx.get("value", [""]),
+            }
         return None
     except Exception:
         return None
@@ -868,27 +888,6 @@ def _index_matches(selector: Any, case_idx: int) -> bool:
     return True  # Unknown type, be permissive
 
 
-def resolve_expect_for_case(
-    expect_entries: list[dict],
-    data_idx: int,
-    gas_idx: int,
-    value_idx: int,
-) -> dict | None:
-    """Find the expect entry whose indexes match the given case."""
-    for entry in expect_entries:
-        indexes = entry.get("indexes", {})
-        d_sel = indexes.get("data", -1)
-        g_sel = indexes.get("gas", -1)
-        v_sel = indexes.get("value", -1)
-        if (
-            _index_matches(d_sel, data_idx)
-            and _index_matches(g_sel, gas_idx)
-            and _index_matches(v_sel, value_idx)
-        ):
-            return entry.get("result")
-    return None
-
-
 def extract_case_indices(fixture_key: str) -> tuple[int, int, int]:
     """
     Extract (data_idx, gas_idx, value_idx) from fixture key.
@@ -897,19 +896,25 @@ def extract_case_indices(fixture_key: str) -> tuple[int, int, int]:
         "tests/.../XFiller.json::TestName[d0g0v0-Cancun]"
         "[fork_Cancun-state_test-d0-g0-v0]"
         "[...-d1]" (g/v default to 0)
+        "[...-v1]" (d/g default to 0)
+        "[...-d1-v2]" (g default to 0)
     """
     # Old format: [d0g0v0-Cancun]
     m = re.search(r"\[d(\d+)g(\d+)v(\d+)-", fixture_key)
     if m:
         return int(m.group(1)), int(m.group(2)), int(m.group(3))
-    # Dash-separated format: -d0-g0-v0] (g and v optional)
-    m = re.search(r"-d(\d+)(?:-g(\d+))?(?:-v(\d+))?\]", fixture_key)
-    if m:
-        d = int(m.group(1))
-        g = int(m.group(2)) if m.group(2) is not None else 0
-        v = int(m.group(3)) if m.group(3) is not None else 0
-        return d, g, v
-    return 0, 0, 0
+    # Extract d, g, v individually from dash-separated segments
+    d, g, v = 0, 0, 0
+    dm = re.search(r"-d(\d+)", fixture_key)
+    if dm:
+        d = int(dm.group(1))
+    gm = re.search(r"-g(\d+)", fixture_key)
+    if gm:
+        g = int(gm.group(1))
+    vm = re.search(r"-v(\d+)", fixture_key)
+    if vm:
+        v = int(vm.group(1))
+    return d, g, v
 
 
 # ---------------------------------------------------------------------------
@@ -1212,20 +1217,6 @@ def _parse_result_int(v: Any) -> int:
         return 0
 
 
-def _format_storage_flat(storage: dict) -> str:
-    """Format storage dict on a single line (for parametrize values)."""
-    if not storage:
-        return "{}"
-    # Deduplicate by int key (last value wins for duplicate keys)
-    deduped: dict[int, int] = {}
-    for k, v in storage.items():
-        deduped[_parse_result_int(k)] = _parse_result_int(v)
-    items = []
-    for key_int, val_int in sorted(deduped.items()):
-        items.append(f"{format_int(key_int)}: {format_int(val_int)}")
-    return "{" + ", ".join(items) + "}"
-
-
 def _format_storage_from_result(
     storage: dict,
     indent: str = "                ",
@@ -1250,75 +1241,6 @@ def _format_storage_from_result(
     inner = ("\n" + indent).join(formatted)
     close = indent[4:] if len(indent) >= 4 else ""
     return "{\n" + indent + inner + "\n" + close + "}"
-
-
-def generate_post_dict(
-    result: dict[str, dict],
-    addr_vars: dict[str, str],
-) -> str:
-    """
-    Generate the post = {...} dict from filler expect result.
-
-    Handle all 5 field types: storage, nonce, balance, code, shouldnotexist.
-    Skip coinbase address.
-    """
-    lines = ["    post = {"]
-    has_entries = False
-    for addr, fields in sorted(result.items()):
-        # Skip coinbase
-        if addr.lower() == COINBASE_ADDRESS:
-            continue
-        padded = _pad_address(addr)
-        var = addr_vars.get(addr.lower(), f'Address("{padded}")')
-
-        # shouldnotexist
-        if "shouldnotexist" in fields:
-            lines.append(f"        {var}: Account.NONEXISTENT,")
-            has_entries = True
-            continue
-
-        parts = []
-        if "storage" in fields:
-            parts.append(
-                f"storage={_format_storage_from_result(fields['storage'])}"
-            )
-        if "nonce" in fields:
-            parts.append(f"nonce={_parse_result_int(fields['nonce'])}")
-        if "balance" in fields:
-            val = _parse_result_int(fields["balance"])
-            parts.append(f"balance={format_balance(val)}")
-        if "code" in fields:
-            code_val = fields["code"]
-            if isinstance(code_val, int):
-                raw = hex(code_val)[2:]
-                if len(raw) % 2:
-                    raw = "0" + raw
-                parts.append(f'code=bytes.fromhex("{raw}")')
-            elif isinstance(code_val, str) and "<" in code_val:
-                # Resolve label syntax: <contract:0xADDR> -> ADDR
-                resolved = _resolve_code_labels(code_val)
-                raw = resolved[2:] if resolved.startswith("0x") else resolved
-                parts.append(f'code=bytes.fromhex("{raw}")')
-            elif code_val in ("", "0x"):
-                parts.append('code=b""')
-            else:
-                raw = code_val[2:] if code_val.startswith("0x") else code_val
-                parts.append(f'code=bytes.fromhex("{raw}")')
-        if parts:
-            parts_str = ", ".join(parts)
-            single = f"        {var}: Account({parts_str}),"
-            if len(single) <= 79 and "\n" not in parts_str:
-                lines.append(single)
-            else:
-                lines.append(f"        {var}: Account(")
-                for p in parts:
-                    lines.append(f"            {p},")
-                lines.append("        ),")
-            has_entries = True
-    lines.append("    }")
-    if not has_entries:
-        return "    post: dict = {}"
-    return "\n".join(lines)
 
 
 def _truncate_at_word(text: str, max_len: int) -> str:
@@ -1454,48 +1376,104 @@ def _generate_post_from_fixture_state(
     return "\n".join(lines)
 
 
-def _generate_post_value_from_fixture_state(
-    post_state: dict[str, dict],
+def _generate_expect_entries_source(
+    entries: list[dict],
+    addr_vars: dict[str, str] | None = None,
+    indent: str = "",
 ) -> str:
     """
-    Generate a post dict expression from fixture state for parametrize.
+    Generate ``EXPECT_ENTRIES = [...]`` Python source from expect entries.
 
-    Use Address("0x...") literals (not variable names).
-    Only assert on storage and code (not balance/nonce).
-    Return "{}" for empty state.
+    When *addr_vars* is provided, addresses in result dicts are replaced
+    with variable names (for use inside function bodies where variables
+    like ``callee``, ``contract`` etc. are defined).
     """
-    if not post_state:
+    lines = [f"{indent}EXPECT_ENTRIES: list[dict] = ["]
+    for entry in entries:
+        indexes = entry.get("indexes", {})
+        network = entry.get("network", [])
+        result = entry.get("result", {})
+        if addr_vars:
+            result_str = _generate_post_with_vars(result, addr_vars)
+        else:
+            result_str = generate_post_value_string(result)
+        idx_d = indexes.get("data", -1)
+        idx_g = indexes.get("gas", -1)
+        idx_v = indexes.get("value", -1)
+        net_str = json.dumps(network)
+        lines.append(f"{indent}    {{")
+        lines.append(
+            f'{indent}        "indexes": {{"data": {idx_d}, "gas": {idx_g},'
+            f' "value": {idx_v}}},'
+        )
+        lines.append(f'{indent}        "network": {net_str},')
+        lines.append(f'{indent}        "result": {result_str},')
+        exc = entry.get("expect_exception")
+        if exc:
+            lines.append(
+                f'{indent}        "expect_exception": {json.dumps(exc)},'
+            )
+        lines.append(f"{indent}    }},")
+    lines.append(f"{indent}]")
+    return "\n".join(lines)
+
+
+def _generate_post_with_vars(
+    result: dict[str, dict],
+    addr_vars: dict[str, str],
+) -> str:
+    """Generate a post dict expression using variable names for addresses."""
+    if not result:
         return "{}"
     parts: list[str] = []
-    for addr, fields in sorted(post_state.items()):
-        addr_l = addr.lower()
-        if addr_l == COINBASE_ADDRESS:
+    for addr, fields in sorted(result.items()):
+        if addr.lower() == COINBASE_ADDRESS:
             continue
-        padded = _pad_address(addr_l)
+        if "<" in addr:
+            continue
+        padded = _pad_address(addr)
+        var = addr_vars.get(addr.lower(), f'Address("{padded}")')
+
+        if "shouldnotexist" in fields:
+            parts.append(f"{var}: Account.NONEXISTENT")
+            continue
 
         acct_parts: list[str] = []
-        if "storage" in fields and fields["storage"]:
-            # Flat format for parametrize (no multiline wrapping)
+        if "storage" in fields:
             acct_parts.append(
-                f"storage={_format_storage_flat(fields['storage'])}"
+                f"storage={_format_storage_from_result(fields['storage'])}"
             )
-
+        if "nonce" in fields:
+            acct_parts.append(f"nonce={_parse_result_int(fields['nonce'])}")
+        if "balance" in fields:
+            val = _parse_result_int(fields["balance"])
+            acct_parts.append(f"balance={format_balance(val)}")
+        if "code" in fields:
+            code_val = fields["code"]
+            if isinstance(code_val, int):
+                raw = hex(code_val)[2:]
+                if len(raw) % 2:
+                    raw = "0" + raw
+                acct_parts.append(f'code=bytes.fromhex("{raw}")')
+            elif isinstance(code_val, str) and "<" in code_val:
+                resolved = _resolve_code_labels(code_val)
+                raw = resolved[2:] if resolved.startswith("0x") else resolved
+                acct_parts.append(f'code=bytes.fromhex("{raw}")')
+            elif code_val in ("", "0x"):
+                acct_parts.append('code=b""')
+            else:
+                raw = code_val[2:] if code_val.startswith("0x") else code_val
+                acct_parts.append(f'code=bytes.fromhex("{raw}")')
         if acct_parts:
             acct_str = ", ".join(acct_parts)
-            parts.append(f'Address("{padded}"): Account({acct_str})')
+            parts.append(f"{var}: Account({acct_str})")
 
     if not parts:
         return "{}"
-    # Parametrize values stay on one line (ruff format + noqa post-step)
     if len(parts) == 1:
         return "{" + parts[0] + "}"
     inner = ", ".join(parts)
     return "{" + inner + "}"
-
-
-def post_value_uses_op(post_str: str) -> bool:
-    """Check whether a post value string references Op."""
-    return "Op." in post_str
 
 
 def generate_test_file(
@@ -1507,9 +1485,8 @@ def generate_test_file(
     filler_full_path: Path | None = None,  # noqa: ARG001
     code_sources: _FillerCodeSources | None = None,
     slow: bool = False,
-    fork_for_post: str | None = None,
-    func_name_suffix: str = "",
     expect_entries: list[dict] | None = None,
+    filler_tx_arrays: dict[str, list] | None = None,
 ) -> str:
     """
     Generate a complete Python test file from fixture data.
@@ -1532,13 +1509,11 @@ def generate_test_file(
         Pre-resolved code source mappings for bytecode generation.
     slow
         Whether to mark the generated test with @pytest.mark.slow.
-    fork_for_post
-        If set, extract post-state from this fork instead of the
-        earliest fork.  Used for fork-range-specific test functions.
-    func_name_suffix
-        Appended to the test function name (e.g. "_from_prague").
     expect_entries
         Parsed filler expect entries for Path A post generation.
+    filler_tx_arrays
+        Transaction data/gas/value arrays from the filler, used for
+        TX_DATA/TX_GAS/TX_VALUE constants.
 
     """
     # Compiled fixtures have one top-level key per (case × fork).
@@ -1565,48 +1540,121 @@ def generate_test_file(
     # fixture post keys
     fork_name = valid_from_override or earliest_fork(all_forks)
 
-    # When generating for a specific fork range, use that fork's
-    # post-state instead of the earliest fork's.
-    post_fork = fork_for_post or fork_name
+    post_fork = fork_name
 
-    # Collect all cases for this fork
+    # Collect all cases for this fork.
+    # Determine (d, g, v) indices: try extract_case_indices first, then
+    # fall back to matching compiled calldata against filler tx arrays.
     cases_for_fork: list[dict[str, Any]] = []
+
+    # First pass: collect entries and try extract_case_indices
+    raw_cases: list[tuple[str, dict]] = []
     for key in all_keys:
         test = fixture_data[key]
         if post_fork in test["post"]:
-            tx = test["transaction"]
-            post_entry = test["post"][post_fork][0]
-            post_state = post_entry.get("state", {})
-            expect_exception = post_entry.get("expectException")
-            # accessLists is a list of access lists (one per case index)
-            access_lists = tx.get("accessLists", [])
-            al = (
-                access_lists[0] if access_lists else None
-            )  # None = no access list
-            case_to = (tx.get("to") or "").lower()
+            raw_cases.append((key, test))
 
-            # Resolve filler expect result for this case
-            filler_result = None
-            if expect_entries:
-                d, g, v = extract_case_indices(key)
-                filler_result = resolve_expect_for_case(
-                    expect_entries, d, g, v
-                )
+    # Check if extract_case_indices gives unique d values
+    extracted = [extract_case_indices(k) for k, _ in raw_cases]
+    d_values = [e[0] for e in extracted]
+    all_d_zero = len(raw_cases) > 1 and all(d == 0 for d in d_values)
 
-            cases_for_fork.append(
-                {
-                    "data": tx["data"][0] if tx["data"] else "0x",
-                    "gas_limit": hex_to_int(tx["gasLimit"][0])
-                    if tx["gasLimit"]
-                    else 100000,
-                    "value": hex_to_int(tx["value"][0]) if tx["value"] else 0,
-                    "access_list": al,
-                    "expect_exception": expect_exception,
-                    "post_state": post_state,
-                    "filler_result": filler_result,
-                    "to": case_to,
-                }
-            )
+    if all_d_zero and filler_tx_arrays:
+        # extract_case_indices failed (label-based keys).
+        # Match fixture key labels against filler label map.
+        label_to_d: dict[str, int] = {}
+        for d_idx, filler_entry in enumerate(
+            filler_tx_arrays.get("data", [])
+        ):
+            m = re.match(r"^:label\s+(\S+)", str(filler_entry).strip())
+            if m:
+                label_to_d[m.group(1)] = d_idx
+
+        for i, (key, _test) in enumerate(raw_cases):
+            # Extract label from fixture key: "[...-<label>]"
+            lm = re.search(r"state_test-(.+?)\]", key)
+            if not lm:
+                # Try other formats: [fork_X-blockchain_test...-<label>]
+                lm = re.search(r"-([^-\[\]]+)\]$", key)
+            if lm and lm.group(1) in label_to_d:
+                d = label_to_d[lm.group(1)]
+            else:
+                # Fall back to position-based assignment
+                d = i
+            _, g, v = extracted[i]
+            extracted[i] = (d, g, v)
+
+    for i, (_key, test) in enumerate(raw_cases):
+        tx = test["transaction"]
+        post_entry = test["post"][post_fork][0]
+        post_state = post_entry.get("state", {})
+        expect_exception = post_entry.get("expectException")
+        access_lists = tx.get("accessLists", [])
+        al = access_lists[0] if access_lists else None
+        case_to = (tx.get("to") or "").lower()
+        d, g, v = extracted[i]
+
+        cases_for_fork.append(
+            {
+                "d": d,
+                "g": g,
+                "v": v,
+                "data": tx["data"][0] if tx["data"] else "0x",
+                "gas_limit": hex_to_int(tx["gasLimit"][0])
+                if tx["gasLimit"]
+                else 100000,
+                "value": hex_to_int(tx["value"][0]) if tx["value"] else 0,
+                "access_list": al,
+                "expect_exception": expect_exception,
+                "post_state": post_state,
+                "to": case_to,
+            }
+        )
+
+    # Extract TX arrays — prefer filler (has all entries) over compiled
+    # fixture (may only have the first entry per dimension).
+    def _safe_int(v: Any) -> int:
+        """Convert a filler value to int, handling various formats."""
+        if isinstance(v, int):
+            return v
+        s = str(v).strip()
+        if s.startswith("0x") or s.startswith("0X"):
+            return int(s, 16)
+        try:
+            return int(s)
+        except ValueError:
+            return 0
+
+    # Build TX arrays from compiled fixture data using the resolved
+    # d-indices from cases_for_fork (which handle label-based keys).
+    first_tx_c = first_test["transaction"]
+    tx_data_map: dict[int, str] = {}
+    for case in cases_for_fork:
+        d_idx = case["d"]
+        if d_idx not in tx_data_map:
+            data_hex = case["data"]
+            tx_data_map[d_idx] = data_hex
+    max_d = max(tx_data_map.keys()) if tx_data_map else 0
+    tx_data_arr = [tx_data_map.get(i, "0x") for i in range(max_d + 1)]
+
+    if filler_tx_arrays:
+        tx_gas_arr = [
+            _safe_int(g_val)
+            for g_val in filler_tx_arrays.get("gas", ["0x5f5e100"])
+        ]
+        tx_value_arr = [
+            _safe_int(v_val)
+            for v_val in filler_tx_arrays.get("value", ["0x0"])
+        ]
+    else:
+        tx_gas_arr = [
+            hex_to_int(g_val)
+            for g_val in first_tx_c.get("gasLimit", ["0x5f5e100"])
+        ]
+        tx_value_arr = [
+            hex_to_int(v_val)
+            for v_val in first_tx_c.get("value", ["0x0"])
+        ]
 
     is_multi = len(cases_for_fork) > 1
 
@@ -1615,7 +1663,7 @@ def generate_test_file(
 
     # Determine test name
     filler_stem = Path(filler_path).stem  # e.g. "callcode_checkPCFiller"
-    test_func_name = filler_name_to_test_name(filler_stem) + func_name_suffix
+    test_func_name = filler_name_to_test_name(filler_stem)
 
     # Identify accounts
     sender_addr = tx.get("sender", "").lower()
@@ -1800,6 +1848,15 @@ def generate_test_file(
     if needs_tx_exception:
         imports.append("    TransactionException,")
     imports.append(")")
+    # Fork import for tests that use resolve_expect_post
+    if is_multi or expect_entries:
+        imports.append("from execution_testing.forks import Fork")
+        imports.append(
+            "from execution_testing.specs.static_state.expect_section"
+            " import ("
+        )
+        imports.append("    resolve_expect_post,")
+        imports.append(")")
     if needs_op:
         imports.append("from execution_testing.vm import Op")
 
@@ -1835,19 +1892,16 @@ def generate_test_file(
     env_parts.append(f"gas_limit={block_gas_limit}")
 
     # Detect which tx params vary across cases
+    to_varies = False
+    al_varies = False
+    exc_varies = False
     if is_multi:
-        all_data = [c["data"] for c in cases_for_fork]
-        all_gas = [c["gas_limit"] for c in cases_for_fork]
-        all_val = [c["value"] for c in cases_for_fork]
         all_to = [c["to"] for c in cases_for_fork]
         all_al = [
             json.dumps(c["access_list"], sort_keys=True)
             for c in cases_for_fork
         ]
         all_exc = [c.get("expect_exception") or "" for c in cases_for_fork]
-        data_varies = len(set(all_data)) > 1
-        gas_varies = len(set(all_gas)) > 1
-        value_varies = len(set(all_val)) > 1
         to_varies = len(set(all_to)) > 1
         al_varies = len(set(all_al)) > 1
         exc_varies = len(set(all_exc)) > 1
@@ -1870,8 +1924,12 @@ def generate_test_file(
     else:
         tx_parts.append("to=None")
 
-    # For single-case, use values directly
-    if not is_multi:
+    # TX data/gas/value always reference the module-level arrays via d, g, v
+    if is_multi:
+        tx_parts.append("data=_tx_data(d)")
+        tx_parts.append("gas_limit=TX_GAS[g]")
+    else:
+        # Single case — inline data for readability
         case = cases_for_fork[0]
         data_hex = case["data"]
         data_raw = data_hex[2:] if data_hex.startswith("0x") else data_hex
@@ -1889,36 +1947,8 @@ def generate_test_file(
                 tx_parts.append(fromhex)
             else:
                 tx_parts.append(f'data=bytes.fromhex("{data_raw}")')
-        # Omit data=b"" (default)
         if case["gas_limit"] != 21000:
             tx_parts.append(f"gas_limit={case['gas_limit']}")
-    else:
-        if data_varies:
-            tx_parts.append("data=tx_data")
-        else:
-            data_hex = cases_for_fork[0]["data"]
-            data_raw = data_hex[2:] if data_hex.startswith("0x") else data_hex
-            if data_raw:
-                if len(data_raw) > 55:
-                    chunks = [
-                        data_raw[i : i + 72]
-                        for i in range(0, len(data_raw), 72)
-                    ]
-                    hex_joined = '"\n            "'.join(chunks)
-                    fromhex = (
-                        f"data=bytes.fromhex(\n"
-                        f'            "{hex_joined}"\n'
-                        f"        )"
-                    )
-                    tx_parts.append(fromhex)
-                else:
-                    tx_parts.append(f'data=bytes.fromhex("{data_raw}")')
-            # Omit data=b"" (default)
-        if gas_varies:
-            tx_parts.append("gas_limit=tx_gas_limit")
-        else:
-            if cases_for_fork[0]["gas_limit"] != 21000:
-                tx_parts.append(f"gas_limit={cases_for_fork[0]['gas_limit']}")
 
     gas_price = tx.get("gasPrice")
     max_fee = tx.get("maxFeePerGas")
@@ -1957,20 +1987,13 @@ def generate_test_file(
     if tx_nonce != 0:
         tx_parts.append(f"nonce={tx_nonce}")
 
-    if not is_multi:
-        if cases_for_fork[0]["value"] != 0:
-            tx_parts.append(f"value={cases_for_fork[0]['value']}")
-        # Access list for single case (omit empty list, it's the default)
-        al = cases_for_fork[0]["access_list"]
-        if al:
-            tx_parts.append(f"access_list={_format_access_list(al)}")
-    elif value_varies:
-        tx_parts.append("value=tx_value")
+    if is_multi:
+        tx_parts.append("value=TX_VALUE[v]")
     else:
         if cases_for_fork[0]["value"] != 0:
             tx_parts.append(f"value={cases_for_fork[0]['value']}")
 
-    # Access list for multi-case (omit empty list, it's the default)
+    # Access list handling
     if is_multi:
         if al_varies:
             tx_parts.append("access_list=tx_access_list")
@@ -1978,83 +2001,119 @@ def generate_test_file(
             al = cases_for_fork[0]["access_list"]
             if al:
                 tx_parts.append(f"access_list={_format_access_list(al)}")
-
-    # Expected transaction error (e.g. blob tx with to=None)
-    if is_multi and exc_varies:
-        tx_parts.append("error=tx_error")
     else:
-        expect_exception = cases_for_fork[0].get("expect_exception")
-        if expect_exception:
-            tx_parts.append(f"error={_format_exception(expect_exception)}")
+        al = cases_for_fork[0]["access_list"]
+        if al:
+            tx_parts.append(f"access_list={_format_access_list(al)}")
 
-    # -----------------------------------------------------------------------
-    # Compute post-state assertions
-    # -----------------------------------------------------------------------
-    # Prefer filler expect results (Path A) over compiled fixture state
-    # (Path B).  Path A captures shouldnotexist, zero-storage, nonce,
-    # balance, and code assertions that Path B silently drops.
-    post_code = "    post: dict = {}"
-    extra_param_name: str | None = None  # e.g. "expected_storage"
-    extra_param_vals: list[str] = []  # per-case values
-    extra_func_param: str | None = None  # e.g. "    expected_storage: dict,"
-
-    all_filler_results = [c.get("filler_result") for c in cases_for_fork]
-    has_filler = any(fr is not None for fr in all_filler_results)
-
-    if has_filler:
-        # --- Path A: filler-based post generation ---
-        if not is_multi:
-            fr = all_filler_results[0]
-            if fr:
-                post_code = generate_post_dict(fr, addr_vars)
+    # Expected transaction error — skip when using EXPECT_ENTRIES
+    # (exception will be resolved at runtime via _exc)
+    if not expect_entries:
+        if is_multi and exc_varies:
+            tx_parts.append("error=tx_error")
         else:
-            # Check if all filler results are identical
-            non_none = [fr for fr in all_filler_results if fr is not None]
-            all_same = (
-                len(non_none) == len(all_filler_results)
-                and len(non_none) > 0
-                and all(fr == non_none[0] for fr in non_none)
-            )
-
-            if all_same and non_none[0]:
-                post_code = generate_post_dict(non_none[0], addr_vars)
-            elif any(non_none):
-                extra_param_name = "expected_post"
-                extra_func_param = "    expected_post: dict,"
-                for fr in all_filler_results:
-                    extra_param_vals.append(generate_post_value_string(fr))
-                post_code = "    post = expected_post"
-    else:
-        # --- Path B fallback: compiled fixture state ---
-        if not is_multi:
-            ps = cases_for_fork[0].get("post_state", {})
-            if ps:
-                post_code = _generate_post_from_fixture_state(ps, addr_vars)
-        else:
-            all_post_states = [c.get("post_state", {}) for c in cases_for_fork]
-            all_same = len(all_post_states) > 0 and all(
-                ps == all_post_states[0] for ps in all_post_states
-            )
-
-            if all_same and all_post_states[0]:
-                post_code = _generate_post_from_fixture_state(
-                    all_post_states[0], addr_vars
+            expect_exception = cases_for_fork[0].get("expect_exception")
+            if expect_exception:
+                tx_parts.append(
+                    f"error={_format_exception(expect_exception)}"
                 )
-            elif any(all_post_states):
-                extra_param_name = "expected_post"
-                extra_func_param = "    expected_post: dict,"
-                for ps in all_post_states:
-                    extra_param_vals.append(
-                        _generate_post_value_from_fixture_state(ps)
-                    )
-                post_code = "    post = expected_post"
+
+    # -----------------------------------------------------------------------
+    # Build EXPECT_ENTRIES for runtime post-state resolution
+    # -----------------------------------------------------------------------
+    # Use filler expect entries (with labels resolved) when available.
+    # Fall back to synthesizing entries from compiled fixture state.
+    expect_entries_source = ""
+    # Check if filler expect addresses are resolvable via addr_vars.
+    # If any result address isn't in addr_vars or pre, the filler uses
+    # tagged addresses that don't match the compiled fixture — fall back
+    # to synthesizing from the compiled fixture state.
+    pre_addrs_lower = {a.lower() for a in pre.keys()}
+    # Collect all addresses known from the compiled fixture (pre + post)
+    all_fixture_addrs = set(pre_addrs_lower)
+    for key in all_keys:
+        test = fixture_data[key]
+        for fork_posts in test.get("post", {}).values():
+            for post_entry in fork_posts:
+                for addr in post_entry.get("state", {}):
+                    all_fixture_addrs.add(addr.lower())
+    filler_addrs_ok = True
+    if expect_entries:
+        for entry in expect_entries:
+            for addr in entry.get("result", {}):
+                a = addr.lower()
+                if a == COINBASE_ADDRESS or "<" in a:
+                    continue
+                if a not in addr_vars and a not in all_fixture_addrs:
+                    filler_addrs_ok = False
+                    break
+            if not filler_addrs_ok:
+                break
+    if expect_entries and filler_addrs_ok:
+        expect_entries_source = _generate_expect_entries_source(
+            expect_entries, addr_vars=addr_vars, indent="    "
+        )
+    else:
+        # Synthesize from compiled fixture per-case post states
+        synth: list[dict] = []
+        for case in cases_for_fork:
+            ps = case.get("post_state", {})
+            if not ps:
+                continue
+            # Convert fixture state to filler-result-like format
+            result: dict[str, dict] = {}
+            for addr, acct in ps.items():
+                fields: dict[str, Any] = {}
+                storage = acct.get("storage", {})
+                if storage:
+                    fields["storage"] = storage
+                code = acct.get("code", "0x")
+                if code not in ("0x", ""):
+                    fields["code"] = code
+                if fields:
+                    result[_normalize_address(addr)] = fields
+            synth.append(
+                {
+                    "indexes": {
+                        "data": case["d"],
+                        "gas": case["g"],
+                        "value": case["v"],
+                    },
+                    "network": [f">={fork_name}"],
+                    "result": result,
+                }
+            )
+        if synth:
+            expect_entries_source = _generate_expect_entries_source(
+                synth, addr_vars=addr_vars, indent="    "
+            )
+
+    # Post resolution via EXPECT_ENTRIES
+    if is_multi and expect_entries_source:
+        post_code = (
+            "    post, _exc = resolve_expect_post("
+            "EXPECT_ENTRIES, d, g, v, fork)"
+        )
+    elif not is_multi and expect_entries_source:
+        # Single case: d=0, g=0, v=0
+        c = cases_for_fork[0]
+        post_code = (
+            f"    post, _exc = resolve_expect_post("
+            f"EXPECT_ENTRIES, {c['d']}, {c['g']}, {c['v']}, fork)"
+        )
+    elif not is_multi:
+        ps = cases_for_fork[0].get("post_state", {})
+        post_code = (
+            _generate_post_from_fixture_state(ps, addr_vars)
+            if ps
+            else "    post: dict = {}"
+        )
+    else:
+        post_code = "    post: dict = {}"
 
     # Check if post assertions use Op (needs import)
-    if "Op." in post_code:
+    if "Op." in post_code or "Op." in expect_entries_source:
         needs_op = True
-    if any(post_value_uses_op(v) for v in extra_param_vals):
-        needs_op = True
-    # Add Op import if detected after initial import build
     op_import = "from execution_testing.vm import Op"
     if needs_op and op_import not in imports:
         imports.append(op_import)
@@ -2071,24 +2130,50 @@ def generate_test_file(
     out.append('REFERENCE_SPEC_VERSION = "N/A"')
     out.append("")
 
-    # Parametrize for multi-case
+    # --- Emit TX arrays and EXPECT_ENTRIES constants ---
     if is_multi:
-        # Build parameter names and values based on what varies
-        param_names = []
+        # TX_DATA
+        out.append("TX_DATA = [")
+        for raw in tx_data_arr:
+            s = str(raw)
+            # Strip 0x prefix for consistency with bytes.fromhex
+            if s.startswith("0x"):
+                s = s[2:]
+            out.append(f'    "{s}",')
+        out.append("]")
+        out.append("")
+        # TX_GAS
+        out.append(f"TX_GAS = {tx_gas_arr!r}")
+        out.append("")
+        # TX_VALUE
+        out.append(f"TX_VALUE = {tx_value_arr!r}")
+        out.append("")
+
+    # EXPECT_ENTRIES is emitted inside the function body (after variable
+    # definitions) so it can reference variable names like callee, contract.
+
+    # --- Helper for converting tx data hex to bytes ---
+    if is_multi:
+        out.append("")
+        out.append("def _tx_data(d: int) -> bytes:")
+        out.append('    """Convert TX_DATA[d] hex string to bytes."""')
+        out.append(
+            '    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""'
+        )
+        out.append("")
+
+    # --- Parametrize + decorators ---
+    if is_multi:
+        # Build (d, g, v) tuples + optional extra params
+        param_names = ["d", "g", "v"]
+        extra_names: list[str] = []
         if to_varies:
-            param_names.append("tx_to")
-        if data_varies:
-            param_names.append("tx_data_hex")
-        if gas_varies:
-            param_names.append("tx_gas_limit")
-        if value_varies:
-            param_names.append("tx_value")
+            extra_names.append("tx_to")
         if al_varies:
-            param_names.append("tx_access_list")
-        if exc_varies:
-            param_names.append("tx_error")
-        if extra_param_name:
-            param_names.append(extra_param_name)
+            extra_names.append("tx_access_list")
+        if exc_varies and not expect_entries:
+            extra_names.append("tx_error")
+        param_names.extend(extra_names)
 
         out.append("")
         ported_line = f'    ["{filler_path}"],'
@@ -2108,101 +2193,62 @@ def generate_test_file(
             out.append(f'@pytest.mark.valid_until("{valid_until}")')
 
         # Build parametrize values
-        param_vals = []
-        param_ids = []
+        out.append("@pytest.mark.parametrize(")
+        out.append(f'    "{", ".join(param_names)}",')
+        out.append("    [")
         case_has_exc = []
         for i, case in enumerate(cases_for_fork):
-            vals = []
+            d_val, g_val, v_val = case["d"], case["g"], case["v"]
+            vals = [str(d_val), str(g_val), str(v_val)]
+            has_exc = False
             if to_varies:
                 if case["to"]:
-                    padded_to = _pad_address(case["to"])
-                    vals.append(f'Address("{padded_to}")')
+                    vals.append(f'Address("{_pad_address(case["to"])}")')
                 else:
                     vals.append("None")
-            if data_varies:
-                data_raw = (
-                    case["data"][2:]
-                    if case["data"].startswith("0x")
-                    else case["data"]
-                )
-                vals.append(f'"{data_raw}"')
-            if gas_varies:
-                vals.append(str(case["gas_limit"]))
-            if value_varies:
-                vals.append(str(case["value"]))
             if al_varies:
-                al = case["access_list"]
-                if al is None:
+                al_case = case["access_list"]
+                if al_case is None:
                     vals.append("None")
                 else:
-                    vals.append(_format_access_list(al, multiline=False))
-            if exc_varies:
+                    vals.append(_format_access_list(al_case, multiline=False))
+            if exc_varies and not expect_entries:
                 exc = case.get("expect_exception") or ""
                 if exc:
                     vals.append(_format_exception(exc))
-                    case_has_exc.append(True)
+                    has_exc = True
                 else:
                     vals.append("None")
-                    case_has_exc.append(False)
-            else:
-                case_has_exc.append(False)
-            if extra_param_vals:
-                vals.append(
-                    extra_param_vals[i] if i < len(extra_param_vals) else "{}"
+            # When using EXPECT_ENTRIES, check if any matching filler
+            # entry has expect_exception for this (d, g, v)
+            if expect_entries and not has_exc:
+                for ee in expect_entries:
+                    if ee.get("expect_exception"):
+                        idx = ee.get("indexes", {})
+                        d_s = idx.get("data", -1)
+                        g_s = idx.get("gas", -1)
+                        v_s = idx.get("value", -1)
+                        if (
+                            _index_matches(d_s, d_val)
+                            and _index_matches(g_s, g_val)
+                            and _index_matches(v_s, v_val)
+                        ):
+                            has_exc = True
+                            break
+            case_has_exc.append(has_exc)
+            pid = f"case{i}"
+            if has_exc:
+                joined = ", ".join(vals)
+                entry = (
+                    f"pytest.param({joined},"
+                    f' id="{pid}",'
+                    f" marks=pytest.mark.exception_test)"
                 )
-            param_vals.append(vals)
-            param_ids.append(f"case{i}")
-
-        if exc_varies:
-            # Use pytest.param for entries (each needs id + marks)
-            out.append("@pytest.mark.parametrize(")
-            names_line = f'    "{", ".join(param_names)}",'
-            out.append(names_line)
-            out.append("    [")
-            for i, (vals, has_exc) in enumerate(
-                zip(param_vals, case_has_exc, strict=True)
-            ):
-                if has_exc:
-                    joined = ", ".join(vals)
-                    pid = param_ids[i]
-                    entry = (
-                        f"pytest.param({joined},"
-                        f' id="{pid}",'
-                        f" marks=pytest.mark.exception_test)"
-                    )
-                elif len(vals) == 1:
-                    entry = f'pytest.param({vals[0]}, id="{param_ids[i]}")'
-                else:
-                    entry = (
-                        f'pytest.param({", ".join(vals)}, id="{param_ids[i]}")'
-                    )
-                line = f"        {entry},"
-                out.append(line)
-            out.append("    ],")
-            out.append(")")
-        elif len(param_names) == 1:
-            out.append("@pytest.mark.parametrize(")
-            out.append(f'    "{param_names[0]}",')
-            out.append("    [")
-            for vals in param_vals:
-                line = f"        {vals[0]},"
-                out.append(line)
-            out.append("    ],")
-            ids_line = f"    ids={param_ids},"
-            out.append(ids_line)
-            out.append(")")
-        else:
-            out.append("@pytest.mark.parametrize(")
-            names_line2 = f'    "{", ".join(param_names)}",'
-            out.append(names_line2)
-            out.append("    [")
-            for vals in param_vals:
-                line = f"        ({', '.join(vals)}),"
-                out.append(line)
-            out.append("    ],")
-            ids_line = f"    ids={param_ids},"
-            out.append(ids_line)
-            out.append(")")
+            else:
+                entry = f"pytest.param({', '.join(vals)}, id=\"{pid}\")"
+            out.append(f"        {entry},")
+        out.append("    ],")
+        out.append(")")
     else:
         out.append("")
         ported_line = f'    ["{filler_path}"],'
@@ -2228,27 +2274,23 @@ def generate_test_file(
         out.append("@pytest.mark.slow")
 
     # Add exception_test marker if ALL cases expect transaction failure
-    # (when exc_varies, some cases succeed so the global marker can't be used)
     if needs_tx_exception and not (is_multi and exc_varies):
         out.append("@pytest.mark.exception_test")
 
     # Function signature
     func_params = ["    state_test: StateTestFiller,", "    pre: Alloc,"]
+    if is_multi or expect_entries_source:
+        func_params.append("    fork: Fork,")
     if is_multi:
+        func_params.append("    d: int,")
+        func_params.append("    g: int,")
+        func_params.append("    v: int,")
         if to_varies:
             func_params.append("    tx_to: Address,")
-        if data_varies:
-            func_params.append("    tx_data_hex: str,")
-        if gas_varies:
-            func_params.append("    tx_gas_limit: int,")
-        if value_varies:
-            func_params.append("    tx_value: int,")
         if al_varies:
             func_params.append("    tx_access_list: list | None,")
-        if exc_varies:
+        if exc_varies and not expect_entries:
             func_params.append("    tx_error: object,")
-        if extra_func_param:
-            func_params.append(extra_func_param)
     def_line = f"def {test_func_name}("
     out.append(def_line)
     out.extend(func_params)
@@ -2290,7 +2332,10 @@ def generate_test_file(
 
     # Address variables — only emit if used somewhere
     pre_addrs = {a.lower() for a in pre.keys()}
-    all_code = post_code + " ".join(str(p) for p in tx_parts)
+    all_code = (
+        post_code + " " + expect_entries_source + " "
+        + " ".join(str(p) for p in tx_parts)
+    )
     sender_emitted = False
     for addr, var, _ in var_names:
         # Skip vars that will be assigned by deploy_contract
@@ -2357,24 +2402,31 @@ def generate_test_file(
 
     out.append("")
 
-    # Multi-case tx data conversion
-    if is_multi and data_varies:
-        out.append(
-            '    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""'
-        )
+    # EXPECT_ENTRIES — inside function body so it can use variable names
+    if expect_entries_source:
+        out.append(expect_entries_source)
+        out.append("")
+
+    # Post state assertions (resolved before tx so _exc is available)
+    if expect_entries_source:
+        out.append(post_code)
         out.append("")
 
     # Transaction
     out.append("    tx = Transaction(")
     for p in tx_parts:
         out.append(f"        {p},")
+    # Add error=_exc when using EXPECT_ENTRIES (exception from filler)
+    if expect_entries_source:
+        out.append("        error=_exc,")
     out.append("    )")
     out.append("")
 
-    # Post state assertions
-    out.append(post_code)
+    # Post state assertions (for non-EXPECT_ENTRIES path)
+    if not expect_entries_source:
+        out.append(post_code)
+        out.append("")
 
-    out.append("")
     out.append("    state_test(env=env, pre=pre, post=post, tx=tx)")
     out.append("")
 
@@ -2511,7 +2563,7 @@ def process_single_fixture(
     fixture_path: Path,
     fillers_dir: Path,
     output_dir: Path,
-    all_fork_paths: dict[str, Path] | None = None,
+    all_fork_paths: dict[str, Path] | None = None,  # noqa: ARG001
 ) -> tuple[bool, str]:
     """
     Process a single fixture file. Returns (success, message).
@@ -2525,9 +2577,7 @@ def process_single_fixture(
     output_dir
         Directory where the generated Python test file is written.
     all_fork_paths
-        If provided, a dict mapping fork name to fixture path for all
-        forks that have this test.  Used to detect fork divergence and
-        generate fork-range-specific test functions.
+        Unused. Kept for call-site compatibility.
 
     """
     with open(fixture_path) as f:
@@ -2548,8 +2598,12 @@ def process_single_fixture(
     filler_data = _load_filler_data(filler_full_path)
     code_sources = _extract_filler_code_sources(filler_data)
 
-    # Load filler expect entries for Path A post generation
+    # Load filler expect entries and resolve labels to integer indices
     expect_entries = load_filler_expect_results(filler_full_path)
+    if expect_entries:
+        expect_entries = _resolve_filler_labels(
+            filler_full_path, expect_entries
+        )
 
     # Detect fork bounds from filler network (e.g. ">=Cancun<Osaka")
     upper_bound = load_filler_network_upper_bound(filler_full_path)
@@ -2576,96 +2630,26 @@ def process_single_fixture(
     top_category = Path(category).parts[0] if category else ""
     is_slow = top_category in SLOW_CATEGORIES
 
-    # Detect fork divergence when multiple fork fixtures are available
-    fork_ranges = None
-    if all_fork_paths and len(all_fork_paths) > 1:
-        # Determine the earliest fork from the fixture
-        ef = earliest_fork(set(all_fork_paths.keys()))
-        other_fixtures: dict[str, dict[str, Any]] = {}
-        for fork, fp in all_fork_paths.items():
-            if fork != ef:
-                with open(fp) as f:
-                    other_fixtures[fork] = json.load(f)
-        fork_ranges = detect_fork_ranges(fixture_data, other_fixtures, ef)
+    # Load filler TX arrays for TX_DATA/TX_GAS/TX_VALUE constants
+    filler_tx = load_filler_tx_arrays(filler_full_path)
 
-    # Single range or no divergence — generate one test function
-    if not fork_ranges or len(fork_ranges) == 1:
-        try:
-            python_code = generate_test_file(
-                fixture_data,
-                filler_path,
-                filler_comment,
-                valid_until=valid_until,
-                valid_from_override=filler_lower_bound,
-                filler_full_path=filler_full_path,
-                code_sources=code_sources,
-                slow=is_slow,
-                expect_entries=expect_entries or None,
-            )
-        except Exception as e:
-            return False, f"Error generating {fixture_path}: {e}"
-    else:
-        # Multiple fork ranges — generate one test function per range.
-        # First range gets the base test file (with imports, module doc).
-        # Subsequent ranges append only the test function.
-        parts: list[str] = []
-        for range_idx, (vf, vu, range_data) in enumerate(fork_ranges):
-            suffix = "" if range_idx == 0 else f"_from_{vf.lower()}"
-            # Skip ranges that start after the filler's valid_until
-            if valid_until and FORK_RANK.get(vf, 0) > FORK_RANK.get(
-                valid_until, 999
-            ):
-                continue
-
-            # valid_until: use the range's upper bound fork, unless
-            # the filler itself has a tighter bound.
-            range_valid_until = vu
-            if valid_until:
-                filler_vu_rank = FORK_RANK.get(valid_until, 999)
-                if vu:
-                    # Use the tighter (earlier) bound
-                    if filler_vu_rank < FORK_RANK.get(vu, 999):
-                        range_valid_until = valid_until
-                else:
-                    range_valid_until = valid_until
-
-            try:
-                code = generate_test_file(
-                    range_data,
-                    filler_path,
-                    filler_comment,
-                    valid_until=range_valid_until,
-                    valid_from_override=vf,
-                    filler_full_path=filler_full_path,
-                    code_sources=code_sources,
-                    slow=is_slow,
-                    fork_for_post=vf,
-                    func_name_suffix=suffix,
-                    expect_entries=expect_entries or None,
-                )
-            except Exception as e:
-                return (
-                    False,
-                    f"Error generating {fixture_path} (range {vf}): {e}",
-                )
-
-            if range_idx == 0:
-                parts.append(code)
-            else:
-                # Extract only the test function (after the last
-                # REFERENCE_SPEC line) to avoid duplicate imports
-                lines = code.split("\n")
-                func_start = None
-                for li, line in enumerate(lines):
-                    if line.startswith("@pytest.mark.ported_from"):
-                        # Include the blank line before the decorator
-                        func_start = li - 1 if li > 0 else li
-                        break
-                if func_start is not None:
-                    parts.append("\n".join(lines[func_start:]))
-                else:
-                    parts.append(code)
-        python_code = "\n".join(parts)
+    # No more fork-range variant generation — fork handling is at runtime
+    # via resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork).
+    try:
+        python_code = generate_test_file(
+            fixture_data,
+            filler_path,
+            filler_comment,
+            valid_until=valid_until,
+            valid_from_override=filler_lower_bound,
+            filler_full_path=filler_full_path,
+            code_sources=code_sources,
+            slow=is_slow,
+            expect_entries=expect_entries or None,
+            filler_tx_arrays=filler_tx,
+        )
+    except Exception as e:
+        return False, f"Error generating {fixture_path}: {e}"
 
     out_dir = output_dir / category if category else output_dir
     out_dir.mkdir(parents=True, exist_ok=True)

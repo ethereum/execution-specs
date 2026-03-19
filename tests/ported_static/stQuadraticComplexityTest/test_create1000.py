@@ -15,10 +15,28 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+    "",
+]
+
+TX_GAS = [150000, 250000000]
+
+TX_VALUE = [10]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -29,19 +47,21 @@ REFERENCE_SPEC_VERSION = "N/A"
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
 @pytest.mark.parametrize(
-    "tx_gas_limit",
+    "d, g, v",
     [
-        150000,
-        250000000,
+        pytest.param(0, 0, 0, id="case0"),
+        pytest.param(1, 1, 0, id="case1"),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.slow
 def test_create1000(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """Gas analysis showed this test's gas can go as low as 21053, and..."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -83,39 +103,40 @@ def test_create1000(
         address=Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "5b6103e8608051101560235761c35060006001f06000556001608051016080526000565b60805160015500"  # noqa: E501
+                    )
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "5b6103e8608051101560235761c35060006001f06000556001608051016080526000565b60805160015500"  # noqa: E501
+                    )
+                )
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
-        gas_limit=tx_gas_limit,
-        value=10,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post = {
-        Address(
-            "0x010d8b0816e30ff51ba07678c64b272cdeddb807"
-        ): Account.NONEXISTENT,
-        Address(
-            "0x014830fe159f418212e5c39b4b2e2ddc7b295395"
-        ): Account.NONEXISTENT,
-        Address(
-            "0x0c6a8f1bf692cb9e4f9d9c5a2785d58edfd42457"
-        ): Account.NONEXISTENT,
-        Address(
-            "0x198d23bedd1a9fdbd4adb5760930f6877f5d142f"
-        ): Account.NONEXISTENT,
-        Address(
-            "0x266c09580d28c1c576e5c6b9adc926be1fecffb1"
-        ): Account.NONEXISTENT,
-        contract: Account(storage={0: 0, 1: 0}, nonce=0),
-        Address(
-            "0xe5dc2e5b40069a91f688e56ea8d12149c5480b42"
-        ): Account.NONEXISTENT,
-        Address(
-            "0xfdbd2625737df76e194c99994be160c5f8248dad"
-        ): Account.NONEXISTENT,
-        Address(
-            "0xfff043abcbf2b0972c1dca19b2ba3cd682f10e90"
-        ): Account.NONEXISTENT,
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

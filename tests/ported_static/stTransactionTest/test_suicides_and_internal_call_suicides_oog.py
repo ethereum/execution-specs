@@ -16,6 +16,10 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -32,6 +36,7 @@ REFERENCE_SPEC_VERSION = "N/A"
 def test_suicides_and_internal_call_suicides_oog(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ) -> None:
     """Test ported from static filler."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -48,7 +53,7 @@ def test_suicides_and_internal_call_suicides_oog(
         gas_limit=1000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x5f0d8cd21c9026a32a4e8d15257b1801458989f3"),  # noqa: E501
@@ -77,23 +82,29 @@ def test_suicides_and_internal_call_suicides_oog(
     )
     pre[sender] = Account(balance=0x5F5E100)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(code=bytes.fromhex("6001ff00")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006001735f0d8cd21c9026a32a4e8d15257b1801458989f36155f0f1506000ff00"  # noqa: E501
+                    )
+                ),
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+
     tx = Transaction(
         sender=sender,
         to=contract,
         gas_limit=50000,
         value=10,
+        error=_exc,
     )
-
-    post = {
-        Address("0x0000000000000000000000000000000000000000"): Account(
-            balance=0,
-        ),
-        Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            nonce=1,
-        ),
-        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-            balance=10,
-        ),
-    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

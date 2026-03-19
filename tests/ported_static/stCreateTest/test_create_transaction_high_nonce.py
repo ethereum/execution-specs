@@ -16,11 +16,28 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
-    TransactionException,
+)
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "60016000f3",
+    "60016000f3",
+]
+
+TX_GAS = [90000]
+
+TX_VALUE = [0, 1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d]) if TX_DATA[d] else b""
 
 
 @pytest.mark.ported_from(
@@ -30,19 +47,21 @@ REFERENCE_SPEC_VERSION = "N/A"
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value",
+    "d, g, v",
     [
-        0,
-        1,
+        pytest.param(0, 0, 0, id="case0", marks=pytest.mark.exception_test),
+        pytest.param(1, 0, 1, id="case1", marks=pytest.mark.exception_test),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 @pytest.mark.exception_test
 def test_create_transaction_high_nonce(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_value: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
     """The test check if the create transaction is reject if the..."""
     coinbase = Address("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
@@ -61,16 +80,27 @@ def test_create_transaction_high_nonce(
 
     pre[sender] = Account(balance=0x5AF3107A4000, nonce=18446744073709551615)
 
+    EXPECT_ENTRIES: list[dict] = [
+        {
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {},
+            "expect_exception": {
+                ">=Cancun": "TransactionException.NONCE_IS_MAX"
+            },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex("60016000f3"),
-        gas_limit=90000,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         nonce=18446744073709551615,
-        value=tx_value,
-        error=TransactionException.NONCE_IS_MAX,
+        value=TX_VALUE[v],
+        error=_exc,
     )
-
-    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)
