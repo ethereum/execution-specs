@@ -106,7 +106,7 @@ def markdownlint(args: tuple[str, ...]) -> None:
         text=True,
     )
     if result.returncode == 0:
-        version_match = re.search(r"v(\d+\.\d+\.\d+)", result.stdout)
+        version_match = re.search(r"v?(\d+\.\d+\.\d+)", result.stdout)
         installed_version = version_match.group(1) if version_match else None
         if installed_version:
             installed = semver.Version.parse(installed_version)
