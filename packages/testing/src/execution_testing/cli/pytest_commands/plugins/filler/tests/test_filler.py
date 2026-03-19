@@ -769,6 +769,152 @@ test_module_execution_witness = textwrap.dedent(
     """
 )
 
+test_module_execution_witness_soundness = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Account,
+        Alloc,
+        Block,
+        BlockchainTestFiller,
+        ExecutionWitnessHeadersExpectation,
+        Op,
+        Transaction,
+    )
+    from execution_testing.test_types.execution_witness.modifiers import (
+        remove_header_at,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    def test_execution_witness_soundness(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        offset = 2
+        contract = pre.deploy_contract(
+            code=Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.STOP
+        )
+        sender = pre.fund_eoa()
+        tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
+
+        blocks = [Block(txs=[]) for _ in range(offset)]
+        blocks.append(
+            Block(
+                txs=[tx],
+                expected_execution_witness_headers=(
+                    ExecutionWitnessHeadersExpectation(
+                        expected_count=offset,
+                    ).modify(remove_header_at(-1))
+                ),
+                expected_stateless_validation_success=False,
+            )
+        )
+
+        blockchain_test(
+            pre=pre,
+            blocks=blocks,
+            post={sender: Account(nonce=1)},
+        )
+    """
+)
+
+test_module_execution_witness_expected_true = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Account,
+        Alloc,
+        Block,
+        BlockchainTestFiller,
+        ExecutionWitnessHeadersExpectation,
+        Op,
+        Transaction,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    def test_execution_witness_expected_true(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        offset = 2
+        contract = pre.deploy_contract(
+            code=Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.STOP
+        )
+        sender = pre.fund_eoa()
+        tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
+
+        blocks = [Block(txs=[]) for _ in range(offset)]
+        blocks.append(
+            Block(
+                txs=[tx],
+                expected_execution_witness_headers=(
+                    ExecutionWitnessHeadersExpectation(
+                        expected_count=offset,
+                    )
+                ),
+                expected_stateless_validation_success=True,
+            )
+        )
+
+        blockchain_test(
+            pre=pre,
+            blocks=blocks,
+            post={sender: Account(nonce=1)},
+        )
+    """
+)
+
+test_module_execution_witness_missing_expected = textwrap.dedent(
+    """\
+    import pytest
+
+    from execution_testing import (
+        Account,
+        Alloc,
+        Block,
+        BlockchainTestFiller,
+        ExecutionWitnessHeadersExpectation,
+        Op,
+        Transaction,
+    )
+    from execution_testing.test_types.execution_witness.modifiers import (
+        remove_header_at,
+    )
+
+    @pytest.mark.valid_at("Amsterdam")
+    def test_execution_witness_missing_expected(
+        pre: Alloc,
+        blockchain_test: BlockchainTestFiller,
+    ) -> None:
+        offset = 2
+        contract = pre.deploy_contract(
+            code=Op.BLOCKHASH(Op.SUB(Op.NUMBER, offset)) + Op.POP + Op.STOP
+        )
+        sender = pre.fund_eoa()
+        tx = Transaction(sender=sender, to=contract, gas_limit=500_000)
+
+        blocks = [Block(txs=[]) for _ in range(offset)]
+        blocks.append(
+            Block(
+                txs=[tx],
+                expected_execution_witness_headers=(
+                    ExecutionWitnessHeadersExpectation(
+                        expected_count=offset,
+                    ).modify(remove_header_at(-1))
+                ),
+            )
+        )
+
+        blockchain_test(
+            pre=pre,
+            blocks=blocks,
+            post={sender: Account(nonce=1)},
+        )
+    """
+)
+
 
 def test_execution_witness_in_blockchain_fixture(
     testdir: pytest.Testdir,
@@ -826,6 +972,140 @@ def test_execution_witness_in_blockchain_fixture(
     assert "statelessOutputBytes" in block
     sob = block["statelessOutputBytes"]
     assert isinstance(sob, str) and sob.startswith("0x") and len(sob) > 2
+
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+    from ethereum_types.bytes import Bytes as EthereumBytes
+
+    stateless_output = deserialize_stateless_output(
+        EthereumBytes(bytes.fromhex(sob[2:]))
+    )
+    assert stateless_output.successful_validation is True
+
+
+def test_execution_witness_expected_true_reuses_canonical_stateless_result(
+    testdir: pytest.Testdir,
+) -> None:
+    """Explicit True expectation should preserve the canonical success path."""
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_execution_witness_expected_true.py"
+    )
+    test_module.write(test_module_execution_witness_expected_true)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = ["-c", "pytest-fill.ini", "-v", "--until=Amsterdam", "--no-html"]
+    result = testdir.runpytest(*args)
+    assert result.ret == 0
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests/for_amsterdam/amsterdam/"
+        "module_execution_witness_expected_true/"
+        "execution_witness_expected_true.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    fixture = next(iter(fixture_data.values()))
+    block = fixture["blocks"][-1]
+
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+    from ethereum_types.bytes import Bytes as EthereumBytes
+
+    stateless_output = deserialize_stateless_output(
+        EthereumBytes(bytes.fromhex(block["statelessOutputBytes"][2:]))
+    )
+
+    assert stateless_output.successful_validation is True
+
+
+def test_execution_witness_soundness_rewrites_stateless_fixture_bytes(
+    testdir: pytest.Testdir,
+) -> None:
+    """Mutated witness fixtures should carry mutated stateless bytes."""
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_execution_witness_soundness.py"
+    )
+    test_module.write(test_module_execution_witness_soundness)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = ["-c", "pytest-fill.ini", "-v", "--until=Amsterdam", "--no-html"]
+    result = testdir.runpytest(*args)
+    assert result.ret == 0
+
+    fixture_path = Path(
+        "fixtures/blockchain_tests/for_amsterdam/amsterdam/"
+        "module_execution_witness_soundness/"
+        "execution_witness_soundness.json"
+    )
+    assert fixture_path.exists(), f"{fixture_path} does not exist"
+
+    with open(fixture_path, "r") as f:
+        fixture_data = json.load(f)
+
+    fixture = next(iter(fixture_data.values()))
+    block = fixture["blocks"][-1]
+
+    assert len(block["executionWitness"]["headers"]) == 1
+
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+    from ethereum_types.bytes import Bytes as EthereumBytes
+
+    stateless_input = deserialize_stateless_input(
+        EthereumBytes(bytes.fromhex(block["statelessInputBytes"][2:]))
+    )
+    stateless_output = deserialize_stateless_output(
+        EthereumBytes(bytes.fromhex(block["statelessOutputBytes"][2:]))
+    )
+
+    assert stateless_output.successful_validation is False
+    assert len(stateless_input.witness.headers) == 1
+    assert [
+        "0x" + bytes(header).hex()
+        for header in stateless_input.witness.headers
+    ] == block["executionWitness"]["headers"]
+
+
+def test_execution_witness_modifier_requires_explicit_guest_expectation(
+    testdir: pytest.Testdir,
+) -> None:
+    """Mutated witness tests should declare the expected guest result."""
+    tests_dir = testdir.mkdir("tests")
+    amsterdam_tests_dir = tests_dir.mkdir("amsterdam")
+    test_module = amsterdam_tests_dir.join(
+        "test_module_execution_witness_missing_expected.py"
+    )
+    test_module.write(test_module_execution_witness_missing_expected)
+
+    testdir.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+    )
+    args = ["-c", "pytest-fill.ini", "-v", "--until=Amsterdam", "--no-html"]
+    result = testdir.runpytest(*args)
+    assert result.ret != 0
+    result.stdout.fnmatch_lines(
+        [
+            "*Mutated execution witness tests must set "
+            "expected_stateless_validation_success explicitly*"
+        ]
+    )
 
 
 test_module_environment_variables = textwrap.dedent(

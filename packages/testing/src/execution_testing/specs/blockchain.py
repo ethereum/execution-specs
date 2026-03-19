@@ -213,6 +213,104 @@ def with_execution_witness_implicit_codes(
     return expectation.model_copy(update={"codes_present": codes_present})
 
 
+def rerun_amsterdam_stateless_guest_with_witness(
+    *,
+    fork: Fork,
+    block_number: int,
+    timestamp: int,
+    original_stateless_input_bytes: Bytes,
+    execution_witness: ExecutionWitness,
+) -> tuple[Bytes, Bytes, bool]:
+    """
+    Rebuild the stateless input with the emitted witness and rerun the guest.
+
+    Amsterdam is currently the only fork with stateless guest support in this
+    repository, so the rerun path is kept Amsterdam-specific.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    if active_fork.name() != "Amsterdam":
+        raise Exception(
+            "Execution witness guest rerun is only supported for Amsterdam"
+        )
+
+    from ethereum.forks.amsterdam.stateless import (
+        ExecutionWitness as AmsterdamExecutionWitness,
+    )
+    from ethereum.forks.amsterdam.stateless import (
+        StatelessInput as AmsterdamStatelessInput,
+    )
+    from ethereum.forks.amsterdam.stateless_guest import (
+        deserialize_stateless_input,
+        run_stateless_guest,
+    )
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+        serialize_stateless_input,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    original_input = deserialize_stateless_input(
+        AmsterdamBytes(bytes(original_stateless_input_bytes))
+    )
+    rebuilt_witness = AmsterdamExecutionWitness(
+        state=tuple(
+            AmsterdamBytes(bytes(node)) for node in execution_witness.state
+        ),
+        codes=tuple(
+            AmsterdamBytes(bytes(code)) for code in execution_witness.codes
+        ),
+        headers=tuple(
+            AmsterdamBytes(bytes(header))
+            for header in execution_witness.headers
+        ),
+    )
+    rebuilt_input = AmsterdamStatelessInput(
+        new_payload_request=original_input.new_payload_request,
+        witness=rebuilt_witness,
+        chain_config=original_input.chain_config,
+        public_keys=original_input.public_keys,
+    )
+    rebuilt_input_bytes = serialize_stateless_input(rebuilt_input)
+    rebuilt_output_bytes = run_stateless_guest(rebuilt_input_bytes)
+    rebuilt_output = deserialize_stateless_output(rebuilt_output_bytes)
+
+    return (
+        Bytes(bytes(rebuilt_input_bytes)),
+        Bytes(bytes(rebuilt_output_bytes)),
+        rebuilt_output.successful_validation,
+    )
+
+
+def deserialize_amsterdam_stateless_output_success(
+    *,
+    fork: Fork,
+    block_number: int,
+    timestamp: int,
+    stateless_output_bytes: Bytes,
+) -> bool:
+    """
+    Decode the canonical t8n stateless output and return success status.
+
+    Amsterdam is currently the only fork with stateless guest support in this
+    repository, so the decode path is kept Amsterdam-specific.
+    """
+    active_fork = fork.fork_at(block_number=block_number, timestamp=timestamp)
+    if active_fork.name() != "Amsterdam":
+        raise Exception(
+            "Stateless output decoding is only supported for Amsterdam"
+        )
+
+    from ethereum.forks.amsterdam.stateless_host import (
+        deserialize_stateless_output,
+    )
+    from ethereum_types.bytes import Bytes as AmsterdamBytes
+
+    stateless_output = deserialize_stateless_output(
+        AmsterdamBytes(bytes(stateless_output_bytes))
+    )
+    return stateless_output.successful_validation
+
+
 class Header(CamelModel):
     """Header type used to describe block header properties in test specs."""
 
@@ -360,6 +458,11 @@ class Block(Header):
     """
     If set, the execution witness headers will be verified and potentially
     modified for invalid tests.
+    """
+    expected_stateless_validation_success: bool | None = None
+    """
+    If set, assert the stateless guest result matches this expectation. This
+    must be set explicitly for tests that mutate the emitted execution witness.
     """
     exception: BLOCK_EXCEPTION_TYPE = None
     # If set, the block is expected to be rejected by the client.
@@ -912,6 +1015,90 @@ class BlockchainTest(BaseTest):
                 execution_witness
             )
 
+        has_witness_modifier = (
+            (
+                block.expected_execution_witness_state is not None
+                and (
+                    block.expected_execution_witness_state._modifier
+                    is not None
+                )
+            )
+            or (
+                block.expected_execution_witness_codes is not None
+                and block.expected_execution_witness_codes._modifier
+                is not None
+            )
+            or (
+                block.expected_execution_witness_headers is not None
+                and block.expected_execution_witness_headers._modifier
+                is not None
+            )
+        )
+        stateless_input_bytes = (
+            transition_tool_output.result.stateless_input_bytes
+        )
+        stateless_output_bytes = (
+            transition_tool_output.result.stateless_output_bytes
+        )
+        expected_success = block.expected_stateless_validation_success
+        if has_witness_modifier and expected_success is None:
+            raise AssertionError(
+                "Mutated execution witness tests must set "
+                "expected_stateless_validation_success explicitly"
+            )
+        canonical_successful_validation: bool | None = None
+        if has_witness_modifier or expected_success is not None:
+            if stateless_output_bytes is None:
+                raise Exception(
+                    "Stateless guest verification requires stateless output "
+                    "bytes"
+                )
+            canonical_successful_validation = (
+                deserialize_amsterdam_stateless_output_success(
+                    fork=self.fork,
+                    block_number=int(env.number),
+                    timestamp=int(env.timestamp),
+                    stateless_output_bytes=stateless_output_bytes,
+                )
+            )
+
+        should_rerun_stateless_guest = has_witness_modifier
+        if should_rerun_stateless_guest:
+            if execution_witness is None or stateless_input_bytes is None:
+                raise Exception(
+                    "Stateless guest rerun requires execution witness and "
+                    "stateless input bytes"
+                )
+            (
+                stateless_input_bytes,
+                stateless_output_bytes,
+                successful_validation,
+            ) = rerun_amsterdam_stateless_guest_with_witness(
+                fork=self.fork,
+                block_number=int(env.number),
+                timestamp=int(env.timestamp),
+                original_stateless_input_bytes=stateless_input_bytes,
+                execution_witness=execution_witness,
+            )
+            if (
+                expected_success is not None
+                and successful_validation != expected_success
+            ):
+                raise AssertionError(
+                    "Stateless guest validation result mismatch: "
+                    f"got {successful_validation}, "
+                    f"want {expected_success}"
+                )
+        elif (
+            expected_success is not None
+            and canonical_successful_validation != expected_success
+        ):
+            raise AssertionError(
+                "Canonical stateless guest validation result mismatch: "
+                f"got {canonical_successful_validation}, "
+                f"want {expected_success}"
+            )
+
         built_block = BuiltBlock(
             header=header,
             alloc=transition_tool_output.alloc,
@@ -927,12 +1114,8 @@ class BlockchainTest(BaseTest):
             fork=self.fork,
             block_access_list=bal,
             execution_witness=execution_witness,
-            stateless_input_bytes=(
-                transition_tool_output.result.stateless_input_bytes
-            ),
-            stateless_output_bytes=(
-                transition_tool_output.result.stateless_output_bytes
-            ),
+            stateless_input_bytes=stateless_input_bytes,
+            stateless_output_bytes=stateless_output_bytes,
         )
 
         try:
@@ -948,25 +1131,17 @@ class BlockchainTest(BaseTest):
                     block.expected_block_access_list is not None
                     and block.expected_block_access_list._modifier is not None
                 )
-                and not (
-                    block.expected_execution_witness_state is not None
-                    and block.expected_execution_witness_state._modifier
-                    is not None
-                )
-                and not (
-                    block.expected_execution_witness_codes is not None
-                    and block.expected_execution_witness_codes._modifier
-                    is not None
-                )
+                and not has_witness_modifier
             ):
                 # Only verify block level exception if: - No transaction
                 # exception was raised, because these are not reported as block
                 # exceptions. - No RLP modifier was specified, because the
                 # modifier is what normally produces the block exception. - No
                 # requests were specified, because modified requests are also
-                # what normally produces the block exception. - No BAL or
-                # witness modifier was specified, because modified BAL/witness
-                # also produces block exceptions.
+                # what normally produces the block exception. - No BAL
+                # modifier was specified, because modified BAL produces block
+                # exceptions. - No witness modifier was specified, because
+                # witness soundness is verified separately via the guest rerun.
                 built_block.verify_block_exception(
                     transition_tool_exceptions_reliable=t8n.exception_mapper.reliable,
                 )
