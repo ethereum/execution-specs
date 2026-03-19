@@ -98,7 +98,12 @@ def blocks(
                 if isinstance(r, WithdrawalRequestContract):
                     # Each withdrawal request writes 3 new storage slots
                     # in the system contract queue (source, pubkey, amount).
-                    r.tx_gas_limit += (
+                    # Store the base gas limit to avoid accumulating the
+                    # extra cost on repeated fixture format runs that share
+                    # the same pytest parameter object.
+                    if not hasattr(r, "_base_tx_gas_limit"):
+                        r._base_tx_gas_limit = r.tx_gas_limit  # type: ignore[attr-defined]
+                    r.tx_gas_limit = r._base_tx_gas_limit + (  # type: ignore[attr-defined]
                         len(r.requests) * 3 * gas_costs.GAS_STORAGE_SET
                     )
 
