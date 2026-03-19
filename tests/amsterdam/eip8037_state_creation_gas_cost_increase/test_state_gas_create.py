@@ -546,6 +546,7 @@ def test_max_initcode_size_gas_metering_via_create(
     )
 
     gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     tx = Transaction(
         sender=alice,
         to=caller,
