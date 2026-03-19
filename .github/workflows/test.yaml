@@ -56,8 +56,28 @@ jobs:
           uvx --from actionlint-py actionlint
 
   py3:
+    name: py3 (${{ matrix.label }})
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: pre-cancun
+            from_fork: Frontier
+            until_fork: Shanghai
+          - label: cancun
+            from_fork: Cancun
+            until_fork: Cancun
+          - label: prague
+            from_fork: Prague
+            until_fork: Prague
+          - label: osaka
+            from_fork: Osaka
+            until_fork: Osaka
+          - label: amsterdam
+            from_fork: Amsterdam
+            until_fork: Amsterdam
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -66,8 +86,8 @@ jobs:
         with:
           python-version: "3.14"
       - uses: ./.github/actions/setup-env
-      - name: Run py3 tests
-        run: tox -e py3
+      - name: Run py3 tests (${{ matrix.label }})
+        run: tox -e py3 -- --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov
