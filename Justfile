@@ -8,6 +8,7 @@ root := justfile_directory()
 output_dir := root / ".just"
 xdist_workers := env("PYTEST_XDIST_AUTO_NUM_WORKERS", "6")
 evm_bin := env("EVM_BIN", "evm")
+latest_fork := "Amsterdam"
 
 # --- Static Analysis ---
 
@@ -98,7 +99,7 @@ py3 *args:
         --basetemp="{{ output_dir }}/py3/tmp" \
         --log-to "{{ output_dir }}/py3/logs" \
         --clean \
-        --until Amsterdam \
+        --until {{ latest_fork }} \
         --durations=50 \
         "$@" \
         tests
@@ -121,7 +122,7 @@ pypy3 *args:
         --basetemp="{{ output_dir }}/pypy3/tmp" \
         --log-to "{{ output_dir }}/pypy3/logs" \
         --clean \
-        --until Amsterdam \
+        --until {{ latest_fork }} \
         --ignore=tests/ported_static \
         "$@" \
         tests
@@ -134,7 +135,7 @@ json_loader *args:
     @mkdir -p "{{ output_dir }}/json_loader/tmp"
     uv run fill \
         -m "eels_base_coverage and not derived_test" \
-        --until Amsterdam \
+        --until {{ latest_fork }} \
         -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
         --clean \
