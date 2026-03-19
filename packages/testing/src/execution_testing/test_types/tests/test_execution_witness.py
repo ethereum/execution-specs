@@ -16,6 +16,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
     remove_code_at,
     remove_state_node,
     remove_header_at,
+    remove_state_node,
     replace_header_at,
     reverse_headers,
 )
