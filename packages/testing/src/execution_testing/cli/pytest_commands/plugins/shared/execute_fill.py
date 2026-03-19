@@ -56,9 +56,7 @@ def _validate_and_cache_address_stubs(
     eth_rpc = EthRPC(rpc_endpoint)
     labels = list(address_stubs.root.keys())
     addresses = list(address_stubs.root.values())
-    query = BaseAlloc(
-        root={addr: Account() for addr in addresses}
-    )
+    query = BaseAlloc(root={addr: Account() for addr in addresses})
     alloc = eth_rpc.get_alloc(query)
     empty: list[str] = []
     accounts: list[Account] = []
@@ -74,9 +72,7 @@ def _validate_and_cache_address_stubs(
             + "\n".join(empty)
             + "\nPlease verify the addresses in --address-stubs."
         )
-    cache: Dict[str, Account] = dict(
-        zip(labels, accounts, strict=True)
-    )
+    cache: Dict[str, Account] = dict(zip(labels, accounts, strict=True))
     logger.info(
         f"Validated {len(cache)} address stubs: all have code on-chain"
     )
