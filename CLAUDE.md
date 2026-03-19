@@ -4,7 +4,7 @@ Ethereum Execution Layer Specification written in Python. This is a **specificat
 
 ## Tooling
 
-- **uv** is the package manager. **tox** orchestrates test environments (`uvx tox -al`).
+- **uv** is the package manager. **just** is the command runner (`just --list`).
 - The `execution_testing` package under `packages/testing/` is a UV workspace member.
 
 ## Linting
