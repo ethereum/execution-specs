@@ -231,7 +231,12 @@ spec-docs:
 # Build HTML site documentation with mkdocs
 [group('docs')]
 docs:
-    GEN_TEST_DOC_VERSION="just" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs build --strict
+    GEN_TEST_DOC_VERSION="just" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs build --strict -d "{{ output_dir }}/docs/site"
+
+# Build HTML site documentation with mkdocs (fast mode, skips test case reference)
+[group('docs')]
+fast-docs:
+    FAST_DOCS=True GEN_TEST_DOC_VERSION="just" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs build --strict -d "{{ output_dir }}/docs/site"
 
 # Validate docs/CHANGELOG.md entries
 [group('docs')]
