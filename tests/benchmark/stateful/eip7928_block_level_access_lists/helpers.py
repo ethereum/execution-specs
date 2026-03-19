@@ -19,18 +19,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    BalAccountExpectation,
-    BalNonceChange,
-    BalStorageChange,
-    BalStorageSlot,
+    BenchmarkTestFiller,
     Block,
-    BlockAccessListExpectation,
-    BlockchainTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Op,
     Storage,
+    TestPhaseManager,
     Transaction,
 )
 
@@ -98,114 +93,32 @@ def sload_loop_iteration(
     )
 
 
-def calculate_benchmark_params(
-    fork: Fork,
-    gas_per_item: int,
-    extra_overhead: int | None = None,
-) -> tuple[int, int, int, int]:
-    """Return (num_transactions, items_per_tx, total_items, max_tx_gas)."""
-    gas_costs = fork.gas_costs()
-    max_tx_gas = fork.transaction_gas_limit_cap()
-    assert max_tx_gas is not None
-
-    env = Environment()
-    block_gas_limit = int(env.gas_limit)
-
-    if extra_overhead is None:
-        extra_overhead = cursor_overhead_gas(fork)
-
-    num_transactions = block_gas_limit // max_tx_gas
-    available_gas = max_tx_gas - gas_costs.G_TRANSACTION - extra_overhead
-    items_per_tx = available_gas // gas_per_item
-    total_items = num_transactions * items_per_tx
-    return num_transactions, items_per_tx, total_items, max_tx_gas
-
-
-def build_cursor_storage_changes(
-    num_transactions: int,
-    items_per_tx: int,
-) -> list[BalStorageSlot]:
-    """Build BAL storage-change entries for the cursor slot."""
-    return [
-        BalStorageSlot(
-            slot=CURSOR_SLOT,
-            slot_changes=[
-                BalStorageChange(
-                    block_access_index=tx_idx + 1,
-                    post_value=(tx_idx + 1) * items_per_tx,
-                )
-                for tx_idx in range(num_transactions)
-            ],
-        ),
-    ]
-
-
-def build_contract_expectation(
-    num_transactions: int,
-    items_per_tx: int,
-    data_slot_reads: list[int],
-) -> BalAccountExpectation:
-    """
-    Build BAL expectations for a cursor-based benchmark contract.
-
-    ``data_slot_reads`` should list every read-only slot beyond
-    ITEMS_PER_TX_SLOT (which is auto-included).
-    """
-    all_reads = sorted(set(data_slot_reads + [ITEMS_PER_TX_SLOT]))
-    return BalAccountExpectation(
-        storage_reads=all_reads,
-        storage_changes=build_cursor_storage_changes(
-            num_transactions, items_per_tx
-        ),
-    )
-
-
-def run_bal_benchmark(
+def run_benchmark(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     contract_code: Bytecode,
     contract_storage: Storage,
     num_transactions: int,
     items_per_tx: int,
     gas_limit: int,
-    contract_expectation: BalAccountExpectation,
     post_contract: Account | None = None,
-    extra_expectations: dict[Address, BalAccountExpectation] | None = None,
 ) -> None:
-    """Run a single-contract cursor-based BAL benchmark test."""
+    """Run a single-contract cursor-based benchmark test."""
     contract = pre.deploy_contract(
         code=contract_code, storage=contract_storage
     )
 
-    senders = [pre.fund_eoa() for _ in range(num_transactions)]
-    transactions = [
-        Transaction(
-            sender=senders[i],
-            to=contract,
-            gas_limit=gas_limit,
-            data=b"",
-        )
-        for i in range(num_transactions)
-    ]
-
-    account_expectations: dict[Address, BalAccountExpectation] = {
-        contract: contract_expectation,
-    }
-    for tx_idx, sender in enumerate(senders):
-        account_expectations[sender] = BalAccountExpectation(
-            nonce_changes=[
-                BalNonceChange(block_access_index=tx_idx + 1, post_nonce=1)
-            ],
-        )
-    if extra_expectations:
-        account_expectations.update(extra_expectations)
-
-    block = Block(
-        txs=transactions,
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations=account_expectations
-        ),
-    )
+    with TestPhaseManager.execution():
+        senders = [pre.fund_eoa() for _ in range(num_transactions)]
+        transactions = [
+            Transaction(
+                sender=senders[i],
+                to=contract,
+                gas_limit=gas_limit,
+                data=b"",
+            )
+            for i in range(num_transactions)
+        ]
 
     if post_contract is None:
         final_storage = dict(contract_storage)  # type: ignore[arg-type]
@@ -216,4 +129,4 @@ def run_bal_benchmark(
     for sender in senders:
         post[sender] = Account(nonce=1)
 
-    blockchain_test(pre=pre, blocks=[block], post=post)
+    benchmark_test(pre=pre, post=post, blocks=[Block(txs=transactions)])

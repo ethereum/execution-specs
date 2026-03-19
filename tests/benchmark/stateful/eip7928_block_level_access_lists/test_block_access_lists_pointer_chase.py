@@ -10,8 +10,9 @@ back to CURSOR_SLOT, creating inter-transaction dependencies.
 import pytest
 from execution_testing import (
     Alloc,
-    BlockchainTestFiller,
+    BenchmarkTestFiller,
     Bytecode,
+    Environment,
     Fork,
     Op,
     Storage,
@@ -20,11 +21,10 @@ from execution_testing import (
 from .helpers import (
     CURSOR_SLOT,
     ITEMS_PER_TX_SLOT,
-    build_contract_expectation,
-    calculate_benchmark_params,
+    cursor_overhead_gas,
     cursor_read,
     cursor_write,
-    run_bal_benchmark,
+    run_benchmark,
 )
 from .spec import ref_spec_7928
 
@@ -91,35 +91,40 @@ def create_pointer_chase_contract() -> Bytecode:
 
 def test_bal_max_pointer_chase(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
     """Test BAL with maximum dependent pointer-chasing SLOADs."""
+    gas_costs = fork.gas_costs()
+    max_tx_gas = fork.transaction_gas_limit_cap()
+    assert max_tx_gas is not None
+    block_gas_limit = int(Environment().gas_limit)
+    num_txs = block_gas_limit // max_tx_gas
+
+    overhead = cursor_overhead_gas(fork)
+    available = max_tx_gas - gas_costs.G_TRANSACTION - overhead
     gas_per_iteration = _chase_loop_iteration().gas_cost(fork)
-    num_txs, items_per_tx, total, max_gas = calculate_benchmark_params(
-        fork, gas_per_iteration
-    )
+    items_per_tx = available // gas_per_iteration
+    total = num_txs * items_per_tx
+
     storage = Storage(
         {i: i + 1 for i in range(total)}  # type: ignore
         | {CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx}
     )
-    run_bal_benchmark(
+    run_benchmark(
         pre=pre,
-        blockchain_test=blockchain_test,
+        benchmark_test=benchmark_test,
         contract_code=create_pointer_chase_contract(),
         contract_storage=storage,
         num_transactions=num_txs,
         items_per_tx=items_per_tx,
-        gas_limit=max_gas,
-        contract_expectation=build_contract_expectation(
-            num_txs, items_per_tx, list(range(total))
-        ),
+        gas_limit=max_tx_gas,
     )
 
 
 def test_bal_pointer_chase_simple(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
     """Simple validation test with 20 slots across 2 transactions."""
@@ -130,15 +135,12 @@ def test_bal_pointer_chase_simple(
         {i: i + 1 for i in range(total_slots)}  # type: ignore
         | {CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx}
     )
-    run_bal_benchmark(
+    run_benchmark(
         pre=pre,
-        blockchain_test=blockchain_test,
+        benchmark_test=benchmark_test,
         contract_code=create_pointer_chase_contract(),
         contract_storage=storage,
         num_transactions=num_txs,
         items_per_tx=items_per_tx,
         gas_limit=500_000,
-        contract_expectation=build_contract_expectation(
-            num_txs, items_per_tx, list(range(total_slots))
-        ),
     )

@@ -19,18 +19,14 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
-    BalAccountExpectation,
-    BalNonceChange,
-    BalStorageChange,
-    BalStorageSlot,
+    BenchmarkTestFiller,
     Block,
-    BlockAccessListExpectation,
-    BlockchainTestFiller,
     Bytecode,
     Environment,
     Fork,
     Op,
     Storage,
+    TestPhaseManager,
     Transaction,
 )
 
@@ -128,7 +124,7 @@ def _calculate_params(block_gas_limit: int, fork: Fork) -> tuple[int, int]:
 
 def _run_cross_contract_chase(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     num_transactions: int,
     chain_length: int,
     gas_limit: int,
@@ -149,7 +145,9 @@ def _run_cross_contract_chase(
         for i in range(chain_length - 1):
             current = contracts[start + i]
             next_addr = contracts[start + i + 1]
-            pre[current].storage[0] = int.from_bytes(Address(next_addr), "big")
+            pre[current].storage[0] = int.from_bytes(
+                Address(next_addr), "big"
+            )
 
     # Deploy dispatcher with entry-point lookup table.
     entry_storage: dict[int, int] = {
@@ -165,68 +163,30 @@ def _run_cross_contract_chase(
     )
 
     # All TXs call the dispatcher with empty calldata.
-    senders = [pre.fund_eoa() for _ in range(num_transactions)]
-    transactions = [
-        Transaction(
-            sender=senders[i],
-            to=dispatcher,
-            gas_limit=gas_limit,
-            data=b"",
-        )
-        for i in range(num_transactions)
-    ]
-
-    # Build expectations.
-    account_expectations: dict[Address, BalAccountExpectation] = {}
-
-    # Dispatcher: reads entry-point slots, writes cursor.
-    account_expectations[dispatcher] = BalAccountExpectation(
-        storage_reads=sorted(range(num_transactions)),
-        storage_changes=[
-            BalStorageSlot(
-                slot=CURSOR_SLOT,
-                slot_changes=[
-                    BalStorageChange(
-                        block_access_index=tx_idx + 1,
-                        post_value=tx_idx + 1,
-                    )
-                    for tx_idx in range(num_transactions)
-                ],
-            ),
-        ],
-    )
-
-    # Senders: nonce changes.
-    for tx_idx, sender in enumerate(senders):
-        account_expectations[sender] = BalAccountExpectation(
-            nonce_changes=[
-                BalNonceChange(block_access_index=tx_idx + 1, post_nonce=1)
-            ],
-        )
-
-    # Chain contracts: each reads slot 0.
-    for contract in contracts:
-        account_expectations[contract] = BalAccountExpectation(
-            storage_reads=[0]
-        )
-
-    block = Block(
-        txs=transactions,
-        expected_block_access_list=BlockAccessListExpectation(
-            account_expectations=account_expectations
-        ),
-    )
+    with TestPhaseManager.execution():
+        senders = [pre.fund_eoa() for _ in range(num_transactions)]
+        transactions = [
+            Transaction(
+                sender=senders[i],
+                to=dispatcher,
+                gas_limit=gas_limit,
+                data=b"",
+            )
+            for i in range(num_transactions)
+        ]
 
     post: dict[Address, Account] = {}
     for sender in senders:
         post[sender] = Account(nonce=1)
 
-    blockchain_test(pre=pre, blocks=[block], post=post)
+    benchmark_test(
+        pre=pre, post=post, blocks=[Block(txs=transactions)]
+    )
 
 
 def test_bal_cross_contract_chase(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
     """Test BAL with cross-contract pointer chasing via dispatcher."""
@@ -235,21 +195,23 @@ def test_bal_cross_contract_chase(
     max_tx_gas = fork.transaction_gas_limit_cap()
     assert max_tx_gas is not None
 
-    num_transactions, chain_length = _calculate_params(block_gas_limit, fork)
+    num_transactions, chain_length = _calculate_params(
+        block_gas_limit, fork
+    )
     _run_cross_contract_chase(
-        pre, blockchain_test, num_transactions, chain_length, max_tx_gas
+        pre, benchmark_test, num_transactions, chain_length, max_tx_gas
     )
 
 
 def test_bal_cross_contract_chase_simple(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
     """Simple validation test with 10 contracts across 2 transactions."""
     _run_cross_contract_chase(
         pre,
-        blockchain_test,
+        benchmark_test,
         num_transactions=2,
         chain_length=5,
         gas_limit=500_000,

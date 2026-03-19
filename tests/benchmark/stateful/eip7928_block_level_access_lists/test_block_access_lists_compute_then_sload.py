@@ -14,7 +14,7 @@ the compute and SLOAD phases.
 import pytest
 from execution_testing import (
     Alloc,
-    BlockchainTestFiller,
+    BenchmarkTestFiller,
     Bytecode,
     Environment,
     Fork,
@@ -26,11 +26,10 @@ from .helpers import (
     COMPUTE_ITERS_SLOT,
     CURSOR_SLOT,
     ITEMS_PER_TX_SLOT,
-    build_contract_expectation,
     cursor_overhead_gas,
     cursor_read,
     cursor_write,
-    run_bal_benchmark,
+    run_benchmark,
     sload_loop_iteration,
 )
 from .spec import ref_spec_7928
@@ -162,7 +161,7 @@ def _compute_params(
 )
 def test_bal_compute_then_sload(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     fork: Fork,
     compute_percent: int,
 ) -> None:
@@ -178,19 +177,14 @@ def test_bal_compute_then_sload(
             COMPUTE_ITERS_SLOT: compute_per_tx,
         }
     )
-    run_bal_benchmark(
+    run_benchmark(
         pre=pre,
-        blockchain_test=blockchain_test,
+        benchmark_test=benchmark_test,
         contract_code=create_compute_then_sload_contract(),
         contract_storage=storage,
         num_transactions=num_txs,
         items_per_tx=sload_per_tx,
         gas_limit=max_gas,
-        contract_expectation=build_contract_expectation(
-            num_txs,
-            sload_per_tx,
-            list(range(total)) + [COMPUTE_ITERS_SLOT],
-        ),
     )
 
 
@@ -201,7 +195,7 @@ def test_bal_compute_then_sload(
 )
 def test_bal_compute_then_sload_simple(
     pre: Alloc,
-    blockchain_test: BlockchainTestFiller,
+    benchmark_test: BenchmarkTestFiller,
     fork: Fork,
     compute_percent: int,
 ) -> None:
@@ -223,17 +217,12 @@ def test_bal_compute_then_sload_simple(
             COMPUTE_ITERS_SLOT: compute_iters,
         }
     )
-    run_bal_benchmark(
+    run_benchmark(
         pre=pre,
-        blockchain_test=blockchain_test,
+        benchmark_test=benchmark_test,
         contract_code=create_compute_then_sload_contract(),
         contract_storage=storage,
         num_transactions=num_txs,
         items_per_tx=sload_per_tx,
         gas_limit=500_000,
-        contract_expectation=build_contract_expectation(
-            num_txs,
-            sload_per_tx,
-            list(range(total_slots)) + [COMPUTE_ITERS_SLOT],
-        ),
     )
