@@ -2,56 +2,21 @@
 
 This page provides in-depth information about the code standards and verification processes in @ethereum/execution-spec-tests.
 
-## Running Tox Environments
+## Running Checks
 
-### Execution Options
-
-Run all `tox` environments in parallel:
+Run all static checks:
 
 ```console
-uvx tox run-parallel
+just static
 ```
 
-Run environments sequentially with verbose output:
+Run `just` to list all available recipes. Individual checks can be run directly, for example:
 
 ```console
-uvx tox -v
+just lint
+just mypy
+just spellcheck
 ```
-
-List all available environments:
-
-```console
-uvx tox -av
-```
-
-### Specific Environment Commands
-
-Run specific environments using the `-e` flag:
-
-```console
-uvx tox -e lint,typecheck,spellcheck
-```
-
-#### For Test Case Changes (`./tests/`)
-
-```console
-uvx tox -e lint,typecheck,spellcheck,tests-deployed
-```
-
-#### For Framework and Library Changes (`./src/`)
-
-```console
-uvx tox -e lint,typecheck,spellcheck,pytest
-```
-
-#### For Documentation Changes (`./docs/`)
-
-```console
-uvx tox -e spellcheck,markdownlint,mkdocs,changelog
-```
-
-!!! note "Tox Virtual Environment"
-Checks performed by `tox` are sandboxed in their own virtual environments (created automatically in the `.tox/` subdirectory). These can be used to debug errors encountered during `tox` execution.
 
 ### Additional Dependencies
 
@@ -64,7 +29,7 @@ The spellcheck environment uses **codespell**, which is automatically installed 
 To fix spelling errors found by codespell:
 
 ```console
-uv run codespell *.md *.ini .github/ src/ tests/ docs/ --write-changes
+uv run codespell --write-changes
 ```
 
 !!! note "VS Code Integration"
@@ -81,7 +46,7 @@ Or use a specific node version using `nvm`.
 
 ## Pre-commit Hooks
 
-Certain `tox` environments can be run automatically as git pre-commit hooks to ensure that your changes meet the project's standards before committing.
+Certain checks can be run automatically as git pre-commit hooks to ensure that your changes meet the project's standards before committing.
 
 ### Installation
 
@@ -111,23 +76,17 @@ git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 ## Building and Verifying Docs Locally
 
-To quickly build and browse the HTML documentation locally run:
+Build the full HTML documentation:
 
-=== "bash"
+```console
+just docs
+```
 
-    ```console
-    export FAST_DOCS=True
-    uv run mkdocs serve
-    ```
+For faster iteration (skips the "[Test Case Reference](https://eest.ethereum.org/main/tests/)" section):
 
-=== "fish"
-
-    ```console
-    set -x FAST_DOCS True
-    uv run mkdocs serve
-    ```
-
-Setting `FAST_DOCS` to `False` additionally builds the "[Test Case Reference](https://eest.ethereum.org/main/tests/)" Section.
+```console
+just fast-docs
+```
 
 ## Verifying Fixture Changes
 
@@ -170,7 +129,7 @@ The `hasher compare` subcommand directly compares two fixture directories
 and shows only the differences:
 
 ```console
-hasher compare fixtures/ fixtures_new/
+uv run hasher compare fixtures/ fixtures_new/
 ```
 
 | Flag                | Description                                               |

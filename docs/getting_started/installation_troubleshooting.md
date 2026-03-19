@@ -120,7 +120,7 @@ This page provides guidance on how to troubleshoot common issues that may arise 
 ## Problem: VS Code "Autoformat on Save" with Ruff Not Working
 
 !!! danger "Problem: 'Autoformat on Save' with Ruff not working as expected in VS Code"
-    If you are using VS Code and "autoformat on save" is not working as expected, or if it produces different formatting than the official `tox -e lint` command, you may have a version mismatch with the `ruff` formatter. This problem can be confirmed if `git diff` shows changes to an otherwise unmodified file after you have saved it.
+    If you are using VS Code and "autoformat on save" is not working as expected, or if it produces different formatting than `just lint`, you may have a version mismatch with the `ruff` formatter. This problem can be confirmed if `git diff` shows changes to an otherwise unmodified file after you have saved it.
 
     This issue often occurs when VS Code is not configured to use the project's virtual environment (`.venv`) or if the linting dependencies have not been installed. In this case, VS Code's Ruff extension falls back to a bundled version of `ruff`, which may not match the version pinned in the project's `pyproject.toml` file.
 

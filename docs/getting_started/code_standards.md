@@ -4,19 +4,12 @@ This document outlines the coding standards and practices used in the @ethereum/
 
 ## Code and CI Requirements
 
-Code pushed to @ethereum/execution-spec-tests must fulfill the following checks in [CI](https://github.com/ethereum/execution-spec-tests/actions/workflows/tox_verify.yaml):
+Code pushed to @ethereum/execution-spec-tests must pass the CI checks. Run `just` to see all available recipes, grouped by category. The most common checks:
 
-| Type                   | Tox Command                                     | Explanation                                                                                                 |
-| ---------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Lint & code formatting | `uvx tox -e lint`                 | Python lint, format and module import check via `ruff`                                                      |
-| Typecheck              | `uvx tox -e typecheck`            | Objects that provide typehints pass type-checking via `mypy`.                                               |
-| Framework unit tests   | `uvx tox -e pytest`               | All framework unit tests must execute correctly.                                                            |
-| EL Client test cases   | `uvx tox -e tests-deployed`       | All client test cases for deployed forks can be generated.                                                  |
-| Benchmark EL Test cases    | `uvx tox -e tests-deployed-benchmark` | All client test cases specific to benchmarks for deployed forks can be generated.                               |
-| HTML doc build         | `uvx tox -e mkdocs`               | Documentation generated without warnings.                                                                   |
-| Spellcheck             | `uvx tox -e spellcheck`           | Code and documentation spell-check using codespell. |
-| Markdown lint          | `uvx tox -e markdownlint`         | Markdown lint (requires [additional dependency](code_standards_details.md#additional-dependencies)).        |
-| Changelog validation   | `uvx tox -e changelog`            | Validates changelog entries format and structure in `docs/CHANGELOG.md`.                                    |
+```console
+just static   # Run all static checks (lint, format, mypy, spellcheck, ...)
+just fix      # Auto-fix formatting and lint issues
+```
 
 !!! important "Avoid CI surprises - Use pre-commit hooks!"
     **We strongly encourage all contributors to install and use pre-commit hooks!** This will run fast checks (lint, typecheck, spellcheck) automatically before each commit, helping you catch issues early and avoid frustrating CI failures after pushing your changes.
@@ -25,41 +18,15 @@ Code pushed to @ethereum/execution-spec-tests must fulfill the following checks 
     ```console
     uvx pre-commit install
     ```
-    
+
     This saves you time by catching formatting issues, type errors, and spelling mistakes before they reach CI.
-
-!!! tip "Running checks easily"
-
-    Add an alias:
-
-    ```console
-    alias tox="uvx tox"
-    ```
-
-    Run all checks in parallel:
-
-    ```console
-    uvx tox run-parallel
-    ```
-
-    Run sequentially:
-
-    ```console
-    uvx tox
-    ```
-
-    Run specific, faster checks:
-
-    ```console
-    uvx tox -e lint,typecheck
-    ```
 
 !!! tip "Lint & code formatting: Using `ruff` and VS Code to help autoformat and fix module imports"
 
     On the command-line, solve fixable issues with:
 
     ```console
-    uv run ruff check --fix
+    just fix
     ```
 
     Use VS Code, see [VS Code Setup](../getting_started/setup_vs_code.md), to autoformat code, automatically organize Python module imports and highlight typechecking and spelling issues.
@@ -96,8 +63,7 @@ A correctly configured editor will automatically handle most formatting requirem
 
 See the [Detailed Code Standards](code_standards_details.md) page for more information on:
 
-- [Running tox environments](code_standards_details.md#running-tox-environments).
-    - Additional required [dependencies for markdownlint and spellchecking](code_standards_details.md#additional-dependencies).
+- Additional required [dependencies for markdownlint](code_standards_details.md#additional-dependencies).
 - [Pre-commit hooks setup](code_standards_details.md#pre-commit-hooks).
 - [Verifying test fixture changes](code_standards_details.md#verifying-fixture-changes).
 - [Ignoring bulk change commits](code_standards_details.md#ignoring-bulk-change-commits) in `git blame`.
