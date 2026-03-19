@@ -668,7 +668,13 @@ def test_alt_bn128_uncachable(
     precompile_address: Address,
     scalar: int | None,
 ) -> None:
-    """Benchmark ecAdd/ecMul with unique input per call."""
+    """
+    Benchmark ecAdd/ecMul with unique input per call.
+
+    Write the precompile's G1 output (64 bytes) back over the
+    input point so each loop iteration receives a distinct
+    input, avoiding precompile result caching in clients.
+    """
     intrinsic_gas_calculator = fork.transaction_intrinsic_cost_calculator()
 
     attack_block = Op.POP(
