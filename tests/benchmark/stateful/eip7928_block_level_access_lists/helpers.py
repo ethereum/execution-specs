@@ -70,7 +70,7 @@ def gas_check_loop_contract(
         teardown = default_teardown()
 
     loop_start = len(setup)
-    header = Op.JUMPDEST + Op.GAS + Op.PUSH3(gas_threshold) + Op.GT + Op.ISZERO
+    header = Op.JUMPDEST + Op.PUSH3(gas_threshold) + Op.GAS + Op.GT + Op.ISZERO
     loop_end = (
         loop_start
         + len(header)
