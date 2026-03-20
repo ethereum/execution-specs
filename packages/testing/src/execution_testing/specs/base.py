@@ -174,7 +174,7 @@ class BaseTest(BaseModel):
     ) -> Self:
         """Create a test in a different format from a base test."""
         for k in BaseTest.model_fields.keys():
-            if k not in kwargs:
+            if k not in kwargs and k in base_test.model_fields_set:
                 kwargs[k] = getattr(base_test, k)
         return cls(**kwargs)
 
