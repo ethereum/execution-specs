@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, Generator
 
 import pytest
+from _pytest.terminal import TerminalReporter
 
 from execution_testing.cli.pytest_commands.plugins.filler.filler import (
     node_to_test_info,
@@ -24,7 +26,6 @@ from execution_testing.client_clis.trace_report_formatter import (
     TracesDiffReportFormatter,
 )
 
-
 # ---------------------------------------------------------------------------
 # Baseline loading
 # ---------------------------------------------------------------------------
@@ -34,11 +35,7 @@ def _load_traces_from_dump_dir(dump_dir: Path) -> list[Traces]:
     """Load traces from numbered call subdirectories."""
     traces_list: list[Traces] = []
     call_dirs = sorted(
-        (
-            d
-            for d in dump_dir.iterdir()
-            if d.is_dir() and d.name.isdigit()
-        ),
+        (d for d in dump_dir.iterdir() if d.is_dir() and d.name.isdigit()),
         key=lambda d: int(d.name),
     )
     for call_dir in call_dirs:
@@ -57,9 +54,7 @@ def _load_traces_from_dump_dir(dump_dir: Path) -> list[Traces]:
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Register --verify-traces and --verify-traces-comparator."""
-    group = parser.getgroup(
-        "verify_traces", "Trace verification options"
-    )
+    group = parser.getgroup("verify_traces", "Trace verification options")
     group.addoption(
         "--verify-traces",
         action="store",
@@ -101,9 +96,7 @@ def pytest_configure(config: pytest.Config) -> None:
     config.collect_traces = True  # type: ignore[attr-defined]
     config.option.evm_collect_traces = True
 
-    comparator_names = config.getoption(
-        "verify_traces_comparator"
-    ).split(",")
+    comparator_names = config.getoption("verify_traces_comparator").split(",")
     comparators = [
         create_comparator(TraceComparatorType(name.strip()))
         for name in comparator_names
@@ -147,12 +140,12 @@ class TraceVerifier:
         self.formatter = formatter
         self.baseline_dir = baseline_dir
         self.filler_path = filler_path
-        self.test_results: dict[
-            str, dict[str, TraceComparisonResult]
-        ] = {}
+        self.test_results: dict[str, dict[str, TraceComparisonResult]] = {}
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_runtest_makereport(self, item, call):
+    def pytest_runtest_makereport(
+        self, item: pytest.Item, call: pytest.CallInfo[None]
+    ) -> Generator[None, Any, None]:
         """Collect trace diffs after each test's call phase."""
         outcome = yield
         report = outcome.get_result()
@@ -177,9 +170,7 @@ class TraceVerifier:
         if baseline_dump_dir is None or not baseline_dump_dir.exists():
             return
 
-        baseline_traces_list = _load_traces_from_dump_dir(
-            baseline_dump_dir
-        )
+        baseline_traces_list = _load_traces_from_dump_dir(baseline_dump_dir)
 
         if not current_traces_list:
             return  # No traces collected (e.g. t8n cache hit)
@@ -190,11 +181,9 @@ class TraceVerifier:
             all_diffs = []
             all_equivalent = True
             for baseline, current in zip(
-                baseline_traces_list, current_traces_list
+                baseline_traces_list, current_traces_list, strict=False
             ):
-                result = comparator.compare_traces(
-                    baseline, current
-                )
+                result = comparator.compare_traces(baseline, current)
                 all_diffs.extend(result.differences)
                 if not result.equivalent:
                     all_equivalent = False
@@ -207,15 +196,16 @@ class TraceVerifier:
             self.test_results[item.nodeid] = results
 
     def pytest_terminal_summary(
-        self, terminalreporter, exitstatus, config
-    ):
+        self,
+        terminalreporter: TerminalReporter,
+        exitstatus: int,  # noqa: ARG002
+        config: pytest.Config,  # noqa: ARG002
+    ) -> None:
         """Print the aggregated trace verification report."""
         if not self.test_results:
             return
 
         output = self.formatter.format_summary(self.test_results)
-        terminalreporter.write_sep(
-            "=", "trace verification report"
-        )
+        terminalreporter.write_sep("=", "trace verification report")
         for line in output.splitlines():
             terminalreporter.write_line(line)

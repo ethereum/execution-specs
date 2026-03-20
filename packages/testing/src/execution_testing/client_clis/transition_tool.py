@@ -938,13 +938,8 @@ class TransitionTool(EthereumCLI):
         if self.output_cache is not None:
             cached_result = self.output_cache.get(current_call_id)
             if cached_result is not None:
-                if (
-                    self.trace
-                    and cached_result.result.traces is not None
-                ):
-                    self.append_traces(
-                        cached_result.result.traces
-                    )
+                if self.trace and cached_result.result.traces is not None:
+                    self.append_traces(cached_result.result.traces)
                 return self.process_result(cached_result)
         debug_output_path = self.get_next_transition_tool_output_path(
             current_call_id

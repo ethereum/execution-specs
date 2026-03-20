@@ -12,14 +12,6 @@ from .cli_types import (
     TransactionExceptionWithMessage,
     TransitionToolOutput,
 )
-from .trace_comparators import (
-    TraceComparator,
-    TraceComparatorType,
-    TraceComparisonResult,
-    TraceDifference,
-    TransactionCountMismatch,
-    create_comparator,
-)
 from .clis.besu import BesuFixtureConsumer, BesuTransitionTool
 from .clis.ethereumjs import EthereumJSTransitionTool
 from .clis.evmone import (
@@ -34,6 +26,14 @@ from .clis.nethermind import Nethtest, NethtestFixtureConsumer
 from .clis.nimbus import NimbusTransitionTool
 from .ethereum_cli import CLINotFoundInPathError, UnknownCLIError
 from .fixture_consumer_tool import FixtureConsumerTool
+from .trace_comparators import (
+    TraceComparator,
+    TraceComparatorType,
+    TraceComparisonResult,
+    TraceDifference,
+    TransactionCountMismatch,
+    create_comparator,
+)
 from .transition_tool import TransitionTool
 
 TransitionTool.set_default_tool(ExecutionSpecsTransitionTool)

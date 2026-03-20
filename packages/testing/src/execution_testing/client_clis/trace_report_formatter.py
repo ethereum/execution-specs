@@ -47,21 +47,15 @@ class TextTracesDiffReportFormatter(TracesDiffReportFormatter):
                 lines.append(f"  [{name}] EQUIVALENT")
             else:
                 count = len(result.differences)
-                lines.append(
-                    f"  [{name}] DIFFERENT ({count} differences)"
-                )
+                lines.append(f"  [{name}] DIFFERENT ({count} differences)")
                 shown = result.differences[: self.max_differences]
                 for diff in shown:
                     loc = (
                         f"tx[{diff.transaction_index}] "
                         f"line[{diff.trace_line_index}]"
                     )
-                    lines.append(
-                        f"    {loc} baseline: {diff.baseline}"
-                    )
-                    lines.append(
-                        f"    {loc} current:  {diff.current}"
-                    )
+                    lines.append(f"    {loc} baseline: {diff.baseline}")
+                    lines.append(f"    {loc} current:  {diff.current}")
                 remaining = count - len(shown)
                 if remaining > 0:
                     lines.append(f"    ... ({remaining} more)")
@@ -84,7 +78,6 @@ class TextTracesDiffReportFormatter(TracesDiffReportFormatter):
             if any(not r.equivalent for r in results.values())
         )
         lines.append(
-            f"Summary: {total} tests verified, "
-            f"{with_diffs} with differences"
+            f"Summary: {total} tests verified, {with_diffs} with differences"
         )
         return "\n".join(lines)

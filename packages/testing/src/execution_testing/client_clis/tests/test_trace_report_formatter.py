@@ -10,7 +10,6 @@ from execution_testing.client_clis.trace_report_formatter import (
     TextTracesDiffReportFormatter,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -56,7 +55,9 @@ def _make_diff(
 class TestTextFormatTestResult:
     """Test TextTracesDiffReportFormatter.format_test_result."""
 
-    def test_single_comparator_equivalent(self, formatter):
+    def test_single_comparator_equivalent(
+        self, formatter: TextTracesDiffReportFormatter
+    ) -> None:
         """Single comparator, all equivalent, shows EQUIVALENT."""
         output = formatter.format_test_result(
             "test_foo", {"exact": _make_result(equivalent=True)}
@@ -64,7 +65,9 @@ class TestTextFormatTestResult:
         assert "EQUIVALENT" in output
         assert "exact" in output
 
-    def test_single_comparator_with_differences(self, formatter):
+    def test_single_comparator_with_differences(
+        self, formatter: TextTracesDiffReportFormatter
+    ) -> None:
         """Single comparator with diffs shows DIFFERENT and details."""
         diffs = [
             _make_diff(
@@ -76,21 +79,21 @@ class TestTextFormatTestResult:
         ]
         output = formatter.format_test_result(
             "test_bar",
-            {"exact": _make_result(equivalent=False,
-                                   differences=diffs)},
+            {"exact": _make_result(equivalent=False, differences=diffs)},
         )
         assert "DIFFERENT" in output
         assert "0x4e20" in output
         assert "0x4e10" in output
 
-    def test_multiple_comparators_mixed(self, formatter):
+    def test_multiple_comparators_mixed(
+        self, formatter: TextTracesDiffReportFormatter
+    ) -> None:
         """Multiple comparators show per-comparator status."""
         diffs = [_make_diff()]
         output = formatter.format_test_result(
             "test_baz",
             {
-                "exact": _make_result(equivalent=False,
-                                      differences=diffs),
+                "exact": _make_result(equivalent=False, differences=diffs),
                 "exact-no-gas": _make_result(equivalent=True),
             },
         )
@@ -99,14 +102,13 @@ class TestTextFormatTestResult:
         assert "DIFFERENT" in output
         assert "EQUIVALENT" in output
 
-    def test_differences_capped(self):
+    def test_differences_capped(self) -> None:
         """Only the first max_differences diffs are shown."""
         fmt = TextTracesDiffReportFormatter(max_differences=3)
         diffs = [_make_diff(line=i) for i in range(10)]
         output = fmt.format_test_result(
             "test_cap",
-            {"exact": _make_result(equivalent=False,
-                                   differences=diffs)},
+            {"exact": _make_result(equivalent=False, differences=diffs)},
         )
         assert "7 more" in output
 
@@ -114,12 +116,16 @@ class TestTextFormatTestResult:
 class TestTextFormatSummary:
     """Test TextTracesDiffReportFormatter.format_summary."""
 
-    def test_no_results(self, formatter):
+    def test_no_results(
+        self, formatter: TextTracesDiffReportFormatter
+    ) -> None:
         """Empty results produce minimal output."""
         output = formatter.format_summary({})
         assert "0 tests verified" in output
 
-    def test_multiple_tests_aggregation(self, formatter):
+    def test_multiple_tests_aggregation(
+        self, formatter: TextTracesDiffReportFormatter
+    ) -> None:
         """Summary correctly counts tests and those with differences."""
         all_results = {
             "test_a": {"exact": _make_result(equivalent=True)},
@@ -134,7 +140,9 @@ class TestTextFormatSummary:
         assert "2 tests verified" in output
         assert "1 with differences" in output
 
-    def test_all_equivalent(self, formatter):
+    def test_all_equivalent(
+        self, formatter: TextTracesDiffReportFormatter
+    ) -> None:
         """When all tests pass, summary shows 0 with differences."""
         all_results = {
             "test_a": {"exact": _make_result(equivalent=True)},

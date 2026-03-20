@@ -22,7 +22,8 @@ def _format_trace_line_diff(
     trace_line: TraceLine,
     differing_fields: dict[str, str],
 ) -> str:
-    """Format a trace line as an assembly-like string with diffs.
+    """
+    Format a trace line as an assembly-like string with diffs.
 
     Return the opcode name, with differing field values in brackets
     if any non-opcode fields differ.
@@ -30,9 +31,7 @@ def _format_trace_line_diff(
     """
     if not differing_fields:
         return trace_line.op_name
-    fields_str = ", ".join(
-        f"{k}={v}" for k, v in differing_fields.items()
-    )
+    fields_str = ", ".join(f"{k}={v}" for k, v in differing_fields.items())
     return f"{trace_line.op_name} ({fields_str})"
 
 
@@ -104,7 +103,7 @@ class TraceComparator(ABC):
 
         all_differences: list[TraceDifference] = []
         for i, (b_tx, c_tx) in enumerate(
-            zip(baseline.root, current.root)
+            zip(baseline.root, current.root, strict=False)
         ):
             result = self.compare_transaction_traces(b_tx, c_tx, i)
             all_differences.extend(result.differences)
@@ -122,7 +121,8 @@ def _build_result_from_compare(
     exclude_fields: set[str] | None = None,
     enable_post_processing: bool = False,
 ) -> TraceComparisonResult:
-    """Build a TraceComparisonResult from TransactionTraces.compare().
+    """
+    Build a TraceComparisonResult from TransactionTraces.compare().
 
     Convert the raw diff tuples from compare() into TraceDifference
     objects with assembly-like strings.
@@ -137,12 +137,10 @@ def _build_result_from_compare(
         if diff.line_index is None:
             # Structural diff (trace_length, output, gas_used)
             b_str = ", ".join(
-                f"{k}={v}"
-                for k, v in diff.baseline_fields.items()
+                f"{k}={v}" for k, v in diff.baseline_fields.items()
             )
             c_str = ", ".join(
-                f"{k}={v}"
-                for k, v in diff.current_fields.items()
+                f"{k}={v}" for k, v in diff.current_fields.items()
             )
             differences.append(
                 TraceDifference(
@@ -189,7 +187,9 @@ class ExactTraceComparator(TraceComparator):
     ) -> TraceComparisonResult:
         """Compare all fields of each trace line pair."""
         return _build_result_from_compare(
-            baseline, current, transaction_index,
+            baseline,
+            current,
+            transaction_index,
         )
 
 
@@ -209,7 +209,9 @@ class ExactNoGasTraceComparator(TraceComparator):
     ) -> TraceComparisonResult:
         """Compare all fields except gas and gas_cost."""
         return _build_result_from_compare(
-            baseline, current, transaction_index,
+            baseline,
+            current,
+            transaction_index,
             exclude_fields={"gas", "gas_cost"},
             enable_post_processing=True,
         )

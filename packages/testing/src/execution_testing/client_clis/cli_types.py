@@ -97,19 +97,16 @@ class TraceLine(CamelModel):
         other: Self,
         exclude_fields: set[str] | None = None,
     ) -> tuple[dict[str, str], dict[str, str]]:
-        """Compare two trace lines field-by-field.
+        """
+        Compare two trace lines field-by-field.
 
         Return (baseline_fields, current_fields) dicts containing only
         the fields that differ. Both dicts are empty when lines match.
         """
         if exclude_fields is None:
             exclude_fields = self._DEFAULT_EXCLUDE
-        self_dict = self.model_dump(
-            mode="json", exclude=exclude_fields
-        )
-        other_dict = other.model_dump(
-            mode="json", exclude=exclude_fields
-        )
+        self_dict = self.model_dump(mode="json", exclude=exclude_fields)
+        other_dict = other.model_dump(mode="json", exclude=exclude_fields)
         baseline_diff: dict[str, str] = {}
         current_diff: dict[str, str] = {}
         for k in self_dict:
@@ -135,7 +132,8 @@ class TraceLine(CamelModel):
 
 
 class TraceFieldDiff(NamedTuple):
-    """A single diff entry from TransactionTraces.compare().
+    """
+    A single diff entry from TransactionTraces.compare().
 
     line_index is None for structural diffs (trace_length, output,
     gas_used). Field dicts map field name to string value.
@@ -189,7 +187,8 @@ class TransactionTraces(CamelModel):
         exclude_fields: set[str] | None = None,
         enable_post_processing: bool = False,
     ) -> List[TraceFieldDiff]:
-        """Compare traces and return per-line differing fields.
+        """
+        Compare traces and return per-line differing fields.
 
         Return a list of TraceFieldDiff entries. line_index is None for
         structural diffs (trace_length, output, gas_used). Field dicts
@@ -202,29 +201,32 @@ class TransactionTraces(CamelModel):
         diffs: List[TraceFieldDiff] = []
 
         if len(self.traces) != len(other.traces):
-            diffs.append(TraceFieldDiff(
-                None,
-                {"trace_length": str(len(self.traces))},
-                {"trace_length": str(len(other.traces))},
-            ))
+            diffs.append(
+                TraceFieldDiff(
+                    None,
+                    {"trace_length": str(len(self.traces))},
+                    {"trace_length": str(len(other.traces))},
+                )
+            )
             return diffs
 
         if self.output != other.output:
-            diffs.append(TraceFieldDiff(
-                None,
-                {"output": str(self.output)},
-                {"output": str(other.output)},
-            ))
+            diffs.append(
+                TraceFieldDiff(
+                    None,
+                    {"output": str(self.output)},
+                    {"output": str(other.output)},
+                )
+            )
 
-        if (
-            not enable_post_processing
-            and self.gas_used != other.gas_used
-        ):
-            diffs.append(TraceFieldDiff(
-                None,
-                {"gas_used": str(self.gas_used)},
-                {"gas_used": str(other.gas_used)},
-            ))
+        if not enable_post_processing and self.gas_used != other.gas_used:
+            diffs.append(
+                TraceFieldDiff(
+                    None,
+                    {"gas_used": str(self.gas_used)},
+                    {"gas_used": str(other.gas_used)},
+                )
+            )
 
         own_traces = self.traces.copy()
         other_traces = other.traces.copy()
@@ -233,15 +235,11 @@ class TransactionTraces(CamelModel):
             TransactionTraces.remove_gas(other_traces)
 
         for i, (b_line, c_line) in enumerate(
-            zip(own_traces, other_traces)
+            zip(own_traces, other_traces, strict=False)
         ):
-            baseline_diff, current_diff = b_line.compare(
-                c_line, line_exclude
-            )
+            baseline_diff, current_diff = b_line.compare(c_line, line_exclude)
             if baseline_diff:
-                diffs.append(TraceFieldDiff(
-                    i, baseline_diff, current_diff
-                ))
+                diffs.append(TraceFieldDiff(i, baseline_diff, current_diff))
 
         return diffs
 
@@ -264,8 +262,7 @@ class TransactionTraces(CamelModel):
                     )
             else:
                 logger.debug(
-                    f"Trace line {diff.line_index} is not "
-                    f"equivalent."
+                    f"Trace line {diff.line_index} is not equivalent."
                 )
         return len(diffs) == 0
 
