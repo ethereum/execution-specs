@@ -856,7 +856,6 @@ class BlockchainTest(BaseTest):
         invalid_blocks = 0
         benchmark_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
-        last_block = self.blocks[-1]
         for block in self.blocks:
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
@@ -868,10 +867,8 @@ class BlockchainTest(BaseTest):
                 previous_alloc=alloc,
             )
             block_number = int(built_block.header.number)
-            if (
-                block is last_block
-                and self.operation_mode == OpMode.BENCHMARKING
-            ):
+            is_last_block = block is self.blocks[-1]
+            if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = int(built_block.result.gas_used)
                 benchmark_opcode_count = built_block.result.opcode_count
             if built_block.result.receipts:
@@ -960,7 +957,6 @@ class BlockchainTest(BaseTest):
         invalid_blocks = 0
         benchmark_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
-        last_block = self.blocks[-1]
         for block in self.blocks:
             built_block = self.generate_block_data(
                 t8n=t8n,
@@ -969,10 +965,8 @@ class BlockchainTest(BaseTest):
                 previous_alloc=alloc,
             )
             block_number = int(built_block.header.number)
-            if (
-                block is last_block
-                and self.operation_mode == OpMode.BENCHMARKING
-            ):
+            is_last_block = block is self.blocks[-1]
+            if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
                 benchmark_gas_used = int(built_block.result.gas_used)
                 benchmark_opcode_count = built_block.result.opcode_count
             if built_block.result.receipts:
