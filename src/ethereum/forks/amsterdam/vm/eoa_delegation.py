@@ -21,7 +21,7 @@ from ..state_tracker import (
     set_code,
 )
 from ..utils.hexadecimal import hex_to_address
-from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
+from ..vm.gas import GasCosts
 from . import Evm, Message
 
 SET_CODE_TX_MAGIC = b"\x05"
@@ -149,9 +149,9 @@ def calculate_delegation_cost(
     delegated_address = Address(code[EOA_DELEGATION_MARKER_LENGTH:])
 
     if delegated_address in evm.accessed_addresses:
-        delegation_gas_cost = GAS_WARM_ACCESS
+        delegation_gas_cost = GasCosts.GAS_WARM_ACCESS
     else:
-        delegation_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+        delegation_gas_cost = GasCosts.GAS_COLD_ACCOUNT_ACCESS
 
     return True, delegated_address, delegation_gas_cost
 
