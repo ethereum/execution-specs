@@ -38,6 +38,7 @@ from execution_testing.test_types import (
 )
 from execution_testing.tools import Initcode
 
+from ..shared.execute_fill import stub_accounts_key
 from ..shared.pre_alloc import Alloc as SharedAlloc
 from ..shared.pre_alloc import AllocFlags
 
@@ -472,7 +473,7 @@ def stub_accounts(
     request: pytest.FixtureRequest,
 ) -> Dict[str, Account]:
     """Return stub accounts pre-populated during configuration."""
-    return getattr(request.config, "stub_accounts", {})
+    return request.config.stash.get(stub_accounts_key, {})
 
 
 @pytest.fixture(scope="function")

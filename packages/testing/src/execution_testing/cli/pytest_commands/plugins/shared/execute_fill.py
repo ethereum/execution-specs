@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List
 
 import pytest
+from pytest import StashKey
 
 from execution_testing.base_types import Account
 from execution_testing.base_types import Alloc as BaseAlloc
@@ -25,6 +26,8 @@ from ..shared.pre_alloc import AllocFlags
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 logger = get_logger(__name__)
+
+stub_accounts_key: StashKey[Dict[str, Account]] = StashKey()
 
 ALL_FIXTURE_PARAMETERS = {
     "gas_benchmark_value",
@@ -107,7 +110,7 @@ def pytest_configure(config: pytest.Config) -> None:
         and rpc_endpoint is not None
         and not config.getoption("collectonly", default=False)
     ):
-        config.stub_accounts = _validate_and_cache_address_stubs(  # type: ignore
+        config.stash[stub_accounts_key] = _validate_and_cache_address_stubs(
             address_stubs, rpc_endpoint
         )
     if config.pluginmanager.has_plugin(
