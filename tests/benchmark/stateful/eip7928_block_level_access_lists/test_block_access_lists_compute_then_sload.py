@@ -71,6 +71,7 @@ def test_bal_compute_then_sload(
     pre: Alloc,
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
+    gas_benchmark_value: int,
     compute_percent: int,
 ) -> None:
     """Test BAL with mixed computation and SLOAD per iteration."""
@@ -80,6 +81,7 @@ def test_bal_compute_then_sload(
         fork,
         loop_body_gas=body.gas_cost(fork),
         setup_gas=cursor_read().gas_cost(fork),
+        gas_benchmark_value=gas_benchmark_value,
     )
     total = plan.total_iterations
     storage = Storage(

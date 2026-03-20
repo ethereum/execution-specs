@@ -22,7 +22,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     Bytecode,
-    Environment,
     Fork,
     Op,
     Storage,
@@ -108,6 +107,7 @@ def plan_benchmark(
     fork: Fork,
     loop_body_gas: int,
     setup_gas: int,
+    gas_benchmark_value: int,
     teardown: Bytecode | None = None,
     num_transactions: int | None = None,
     tx_gas_limit: int | None = None,
@@ -115,10 +115,9 @@ def plan_benchmark(
     """
     Plan transactions for a gas-check-loop benchmark.
 
-    Fills the block with transactions; the last one gets whatever
-    gas remains.  For simple tests pass *num_transactions* and
-    *tx_gas_limit*.  Pass *teardown* when it differs from
-    ``default_teardown()``.
+    Fill up to *gas_benchmark_value* total gas with transactions.
+    The last transaction gets whatever gas remains.  Pass *teardown*
+    when it differs from ``default_teardown()``.
     """
     if teardown is None:
         teardown = default_teardown()
@@ -151,9 +150,8 @@ def plan_benchmark(
     else:
         max_tx_gas = fork.transaction_gas_limit_cap()
         assert max_tx_gas is not None
-        block_gas = int(Environment().gas_limit)
         gas_limits: list[int] = []
-        remaining = block_gas
+        remaining = gas_benchmark_value
         while remaining >= min_useful:
             g = min(remaining, max_tx_gas)
             if g < min_useful:

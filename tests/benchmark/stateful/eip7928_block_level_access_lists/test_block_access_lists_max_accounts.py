@@ -85,6 +85,7 @@ def test_bal_max_account_access(
     pre: Alloc,
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
+    gas_benchmark_value: int,
 ) -> None:
     """Test BAL with maximum unique account accesses via BALANCE."""
     setup = cursor_read() + Op.PUSH3(BASE_ADDR) + Op.ADD
@@ -93,6 +94,7 @@ def test_bal_max_account_access(
         fork,
         loop_body_gas=body_gas,
         setup_gas=setup.gas_cost(fork),
+        gas_benchmark_value=gas_benchmark_value,
         teardown=_teardown(),
     )
     total = plan.total_iterations

@@ -63,6 +63,7 @@ def test_bal_max_pointer_chase(
     pre: Alloc,
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
+    gas_benchmark_value: int,
 ) -> None:
     """Test BAL with maximum dependent pointer-chasing SLOADs."""
     body_gas = _chase_body().gas_cost(fork)
@@ -70,6 +71,7 @@ def test_bal_max_pointer_chase(
         fork,
         loop_body_gas=body_gas,
         setup_gas=cursor_read().gas_cost(fork),
+        gas_benchmark_value=gas_benchmark_value,
     )
     total = plan.total_iterations
     storage = Storage(

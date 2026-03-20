@@ -26,7 +26,6 @@ from execution_testing import (
     Block,
     BlockAccessListExpectation,
     Bytecode,
-    Environment,
     Fork,
     Op,
     Storage,
@@ -240,13 +239,15 @@ def test_bal_cross_contract_chase(
     pre: Alloc,
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
+    gas_benchmark_value: int,
 ) -> None:
     """Test BAL with cross-contract pointer chasing."""
     max_tx_gas = fork.transaction_gas_limit_cap()
     assert max_tx_gas is not None
-    block_gas_limit = int(Environment().gas_limit)
     intrinsic = fork.transaction_intrinsic_cost_calculator()()
 
-    gas_limits = _compute_tx_gas_limits(block_gas_limit, max_tx_gas, intrinsic)
+    gas_limits = _compute_tx_gas_limits(
+        gas_benchmark_value, max_tx_gas, intrinsic
+    )
     _, chain_length = _calculate_params(fork, gas_limits)
     _run_cross_contract_chase(pre, benchmark_test, gas_limits, chain_length)
