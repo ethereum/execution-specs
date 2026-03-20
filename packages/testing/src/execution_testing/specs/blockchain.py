@@ -856,8 +856,8 @@ class BlockchainTest(BaseTest):
         invalid_blocks = 0
         benchmark_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
-        for i, block in enumerate(self.blocks):
-            is_last_block = i == len(self.blocks) - 1
+        last_block = self.blocks[-1]
+        for block in self.blocks:
             # This is the most common case, the RLP needs to be constructed
             # based on the transactions to be included in the block.
             # Set the environment according to the block to execute.
@@ -867,13 +867,17 @@ class BlockchainTest(BaseTest):
                 previous_env=env,
                 previous_alloc=alloc,
             )
-            if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
+            block_number = int(built_block.header.number)
+            if (
+                block is last_block
+                and self.operation_mode == OpMode.BENCHMARKING
+            ):
                 benchmark_gas_used = int(built_block.result.gas_used)
                 benchmark_opcode_count = built_block.result.opcode_count
             if built_block.result.receipts:
                 self.validate_receipt_status(
                     receipts=built_block.result.receipts,
-                    block_number=i,
+                    block_number=block_number,
                 )
             include_receipts = (
                 block.include_receipts_in_output
@@ -956,21 +960,25 @@ class BlockchainTest(BaseTest):
         invalid_blocks = 0
         benchmark_gas_used: int | None = None
         benchmark_opcode_count: OpcodeCount | None = None
-        for i, block in enumerate(self.blocks):
-            is_last_block = i == len(self.blocks) - 1
+        last_block = self.blocks[-1]
+        for block in self.blocks:
             built_block = self.generate_block_data(
                 t8n=t8n,
                 block=block,
                 previous_env=env,
                 previous_alloc=alloc,
             )
-            if is_last_block and self.operation_mode == OpMode.BENCHMARKING:
+            block_number = int(built_block.header.number)
+            if (
+                block is last_block
+                and self.operation_mode == OpMode.BENCHMARKING
+            ):
                 benchmark_gas_used = int(built_block.result.gas_used)
                 benchmark_opcode_count = built_block.result.opcode_count
             if built_block.result.receipts:
                 self.validate_receipt_status(
                     receipts=built_block.result.receipts,
-                    block_number=i,
+                    block_number=block_number,
                 )
             fixture_payloads.append(
                 built_block.get_fixture_engine_new_payload()
