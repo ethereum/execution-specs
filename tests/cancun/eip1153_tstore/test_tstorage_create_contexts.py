@@ -334,7 +334,9 @@ def test_tstore_rollback_on_failed_create(
         gas_limit_cap = fork.transaction_gas_limit_cap() or gas_limit
         code_deposit_state = fork.code_deposit_state_gas(code_size=0x600A)
         new_account_state = fork.gas_costs().GAS_NEW_ACCOUNT
-        gas_limit = gas_limit_cap + 2 * (code_deposit_state + new_account_state)
+        gas_limit = gas_limit_cap + 2 * (
+            code_deposit_state + new_account_state
+        )
 
     sender = pre.fund_eoa()
     tx = Transaction(
