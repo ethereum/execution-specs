@@ -1,7 +1,5 @@
 """Common classes used in the BLAKE2b precompile tests."""
 
-from dataclasses import dataclass
-
 from execution_testing import Bytes, TestParameterGroup
 
 from .spec import Spec, SpecTestVectors
@@ -63,7 +61,6 @@ class Blake2bInput(TestParameterGroup):
         return _rounds + self.h + self.m + _t_0 + _t_1 + _f
 
 
-@dataclass(kw_only=True, frozen=True, repr=False)
 class ExpectedOutput(TestParameterGroup):
     """
     Expected test result.

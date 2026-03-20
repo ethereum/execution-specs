@@ -1168,6 +1168,44 @@ def pytest_html_results_table_row(report: Any, cells: Any) -> None:
 
 
 @pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_setup(item: Any) -> Generator[None, None, None]:
+    """
+    Snapshot parametrize values before fixture setup to detect unintended
+    mutations of shared pytest parameter objects across fixture format runs.
+    """
+    if hasattr(item, "callspec"):
+        item._param_repr_snapshot = {
+            key: repr(value) for key, value in item.callspec.params.items()
+        }
+    yield
+
+
+def pytest_runtest_teardown(item: Any) -> None:
+    """
+    Compare parametrize values after test teardown to the pre-setup snapshot.
+
+    Warn if any fixture mutated shared parameter objects — these mutations
+    persist across fixture format runs and can cause subtle bugs (e.g.
+    block hash mismatches between blockchain_test and blockchain_engine_test).
+    """
+    snapshot = getattr(item, "_param_repr_snapshot", None)
+    if snapshot is None:
+        return
+    for key, original_repr in snapshot.items():
+        current_repr = repr(item.callspec.params[key])
+        if current_repr != original_repr:
+            warnings.warn(
+                f"Shared pytest parameter '{key}' was mutated during "
+                f"test '{item.nodeid}'. Mutations on parametrize values "
+                f"persist across fixture format runs and can cause "
+                f"divergent test results. Avoid mutating these objects "
+                f"in fixtures; compute derived values locally instead.",
+                stacklevel=1,
+            )
+    del item._param_repr_snapshot
+
+
+@pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(
     item: Any, call: Any
 ) -> Generator[None, None, None]:
