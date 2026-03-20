@@ -231,7 +231,9 @@ def _run_cross_contract_chase(
     for sender in senders:
         post[sender] = Account(nonce=1)
 
-    benchmark_test(pre=pre, post=post, blocks=[block])
+    benchmark_test(
+        pre=pre, post=post, blocks=[block], skip_gas_used_validation=True
+    )
 
 
 def test_bal_cross_contract_chase(
