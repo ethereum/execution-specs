@@ -93,7 +93,7 @@ def test_not_non_const(
         address=Address("0xcb87599782f7101d77a9b56283a67cd13fa0d97e"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -124,7 +124,7 @@ def test_not_non_const(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

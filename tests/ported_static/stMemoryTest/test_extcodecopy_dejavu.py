@@ -66,7 +66,7 @@ def test_extcodecopy_dejavu(
         address=Address("0xe15245403ddc4d3674436cf955358a73d67e226a"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -78,7 +78,7 @@ def test_extcodecopy_dejavu(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

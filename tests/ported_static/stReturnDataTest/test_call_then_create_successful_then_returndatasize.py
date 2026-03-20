@@ -101,7 +101,7 @@ def test_call_then_create_successful_then_returndatasize(
         address=Address("0xcc5fbabb1e86f7744ed4840b4153736d3c0ae2a2"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -125,7 +125,7 @@ def test_call_then_create_successful_then_returndatasize(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

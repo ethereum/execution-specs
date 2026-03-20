@@ -480,7 +480,7 @@ def test_jumpdest_attackwith_jump(
         address=Address("0x3f9d62603c0d43765c8bc6ef623e68a4fc7d78eb"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -494,7 +494,7 @@ def test_jumpdest_attackwith_jump(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

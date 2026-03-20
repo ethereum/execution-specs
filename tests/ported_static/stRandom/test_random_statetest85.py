@@ -85,7 +85,7 @@ def test_random_statetest85(
         address=Address("0xd2fd98d49a70f7c4b524b8e53c8e5fc695555554"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -103,7 +103,7 @@ def test_random_statetest85(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

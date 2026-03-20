@@ -154,7 +154,7 @@ def test_quadratic_complexity_solidity_call_data_copy(
     )
     pre[sender] = Account(balance=0x11C37937E08000)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": -1, "value": -1},
             "network": [">=Cancun<Osaka"],
@@ -175,7 +175,7 @@ def test_quadratic_complexity_solidity_call_data_copy(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

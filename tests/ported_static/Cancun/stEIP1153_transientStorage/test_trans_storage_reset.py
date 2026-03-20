@@ -366,7 +366,7 @@ def test_trans_storage_reset(
         address=Address("0xd1f046b080a87137c61a14bb81c2b6bbcec17084"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 2, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -1179,7 +1179,7 @@ def test_trans_storage_reset(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

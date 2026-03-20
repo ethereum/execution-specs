@@ -68,7 +68,7 @@ def test_sar_2_255_minus_1_255(
         address=Address("0x38ef04946eafcf6e172cc1ab51f731a7df62ae9c"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -82,7 +82,7 @@ def test_sar_2_255_minus_1_255(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

@@ -173,7 +173,7 @@ def test_static_call_basic(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -288,7 +288,7 @@ def test_static_call_basic(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

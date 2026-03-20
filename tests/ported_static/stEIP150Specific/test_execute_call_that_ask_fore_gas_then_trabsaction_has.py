@@ -82,7 +82,7 @@ def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
         address=Address("0xbfdd294028701b119d416c68eff7dd9f7effd249"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -100,7 +100,7 @@ def test_execute_call_that_ask_fore_gas_then_trabsaction_has(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

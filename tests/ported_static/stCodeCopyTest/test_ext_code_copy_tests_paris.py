@@ -110,7 +110,7 @@ def test_ext_code_copy_tests_paris(
         address=Address("0xeeef5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -133,7 +133,7 @@ def test_ext_code_copy_tests_paris(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

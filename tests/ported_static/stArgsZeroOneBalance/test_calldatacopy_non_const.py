@@ -100,7 +100,7 @@ def test_calldatacopy_non_const(
         address=Address("0x444c2681920e1105c9104fb32249ddbb41cba4a0"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -147,7 +147,7 @@ def test_calldatacopy_non_const(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

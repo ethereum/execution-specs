@@ -240,7 +240,7 @@ def test_static_callcallcallcode_001(
         address=Address("0xf18dde9381a558c4be0b84b0f3a17e22b3f9ffce"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -341,7 +341,7 @@ def test_static_callcallcallcode_001(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

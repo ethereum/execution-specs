@@ -119,7 +119,7 @@ def test_callcode_ecrecover_v_prefixedf0(
         address=Address("0xebcdd28b5479dbde3e8317ebac82a6e019e256e4"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -146,7 +146,7 @@ def test_callcode_ecrecover_v_prefixedf0(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

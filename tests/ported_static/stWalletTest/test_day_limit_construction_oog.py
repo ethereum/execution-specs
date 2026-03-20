@@ -53,7 +53,7 @@ def test_day_limit_construction_oog(
 
     pre[sender] = Account(balance=0xDE0B6B3A75EF08F, nonce=1)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
@@ -61,7 +61,7 @@ def test_day_limit_construction_oog(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

@@ -172,7 +172,7 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
         address=Address("0xfd59abae521384b5731ac657616680219fbc423d"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -223,7 +223,7 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

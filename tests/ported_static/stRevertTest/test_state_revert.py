@@ -249,7 +249,7 @@ def test_state_revert(
         address=Address("0xebe3a4514feca3eb2819bf83ebd926c5e4143739"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 3, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -588,7 +588,7 @@ def test_state_revert(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

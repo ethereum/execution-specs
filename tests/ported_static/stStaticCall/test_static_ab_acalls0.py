@@ -175,7 +175,7 @@ def test_static_ab_acalls0(
         address=Address("0xfddb268f64fd5a90f618bbee0bd38e0c24b0a945"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -242,7 +242,7 @@ def test_static_ab_acalls0(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

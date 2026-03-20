@@ -67,7 +67,7 @@ def test_call_contract_to_create_contract_which_would_create_contract_in_init_co
     )
     pre[sender] = Account(balance=0x3B9ACA00)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -84,7 +84,7 @@ def test_call_contract_to_create_contract_which_would_create_contract_in_init_co
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

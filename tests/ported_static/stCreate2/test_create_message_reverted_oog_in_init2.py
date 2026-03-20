@@ -79,7 +79,7 @@ def test_create_message_reverted_oog_in_init2(
     pre[sender] = Account(balance=0x2DC6C0)
     pre[contract] = Account(balance=10, nonce=0)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
@@ -102,7 +102,7 @@ def test_create_message_reverted_oog_in_init2(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

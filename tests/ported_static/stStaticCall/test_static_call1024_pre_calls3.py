@@ -183,7 +183,7 @@ def test_static_call1024_pre_calls3(
     )
     pre[callee_2] = Account(balance=7000, nonce=0)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -231,7 +231,7 @@ def test_static_call1024_pre_calls3(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

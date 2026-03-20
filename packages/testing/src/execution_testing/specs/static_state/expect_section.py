@@ -458,7 +458,7 @@ def _parse_exception(exc_str: str) -> Any:
     from execution_testing import TransactionException
 
     parts = [p.strip() for p in exc_str.split("|")]
-    resolved = []
+    resolved: list[Any] = []
     for p in parts:
         name = p.replace("TransactionException.", "")
         try:

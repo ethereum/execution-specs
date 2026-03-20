@@ -75,7 +75,7 @@ def test_create_name_registrator_value_too_high(
     )
     pre[sender] = Account(balance=0x5F5E100)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -89,7 +89,7 @@ def test_create_name_registrator_value_too_high(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

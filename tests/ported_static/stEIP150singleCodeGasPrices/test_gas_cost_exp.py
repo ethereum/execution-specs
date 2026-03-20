@@ -143,7 +143,7 @@ def test_gas_cost_exp(
     )
     pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -245,7 +245,7 @@ def test_gas_cost_exp(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

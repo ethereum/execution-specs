@@ -314,7 +314,7 @@ def test_point_mul_add2(
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {
                 "data": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 26],
@@ -812,7 +812,7 @@ def test_point_mul_add2(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

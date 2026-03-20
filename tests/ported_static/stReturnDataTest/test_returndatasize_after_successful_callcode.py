@@ -90,7 +90,7 @@ def test_returndatasize_after_successful_callcode(
         address=Address("0xc8005fec752ab6f5f4691bb1a54dcce7ee3d1eb9"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -110,7 +110,7 @@ def test_returndatasize_after_successful_callcode(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

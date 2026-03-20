@@ -95,7 +95,7 @@ def test_static_call_ecrecover_h_prefixed0(
         address=Address("0xeeaa46c8d2b439bccc8ba7b735f1f68564c75801"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -113,7 +113,7 @@ def test_static_call_ecrecover_h_prefixed0(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

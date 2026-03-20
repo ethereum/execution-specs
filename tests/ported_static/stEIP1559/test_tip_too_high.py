@@ -63,7 +63,7 @@ def test_tip_too_high(
         address=Address("0xec75f5d282f63da54cb0dad4ff8eaaa070d2da2b"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
@@ -74,7 +74,7 @@ def test_tip_too_high(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

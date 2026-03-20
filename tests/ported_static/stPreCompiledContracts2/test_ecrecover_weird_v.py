@@ -185,7 +185,7 @@ def test_ecrecover_weird_v(
     )
     pre[coinbase] = Account(balance=0, nonce=1)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 12, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -629,7 +629,7 @@ def test_ecrecover_weird_v(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

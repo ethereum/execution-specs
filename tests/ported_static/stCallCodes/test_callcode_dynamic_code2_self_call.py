@@ -166,7 +166,7 @@ def test_callcode_dynamic_code2_self_call(
     )
     pre[sender] = Account(balance=0x2386F26FC10000)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": -1, "value": -1},
             "network": [">=Cancun"],
@@ -202,7 +202,7 @@ def test_callcode_dynamic_code2_self_call(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

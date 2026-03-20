@@ -226,7 +226,7 @@ def test_too_long_return_data_copy(
         address=Address("0xe4592ed5b9c3a9302d66798e39bfb7dfd44fafc1"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 18, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -761,7 +761,7 @@ def test_too_long_return_data_copy(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

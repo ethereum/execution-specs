@@ -100,7 +100,7 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_cal
         address=Address("0xa229d9efd075227ed1e0ea0427045b5ee24dc40a"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -124,7 +124,7 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_cal
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

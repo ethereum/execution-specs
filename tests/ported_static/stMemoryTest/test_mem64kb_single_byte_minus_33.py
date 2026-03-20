@@ -64,7 +64,7 @@ def test_mem64kb_single_byte_minus_33(
         address=Address("0xfb3508c998cc4f73516f89af816422663ee3c87a"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -77,7 +77,7 @@ def test_mem64kb_single_byte_minus_33(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

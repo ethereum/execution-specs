@@ -85,7 +85,7 @@ def test_create2collision_balance(
     pre[callee_1] = Account(balance=1, nonce=0)
     pre[callee_2] = Account(balance=1, nonce=0)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": -1, "value": -1},
             "network": [">=Cancun"],
@@ -139,7 +139,7 @@ def test_create2collision_balance(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

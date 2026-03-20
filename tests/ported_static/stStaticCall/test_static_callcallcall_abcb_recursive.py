@@ -118,7 +118,7 @@ def test_static_callcallcall_abcb_recursive(
         address=Address("0xf687bddcd749d085fd830b4e865cb76bb4f981ab"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -142,7 +142,7 @@ def test_static_callcallcall_abcb_recursive(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

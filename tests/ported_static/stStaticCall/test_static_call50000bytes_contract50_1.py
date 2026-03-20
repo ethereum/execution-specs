@@ -3507,7 +3507,7 @@ def test_static_call50000bytes_contract50_1(
         address=Address("0xd7b377d5d96ef739e27bc58e021c51e934a9a85b"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -3574,7 +3574,7 @@ def test_static_call50000bytes_contract50_1(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

@@ -137,7 +137,7 @@ def test_day_limit_set_daily_limit_no_data(
         address=Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
@@ -162,7 +162,7 @@ def test_day_limit_set_daily_limit_no_data(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

@@ -150,7 +150,7 @@ def test_loop_stacklimit(
         address=Address("0xf9b46c1d708104b4e6007d17ae485b0a00d8e952"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -191,7 +191,7 @@ def test_loop_stacklimit(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

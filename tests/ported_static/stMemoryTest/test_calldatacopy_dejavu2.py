@@ -68,7 +68,7 @@ def test_calldatacopy_dejavu2(
         address=Address("0xd6a7f80046f7576fa76ee5198426097f149e60ff"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -83,7 +83,7 @@ def test_calldatacopy_dejavu2(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

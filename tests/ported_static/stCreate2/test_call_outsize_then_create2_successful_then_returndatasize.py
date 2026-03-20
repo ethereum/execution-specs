@@ -103,7 +103,7 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
     )
     pre[sender] = Account(balance=0x6400000000)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
@@ -111,7 +111,7 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

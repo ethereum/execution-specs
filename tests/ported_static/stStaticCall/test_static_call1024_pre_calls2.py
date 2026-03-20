@@ -187,7 +187,7 @@ def test_static_call1024_pre_calls2(
         address=Address("0xeeb613e2a52609ee927be8a5b80ff190f6b71a37"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -237,7 +237,7 @@ def test_static_call1024_pre_calls2(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

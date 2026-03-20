@@ -117,7 +117,7 @@ def test_static_callcallcodecallcode_011_suicide_middle(
         address=Address("0xeca01d36dbe4f4ab283a49016efa370bac7e7346"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -143,7 +143,7 @@ def test_static_callcallcodecallcode_011_suicide_middle(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

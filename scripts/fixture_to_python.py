@@ -818,9 +818,7 @@ def _resolve_filler_labels(
         for dim in ("data", "gas", "value"):
             sel = indexes.get(dim, -1)
             new_indexes[dim] = _resolve_selector(sel)
-        resolved_entries.append(
-            {**entry, "indexes": new_indexes}
-        )
+        resolved_entries.append({**entry, "indexes": new_indexes})
     return resolved_entries
 
 
@@ -1390,13 +1388,13 @@ def _generate_expect_entries_source(
     indent: str = "",
 ) -> str:
     """
-    Generate ``EXPECT_ENTRIES = [...]`` Python source from expect entries.
+    Generate ``expect_entries_ = [...]`` Python source from expect entries.
 
     When *addr_vars* is provided, addresses in result dicts are replaced
     with variable names (for use inside function bodies where variables
     like ``callee``, ``contract`` etc. are defined).
     """
-    lines = [f"{indent}EXPECT_ENTRIES: list[dict] = ["]
+    lines = [f"{indent}expect_entries_: list[dict] = ["]
     for entry in entries:
         indexes = entry.get("indexes", {})
         network = entry.get("network", [])
@@ -1571,9 +1569,7 @@ def generate_test_file(
         # extract_case_indices failed (label-based keys).
         # Match fixture key labels against filler label map.
         label_to_d: dict[str, list[int]] = {}
-        for d_idx, filler_entry in enumerate(
-            filler_tx_arrays.get("data", [])
-        ):
+        for d_idx, filler_entry in enumerate(filler_tx_arrays.get("data", [])):
             m = re.match(r"^:label\s+(\S+)", str(filler_entry).strip())
             if m:
                 label_to_d.setdefault(m.group(1), []).append(d_idx)
@@ -1684,8 +1680,7 @@ def generate_test_file(
             for g_val in first_tx_c.get("gasLimit", ["0x5f5e100"])
         ]
         tx_value_arr = [
-            hex_to_int(v_val)
-            for v_val in first_tx_c.get("value", ["0x0"])
+            hex_to_int(v_val) for v_val in first_tx_c.get("value", ["0x0"])
         ]
 
     is_multi = len(cases_for_fork) > 1
@@ -1884,8 +1879,7 @@ def generate_test_file(
     if is_multi or expect_entries:
         imports.append("from execution_testing.forks import Fork")
         imports.append(
-            "from execution_testing.specs.static_state.expect_section"
-            " import ("
+            "from execution_testing.specs.static_state.expect_section import ("
         )
         imports.append("    resolve_expect_post,")
         imports.append(")")
@@ -2038,7 +2032,7 @@ def generate_test_file(
         if al:
             tx_parts.append(f"access_list={_format_access_list(al)}")
 
-    # Expected transaction error — skip when using EXPECT_ENTRIES
+    # Expected transaction error — skip when using expect_entries_
     # (exception will be resolved at runtime via _exc)
     if not expect_entries:
         if is_multi and exc_varies:
@@ -2046,12 +2040,10 @@ def generate_test_file(
         else:
             expect_exception = cases_for_fork[0].get("expect_exception")
             if expect_exception:
-                tx_parts.append(
-                    f"error={_format_exception(expect_exception)}"
-                )
+                tx_parts.append(f"error={_format_exception(expect_exception)}")
 
     # -----------------------------------------------------------------------
-    # Build EXPECT_ENTRIES for runtime post-state resolution
+    # Build expect_entries_ for runtime post-state resolution
     # -----------------------------------------------------------------------
     # Use filler expect entries (with labels resolved) when available.
     # Fall back to synthesizing entries from compiled fixture state.
@@ -2120,18 +2112,18 @@ def generate_test_file(
                 synth, addr_vars=addr_vars, indent="    "
             )
 
-    # Post resolution via EXPECT_ENTRIES
+    # Post resolution via expect_entries_
     if is_multi and expect_entries_source:
         post_code = (
             "    post, _exc = resolve_expect_post("
-            "EXPECT_ENTRIES, d, g, v, fork)"
+            "expect_entries_, d, g, v, fork)"
         )
     elif not is_multi and expect_entries_source:
         # Single case: d=0, g=0, v=0
         c = cases_for_fork[0]
         post_code = (
             f"    post, _exc = resolve_expect_post("
-            f"EXPECT_ENTRIES, {c['d']}, {c['g']}, {c['v']}, fork)"
+            f"expect_entries_, {c['d']}, {c['g']}, {c['v']}, fork)"
         )
     elif not is_multi:
         ps = cases_for_fork[0].get("post_state", {})
@@ -2162,7 +2154,7 @@ def generate_test_file(
     out.append('REFERENCE_SPEC_VERSION = "N/A"')
     out.append("")
 
-    # --- Emit TX arrays and EXPECT_ENTRIES constants ---
+    # --- Emit TX arrays and expect_entries_ constants ---
     if is_multi:
         # TX_DATA
         out.append("TX_DATA = [")
@@ -2181,7 +2173,7 @@ def generate_test_file(
         out.append(f"TX_VALUE = {tx_value_arr!r}")
         out.append("")
 
-    # EXPECT_ENTRIES is emitted inside the function body (after variable
+    # expect_entries_ is emitted inside the function body (after variable
     # definitions) so it can reference variable names like callee, contract.
 
     # --- Helper for converting tx data hex to bytes ---
@@ -2251,7 +2243,7 @@ def generate_test_file(
                     has_exc = True
                 else:
                     vals.append("None")
-            # When using EXPECT_ENTRIES, check if any matching filler
+            # When using expect_entries_, check if any matching filler
             # entry has expect_exception for this (d, g, v)
             if expect_entries and not has_exc:
                 for ee in expect_entries:
@@ -2277,7 +2269,7 @@ def generate_test_file(
                     f" marks=pytest.mark.exception_test)"
                 )
             else:
-                entry = f"pytest.param({', '.join(vals)}, id=\"{pid}\")"
+                entry = f'pytest.param({", ".join(vals)}, id="{pid}")'
             out.append(f"        {entry},")
         out.append("    ],")
         out.append(")")
@@ -2365,7 +2357,10 @@ def generate_test_file(
     # Address variables — only emit if used somewhere
     pre_addrs = {a.lower() for a in pre.keys()}
     all_code = (
-        post_code + " " + expect_entries_source + " "
+        post_code
+        + " "
+        + expect_entries_source
+        + " "
         + " ".join(str(p) for p in tx_parts)
     )
     sender_emitted = False
@@ -2434,7 +2429,7 @@ def generate_test_file(
 
     out.append("")
 
-    # EXPECT_ENTRIES — inside function body so it can use variable names
+    # expect_entries_ — inside function body so it can use variable names
     if expect_entries_source:
         out.append(expect_entries_source)
         out.append("")
@@ -2448,13 +2443,13 @@ def generate_test_file(
     out.append("    tx = Transaction(")
     for p in tx_parts:
         out.append(f"        {p},")
-    # Add error=_exc when using EXPECT_ENTRIES (exception from filler)
+    # Add error=_exc when using expect_entries_ (exception from filler)
     if expect_entries_source:
         out.append("        error=_exc,")
     out.append("    )")
     out.append("")
 
-    # Post state assertions (for non-EXPECT_ENTRIES path)
+    # Post state assertions (for non-expect_entries_ path)
     if not expect_entries_source:
         out.append(post_code)
         out.append("")
@@ -2666,7 +2661,7 @@ def process_single_fixture(
     filler_tx = load_filler_tx_arrays(filler_full_path)
 
     # No more fork-range variant generation — fork handling is at runtime
-    # via resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork).
+    # via resolve_expect_post(expect_entries_, d, g, v, fork).
     try:
         python_code = generate_test_file(
             fixture_data,

@@ -90,7 +90,7 @@ def test_ext_code_copy_target_range_longer_than_code_tests(
         address=Address("0x7ac02e797f450c7ea62753383f618e1903cd6bba"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -112,7 +112,7 @@ def test_ext_code_copy_target_range_longer_than_code_tests(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

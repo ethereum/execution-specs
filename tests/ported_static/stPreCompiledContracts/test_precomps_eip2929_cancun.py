@@ -1757,7 +1757,7 @@ def test_precomps_eip2929_cancun(
         address=Address("0x858295015aff9cfdb96c3c2ec19f7ac654871b6c"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 39, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -8228,7 +8228,7 @@ def test_precomps_eip2929_cancun(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

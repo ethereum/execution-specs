@@ -56,7 +56,7 @@ def test_failed_create_reverts_deletion_paris(
     pre[contract] = Account(balance=10, nonce=0, storage={0x0: 0x1})
     pre[sender] = Account(balance=0x6400000000)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -64,7 +64,7 @@ def test_failed_create_reverts_deletion_paris(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

@@ -118,7 +118,7 @@ def test_returndatasize_after_oog_after_deeper(
         address=Address("0xcb33b9a773995316746a40201081d054635d02da"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -138,7 +138,7 @@ def test_returndatasize_after_oog_after_deeper(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

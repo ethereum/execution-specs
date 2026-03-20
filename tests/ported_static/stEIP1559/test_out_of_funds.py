@@ -90,7 +90,7 @@ def test_out_of_funds(
         address=Address("0xd71b14c239fc39327f25764dd784c85ef0285fda"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
@@ -114,7 +114,7 @@ def test_out_of_funds(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

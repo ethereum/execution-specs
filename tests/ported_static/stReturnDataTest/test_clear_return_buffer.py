@@ -748,7 +748,7 @@ def test_clear_return_buffer(
         address=Address("0xbd0bb2600f59acdee19a917db4f3f7b00c9c9759"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -6407,7 +6407,7 @@ def test_clear_return_buffer(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

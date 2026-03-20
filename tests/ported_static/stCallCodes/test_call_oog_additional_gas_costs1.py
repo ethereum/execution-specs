@@ -81,7 +81,7 @@ def test_call_oog_additional_gas_costs1(
         address=Address("0xef8dd89dea93dc2bff0ce3a1196188496e6c28dc"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -96,7 +96,7 @@ def test_call_oog_additional_gas_costs1(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

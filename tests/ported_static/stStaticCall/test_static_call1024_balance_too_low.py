@@ -144,7 +144,7 @@ def test_static_call1024_balance_too_low(
         address=Address("0xe8f28ee50521b0388cf0a623b1a89e43d022c039"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -192,7 +192,7 @@ def test_static_call1024_balance_too_low(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

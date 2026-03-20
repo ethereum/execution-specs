@@ -229,7 +229,7 @@ def test_coinbase_warm_account_call_gas_fail(
         address=Address("0x8ddf5d9a5251c41efd2949f53db0a464116c7c6e"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -296,7 +296,7 @@ def test_coinbase_warm_account_call_gas_fail(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

@@ -86,7 +86,7 @@ def test_create2no_cash(
         address=Address("0xe2b35478fdd26477cc576dd906e6277761246a3c"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": [0, 2], "gas": -1, "value": -1},
             "network": [">=Cancun"],
@@ -111,7 +111,7 @@ def test_create2no_cash(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

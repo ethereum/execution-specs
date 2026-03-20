@@ -65,7 +65,7 @@ def test_transaction_colliding_with_non_empty_account_send_paris(
     pre[contract] = Account(balance=10, nonce=0)
     pre[coinbase] = Account(balance=0, nonce=1)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
@@ -76,7 +76,7 @@ def test_transaction_colliding_with_non_empty_account_send_paris(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

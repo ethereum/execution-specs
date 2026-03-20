@@ -81,7 +81,7 @@ def test_execute_call_that_ask_more_gas_then_transaction_has_with_mem_expanding_
     )
     pre[sender] = Account(balance=0x186A000)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -99,7 +99,7 @@ def test_execute_call_that_ask_more_gas_then_transaction_has_with_mem_expanding_
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

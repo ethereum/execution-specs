@@ -90,7 +90,7 @@ def test_log2_non_empty_mem_log_mem_size1_log_mem_start31(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -110,7 +110,7 @@ def test_log2_non_empty_mem_log_mem_size1_log_mem_start31(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,

@@ -305,7 +305,7 @@ def test_create2_high_nonce_delegatecall(
         address=Address("0xe51bc07f90c9661fa42db3bde8dd52b942ac69e0"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 14, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -1012,7 +1012,7 @@ def test_create2_high_nonce_delegatecall(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

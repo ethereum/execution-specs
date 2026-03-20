@@ -110,7 +110,7 @@ def test_val_causes_oof(
         address=Address("0x71e12b76ab6be1efbc98ac17ebfe5faf488da45e"),  # noqa: E501
     )
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": -1, "gas": 0 - 1, "value": 0},
             "network": [">=Cancun"],
@@ -139,7 +139,7 @@ def test_val_causes_oof(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, d, g, v, fork)
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,

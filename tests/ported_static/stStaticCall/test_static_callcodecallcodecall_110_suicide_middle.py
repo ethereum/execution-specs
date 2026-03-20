@@ -116,7 +116,7 @@ def test_static_callcodecallcodecall_110_suicide_middle(
     )
     pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
-    EXPECT_ENTRIES: list[dict] = [
+    expect_entries_: list[dict] = [
         {
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
@@ -142,7 +142,7 @@ def test_static_callcodecallcodecall_110_suicide_middle(
         },
     ]
 
-    post, _exc = resolve_expect_post(EXPECT_ENTRIES, 0, 0, 0, fork)
+    post, _exc = resolve_expect_post(expect_entries_, 0, 0, 0, fork)
 
     tx = Transaction(
         sender=sender,
