@@ -1214,6 +1214,11 @@ def _parse_result_int(v: Any) -> int:
     try:
         return int(s)
     except ValueError:
+        pass
+    # Try as bare hex (e.g. "60A7" without 0x prefix)
+    try:
+        return int(s, 16)
+    except ValueError:
         return 0
 
 
@@ -1227,6 +1232,9 @@ def _format_storage_from_result(
     # Deduplicate by int key (last value wins for duplicate keys)
     deduped: dict[int, int] = {}
     for k, v in storage.items():
+        # Skip JSON comment keys (e.g. "//comment")
+        if str(k).startswith("//"):
+            continue
         deduped[_parse_result_int(k)] = _parse_result_int(v)
     items = []
     for key_int, val_int in sorted(deduped.items()):

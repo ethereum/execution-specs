@@ -73,7 +73,7 @@ def test_create_empty_contract(
             "result": {
                 contract: Account(
                     storage={
-                        0: 0,
+                        0: 0x8D5B6,
                         1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
                         100: 0x7ABF8,
                     }

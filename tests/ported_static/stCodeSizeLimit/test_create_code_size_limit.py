@@ -103,7 +103,12 @@ def test_create_code_size_limit(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                contract: Account(storage={0: 0, 1: 1}),
+                contract: Account(
+                    storage={
+                        0: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                        1: 1,
+                    }
+                ),
                 Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
                     storage={}, nonce=1, balance=0
                 ),

@@ -111,7 +111,12 @@ def test_create2_code_size_limit(
                     storage={}, nonce=1, balance=0
                 ),
                 sender: Account(nonce=1),
-                contract: Account(storage={0: 0, 1: 1}),
+                contract: Account(
+                    storage={
+                        0: 0x81C305016AB9CA56033A07CC37E7A30FC3E079AC,
+                        1: 1,
+                    }
+                ),
             },
         },
         {

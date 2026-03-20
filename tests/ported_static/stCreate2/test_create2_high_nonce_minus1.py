@@ -86,7 +86,11 @@ def test_create2_high_nonce_minus1(
                 ),
                 sender: Account(nonce=1),
                 contract: Account(
-                    storage={0: 0, 1: 1}, nonce=18446744073709551615
+                    storage={
+                        0: 0x77DD5D2A2B742CA01EE2CFFF306445E3741EF744,
+                        1: 1,
+                    },
+                    nonce=18446744073709551615,
                 ),
             },
         },
