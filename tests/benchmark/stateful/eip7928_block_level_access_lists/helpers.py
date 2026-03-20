@@ -31,17 +31,18 @@ from execution_testing import (
     Transaction,
 )
 
-CURSOR_SLOT = 0x100000
+CURSOR_SLOT = 0
+CURSOR_INIT = 1
 
 
 def cursor_read() -> Bytecode:
-    """PUSH3(CURSOR_SLOT) + SLOAD → stack: [..., cursor]."""
-    return Op.PUSH3(CURSOR_SLOT) + Op.SLOAD
+    """PUSH1(CURSOR_SLOT) + SLOAD → stack: [..., cursor]."""
+    return Op.PUSH1(CURSOR_SLOT) + Op.SLOAD
 
 
 def cursor_write() -> Bytecode:
-    """PUSH3(CURSOR_SLOT) + SSTORE ← stack: [..., cursor]."""
-    return Op.PUSH3(CURSOR_SLOT) + Op.SSTORE
+    """PUSH1(CURSOR_SLOT) + SSTORE ← stack: [..., cursor]."""
+    return Op.PUSH1(CURSOR_SLOT) + Op.SSTORE
 
 
 def default_teardown() -> Bytecode:
@@ -216,7 +217,7 @@ def run_bal_benchmark(
         ]
 
     # BAL expectations: contract slots + sender nonces.
-    cumulative = 0
+    cumulative = CURSOR_INIT
     cursor_changes: list[BalStorageChange] = []
     for tx_idx, iters in enumerate(plan.iterations_per_tx):
         cumulative += iters
@@ -262,7 +263,7 @@ def run_bal_benchmark(
         final = dict(
             contract_storage
         )  # type: ignore[arg-type]
-        final[CURSOR_SLOT] = plan.total_iterations
+        final[CURSOR_SLOT] = CURSOR_INIT + plan.total_iterations
         post_contract = Account(storage=Storage(final))
 
     post: dict[Address, Account] = {contract: post_contract}

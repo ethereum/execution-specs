@@ -20,6 +20,7 @@ from execution_testing import (
 )
 
 from .helpers import (
+    CURSOR_INIT,
     CURSOR_SLOT,
     cursor_read,
     cursor_write,
@@ -107,7 +108,7 @@ def test_bal_max_account_access(
     total = plan.total_iterations
     extra = {
         Address(BASE_ADDR + i): BalAccountExpectation.empty()
-        for i in range(total)
+        for i in range(CURSOR_INIT, total + CURSOR_INIT)
     }
     run_bal_benchmark(
         pre=pre,
@@ -115,7 +116,7 @@ def test_bal_max_account_access(
         contract_code=create_balance_loop_contract(
             plan.gas_threshold
         ),
-        contract_storage=Storage({CURSOR_SLOT: 0}),
+        contract_storage=Storage({CURSOR_SLOT: CURSOR_INIT}),
         plan=plan,
         extra_expectations=extra,
     )
@@ -139,7 +140,7 @@ def test_bal_account_access_simple(
     total = plan.total_iterations
     extra = {
         Address(BASE_ADDR + i): BalAccountExpectation.empty()
-        for i in range(total)
+        for i in range(CURSOR_INIT, total + CURSOR_INIT)
     }
     run_bal_benchmark(
         pre=pre,
@@ -147,7 +148,7 @@ def test_bal_account_access_simple(
         contract_code=create_balance_loop_contract(
             plan.gas_threshold
         ),
-        contract_storage=Storage({CURSOR_SLOT: 0}),
+        contract_storage=Storage({CURSOR_SLOT: CURSOR_INIT}),
         plan=plan,
         extra_expectations=extra,
     )

@@ -35,7 +35,12 @@ from execution_testing import (
     Transaction,
 )
 
-from .helpers import CURSOR_SLOT
+from .helpers import (
+    CURSOR_INIT,
+    CURSOR_SLOT,
+    cursor_read,
+    cursor_write,
+)
 from .spec import ref_spec_7928
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_7928.git_path
@@ -56,8 +61,7 @@ def create_dispatcher_contract() -> Bytecode:
     4. SSTORE(CURSOR_SLOT, chain_idx + 1)
     """
     return (
-        Op.PUSH3(CURSOR_SLOT)
-        + Op.SLOAD
+        cursor_read()
         + Op.DUP1
         + Op.SLOAD
         + Op.PUSH1(0x00)
@@ -72,8 +76,7 @@ def create_dispatcher_contract() -> Bytecode:
         + Op.POP
         + Op.PUSH1(0x01)
         + Op.ADD
-        + Op.PUSH3(CURSOR_SLOT)
-        + Op.SSTORE
+        + cursor_write()
         + Op.STOP
     )
 
@@ -172,13 +175,15 @@ def _run_cross_contract_chase(
             )
 
     # Deploy dispatcher with entry-point lookup table.
+    # Chain entries at slots CURSOR_INIT..CURSOR_INIT+N-1;
+    # cursor at slot 0 starts at CURSOR_INIT.
     entry_storage: dict[int, int] = {
-        tx_idx: int.from_bytes(
+        CURSOR_INIT + tx_idx: int.from_bytes(
             Address(contracts[tx_idx * chain_length]), "big"
         )
         for tx_idx in range(num_transactions)
     }
-    entry_storage[CURSOR_SLOT] = 0
+    entry_storage[CURSOR_SLOT] = CURSOR_INIT
     dispatcher = pre.deploy_contract(
         code=create_dispatcher_contract(),
         storage=Storage(entry_storage),
@@ -205,14 +210,16 @@ def _run_cross_contract_chase(
     ] = {}
 
     account_expectations[dispatcher] = BalAccountExpectation(
-        storage_reads=sorted(range(num_transactions)),
+        storage_reads=list(
+            range(CURSOR_INIT, CURSOR_INIT + num_transactions)
+        ),
         storage_changes=[
             BalStorageSlot(
                 slot=CURSOR_SLOT,
                 slot_changes=[
                     BalStorageChange(
                         block_access_index=tx_idx + 1,
-                        post_value=tx_idx + 1,
+                        post_value=CURSOR_INIT + tx_idx + 1,
                     )
                     for tx_idx in range(num_transactions)
                 ],

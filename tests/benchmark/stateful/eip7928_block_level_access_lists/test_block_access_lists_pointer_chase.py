@@ -19,7 +19,6 @@ from execution_testing import (
 )
 
 from .helpers import (
-    CURSOR_SLOT,
     cursor_read,
     gas_check_loop_contract,
     plan_benchmark,
@@ -74,8 +73,7 @@ def test_bal_max_pointer_chase(
     )
     total = plan.total_iterations
     storage = Storage(
-        {i: i + 1 for i in range(total)}  # type: ignore
-        | {CURSOR_SLOT: 0}
+        {i: i + 1 for i in range(total + 1)}  # type: ignore
     )
     run_bal_benchmark(
         pre=pre,
@@ -85,7 +83,7 @@ def test_bal_max_pointer_chase(
         ),
         contract_storage=storage,
         plan=plan,
-        data_slot_reads=list(range(total)),
+        data_slot_reads=list(range(1, total + 1)),
     )
 
 
@@ -105,8 +103,7 @@ def test_bal_pointer_chase_simple(
     )
     total = plan.total_iterations
     storage = Storage(
-        {i: i + 1 for i in range(total)}  # type: ignore
-        | {CURSOR_SLOT: 0}
+        {i: i + 1 for i in range(total + 1)}  # type: ignore
     )
     run_bal_benchmark(
         pre=pre,
@@ -116,5 +113,5 @@ def test_bal_pointer_chase_simple(
         ),
         contract_storage=storage,
         plan=plan,
-        data_slot_reads=list(range(total)),
+        data_slot_reads=list(range(1, total + 1)),
     )
