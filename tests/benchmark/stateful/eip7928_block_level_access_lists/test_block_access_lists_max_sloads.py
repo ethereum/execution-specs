@@ -1,13 +1,11 @@
 """
 Tests for EIP-7928 BAL with maximum SLOAD transactions.
 
-Deploys a loop-based contract that reads its work range from storage
-(cursor mechanism) rather than calldata, creating inter-transaction
-dependencies that require the BAL for parallel execution.
-
-Each transaction reads CURSOR_SLOT and ITEMS_PER_TX_SLOT, SLOADs
-sequential storage slots starting at the cursor, then writes the
-updated cursor back.
+Deploys a loop-based contract that reads its starting cursor from
+storage, then SLOADs sequential slots until remaining gas drops
+below a threshold.  The updated cursor is written back, creating
+inter-transaction dependencies that require the BAL for parallel
+execution.
 """
 
 import pytest
@@ -15,7 +13,6 @@ from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Op,
     Storage,
@@ -23,12 +20,11 @@ from execution_testing import (
 
 from .helpers import (
     CURSOR_SLOT,
-    ITEMS_PER_TX_SLOT,
-    cursor_overhead_gas,
     cursor_read,
     cursor_write,
-    run_benchmark,
-    sload_loop_iteration,
+    plan_benchmark,
+    run_bal_benchmark,
+    sload_loop_body,
 )
 from .spec import ref_spec_7928
 
@@ -38,29 +34,58 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def create_sload_loop_contract() -> Bytecode:
+def create_sload_loop_contract(gas_threshold: int) -> Bytecode:
     """
     Create contract that SLOADs sequential slots via cursor.
 
-    1. cursor  = SLOAD(CURSOR_SLOT)
-    2. count   = SLOAD(ITEMS_PER_TX_SLOT)
-    3. Loop: SLOAD(cursor + i) for i in 0..count-1
-    4. SSTORE(CURSOR_SLOT, cursor + count)
+    1. cursor = SLOAD(CURSOR_SLOT)
+    2. Loop while GAS > threshold:
+         SLOAD(cursor); cursor++
+    3. SSTORE(CURSOR_SLOT, cursor)
     """
-    # stack after setup: [count, cursor_copy, cursor]
-    setup = cursor_read() + Op.DUP2 + Op.SWAP1
+    setup = cursor_read()  # stack: [cursor]
+
+    # Gas-check loop header.
+    header = (
+        Op.JUMPDEST
+        + Op.GAS
+        + Op.PUSH3(gas_threshold)
+        + Op.GT
+        + Op.ISZERO
+    )
+    # loop_end offset: setup + header + PUSH2 + JUMPI + body + PUSH2 + JUMP
+    body = sload_loop_body()
+    loop_end = (
+        len(setup)
+        + len(header)
+        + 3  # PUSH2(loop_end)
+        + 1  # JUMPI
+        + len(body)
+        + 3  # PUSH2(loop_start)
+        + 1  # JUMP
+    )
     loop_start = len(setup)
-    loop_end = loop_start + len(sload_loop_iteration())
-    loop = sload_loop_iteration(loop_start, loop_end)
+
+    loop = (
+        header
+        + Op.PUSH2(loop_end)
+        + Op.JUMPI
+        + body
+        + Op.PUSH2(loop_start)
+        + Op.JUMP
+    )
+
     teardown = (
         Op.JUMPDEST  # loop_end
-        # stack: [0, cursor_end, cursor_start]
-        + Op.POP  # drop count=0
-        + cursor_write()  # SSTORE(CURSOR_SLOT, cursor_end)
-        + Op.POP  # drop cursor_start
+        + cursor_write()
         + Op.STOP
     )
     return setup + loop + teardown
+
+
+def _setup_gas(fork: Fork) -> int:
+    """Gas for the setup phase (cold SLOAD of CURSOR_SLOT)."""
+    return cursor_read().gas_cost(fork)
 
 
 def test_bal_max_sloads(
@@ -69,30 +94,27 @@ def test_bal_max_sloads(
     fork: Fork,
 ) -> None:
     """Test BAL with maximum sequential SLOADs via cursor."""
-    gas_costs = fork.gas_costs()
-    max_tx_gas = fork.transaction_gas_limit_cap()
-    assert max_tx_gas is not None
-    block_gas_limit = int(Environment().gas_limit)
-    num_txs = block_gas_limit // max_tx_gas
-
-    overhead = cursor_overhead_gas(fork)
-    available = max_tx_gas - gas_costs.G_TRANSACTION - overhead
-    gas_per_iteration = sload_loop_iteration().gas_cost(fork)
-    items_per_tx = available // gas_per_iteration
-    total = num_txs * items_per_tx
-
+    body_gas = sload_loop_body().gas_cost(fork)
+    plan = plan_benchmark(
+        fork,
+        loop_body_gas=body_gas,
+        setup_gas=_setup_gas(fork),
+    )
+    total = plan.total_iterations
     storage = Storage(
         {i: i + 1 for i in range(total)}  # type: ignore
-        | {CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx}
+        | {CURSOR_SLOT: 0}
     )
-    run_benchmark(
+    run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_sload_loop_contract(),
+        fork=fork,
+        contract_code=create_sload_loop_contract(
+            plan.gas_threshold
+        ),
         contract_storage=storage,
-        num_transactions=num_txs,
-        items_per_tx=items_per_tx,
-        gas_limit=max_tx_gas,
+        plan=plan,
+        data_slot_reads=list(range(total)),
     )
 
 
@@ -101,20 +123,28 @@ def test_bal_sloads_loop_simple(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
-    """Simple validation test with 20 slots across 2 transactions."""
-    total_slots = 20
-    items_per_tx = 10
-    num_txs = 2
-    storage = Storage(
-        {i: i + 1 for i in range(total_slots)}  # type: ignore
-        | {CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx}
+    """Simple validation test with a few SLOADs across 2 txs."""
+    body_gas = sload_loop_body().gas_cost(fork)
+    plan = plan_benchmark(
+        fork,
+        loop_body_gas=body_gas,
+        setup_gas=_setup_gas(fork),
+        num_transactions=2,
+        tx_gas_limit=500_000,
     )
-    run_benchmark(
+    total = plan.total_iterations
+    storage = Storage(
+        {i: i + 1 for i in range(total)}  # type: ignore
+        | {CURSOR_SLOT: 0}
+    )
+    run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_sload_loop_contract(),
+        fork=fork,
+        contract_code=create_sload_loop_contract(
+            plan.gas_threshold
+        ),
         contract_storage=storage,
-        num_transactions=num_txs,
-        items_per_tx=items_per_tx,
-        gas_limit=500_000,
+        plan=plan,
+        data_slot_reads=list(range(total)),
     )

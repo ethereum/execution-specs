@@ -1,10 +1,11 @@
 """
 Tests for EIP-7928 BAL with dependent pointer-chasing SLOADs.
 
-Deploys a contract with linked-list storage (slot[i] = i+1) that reads
-its starting position from CURSOR_SLOT.  Each transaction follows the
-chain for ITEMS_PER_TX_SLOT steps, then writes the final chased value
-back to CURSOR_SLOT, creating inter-transaction dependencies.
+Deploys a contract with linked-list storage (slot[i] = i+1) that
+reads its starting position from CURSOR_SLOT.  Each transaction
+follows the chain while remaining gas exceeds a threshold, then
+writes the final chased value back to CURSOR_SLOT, creating
+inter-transaction dependencies.
 """
 
 import pytest
@@ -12,7 +13,6 @@ from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Op,
     Storage,
@@ -20,11 +20,10 @@ from execution_testing import (
 
 from .helpers import (
     CURSOR_SLOT,
-    ITEMS_PER_TX_SLOT,
-    cursor_overhead_gas,
     cursor_read,
     cursor_write,
-    run_benchmark,
+    plan_benchmark,
+    run_bal_benchmark,
 )
 from .spec import ref_spec_7928
 
@@ -34,59 +33,69 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _chase_loop_iteration(
-    loop_start: int = 0,
-    loop_end: int = 0,
-) -> Bytecode:
+def _chase_body() -> Bytecode:
     """
-    Return bytecode for one pointer-chase loop iteration.
+    Return the pointer-chase loop body.
 
-    Pass loop_start/loop_end for contract assembly; omit them
-    (defaults to 0) when calling ``.gas_cost(fork)``.
+    Stack on entry:  [cursor]
+    Stack on exit:   [new_cursor]
     """
     return (
-        Op.JUMPDEST
-        + Op.DUP2
-        + Op.ISZERO
-        + Op.PUSH2(loop_end)
-        + Op.JUMPI
-        # cursor = SLOAD(cursor)
-        + Op.DUP1
-        + Op.SLOAD
+        Op.DUP1      # [cursor, cursor]
+        + Op.SLOAD   # [next, cursor]
         + Op.SWAP1
-        + Op.POP  # replace old cursor with new
-        # count -= 1
-        + Op.SWAP1
-        + Op.PUSH1(0x01)
-        + Op.SWAP1
-        + Op.SUB
-        + Op.SWAP1
-        + Op.PUSH2(loop_start)
-        + Op.JUMP
+        + Op.POP     # [next]
     )
 
 
-def create_pointer_chase_contract() -> Bytecode:
+def create_pointer_chase_contract(
+    gas_threshold: int,
+) -> Bytecode:
     """
     Create contract that follows a pointer chain via cursor.
 
     1. cursor = SLOAD(CURSOR_SLOT)
-    2. count  = SLOAD(ITEMS_PER_TX_SLOT)
-    3. Loop count times: cursor = SLOAD(cursor)
-    4. SSTORE(CURSOR_SLOT, cursor)   (chased value IS the new cursor)
+    2. Loop while GAS > threshold: cursor = SLOAD(cursor)
+    3. SSTORE(CURSOR_SLOT, cursor)
     """
-    setup = cursor_read() + Op.SWAP1  # stack: [cursor, count]
+    setup = cursor_read()  # stack: [cursor]
+
+    header = (
+        Op.JUMPDEST
+        + Op.GAS
+        + Op.PUSH3(gas_threshold)
+        + Op.GT
+        + Op.ISZERO
+    )
+    body = _chase_body()
+    loop_end = (
+        len(setup) + len(header)
+        + 3 + 1         # PUSH2(loop_end) + JUMPI
+        + len(body)
+        + 3 + 1         # PUSH2(loop_start) + JUMP
+    )
     loop_start = len(setup)
-    loop_end = loop_start + len(_chase_loop_iteration())
-    loop = _chase_loop_iteration(loop_start, loop_end)
+
+    loop = (
+        header
+        + Op.PUSH2(loop_end)
+        + Op.JUMPI
+        + body
+        + Op.PUSH2(loop_start)
+        + Op.JUMP
+    )
+
     teardown = (
-        Op.JUMPDEST  # loop_end
-        # stack: [cursor_final, 0]
-        + cursor_write()  # SSTORE(CURSOR_SLOT, cursor_final)
-        + Op.POP  # drop count=0
+        Op.JUMPDEST
+        + cursor_write()
         + Op.STOP
     )
     return setup + loop + teardown
+
+
+def _setup_gas(fork: Fork) -> int:
+    """Gas for the setup phase (cold SLOAD of CURSOR_SLOT)."""
+    return cursor_read().gas_cost(fork)
 
 
 def test_bal_max_pointer_chase(
@@ -95,30 +104,27 @@ def test_bal_max_pointer_chase(
     fork: Fork,
 ) -> None:
     """Test BAL with maximum dependent pointer-chasing SLOADs."""
-    gas_costs = fork.gas_costs()
-    max_tx_gas = fork.transaction_gas_limit_cap()
-    assert max_tx_gas is not None
-    block_gas_limit = int(Environment().gas_limit)
-    num_txs = block_gas_limit // max_tx_gas
-
-    overhead = cursor_overhead_gas(fork)
-    available = max_tx_gas - gas_costs.G_TRANSACTION - overhead
-    gas_per_iteration = _chase_loop_iteration().gas_cost(fork)
-    items_per_tx = available // gas_per_iteration
-    total = num_txs * items_per_tx
-
+    body_gas = _chase_body().gas_cost(fork)
+    plan = plan_benchmark(
+        fork,
+        loop_body_gas=body_gas,
+        setup_gas=_setup_gas(fork),
+    )
+    total = plan.total_iterations
     storage = Storage(
         {i: i + 1 for i in range(total)}  # type: ignore
-        | {CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx}
+        | {CURSOR_SLOT: 0}
     )
-    run_benchmark(
+    run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_pointer_chase_contract(),
+        fork=fork,
+        contract_code=create_pointer_chase_contract(
+            plan.gas_threshold
+        ),
         contract_storage=storage,
-        num_transactions=num_txs,
-        items_per_tx=items_per_tx,
-        gas_limit=max_tx_gas,
+        plan=plan,
+        data_slot_reads=list(range(total)),
     )
 
 
@@ -127,20 +133,28 @@ def test_bal_pointer_chase_simple(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
-    """Simple validation test with 20 slots across 2 transactions."""
-    total_slots = 20
-    items_per_tx = 10
-    num_txs = 2
-    storage = Storage(
-        {i: i + 1 for i in range(total_slots)}  # type: ignore
-        | {CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx}
+    """Simple validation test with a few slots across 2 txs."""
+    body_gas = _chase_body().gas_cost(fork)
+    plan = plan_benchmark(
+        fork,
+        loop_body_gas=body_gas,
+        setup_gas=_setup_gas(fork),
+        num_transactions=2,
+        tx_gas_limit=500_000,
     )
-    run_benchmark(
+    total = plan.total_iterations
+    storage = Storage(
+        {i: i + 1 for i in range(total)}  # type: ignore
+        | {CURSOR_SLOT: 0}
+    )
+    run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_pointer_chase_contract(),
+        fork=fork,
+        contract_code=create_pointer_chase_contract(
+            plan.gas_threshold
+        ),
         contract_storage=storage,
-        num_transactions=num_txs,
-        items_per_tx=items_per_tx,
-        gas_limit=500_000,
+        plan=plan,
+        data_slot_reads=list(range(total)),
     )

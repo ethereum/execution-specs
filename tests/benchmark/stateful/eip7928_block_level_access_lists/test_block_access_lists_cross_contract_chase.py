@@ -19,8 +19,13 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+    BalAccountExpectation,
+    BalNonceChange,
+    BalStorageChange,
+    BalStorageSlot,
     BenchmarkTestFiller,
     Block,
+    BlockAccessListExpectation,
     Bytecode,
     Environment,
     Fork,
@@ -43,100 +48,120 @@ MAX_CALL_DEPTH = 100
 
 def create_dispatcher_contract() -> Bytecode:
     """
-    Create dispatcher that reads cursor, looks up entry address, CALLs it.
+    Create dispatcher: read cursor, look up entry, CALL, bump cursor.
 
     1. chain_idx   = SLOAD(CURSOR_SLOT)
     2. entry_addr  = SLOAD(chain_idx)
     3. CALL(entry_addr)
     4. SSTORE(CURSOR_SLOT, chain_idx + 1)
     """
-    code = (
-        # 1. Read cursor (chain index)
+    return (
         Op.PUSH3(CURSOR_SLOT)
-        + Op.SLOAD  # stack: [chain_idx]
-        # 2. Look up entry address
+        + Op.SLOAD
         + Op.DUP1
-        + Op.SLOAD  # stack: [entry_addr, chain_idx]
-        # 3. CALL(gas, entry_addr, 0, 0, 0, 0, 0)
-        + Op.PUSH1(0x00)  # retSize
-        + Op.PUSH1(0x00)  # retOffset
-        + Op.PUSH1(0x00)  # argsSize
-        + Op.PUSH1(0x00)  # argsOffset
-        + Op.PUSH1(0x00)  # value
-        + Op.DUP6  # entry_addr
+        + Op.SLOAD
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.DUP6
         + Op.GAS
         + Op.CALL
-        + Op.POP  # drop success
-        + Op.POP  # drop entry_addr
-        # 4. Increment cursor: chain_idx + 1
+        + Op.POP
+        + Op.POP
         + Op.PUSH1(0x01)
         + Op.ADD
         + Op.PUSH3(CURSOR_SLOT)
         + Op.SSTORE
         + Op.STOP
     )
-    return code
 
 
 def create_chain_contract() -> Bytecode:
     """
     Create contract that reads slot 0 and CALLs that address.
 
-    Reads next_addr from storage slot 0, then CALLs it with remaining gas.
+    Reads next_addr from slot 0, CALLs it with remaining gas.
     """
     end = 0x16
-    code = (
+    return (
         Op.PUSH1(0x00)
-        + Op.SLOAD  # next_addr = SLOAD(0)
+        + Op.SLOAD
         + Op.DUP1
         + Op.ISZERO
         + Op.PUSH1(end)
         + Op.JUMPI
-        + Op.PUSH1(0x00)  # retSize
-        + Op.PUSH1(0x00)  # retOffset
-        + Op.PUSH1(0x00)  # argsSize
-        + Op.PUSH1(0x00)  # argsOffset
-        + Op.PUSH1(0x00)  # value
-        + Op.DUP6  # next_addr
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.DUP6
         + Op.GAS
         + Op.CALL
         + Op.POP
-        + Op.JUMPDEST  # end
+        + Op.JUMPDEST
         + Op.STOP
     )
-    return code
 
 
-def _calculate_params(block_gas_limit: int, fork: Fork) -> tuple[int, int]:
+def _compute_tx_gas_limits(
+    block_gas_limit: int,
+    max_tx_gas: int,
+    intrinsic_gas: int,
+) -> list[int]:
+    """
+    Fill block with txs, last tx gets remaining gas.
+
+    Skip the last tx if remaining gas cannot cover intrinsic cost.
+    """
+    gas_limits: list[int] = []
+    remaining = block_gas_limit
+    while remaining >= intrinsic_gas:
+        g = min(remaining, max_tx_gas)
+        if g < intrinsic_gas:
+            break
+        gas_limits.append(g)
+        remaining -= g
+    return gas_limits
+
+
+def _calculate_params(
+    fork: Fork,
+    gas_limits: list[int],
+) -> tuple[int, int]:
     """Return (num_transactions, chain_length)."""
     gas_costs = fork.gas_costs()
-    max_tx_gas = fork.transaction_gas_limit_cap()
-    assert max_tx_gas is not None
-
-    num_transactions = block_gas_limit // max_tx_gas
     dispatcher_cost = create_dispatcher_contract().gas_cost(fork)
     chain_hop_cost = create_chain_contract().gas_cost(fork)
-    available_gas = max_tx_gas - gas_costs.G_TRANSACTION - dispatcher_cost
-    chain_by_gas = available_gas // chain_hop_cost
+    # Use the smallest tx gas to determine chain length.
+    min_gas = min(gas_limits)
+    available = (
+        min_gas - gas_costs.G_TRANSACTION - dispatcher_cost
+    )
+    chain_by_gas = available // chain_hop_cost
     chain_length = min(chain_by_gas, MAX_CALL_DEPTH)
-    return num_transactions, chain_length
+    return len(gas_limits), chain_length
 
 
 def _run_cross_contract_chase(
     pre: Alloc,
     benchmark_test: BenchmarkTestFiller,
-    num_transactions: int,
+    gas_limits: list[int],
     chain_length: int,
-    gas_limit: int,
 ) -> None:
     """Run a cross-contract chase benchmark."""
     chain_code = create_chain_contract()
+    num_transactions = len(gas_limits)
     total_contracts = num_transactions * chain_length
 
     # Deploy all chain contracts.
     contracts: list[Address] = []
     for _ in range(total_contracts):
-        c = pre.deploy_contract(code=chain_code, storage=Storage({}))
+        c = pre.deploy_contract(
+            code=chain_code, storage=Storage({})
+        )
         contracts.append(c)
 
     # Link contracts within each chain.
@@ -164,24 +189,67 @@ def _run_cross_contract_chase(
 
     # All TXs call the dispatcher with empty calldata.
     with TestPhaseManager.execution():
-        senders = [pre.fund_eoa() for _ in range(num_transactions)]
+        senders = [
+            pre.fund_eoa() for _ in range(num_transactions)
+        ]
         transactions = [
             Transaction(
                 sender=senders[i],
                 to=dispatcher,
-                gas_limit=gas_limit,
+                gas_limit=gas_limits[i],
                 data=b"",
             )
             for i in range(num_transactions)
         ]
 
+    # BAL expectations.
+    account_expectations: dict[
+        Address, BalAccountExpectation
+    ] = {}
+
+    account_expectations[dispatcher] = BalAccountExpectation(
+        storage_reads=sorted(range(num_transactions)),
+        storage_changes=[
+            BalStorageSlot(
+                slot=CURSOR_SLOT,
+                slot_changes=[
+                    BalStorageChange(
+                        block_access_index=tx_idx + 1,
+                        post_value=tx_idx + 1,
+                    )
+                    for tx_idx in range(num_transactions)
+                ],
+            ),
+        ],
+    )
+
+    for tx_idx, sender in enumerate(senders):
+        account_expectations[sender] = BalAccountExpectation(
+            nonce_changes=[
+                BalNonceChange(
+                    block_access_index=tx_idx + 1,
+                    post_nonce=1,
+                )
+            ],
+        )
+
+    for contract in contracts:
+        account_expectations[contract] = (
+            BalAccountExpectation(storage_reads=[0])
+        )
+
+    block = Block(
+        txs=transactions,
+        expected_block_access_list=BlockAccessListExpectation(
+            account_expectations=account_expectations
+        ),
+    )
+
     post: dict[Address, Account] = {}
     for sender in senders:
         post[sender] = Account(nonce=1)
 
-    benchmark_test(
-        pre=pre, post=post, blocks=[Block(txs=transactions)]
-    )
+    benchmark_test(pre=pre, post=post, blocks=[block])
 
 
 def test_bal_cross_contract_chase(
@@ -189,17 +257,18 @@ def test_bal_cross_contract_chase(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
-    """Test BAL with cross-contract pointer chasing via dispatcher."""
-    env = Environment()
-    block_gas_limit = int(env.gas_limit)
+    """Test BAL with cross-contract pointer chasing."""
     max_tx_gas = fork.transaction_gas_limit_cap()
     assert max_tx_gas is not None
+    block_gas_limit = int(Environment().gas_limit)
+    intrinsic = fork.gas_costs().G_TRANSACTION
 
-    num_transactions, chain_length = _calculate_params(
-        block_gas_limit, fork
+    gas_limits = _compute_tx_gas_limits(
+        block_gas_limit, max_tx_gas, intrinsic
     )
+    _, chain_length = _calculate_params(fork, gas_limits)
     _run_cross_contract_chase(
-        pre, benchmark_test, num_transactions, chain_length, max_tx_gas
+        pre, benchmark_test, gas_limits, chain_length
     )
 
 
@@ -208,11 +277,10 @@ def test_bal_cross_contract_chase_simple(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
-    """Simple validation test with 10 contracts across 2 transactions."""
+    """Simple validation test with 10 contracts across 2 txs."""
     _run_cross_contract_chase(
         pre,
         benchmark_test,
-        num_transactions=2,
+        gas_limits=[500_000, 500_000],
         chain_length=5,
-        gas_limit=500_000,
     )

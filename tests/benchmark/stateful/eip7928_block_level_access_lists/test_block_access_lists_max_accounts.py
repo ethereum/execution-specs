@@ -1,18 +1,19 @@
 """
 Tests for EIP-7928 BAL with maximum unique account accesses.
 
-Deploys a contract that reads its starting offset from CURSOR_SLOT
-and the iteration count from ITEMS_PER_TX_SLOT, then calls BALANCE
-on sequential addresses.  Each transaction writes an updated cursor,
+Deploys a contract that reads its starting offset from CURSOR_SLOT,
+then calls BALANCE on sequential addresses while remaining gas
+exceeds a threshold.  Each transaction writes an updated cursor,
 creating inter-transaction dependencies that require the BAL.
 """
 
 import pytest
 from execution_testing import (
+    Address,
     Alloc,
+    BalAccountExpectation,
     BenchmarkTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Op,
     Storage,
@@ -20,11 +21,10 @@ from execution_testing import (
 
 from .helpers import (
     CURSOR_SLOT,
-    ITEMS_PER_TX_SLOT,
-    cursor_overhead_gas,
     cursor_read,
     cursor_write,
-    run_benchmark,
+    plan_benchmark,
+    run_bal_benchmark,
 )
 from .spec import ref_spec_7928
 
@@ -37,65 +37,66 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 BASE_ADDR = 0x10000
 
 
-def _balance_loop_iteration(
-    loop_start: int = 0,
-    loop_end: int = 0,
-) -> Bytecode:
+def _balance_body() -> Bytecode:
     """
-    Return bytecode for one BALANCE loop iteration.
+    Return the BALANCE loop body.
 
-    Pass loop_start/loop_end for contract assembly; omit them
-    (defaults to 0) when calling ``.gas_cost(fork)``.
+    Stack on entry:  [addr]
+    Stack on exit:   [addr+1]
     """
     return (
-        Op.JUMPDEST
-        + Op.DUP1
-        + Op.ISZERO
-        + Op.PUSH2(loop_end)
-        + Op.JUMPI
-        # BALANCE(addr)
-        + Op.DUP2
+        Op.DUP1
         + Op.BALANCE
         + Op.POP
-        # addr += 1
-        + Op.SWAP1
         + Op.PUSH1(0x01)
         + Op.ADD
-        + Op.SWAP1
-        # count -= 1
-        + Op.PUSH1(0x01)
-        + Op.SWAP1
-        + Op.SUB
+    )
+
+
+def create_balance_loop_contract(
+    gas_threshold: int,
+) -> Bytecode:
+    """
+    Create contract that calls BALANCE on sequential addresses.
+
+    1. cursor = SLOAD(CURSOR_SLOT)
+    2. addr   = BASE_ADDR + cursor
+    3. Loop while GAS > threshold: BALANCE(addr); addr++
+    4. SSTORE(CURSOR_SLOT, addr - BASE_ADDR)
+    """
+    setup = (
+        cursor_read()
+        + Op.PUSH3(BASE_ADDR)
+        + Op.ADD  # stack: [addr]
+    )
+
+    header = (
+        Op.JUMPDEST
+        + Op.GAS
+        + Op.PUSH3(gas_threshold)
+        + Op.GT
+        + Op.ISZERO
+    )
+    body = _balance_body()
+    loop_end = (
+        len(setup) + len(header)
+        + 3 + 1          # PUSH2(loop_end) + JUMPI
+        + len(body)
+        + 3 + 1          # PUSH2(loop_start) + JUMP
+    )
+    loop_start = len(setup)
+
+    loop = (
+        header
+        + Op.PUSH2(loop_end)
+        + Op.JUMPI
+        + body
         + Op.PUSH2(loop_start)
         + Op.JUMP
     )
 
-
-def create_balance_loop_contract() -> Bytecode:
-    """
-    Create contract that calls BALANCE on sequential addresses.
-
-    1. cursor = SLOAD(CURSOR_SLOT)           (address offset)
-    2. count  = SLOAD(ITEMS_PER_TX_SLOT)
-    3. addr   = BASE_ADDR + cursor
-    4. Loop count times: BALANCE(addr); addr += 1
-    5. SSTORE(CURSOR_SLOT, cursor + count)
-    """
-    # stack after setup: [count, addr]
-    setup = (
-        cursor_read()
-        + Op.SWAP1  # stack: [cursor, count]
-        + Op.PUSH3(BASE_ADDR)
-        + Op.ADD  # stack: [addr, count]
-        + Op.SWAP1  # stack: [count, addr]
-    )
-    loop_start = len(setup)
-    loop_end = loop_start + len(_balance_loop_iteration())
-    loop = _balance_loop_iteration(loop_start, loop_end)
     teardown = (
-        Op.JUMPDEST  # loop_end
-        # stack: [0, addr_end]
-        + Op.POP
+        Op.JUMPDEST
         # addr_end - BASE_ADDR = new cursor value
         + Op.PUSH3(BASE_ADDR)
         + Op.SWAP1
@@ -106,32 +107,53 @@ def create_balance_loop_contract() -> Bytecode:
     return setup + loop + teardown
 
 
+def _teardown() -> Bytecode:
+    """Teardown for balance loop: convert addr back to cursor."""
+    return (
+        Op.JUMPDEST
+        + Op.PUSH3(BASE_ADDR)
+        + Op.SWAP1
+        + Op.SUB
+        + cursor_write()
+        + Op.STOP
+    )
+
+
+def _setup_gas(fork: Fork) -> int:
+    """Gas for cursor SLOAD + BASE_ADDR addition."""
+    setup = cursor_read() + Op.PUSH3(BASE_ADDR) + Op.ADD
+    return setup.gas_cost(fork)
+
+
 def test_bal_max_account_access(
     pre: Alloc,
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
     """Test BAL with maximum unique account accesses via BALANCE."""
-    gas_costs = fork.gas_costs()
-    max_tx_gas = fork.transaction_gas_limit_cap()
-    assert max_tx_gas is not None
-    block_gas_limit = int(Environment().gas_limit)
-    num_txs = block_gas_limit // max_tx_gas
-
-    overhead = cursor_overhead_gas(fork)
-    available = max_tx_gas - gas_costs.G_TRANSACTION - overhead
-    gas_per_iteration = _balance_loop_iteration().gas_cost(fork)
-    items_per_tx = available // gas_per_iteration
-
-    storage = Storage({CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx})
-    run_benchmark(
+    body_gas = _balance_body().gas_cost(fork)
+    plan = plan_benchmark(
+        fork,
+        loop_body_gas=body_gas,
+        setup_gas=_setup_gas(fork),
+        teardown=_teardown(),
+    )
+    total = plan.total_iterations
+    storage = Storage({CURSOR_SLOT: 0})
+    extra = {
+        Address(BASE_ADDR + i): BalAccountExpectation.empty()
+        for i in range(total)
+    }
+    run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_balance_loop_contract(),
+        fork=fork,
+        contract_code=create_balance_loop_contract(
+            plan.gas_threshold
+        ),
         contract_storage=storage,
-        num_transactions=num_txs,
-        items_per_tx=items_per_tx,
-        gas_limit=max_tx_gas,
+        plan=plan,
+        extra_expectations=extra,
     )
 
 
@@ -140,16 +162,29 @@ def test_bal_account_access_simple(
     benchmark_test: BenchmarkTestFiller,
     fork: Fork,
 ) -> None:
-    """Simple validation test with 20 accounts across 2 transactions."""
-    items_per_tx = 10
-    num_txs = 2
-    storage = Storage({CURSOR_SLOT: 0, ITEMS_PER_TX_SLOT: items_per_tx})
-    run_benchmark(
+    """Simple validation test with a few accounts across 2 txs."""
+    body_gas = _balance_body().gas_cost(fork)
+    plan = plan_benchmark(
+        fork,
+        loop_body_gas=body_gas,
+        setup_gas=_setup_gas(fork),
+        num_transactions=2,
+        tx_gas_limit=500_000,
+    )
+    total = plan.total_iterations
+    storage = Storage({CURSOR_SLOT: 0})
+    extra = {
+        Address(BASE_ADDR + i): BalAccountExpectation.empty()
+        for i in range(total)
+    }
+    run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_balance_loop_contract(),
+        fork=fork,
+        contract_code=create_balance_loop_contract(
+            plan.gas_threshold
+        ),
         contract_storage=storage,
-        num_transactions=num_txs,
-        items_per_tx=items_per_tx,
-        gas_limit=500_000,
+        plan=plan,
+        extra_expectations=extra,
     )

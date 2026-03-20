@@ -1,14 +1,15 @@
 """
 Tests for EIP-7928 BAL with computation followed by SLOADs.
 
-Deploys a contract that reads three parameters from storage: cursor
-position (CURSOR_SLOT), SLOAD count (ITEMS_PER_TX_SLOT), and
-computation iterations (COMPUTE_ITERS_SLOT).  It first runs a
-compute loop, then SLOADs sequential slots starting at cursor,
-and finally writes the updated cursor.
+Deploys a contract that reads two parameters from storage: cursor
+position (CURSOR_SLOT) and computation iterations
+(COMPUTE_ITERS_SLOT).  It first runs a fixed compute loop, then
+SLOADs sequential slots until remaining gas drops below a
+threshold, and finally writes the updated cursor.
 
 The ``compute_percent`` parameter controls the gas split between
-the compute and SLOAD phases.
+the compute and SLOAD phases by varying the compute iteration
+count.
 """
 
 import pytest
@@ -16,7 +17,6 @@ from execution_testing import (
     Alloc,
     BenchmarkTestFiller,
     Bytecode,
-    Environment,
     Fork,
     Op,
     Storage,
@@ -25,12 +25,11 @@ from execution_testing import (
 from .helpers import (
     COMPUTE_ITERS_SLOT,
     CURSOR_SLOT,
-    ITEMS_PER_TX_SLOT,
-    cursor_overhead_gas,
     cursor_read,
     cursor_write,
-    run_benchmark,
-    sload_loop_iteration,
+    plan_benchmark,
+    run_bal_benchmark,
+    sload_loop_body,
 )
 from .spec import ref_spec_7928
 
@@ -70,88 +69,116 @@ def _compute_loop_iteration(
     )
 
 
-def _extra_overhead(fork: Fork) -> int:
-    """Return cursor overhead plus the extra SLOAD for COMPUTE_ITERS_SLOT."""
-    extra_sload = Op.PUSH3(COMPUTE_ITERS_SLOT) + Op.SLOAD
-    return cursor_overhead_gas(fork) + extra_sload.gas_cost(fork)
-
-
-def create_compute_then_sload_contract() -> Bytecode:
+def create_compute_then_sload_contract(
+    gas_threshold: int,
+) -> Bytecode:
     """
-    Create contract with compute phase then SLOAD phase.
+    Create contract with compute phase then gas-check SLOAD phase.
 
-    1. cursor         = SLOAD(CURSOR_SLOT)
-    2. sload_count    = SLOAD(ITEMS_PER_TX_SLOT)
-    3. compute_iters  = SLOAD(COMPUTE_ITERS_SLOT)
-    4. Compute loop:  accumulator = accumulator * 3 + 7
-    5. SLOAD loop:    SLOAD(cursor + i) for i in 0..sload_count-1
-    6. SSTORE(CURSOR_SLOT, cursor + sload_count)
+    1. cursor        = SLOAD(CURSOR_SLOT)
+    2. compute_iters = SLOAD(COMPUTE_ITERS_SLOT)
+    3. Compute loop:  accumulator = accumulator * 3 + 7
+    4. SLOAD loop (gas-check): SLOAD(cursor + i)
+    5. SSTORE(CURSOR_SLOT, cursor)
     """
-    # 1-3. Read cursor, sload_count, compute_iters
-    # stack: [compute_iters, sload_count, cursor]
+    # 1-2. Read cursor and compute_iters.
+    # stack after: [compute_iters, cursor]
     setup = (
         cursor_read()
         + Op.PUSH3(COMPUTE_ITERS_SLOT)
         + Op.SLOAD
-        # 4. Compute loop: accumulator = 1
-        + Op.PUSH1(0x01)  # stack: [acc, iters, sload_count, cursor]
+        # Compute loop: accumulator = 1
+        + Op.PUSH1(0x01)
+        # stack: [acc, iters, cursor]
     )
 
-    # Compute loop
+    # Compute loop (fixed-count, counter-based).
     compute_start = len(setup)
     compute_end = compute_start + len(_compute_loop_iteration())
-    compute_loop = _compute_loop_iteration(compute_start, compute_end)
+    compute_loop = _compute_loop_iteration(
+        compute_start, compute_end
+    )
 
-    # Transition: drop compute results, prepare SLOAD loop
+    # Transition: drop compute results, prepare SLOAD loop.
     transition = (
         Op.JUMPDEST  # compute_end
-        + Op.POP  # drop iters=0
-        + Op.POP  # drop accumulator
-        # stack: [sload_count, cursor]
-        + Op.DUP2  # stack: [current, sload_count, cursor]
-        + Op.SWAP1  # stack: [sload_count, current, cursor]
+        + Op.POP     # drop iters=0
+        + Op.POP     # drop accumulator
+        # stack: [cursor]
     )
 
-    # SLOAD loop
-    sload_start = compute_end + len(transition)
-    sload_end = sload_start + len(sload_loop_iteration())
-    sload_loop = sload_loop_iteration(sload_start, sload_end)
+    # Gas-check SLOAD loop.
+    sload_body = sload_loop_body()
+    sload_base = compute_end + len(transition)
+
+    sload_header = (
+        Op.JUMPDEST
+        + Op.GAS
+        + Op.PUSH3(gas_threshold)
+        + Op.GT
+        + Op.ISZERO
+    )
+    sload_loop_end = (
+        sload_base + len(sload_header)
+        + 3 + 1           # PUSH2(loop_end) + JUMPI
+        + len(sload_body)
+        + 3 + 1           # PUSH2(loop_start) + JUMP
+    )
+    sload_loop_start = sload_base
+
+    sload_loop = (
+        sload_header
+        + Op.PUSH2(sload_loop_end)
+        + Op.JUMPI
+        + sload_body
+        + Op.PUSH2(sload_loop_start)
+        + Op.JUMP
+    )
 
     teardown = (
-        Op.JUMPDEST  # sload_end
-        # stack: [0, cursor_end, cursor_start]
-        + Op.POP
-        # 6. Write updated cursor
-        + cursor_write()  # SSTORE(CURSOR_SLOT, cursor_end)
-        + Op.POP  # drop cursor_start
+        Op.JUMPDEST
+        + cursor_write()
         + Op.STOP
     )
-    return setup + compute_loop + transition + sload_loop + teardown
+    return (
+        setup + compute_loop + transition + sload_loop + teardown
+    )
 
 
-def _compute_params(
+def _setup_gas(fork: Fork, compute_iters: int) -> int:
+    """
+    Gas for setup + fixed compute phase.
+
+    Includes cursor SLOAD, compute_iters SLOAD, accumulator
+    init, full compute loop, and transition to SLOAD phase.
+    """
+    base = (
+        cursor_read()
+        + Op.PUSH3(COMPUTE_ITERS_SLOT)
+        + Op.SLOAD
+    )
+    acc_init = Op.PUSH1(0x01)
+    compute_iter_gas = _compute_loop_iteration().gas_cost(fork)
+    transition = Op.JUMPDEST + Op.POP + Op.POP
+    return (
+        base.gas_cost(fork)
+        + acc_init.gas_cost(fork)
+        + compute_iters * compute_iter_gas
+        + transition.gas_cost(fork)
+    )
+
+
+def _compute_iters_for_percent(
     fork: Fork,
     compute_percent: int,
-) -> tuple[int, int, int, int, int]:
-    """Return (num_txs, sload_per_tx, compute_per_tx, total, max_gas)."""
-    gas_costs = fork.gas_costs()
-    max_tx_gas = fork.transaction_gas_limit_cap()
-    assert max_tx_gas is not None
-
-    block_gas_limit = int(Environment().gas_limit)
-    num_txs = block_gas_limit // max_tx_gas
-
-    overhead = _extra_overhead(fork)
-    available = max_tx_gas - gas_costs.G_TRANSACTION - overhead
+    tx_gas: int,
+) -> int:
+    """Return compute iterations for a given gas percentage."""
+    intrinsic = fork.gas_costs().G_TRANSACTION
+    available = tx_gas - intrinsic
     compute_gas = int(available * compute_percent / 100)
-    sload_gas = available - compute_gas
-
     gas_per_compute = _compute_loop_iteration().gas_cost(fork)
-    gas_per_sload = sload_loop_iteration().gas_cost(fork)
-    compute_per_tx = compute_gas // gas_per_compute
-    sload_per_tx = sload_gas // gas_per_sload
-    total = num_txs * sload_per_tx
-    return num_txs, sload_per_tx, compute_per_tx, total, max_tx_gas
+    return compute_gas // gas_per_compute
 
 
 @pytest.mark.parametrize(
@@ -166,25 +193,38 @@ def test_bal_compute_then_sload(
     compute_percent: int,
 ) -> None:
     """Test BAL with computation phase followed by SLOAD phase."""
-    num_txs, sload_per_tx, compute_per_tx, total, max_gas = _compute_params(
-        fork, compute_percent
+    max_tx_gas = fork.transaction_gas_limit_cap()
+    assert max_tx_gas is not None
+    compute_iters = _compute_iters_for_percent(
+        fork, compute_percent, max_tx_gas
     )
+
+    body_gas = sload_loop_body().gas_cost(fork)
+    plan = plan_benchmark(
+        fork,
+        loop_body_gas=body_gas,
+        setup_gas=_setup_gas(fork, compute_iters),
+    )
+    total = plan.total_iterations
     storage = Storage(
         {i: i + 1 for i in range(total)}  # type: ignore
         | {
             CURSOR_SLOT: 0,
-            ITEMS_PER_TX_SLOT: sload_per_tx,
-            COMPUTE_ITERS_SLOT: compute_per_tx,
+            COMPUTE_ITERS_SLOT: compute_iters,
         }
     )
-    run_benchmark(
+    run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_compute_then_sload_contract(),
+        fork=fork,
+        contract_code=create_compute_then_sload_contract(
+            plan.gas_threshold
+        ),
         contract_storage=storage,
-        num_transactions=num_txs,
-        items_per_tx=sload_per_tx,
-        gas_limit=max_gas,
+        plan=plan,
+        data_slot_reads=(
+            list(range(total)) + [COMPUTE_ITERS_SLOT]
+        ),
     )
 
 
@@ -199,30 +239,37 @@ def test_bal_compute_then_sload_simple(
     fork: Fork,
     compute_percent: int,
 ) -> None:
-    """Simple validation test with 20 SLOADs across 2 transactions."""
-    total_slots = 20
-    sload_per_tx = 10
-    num_txs = 2
+    """Simple validation test with compute + SLOAD across 2 txs."""
+    compute_iters = _compute_iters_for_percent(
+        fork, compute_percent, 500_000
+    )
 
-    gas_budget = 400_000
-    compute_gas = int(gas_budget * compute_percent / 100)
-    gas_per_compute = _compute_loop_iteration().gas_cost(fork)
-    compute_iters = compute_gas // gas_per_compute
-
+    body_gas = sload_loop_body().gas_cost(fork)
+    plan = plan_benchmark(
+        fork,
+        loop_body_gas=body_gas,
+        setup_gas=_setup_gas(fork, compute_iters),
+        num_transactions=2,
+        tx_gas_limit=500_000,
+    )
+    total = plan.total_iterations
     storage = Storage(
-        {i: i + 1 for i in range(total_slots)}  # type: ignore
+        {i: i + 1 for i in range(total)}  # type: ignore
         | {
             CURSOR_SLOT: 0,
-            ITEMS_PER_TX_SLOT: sload_per_tx,
             COMPUTE_ITERS_SLOT: compute_iters,
         }
     )
-    run_benchmark(
+    run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_compute_then_sload_contract(),
+        fork=fork,
+        contract_code=create_compute_then_sload_contract(
+            plan.gas_threshold
+        ),
         contract_storage=storage,
-        num_transactions=num_txs,
-        items_per_tx=sload_per_tx,
-        gas_limit=500_000,
+        plan=plan,
+        data_slot_reads=(
+            list(range(total)) + [COMPUTE_ITERS_SLOT]
+        ),
     )
