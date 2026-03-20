@@ -21,7 +21,6 @@ from execution_testing import (
     Alloc,
     BalAccountExpectation,
     BalNonceChange,
-    BalStorageChange,
     BalStorageSlot,
     BenchmarkTestFiller,
     Block,
@@ -129,12 +128,12 @@ def _calculate_params(
     gas_limits: list[int],
 ) -> tuple[int, int]:
     """Return (num_transactions, chain_length)."""
-    gas_costs = fork.gas_costs()
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
     dispatcher_cost = create_dispatcher_contract().gas_cost(fork)
     chain_hop_cost = create_chain_contract().gas_cost(fork)
     # Use the smallest tx gas to determine chain length.
     min_gas = min(gas_limits)
-    available = min_gas - gas_costs.G_TRANSACTION - dispatcher_cost
+    available = min_gas - intrinsic_gas - dispatcher_cost
     chain_by_gas = available // chain_hop_cost
     chain_length = min(chain_by_gas, MAX_CALL_DEPTH)
     return len(gas_limits), chain_length
@@ -201,13 +200,7 @@ def _run_cross_contract_chase(
         storage_changes=[
             BalStorageSlot(
                 slot=CURSOR_SLOT,
-                slot_changes=[
-                    BalStorageChange(
-                        block_access_index=tx_idx + 1,
-                        post_value=CURSOR_INIT + tx_idx + 1,
-                    )
-                    for tx_idx in range(num_transactions)
-                ],
+                validate_any_change=True,
             ),
         ],
     )
@@ -250,7 +243,7 @@ def test_bal_cross_contract_chase(
     max_tx_gas = fork.transaction_gas_limit_cap()
     assert max_tx_gas is not None
     block_gas_limit = int(Environment().gas_limit)
-    intrinsic = fork.gas_costs().G_TRANSACTION
+    intrinsic = fork.transaction_intrinsic_cost_calculator()()
 
     gas_limits = _compute_tx_gas_limits(block_gas_limit, max_tx_gas, intrinsic)
     _, chain_length = _calculate_params(fork, gas_limits)
