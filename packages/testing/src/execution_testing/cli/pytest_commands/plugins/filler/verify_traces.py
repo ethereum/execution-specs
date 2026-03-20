@@ -99,6 +99,7 @@ def pytest_configure(config: pytest.Config) -> None:
         return
 
     config.collect_traces = True  # type: ignore[attr-defined]
+    config.option.evm_collect_traces = True
 
     comparator_names = config.getoption(
         "verify_traces_comparator"
@@ -179,6 +180,9 @@ class TraceVerifier:
         baseline_traces_list = _load_traces_from_dump_dir(
             baseline_dump_dir
         )
+
+        if not current_traces_list:
+            return  # No traces collected (e.g. t8n cache hit)
 
         # Compare each pair of Traces objects (one per t8n call)
         results: dict[str, TraceComparisonResult] = {}
