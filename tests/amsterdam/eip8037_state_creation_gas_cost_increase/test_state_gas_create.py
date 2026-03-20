@@ -526,9 +526,10 @@ def test_max_initcode_size_gas_metering_via_create(
         + initcode.execution_gas(fork)
         + initcode.deployment_gas(fork)
     )
-    factory_state_gas = fork.create_state_gas(
-        code_size=len(initcode.deploy_code)
-    ) + fork.sstore_state_gas()
+    factory_state_gas = (
+        fork.create_state_gas(code_size=len(initcode.deploy_code))
+        + fork.sstore_state_gas()
+    )
     factory_regular_gas = factory_gas - factory_state_gas
 
     caller = pre.deploy_contract(
@@ -546,6 +547,7 @@ def test_max_initcode_size_gas_metering_via_create(
     )
 
     gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
     tx = Transaction(
         sender=alice,
         to=caller,
