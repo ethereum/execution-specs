@@ -21,7 +21,7 @@ from execution_testing import (
 from .helpers import (
     CURSOR_SLOT,
     cursor_read,
-    cursor_write,
+    gas_check_loop_contract,
     plan_benchmark,
     run_bal_benchmark,
 )
@@ -35,17 +35,12 @@ pytestmark = pytest.mark.valid_from("Amsterdam")
 
 def _chase_body() -> Bytecode:
     """
-    Return the pointer-chase loop body.
+    Pointer-chase loop body.
 
     Stack on entry:  [cursor]
     Stack on exit:   [new_cursor]
     """
-    return (
-        Op.DUP1      # [cursor, cursor]
-        + Op.SLOAD   # [next, cursor]
-        + Op.SWAP1
-        + Op.POP     # [next]
-    )
+    return Op.DUP1 + Op.SLOAD + Op.SWAP1 + Op.POP
 
 
 def create_pointer_chase_contract(
@@ -58,44 +53,11 @@ def create_pointer_chase_contract(
     2. Loop while GAS > threshold: cursor = SLOAD(cursor)
     3. SSTORE(CURSOR_SLOT, cursor)
     """
-    setup = cursor_read()  # stack: [cursor]
-
-    header = (
-        Op.JUMPDEST
-        + Op.GAS
-        + Op.PUSH3(gas_threshold)
-        + Op.GT
-        + Op.ISZERO
+    return gas_check_loop_contract(
+        setup=cursor_read(),
+        body=_chase_body(),
+        gas_threshold=gas_threshold,
     )
-    body = _chase_body()
-    loop_end = (
-        len(setup) + len(header)
-        + 3 + 1         # PUSH2(loop_end) + JUMPI
-        + len(body)
-        + 3 + 1         # PUSH2(loop_start) + JUMP
-    )
-    loop_start = len(setup)
-
-    loop = (
-        header
-        + Op.PUSH2(loop_end)
-        + Op.JUMPI
-        + body
-        + Op.PUSH2(loop_start)
-        + Op.JUMP
-    )
-
-    teardown = (
-        Op.JUMPDEST
-        + cursor_write()
-        + Op.STOP
-    )
-    return setup + loop + teardown
-
-
-def _setup_gas(fork: Fork) -> int:
-    """Gas for the setup phase (cold SLOAD of CURSOR_SLOT)."""
-    return cursor_read().gas_cost(fork)
 
 
 def test_bal_max_pointer_chase(
@@ -108,7 +70,7 @@ def test_bal_max_pointer_chase(
     plan = plan_benchmark(
         fork,
         loop_body_gas=body_gas,
-        setup_gas=_setup_gas(fork),
+        setup_gas=cursor_read().gas_cost(fork),
     )
     total = plan.total_iterations
     storage = Storage(
@@ -118,7 +80,6 @@ def test_bal_max_pointer_chase(
     run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        fork=fork,
         contract_code=create_pointer_chase_contract(
             plan.gas_threshold
         ),
@@ -138,7 +99,7 @@ def test_bal_pointer_chase_simple(
     plan = plan_benchmark(
         fork,
         loop_body_gas=body_gas,
-        setup_gas=_setup_gas(fork),
+        setup_gas=cursor_read().gas_cost(fork),
         num_transactions=2,
         tx_gas_limit=500_000,
     )
@@ -150,7 +111,6 @@ def test_bal_pointer_chase_simple(
     run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        fork=fork,
         contract_code=create_pointer_chase_contract(
             plan.gas_threshold
         ),

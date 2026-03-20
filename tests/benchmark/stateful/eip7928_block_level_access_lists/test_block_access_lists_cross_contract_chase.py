@@ -82,25 +82,22 @@ def create_chain_contract() -> Bytecode:
     """
     Create contract that reads slot 0 and CALLs that address.
 
-    Reads next_addr from slot 0, CALLs it with remaining gas.
+    Reads next_addr from slot 0; if zero (sentinel) skips the CALL.
     """
-    end = 0x16
+    check = (
+        Op.PUSH1(0x00) + Op.SLOAD + Op.DUP1 + Op.ISZERO
+    )
+    call_body = (
+        Op.PUSH1(0x00) + Op.PUSH1(0x00) + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00) + Op.PUSH1(0x00)
+        + Op.DUP6 + Op.GAS + Op.CALL + Op.POP
+    )
+    end = len(check) + 2 + 1 + len(call_body)  # +PUSH1+JUMPI
     return (
-        Op.PUSH1(0x00)
-        + Op.SLOAD
-        + Op.DUP1
-        + Op.ISZERO
+        check
         + Op.PUSH1(end)
         + Op.JUMPI
-        + Op.PUSH1(0x00)
-        + Op.PUSH1(0x00)
-        + Op.PUSH1(0x00)
-        + Op.PUSH1(0x00)
-        + Op.PUSH1(0x00)
-        + Op.DUP6
-        + Op.GAS
-        + Op.CALL
-        + Op.POP
+        + call_body
         + Op.JUMPDEST
         + Op.STOP
     )

@@ -14,14 +14,13 @@ from execution_testing import (
     BenchmarkTestFiller,
     Bytecode,
     Fork,
-    Op,
     Storage,
 )
 
 from .helpers import (
     CURSOR_SLOT,
     cursor_read,
-    cursor_write,
+    gas_check_loop_contract,
     plan_benchmark,
     run_bal_benchmark,
     sload_loop_body,
@@ -43,49 +42,11 @@ def create_sload_loop_contract(gas_threshold: int) -> Bytecode:
          SLOAD(cursor); cursor++
     3. SSTORE(CURSOR_SLOT, cursor)
     """
-    setup = cursor_read()  # stack: [cursor]
-
-    # Gas-check loop header.
-    header = (
-        Op.JUMPDEST
-        + Op.GAS
-        + Op.PUSH3(gas_threshold)
-        + Op.GT
-        + Op.ISZERO
+    return gas_check_loop_contract(
+        setup=cursor_read(),
+        body=sload_loop_body(),
+        gas_threshold=gas_threshold,
     )
-    # loop_end offset: setup + header + PUSH2 + JUMPI + body + PUSH2 + JUMP
-    body = sload_loop_body()
-    loop_end = (
-        len(setup)
-        + len(header)
-        + 3  # PUSH2(loop_end)
-        + 1  # JUMPI
-        + len(body)
-        + 3  # PUSH2(loop_start)
-        + 1  # JUMP
-    )
-    loop_start = len(setup)
-
-    loop = (
-        header
-        + Op.PUSH2(loop_end)
-        + Op.JUMPI
-        + body
-        + Op.PUSH2(loop_start)
-        + Op.JUMP
-    )
-
-    teardown = (
-        Op.JUMPDEST  # loop_end
-        + cursor_write()
-        + Op.STOP
-    )
-    return setup + loop + teardown
-
-
-def _setup_gas(fork: Fork) -> int:
-    """Gas for the setup phase (cold SLOAD of CURSOR_SLOT)."""
-    return cursor_read().gas_cost(fork)
 
 
 def test_bal_max_sloads(
@@ -98,7 +59,7 @@ def test_bal_max_sloads(
     plan = plan_benchmark(
         fork,
         loop_body_gas=body_gas,
-        setup_gas=_setup_gas(fork),
+        setup_gas=cursor_read().gas_cost(fork),
     )
     total = plan.total_iterations
     storage = Storage(
@@ -108,7 +69,6 @@ def test_bal_max_sloads(
     run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        fork=fork,
         contract_code=create_sload_loop_contract(
             plan.gas_threshold
         ),
@@ -128,7 +88,7 @@ def test_bal_sloads_loop_simple(
     plan = plan_benchmark(
         fork,
         loop_body_gas=body_gas,
-        setup_gas=_setup_gas(fork),
+        setup_gas=cursor_read().gas_cost(fork),
         num_transactions=2,
         tx_gas_limit=500_000,
     )
@@ -140,7 +100,6 @@ def test_bal_sloads_loop_simple(
     run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        fork=fork,
         contract_code=create_sload_loop_contract(
             plan.gas_threshold
         ),

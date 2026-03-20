@@ -26,7 +26,7 @@ from .helpers import (
     COMPUTE_ITERS_SLOT,
     CURSOR_SLOT,
     cursor_read,
-    cursor_write,
+    gas_check_loop_contract,
     plan_benchmark,
     run_bal_benchmark,
     sload_loop_body,
@@ -39,12 +39,12 @@ REFERENCE_SPEC_VERSION = ref_spec_7928.version
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
 
-def _compute_loop_iteration(
+def _compute_loop(
     loop_start: int = 0,
     loop_end: int = 0,
 ) -> Bytecode:
     """
-    Return bytecode for one compute loop iteration.
+    Return the fixed-count compute loop (accumulator * 3 + 7).
 
     Pass loop_start/loop_end for contract assembly; omit them
     (defaults to 0) when calling ``.gas_cost(fork)``.
@@ -81,89 +81,43 @@ def create_compute_then_sload_contract(
     4. SLOAD loop (gas-check): SLOAD(cursor + i)
     5. SSTORE(CURSOR_SLOT, cursor)
     """
-    # 1-2. Read cursor and compute_iters.
-    # stack after: [compute_iters, cursor]
+    # Read cursor, compute_iters, init accumulator.
+    # stack after: [acc=1, iters, cursor]
     setup = (
         cursor_read()
         + Op.PUSH3(COMPUTE_ITERS_SLOT)
         + Op.SLOAD
-        # Compute loop: accumulator = 1
         + Op.PUSH1(0x01)
-        # stack: [acc, iters, cursor]
     )
 
-    # Compute loop (fixed-count, counter-based).
+    # Compute loop with resolved jump targets.
     compute_start = len(setup)
-    compute_end = compute_start + len(_compute_loop_iteration())
-    compute_loop = _compute_loop_iteration(
-        compute_start, compute_end
-    )
+    compute_end = compute_start + len(_compute_loop())
+    compute = _compute_loop(compute_start, compute_end)
 
-    # Transition: drop compute results, prepare SLOAD loop.
-    transition = (
-        Op.JUMPDEST  # compute_end
-        + Op.POP     # drop iters=0
-        + Op.POP     # drop accumulator
-        # stack: [cursor]
-    )
+    # Drop compute results → stack: [cursor]
+    transition = Op.JUMPDEST + Op.POP + Op.POP
 
-    # Gas-check SLOAD loop.
-    sload_body = sload_loop_body()
-    sload_base = compute_end + len(transition)
-
-    sload_header = (
-        Op.JUMPDEST
-        + Op.GAS
-        + Op.PUSH3(gas_threshold)
-        + Op.GT
-        + Op.ISZERO
-    )
-    sload_loop_end = (
-        sload_base + len(sload_header)
-        + 3 + 1           # PUSH2(loop_end) + JUMPI
-        + len(sload_body)
-        + 3 + 1           # PUSH2(loop_start) + JUMP
-    )
-    sload_loop_start = sload_base
-
-    sload_loop = (
-        sload_header
-        + Op.PUSH2(sload_loop_end)
-        + Op.JUMPI
-        + sload_body
-        + Op.PUSH2(sload_loop_start)
-        + Op.JUMP
-    )
-
-    teardown = (
-        Op.JUMPDEST
-        + cursor_write()
-        + Op.STOP
-    )
-    return (
-        setup + compute_loop + transition + sload_loop + teardown
+    # Gas-check SLOAD loop built by helper.
+    return gas_check_loop_contract(
+        setup=setup + compute + transition,
+        body=sload_loop_body(),
+        gas_threshold=gas_threshold,
     )
 
 
 def _setup_gas(fork: Fork, compute_iters: int) -> int:
-    """
-    Gas for setup + fixed compute phase.
-
-    Includes cursor SLOAD, compute_iters SLOAD, accumulator
-    init, full compute loop, and transition to SLOAD phase.
-    """
+    """Gas for setup + fixed compute phase before the SLOAD loop."""
     base = (
         cursor_read()
         + Op.PUSH3(COMPUTE_ITERS_SLOT)
         + Op.SLOAD
     )
-    acc_init = Op.PUSH1(0x01)
-    compute_iter_gas = _compute_loop_iteration().gas_cost(fork)
     transition = Op.JUMPDEST + Op.POP + Op.POP
     return (
         base.gas_cost(fork)
-        + acc_init.gas_cost(fork)
-        + compute_iters * compute_iter_gas
+        + Op.PUSH1(0x01).gas_cost(fork)
+        + compute_iters * _compute_loop().gas_cost(fork)
         + transition.gas_cost(fork)
     )
 
@@ -177,8 +131,7 @@ def _compute_iters_for_percent(
     intrinsic = fork.gas_costs().G_TRANSACTION
     available = tx_gas - intrinsic
     compute_gas = int(available * compute_percent / 100)
-    gas_per_compute = _compute_loop_iteration().gas_cost(fork)
-    return compute_gas // gas_per_compute
+    return compute_gas // _compute_loop().gas_cost(fork)
 
 
 @pytest.mark.parametrize(
@@ -216,7 +169,6 @@ def test_bal_compute_then_sload(
     run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        fork=fork,
         contract_code=create_compute_then_sload_contract(
             plan.gas_threshold
         ),
@@ -263,7 +215,6 @@ def test_bal_compute_then_sload_simple(
     run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        fork=fork,
         contract_code=create_compute_then_sload_contract(
             plan.gas_threshold
         ),
