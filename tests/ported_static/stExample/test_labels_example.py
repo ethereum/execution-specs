@@ -50,8 +50,8 @@ def _tx_data(d: int) -> bytes:
     [
         pytest.param(0, 0, 0, id="case0"),
         pytest.param(1, 0, 0, id="case1"),
-        pytest.param(2, 0, 0, id="case2"),
-        pytest.param(3, 0, 0, id="case3"),
+        pytest.param(3, 0, 0, id="case2"),
+        pytest.param(2, 0, 0, id="case3"),
     ],
 )
 @pytest.mark.pre_alloc_mutable
@@ -116,7 +116,7 @@ def test_labels_example(
             },
         },
         {
-            "indexes": {"data": 2, "gas": 0, "value": 0},
+            "indexes": {"data": 3, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -128,7 +128,7 @@ def test_labels_example(
             },
         },
         {
-            "indexes": {"data": 3, "gas": 0, "value": 0},
+            "indexes": {"data": 2, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(

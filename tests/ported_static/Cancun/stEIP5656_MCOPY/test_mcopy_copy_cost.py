@@ -26,68 +26,36 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
     "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001f",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001f",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aedf",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aedf",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aee0",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aee0",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aee1",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aee1",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001f",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001f",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000aedf",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000aedf",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000aee0",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000aee0",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000aee1",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000aee1",  # noqa: E501
     "000000000000000000000000000000000000000000000000000000000000001f0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-    "000000000000000000000000000000000000000000000000000000000000001f0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-    "000000000000000000000000000000000000000000000000000000000000001f0000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
     "000000000000000000000000000000000000000000000000000000000000001f0000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
     "000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000001f",  # noqa: E501
-    "000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000001f",  # noqa: E501
-    "000000000000000000000000000000000000000000000000000000000000001f0000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
     "000000000000000000000000000000000000000000000000000000000000001f0000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
     "000000000000000000000000000000000000000000000000000000000000001f0000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
-    "000000000000000000000000000000000000000000000000000000000000001f0000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
-    "000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000aedf",  # noqa: E501
     "000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000aedf",  # noqa: E501
     "000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000aee0",  # noqa: E501
-    "000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000aee0",  # noqa: E501
-    "000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000aee1",  # noqa: E501
     "000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000aee1",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001f",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001f",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
     "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
-    "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000021",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000aedf",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000aedf",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000aee0",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000aee0",  # noqa: E501
-    "0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000aee1",  # noqa: E501
     "0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000aee1",  # noqa: E501
 ]
 
@@ -111,69 +79,69 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(0, 0, 0, id="case0"),
-        pytest.param(1, 1, 0, id="case1"),
-        pytest.param(2, 0, 0, id="case2"),
-        pytest.param(3, 1, 0, id="case3"),
-        pytest.param(4, 0, 0, id="case4"),
-        pytest.param(5, 1, 0, id="case5"),
-        pytest.param(6, 0, 0, id="case6"),
-        pytest.param(7, 1, 0, id="case7"),
-        pytest.param(8, 0, 0, id="case8"),
-        pytest.param(9, 1, 0, id="case9"),
-        pytest.param(10, 0, 0, id="case10"),
-        pytest.param(11, 1, 0, id="case11"),
-        pytest.param(12, 0, 0, id="case12"),
-        pytest.param(13, 1, 0, id="case13"),
-        pytest.param(14, 0, 0, id="case14"),
-        pytest.param(15, 1, 0, id="case15"),
-        pytest.param(16, 0, 0, id="case16"),
-        pytest.param(17, 1, 0, id="case17"),
-        pytest.param(18, 0, 0, id="case18"),
-        pytest.param(19, 1, 0, id="case19"),
-        pytest.param(20, 0, 0, id="case20"),
-        pytest.param(21, 1, 0, id="case21"),
-        pytest.param(22, 0, 0, id="case22"),
-        pytest.param(23, 1, 0, id="case23"),
-        pytest.param(24, 0, 0, id="case24"),
-        pytest.param(25, 1, 0, id="case25"),
-        pytest.param(26, 0, 0, id="case26"),
-        pytest.param(27, 1, 0, id="case27"),
-        pytest.param(28, 0, 0, id="case28"),
-        pytest.param(29, 1, 0, id="case29"),
-        pytest.param(30, 0, 0, id="case30"),
-        pytest.param(31, 1, 0, id="case31"),
-        pytest.param(32, 0, 0, id="case32"),
-        pytest.param(33, 1, 0, id="case33"),
-        pytest.param(34, 0, 0, id="case34"),
-        pytest.param(35, 1, 0, id="case35"),
-        pytest.param(36, 0, 0, id="case36"),
-        pytest.param(37, 1, 0, id="case37"),
-        pytest.param(38, 0, 0, id="case38"),
-        pytest.param(39, 1, 0, id="case39"),
-        pytest.param(40, 0, 0, id="case40"),
-        pytest.param(41, 1, 0, id="case41"),
-        pytest.param(42, 0, 0, id="case42"),
-        pytest.param(43, 1, 0, id="case43"),
-        pytest.param(44, 0, 0, id="case44"),
-        pytest.param(45, 1, 0, id="case45"),
-        pytest.param(46, 0, 0, id="case46"),
-        pytest.param(47, 1, 0, id="case47"),
-        pytest.param(48, 0, 0, id="case48"),
-        pytest.param(49, 1, 0, id="case49"),
-        pytest.param(50, 0, 0, id="case50"),
-        pytest.param(51, 1, 0, id="case51"),
-        pytest.param(52, 0, 0, id="case52"),
-        pytest.param(53, 1, 0, id="case53"),
-        pytest.param(54, 0, 0, id="case54"),
-        pytest.param(55, 1, 0, id="case55"),
-        pytest.param(56, 0, 0, id="case56"),
-        pytest.param(57, 1, 0, id="case57"),
-        pytest.param(58, 0, 0, id="case58"),
-        pytest.param(59, 1, 0, id="case59"),
-        pytest.param(60, 0, 0, id="case60"),
-        pytest.param(61, 1, 0, id="case61"),
-        pytest.param(62, 0, 0, id="case62"),
-        pytest.param(63, 1, 0, id="case63"),
+        pytest.param(0, 1, 0, id="case1"),
+        pytest.param(1, 0, 0, id="case2"),
+        pytest.param(1, 1, 0, id="case3"),
+        pytest.param(2, 0, 0, id="case4"),
+        pytest.param(2, 1, 0, id="case5"),
+        pytest.param(3, 0, 0, id="case6"),
+        pytest.param(3, 1, 0, id="case7"),
+        pytest.param(4, 0, 0, id="case8"),
+        pytest.param(4, 1, 0, id="case9"),
+        pytest.param(5, 0, 0, id="case10"),
+        pytest.param(5, 1, 0, id="case11"),
+        pytest.param(6, 0, 0, id="case12"),
+        pytest.param(6, 1, 0, id="case13"),
+        pytest.param(7, 0, 0, id="case14"),
+        pytest.param(7, 1, 0, id="case15"),
+        pytest.param(8, 0, 0, id="case16"),
+        pytest.param(8, 1, 0, id="case17"),
+        pytest.param(9, 0, 0, id="case18"),
+        pytest.param(9, 1, 0, id="case19"),
+        pytest.param(10, 0, 0, id="case20"),
+        pytest.param(10, 1, 0, id="case21"),
+        pytest.param(11, 0, 0, id="case22"),
+        pytest.param(11, 1, 0, id="case23"),
+        pytest.param(12, 0, 0, id="case24"),
+        pytest.param(12, 1, 0, id="case25"),
+        pytest.param(13, 0, 0, id="case26"),
+        pytest.param(13, 1, 0, id="case27"),
+        pytest.param(14, 0, 0, id="case28"),
+        pytest.param(14, 1, 0, id="case29"),
+        pytest.param(15, 0, 0, id="case30"),
+        pytest.param(15, 1, 0, id="case31"),
+        pytest.param(16, 0, 0, id="case32"),
+        pytest.param(16, 1, 0, id="case33"),
+        pytest.param(17, 0, 0, id="case34"),
+        pytest.param(17, 1, 0, id="case35"),
+        pytest.param(18, 0, 0, id="case36"),
+        pytest.param(18, 1, 0, id="case37"),
+        pytest.param(19, 0, 0, id="case38"),
+        pytest.param(19, 1, 0, id="case39"),
+        pytest.param(20, 0, 0, id="case40"),
+        pytest.param(20, 1, 0, id="case41"),
+        pytest.param(21, 0, 0, id="case42"),
+        pytest.param(21, 1, 0, id="case43"),
+        pytest.param(22, 0, 0, id="case44"),
+        pytest.param(22, 1, 0, id="case45"),
+        pytest.param(23, 0, 0, id="case46"),
+        pytest.param(23, 1, 0, id="case47"),
+        pytest.param(24, 0, 0, id="case48"),
+        pytest.param(24, 1, 0, id="case49"),
+        pytest.param(25, 0, 0, id="case50"),
+        pytest.param(25, 1, 0, id="case51"),
+        pytest.param(26, 0, 0, id="case52"),
+        pytest.param(26, 1, 0, id="case53"),
+        pytest.param(27, 0, 0, id="case54"),
+        pytest.param(27, 1, 0, id="case55"),
+        pytest.param(28, 0, 0, id="case56"),
+        pytest.param(28, 1, 0, id="case57"),
+        pytest.param(29, 0, 0, id="case58"),
+        pytest.param(29, 1, 0, id="case59"),
+        pytest.param(30, 0, 0, id="case60"),
+        pytest.param(30, 1, 0, id="case61"),
+        pytest.param(31, 0, 0, id="case62"),
+        pytest.param(31, 1, 0, id="case63"),
     ],
 )
 @pytest.mark.pre_alloc_mutable
@@ -251,6 +219,30 @@ def test_mcopy_copy_cost(
             },
         },
         {
+            "indexes": {"data": 0, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
             "indexes": {"data": 1, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
@@ -264,6 +256,30 @@ def test_mcopy_copy_cost(
         },
         {
             "indexes": {"data": 2, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 3, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -299,6 +315,30 @@ def test_mcopy_copy_cost(
             },
         },
         {
+            "indexes": {"data": 4, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 5, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
             "indexes": {"data": 5, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
@@ -312,6 +352,30 @@ def test_mcopy_copy_cost(
         },
         {
             "indexes": {"data": 6, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 6, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 7, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -347,6 +411,30 @@ def test_mcopy_copy_cost(
             },
         },
         {
+            "indexes": {"data": 8, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 9, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
             "indexes": {"data": 9, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
@@ -360,6 +448,30 @@ def test_mcopy_copy_cost(
         },
         {
             "indexes": {"data": 10, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 10, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 11, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -395,7 +507,7 @@ def test_mcopy_copy_cost(
             },
         },
         {
-            "indexes": {"data": 13, "gas": 1, "value": 0},
+            "indexes": {"data": 12, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -403,6 +515,29 @@ def test_mcopy_copy_cost(
                     code=bytes.fromhex(
                         "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
                     ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 13, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 13, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    )
                 )
             },
         },
@@ -419,7 +554,18 @@ def test_mcopy_copy_cost(
             },
         },
         {
-            "indexes": {"data": 15, "gas": 1, "value": 0},
+            "indexes": {"data": 14, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    )
+                )
+            },
+        },
+        {
+            "indexes": {"data": 15, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -431,7 +577,42 @@ def test_mcopy_copy_cost(
             },
         },
         {
+            "indexes": {"data": 15, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    )
+                )
+            },
+        },
+        {
             "indexes": {"data": 16, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 16, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 17, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -467,6 +648,30 @@ def test_mcopy_copy_cost(
             },
         },
         {
+            "indexes": {"data": 18, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 19, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
             "indexes": {"data": 19, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
@@ -491,7 +696,7 @@ def test_mcopy_copy_cost(
             },
         },
         {
-            "indexes": {"data": 21, "gas": 1, "value": 0},
+            "indexes": {"data": 20, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -499,6 +704,29 @@ def test_mcopy_copy_cost(
                     code=bytes.fromhex(
                         "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
                     ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 21, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 21, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    )
                 )
             },
         },
@@ -515,7 +743,18 @@ def test_mcopy_copy_cost(
             },
         },
         {
-            "indexes": {"data": 23, "gas": 1, "value": 0},
+            "indexes": {"data": 22, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    )
+                )
+            },
+        },
+        {
+            "indexes": {"data": 23, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -527,7 +766,42 @@ def test_mcopy_copy_cost(
             },
         },
         {
+            "indexes": {"data": 23, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    )
+                )
+            },
+        },
+        {
             "indexes": {"data": 24, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 24, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 25, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -563,18 +837,67 @@ def test_mcopy_copy_cost(
             },
         },
         {
+            "indexes": {"data": 26, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 27, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
             "indexes": {"data": 27, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
+                    storage={0: 1},
                     code=bytes.fromhex(
                         "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    )
+                    ),
                 )
             },
         },
         {
             "indexes": {"data": 28, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 28, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 29, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -609,385 +932,30 @@ def test_mcopy_copy_cost(
             },
         },
         {
+            "indexes": {"data": 30, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    )
+                )
+            },
+        },
+        {
+            "indexes": {"data": 31, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
             "indexes": {"data": 31, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    )
-                )
-            },
-        },
-        {
-            "indexes": {"data": 32, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 33, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 34, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 35, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 36, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 37, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 38, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 39, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 40, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 41, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 42, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 43, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    )
-                )
-            },
-        },
-        {
-            "indexes": {"data": 44, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 45, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    )
-                )
-            },
-        },
-        {
-            "indexes": {"data": 46, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 47, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    )
-                )
-            },
-        },
-        {
-            "indexes": {"data": 48, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 49, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 50, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 51, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 52, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 53, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 54, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 55, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 56, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 57, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 58, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 59, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    )
-                )
-            },
-        },
-        {
-            "indexes": {"data": 60, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 61, "gas": 1, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    )
-                )
-            },
-        },
-        {
-            "indexes": {"data": 62, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "600c565b8282825e505050565b60015f55600161af005260226020355f355f6003565b"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
-            "indexes": {"data": 63, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(

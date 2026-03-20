@@ -1,1 +1,1 @@
-"""Tests ported from test_final."""
+"""Tests ported from tests/static."""

@@ -26,12 +26,12 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
+    "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd03641411fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
     "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd03641421fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
     "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
+    "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413fefffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
     "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",  # noqa: E501
     "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142",  # noqa: E501
-    "",
-    "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001cfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd03641411fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804",  # noqa: E501
     "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140",  # noqa: E501
     "917694f918c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c000000000000000000000000000000000000000000000000000000000000001c48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413f",  # noqa: E501
 ]
@@ -55,11 +55,11 @@ def _tx_data(d: int) -> bytes:
 @pytest.mark.parametrize(
     "d, g, v",
     [
-        pytest.param(0, 0, 0, id="case0"),
-        pytest.param(1, 0, 0, id="case1"),
-        pytest.param(2, 0, 0, id="case2"),
-        pytest.param(3, 0, 0, id="case3"),
-        pytest.param(5, 0, 0, id="case4"),
+        pytest.param(1, 0, 0, id="case0"),
+        pytest.param(2, 0, 0, id="case1"),
+        pytest.param(4, 0, 0, id="case2"),
+        pytest.param(5, 0, 0, id="case3"),
+        pytest.param(0, 0, 0, id="case4"),
         pytest.param(3, 0, 0, id="case5"),
         pytest.param(6, 0, 0, id="case6"),
         pytest.param(7, 0, 0, id="case7"),
@@ -123,18 +123,6 @@ def test_call_ecrecover_overflow(
 
     EXPECT_ENTRIES: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 1},
-                    code=bytes.fromhex(
-                        "6080600460003760206080806000806001610bb8f160005560805160015500"  # noqa: E501
-                    ),
-                )
-            },
-        },
-        {
             "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
@@ -159,7 +147,7 @@ def test_call_ecrecover_overflow(
             },
         },
         {
-            "indexes": {"data": 3, "gas": 0, "value": 0},
+            "indexes": {"data": 4, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -172,6 +160,18 @@ def test_call_ecrecover_overflow(
         },
         {
             "indexes": {"data": 5, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "6080600460003760206080806000806001610bb8f160005560805160015500"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(

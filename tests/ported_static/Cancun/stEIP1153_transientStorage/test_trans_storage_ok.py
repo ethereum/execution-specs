@@ -33,14 +33,14 @@ TX_DATA = [
     "5114e2c8000000000000000000000000000000000000000000000000000000000000000a",
     "5114e2c80000000000000000000000000000000000000000000000000000000000000032",
     "264bb86a0000000000000000000000000000000000000000000000000000000000000006",
+    "7074a4860000000000000000000000000000000000000000000000000000000000000006",
+    "7f9317bd",
+    "c54b5829f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f1f1",
+    "c54b5829f1f1f1f1f2f2f2f2f4f4f4f4f1f1f1f1f2f2f2f2f4f4f4f4f1f1f1f1f2f2f2f2",
+    "c54b5829f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
+    "c54b5829f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
     "c54b5829f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
     "c54b5829f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "c54b5829f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f2f4f1f1f1",
     "5d7935df",
 ]
 
@@ -67,12 +67,12 @@ def _tx_data(d: int) -> bytes:
         pytest.param(4, 0, 0, id="case1"),
         pytest.param(5, 0, 0, id="case2"),
         pytest.param(1, 0, 0, id="case3"),
-        pytest.param(4, 0, 0, id="case4"),
-        pytest.param(5, 0, 0, id="case5"),
-        pytest.param(6, 0, 0, id="case6"),
-        pytest.param(7, 0, 0, id="case7"),
-        pytest.param(8, 0, 0, id="case8"),
-        pytest.param(14, 0, 0, id="case9"),
+        pytest.param(10, 0, 0, id="case4"),
+        pytest.param(11, 0, 0, id="case5"),
+        pytest.param(12, 0, 0, id="case6"),
+        pytest.param(13, 0, 0, id="case7"),
+        pytest.param(14, 0, 0, id="case8"),
+        pytest.param(9, 0, 0, id="case9"),
         pytest.param(7, 0, 0, id="case10"),
         pytest.param(2, 0, 0, id="case11"),
         pytest.param(8, 0, 0, id="case12"),
@@ -1570,7 +1570,7 @@ def test_trans_storage_ok(
             },
         },
         {
-            "indexes": {"data": 4, "gas": 0, "value": 0},
+            "indexes": {"data": 10, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 callee: Account(
@@ -1646,7 +1646,7 @@ def test_trans_storage_ok(
             },
         },
         {
-            "indexes": {"data": 5, "gas": 0, "value": 0},
+            "indexes": {"data": 11, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 callee: Account(
@@ -1722,7 +1722,7 @@ def test_trans_storage_ok(
             },
         },
         {
-            "indexes": {"data": 6, "gas": 0, "value": 0},
+            "indexes": {"data": 12, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 callee: Account(
@@ -1798,83 +1798,7 @@ def test_trans_storage_ok(
             },
         },
         {
-            "indexes": {"data": 7, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                callee: Account(
-                    code=bytes.fromhex(
-                        "366012575b600b5f6020565b5f5260205ff35b601c6160a75f6024565b6004565b5c90565b5d56"  # noqa: E501
-                    )
-                ),
-                callee_1: Account(
-                    code=bytes.fromhex(
-                        "60106001600a5f6012565b015f6016565b005b5c90565b5d56"
-                    )
-                ),
-                callee_2: Account(
-                    code=bytes.fromhex(
-                        "3033146033575b303303600e57005b601b5f35806001555f608d565b5f80808080305af1600255602e60016089565b600355005b603a5f6089565b8015608757604a600182035f608d565b5f80808080305af1156083576001606191035f608d565b5f80808080305af115608357607f60016078816089565b016001608d565b6006565b5f80fd5b005b5c90565b5d56"  # noqa: E501
-                    )
-                ),
-                callee_3: Account(
-                    code=bytes.fromhex(
-                        "63ca11bacc3314603f575b63ca11bacc3303601657005b60235f35806001555f607f565b5f8080808063ca11bacc5af1600255603a6001607b565b600355005b60465f607b565b80156079576001816060606693605a84607b565b0183607f565b035f607f565b5f8080808063ca11bacc5af1600a575f80fd5b005b5c90565b5d56"  # noqa: E501
-                    )
-                ),
-                callee_4: Account(
-                    storage={2: 24743, 18: 24743},
-                    code=bytes.fromhex(
-                        "60205f600181806157a75af16010555f515f555f805260205f80806157a75afa6011555f516001555f805260205f6001816157a75afa6012555f5160025500"  # noqa: E501
-                    ),
-                ),
-                callee_5: Account(
-                    code=bytes.fromhex(
-                        "3033146033575b303303600e57005b601b5f35806001555f606f565b5f80808080305af1600255602e6001606b565b600355005b603a5f606b565b80156069576001816054605a93604e84606b565b0183606f565b035f606f565b5f80808080305af26006575f80fd5b005b5c90565b5d56"  # noqa: E501
-                    )
-                ),
-                callee_6: Account(
-                    code=bytes.fromhex(
-                        "3033146033575b303303600e57005b601b5f35806001555f608c565b5f80808080305af1600255602e60016088565b600355005b603a5f6088565b8015608657604a600182035f608c565b5f80808080305af2156082576001606191035f608c565b5f808080305af415608257607e60016077816088565b016001608c565b6006565b5f80fd5b005b5c90565b5d56"  # noqa: E501
-                    )
-                ),
-                callee_7: Account(
-                    storage={0: 24743},
-                    code=bytes.fromhex(
-                        "60065f604e565b5f555f8080808061add15af2601155601c5f604e565b6001555f80808061add15af460125560325f604e565b6002555f8080808061add15af160135560495f604e565b600355005b5c9056"  # noqa: E501
-                    ),
-                ),
-                callee_8: Account(
-                    code=bytes.fromhex(
-                        "3033146033575b303303600e57005b601b5f35806001555f606e565b5f80808080305af1600255602e6001606a565b600355005b603a5f606a565b80156068576001816054605a93604e84606a565b0183606e565b035f606e565b5f808080305af46006575f80fd5b005b5c90565b5d56"  # noqa: E501
-                    )
-                ),
-                callee_9: Account(
-                    storage={0: 2},
-                    code=bytes.fromhex(
-                        "36156081573330036074575b5f3560f81c5f355f5260013603906001908060f1146064578060f21460545760f4146046575b5050333003603b57005b60425f6094565b5f55005b5f918291305af4505f806031565b505f91829182305af2505f806031565b505f91829182305af1505f806031565b607d60015f6098565b600b565b60926001608c5f6094565b015f6098565b005b5c90565b5d56"  # noqa: E501
-                    ),
-                ),
-                callee_10: Account(
-                    storage={0: 24743, 1: 24743},
-                    code=bytes.fromhex(
-                        "60065f601d565b5f5560106001601d565b6001555f80808080335af1005b5c9056"  # noqa: E501
-                    ),
-                ),
-                callee_11: Account(
-                    code=bytes.fromhex(
-                        "3033146033575b303303600e57005b601b5f35806001555f606f565b5f80808080305af1600255602e6001606b565b600355005b603a5f606b565b80156069576001816054605a93604e84606b565b0183606f565b035f606f565b5f80808080305af16006575f80fd5b005b5c90565b5d56"  # noqa: E501
-                    )
-                ),
-                contract: Account(
-                    storage={0: 0xC54B5829, 1: 1},
-                    code=bytes.fromhex(
-                        "5f8060208180803560e01c60043581835582525af160015500"
-                    ),
-                ),
-            },
-        },
-        {
-            "indexes": {"data": 8, "gas": 0, "value": 0},
+            "indexes": {"data": 13, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 callee: Account(
@@ -1951,6 +1875,82 @@ def test_trans_storage_ok(
         },
         {
             "indexes": {"data": 14, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "366012575b600b5f6020565b5f5260205ff35b601c6160a75f6024565b6004565b5c90565b5d56"  # noqa: E501
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "60106001600a5f6012565b015f6016565b005b5c90565b5d56"
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "3033146033575b303303600e57005b601b5f35806001555f608d565b5f80808080305af1600255602e60016089565b600355005b603a5f6089565b8015608757604a600182035f608d565b5f80808080305af1156083576001606191035f608d565b5f80808080305af115608357607f60016078816089565b016001608d565b6006565b5f80fd5b005b5c90565b5d56"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "63ca11bacc3314603f575b63ca11bacc3303601657005b60235f35806001555f607f565b5f8080808063ca11bacc5af1600255603a6001607b565b600355005b60465f607b565b80156079576001816060606693605a84607b565b0183607f565b035f607f565b5f8080808063ca11bacc5af1600a575f80fd5b005b5c90565b5d56"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    storage={2: 24743, 18: 24743},
+                    code=bytes.fromhex(
+                        "60205f600181806157a75af16010555f515f555f805260205f80806157a75afa6011555f516001555f805260205f6001816157a75afa6012555f5160025500"  # noqa: E501
+                    ),
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "3033146033575b303303600e57005b601b5f35806001555f606f565b5f80808080305af1600255602e6001606b565b600355005b603a5f606b565b80156069576001816054605a93604e84606b565b0183606f565b035f606f565b5f80808080305af26006575f80fd5b005b5c90565b5d56"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "3033146033575b303303600e57005b601b5f35806001555f608c565b5f80808080305af1600255602e60016088565b600355005b603a5f6088565b8015608657604a600182035f608c565b5f80808080305af2156082576001606191035f608c565b5f808080305af415608257607e60016077816088565b016001608c565b6006565b5f80fd5b005b5c90565b5d56"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    storage={0: 24743},
+                    code=bytes.fromhex(
+                        "60065f604e565b5f555f8080808061add15af2601155601c5f604e565b6001555f80808061add15af460125560325f604e565b6002555f8080808061add15af160135560495f604e565b600355005b5c9056"  # noqa: E501
+                    ),
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "3033146033575b303303600e57005b601b5f35806001555f606e565b5f80808080305af1600255602e6001606a565b600355005b603a5f606a565b80156068576001816054605a93604e84606a565b0183606e565b035f606e565b5f808080305af46006575f80fd5b005b5c90565b5d56"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    storage={0: 2},
+                    code=bytes.fromhex(
+                        "36156081573330036074575b5f3560f81c5f355f5260013603906001908060f1146064578060f21460545760f4146046575b5050333003603b57005b60425f6094565b5f55005b5f918291305af4505f806031565b505f91829182305af2505f806031565b505f91829182305af1505f806031565b607d60015f6098565b600b565b60926001608c5f6094565b015f6098565b005b5c90565b5d56"  # noqa: E501
+                    ),
+                ),
+                callee_10: Account(
+                    storage={0: 24743, 1: 24743},
+                    code=bytes.fromhex(
+                        "60065f601d565b5f5560106001601d565b6001555f80808080335af1005b5c9056"  # noqa: E501
+                    ),
+                ),
+                callee_11: Account(
+                    code=bytes.fromhex(
+                        "3033146033575b303303600e57005b601b5f35806001555f606f565b5f80808080305af1600255602e6001606b565b600355005b603a5f606b565b80156069576001816054605a93604e84606b565b0183606f565b035f606f565b5f80808080305af16006575f80fd5b005b5c90565b5d56"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 0xC54B5829, 1: 1},
+                    code=bytes.fromhex(
+                        "5f8060208180803560e01c60043581835582525af160015500"
+                    ),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 9, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 callee: Account(

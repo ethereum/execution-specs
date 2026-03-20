@@ -31,14 +31,14 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
+    "f110011002",
     "f210011002",
     "f410011002",
-    "f110011002",
-    "fa1001c0de",
-    "",
+    "fa10011002",
+    "f11001c0de",
     "f21001c0de",
     "f41001c0de",
-    "fa10011002",
+    "fa1001c0de",
 ]
 
 TX_GAS = [16777216]
@@ -60,14 +60,14 @@ def _tx_data(d: int) -> bytes:
 @pytest.mark.parametrize(
     "d, g, v",
     [
-        pytest.param(0, 0, 0, id="case0"),
-        pytest.param(1, 0, 0, id="case1"),
-        pytest.param(2, 0, 0, id="case2"),
-        pytest.param(3, 0, 0, id="case3"),
-        pytest.param(7, 0, 0, id="case4"),
+        pytest.param(1, 0, 0, id="case0"),
+        pytest.param(2, 0, 0, id="case1"),
+        pytest.param(0, 0, 0, id="case2"),
+        pytest.param(7, 0, 0, id="case3"),
+        pytest.param(3, 0, 0, id="case4"),
         pytest.param(5, 0, 0, id="case5"),
         pytest.param(6, 0, 0, id="case6"),
-        pytest.param(6, 0, 0, id="case7"),
+        pytest.param(4, 0, 0, id="case7"),
     ],
 )
 @pytest.mark.pre_alloc_mutable
@@ -211,17 +211,6 @@ def test_double_selfdestruct_test(
 
     EXPECT_ENTRIES: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0, "value": 0},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    code=bytes.fromhex(
-                        "6002361160175760003560f01c36600214601557005bff5b60003560f81c60fa61ffff60003560e81c169160ff61ffff60003560d81c16818160081c166000531660015360f181146090575b60f28114607f575b60f48114606f575b14606157ff5b60008060028161c0de5afa50ff5b60008060028161c0de5af450605b565b6000806002818061c0de5af2506053565b6000806002818061c0de5af150604b56"  # noqa: E501
-                    )
-                )
-            },
-        },
-        {
             "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
@@ -244,7 +233,7 @@ def test_double_selfdestruct_test(
             },
         },
         {
-            "indexes": {"data": 3, "gas": 0, "value": 0},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -256,6 +245,17 @@ def test_double_selfdestruct_test(
         },
         {
             "indexes": {"data": 7, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6002361160175760003560f01c36600214601557005bff5b60003560f81c60fa61ffff60003560e81c169160ff61ffff60003560d81c16818160081c166000531660015360f181146090575b60f28114607f575b60f48114606f575b14606157ff5b60008060028161c0de5afa50ff5b60008060028161c0de5af450605b565b6000806002818061c0de5af2506053565b6000806002818061c0de5af150604b56"  # noqa: E501
+                    )
+                )
+            },
+        },
+        {
+            "indexes": {"data": 3, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -288,7 +288,7 @@ def test_double_selfdestruct_test(
             },
         },
         {
-            "indexes": {"data": 6, "gas": 0, "value": 0},
+            "indexes": {"data": 4, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(

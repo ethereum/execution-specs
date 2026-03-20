@@ -1562,13 +1562,36 @@ def generate_test_file(
     if all_d_zero and filler_tx_arrays:
         # extract_case_indices failed (label-based keys).
         # Match fixture key labels against filler label map.
-        label_to_d: dict[str, int] = {}
+        label_to_d: dict[str, list[int]] = {}
         for d_idx, filler_entry in enumerate(
             filler_tx_arrays.get("data", [])
         ):
             m = re.match(r"^:label\s+(\S+)", str(filler_entry).strip())
             if m:
-                label_to_d[m.group(1)] = d_idx
+                label_to_d.setdefault(m.group(1), []).append(d_idx)
+
+        def _resolve_label_d(label: str) -> int | None:
+            """Match a fixture key label against the filler label map."""
+            # Strip -dN/-gN/-vN suffixes (already parsed by
+            # extract_case_indices) before label matching.
+            cleaned = re.sub(r"(?:-[dgv]\d+)+$", "", label)
+
+            # Exact match: unique label → first (only) d-index
+            if cleaned in label_to_d:
+                return label_to_d[cleaned][0]
+            # Pytest deduplication: "fail-N" means the Nth entry with
+            # label "fail". Bare "fail" = 1st, "fail-2" = 2nd, etc.
+            m_suffix = re.match(r"(.+)-(\d+)$", cleaned)
+            if m_suffix:
+                prefix = m_suffix.group(1)
+                nth = int(m_suffix.group(2))
+                if prefix in label_to_d:
+                    d_list = label_to_d[prefix]
+                    # "fail-2" = 2nd entry (0-based index 1)
+                    pos = nth - 1
+                    if 0 <= pos < len(d_list):
+                        return d_list[pos]
+            return None
 
         for i, (key, _test) in enumerate(raw_cases):
             # Extract label from fixture key: "[...-<label>]"
@@ -1576,8 +1599,9 @@ def generate_test_file(
             if not lm:
                 # Try other formats: [fork_X-blockchain_test...-<label>]
                 lm = re.search(r"-([^-\[\]]+)\]$", key)
-            if lm and lm.group(1) in label_to_d:
-                d = label_to_d[lm.group(1)]
+            d_resolved = _resolve_label_d(lm.group(1)) if lm else None
+            if d_resolved is not None:
+                d = d_resolved
             else:
                 # Fall back to position-based assignment
                 d = i
