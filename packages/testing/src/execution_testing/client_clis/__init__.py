@@ -7,9 +7,18 @@ from .cli_types import (
     BlockExceptionWithMessage,
     LazyAlloc,
     Result,
+    TraceFieldDiff,
     Traces,
     TransactionExceptionWithMessage,
     TransitionToolOutput,
+)
+from .trace_comparators import (
+    TraceComparator,
+    TraceComparatorType,
+    TraceComparisonResult,
+    TraceDifference,
+    TransactionCountMismatch,
+    create_comparator,
 )
 from .clis.besu import BesuFixtureConsumer, BesuTransitionTool
 from .clis.ethereumjs import EthereumJSTransitionTool
@@ -49,9 +58,16 @@ __all__ = (
     "NethtestFixtureConsumer",
     "NimbusTransitionTool",
     "Result",
+    "TraceComparator",
+    "TraceComparatorType",
+    "TraceComparisonResult",
+    "TraceDifference",
+    "TraceFieldDiff",
     "Traces",
+    "TransactionCountMismatch",
     "TransactionExceptionWithMessage",
     "TransitionTool",
     "TransitionToolOutput",
     "UnknownCLIError",
+    "create_comparator",
 )
