@@ -52,13 +52,7 @@ def default_teardown() -> Bytecode:
 
 def sload_loop_body() -> Bytecode:
     """SLOAD(cursor) then cursor++ (result discarded)."""
-    return (
-        Op.DUP1
-        + Op.SLOAD
-        + Op.POP
-        + Op.PUSH1(0x01)
-        + Op.ADD
-    )
+    return Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(0x01) + Op.ADD
 
 
 def gas_check_loop_contract(
@@ -78,18 +72,15 @@ def gas_check_loop_contract(
         teardown = default_teardown()
 
     loop_start = len(setup)
-    header = (
-        Op.JUMPDEST
-        + Op.GAS
-        + Op.PUSH3(gas_threshold)
-        + Op.GT
-        + Op.ISZERO
-    )
+    header = Op.JUMPDEST + Op.GAS + Op.PUSH3(gas_threshold) + Op.GT + Op.ISZERO
     loop_end = (
-        loop_start + len(header)
-        + 3 + 1          # PUSH2(loop_end) + JUMPI
+        loop_start
+        + len(header)
+        + 3
+        + 1  # PUSH2(loop_end) + JUMPI
         + len(body)
-        + 3 + 1          # PUSH2(loop_start) + JUMP
+        + 3
+        + 1  # PUSH2(loop_start) + JUMP
     )
 
     return (
@@ -135,8 +126,13 @@ def plan_benchmark(
 
     # All gas costs derived from bytecode.
     loop_header = (
-        Op.JUMPDEST + Op.GAS + Op.PUSH3(0)
-        + Op.GT + Op.ISZERO + Op.PUSH2(0) + Op.JUMPI
+        Op.JUMPDEST
+        + Op.GAS
+        + Op.PUSH3(0)
+        + Op.GT
+        + Op.ISZERO
+        + Op.PUSH2(0)
+        + Op.JUMPI
     )
     loop_footer = Op.PUSH2(0) + Op.JUMP
     overhead = loop_header.gas_cost(fork) + loop_footer.gas_cost(fork)
@@ -147,8 +143,7 @@ def plan_benchmark(
     iteration_gas = loop_body_gas + overhead
     intrinsic_gas = fork.gas_costs().G_TRANSACTION
     min_useful = (
-        intrinsic_gas + setup_gas
-        + gas_threshold + gas_opcode_offset + 1
+        intrinsic_gas + setup_gas + gas_threshold + gas_opcode_offset + 1
     )
 
     # Build per-tx gas limits.
@@ -173,9 +168,8 @@ def plan_benchmark(
         if avail <= gas_threshold + gas_opcode_offset:
             return 0
         return (
-            (avail - gas_threshold - gas_opcode_offset - 1)
-            // iteration_gas + 1
-        )
+            avail - gas_threshold - gas_opcode_offset - 1
+        ) // iteration_gas + 1
 
     iters = [_iters(g) for g in gas_limits]
     return BenchmarkPlan(
@@ -194,9 +188,7 @@ def run_bal_benchmark(
     plan: BenchmarkPlan,
     data_slot_reads: list[int] | None = None,
     post_contract: Account | None = None,
-    extra_expectations: (
-        dict[Address, BalAccountExpectation] | None
-    ) = None,
+    extra_expectations: (dict[Address, BalAccountExpectation] | None) = None,
 ) -> None:
     """Deploy contract, create txs, BAL expectations, and run."""
     contract = pre.deploy_contract(
@@ -260,9 +252,7 @@ def run_bal_benchmark(
 
     # Post-state.
     if post_contract is None:
-        final = dict(
-            contract_storage
-        )  # type: ignore[arg-type]
+        final = dict(contract_storage)  # type: ignore[arg-type]
         final[CURSOR_SLOT] = CURSOR_INIT + plan.total_iterations
         post_contract = Account(storage=Storage(final))
 

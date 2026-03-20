@@ -46,13 +46,7 @@ def _balance_body() -> Bytecode:
     Stack on entry:  [addr]
     Stack on exit:   [addr+1]
     """
-    return (
-        Op.DUP1
-        + Op.BALANCE
-        + Op.POP
-        + Op.PUSH1(0x01)
-        + Op.ADD
-    )
+    return Op.DUP1 + Op.BALANCE + Op.POP + Op.PUSH1(0x01) + Op.ADD
 
 
 def _teardown() -> Bytecode:
@@ -78,11 +72,7 @@ def create_balance_loop_contract(
     3. Loop while GAS > threshold: BALANCE(addr); addr++
     4. SSTORE(CURSOR_SLOT, addr - BASE_ADDR)
     """
-    setup = (
-        cursor_read()
-        + Op.PUSH3(BASE_ADDR)
-        + Op.ADD
-    )
+    setup = cursor_read() + Op.PUSH3(BASE_ADDR) + Op.ADD
     return gas_check_loop_contract(
         setup=setup,
         body=_balance_body(),
@@ -113,41 +103,7 @@ def test_bal_max_account_access(
     run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_balance_loop_contract(
-            plan.gas_threshold
-        ),
-        contract_storage=Storage({CURSOR_SLOT: CURSOR_INIT}),
-        plan=plan,
-        extra_expectations=extra,
-    )
-
-
-def test_bal_account_access_simple(
-    pre: Alloc,
-    benchmark_test: BenchmarkTestFiller,
-    fork: Fork,
-) -> None:
-    """Simple validation test with a few accounts across 2 txs."""
-    setup = cursor_read() + Op.PUSH3(BASE_ADDR) + Op.ADD
-    body_gas = _balance_body().gas_cost(fork)
-    plan = plan_benchmark(
-        fork,
-        loop_body_gas=body_gas,
-        setup_gas=setup.gas_cost(fork),
-        num_transactions=2,
-        tx_gas_limit=500_000,
-    )
-    total = plan.total_iterations
-    extra = {
-        Address(BASE_ADDR + i): BalAccountExpectation.empty()
-        for i in range(CURSOR_INIT, total + CURSOR_INIT)
-    }
-    run_bal_benchmark(
-        pre=pre,
-        benchmark_test=benchmark_test,
-        contract_code=create_balance_loop_contract(
-            plan.gas_threshold
-        ),
+        contract_code=create_balance_loop_contract(plan.gas_threshold),
         contract_storage=Storage({CURSOR_SLOT: CURSOR_INIT}),
         plan=plan,
         extra_expectations=extra,

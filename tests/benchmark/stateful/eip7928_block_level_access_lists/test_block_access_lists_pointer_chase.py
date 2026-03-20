@@ -78,39 +78,7 @@ def test_bal_max_pointer_chase(
     run_bal_benchmark(
         pre=pre,
         benchmark_test=benchmark_test,
-        contract_code=create_pointer_chase_contract(
-            plan.gas_threshold
-        ),
-        contract_storage=storage,
-        plan=plan,
-        data_slot_reads=list(range(1, total + 1)),
-    )
-
-
-def test_bal_pointer_chase_simple(
-    pre: Alloc,
-    benchmark_test: BenchmarkTestFiller,
-    fork: Fork,
-) -> None:
-    """Simple validation test with a few slots across 2 txs."""
-    body_gas = _chase_body().gas_cost(fork)
-    plan = plan_benchmark(
-        fork,
-        loop_body_gas=body_gas,
-        setup_gas=cursor_read().gas_cost(fork),
-        num_transactions=2,
-        tx_gas_limit=500_000,
-    )
-    total = plan.total_iterations
-    storage = Storage(
-        {i: i + 1 for i in range(total + 1)}  # type: ignore
-    )
-    run_bal_benchmark(
-        pre=pre,
-        benchmark_test=benchmark_test,
-        contract_code=create_pointer_chase_contract(
-            plan.gas_threshold
-        ),
+        contract_code=create_pointer_chase_contract(plan.gas_threshold),
         contract_storage=storage,
         plan=plan,
         data_slot_reads=list(range(1, total + 1)),

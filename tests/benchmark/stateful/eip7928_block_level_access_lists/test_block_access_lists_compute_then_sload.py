@@ -38,14 +38,7 @@ def _compute_step() -> Bytecode:
 
     Uses cursor on stack: DUP, multiply by 3, add 7, discard.
     """
-    return (
-        Op.DUP1
-        + Op.PUSH1(0x03)
-        + Op.MUL
-        + Op.PUSH1(0x07)
-        + Op.ADD
-        + Op.POP
-    )
+    return Op.DUP1 + Op.PUSH1(0x03) + Op.MUL + Op.PUSH1(0x07) + Op.ADD + Op.POP
 
 
 def _compute_steps_for_percent(
@@ -56,10 +49,7 @@ def _compute_steps_for_percent(
     sload_gas = sload_loop_body().gas_cost(fork)
     step_gas = _compute_step().gas_cost(fork)
     # N = pct * sload_gas / (step_gas * (100 - pct))
-    n = (
-        compute_percent * sload_gas
-        / (step_gas * (100 - compute_percent))
-    )
+    n = compute_percent * sload_gas / (step_gas * (100 - compute_percent))
     return max(1, round(n))
 
 
