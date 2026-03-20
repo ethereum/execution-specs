@@ -10,6 +10,7 @@ from execution_testing import (
     Address,
     Alloc,
     Bytecode,
+    Fork,
     Op,
     Transaction,
 )
@@ -80,7 +81,7 @@ class WithdrawalRequestInteractionBase:
     requests: List[WithdrawalRequest]
     """Withdrawal request to be included in the block."""
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the withdrawal request."""
         raise NotImplementedError
 
@@ -105,8 +106,9 @@ class WithdrawalRequestTransaction(WithdrawalRequestInteractionBase):
     owned account.
     """
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the withdrawal request."""
+        del fork
         assert self.sender_account is not None, (
             "Sender account not initialized"
         )
@@ -190,12 +192,18 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
             current_offset += len(r.calldata)
         return code + self.extra_code
 
-    def transactions(self) -> List[Transaction]:
+    def transactions(self, fork: Fork | None = None) -> List[Transaction]:
         """Return a transaction for the withdrawal request."""
         assert self.entry_address is not None, "Entry address not initialized"
+        gas_limit = self.tx_gas_limit
+        if fork is not None and fork.is_eip_enabled(eip_number=8037):
+            # Each withdrawal request writes 3 new storage slots
+            # in the system contract queue (source, pubkey, amount).
+            gas_costs = fork.gas_costs()
+            gas_limit += len(self.requests) * 3 * gas_costs.GAS_STORAGE_SET
         return [
             Transaction(
-                gas_limit=self.tx_gas_limit,
+                gas_limit=gas_limit,
                 gas_price=1_000_000_000,
                 to=self.entry_address,
                 value=0,
