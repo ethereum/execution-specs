@@ -128,7 +128,7 @@ def blocks(
             assert not block_included_requests
         blocks.append(
             Block(
-                txs=sum((r.transactions() for r in block_requests), []),
+                txs=sum((r.transactions(fork) for r in block_requests), []),
                 header_verify=header_verify,
                 timestamp=timestamp,
             )
