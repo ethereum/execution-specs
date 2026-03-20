@@ -472,7 +472,7 @@ def stub_accounts(
     request: pytest.FixtureRequest,
 ) -> Dict[str, Account]:
     """Return stub accounts pre-populated during configuration."""
-    return getattr(request.config, "stub_accounts", {})  # type: ignore
+    return getattr(request.config, "stub_accounts", {})
 
 
 @pytest.fixture(scope="function")
