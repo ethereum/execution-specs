@@ -32,7 +32,6 @@ from execution_testing import (
 )
 
 CURSOR_SLOT = 0x100000
-COMPUTE_ITERS_SLOT = 0x100002
 
 
 def cursor_read() -> Bytecode:
