@@ -15,12 +15,9 @@ from functools import partial
 
 from ethereum_types.numeric import U256, Uint
 
-from .. import Evm, gas, stack
+from .. import Evm, stack
 from ..exceptions import StackUnderflowError
-from ..gas import (
-    GAS_BASE,
-    charge_gas,
-)
+from ..gas import GasCosts, charge_gas
 from ..memory import buffer_read
 
 
@@ -38,7 +35,7 @@ def pop(evm: Evm) -> None:
     stack.pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.GAS_BASE)
 
     # OPERATION
     pass
@@ -66,9 +63,9 @@ def push_n(evm: Evm, num_bytes: int) -> None:
 
     # GAS
     if num_bytes == 0:
-        charge_gas(evm, GAS_BASE)
+        charge_gas(evm, GasCosts.GAS_BASE)
     else:
-        charge_gas(evm, gas.GAS_OPCODE_PUSH_N)
+        charge_gas(evm, GasCosts.GAS_OPCODE_PUSH_N)
 
     # OPERATION
     data_to_push = U256.from_be_bytes(
@@ -98,7 +95,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
     pass
 
     # GAS
-    charge_gas(evm, gas.GAS_OPCODE_DUP)
+    charge_gas(evm, GasCosts.GAS_OPCODE_DUP)
     if item_number >= len(evm.stack):
         raise StackUnderflowError
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
@@ -130,7 +127,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
     pass
 
     # GAS
-    charge_gas(evm, gas.GAS_OPCODE_SWAP)
+    charge_gas(evm, GasCosts.GAS_OPCODE_SWAP)
     if item_number >= len(evm.stack):
         raise StackUnderflowError
     evm.stack[-1], evm.stack[-1 - item_number] = (
