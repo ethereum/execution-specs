@@ -14,9 +14,9 @@ Implementations of the EVM Memory instructions.
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U256, Uint
 
-from .. import Evm, gas
+from .. import Evm
 from ..gas import (
-    GAS_BASE,
+    GasCosts,
     calculate_gas_extend_memory,
     charge_gas,
 )
@@ -45,7 +45,7 @@ def mstore(evm: Evm) -> None:
         evm.memory, [(start_position, U256(len(value)))]
     )
 
-    charge_gas(evm, gas.GAS_OPCODE_MSTORE + extend_memory.cost)
+    charge_gas(evm, GasCosts.GAS_OPCODE_MSTORE + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -76,7 +76,7 @@ def mstore8(evm: Evm) -> None:
         evm.memory, [(start_position, U256(1))]
     )
 
-    charge_gas(evm, gas.GAS_OPCODE_MSTORE8 + extend_memory.cost)
+    charge_gas(evm, GasCosts.GAS_OPCODE_MSTORE8 + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -104,7 +104,7 @@ def mload(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(start_position, U256(32))]
     )
-    charge_gas(evm, gas.GAS_OPCODE_MLOAD + extend_memory.cost)
+    charge_gas(evm, GasCosts.GAS_OPCODE_MLOAD + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -131,7 +131,7 @@ def msize(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.GAS_BASE)
 
     # OPERATION
     push(evm.stack, U256(len(evm.memory)))
