@@ -24,105 +24,113 @@ from ..transactions import BlobTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
 
-GAS_JUMPDEST = Uint(1)
-GAS_BASE = Uint(2)
-GAS_VERY_LOW = Uint(3)
-GAS_STORAGE_SET = Uint(20000)
-GAS_COLD_STORAGE_WRITE = Uint(5000)
-REFUND_STORAGE_CLEAR = 4800
-GAS_LOW = Uint(5)
-GAS_MID = Uint(8)
-GAS_HIGH = Uint(10)
-GAS_EXPONENTIATION = Uint(10)
-GAS_EXPONENTIATION_PER_BYTE = Uint(50)
-GAS_MEMORY = Uint(3)
-GAS_KECCAK256 = Uint(30)
-GAS_KECCAK256_PER_WORD = Uint(6)
-GAS_COPY = Uint(3)
-GAS_BLOCK_HASH = Uint(20)
-GAS_LOG = Uint(375)
-GAS_LOG_DATA_PER_BYTE = Uint(8)
-GAS_LOG_TOPIC = Uint(375)
-GAS_CREATE = Uint(32000)
-GAS_CODE_DEPOSIT_PER_BYTE = Uint(200)
-GAS_ZERO = Uint(0)
-GAS_NEW_ACCOUNT = Uint(25000)
-GAS_CALL_VALUE = Uint(9000)
-GAS_CALL_STIPEND = Uint(2300)
-GAS_SELF_DESTRUCT = Uint(5000)
-GAS_SELF_DESTRUCT_NEW_ACCOUNT = Uint(25000)
-GAS_PRECOMPILE_ECRECOVER = Uint(3000)
-GAS_PRECOMPILE_P256VERIFY = Uint(6900)
-GAS_PRECOMPILE_SHA256_BASE = Uint(60)
-GAS_PRECOMPILE_SHA256_PER_WORD = Uint(12)
-GAS_PRECOMPILE_RIPEMD160_BASE = Uint(600)
-GAS_PRECOMPILE_RIPEMD160_PER_WORD = Uint(120)
-GAS_PRECOMPILE_IDENTITY_BASE = Uint(15)
-GAS_PRECOMPILE_IDENTITY_PER_WORD = Uint(3)
-GAS_RETURN_DATA_COPY = Uint(3)
-GAS_FAST_STEP = Uint(5)
-GAS_PRECOMPILE_BLAKE2F_PER_ROUND = Uint(1)
-GAS_COLD_STORAGE_ACCESS = Uint(2100)
-GAS_COLD_ACCOUNT_ACCESS = Uint(2600)
-GAS_WARM_ACCESS = Uint(100)
-GAS_CODE_INIT_PER_WORD = Uint(2)
-GAS_BLOBHASH = Uint(3)
-GAS_POINT_EVALUATION = Uint(50000)
 
-GAS_PER_BLOB = U64(2**17)
-BLOB_SCHEDULE_TARGET = U64(14)
-BLOB_TARGET_GAS_PER_BLOCK = GAS_PER_BLOB * BLOB_SCHEDULE_TARGET
-BLOB_BASE_COST = Uint(2**13)
-BLOB_SCHEDULE_MAX = U64(21)
-BLOB_MIN_GASPRICE = Uint(1)
-BLOB_BASE_FEE_UPDATE_FRACTION = Uint(11684671)
+class GasCosts:
+    """
+    Constant gas values for the BPO (Blob Parameter Only) 3 fork of the EVM.
 
-GAS_PRECOMPILE_BLS_G1ADD = Uint(375)
-GAS_PRECOMPILE_BLS_G1MUL = Uint(12000)
-GAS_PRECOMPILE_BLS_G1MAP = Uint(5500)
-GAS_PRECOMPILE_BLS_G2ADD = Uint(600)
-GAS_PRECOMPILE_BLS_G2MUL = Uint(22500)
-GAS_PRECOMPILE_BLS_G2MAP = Uint(23800)
+    These values may be patched at runtime by a future gas repricing utility
+    """
 
-# Opcode specific vars used for repricing
-GAS_OPCODE_ADD = GAS_VERY_LOW
-GAS_OPCODE_SUB = GAS_VERY_LOW
-GAS_OPCODE_MUL = GAS_LOW
-GAS_OPCODE_DIV = GAS_LOW
-GAS_OPCODE_SDIV = GAS_LOW
-GAS_OPCODE_MOD = GAS_LOW
-GAS_OPCODE_SMOD = GAS_LOW
-GAS_OPCODE_ADDMOD = GAS_MID
-GAS_OPCODE_MULMOD = GAS_MID
-GAS_OPCODE_SIGNEXTEND = GAS_LOW
-GAS_OPCODE_LT = GAS_VERY_LOW
-GAS_OPCODE_GT = GAS_VERY_LOW
-GAS_OPCODE_SLT = GAS_VERY_LOW
-GAS_OPCODE_SGT = GAS_VERY_LOW
-GAS_OPCODE_EQ = GAS_VERY_LOW
-GAS_OPCODE_ISZERO = GAS_VERY_LOW
-GAS_OPCODE_AND = GAS_VERY_LOW
-GAS_OPCODE_OR = GAS_VERY_LOW
-GAS_OPCODE_XOR = GAS_VERY_LOW
-GAS_OPCODE_NOT = GAS_VERY_LOW
-GAS_OPCODE_BYTE = GAS_VERY_LOW
-GAS_OPCODE_SHL = GAS_VERY_LOW
-GAS_OPCODE_SHR = GAS_VERY_LOW
-GAS_OPCODE_SAR = GAS_VERY_LOW
-GAS_OPCODE_CLZ = GAS_LOW
-GAS_OPCODE_JUMP = GAS_MID
-GAS_OPCODE_JUMPI = GAS_HIGH
-GAS_OPCODE_CALLDATALOAD = GAS_VERY_LOW
-GAS_OPCODE_CALLDATACOPY = GAS_VERY_LOW
-GAS_OPCODE_CODECOPY = GAS_VERY_LOW
-GAS_OPCODE_RETURNDATACOPY = GAS_VERY_LOW
-GAS_OPCODE_MLOAD = GAS_VERY_LOW
-GAS_OPCODE_MSTORE = GAS_VERY_LOW
-GAS_OPCODE_MSTORE8 = GAS_VERY_LOW
-GAS_OPCODE_MCOPY = GAS_VERY_LOW
-GAS_OPCODE_PUSH_N = GAS_VERY_LOW
-GAS_OPCODE_DUP = GAS_VERY_LOW
-GAS_OPCODE_SWAP = GAS_VERY_LOW
+    GAS_JUMPDEST = Uint(1)
+    GAS_BASE = Uint(2)
+    GAS_VERY_LOW = Uint(3)
+    GAS_STORAGE_SET = Uint(20000)
+    GAS_COLD_STORAGE_WRITE = Uint(5000)
+    REFUND_STORAGE_CLEAR = 4800
+    GAS_LOW = Uint(5)
+    GAS_MID = Uint(8)
+    GAS_HIGH = Uint(10)
+    GAS_EXPONENTIATION = Uint(10)
+    GAS_EXPONENTIATION_PER_BYTE = Uint(50)
+    GAS_MEMORY = Uint(3)
+    GAS_KECCAK256 = Uint(30)
+    GAS_KECCAK256_PER_WORD = Uint(6)
+    GAS_COPY = Uint(3)
+    GAS_BLOCK_HASH = Uint(20)
+    GAS_LOG = Uint(375)
+    GAS_LOG_DATA_PER_BYTE = Uint(8)
+    GAS_LOG_TOPIC = Uint(375)
+    GAS_CREATE = Uint(32000)
+    GAS_CODE_DEPOSIT_PER_BYTE = Uint(200)
+    GAS_ZERO = Uint(0)
+    GAS_NEW_ACCOUNT = Uint(25000)
+    GAS_CALL_VALUE = Uint(9000)
+    GAS_CALL_STIPEND = Uint(2300)
+    GAS_SELF_DESTRUCT = Uint(5000)
+    GAS_SELF_DESTRUCT_NEW_ACCOUNT = Uint(25000)
+    GAS_PRECOMPILE_ECRECOVER = Uint(3000)
+    GAS_PRECOMPILE_P256VERIFY = Uint(6900)
+    GAS_PRECOMPILE_SHA256_BASE = Uint(60)
+    GAS_PRECOMPILE_SHA256_PER_WORD = Uint(12)
+    GAS_PRECOMPILE_RIPEMD160_BASE = Uint(600)
+    GAS_PRECOMPILE_RIPEMD160_PER_WORD = Uint(120)
+    GAS_PRECOMPILE_IDENTITY_BASE = Uint(15)
+    GAS_PRECOMPILE_IDENTITY_PER_WORD = Uint(3)
+    GAS_RETURN_DATA_COPY = Uint(3)
+    GAS_FAST_STEP = Uint(5)
+    GAS_PRECOMPILE_BLAKE2F_PER_ROUND = Uint(1)
+    GAS_COLD_STORAGE_ACCESS = Uint(2100)
+    GAS_COLD_ACCOUNT_ACCESS = Uint(2600)
+    GAS_WARM_ACCESS = Uint(100)
+    GAS_CODE_INIT_PER_WORD = Uint(2)
+    GAS_BLOBHASH = Uint(3)
+    GAS_POINT_EVALUATION = Uint(50000)
+
+    GAS_PER_BLOB = U64(2**17)
+    BLOB_SCHEDULE_TARGET = U64(14)
+    BLOB_TARGET_GAS_PER_BLOCK = GAS_PER_BLOB * BLOB_SCHEDULE_TARGET
+    BLOB_BASE_COST = Uint(2**13)
+    BLOB_SCHEDULE_MAX = U64(21)
+    BLOB_MIN_GASPRICE = Uint(1)
+    BLOB_BASE_FEE_UPDATE_FRACTION = Uint(11684671)
+
+    GAS_PRECOMPILE_BLS_G1ADD = Uint(375)
+    GAS_PRECOMPILE_BLS_G1MUL = Uint(12000)
+    GAS_PRECOMPILE_BLS_G1MAP = Uint(5500)
+    GAS_PRECOMPILE_BLS_G2ADD = Uint(600)
+    GAS_PRECOMPILE_BLS_G2MUL = Uint(22500)
+    GAS_PRECOMPILE_BLS_G2MAP = Uint(23800)
+
+    # Opcode specific vars used for repricing
+    GAS_OPCODE_ADD = GAS_VERY_LOW
+    GAS_OPCODE_SUB = GAS_VERY_LOW
+    GAS_OPCODE_MUL = GAS_LOW
+    GAS_OPCODE_DIV = GAS_LOW
+    GAS_OPCODE_SDIV = GAS_LOW
+    GAS_OPCODE_MOD = GAS_LOW
+    GAS_OPCODE_SMOD = GAS_LOW
+    GAS_OPCODE_ADDMOD = GAS_MID
+    GAS_OPCODE_MULMOD = GAS_MID
+    GAS_OPCODE_SIGNEXTEND = GAS_LOW
+    GAS_OPCODE_LT = GAS_VERY_LOW
+    GAS_OPCODE_GT = GAS_VERY_LOW
+    GAS_OPCODE_SLT = GAS_VERY_LOW
+    GAS_OPCODE_SGT = GAS_VERY_LOW
+    GAS_OPCODE_EQ = GAS_VERY_LOW
+    GAS_OPCODE_ISZERO = GAS_VERY_LOW
+    GAS_OPCODE_AND = GAS_VERY_LOW
+    GAS_OPCODE_OR = GAS_VERY_LOW
+    GAS_OPCODE_XOR = GAS_VERY_LOW
+    GAS_OPCODE_NOT = GAS_VERY_LOW
+    GAS_OPCODE_BYTE = GAS_VERY_LOW
+    GAS_OPCODE_SHL = GAS_VERY_LOW
+    GAS_OPCODE_SHR = GAS_VERY_LOW
+    GAS_OPCODE_SAR = GAS_VERY_LOW
+    GAS_OPCODE_CLZ = GAS_LOW
+    GAS_OPCODE_JUMP = GAS_MID
+    GAS_OPCODE_JUMPI = GAS_HIGH
+    GAS_OPCODE_CALLDATALOAD = GAS_VERY_LOW
+    GAS_OPCODE_CALLDATACOPY = GAS_VERY_LOW
+    GAS_OPCODE_CODECOPY = GAS_VERY_LOW
+    GAS_OPCODE_RETURNDATACOPY = GAS_VERY_LOW
+    GAS_OPCODE_MLOAD = GAS_VERY_LOW
+    GAS_OPCODE_MSTORE = GAS_VERY_LOW
+    GAS_OPCODE_MSTORE8 = GAS_VERY_LOW
+    GAS_OPCODE_MCOPY = GAS_VERY_LOW
+    GAS_OPCODE_PUSH_N = GAS_VERY_LOW
+    GAS_OPCODE_DUP = GAS_VERY_LOW
+    GAS_OPCODE_SWAP = GAS_VERY_LOW
 
 
 @dataclass
@@ -196,7 +204,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
 
     """
     size_in_words = ceil32(size_in_bytes) // Uint(32)
-    linear_cost = size_in_words * GAS_MEMORY
+    linear_cost = size_in_words * GasCosts.GAS_MEMORY
     quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
     try:
@@ -251,7 +259,7 @@ def calculate_message_call_gas(
     gas_left: Uint,
     memory_cost: Uint,
     extra_gas: Uint,
-    call_stipend: Uint = GAS_CALL_STIPEND,
+    call_stipend: Uint = GasCosts.GAS_CALL_STIPEND,
 ) -> MessageCallGas:
     """
     Calculates the MessageCallGas (cost and gas made available to the sub-call)
@@ -323,7 +331,9 @@ def init_code_cost(init_code_length: Uint) -> Uint:
         The gas to be charged for the init code.
 
     """
-    return GAS_CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
+    return (
+        GasCosts.GAS_CODE_INIT_PER_WORD * ceil32(init_code_length) // Uint(32)
+    )
 
 
 def calculate_excess_blob_gas(parent_header: Header) -> U64:
@@ -354,21 +364,23 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
         base_fee_per_gas = parent_header.base_fee_per_gas
 
     parent_blob_gas = excess_blob_gas + blob_gas_used
-    if parent_blob_gas < BLOB_TARGET_GAS_PER_BLOCK:
+    if parent_blob_gas < GasCosts.BLOB_TARGET_GAS_PER_BLOCK:
         return U64(0)
 
-    target_blob_gas_price = Uint(GAS_PER_BLOB)
+    target_blob_gas_price = Uint(GasCosts.GAS_PER_BLOB)
     target_blob_gas_price *= calculate_blob_gas_price(excess_blob_gas)
 
-    base_blob_tx_price = BLOB_BASE_COST * base_fee_per_gas
+    base_blob_tx_price = GasCosts.BLOB_BASE_COST * base_fee_per_gas
     if base_blob_tx_price > target_blob_gas_price:
-        blob_schedule_delta = BLOB_SCHEDULE_MAX - BLOB_SCHEDULE_TARGET
+        blob_schedule_delta = (
+            GasCosts.BLOB_SCHEDULE_MAX - GasCosts.BLOB_SCHEDULE_TARGET
+        )
         return (
             excess_blob_gas
-            + blob_gas_used * blob_schedule_delta // BLOB_SCHEDULE_MAX
+            + blob_gas_used * blob_schedule_delta // GasCosts.BLOB_SCHEDULE_MAX
         )
 
-    return parent_blob_gas - BLOB_TARGET_GAS_PER_BLOCK
+    return parent_blob_gas - GasCosts.BLOB_TARGET_GAS_PER_BLOCK
 
 
 def calculate_total_blob_gas(tx: Transaction) -> U64:
@@ -387,7 +399,7 @@ def calculate_total_blob_gas(tx: Transaction) -> U64:
 
     """
     if isinstance(tx, BlobTransaction):
-        return GAS_PER_BLOB * U64(len(tx.blob_versioned_hashes))
+        return GasCosts.GAS_PER_BLOB * U64(len(tx.blob_versioned_hashes))
     else:
         return U64(0)
 
@@ -408,9 +420,9 @@ def calculate_blob_gas_price(excess_blob_gas: U64) -> Uint:
 
     """
     return taylor_exponential(
-        BLOB_MIN_GASPRICE,
+        GasCosts.BLOB_MIN_GASPRICE,
         Uint(excess_blob_gas),
-        BLOB_BASE_FEE_UPDATE_FRACTION,
+        GasCosts.BLOB_BASE_FEE_UPDATE_FRACTION,
     )
 
 

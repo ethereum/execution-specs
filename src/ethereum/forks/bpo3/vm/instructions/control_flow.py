@@ -13,12 +13,7 @@ Implementations of the EVM control flow instructions.
 
 from ethereum_types.numeric import U256, Uint
 
-from ...vm import gas
-from ...vm.gas import (
-    GAS_BASE,
-    GAS_JUMPDEST,
-    charge_gas,
-)
+from ...vm.gas import GasCosts, charge_gas
 from .. import Evm
 from ..exceptions import InvalidJumpDestError
 from ..stack import pop, push
@@ -62,7 +57,7 @@ def jump(evm: Evm) -> None:
     jump_dest = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, gas.GAS_OPCODE_JUMP)
+    charge_gas(evm, GasCosts.GAS_OPCODE_JUMP)
 
     # OPERATION
     if jump_dest not in evm.valid_jump_destinations:
@@ -89,7 +84,7 @@ def jumpi(evm: Evm) -> None:
     conditional_value = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, gas.GAS_OPCODE_JUMPI)
+    charge_gas(evm, GasCosts.GAS_OPCODE_JUMPI)
 
     # OPERATION
     if conditional_value == 0:
@@ -118,7 +113,7 @@ def pc(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.GAS_BASE)
 
     # OPERATION
     push(evm.stack, U256(evm.pc))
@@ -142,7 +137,7 @@ def gas_left(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_BASE)
+    charge_gas(evm, GasCosts.GAS_BASE)
 
     # OPERATION
     push(evm.stack, U256(evm.gas_left))
@@ -167,7 +162,7 @@ def jumpdest(evm: Evm) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GAS_JUMPDEST)
+    charge_gas(evm, GasCosts.GAS_JUMPDEST)
 
     # OPERATION
     pass
