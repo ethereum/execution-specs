@@ -91,7 +91,7 @@ class Txs:
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.successfully_parsed: List[int] = []
-        self.transactions: List[Tuple[Uint, Any]] = []
+        self.transactions: List[Any] = []
         self.rejected_txs = {}
         self.rlp_input = False
         self.all_txs = []
