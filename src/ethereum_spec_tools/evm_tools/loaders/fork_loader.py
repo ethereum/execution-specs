@@ -191,6 +191,18 @@ class ForkLoad:
         return self._module("fork").process_transaction
 
     @property
+    def check_inclusion_list_transactions(self) -> Any:
+        """check_inclusion_list_transactions function of the fork."""
+        return self._module("fork").check_inclusion_list_transactions
+
+    @property
+    def has_is_inclusion_list_satisfied(self) -> bool:
+        """
+        Check if the block output has an `is_inclusion_list_satisfied` field.
+        """
+        return hasattr(self.BlockOutput, "is_inclusion_list_satisfied")
+
+    @property
     def Block(self) -> Any:
         """Block class of the fork."""
         return self._module("blocks").Block
@@ -296,6 +308,16 @@ class ForkLoad:
     def has_decode_transaction(self) -> bool:
         """Check if this fork has a `decode_transaction`."""
         return hasattr(self._module("transactions"), "decode_transaction")
+
+    @property
+    def encode_transaction(self) -> Any:
+        """encode_transaction function of the fork."""
+        return self._module("transactions").encode_transaction
+
+    @property
+    def has_encode_transaction(self) -> bool:
+        """Check if this fork has an `encode_transaction`."""
+        return hasattr(self._module("transactions"), "encode_transaction")
 
     @property
     def has_block_state(self) -> bool:
