@@ -1607,8 +1607,11 @@ def test_account_access(
     # the previous one left off instead of re-targeting the same accounts.
     calldataload_start = Op.CALLDATALOAD(0)
     if account_mode == AccountMode.EXISTING_CONTRACT:
-        # Use ENS registry as target
-        target_address = Address(0x6090A6E47849629B7245DFA1CA21D94CD15878EF)
+        # Use Bittrex Controller as target. Created 1586350 contracts,
+        # which cannot selfdestruct, so guaranteed to be on-chain.
+        # This is safe for a gas benchmark up to 300M. (300_000_000 / 2000)
+        # (2000 is the min cost to target a cold address)
+        target_address = Address(0xA3C1E324CA1CE40DB73ED6026C4A177F099B5770)
         address_retriever = CreatePreimageLayout(
             sender_address=target_address,
             nonce=Op.ADD(1, calldataload_start),
