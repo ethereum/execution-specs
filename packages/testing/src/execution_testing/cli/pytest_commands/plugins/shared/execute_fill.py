@@ -2,6 +2,7 @@
 Shared pytest fixtures and hooks for EEST generation modes (fill and execute).
 """
 
+from pathlib import Path
 from typing import List
 
 import pytest
@@ -315,10 +316,10 @@ def is_tx_gas_heavy_test(request: pytest.FixtureRequest) -> bool:
     Check, given the test node properties, whether the test is gas-heavy
     for transaction execution.
     """
-    node = request.node
-    has_slow_marker = node.get_closest_marker("slow") is not None
-    has_benchmark_marker = node.get_closest_marker("benchmark") is not None
-    return has_slow_marker or has_benchmark_marker
+    has_slow_marker = request.node.get_closest_marker("slow") is not None
+    benchmark_dir = Path(request.config.rootpath) / "tests" / "benchmark"
+    is_benchmark = benchmark_dir in Path(request.node.fspath).parents
+    return has_slow_marker or is_benchmark
 
 
 @pytest.fixture(scope="function")

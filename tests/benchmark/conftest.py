@@ -8,8 +8,6 @@ from execution_testing import Fork
 
 DEFAULT_BENCHMARK_FORK = "Prague"
 
-pytestmark = pytest.mark.benchmark
-
 
 def pytest_generate_tests(metafunc: Any) -> None:
     """

@@ -477,7 +477,10 @@ class TestDocsGenerator:
                 ]
             )
 
-            is_benchmark = items[0].get_closest_marker("benchmark") is not None
+            benchmark_dir = (
+                Path(items[0].config.rootpath) / "tests" / "benchmark"
+            )
+            is_benchmark = benchmark_dir in Path(items[0].fspath).parents
 
             self.function_page_props[function_id] = FunctionPageProps(
                 title=get_test_function_name(items[0]),

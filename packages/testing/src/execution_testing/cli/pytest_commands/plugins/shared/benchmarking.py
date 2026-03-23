@@ -514,25 +514,26 @@ def fixed_opcode_count(request: pytest.FixtureRequest) -> int | None:
 
 
 BENCHMARKING_MAX_GAS = 1_000_000_000_000
+BENCHMARK_DIR = Path("tests") / "benchmark"
+
+
+def _is_benchmark_test(request: pytest.FixtureRequest) -> bool:
+    """Check if the test is under the benchmark directory."""
+    benchmark_path = Path(request.config.rootpath) / BENCHMARK_DIR
+    return benchmark_path in Path(request.node.fspath).parents
 
 
 @pytest.fixture
-def genesis_environment(request: pytest.FixtureRequest) -> Environment:  # noqa: D103
-    """
-    Return an Environment instance with appropriate gas limit based on test
-    type.
-    """
-    if request.node.get_closest_marker("benchmark") is not None:
+def genesis_environment(request: pytest.FixtureRequest) -> Environment:
+    """Return an Environment with appropriate gas limit."""
+    if _is_benchmark_test(request):
         return Environment(gas_limit=BENCHMARKING_MAX_GAS)
     return Environment()
 
 
 @pytest.fixture
-def env(request: pytest.FixtureRequest) -> Environment:  # noqa: D103
-    """
-    Return an Environment instance with appropriate gas limit based on test
-    type.
-    """
-    if request.node.get_closest_marker("benchmark") is not None:
+def env(request: pytest.FixtureRequest) -> Environment:
+    """Return an Environment with appropriate gas limit."""
+    if _is_benchmark_test(request):
         return Environment(gas_limit=BENCHMARKING_MAX_GAS)
     return Environment()
