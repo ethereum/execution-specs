@@ -2,6 +2,9 @@
 
 import pytest
 
+from execution_testing.client_clis.clis.execution_specs import (
+    ExecutionSpecsTransitionTool,
+)
 from execution_testing.fixtures import LabeledFixtureFormat
 from execution_testing.forks import (
     ArrowGlacier,
@@ -38,21 +41,17 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
     )
     result = pytester.runpytest("-c", "pytest-fill.ini", "-v")
     all_forks = get_deployed_forks()
+    t8n = ExecutionSpecsTransitionTool()
     forks_under_test = [
         f
         for f in forks_from_until(all_forks[0], all_forks[-1])
-        if not f.ignore()
+        if not f.ignore() and t8n.is_fork_supported(f)
     ]
-    expected_skipped = 2  # eels doesn't support Constantinople
-    expected_passed = (
-        len([f for f in forks_under_test if not f.ignore()])
-        * len(StateTest.supported_fixture_formats)
-        - expected_skipped
+    expected_passed = len(forks_under_test) * len(
+        StateTest.supported_fixture_formats
     )
     stdout = "\n".join(result.stdout.lines)
     for test_fork in forks_under_test:
-        if test_fork.ignore():
-            continue
         for fixture_format in StateTest.supported_fixture_formats:
             if isinstance(fixture_format, LabeledFixtureFormat):
                 fixture_format_label = fixture_format.label
@@ -77,7 +76,7 @@ def test_no_options_no_validity_marker(pytester: pytest.Pytester) -> None:
     result.assert_outcomes(
         passed=expected_passed,
         failed=0,
-        skipped=expected_skipped,
+        skipped=0,
         errors=0,
     )
 
