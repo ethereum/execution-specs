@@ -19,6 +19,13 @@ tests/benchmark/
 
 There are multiple files under `instruction/`, users can check each file's docstring to understand which opcodes are covered in the file.
 
+Benchmark tests are not collected by `fill` and `execute remote`  by default, in order to run them, their path must explicitly be provided to these command:
+
+```bash
+fill -v tests/benchmark/
+execute remote -v tests/benchmark
+```
+
 ### Stateful Benchmarks
 
 A subset of benchmark test cases run on top of stateful environments (such as bloatnet or mainnet-like setups), in order to analyze how state size, structure, and access patterns influence performance. These tests may (1) pre-deploy contracts (2) construct initial storage state (3) Interact with pre-deployed contracts via stub addresses.
