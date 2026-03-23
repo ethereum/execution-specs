@@ -265,7 +265,10 @@ def test_ext_account_query_cold(
     Benchmark stateful opcodes accessing cold accounts.
     """
     if fixed_opcode_count:
-        pytest.skip("Fixed opcode count is not supported for this test")
+        pytest.skip(
+            "Cold-account queries need one unique account per opcode, "
+            "so the iteration count is gas-driven, not fixed"
+        )
 
     attack_gas_limit = gas_benchmark_value
 

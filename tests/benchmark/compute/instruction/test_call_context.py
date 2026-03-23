@@ -232,8 +232,8 @@ def test_calldatacopy_from_call(
     min_gas = intrinsic_gas_calculator(calldata=data)
     if min_gas > tx_gas_limit:
         pytest.skip(
-            "Minimum gas required for calldata ({min_gas}) is greater "
-            "than the gas limit"
+            f"Intrinsic gas for calldata ({min_gas}) exceeds "
+            f"tx gas limit ({tx_gas_limit})"
         )
 
     # We create the contract that will be doing the CALLDATACOPY multiple
