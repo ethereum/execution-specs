@@ -361,9 +361,16 @@ def test_clz_fork_transition(
 
 
 @pytest.mark.valid_from("Osaka")
-@pytest.mark.parametrize("opcode", [Op.JUMPI, Op.JUMP])
+@pytest.mark.parametrize(
+    "opcode,jumpi_condition",
+    [
+        (op, cond)
+        for op in [Op.JUMPI, Op.JUMP]
+        for cond in [True, False]
+        if not (op == Op.JUMP and not cond)
+    ],
+)
 @pytest.mark.parametrize("valid_jump", [True, False])
-@pytest.mark.parametrize("jumpi_condition", [True, False])
 @pytest.mark.parametrize("bits", [0, 16, 64, 128, 255])
 @pytest.mark.json_loader
 def test_clz_jump_operation(
@@ -375,9 +382,6 @@ def test_clz_jump_operation(
     bits: int,
 ) -> None:
     """Test CLZ opcode with valid and invalid jump."""
-    if opcode == Op.JUMP and not jumpi_condition:
-        pytest.skip("Duplicate case for JUMP.")
-
     code = Op.PUSH32(1 << bits)
 
     if opcode == Op.JUMPI:
