@@ -615,6 +615,22 @@ def pytest_report_header(config: pytest.Config, start_path: Any) -> List[str]:
             + reset
         ),
     ]
+    if config.unsupported_forks:  # type: ignore[attr-defined]
+        t8n_name = config.t8n.__class__.__name__  # type: ignore[attr-defined]
+        excluded = ", ".join(
+            f.name()
+            for f in sorted(config.unsupported_forks)  # type: ignore[attr-defined]
+        )
+        header += [
+            (
+                bold
+                + warning
+                + f"Unsupported forks excluded from {t8n_name}: "
+                + excluded
+                + "."
+                + reset
+            )
+        ]
     if all(fork.is_deployed() for fork in config.selected_fork_set):  # type: ignore[attr-defined]
         header += [
             (
@@ -1093,6 +1109,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
         return
 
     pytest_params: List[Any]
+    unsupported_forks: Set[Fork] = metafunc.config.unsupported_forks  # type: ignore
+    intersection_set -= unsupported_forks
+
     if not intersection_set:
         if metafunc.config.getoption("verbose") >= 2:
             pytest_params = [
@@ -1110,21 +1129,11 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
             ]
             metafunc.parametrize("fork", pytest_params, scope="function")
     else:
-        unsupported_forks: Set[Fork] = metafunc.config.unsupported_forks  # type: ignore
         pytest_params = []
         for fork in sorted(intersection_set):
             marks: List[pytest.MarkDecorator | pytest.Mark] = fork_markers(
                 fork=fork,
             )
-            if fork in unsupported_forks:
-                marks.append(
-                    pytest.mark.skip(
-                        reason=(
-                            f"Fork '{fork}' unsupported by "
-                            f"{metafunc.config.t8n.__class__.__name__}."  # type: ignore
-                        )
-                    )
-                )
             pytest_params.append(ForkParametrizer(fork=fork, marks=marks))
         add_fork_covariant_parameters(metafunc, pytest_params)
         parametrize_fork(metafunc, pytest_params)
