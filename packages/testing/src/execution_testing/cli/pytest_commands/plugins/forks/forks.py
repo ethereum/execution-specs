@@ -487,6 +487,17 @@ def pytest_configure(config: pytest.Config) -> None:
             "function values_fn(fork)"
         ),
     )
+    config.addinivalue_line(
+        "markers",
+        (
+            "filter_combinations(predicate, *, reason): deselect "
+            "parametrized test cases whose parameter combination does not "
+            "satisfy predicate. The predicate receives parameter values as "
+            "keyword arguments and must return True to keep the "
+            "combination. *reason* is a short human-readable explanation "
+            "shown in verbose collection output."
+        ),
+    )
     for d in fork_covariant_decorators:
         config.addinivalue_line("markers", f"{d.marker_name}: {d.description}")
 
@@ -1348,39 +1359,86 @@ def blob_params_changed_at_transition(fork: Fork) -> bool:
     return False
 
 
+def _get_item_params(
+    item: pytest.Item,
+) -> Dict[str, Any] | None:
+    """Return the callspec params for a collected test item, if any."""
+    if hasattr(item, "callspec"):
+        return item.callspec.params
+    if hasattr(item, "params"):
+        return item.params
+    return None
+
+
+def _combination_filter_reason(
+    item: pytest.Item,
+    params: Dict[str, Any],
+) -> str | None:
+    """
+    Return the rejection reason if any ``filter_combinations`` marker
+    rejects *params*, otherwise ``None``.
+    """
+    for marker in item.iter_markers("filter_combinations"):
+        if not marker.args:
+            continue
+        predicate = marker.args[0]
+        if not predicate(**params):
+            return marker.kwargs.get(
+                "reason", "rejected by filter_combinations"
+            )
+    return None
+
+
 def pytest_collection_modifyitems(
     config: pytest.Config, items: List[pytest.Item]
 ) -> None:
     """
-    Filter tests based on param-level validity markers.
+    Filter tests after parametrization.
 
-    The pytest_generate_tests hook only considers function-level validity
-    markers. This hook runs after parametrization and can access all markers
-    including param-level ones, allowing us to properly filter tests based on
-    param-level valid_from/valid_until markers.
+    Two kinds of filtering are applied:
+
+    1. **Validity markers** — param-level ``valid_from`` / ``valid_until``
+       markers that the ``pytest_generate_tests`` hook cannot see.
+    2. **Combination filters** — the ``filter_combinations`` marker lets
+       test authors reject specific cross-parameter tuples at collection
+       time instead of calling ``pytest.skip()`` at runtime.
     """
-    del config
     items_to_remove = []
+    deselected: List[pytest.Item] = []
+    # function name -> [reason, total, deselected_count]
+    filter_stats: Dict[str, List[Any]] = {}
 
     for i, item in enumerate(items):
-        # Get fork from params if available
-        params = None
-        if hasattr(item, "callspec"):
-            params = item.callspec.params
-        elif hasattr(item, "params"):
-            params = item.params
-
-        if not params or "fork" not in params or params["fork"] is None:
+        params = _get_item_params(item)
+        if not params:
             continue
 
-        fork: Fork = params["fork"]
+        # --- combination filter ---
+        marker = next(item.iter_markers("filter_combinations"), None)
+        if marker is not None:
+            fn_name = item.nodeid.split("[")[0]
+            if fn_name not in filter_stats:
+                reason = marker.kwargs.get(
+                    "reason", "rejected by filter_combinations"
+                )
+                filter_stats[fn_name] = [reason, 0, 0]
+            stats = filter_stats[fn_name]
+            stats[1] += 1
 
-        # Get all markers including param-level ones
+            filter_reason = _combination_filter_reason(item, params)
+            if filter_reason is not None:
+                items_to_remove.append(i)
+                deselected.append(item)
+                stats[2] += 1
+                continue
+
+        # --- validity markers ---
+        fork = params.get("fork")
+        if fork is None:
+            continue
+
         markers = item.iter_markers()
 
-        # Calculate valid fork set from all markers
-        # If this raises (e.g., duplicate markers from combining function-level
-        # and param-level), exit immediately with error
         try:
             valid_fork_set = ValidityMarker.get_test_fork_set_from_markers(
                 markers
@@ -1391,10 +1449,37 @@ def pytest_collection_modifyitems(
                 returncode=pytest.ExitCode.USAGE_ERROR,
             )
 
-        # If the fork is not in the valid set, mark for removal
         if fork not in valid_fork_set:
             items_to_remove.append(i)
+
+    # Fail if a filter_combinations predicate eliminated every case
+    # for a test function — the predicate is almost certainly wrong.
+    for fn_name, (reason, total, dc) in filter_stats.items():
+        if total > 0 and dc == total:
+            pytest.exit(
+                f"filter_combinations deselected all {total} "
+                f"parametrizations of {fn_name} "
+                f"(reason: {reason}). "
+                f"Check the predicate logic.",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
 
     # Remove items in reverse order to maintain indices
     for i in reversed(items_to_remove):
         del items[i]
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        if config.option.verbose >= 0:
+            writer = config.get_terminal_writer()
+            writer.line("")
+            writer.sep(
+                "-",
+                f"{len(deselected)} deselected by filter_combinations",
+            )
+            for fn_name, (reason, _, dc) in sorted(filter_stats.items()):
+                if dc:
+                    writer.line(f"  {fn_name}: {dc} deselected ({reason})")
+            if config.option.verbose >= 2:
+                for item in deselected:
+                    writer.line(f"    {item.nodeid}")
