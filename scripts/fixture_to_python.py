@@ -864,9 +864,7 @@ def _build_filler_address_map(
                 continue
             try:
                 account_hash = account.hash()
-                resolved_addr = contract_address_from_hash(
-                    account_hash, 0
-                )
+                resolved_addr = contract_address_from_hash(account_hash, 0)
                 resolved_hex = "0x" + bytes(resolved_addr).hex()
             except Exception:
                 continue
@@ -914,8 +912,7 @@ def _remap_expect_addresses(
             for fk, fv in fields.items():
                 if fk == "storage" and isinstance(fv, dict):
                     new_fields[fk] = {
-                        _remap_value(k): _remap_value(v)
-                        for k, v in fv.items()
+                        _remap_value(k): _remap_value(v) for k, v in fv.items()
                     }
                 else:
                     new_fields[fk] = _remap_value(fv)
@@ -2748,9 +2745,7 @@ def process_single_fixture(
         # Remap filler tag addresses to compiled fixture addresses
         addr_map = _build_filler_address_map(filler_data)
         if addr_map:
-            expect_entries = _remap_expect_addresses(
-                expect_entries, addr_map
-            )
+            expect_entries = _remap_expect_addresses(expect_entries, addr_map)
 
     # Detect fork bounds from filler network (e.g. ">=Cancun<Osaka")
     upper_bound = load_filler_network_upper_bound(filler_full_path)
