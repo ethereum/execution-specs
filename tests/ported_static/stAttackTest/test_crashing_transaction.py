@@ -53,15 +53,12 @@ def test_crashing_transaction(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(nonce=3271),
                 Address("0xecbf9aa676d9e0bbba7e517d1350c1b64f8c6779"): Account(
-                    nonce=124,
-                    balance=1,
-                    code=bytes.fromhex("60606040526008565b00"),
-                ),
+                    code=bytes.fromhex("60606040526008565b00")
+                )
             },
         },
     ]

@@ -81,23 +81,17 @@ def test_create_message_reverted_oog_in_init2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                sender: Account(nonce=1),
-                Address(
-                    "0xf3059e18a327c662766f6ba11808c400635847ef"
-                ): Account.NONEXISTENT,
-            },
+            "result": {},
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "indexes": {"data": 1, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(nonce=1),
                 Address("0xf3059e18a327c662766f6ba11808c400635847ef"): Account(
-                    storage={0: 12, 1: 13}, nonce=1, balance=0
-                ),
+                    storage={0: 12, 1: 13}
+                )
             },
         },
     ]

@@ -82,11 +82,14 @@ def test_staticcall_to_precompile_from_contract_initialization(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
-                    storage={0: 0xFAD204ED1275B429B66C9CE0614D62832D6B2580}
+                    storage={0: 0xFAD204ED1275B429B66C9CE0614D62832D6B2580},
+                    code=bytes.fromhex(
+                        "366000600037655a175a175a173660006000f560005500"
+                    ),
                 ),
                 Address("0xfad204ed1275b429b66c9ce0614d62832d6b2580"): Account(
                     storage={

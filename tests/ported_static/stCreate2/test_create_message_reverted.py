@@ -89,23 +89,28 @@ def test_create_message_reverted(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x244fe9a7867edcc140245e775071fbfe6ebedbae"
-                ): Account.NONEXISTENT,
-                sender: Account(nonce=1),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "69600c600055600d6001556000526000600a60166000f500"
+                    )
+                )
             },
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "indexes": {"data": 1, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 Address("0x244fe9a7867edcc140245e775071fbfe6ebedbae"): Account(
-                    storage={0: 12, 1: 13}, nonce=1, balance=0
+                    storage={0: 12, 1: 13}
                 ),
-                sender: Account(nonce=1),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "69600c600055600d6001556000526000600a60166000f500"
+                    )
+                ),
             },
         },
     ]

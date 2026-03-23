@@ -80,12 +80,12 @@ def test_test_random_test(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
                     storage={0xEBCCE5F60530275EE9318CE1EFF9E4BFEE810172: 1000},
-                    nonce=2,
+                    code=bytes.fromhex("424443444243434383f0155af055"),
                 )
             },
         },

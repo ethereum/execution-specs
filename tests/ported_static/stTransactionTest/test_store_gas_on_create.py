@@ -65,12 +65,15 @@ def test_store_gas_on_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                coinbase: Account(
+                    code=bytes.fromhex("635a60fd556000526004601c6000f000")
+                ),
                 Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
                     storage={253: 0x12F39}
-                )
+                ),
             },
         },
     ]

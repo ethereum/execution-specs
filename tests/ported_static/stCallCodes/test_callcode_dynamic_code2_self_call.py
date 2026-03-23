@@ -147,7 +147,7 @@ def test_callcode_dynamic_code2_self_call(
     )
     # Source: LLL
     # {  (MSTORE 0 0x604060006040600060007313136008b64ff592819b2fa6d43f2835c452020e62) (MSTORE 32 0x0186a0f2600b5533600c55000000000000000000000000000000000000000000)  (CREATE 1 0 64) }  # noqa: E501
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -168,20 +168,34 @@ def test_callcode_dynamic_code2_self_call(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "604680602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe604060006040600060007313136008b64ff592819b2fa6d43f2835c452020e620186a0f2607a5560128060346000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600035620c3500f100"
+                    )
+                ),
                 Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7"): Account(
                     storage={
                         11: 1,
                         12: 0xA000000000000000000000000000000000000000,
-                    },
-                    balance=1,
-                )
+                    }
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7f604060006040600060007313136008b64ff592819b2fa6d43f2835c452020e626000527f0186a0f2600b5533600c55000000000000000000000000000000000000000000602052604060006001f000"  # noqa: E501
+                    )
+                ),
             },
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 callee: Account(
@@ -193,10 +207,23 @@ def test_callcode_dynamic_code2_self_call(
                         21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         22: 0x1000000000000000000000000000000000000000,
                     },
-                    nonce=1,
+                    code=bytes.fromhex(
+                        "604680602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe604060006040600060007313136008b64ff592819b2fa6d43f2835c452020e620186a0f2607a5560128060346000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    ),
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600035620c3500f100"
+                    )
                 ),
                 Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={122: 1}, nonce=1
+                    storage={122: 1},
+                    code=bytes.fromhex("600160005530601455326015553360165500"),
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7f604060006040600060007313136008b64ff592819b2fa6d43f2835c452020e626000527f0186a0f2600b5533600c55000000000000000000000000000000000000000000602052604060006001f000"  # noqa: E501
+                    )
                 ),
             },
         },

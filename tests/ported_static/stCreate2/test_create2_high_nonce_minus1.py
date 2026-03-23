@@ -78,19 +78,20 @@ def test_create2_high_nonce_minus1(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 Address("0x77dd5d2a2b742ca01ee2cfff306445e3741ef744"): Account(
                     code=bytes.fromhex("00")
                 ),
-                sender: Account(nonce=1),
                 contract: Account(
                     storage={
                         0: 0x77DD5D2A2B742CA01EE2CFFF306445E3741EF744,
                         1: 1,
                     },
-                    nonce=18446744073709551615,
+                    code=bytes.fromhex(
+                        "6460016000f360d81b600090815260058180f56000556001805500"  # noqa: E501
+                    ),
                 ),
             },
         },

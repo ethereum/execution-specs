@@ -56,9 +56,9 @@ def test_create_contract_via_transaction_cost53000(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {sender: Account(nonce=1)},
+            "result": {},
         },
     ]
 

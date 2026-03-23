@@ -82,7 +82,7 @@ def test_codecopy(
         gas_limit=100000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x40)
             + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
@@ -93,7 +93,7 @@ def test_codecopy(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.CODECOPY(dest_offset=0x0, offset=0x0, size=Op.SUB(0x0, 0x1))
             + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
@@ -104,7 +104,7 @@ def test_codecopy(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=(
             Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x1000)
             + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
@@ -115,7 +115,7 @@ def test_codecopy(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_3 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x100,
@@ -177,7 +177,7 @@ def test_codecopy(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_4 = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0xFF, value=Op.CODESIZE)
             + Op.CODECOPY(dest_offset=0x0, offset=0x0, size=Op.SLOAD(key=0xFF))
@@ -231,59 +231,200 @@ def test_codecopy(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "6040600060003960005160005560205160015500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "6001600003600060003960005160005560205160015500"
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "611000600060003960005160005560205160015500"
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "6010600f600e600d600c600b600a60096008600760066005600460036002600101010101010101010101010101010161010052602060006000396040602060203960005160005560205160015560405160025500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "3860ff5560ff5460006000396160a76000556160a76001556160a760025560005160005560205160015560405160025560605160035560805160045560a0516005550061deadff60ff546000f360aa60bb60cc60dd60ee60fff400"  # noqa: E501
+                    )
+                ),
                 contract: Account(
                     storage={
                         0: 0x6040600060003960005160005560205160015500000000000000000000000000,  # noqa: E501
-                        1: 0,
-                    }
-                )
+                    },
+                    code=bytes.fromhex(
+                        "60006000600060006004356110000162fffffff400"
+                    ),
+                ),
             },
         },
         {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "indexes": {"data": 3, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                contract: Account(
-                    storage={
-                        0: 0x6110006000600039600051600055602051600155000000000000000000000000,  # noqa: E501
-                        1: 0,
-                    }
-                )
-            },
-        },
-        {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 0, 1: 0})},
-        },
-        {
-            "indexes": {"data": [3], "gas": -1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "6040600060003960005160005560205160015500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "6001600003600060003960005160005560205160015500"
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "611000600060003960005160005560205160015500"
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "6010600f600e600d600c600b600a60096008600760066005600460036002600101010101010101010101010101010161010052602060006000396040602060203960005160005560205160015560405160025500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "3860ff5560ff5460006000396160a76000556160a76001556160a760025560005160005560205160015560405160025560605160035560805160045560a0516005550061deadff60ff546000f360aa60bb60cc60dd60ee60fff400"  # noqa: E501
+                    )
+                ),
                 contract: Account(
                     storage={
                         0: 0x6010600F600E600D600C600B600A600960086007600660056004600360026001,  # noqa: E501
                         1: 0x101010101010101010101010101016101005260206000600039604060206020,  # noqa: E501
                         2: 0x3960005160005560205160015560405160025500000000000000000000000000,  # noqa: E501
-                    }
-                )
+                    },
+                    code=bytes.fromhex(
+                        "60006000600060006004356110000162fffffff400"
+                    ),
+                ),
             },
         },
         {
-            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "indexes": {"data": 2, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "6040600060003960005160005560205160015500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "6001600003600060003960005160005560205160015500"
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "611000600060003960005160005560205160015500"
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "6010600f600e600d600c600b600a60096008600760066005600460036002600101010101010101010101010101010161010052602060006000396040602060203960005160005560205160015560405160025500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "3860ff5560ff5460006000396160a76000556160a76001556160a760025560005160005560205160015560405160025560605160035560805160045560a0516005550061deadff60ff546000f360aa60bb60cc60dd60ee60fff400"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={
+                        0: 0x6110006000600039600051600055602051600155000000000000000000000000,  # noqa: E501
+                    },
+                    code=bytes.fromhex(
+                        "60006000600060006004356110000162fffffff400"
+                    ),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "6040600060003960005160005560205160015500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "6001600003600060003960005160005560205160015500"
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "611000600060003960005160005560205160015500"
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "6010600f600e600d600c600b600a60096008600760066005600460036002600101010101010101010101010101010161010052602060006000396040602060203960005160005560205160015560405160025500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "3860ff5560ff5460006000396160a76000556160a76001556160a760025560005160005560205160015560405160025560605160035560805160045560a0516005550061deadff60ff546000f360aa60bb60cc60dd60ee60fff400"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006004356110000162fffffff400"
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 4, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "6040600060003960005160005560205160015500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "6001600003600060003960005160005560205160015500"
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "611000600060003960005160005560205160015500"
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "6010600f600e600d600c600b600a60096008600760066005600460036002600101010101010101010101010101010161010052602060006000396040602060203960005160005560205160015560405160025500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "3860ff5560ff5460006000396160a76000556160a76001556160a760025560005160005560205160015560405160025560605160035560805160045560a0516005550061deadff60ff546000f360aa60bb60cc60dd60ee60fff400"  # noqa: E501
+                    )
+                ),
                 contract: Account(
                     storage={
                         0: 0x3860FF5560FF5460006000396160A76000556160A76001556160A76002556000,  # noqa: E501
                         1: 0x5160005560205160015560405160025560605160035560805160045560A05160,  # noqa: E501
                         2: 0x5550061DEADFF60FF546000F360AA60BB60CC60DD60EE60FFF4000000000000,  # noqa: E501
                         255: 91,
-                    }
-                )
+                    },
+                    code=bytes.fromhex(
+                        "60006000600060006004356110000162fffffff400"
+                    ),
+                ),
             },
         },
     ]

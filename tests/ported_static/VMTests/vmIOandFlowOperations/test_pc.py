@@ -74,13 +74,13 @@ def test_pc(
         gas_limit=100000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.PC) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x0, value=0xFF)
             + Op.SSTORE(key=0x1, value=Op.PC)
@@ -115,14 +115,27 @@ def test_pc(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 0})},
+            "result": {
+                callee: Account(code=bytes.fromhex("5860005500")),
+                callee_1: Account(code=bytes.fromhex("60ff6000555860015500")),
+                contract: Account(
+                    code=bytes.fromhex("6000600060006000600435611000015af400")
+                ),
+            },
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 255, 1: 5})},
+            "result": {
+                callee: Account(code=bytes.fromhex("5860005500")),
+                callee_1: Account(code=bytes.fromhex("60ff6000555860015500")),
+                contract: Account(
+                    storage={0: 255, 1: 5},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
         },
     ]
 

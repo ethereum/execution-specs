@@ -161,18 +161,11 @@ def test_ecrecover_short_buff(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
                     storage={
-                        0: 0,
-                        1: 0,
-                        159: 0,
-                        4096: 0,
-                        4112: 0,
-                        4144: 0,
-                        4192: 0,
                         4193: 0x8E5817968F74FFB0255AE41EEFA6F89DD0183FA1,
                         4194: 0xB7529ED60A10291754A635ED9FD67C1723F4D83B,
                         4195: 0x669457CE81442F235FFC4123662BA14A72B3D68,
@@ -236,7 +229,10 @@ def test_ecrecover_short_buff(
                         4253: 0x3F9ECB7B25FA567AFB2A4C7B633749BDA578B593,
                         4254: 0x3F9ECB7B25FA567AFB2A4C7B633749BDA578B593,
                         4255: 0x3F9ECB7B25FA567AFB2A4C7B633749BDA578B593,
-                    }
+                    },
+                    code=bytes.fromhex(
+                        "60a060005b818110608a575060008052601b6020527f184870a8e4faa6065ddf65c873935d3e48e3d1c7b7853f25cd79b8247f7719106040527f226140b6b66554c7fcfa38589e433cc148ebe5c8482eb3093ab1d9a932c96f5860605260005b818110606757005b806020610100600193600080865af182900381556101005161100082015501605f565b63dead60a7808255611000820155600101600456"  # noqa: E501
+                    ),
                 )
             },
         },

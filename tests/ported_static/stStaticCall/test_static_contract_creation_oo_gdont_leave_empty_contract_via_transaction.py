@@ -56,14 +56,14 @@ def test_static_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
 
     # Source: LLL
     # {(MSTORE 1 1)}
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x1000000000000000000000000000000000000001"),  # noqa: E501
     )
     # Source: LLL
     # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.JUMPDEST
             + Op.JUMPI(
@@ -82,7 +82,7 @@ def test_static_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
     pre[sender] = Account(balance=0x10C8E0)
     # Source: LLL
     # {(STATICCALL 50000 0x1000000000000000000000000000000000000001 0 64 0 64)}
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=(
             Op.STATICCALL(
                 gas=0xC350,
@@ -101,12 +101,20 @@ def test_static_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=1
-                )
+                contract: Account(code=bytes.fromhex("600160015200")),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "5b61c3506080511015601c5760013b506001608051016080526000565b00"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "604060006040600073100000000000000000000000000000000000000161c350fa00"  # noqa: E501
+                    )
+                ),
             },
         },
     ]

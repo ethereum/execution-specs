@@ -97,29 +97,35 @@ def test_create2_recursive(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-                Address("0x4b17a07e119e86a0ff1fd21cdc9b4aba196ed3f8"): Account(
-                    nonce=1
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7d606460006000396103e85a10601b576000606460006000f5601d565b5a5b6000526000601e60026000f500"  # noqa: E501
+                    )
                 )
             },
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x4b17a07e119e86a0ff1fd21cdc9b4aba196ed3f8"
-                ): Account.NONEXISTENT
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7d606460006000396103e85a10601b576000606460006000f5601d565b5a5b6000526000601e60026000f500"  # noqa: E501
+                    )
+                )
             },
         },
         {
-            "indexes": {"data": -1, "gas": 2, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "indexes": {"data": 2, "gas": 2, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-                Address("0x471a0e624a2ac11c82cf1ff843127f1c6aa98351"): Account(
-                    nonce=1
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7d606460006000396103e85a10601b576000606460006000f5601d565b5a5b6000526000601e60026000f500"  # noqa: E501
+                    )
                 )
             },
         },

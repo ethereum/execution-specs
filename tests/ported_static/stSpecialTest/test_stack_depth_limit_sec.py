@@ -53,12 +53,11 @@ def test_stack_depth_limit_sec(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    balance=10,
-                    code=bytes.fromhex("600060006000600060003060405a03f1"),
+                    code=bytes.fromhex("600060006000600060003060405a03f1")
                 )
             },
         },

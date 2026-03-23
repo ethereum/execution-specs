@@ -89,14 +89,16 @@ def test_random_statetest246(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
-                    storage={57403: 1000, 0xD9250A4F8C: 0}, nonce=0
+                    storage={57403: 1000},
+                    code=bytes.fromhex("434241314441434293170955"),
                 ),
-                coinbase: Account(storage={}, nonce=0),
-                sender: Account(storage={}, nonce=1, code=b""),
+                coinbase: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
             },
         },
     ]

@@ -69,13 +69,15 @@ def test_raw_create_gas_value_transfer_memory(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                contract: Account(storage={1: 33391}),
-                Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-                    balance=10
-                ),
+                contract: Account(
+                    storage={1: 33391},
+                    code=bytes.fromhex(
+                        "5a600052611f406000600af0505a6000510360015500"
+                    ),
+                )
             },
         },
     ]

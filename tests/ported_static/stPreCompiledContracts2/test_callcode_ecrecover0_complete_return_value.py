@@ -93,14 +93,17 @@ def test_callcode_ecrecover0_complete_return_value(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         2: 1,
-                    }
+                    },
+                    code=bytes.fromhex(
+                        "7f18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c600052601c6020527f73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f6040527feeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549606052602060806080600060006001610bb8f260025560805160005500"  # noqa: E501
+                    ),
                 )
             },
         },

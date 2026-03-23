@@ -80,23 +80,18 @@ def test_create_name_registrator_per_txs_not_enough_gas(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
-                ): Account.NONEXISTENT,
-                sender: Account(nonce=1),
-            },
+            "result": {},
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "indexes": {"data": 1, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={1: 1}
-                ),
-                sender: Account(nonce=1),
+                    storage={1: 1},
+                    code=bytes.fromhex("396000f3006000355415600957005b60"),
+                )
             },
         },
     ]

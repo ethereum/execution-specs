@@ -177,7 +177,7 @@ def test_callcode_dynamic_code(
     )
     # Source: LLL
     # {(seq (CREATE 0 0 (lll(seq       [[10]] (CREATE 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS)  [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)   )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)            )0))       )}  # noqa: E501
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=(
             Op.PUSH1[0x46]
             + Op.CODECOPY(dest_offset=0x0, offset=0xF, size=Op.DUP1)
@@ -223,7 +223,7 @@ def test_callcode_dynamic_code(
     )
     # Source: LLL
     # {(seq (CREATE 0 0 (lll(seq       [[10]] (CREATE2 0 0 (lll(seq  (RETURN 0 (lll(seq [[0]] 1  [[20]] (ADDRESS)  [[21]] (ORIGIN) [[22]] (CALLER)  )0) )  )0)  0 )  [[11]] (CALLCODE 100000 (SLOAD 10) 0 0 64 0 64)            )0))       )}  # noqa: E501
-    pre.deploy_contract(
+    callee_3 = pre.deploy_contract(
         code=(
             Op.PUSH1[0x48]
             + Op.CODECOPY(dest_offset=0x0, offset=0xF, size=Op.DUP1)
@@ -272,7 +272,7 @@ def test_callcode_dynamic_code(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 callee: Account(
@@ -283,14 +283,50 @@ def test_callcode_dynamic_code(
                         20: 0x1000000000000000000000000000000000000000,
                         21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         22: 0x1000000000000000000000000000000000000000,
-                    }
-                )
+                    },
+                    code=bytes.fromhex(
+                        "601f80602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    ),
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600035620c3500f100"
+                    )
+                ),
+                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                    code=bytes.fromhex("600160005530601455326015553360165500")
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "6000601f80602960003960006000f5600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "604680600f60003960006000f000fe601f80602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "604880600f60003960006000f000fe6000601f80602960003960006000f5600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
             },
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "601f80602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600035620c3500f100"
+                    )
+                ),
                 callee_1: Account(
                     storage={
                         0: 1,
@@ -299,14 +335,55 @@ def test_callcode_dynamic_code(
                         20: 0x2000000000000000000000000000000000000000,
                         21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         22: 0x2000000000000000000000000000000000000000,
-                    }
-                )
+                    },
+                    code=bytes.fromhex(
+                        "6000601f80602960003960006000f5600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    ),
+                ),
+                Address("0x2d39fad743351d4cf3f4717907d3dda5e0a689a7"): Account(
+                    code=bytes.fromhex("600160005530601455326015553360165500")
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "604680600f60003960006000f000fe601f80602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "604880600f60003960006000f000fe6000601f80602960003960006000f5600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
             },
         },
         {
-            "indexes": {"data": 2, "gas": -1, "value": -1},
+            "indexes": {"data": 2, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "601f80602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600035620c3500f100"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "6000601f80602960003960006000f5600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "604680600f60003960006000f000fe601f80602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "604880600f60003960006000f000fe6000601f80602960003960006000f5600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
                 Address("0x4b86c4ed99b87f0f396bc0c76885453c343916ed"): Account(
                     storage={
                         0: 1,
@@ -315,17 +392,45 @@ def test_callcode_dynamic_code(
                         20: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
                         21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         22: 0x4B86C4ED99B87F0F396BC0C76885453C343916ED,
-                    },
-                    nonce=2,
-                    balance=0,
-                    code=b"",
-                )
+                    }
+                ),
+                Address("0xbf1676be6038ab86d66e00824c2e3577858040f6"): Account(
+                    code=bytes.fromhex("600160005530601455326015553360165500")
+                ),
             },
         },
         {
-            "indexes": {"data": 3, "gas": -1, "value": -1},
+            "indexes": {"data": 3, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                Address("0x0f2d6bf688fae45da62ab2dd4f36945bc924cc61"): Account(
+                    code=bytes.fromhex("600160005530601455326015553360165500")
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "601f80602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600035620c3500f100"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "6000601f80602960003960006000f5600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "604680600f60003960006000f000fe601f80602760003960006000f0600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "604880600f60003960006000f000fe6000601f80602960003960006000f5600a5560406000604060006000600a54620186a0f2600b5500fe601280600d6000396000f300fe600160005530601455326015553360165500"  # noqa: E501
+                    )
+                ),
                 Address("0xa51c188504a60578914fcae68f7a1f0dcbb856a9"): Account(
                     storage={
                         0: 1,
@@ -334,11 +439,8 @@ def test_callcode_dynamic_code(
                         20: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
                         21: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         22: 0xA51C188504A60578914FCAE68F7A1F0DCBB856A9,
-                    },
-                    nonce=2,
-                    balance=0,
-                    code=b"",
-                )
+                    }
+                ),
             },
         },
     ]

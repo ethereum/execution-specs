@@ -94,14 +94,27 @@ def test_revert_opcode_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 12, 1: 0}, nonce=1)},
+            "result": {
+                contract: Account(
+                    storage={0: 12},
+                    code=bytes.fromhex(
+                        "6e600160005560016000fd60116001556000526000600f60116001f5600155600c60005500"  # noqa: E501
+                    ),
+                )
+            },
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "indexes": {"data": 1, "gas": 1, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(nonce=0)},
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6e600160005560016000fd60116001556000526000600f60116001f5600155600c60005500"  # noqa: E501
+                    )
+                )
+            },
         },
     ]
 

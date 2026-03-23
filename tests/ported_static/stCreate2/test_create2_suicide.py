@@ -97,81 +97,79 @@ def test_create2_suicide(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": 10, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x0000000000000000000000000000000000000001"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0x5649527a8464a86cae579719d347065f6eb27279"
-                ): Account.NONEXISTENT,
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2
-                ),
+                Address("0x6cd0e5133771823da00d4cb545ec8cdab0e38203"): Account(
+                    code=bytes.fromhex("30ff")
+                )
             },
         },
         {
-            "indexes": {"data": [2, 3], "gas": -1, "value": -1},
+            "indexes": {"data": 11, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000001"): Account(
-                    balance=1
-                ),
-                Address(
-                    "0x5649527a8464a86cae579719d347065f6eb27279"
-                ): Account.NONEXISTENT,
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2
-                ),
+                Address("0x6cd0e5133771823da00d4cb545ec8cdab0e38203"): Account(
+                    code=bytes.fromhex("30ff")
+                )
             },
         },
         {
-            "indexes": {"data": [4, 5], "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2
-                ),
-                Address(
-                    "0x6cd0e5133771823da00d4cb545ec8cdab0e38203"
-                ): Account.NONEXISTENT,
-            },
+            "result": {},
         },
         {
-            "indexes": {"data": [6, 7], "gas": -1, "value": -1},
+            "indexes": {"data": 2, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2, balance=9
-                ),
-                Address(
-                    "0x6cd0e5133771823da00d4cb545ec8cdab0e38203"
-                ): Account.NONEXISTENT,
-            },
+            "result": {},
         },
         {
-            "indexes": {"data": [8, 9], "gas": -1, "value": -1},
+            "indexes": {"data": 3, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": 4, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": 5, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": 6, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": 7, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": 8, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 Address("0x5649527a8464a86cae579719d347065f6eb27279"): Account(
                     code=bytes.fromhex("6001ff")
-                ),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2
-                ),
+                )
             },
         },
         {
-            "indexes": {"data": [10, 11], "gas": -1, "value": -1},
+            "indexes": {"data": 9, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2
-                ),
-                Address("0x6cd0e5133771823da00d4cb545ec8cdab0e38203"): Account(
-                    code=bytes.fromhex("30ff")
-                ),
+                Address("0x5649527a8464a86cae579719d347065f6eb27279"): Account(
+                    code=bytes.fromhex("6001ff")
+                )
             },
         },
     ]

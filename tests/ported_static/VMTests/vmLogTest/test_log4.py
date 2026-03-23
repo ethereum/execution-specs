@@ -90,7 +90,7 @@ def test_log4(
         gas_limit=100000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.LOG4(
                 offset=0x0,
@@ -107,7 +107,7 @@ def test_log4(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -128,7 +128,7 @@ def test_log4(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -149,7 +149,7 @@ def test_log4(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_3 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -170,7 +170,7 @@ def test_log4(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_4 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -191,7 +191,7 @@ def test_log4(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_5 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -212,7 +212,7 @@ def test_log4(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_6 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -233,7 +233,7 @@ def test_log4(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001006"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_7 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -262,7 +262,7 @@ def test_log4(
     #    (log4 31 1 neg1 neg1 neg1 neg1)
     #    [[0]] 0x600D
     # }
-    pre.deploy_contract(
+    callee_8 = pre.deploy_contract(
         code=(
             Op.MSTORE8(offset=0x0, value=0xFF)
             + Op.LOG4(
@@ -286,7 +286,7 @@ def test_log4(
     #    (log4 31 1 (pc) (pc) (pc) (pc))
     #    [[0]] 0x600D
     # }
-    pre.deploy_contract(
+    callee_9 = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -332,18 +332,604 @@ def test_log4(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {
-                "data": [0, 3, 4, 5, 6, 7, 8, 9],
-                "gas": -1,
-                "value": -1,
-            },
+            "indexes": {"data": 7, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 24589})},
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 24589},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
         },
         {
-            "indexes": {"data": [1, 2], "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 2989})},
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 24589},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 5, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 24589},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 6, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 24589},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 8, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 24589},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 2989},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 3, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 24589},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 2989},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 4, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 24589},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 9, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060006000a461600d60005500"
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016001600003a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000036001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_3: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060006001a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_4: Account(
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052600060006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_5: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052600060006000600060016000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_6: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd60005260006000600060006001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_7: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd6000523360006000600060206000a461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_8: Account(
+                    code=bytes.fromhex(
+                        "60ff60005360016000036001600003600160000360016000036001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                callee_9: Account(
+                    code=bytes.fromhex(
+                        "7faabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd600052585858586001601fa461600d60005500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    storage={0: 24589},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
         },
     ]
 

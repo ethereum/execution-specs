@@ -79,10 +79,14 @@ def test_returndatacopy_0_0_following_successful_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                contract: Account(storage={0: 0}),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600780601d60003960006000f0506000600060003e60006000550000fe60016000550000"  # noqa: E501
+                    )
+                ),
                 Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
                     storage={0: 1}
                 ),

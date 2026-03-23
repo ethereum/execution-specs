@@ -75,13 +75,18 @@ def test_create_name_registrator(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
                     storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
-                    nonce=1,
-                )
+                    code=bytes.fromhex(
+                        "7c601080600c6000396000f3006000355415600957005b60203560003555600052601d60036017f060005500"  # noqa: E501
+                    ),
+                ),
+                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+                    code=bytes.fromhex("6000355415600957005b602035600035")
+                ),
             },
         },
     ]

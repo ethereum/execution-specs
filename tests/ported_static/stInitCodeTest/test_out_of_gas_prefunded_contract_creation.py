@@ -84,14 +84,23 @@ def test_out_of_gas_prefunded_contract_creation(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": [0, 1], "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(balance=1), sender: Account(nonce=1)},
+            "result": {
+                Address("0x64e2ebd6405af8cb348aec519084d3fff42ebba6"): Account(
+                    storage={0: 0x112233}
+                )
+            },
         },
         {
-            "indexes": {"data": -1, "gas": [2], "value": -1},
+            "indexes": {"data": 1, "gas": 1, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(balance=2), sender: Account(nonce=1)},
+            "result": {},
+        },
+        {
+            "indexes": {"data": 2, "gas": 2, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
         },
     ]
 

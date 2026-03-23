@@ -144,14 +144,46 @@ def test_returndatacopy_following_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {callee: Account(storage={0: 1})},
+            "result": {
+                callee: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "6000602880601f60003960006000f5506020600060003e60005160005500fe7d111122223333444455556666777788889999aaaabbbbccccddddeeeeffff60005260206000f300"  # noqa: E501
+                    ),
+                ),
+                contract: Account(
+                    code=bytes.fromhex("600060006000600060006000355af100")
+                ),
+                callee_1: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "6000600280601f60003960006000f5506020600060003e60005160005500fe0000"  # noqa: E501
+                    ),
+                ),
+            },
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {callee_1: Account(storage={0: 1})},
+            "result": {
+                callee: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "6000602880601f60003960006000f5506020600060003e60005160005500fe7d111122223333444455556666777788889999aaaabbbbccccddddeeeeffff60005260206000f300"  # noqa: E501
+                    ),
+                ),
+                contract: Account(
+                    code=bytes.fromhex("600060006000600060006000355af100")
+                ),
+                callee_1: Account(
+                    storage={0: 1},
+                    code=bytes.fromhex(
+                        "6000600280601f60003960006000f5506020600060003e60005160005500fe0000"  # noqa: E501
+                    ),
+                ),
+            },
         },
     ]
 

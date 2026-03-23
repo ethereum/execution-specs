@@ -95,21 +95,25 @@ def test_create_oo_gafter_init_code_returndata2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(storage={1: 0}),
-                Address(
-                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
-                ): Account.NONEXISTENT,
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
-                    storage={1: 0, 2: 0x6460016001556000526005601BF3}
+                    code=bytes.fromhex(
+                        "6d6460016001556000526005601bf3600052600e60126000f0503d6001556000600060003e60005160025500"  # noqa: E501
+                    )
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={2: 0x6460016001556000526005601BF3},
+                    code=bytes.fromhex(
+                        "6d6460016001556000526005601bf3600052600e60126000f0503d6001556000600060003e60005160025500"  # noqa: E501
+                    ),
                 ),
                 Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
                     code=bytes.fromhex("6001600155")

@@ -87,7 +87,7 @@ def test_create2_on_depth1023(
     )
     # Source: LLL
     # { (MSTORE 0 (CALLDATALOAD 0)) (CALL (GAS) 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 32 0 0) }  # noqa: E501
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
             + Op.CALL(
@@ -107,17 +107,22 @@ def test_create2_on_depth1023(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-                Address("0x4f05179f0987710f94f2cbde67c5357bc1815af3"): Account(
-                    nonce=1
-                ),
                 Address("0xa3da9580897e90044fa0de6969815406b3172e3a"): Account(
                     storage={1: 0x4F05179F0987710F94F2CBDE67C5357BC1815AF3}
                 ),
                 contract: Account(
-                    storage={1: 0xA3DA9580897E90044FA0DE6969815406B3172E3A}
+                    storage={1: 0xA3DA9580897E90044FA0DE6969815406B3172E3A},
+                    code=bytes.fromhex(
+                        "6000356000526000516002016000526104006000511460435760006000602060006104006000511473c94f5374fce5edbc8e2a8697c15331677e6ebf0b5af1506060565b6b6000600060006000f56001556020526000600c60346000f56001555b00"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "6000356000526000600060206000600073b94f5374fce5edbc8e2a8697c15331677e6ebf0b5af100"  # noqa: E501
+                    )
                 ),
             },
         },

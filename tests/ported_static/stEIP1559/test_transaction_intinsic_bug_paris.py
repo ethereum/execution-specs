@@ -61,6 +61,9 @@ def test_transaction_intinsic_bug_paris(
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {},
+            "expect_exception": {
+                ">=Cancun": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+            },
         },
     ]
 

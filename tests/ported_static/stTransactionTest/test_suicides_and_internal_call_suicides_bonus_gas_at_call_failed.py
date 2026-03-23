@@ -86,10 +86,15 @@ def test_suicides_and_internal_call_suicides_bonus_gas_at_call_failed(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                callee: Account(balance=20, code=bytes.fromhex("6001ff00"))
+                callee: Account(code=bytes.fromhex("6001ff00")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6000600060006000600060006000f1506000ff00"
+                    )
+                ),
             },
         },
     ]

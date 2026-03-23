@@ -84,18 +84,14 @@ def test_suicides_stop_after_suicide(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                callee: Account(storage={}),
-                sender: Account(nonce=1),
+                callee: Account(code=bytes.fromhex("6001ff00")),
                 contract: Account(
-                    storage={},
-                    nonce=0,
-                    balance=0,
                     code=bytes.fromhex(
                         "6000ff600060006000600060006000617530f100"
-                    ),
+                    )
                 ),
             },
         },

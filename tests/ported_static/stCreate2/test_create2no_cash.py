@@ -88,25 +88,24 @@ def test_create2no_cash(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": [0, 2], "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x12aaefbc0350a026228076e5369e6ce148ce67be"
-                ): Account.NONEXISTENT,
-                sender: Account(nonce=1),
-                contract: Account(balance=100),
+                contract: Account(code=bytes.fromhex("6000600060006065f500"))
             },
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x12aaefbc0350a026228076e5369e6ce148ce67be"): Account(
-                    balance=101
-                ),
-                sender: Account(nonce=1),
-                contract: Account(balance=0),
+                contract: Account(code=bytes.fromhex("6000600060006065f500"))
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(code=bytes.fromhex("6000600060006065f500"))
             },
         },
     ]

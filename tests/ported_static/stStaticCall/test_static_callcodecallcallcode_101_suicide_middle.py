@@ -78,7 +78,7 @@ def test_static_callcodecallcallcode_101_suicide_middle(
     )
     # Source: LLL
     # {  (MSTORE 3 1) (STATICCALL 100000 0x1000000000000000000000000000000000000002 0 64 0 64 ) (MSTORE 32 1) }  # noqa: E501
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x3, value=0x1)
             + Op.POP(
@@ -100,7 +100,7 @@ def test_static_callcodecallcallcode_101_suicide_middle(
     )
     # Source: LLL
     # { (SELFDESTRUCT 0x1000000000000000000000000000000000000000) (DELEGATECALL 50000 0x1000000000000000000000000000000000000003 0 64 0 64 ) }  # noqa: E501
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.SELFDESTRUCT(address=0x1000000000000000000000000000000000000000)
             + Op.DELEGATECALL(
@@ -119,7 +119,7 @@ def test_static_callcodecallcallcode_101_suicide_middle(
     )
     # Source: LLL
     # {  (MSTORE 3 1) }
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
         balance=0x2540BE400,
         nonce=0,
@@ -129,9 +129,27 @@ def test_static_callcodecallcallcode_101_suicide_middle(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 1, 1: 1})},
+            "result": {
+                contract: Account(
+                    storage={0: 1, 1: 1},
+                    code=bytes.fromhex(
+                        "6040600060406000731000000000000000000000000000000000000001620249f0f4600055600160015500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "60016003526040600060406000731000000000000000000000000000000000000002620186a0fa50600160205200"  # noqa: E501
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "731000000000000000000000000000000000000000ff604060006040600073100000000000000000000000000000000000000361c350f400"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(code=bytes.fromhex("600160035200")),
+            },
         },
     ]
 

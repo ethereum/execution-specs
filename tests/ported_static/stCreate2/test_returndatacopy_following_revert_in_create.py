@@ -84,13 +84,16 @@ def test_returndatacopy_following_revert_in_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
                     storage={
                         0: 0x111122223333444455556666777788889999AAAABBBBCCCCDDDDEEEEFFFF,  # noqa: E501
-                    }
+                    },
+                    code=bytes.fromhex(
+                        "6000602980602060003960006000f5506020600060003e6000516000550000fe7d111122223333444455556666777788889999aaaabbbbccccddddeeeeffff60005260206000fd0000"  # noqa: E501
+                    ),
                 )
             },
         },

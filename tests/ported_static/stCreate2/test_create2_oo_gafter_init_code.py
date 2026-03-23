@@ -89,23 +89,28 @@ def test_create2_oo_gafter_init_code(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x6878b140f875209c82ab4d5f083b55947299ef6b"
-                ): Account.NONEXISTENT,
-                contract: Account(storage={1: 0}),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6d6460016001556000526005601bf36000526000600e60126000f500"  # noqa: E501
+                    )
+                )
             },
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "indexes": {"data": 1, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 Address("0x6878b140f875209c82ab4d5f083b55947299ef6b"): Account(
                     code=bytes.fromhex("6001600155")
                 ),
-                contract: Account(storage={1: 0}),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6d6460016001556000526005601bf36000526000600e60126000f500"  # noqa: E501
+                    )
+                ),
             },
         },
     ]

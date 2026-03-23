@@ -112,7 +112,7 @@ def test_val_causes_oof(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0 - 1, "value": 0},
+            "indexes": {"data": -1, "gas": [0, 1], "value": 0},
             "network": [">=Cancun"],
             "result": {},
         },

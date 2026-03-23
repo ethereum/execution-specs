@@ -83,15 +83,15 @@ def test_loop_calls_depth_then_revert3(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-                Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7"): Account(
-                    nonce=2, balance=1
-                ),
-                Address("0xcd6807039caffddbd1c28a749ec91bef15f448e5"): Account(
-                    nonce=1, balance=2
-                ),
+                contract: Account(
+                    storage={0: 1022},
+                    code=bytes.fromhex(
+                        "6103fe60005414603f576001600054016000556000600060006000600073a0000000000000000000000000000000000000005af15061041a600054106053575b66600060006002f0600052600760196003f0505b"  # noqa: E501
+                    ),
+                )
             },
         },
     ]

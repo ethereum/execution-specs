@@ -55,7 +55,7 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
 
     # Source: LLL
     # {(SSTORE 1 1)}
-    pre.deploy_contract(
+    contract = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x1000000000000000000000000000000000000001"),  # noqa: E501
@@ -63,7 +63,7 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
     pre[sender] = Account(balance=0x10C8E0)
     # Source: LLL
     # {(CALL 50000 0x1000000000000000000000000000000000000001 0 0 64 0 64)}
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.CALL(
                 gas=0xC350,
@@ -83,12 +83,17 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    balance=0
-                )
+                contract: Account(
+                    storage={1: 1}, code=bytes.fromhex("600160015500")
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "6040600060406000600073100000000000000000000000000000000000000161c350f100"  # noqa: E501
+                    )
+                ),
             },
         },
     ]

@@ -71,11 +71,14 @@ def test_suicide_caller_addres_too_big_right(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x4f5374fce5edbc8e2a8697c15331677e6ebf0baa"): Account(
-                    balance=0xDE0B6B3A76586A0
+                contract: Account(
+                    storage={0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B},
+                    code=bytes.fromhex(
+                        "3360005574a94f5374fce5edbc8e2a8697c15331677e6ebf0baaff00"  # noqa: E501
+                    ),
                 )
             },
         },

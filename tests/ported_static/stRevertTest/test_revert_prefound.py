@@ -70,10 +70,16 @@ def test_revert_prefound(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                callee: Account(storage={}, nonce=1, balance=1, code=b"")
+                contract: Account(
+                    storage={
+                        0: 0x7DB299E0885C85039F56FA504A13DD8CE8A56AA7,
+                        1: 12,
+                    },
+                    code=bytes.fromhex("602060006000f0600055600c60015500"),
+                )
             },
         },
     ]

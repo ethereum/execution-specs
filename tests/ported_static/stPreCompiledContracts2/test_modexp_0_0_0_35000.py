@@ -203,25 +203,59 @@ def test_modexp_0_0_0_35000(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": 0},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                callee: Account(storage={}, nonce=0, balance=1, code=b""),
-                callee_1: Account(storage={}, nonce=0, balance=1, code=b""),
-                callee_2: Account(storage={}, nonce=0, balance=1, code=b""),
-                callee_3: Account(storage={}, nonce=0, balance=1, code=b""),
-                callee_4: Account(storage={}, nonce=0, balance=1, code=b""),
-                callee_5: Account(storage={}, nonce=0, balance=1, code=b""),
-                callee_6: Account(storage={}, nonce=0, balance=1, code=b""),
-                callee_7: Account(storage={}, nonce=0, balance=1, code=b""),
-                sender: Account(nonce=2),
                 contract: Account(
                     storage={
                         0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
                     },
-                    nonce=1,
-                    balance=0,
-                ),
+                    code=bytes.fromhex(
+                        "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
+                    },
+                    code=bytes.fromhex(
+                        "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 2, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
+                    },
+                    code=bytes.fromhex(
+                        "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
+                    ),
+                )
+            },
+        },
+        {
+            "indexes": {"data": 3, "gas": 3, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={
+                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A,  # noqa: E501
+                    },
+                    code=bytes.fromhex(
+                        "600035601c52740100000000000000000000000000000000000000006020526fffffffffffffffffffffffffffffffff6040527fffffffffffffffffffffffffffffffff000000000000000000000000000000016060527402540be3fffffffffffffffffffffffffdabf41c006080527ffffffffffffffffffffffffdabf41c00000000000000000000000002540be40060a0526330c8d1da600051141561012b5760846004356004013511151558576004356004013560200160043560040161014037600161024061014051610160600060056305f5e0fff11558576001610220526102206021806102808284600060046015f150505061028080516020820120905060005561028060206020820352604081510160206001820306601f820103905060208203f350005b"  # noqa: E501
+                    ),
+                )
             },
         },
     ]

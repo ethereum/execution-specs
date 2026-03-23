@@ -76,19 +76,19 @@ def test_suicide(
         gas_limit=100000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=Op.CALLER) + Op.STOP,
         balance=0xFF000000000000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0xDEAD) + Op.STOP,
         balance=0x100000000000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=Op.ADDRESS) + Op.STOP,
         balance=0x100000000000,
         nonce=0,
@@ -119,26 +119,40 @@ def test_suicide(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                sender: Account(balance=0x5AF31075D9DE),
-                contract: Account(balance=0xFF100000000000),
+                callee: Account(code=bytes.fromhex("33ff00")),
+                callee_1: Account(code=bytes.fromhex("61deadff00")),
+                callee_2: Account(code=bytes.fromhex("30ff00")),
+                contract: Account(
+                    code=bytes.fromhex("600060006000600060006004355af100")
+                ),
             },
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "indexes": {"data": 2, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x000000000000000000000000000000000000dead"): Account(
-                    balance=0x100000000000
-                )
+                callee: Account(code=bytes.fromhex("33ff00")),
+                callee_1: Account(code=bytes.fromhex("61deadff00")),
+                callee_2: Account(code=bytes.fromhex("30ff00")),
+                contract: Account(
+                    code=bytes.fromhex("600060006000600060006004355af100")
+                ),
             },
         },
         {
-            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(balance=0x100000000000)},
+            "result": {
+                callee: Account(code=bytes.fromhex("33ff00")),
+                callee_1: Account(code=bytes.fromhex("61deadff00")),
+                callee_2: Account(code=bytes.fromhex("30ff00")),
+                contract: Account(
+                    code=bytes.fromhex("600060006000600060006004355af100")
+                ),
+            },
         },
     ]
 

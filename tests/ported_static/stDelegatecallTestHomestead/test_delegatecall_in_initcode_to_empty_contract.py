@@ -76,12 +76,17 @@ def test_delegatecall_in_initcode_to_empty_contract(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f604060006040600073945304eb96065b2a98b57a48a06ae28d285a71b56201866000527fa0f4600055000000000000000000000000000000000000000000000000000000602052604060006001f000"  # noqa: E501
+                    )
+                ),
                 Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={0: 1}, balance=1
-                )
+                    storage={0: 1}
+                ),
             },
         },
     ]

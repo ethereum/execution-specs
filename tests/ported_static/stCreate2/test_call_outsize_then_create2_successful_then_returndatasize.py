@@ -55,7 +55,7 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
 
     # Source: LLL
     # { (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32)) }  # noqa: E501
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(
                 offset=0x0,
@@ -105,9 +105,25 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 0})},
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "7d111122223333444455556666777788889999aaaabbbbccccddddeeeeffff60005260206000f300"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60206000600060006000730aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6640900000000f1506000600e80603e60003960006000f5503d6000550000fe6211223360005260206000f30000"  # noqa: E501
+                    )
+                ),
+                Address("0xc0c06666fad9e52251740536e21fc0f3db0e0fa0"): Account(
+                    code=bytes.fromhex(
+                        "0000000000000000000000000000000000000000000000000000000000112233"  # noqa: E501
+                    )
+                ),
+            },
         },
     ]
 

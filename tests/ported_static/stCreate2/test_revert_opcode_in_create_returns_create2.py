@@ -80,9 +80,16 @@ def test_revert_opcode_in_create_returns_create2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 32})},
+            "result": {
+                contract: Account(
+                    storage={0: 32},
+                    code=bytes.fromhex(
+                        "6000600e80601760003960006000f5503d6000550000fe6211223360005260206000fd0000"  # noqa: E501
+                    ),
+                )
+            },
         },
     ]
 

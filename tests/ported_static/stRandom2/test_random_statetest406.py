@@ -94,7 +94,7 @@ def test_random_statetest406(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -102,14 +102,13 @@ def test_random_statetest406(
                         0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE,  # noqa: E501
                         0xB58B8E99F33C647165337E389F7B9C909CBA: 0x7F000000000000000000000000945304EB96065B2A98B57A48A06AE28D285A,  # noqa: E501
                     },
-                    nonce=0,
+                    code=bytes.fromhex(
+                        "7f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b57ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7e7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b58b8e99f33c647165337e389f7b9c909cba5560005155"  # noqa: E501
+                    ),
                 ),
                 coinbase: Account(
-                    storage={},
-                    nonce=0,
-                    code=bytes.fromhex("6000355415600957005b60203560003555"),
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
                 ),
-                sender: Account(storage={}, nonce=1, code=b""),
             },
         },
     ]

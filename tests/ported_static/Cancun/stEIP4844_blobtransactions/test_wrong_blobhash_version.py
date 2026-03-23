@@ -71,10 +71,11 @@ def test_wrong_blobhash_version(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "indexes": {"data": -1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
-            "result": {
-                contract: Account(code=bytes.fromhex("60004960005500"))
+            "result": {contract: Account(storage={0: 0})},
+            "expect_exception": {
+                ">=Cancun": "TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH"  # noqa: E501
             },
         },
     ]

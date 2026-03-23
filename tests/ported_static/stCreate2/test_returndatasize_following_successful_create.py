@@ -79,9 +79,20 @@ def test_returndatasize_following_successful_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 0})},
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6000600d80601760003960006000f5503d6000550000fe6211223360005260206000f300"  # noqa: E501
+                    )
+                ),
+                Address("0x69c6738cb9ceec5b62ae47911b782e1af0b80a3c"): Account(
+                    code=bytes.fromhex(
+                        "0000000000000000000000000000000000000000000000000000000000112233"  # noqa: E501
+                    )
+                ),
+            },
         },
     ]
 

@@ -106,45 +106,30 @@ def test_create2collision_selfdestructed(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000010"): Account(
-                    balance=1
-                ),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={0: 0}, nonce=2, balance=1
-                ),
-                sender: Account(nonce=1),
-                callee_1: Account(nonce=0, balance=0),
+                contract: Account(code=bytes.fromhex("6010ff00")),
+                callee_1: Account(code=bytes.fromhex("6010ff00")),
+                callee_2: Account(code=bytes.fromhex("6010ff00")),
             },
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000010"): Account(
-                    balance=1
-                ),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={0: 0}, nonce=2, balance=1
-                ),
-                sender: Account(nonce=1),
-                contract: Account(nonce=0, balance=0),
+                contract: Account(code=bytes.fromhex("6010ff00")),
+                callee_1: Account(code=bytes.fromhex("6010ff00")),
+                callee_2: Account(code=bytes.fromhex("6010ff00")),
             },
         },
         {
-            "indexes": {"data": 2, "gas": -1, "value": -1},
+            "indexes": {"data": 2, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000010"): Account(
-                    balance=1
-                ),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={0: 0}, nonce=2, balance=1
-                ),
-                sender: Account(nonce=1),
-                callee_2: Account(nonce=0, balance=0),
+                contract: Account(code=bytes.fromhex("6010ff00")),
+                callee_1: Account(code=bytes.fromhex("6010ff00")),
+                callee_2: Account(code=bytes.fromhex("6010ff00")),
             },
         },
     ]

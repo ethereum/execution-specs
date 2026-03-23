@@ -74,7 +74,7 @@ def test_delegatecall_in_initcode_to_existing_contract_oog(
     )
     # Source: LLL
     # { (SSTORE 2 1) }
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x2, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"),  # noqa: E501
@@ -83,12 +83,22 @@ def test_delegatecall_in_initcode_to_existing_contract_oog(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f604060006040600073945304eb96065b2a98b57a48a06ae28d285a71b56201866000527fa0f4600a5533600b550000000000000000000000000000000000000000000000602052604060006005f000"  # noqa: E501
+                    )
+                ),
                 Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    balance=5
-                )
+                    storage={
+                        2: 1,
+                        10: 1,
+                        11: 0x1000000000000000000000000000000000000000,
+                    }
+                ),
+                callee: Account(code=bytes.fromhex("600160025500")),
             },
         },
     ]

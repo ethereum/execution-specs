@@ -81,13 +81,39 @@ def test_by_zero(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={0: 1}, balance=0, code=b""
-                ),
-                sender: Account(storage={}, nonce=1, code=b""),
+                    storage={0: 1}
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    storage={0: 1}
+                )
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    storage={0: 1}
+                )
+            },
+        },
+        {
+            "indexes": {"data": 3, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    storage={0: 1}
+                )
             },
         },
     ]

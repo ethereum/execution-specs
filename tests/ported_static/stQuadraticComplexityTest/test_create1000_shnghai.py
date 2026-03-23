@@ -104,93 +104,29 @@ def test_create1000_shnghai(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x010d8b0816e30ff51ba07678c64b272cdeddb807"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0x014830fe159f418212e5c39b4b2e2ddc7b295395"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0x0c6a8f1bf692cb9e4f9d9c5a2785d58edfd42457"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0x198d23bedd1a9fdbd4adb5760930f6877f5d142f"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0x266c09580d28c1c576e5c6b9adc926be1fecffb1"
-                ): Account.NONEXISTENT,
-                contract: Account(storage={0: 0, 1: 0}, nonce=0),
-                Address(
-                    "0xe5dc2e5b40069a91f688e56ea8d12149c5480b42"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0xfdbd2625737df76e194c99994be160c5f8248dad"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0xfff043abcbf2b0972c1dca19b2ba3cd682f10e90"
-                ): Account.NONEXISTENT,
+                contract: Account(
+                    code=bytes.fromhex(
+                        "5b6103e86080511015602257600a60006001f06000556001608051016080526000565b60805160015500"  # noqa: E501
+                    )
+                )
             },
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-                Address("0x010d8b0816e30ff51ba07678c64b272cdeddb807"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0x014830fe159f418212e5c39b4b2e2ddc7b295395"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0x0443d33cbefcfb9dedd1885b4c58b06cb1bb0c09"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0x0c6a8f1bf692cb9e4f9d9c5a2785d58edfd42457"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0x198d23bedd1a9fdbd4adb5760930f6877f5d142f"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0x266c09580d28c1c576e5c6b9adc926be1fecffb1"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0x38382e1ec7bf834f328feb3170293b1ae558aed0"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0x49198360b42d89332f8cc121182e071493045c40"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0x69eada7f1d77ff9bf9c789d44990f9141e39d71f"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0x901cc1c13f30eb2fc6de17ba1867dcc8c1561d46"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
                 contract: Account(
                     storage={
                         0: 0x7981FA24B134DEB51D71D250D7B0D9E33C8C5457,
                         1: 1000,
                     },
-                    nonce=1000,
-                    balance=0xFFFFFFFFFFC21,
-                ),
-                Address("0xcb78de6453fe67ac38868ac60825f0288e509167"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0xde8ae395bafe56c8968a2cec0567ec2562598189"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0xe5dc2e5b40069a91f688e56ea8d12149c5480b42"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0xfdbd2625737df76e194c99994be160c5f8248dad"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
-                Address("0xfff043abcbf2b0972c1dca19b2ba3cd682f10e90"): Account(
-                    storage={}, nonce=1, balance=1, code=b""
-                ),
+                    code=bytes.fromhex(
+                        "5b6103e86080511015602257600a60006001f06000556001608051016080526000565b60805160015500"  # noqa: E501
+                    ),
+                )
             },
         },
     ]

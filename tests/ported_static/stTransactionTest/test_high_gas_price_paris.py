@@ -59,6 +59,9 @@ def test_high_gas_price_paris(
             "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {},
+            "expect_exception": {
+                ">=Cancun": "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS|TransactionException.GASLIMIT_PRICE_PRODUCT_OVERFLOW"  # noqa: E501
+            },
         },
     ]
 

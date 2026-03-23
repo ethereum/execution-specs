@@ -136,17 +136,18 @@ def test_create_contract_from_method(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                contract: Account(nonce=1),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60003560e060020a900480637ee17e1214601f578063c040622614602b57005b60256047565b60006000f35b6031603b565b8060005260206000f35b600060436047565b5090565b60006060605d600039606060006000f09050905600605480600c6000396000f30060003560e060020a90048062f55d9d14601e578063b9c3d0a514602d57005b60276004356046565b60006000f35b6033603d565b8060005260206000f35b600060e1905090565b80600160a060020a0316ff5056"  # noqa: E501
+                    )
+                ),
                 Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-                    storage={},
-                    nonce=1,
-                    balance=0,
                     code=bytes.fromhex(
                         "60003560e060020a90048062f55d9d14601e578063b9c3d0a514602d57005b60276004356046565b60006000f35b6033603d565b8060005260206000f35b600060e1905090565b80600160a060020a0316ff5056"  # noqa: E501
-                    ),
+                    )
                 ),
             },
         },

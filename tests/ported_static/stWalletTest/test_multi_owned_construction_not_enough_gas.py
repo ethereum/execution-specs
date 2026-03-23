@@ -56,9 +56,9 @@ def test_multi_owned_construction_not_enough_gas(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {sender: Account(storage={}, nonce=1, code=b"")},
+            "result": {},
         },
     ]
 

@@ -71,11 +71,11 @@ def test_create_init_fail_bad_jump_destination2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000000"): Account(
-                    balance=0xDE0B6B3A76586A0
+                contract: Account(
+                    code=bytes.fromhex("6361ffff566000526004601c6001f0ff00")
                 )
             },
         },

@@ -97,24 +97,25 @@ def test_create_fail_balance_too_low(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": 0},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000000"): Account(
-                    storage={}
-                ),
-                Address(
-                    "0xd2571607e241ecf590ed94b12d87c94babe36db6"
-                ): Account.NONEXISTENT,
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6460016002556000526005601b670de0b6b3a7640018f0ff00"
+                    )
+                )
             },
         },
         {
-            "indexes": {"data": -1, "gas": -1, "value": 1},
+            "indexes": {"data": 1, "gas": 0, "value": 1},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x0000000000000000000000000000000000000000"
-                ): Account.NONEXISTENT,
+                contract: Account(
+                    code=bytes.fromhex(
+                        "6460016002556000526005601b670de0b6b3a7640018f0ff00"
+                    )
+                ),
                 Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
                     storage={2: 1}
                 ),

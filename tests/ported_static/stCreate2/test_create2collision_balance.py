@@ -87,55 +87,24 @@ def test_create2collision_balance(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2, balance=1
-                ),
-                sender: Account(nonce=1),
-                callee_1: Account(nonce=1, balance=1),
-            },
+            "result": {},
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2, balance=1
-                ),
-                sender: Account(nonce=1),
-                contract: Account(
-                    storage={1: 1}, nonce=1, balance=1, code=b""
-                ),
-            },
+            "result": {contract: Account(storage={1: 1})},
         },
         {
-            "indexes": {"data": 2, "gas": -1, "value": -1},
+            "indexes": {"data": 2, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2, balance=1
-                ),
-                sender: Account(nonce=1),
-                callee_2: Account(
-                    storage={},
-                    nonce=1,
-                    balance=1,
-                    code=bytes.fromhex("6001600155"),
-                ),
-            },
+            "result": {callee_2: Account(code=bytes.fromhex("6001600155"))},
         },
         {
-            "indexes": {"data": 3, "gas": -1, "value": -1},
+            "indexes": {"data": 3, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2, balance=0
-                ),
-                sender: Account(nonce=1),
-                callee_1: Account(nonce=1, balance=2),
-            },
+            "result": {},
         },
     ]
 

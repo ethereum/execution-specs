@@ -94,16 +94,24 @@ def test_suicide_non_const(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
-                    storage={},
-                    nonce=0,
-                    balance=0,
                     code=bytes.fromhex(
                         "73095e7baea6a6c7c4c2dfeb977efac326af552d8731ff00"
-                    ),
+                    )
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "73095e7baea6a6c7c4c2dfeb977efac326af552d8731ff00"
+                    )
                 )
             },
         },

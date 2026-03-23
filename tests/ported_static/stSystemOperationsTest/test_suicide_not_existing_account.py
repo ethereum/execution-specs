@@ -68,11 +68,13 @@ def test_suicide_not_existing_account(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0xaa1722f3947def4cf144679da39c4c32bdc35681"): Account(
-                    balance=0xDE0B6B3A76586A0
+                contract: Account(
+                    code=bytes.fromhex(
+                        "73aa1722f3947def4cf144679da39c4c32bdc35681ff00"
+                    )
                 )
             },
         },

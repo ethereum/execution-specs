@@ -781,9 +781,6 @@ def _resolve_filler_labels(
                 label_map.setdefault(m.group(1), []).append(idx)
         break  # only first test in filler
 
-    if not label_map:
-        return expect_entries
-
     def _resolve_selector(sel: Any) -> Any:
         """Resolve a single index selector."""
         if isinstance(sel, str):
@@ -820,6 +817,111 @@ def _resolve_filler_labels(
             new_indexes[dim] = _resolve_selector(sel)
         resolved_entries.append({**entry, "indexes": new_indexes})
     return resolved_entries
+
+
+def _build_filler_address_map(
+    filler_data: dict | None,
+) -> dict[str, str]:
+    """
+    Map filler original tag hex addresses to resolved addresses.
+
+    Compute the resolved address directly from each account's model hash
+    (``account.hash()`` + ``contract_address_from_hash``), avoiding the
+    full ``PreInFiller.setup()`` which requires solc for Yul contracts.
+
+    Return ``{original_hex_lower: resolved_hex_lower}`` or ``{}`` on
+    failure.
+    """
+    if not filler_data:
+        return {}
+    try:
+        from execution_testing.specs.static_state.account import PreInFiller
+        from execution_testing.specs.static_state.common import (
+            ContractTag,
+            SenderTag,
+        )
+        from execution_testing.test_types.helpers import (
+            contract_address_from_hash,
+        )
+    except Exception:
+        return {}
+    try:
+        raw: dict | None = None
+        for test_data in filler_data.values():
+            if isinstance(test_data, dict) and "pre" in test_data:
+                raw = test_data["pre"]
+                break
+        if raw is None:
+            return {}
+        pre_model = PreInFiller.model_validate(raw)
+        addr_map: dict[str, str] = {}
+        for key_obj, account in pre_model.root.items():
+            if not hasattr(key_obj, "name"):
+                continue
+            if isinstance(key_obj, SenderTag):
+                continue  # EOA addresses don't need remapping
+            if not isinstance(key_obj, ContractTag):
+                continue
+            try:
+                account_hash = account.hash()
+                resolved_addr = contract_address_from_hash(
+                    account_hash, 0
+                )
+                resolved_hex = "0x" + bytes(resolved_addr).hex()
+            except Exception:
+                continue
+            orig = _normalize_address(str(key_obj.original_string or ""))
+            if orig and orig != resolved_hex and orig.startswith("0x"):
+                addr_map[orig] = resolved_hex
+        return addr_map
+    except Exception:
+        return {}
+
+
+def _remap_expect_addresses(
+    entries: list[dict],
+    addr_map: dict[str, str],
+) -> list[dict]:
+    """
+    Remap filler tag addresses in expect results to resolved addresses.
+
+    Replace address keys and address-like values in storage using the
+    mapping from ``_build_filler_address_map``.
+    """
+    if not addr_map:
+        return entries
+
+    def _remap_value(v: Any) -> Any:
+        if not isinstance(v, str):
+            return v
+        s = v.strip()
+        # Handle tag syntax: <contract:0xADDR>
+        if s.startswith("<") and ":" in s:
+            m = re.search(r"(0x[0-9a-fA-F]+)", s)
+            if m:
+                resolved = addr_map.get(m.group(1).lower())
+                if resolved:
+                    return resolved
+        return addr_map.get(s.lower(), v)
+
+    remapped = []
+    for entry in entries:
+        result = entry.get("result", {})
+        new_result: dict[str, dict] = {}
+        for addr, fields in result.items():
+            new_addr = addr_map.get(addr.lower(), addr)
+            new_fields: dict = {}
+            for fk, fv in fields.items():
+                if fk == "storage" and isinstance(fv, dict):
+                    new_fields[fk] = {
+                        _remap_value(k): _remap_value(v)
+                        for k, v in fv.items()
+                    }
+                else:
+                    new_fields[fk] = _remap_value(fv)
+            new_result[new_addr] = new_fields
+        remapped.append({**entry, "result": new_result})
+    return remapped
 
 
 def load_filler_tx_arrays(
@@ -2045,24 +2147,34 @@ def generate_test_file(
     # -----------------------------------------------------------------------
     # Build expect_entries_ for runtime post-state resolution
     # -----------------------------------------------------------------------
-    # Use filler expect entries (with labels resolved) when available.
-    # Fall back to synthesizing entries from compiled fixture state.
+    # Use filler expect entries when addresses are resolvable.
+    # Fall back to synthesizing from compiled fixture state otherwise.
     expect_entries_source = ""
-    # Check if filler expect addresses are resolvable via addr_vars.
-    # If any result address isn't in addr_vars or pre, the filler uses
-    # tagged addresses that don't match the compiled fixture — fall back
-    # to synthesizing from the compiled fixture state.
     pre_addrs_lower = {a.lower() for a in pre.keys()}
-    # Collect all addresses known from the compiled fixture (pre + post)
     all_fixture_addrs = set(pre_addrs_lower)
     for key in all_keys:
-        test = fixture_data[key]
-        for fork_posts in test.get("post", {}).values():
-            for post_entry in fork_posts:
-                for addr in post_entry.get("state", {}):
+        test_item = fixture_data[key]
+        for fork_posts in test_item.get("post", {}).values():
+            for pe in fork_posts:
+                for addr in pe.get("state", {}):
                     all_fixture_addrs.add(addr.lower())
-    filler_addrs_ok = True
+    # Use filler Path A only when the filler has fork-specific entries
+    # (different network values) or expect_exception — that's when it adds
+    # value over Path B.  Otherwise Path B is safer because its values
+    # come from the compiled fixture (EELS).
+    filler_has_fork_info = False
     if expect_entries:
+        networks = set()
+        for entry in expect_entries:
+            net = tuple(entry.get("network", []))
+            networks.add(net)
+            if entry.get("expect_exception"):
+                filler_has_fork_info = True
+        if len(networks) > 1:
+            filler_has_fork_info = True
+
+    filler_addrs_ok = True
+    if expect_entries and filler_has_fork_info:
         for entry in expect_entries:
             for addr in entry.get("result", {}):
                 a = addr.lower()
@@ -2073,18 +2185,16 @@ def generate_test_file(
                     break
             if not filler_addrs_ok:
                 break
-    if expect_entries and filler_addrs_ok:
+    if expect_entries and filler_has_fork_info and filler_addrs_ok:
         expect_entries_source = _generate_expect_entries_source(
             expect_entries, addr_vars=addr_vars, indent="    "
         )
     else:
-        # Synthesize from compiled fixture per-case post states
+        # Synthesize from compiled fixture per-case post states,
+        # carrying expect_exception from the compiled fixture.
         synth: list[dict] = []
         for case in cases_for_fork:
             ps = case.get("post_state", {})
-            if not ps:
-                continue
-            # Convert fixture state to filler-result-like format
             result: dict[str, dict] = {}
             for addr, acct in ps.items():
                 fields: dict[str, Any] = {}
@@ -2096,17 +2206,21 @@ def generate_test_file(
                     fields["code"] = code
                 if fields:
                     result[_normalize_address(addr)] = fields
-            synth.append(
-                {
-                    "indexes": {
-                        "data": case["d"],
-                        "gas": case["g"],
-                        "value": case["v"],
-                    },
-                    "network": [f">={fork_name}"],
-                    "result": result,
+            entry_dict: dict[str, Any] = {
+                "indexes": {
+                    "data": case["d"],
+                    "gas": case["g"],
+                    "value": case["v"],
+                },
+                "network": [f">={fork_name}"],
+                "result": result,
+            }
+            exc = case.get("expect_exception")
+            if exc:
+                entry_dict["expect_exception"] = {
+                    f">={fork_name}": exc,
                 }
-            )
+            synth.append(entry_dict)
         if synth:
             expect_entries_source = _generate_expect_entries_source(
                 synth, addr_vars=addr_vars, indent="    "
@@ -2625,12 +2739,18 @@ def process_single_fixture(
     filler_data = _load_filler_data(filler_full_path)
     code_sources = _extract_filler_code_sources(filler_data)
 
-    # Load filler expect entries and resolve labels to integer indices
+    # Load filler expect entries, resolve labels and remap tag addresses
     expect_entries = load_filler_expect_results(filler_full_path)
     if expect_entries:
         expect_entries = _resolve_filler_labels(
             filler_full_path, expect_entries
         )
+        # Remap filler tag addresses to compiled fixture addresses
+        addr_map = _build_filler_address_map(filler_data)
+        if addr_map:
+            expect_entries = _remap_expect_addresses(
+                expect_entries, addr_map
+            )
 
     # Detect fork bounds from filler network (e.g. ">=Cancun<Osaka")
     upper_bound = load_filler_network_upper_bound(filler_full_path)

@@ -66,11 +66,11 @@ def test_recursive_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-                    nonce=2
+                contract: Account(
+                    code=bytes.fromhex("60206000600039602060006000f000")
                 )
             },
         },

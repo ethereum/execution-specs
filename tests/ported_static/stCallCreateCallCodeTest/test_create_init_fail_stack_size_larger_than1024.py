@@ -78,11 +78,13 @@ def test_create_init_fail_stack_size_larger_than1024(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000000"): Account(
-                    balance=0xDE0B6B3A76586A0
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f6103ff6000525b7f0102030405060708090a0102030405060708090a010203046000527f05060708090a0102600160005103600052600051600657000000000000000000602052604060006001f0ff00"  # noqa: E501
+                    )
                 )
             },
         },

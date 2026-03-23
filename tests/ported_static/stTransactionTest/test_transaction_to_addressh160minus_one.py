@@ -57,9 +57,9 @@ def test_transaction_to_addressh160minus_one(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(balance=100)},
+            "result": {},
         },
     ]
 

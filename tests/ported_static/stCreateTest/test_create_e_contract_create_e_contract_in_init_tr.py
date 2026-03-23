@@ -65,13 +65,12 @@ def test_create_e_contract_create_e_contract_in_init_tr(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2
-                ),
-                contract: Account(storage={1: 12}),
+                contract: Account(
+                    storage={1: 12}, code=bytes.fromhex("600c60015500")
+                )
             },
         },
     ]

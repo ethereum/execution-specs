@@ -74,7 +74,7 @@ def test_callcode_in_initcode_to_existing_contract_with_value_transfer(
     )
     # Source: LLL
     # { (SSTORE 2 1) }
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SSTORE(key=0x2, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"),  # noqa: E501
@@ -83,12 +83,18 @@ def test_callcode_in_initcode_to_existing_contract_with_value_transfer(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f6040600060406000600573945304eb96065b2a98b57a48a06ae28d285a71b5626000527f0186a0f260005500000000000000000000000000000000000000000000000000602052604060006005f000"  # noqa: E501
+                    )
+                ),
                 Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={0: 1, 2: 1}, balance=5
-                )
+                    storage={0: 1, 2: 1}
+                ),
+                callee: Account(code=bytes.fromhex("600160025500")),
             },
         },
     ]

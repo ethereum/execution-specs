@@ -69,6 +69,9 @@ def test_invalid_tr(
             "result": {
                 contract: Account(code=bytes.fromhex("600160010160005500"))
             },
+            "expect_exception": {
+                ">=Cancun": "TransactionException.INTRINSIC_GAS_TOO_LOW"
+            },
         },
     ]
 

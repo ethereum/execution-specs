@@ -90,11 +90,14 @@ def test_create2_call_data(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
-                    storage={0: 0x7F8330AD7BC2AFE0DFFB2FDC76BBAD8BC326296A}
+                    storage={0: 0x7F8330AD7BC2AFE0DFFB2FDC76BBAD8BC326296A},
+                    code=bytes.fromhex(
+                        "6000601080601183398180f560005500fe600035600055604060008037596000f3"  # noqa: E501
+                    ),
                 ),
                 Address("0x7f8330ad7bc2afe0dffb2fdc76bbad8bc326296a"): Account(
                     code=bytes.fromhex(

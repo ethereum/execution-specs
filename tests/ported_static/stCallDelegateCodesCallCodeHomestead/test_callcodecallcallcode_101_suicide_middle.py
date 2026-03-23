@@ -130,14 +130,26 @@ def test_callcodecallcallcode_101_suicide_middle(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                contract: Account(storage={0: 1, 1: 1}),
-                callee: Account(storage={1: 0}, balance=0x2540BE400),
-                callee_1: Account(storage={2: 0}, balance=0x2540BE400),
-                callee_2: Account(storage={3: 0}, balance=0x2540BE400),
-                sender: Account(storage={1: 0}),
+                contract: Account(
+                    storage={0: 1, 1: 1},
+                    code=bytes.fromhex(
+                        "6040600060406000731000000000000000000000000000000000000001620249f0f460005500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "60406000604060006000731000000000000000000000000000000000000002620186a0f260015500"  # noqa: E501
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "731000000000000000000000000000000000000000ff604060006040600073100000000000000000000000000000000000000361c350f460025500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(code=bytes.fromhex("600160035500")),
             },
         },
     ]

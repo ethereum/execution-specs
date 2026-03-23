@@ -79,12 +79,14 @@ def test_create_name_registrator_zero_mem2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
                     storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
-                    nonce=1,
+                    code=bytes.fromhex(
+                        "7c601080600c6000396000f3006000355415600957005b6020356000355560005260007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff6017f060005500"  # noqa: E501
+                    ),
                 )
             },
         },

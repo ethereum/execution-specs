@@ -79,7 +79,7 @@ def test_suicides_and_internal_call_suicides_success(
 
     # Source: LLL
     # {(SELFDESTRUCT 0x0000000000000000000000000000000000000001)}
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000000000"),  # noqa: E501
@@ -110,21 +110,27 @@ def test_suicides_and_internal_call_suicides_success(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x0000000000000000000000000000000000000001"
-                ): Account.NONEXISTENT
+                callee: Account(code=bytes.fromhex("6001ff00")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060016000600035f1506000ff00"
+                    )
+                ),
             },
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000001"): Account(
-                    storage={}, balance=1
-                )
+                callee: Account(code=bytes.fromhex("6001ff00")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "600060006000600060016000600035f1506000ff00"
+                    )
+                ),
             },
         },
     ]

@@ -80,13 +80,15 @@ def test_non_zero_value_call(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                contract: Account(storage={1: 1, 100: 56435}, balance=99),
-                Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
-                    balance=1
-                ),
+                contract: Account(
+                    storage={1: 1, 100: 56435},
+                    code=bytes.fromhex(
+                        "5a6000526000600060006000600173c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60f16001555a6000510360645500"  # noqa: E501
+                    ),
+                )
             },
         },
     ]

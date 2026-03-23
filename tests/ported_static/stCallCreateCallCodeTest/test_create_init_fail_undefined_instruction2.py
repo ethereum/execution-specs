@@ -71,11 +71,11 @@ def test_create_init_fail_undefined_instruction2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000000"): Account(
-                    balance=0xDE0B6B3A76586A0
+                contract: Account(
+                    code=bytes.fromhex("60f4600053600160006001f0ff00")
                 )
             },
         },

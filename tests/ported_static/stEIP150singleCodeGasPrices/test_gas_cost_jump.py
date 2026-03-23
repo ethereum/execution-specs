@@ -79,7 +79,7 @@ def test_gas_cost_jump(
     )
 
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.PUSH1[0x0] + Op.PUSH1[0x0] + Op.JUMPDEST + Op.JUMPDEST + Op.STOP
         ),
@@ -88,21 +88,21 @@ def test_gas_cost_jump(
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.PUSH1[0x0] + Op.JUMP(pc=0x5) + Op.JUMPDEST + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000002000"),  # noqa: E501
     )
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee_2 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x5, condition=0x1) + Op.JUMPDEST + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000003000"),  # noqa: E501
     )
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee_3 = pre.deploy_contract(
         code=Op.JUMPI(pc=0x5, condition=0x0) + Op.JUMPDEST + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
@@ -241,9 +241,49 @@ def test_gas_cost_jump(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 0})},
+            "result": {
+                callee: Account(code=bytes.fromhex("600060005b5b00")),
+                callee_1: Account(code=bytes.fromhex("60006005565b00")),
+                callee_2: Account(code=bytes.fromhex("60016005575b00")),
+                callee_3: Account(code=bytes.fromhex("60006005575b00")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "5a6000526000600060006000600061100062010000f1505a60005103602052600160043514602e57600050604e565b5a6000526000600060006000600061200062010000f1505a600051036040525b600260043514605e57600050607e565b5a6000526000600060006000600061300062010000f1505a600051036040525b600360043514608e5760005060ae565b5a6000526000600060006000600061400062010000f1505a600051036040525b602435602051604051030360005500"  # noqa: E501
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(code=bytes.fromhex("600060005b5b00")),
+                callee_1: Account(code=bytes.fromhex("60006005565b00")),
+                callee_2: Account(code=bytes.fromhex("60016005575b00")),
+                callee_3: Account(code=bytes.fromhex("60006005575b00")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "5a6000526000600060006000600061100062010000f1505a60005103602052600160043514602e57600050604e565b5a6000526000600060006000600061200062010000f1505a600051036040525b600260043514605e57600050607e565b5a6000526000600060006000600061300062010000f1505a600051036040525b600360043514608e5760005060ae565b5a6000526000600060006000600061400062010000f1505a600051036040525b602435602051604051030360005500"  # noqa: E501
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(code=bytes.fromhex("600060005b5b00")),
+                callee_1: Account(code=bytes.fromhex("60006005565b00")),
+                callee_2: Account(code=bytes.fromhex("60016005575b00")),
+                callee_3: Account(code=bytes.fromhex("60006005575b00")),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "5a6000526000600060006000600061100062010000f1505a60005103602052600160043514602e57600050604e565b5a6000526000600060006000600061200062010000f1505a600051036040525b600260043514605e57600050607e565b5a6000526000600060006000600061300062010000f1505a600051036040525b600360043514608e5760005060ae565b5a6000526000600060006000600061400062010000f1505a600051036040525b602435602051604051030360005500"  # noqa: E501
+                    )
+                ),
+            },
         },
     ]
 

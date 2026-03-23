@@ -156,21 +156,27 @@ def test_quadratic_complexity_solidity_call_data_copy(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
             "result": {
                 contract: Account(
-                    storage={},
-                    nonce=0,
                     code=bytes.fromhex(
                         "60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056"  # noqa: E501
-                    ),
+                    )
                 ),
-                callee: Account(
-                    storage={},
-                    nonce=0,
-                    code=bytes.fromhex("61c350600060003700"),
+                callee: Account(code=bytes.fromhex("61c350600060003700")),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60003560e060020a9004806361a4770614601557005b601e6004356024565b60006000f35b60008160008190555073b94f5374fce5edbc8e2a8697c15331677e6ebf0b90505b600082131560bf5780600160a060020a03166000600060007f6a7573740000000000000000000000000000000000000000000000000000000081526004017f63616c6c000000000000000000000000000000000000000000000000000000008152602001600060008560155a03f150506001820391506045565b505056"  # noqa: E501
+                    )
                 ),
+                callee: Account(code=bytes.fromhex("61c350600060003700")),
             },
         },
     ]

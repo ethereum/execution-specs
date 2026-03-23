@@ -94,7 +94,7 @@ def test_random_statetest64(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -102,10 +102,13 @@ def test_random_statetest64(
                         0: 1,
                         0x82FA967FBA85F07810930C28609BB009D805556C23CF249922CCA1350E4008C5: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE,  # noqa: E501
                     },
-                    nonce=0,
+                    code=bytes.fromhex(
+                        "427f00000000000000000000000000000000000000000000000000000000000000017ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe087f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b50a5560005155"  # noqa: E501
+                    ),
                 ),
-                coinbase: Account(storage={}, nonce=0),
-                sender: Account(storage={}, nonce=1, code=b""),
+                coinbase: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
             },
         },
     ]

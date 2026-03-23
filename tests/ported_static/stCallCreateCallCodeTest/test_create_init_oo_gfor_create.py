@@ -95,18 +95,21 @@ def test_create_init_oo_gfor_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {contract: Account(nonce=0)},
-        },
-        {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                contract: Account(nonce=1, balance=0),
-                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-                    nonce=1
-                ),
+                contract: Account(
+                    code=bytes.fromhex("605a600053600160006001f0ff00")
+                )
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex("605a600053600160006001f0ff00")
+                )
             },
         },
     ]

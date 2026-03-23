@@ -86,14 +86,17 @@ def test_random_statetest173(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6bacfb1469f9a4d5674a85b75f951d72d7a58e4a"): Account(
-                    storage={}, nonce=0, code=b""
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507f0000000000000000000000000000000000000000000000000000000000000001447fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000000945304eb96065b2a98b57a48a06ae28d285a71b509ff979443703ca35560005155"  # noqa: E501
+                    )
                 ),
-                coinbase: Account(storage={}, nonce=0),
-                sender: Account(storage={}, nonce=1, code=b""),
+                coinbase: Account(
+                    code=bytes.fromhex("6000355415600957005b60203560003555")
+                ),
             },
         },
     ]

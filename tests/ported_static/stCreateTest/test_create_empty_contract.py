@@ -68,7 +68,7 @@ def test_create_empty_contract(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -76,11 +76,11 @@ def test_create_empty_contract(
                         0: 0x8D5B6,
                         1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
                         100: 0x7ABF8,
-                    }
-                ),
-                Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-                    nonce=1
-                ),
+                    },
+                    code=bytes.fromhex(
+                        "5a600055602060006000f06001555a60645500"
+                    ),
+                )
             },
         },
     ]

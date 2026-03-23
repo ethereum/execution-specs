@@ -280,7 +280,7 @@ def test_recursive_create_contracts_create4_contracts(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -288,20 +288,21 @@ def test_recursive_create_contracts_create4_contracts(
                         0: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87,
                         1: 4,
                     },
-                    nonce=3,
+                    code=bytes.fromhex(
+                        "60003560e060020a90048063820b13f614610021578063a444f5e91461003257005b61002c600435610093565b60006000f35b61003d600435610043565b60006000f35b600073095e7baea6a6c7c4c2dfeb977efac326af552d8760008190555081600181905550606b6101ad600039606b600054600160a060020a0316815260200182815260200160006000f090505050565b600060c86100e560003960c8600054600160a060020a0316815260200182815260200160006000f0905080600160a060020a0316600060026000600060006000848787f16100dd57005b50505050505600604060c860043960045160245160006001820391508160008190555060008211602657604c565b606b605d600039606b83600160a060020a0316815260200182815260200160006000f090505b505050600180605c6000396000f300006040606b6004396004516024516001810390508060008190555060008111602457605b565b81600160a060020a031663820b13f6600060008260e060020a026000526004858152602001600060008660325a03f1605857005b50505b5050600180606a6000396000f300006040606b6004396004516024516001810390508060008190555060008111602457605b565b81600160a060020a031663820b13f6600060008260e060020a026000526004858152602001600060008660325a03f1605857005b50505b5050600180606a6000396000f30000"  # noqa: E501
+                    ),
                 ),
                 Address("0x2b25ae4b13cb6e06869f694d29de45e7614ebd97"): Account(
-                    storage={0: 1}, nonce=1
+                    storage={0: 1}, code=bytes.fromhex("00")
                 ),
                 Address("0x5d35480c6e7f8952363fa280a0a96906da981f63"): Account(
-                    nonce=1, balance=2
+                    code=bytes.fromhex("00")
                 ),
-                sender: Account(nonce=1),
                 Address("0xb88de88b35ecbf3c141e3caae2baf35834d18f63"): Account(
-                    storage={0: 2}, nonce=2, balance=2
+                    storage={0: 2}, code=bytes.fromhex("00")
                 ),
                 Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-                    storage={0: 3}, nonce=1
+                    storage={0: 3}, code=bytes.fromhex("00")
                 ),
             },
         },

@@ -103,7 +103,7 @@ def test_static_call_create3(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 callee: Account(
@@ -111,8 +111,19 @@ def test_static_call_create3(
                         0: 0x13136008B64FF592819B2FA6D43F2835C452020E,
                         1: 1,
                         2: 1,
-                    }
-                )
+                    },
+                    code=bytes.fromhex(
+                        "766d600060006000600030620186a0fa600052600e6012f3600052601760096001f06000556000600060006000600054617530fa600155600160025500"  # noqa: E501
+                    ),
+                ),
+                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                    code=bytes.fromhex("600060006000600030620186a0fa")
+                ),
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60006000600060006000600035620927c0f100"
+                    )
+                ),
             },
         },
     ]

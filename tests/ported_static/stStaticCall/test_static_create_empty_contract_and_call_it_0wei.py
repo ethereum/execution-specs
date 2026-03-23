@@ -84,7 +84,7 @@ def test_static_create_empty_contract_and_call_it_0wei(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -94,11 +94,11 @@ def test_static_create_empty_contract_and_call_it_0wei(
                         2: 0x7ABF8,
                         3: 1,
                         100: 0x6FE6E,
-                    }
-                ),
-                Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-                    nonce=1
-                ),
+                    },
+                    code=bytes.fromhex(
+                        "5a600055602060006000f06001555a600255600060006000600060015461ea60fa6003555a60645500"  # noqa: E501
+                    ),
+                )
             },
         },
     ]

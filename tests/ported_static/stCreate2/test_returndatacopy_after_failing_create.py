@@ -72,9 +72,16 @@ def test_returndatacopy_after_failing_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 32, 1: 2})},
+            "result": {
+                contract: Account(
+                    storage={0: 32, 1: 2},
+                    code=bytes.fromhex(
+                        "69600260005260206000fd6000526000600a60166000f5503d6000556020600060003e60005160015500"  # noqa: E501
+                    ),
+                )
+            },
         },
     ]
 

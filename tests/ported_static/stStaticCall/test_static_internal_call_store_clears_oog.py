@@ -110,7 +110,7 @@ def test_static_internal_call_store_clears_oog(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 callee: Account(
@@ -126,10 +126,13 @@ def test_static_internal_call_store_clears_oog(
                         8: 12,
                         9: 12,
                     },
-                    balance=0,
+                    code=bytes.fromhex(
+                        "600060005560006001556000600255600060035560006004556000600555600060065560006007556000600855600060095500"  # noqa: E501
+                    ),
                 ),
-                sender: Account(nonce=1),
-                contract: Account(storage={1: 0}, balance=20),
+                contract: Account(
+                    code=bytes.fromhex("60006000600060006000619c40fa60015500")
+                ),
             },
         },
     ]

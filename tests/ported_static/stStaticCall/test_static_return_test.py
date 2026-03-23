@@ -75,7 +75,7 @@ def test_static_return_test(
     pre[sender] = Account(balance=0x5F5E100)
     # Source: LLL
     # {(MSTORE 0 0x15) (RETURN 31 1)}
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=0x15)
             + Op.RETURN(offset=0x1F, size=0x1)
@@ -88,9 +88,17 @@ def test_static_return_test(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={0: 21})},
+            "result": {
+                contract: Account(
+                    storage={0: 21},
+                    code=bytes.fromhex(
+                        "6001601f6001601e73b94f5374fce5edbc8e2a8697c15331677e6ebf0b6107d0fa506000516000556002601ef300"  # noqa: E501
+                    ),
+                ),
+                callee: Account(code=bytes.fromhex("60156000526001601ff300")),
+            },
         },
     ]
 

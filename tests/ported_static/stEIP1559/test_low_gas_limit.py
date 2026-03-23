@@ -93,39 +93,29 @@ def test_low_gas_limit(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 24743}, code=bytes.fromhex("600260005500")
-                )
+            "result": {},
+            "expect_exception": {
+                ">=Cancun": "TransactionException.GAS_ALLOWANCE_EXCEEDED"
             },
         },
         {
-            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "indexes": {"data": -1, "gas": 1, "value": -1},
             "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 2}, code=bytes.fromhex("600260005500")
-                )
-            },
+            "result": {contract: Account(storage={0: 2})},
         },
         {
-            "indexes": {"data": 2, "gas": 2, "value": 0},
+            "indexes": {"data": -1, "gas": 2, "value": -1},
             "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 24743}, code=bytes.fromhex("600260005500")
-                )
-            },
+            "result": {contract: Account(storage={0: 24743})},
         },
         {
-            "indexes": {"data": 3, "gas": 3, "value": 0},
+            "indexes": {"data": -1, "gas": 3, "value": -1},
             "network": [">=Cancun"],
-            "result": {
-                contract: Account(
-                    storage={0: 24743}, code=bytes.fromhex("600260005500")
-                )
+            "result": {},
+            "expect_exception": {
+                ">=Cancun": "TransactionException.INTRINSIC_GAS_TOO_LOW"
             },
         },
     ]

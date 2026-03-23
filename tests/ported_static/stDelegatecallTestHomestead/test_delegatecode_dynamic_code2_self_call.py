@@ -76,16 +76,20 @@ def test_delegatecode_dynamic_code2_self_call(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f60406000604060007313136008b64ff592819b2fa6d43f2835c452020e6201866000527fa0f4600b5533600c550000000000000000000000000000000000000000000000602052604060006001f000"  # noqa: E501
+                    )
+                ),
                 Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
                     storage={
                         11: 1,
                         12: 0x1000000000000000000000000000000000000000,
-                    },
-                    balance=1,
-                )
+                    }
+                ),
             },
         },
     ]

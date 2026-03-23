@@ -71,14 +71,17 @@ def test_create_and_gas_inside_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
                     storage={
                         9: 0x129DB,
                         11: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
-                    }
+                    },
+                    code=bytes.fromhex(
+                        "5a606452635a60fd556000526004601c6000f0600b555a6064510360095500"  # noqa: E501
+                    ),
                 ),
                 Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
                     storage={253: 0x83729}

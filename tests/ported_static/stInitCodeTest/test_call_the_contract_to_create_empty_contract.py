@@ -64,14 +64,10 @@ def test_call_the_contract_to_create_empty_contract(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                contract: Account(nonce=1, balance=1),
-                sender: Account(nonce=1),
-                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-                    storage={}, nonce=1, balance=0, code=b""
-                ),
+                contract: Account(code=bytes.fromhex("602060006000f000"))
             },
         },
     ]

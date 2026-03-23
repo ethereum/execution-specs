@@ -94,30 +94,19 @@ def test_create2collision_selfdestructed2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000010"): Account(
-                    balance=1
-                ),
-                sender: Account(nonce=1),
-                callee_1: Account(
-                    storage={},
-                    nonce=0,
-                    balance=0,
-                    code=bytes.fromhex("6010ff00"),
-                ),
+                contract: Account(code=bytes.fromhex("6010ff")),
+                callee_1: Account(code=bytes.fromhex("6010ff00")),
             },
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000010"): Account(
-                    balance=1
-                ),
-                sender: Account(nonce=1),
-                contract: Account(nonce=1, balance=0),
+                contract: Account(code=bytes.fromhex("6010ff")),
+                callee_1: Account(code=bytes.fromhex("6010ff00")),
             },
         },
     ]

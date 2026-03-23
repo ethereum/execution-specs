@@ -85,28 +85,24 @@ def test_transaction_collision_to_empty2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": 0, "value": 0},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                contract: Account(storage={1: 1}, nonce=1, balance=10),
-                sender: Account(nonce=1),
-            },
+            "result": {contract: Account(storage={1: 1})},
         },
         {
-            "indexes": {"data": -1, "gas": 0, "value": 1},
+            "indexes": {"data": 1, "gas": 0, "value": 1},
             "network": [">=Cancun"],
-            "result": {
-                contract: Account(storage={1: 1}, nonce=1, balance=11),
-                sender: Account(nonce=1),
-            },
+            "result": {contract: Account(storage={1: 1})},
         },
         {
-            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "indexes": {"data": 2, "gas": 1, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                contract: Account(storage={}, nonce=0, balance=10),
-                sender: Account(nonce=1),
-            },
+            "result": {},
+        },
+        {
+            "indexes": {"data": 3, "gas": 1, "value": 1},
+            "network": [">=Cancun"],
+            "result": {},
         },
     ]
 

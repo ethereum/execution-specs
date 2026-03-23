@@ -74,7 +74,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
     )
     # Source: LLL
     # { (MSTORE 0 0x6001600055) (CREATE 1 27 5) }
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=0x6001600055)
             + Op.CREATE(value=0x1, offset=0x1B, size=0x5)
@@ -86,7 +86,7 @@ def test_delegatecall_in_initcode_to_existing_contract(
     )
     # Source: LLL
     # { (SSTORE 2 1) [[ 11 ]] (CALLER) }
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.SSTORE(key=0x2, value=0x1)
             + Op.SSTORE(key=0xB, value=Op.CALLER)
@@ -99,18 +99,26 @@ def test_delegatecall_in_initcode_to_existing_contract(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "7f604060006040600073945304eb96065b2a98b57a48a06ae28d285a71b56201866000527fa0f4600055336001550000000000000000000000000000000000000000000000602052604060006001f000"  # noqa: E501
+                    )
+                ),
+                callee: Account(
+                    code=bytes.fromhex("6460016000556000526005601b6001f000")
+                ),
                 Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
                     storage={
                         0: 1,
                         1: 0x1000000000000000000000000000000000000000,
                         2: 1,
                         11: 0x1000000000000000000000000000000000000000,
-                    },
-                    balance=1,
-                )
+                    }
+                ),
+                callee_1: Account(code=bytes.fromhex("600160025533600b5500")),
             },
         },
     ]

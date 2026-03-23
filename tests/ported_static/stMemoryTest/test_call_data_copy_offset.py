@@ -88,12 +88,20 @@ def test_call_data_copy_offset(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "670123456789abcdef600052600080600f818073eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee61fffff100"  # noqa: E501
+                    )
+                ),
                 callee: Account(
-                    storage={0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF}
-                )
+                    storage={0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF},
+                    code=bytes.fromhex(
+                        "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff600052601061ffff60003760005160005500"  # noqa: E501
+                    ),
+                ),
             },
         },
     ]

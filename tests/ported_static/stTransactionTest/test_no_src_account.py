@@ -361,7 +361,7 @@ def test_no_src_account(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 0 - 1, "value": -1},
+            "indexes": {"data": 0, "gas": [0, 1], "value": -1},
             "network": [">=Cancun"],
             "result": {},
             "expect_exception": {
@@ -385,7 +385,7 @@ def test_no_src_account(
             },
         },
         {
-            "indexes": {"data": 0 - 1, "gas": 2, "value": 1},
+            "indexes": {"data": [0, 1], "gas": 2, "value": 1},
             "network": [">=Cancun"],
             "result": {},
             "expect_exception": {
@@ -393,7 +393,7 @@ def test_no_src_account(
             },
         },
         {
-            "indexes": {"data": 0 - 1, "gas": 2, "value": 0},
+            "indexes": {"data": [0, 1], "gas": 2, "value": 0},
             "network": [">=Cancun"],
             "result": {},
             "expect_exception": {
@@ -455,7 +455,7 @@ def test_no_src_account(
             },
         },
         {
-            "indexes": {"data": 2 - 4, "gas": 2, "value": 1},
+            "indexes": {"data": [2, 3, 4], "gas": 2, "value": 1},
             "network": [">=Cancun"],
             "result": {},
             "expect_exception": {
@@ -464,7 +464,7 @@ def test_no_src_account(
             },
         },
         {
-            "indexes": {"data": 2 - 4, "gas": 2, "value": 0},
+            "indexes": {"data": [2, 3, 4], "gas": 2, "value": 0},
             "network": [">=Cancun"],
             "result": {},
             "expect_exception": {

@@ -75,7 +75,7 @@ def test_gas(
         gas_limit=100000000,
     )
 
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=(
             Op.MSTORE(offset=0x0, value=0xFFFFFFFFFF)
             + Op.MSTORE(offset=0x5A, value=0xEEEE)
@@ -86,7 +86,7 @@ def test_gas(
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.GAS) + Op.STOP,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
@@ -117,14 +117,36 @@ def test_gas(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract: Account(storage={0: 0x4B1457B})},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "64ffffffffff60005261eeee605a525a60005500"
+                    )
+                ),
+                callee_1: Account(code=bytes.fromhex("5a60005500")),
+                contract: Account(
+                    storage={0: 0x4B1457B},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
-            "network": [">=Cancun<Osaka"],
-            "result": {contract: Account(storage={0: 0x4B1458D})},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "64ffffffffff60005261eeee605a525a60005500"
+                    )
+                ),
+                callee_1: Account(code=bytes.fromhex("5a60005500")),
+                contract: Account(
+                    storage={0: 0x4B1458D},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
         },
     ]
 

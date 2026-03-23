@@ -141,29 +141,45 @@ def test_create2_smart_init_code(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000001"): Account(
-                    balance=1
+                callee: Account(
+                    storage={1: 0xF6510583D425CFCF94B99F8B073B44F60D1912B},
+                    code=bytes.fromhex(
+                        "7a600060015414601157600a6000f3601a565b60016001556001ff5b6000526000601b60056001f56001556000601b60056001f560025500"  # noqa: E501
+                    ),
                 ),
-                callee: Account(nonce=2),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "7c600060015414601157600a6000f3601c565b6001600155600a6000f35b6000526000601d60036001f56001556000601b60056001f560025500"  # noqa: E501
+                    )
+                ),
+                contract: Account(
+                    code=bytes.fromhex("600060006000600060006000355af100")
+                ),
             },
         },
         {
-            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
+                callee: Account(
+                    code=bytes.fromhex(
+                        "7a600060015414601157600a6000f3601a565b60016001556001ff5b6000526000601b60056001f56001556000601b60056001f560025500"  # noqa: E501
+                    )
+                ),
                 callee_1: Account(
-                    storage={
-                        1: 0xD27E800C69122409AC5609FE4DF903745F3988A0,
-                        2: 0,
-                    }
+                    storage={1: 0xD27E800C69122409AC5609FE4DF903745F3988A0},
+                    code=bytes.fromhex(
+                        "7c600060015414601157600a6000f3601c565b6001600155600a6000f35b6000526000601d60036001f56001556000601b60056001f560025500"  # noqa: E501
+                    ),
+                ),
+                contract: Account(
+                    code=bytes.fromhex("600060006000600060006000355af100")
                 ),
                 Address("0xd27e800c69122409ac5609fe4df903745f3988a0"): Account(
-                    storage={1: 1},
-                    nonce=1,
-                    code=bytes.fromhex("00000000000000000000"),
+                    storage={1: 1}, code=bytes.fromhex("00000000000000000000")
                 ),
             },
         },

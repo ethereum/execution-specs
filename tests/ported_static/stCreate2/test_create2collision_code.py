@@ -98,31 +98,30 @@ def test_create2collision_code(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=2, balance=1, code=b""
-                ),
-                sender: Account(nonce=1),
-                contract: Account(
-                    storage={},
-                    nonce=0,
-                    balance=0,
-                    code=bytes.fromhex("010203"),
-                ),
-                callee_1: Account(
-                    storage={},
-                    nonce=0,
-                    balance=0,
-                    code=bytes.fromhex("010203"),
-                ),
-                callee_2: Account(
-                    storage={},
-                    nonce=0,
-                    balance=0,
-                    code=bytes.fromhex("010203"),
-                ),
+                contract: Account(code=bytes.fromhex("010203")),
+                callee_1: Account(code=bytes.fromhex("010203")),
+                callee_2: Account(code=bytes.fromhex("010203")),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(code=bytes.fromhex("010203")),
+                callee_1: Account(code=bytes.fromhex("010203")),
+                callee_2: Account(code=bytes.fromhex("010203")),
+            },
+        },
+        {
+            "indexes": {"data": 2, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(code=bytes.fromhex("010203")),
+                callee_1: Account(code=bytes.fromhex("010203")),
+                callee_2: Account(code=bytes.fromhex("010203")),
             },
         },
     ]

@@ -83,33 +83,27 @@ def test_out_of_gas_contract_creation(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
-                ): Account.NONEXISTENT,
-                sender: Account(nonce=1),
-            },
+            "result": {},
         },
         {
-            "indexes": {"data": 1, "gas": 1, "value": -1},
+            "indexes": {"data": 0, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {},
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    nonce=1
-                ),
-                sender: Account(nonce=1),
-            },
-        },
-        {
-            "indexes": {"data": -1, "gas": 0, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
-                ): Account.NONEXISTENT,
-                sender: Account(nonce=1),
+                    storage={1: 6}
+                )
             },
         },
     ]

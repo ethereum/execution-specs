@@ -55,16 +55,13 @@ def test_create_transaction_success(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={},
-                    nonce=1,
-                    balance=100,
                     code=bytes.fromhex(
                         "60e060020a600035048063f8a8fd6d14601457005b601a6020565b60006000f35b56"  # noqa: E501
-                    ),
+                    )
                 )
             },
         },

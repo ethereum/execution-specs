@@ -96,18 +96,23 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000001"): Account(
-                    balance=1
-                ),
                 contract: Account(
                     storage={
                         1: 0x6000526005601BF36000526001FF000000000000000000000000000000000000,  # noqa: E501
-                    }
+                    },
+                    code=bytes.fromhex(
+                        "6020600060006000600173c94f5374fce5edbc8e2a8697c15331677e6ebf0b620249f0f15060005160015500"  # noqa: E501
+                    ),
                 ),
-                callee: Account(storage={0: 11}),
+                callee: Account(
+                    storage={0: 11},
+                    code=bytes.fromhex(
+                        "746d64600c6000556000526005601bf36000526001ff60005260006015600b6001f550600b600055600e6012f300"  # noqa: E501
+                    ),
+                ),
             },
         },
     ]

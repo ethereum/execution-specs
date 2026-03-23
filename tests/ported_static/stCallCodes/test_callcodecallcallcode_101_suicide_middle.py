@@ -99,7 +99,7 @@ def test_callcodecallcallcode_101_suicide_middle(
     )
     # Source: LLL
     # { (SELFDESTRUCT 0x1000000000000000000000000000000000000000) [[ 2 ]] (CALLCODE 50000 0x1000000000000000000000000000000000000003 0 0 64 0 64 ) }  # noqa: E501
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=(
             Op.SELFDESTRUCT(address=0x1000000000000000000000000000000000000000)
             + Op.SSTORE(
@@ -132,14 +132,26 @@ def test_callcodecallcallcode_101_suicide_middle(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
-                    storage={0: 1, 1: 1}, balance=0xDE0B6B5FB6FE400
+                    storage={0: 1, 1: 1},
+                    code=bytes.fromhex(
+                        "60406000604060006000731000000000000000000000000000000000000001620249f0f260005500"  # noqa: E501
+                    ),
                 ),
-                callee: Account(storage={2: 0, 3: 0}, balance=0x2540BE400),
-                callee_2: Account(storage={2: 0, 3: 0}, balance=0x2540BE400),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "60406000604060006000731000000000000000000000000000000000000002620186a0f160015500"  # noqa: E501
+                    )
+                ),
+                callee_1: Account(
+                    code=bytes.fromhex(
+                        "731000000000000000000000000000000000000000ff6040600060406000600073100000000000000000000000000000000000000361c350f260025500"  # noqa: E501
+                    )
+                ),
+                callee_2: Account(code=bytes.fromhex("600160035500")),
             },
         },
     ]

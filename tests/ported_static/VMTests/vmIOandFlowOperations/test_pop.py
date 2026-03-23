@@ -75,14 +75,14 @@ def test_pop(
     )
 
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee = pre.deploy_contract(
         code=Op.PUSH1[0x2] + Op.PUSH1[0x3] + Op.POP(0x4) + Op.SSTORE,
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
     # Source: raw bytecode
-    pre.deploy_contract(
+    callee_1 = pre.deploy_contract(
         code=Op.POP + Op.PUSH1[0x2] + Op.SSTORE(key=0x4, value=0x3),
         balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
@@ -112,14 +112,27 @@ def test_pop(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={3: 2})},
+            "result": {
+                callee: Account(code=bytes.fromhex("6002600360045055")),
+                callee_1: Account(code=bytes.fromhex("5060026003600455")),
+                contract: Account(
+                    storage={3: 2},
+                    code=bytes.fromhex("6000600060006000600435611000015af400"),
+                ),
+            },
         },
         {
-            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "indexes": {"data": 1, "gas": 0, "value": 0},
             "network": [">=Cancun"],
-            "result": {contract: Account(storage={4: 0})},
+            "result": {
+                callee: Account(code=bytes.fromhex("6002600360045055")),
+                callee_1: Account(code=bytes.fromhex("5060026003600455")),
+                contract: Account(
+                    code=bytes.fromhex("6000600060006000600435611000015af400")
+                ),
+            },
         },
     ]
 

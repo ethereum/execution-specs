@@ -67,10 +67,12 @@ def test_create_message_success(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                contract: Account(nonce=1, balance=100),
+                contract: Account(
+                    code=bytes.fromhex("64600c6000556000526005601b6000f000")
+                ),
                 Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
                     storage={0: 12}
                 ),

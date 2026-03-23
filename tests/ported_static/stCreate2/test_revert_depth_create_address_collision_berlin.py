@@ -123,48 +123,137 @@ def test_revert_depth_create_address_collision_berlin(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": 1, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(storage={0: 1, 1: 1, 4: 12}, nonce=54),
-                callee: Account(storage={2: 8, 3: 12}),
-            },
-        },
-        {
-            "indexes": {"data": 0, "gas": 1, "value": -1},
-            "network": [">=Cancun"],
-            "result": {
-                contract: Account(storage={0: 1, 4: 12}, nonce=54),
-                callee: Account(storage={}),
-            },
-        },
-        {
-            "indexes": {"data": 1, "gas": 0, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
-                    storage={},
-                    nonce=54,
-                    balance=5,
+                    code=bytes.fromhex(
+                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
+                    )
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "60086002556000600060006000f550600c60035500"
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 0, "gas": 0, "value": 1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
+                    )
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "60086002556000600060006000f550600c60035500"
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 0, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1, 4: 12},
                     code=bytes.fromhex(
                         "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
                     ),
                 ),
-                callee: Account(storage={}),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "60086002556000600060006000f550600c60035500"
+                    )
+                ),
             },
         },
         {
-            "indexes": {"data": 0, "gas": 0, "value": -1},
+            "indexes": {"data": 0, "gas": 1, "value": 1},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
-                    storage={},
-                    nonce=54,
+                    storage={0: 1, 4: 12},
                     code=bytes.fromhex(
                         "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
                     ),
                 ),
-                callee: Account(storage={}),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "60086002556000600060006000f550600c60035500"
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
+                    )
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "60086002556000600060006000f550600c60035500"
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 0, "value": 1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    code=bytes.fromhex(
+                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
+                    )
+                ),
+                callee: Account(
+                    code=bytes.fromhex(
+                        "60086002556000600060006000f550600c60035500"
+                    )
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1, 1: 1, 4: 12},
+                    code=bytes.fromhex(
+                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    storage={2: 8, 3: 12},
+                    code=bytes.fromhex(
+                        "60086002556000600060006000f550600c60035500"
+                    ),
+                ),
+            },
+        },
+        {
+            "indexes": {"data": 1, "gas": 1, "value": 1},
+            "network": [">=Cancun"],
+            "result": {
+                contract: Account(
+                    storage={0: 1, 1: 1, 4: 12},
+                    code=bytes.fromhex(
+                        "60016000556000600060006000600073b000000000000000000000000000000000000000600035f1600155600c60045500"  # noqa: E501
+                    ),
+                ),
+                callee: Account(
+                    storage={2: 8, 3: 12},
+                    code=bytes.fromhex(
+                        "60086002556000600060006000f550600c60035500"
+                    ),
+                ),
             },
         },
     ]

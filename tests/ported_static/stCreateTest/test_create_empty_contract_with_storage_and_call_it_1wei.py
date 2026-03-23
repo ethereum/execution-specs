@@ -101,7 +101,7 @@ def test_create_empty_contract_with_storage_and_call_it_1wei(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "indexes": {"data": 0, "gas": 0, "value": 0},
             "network": [">=Cancun"],
             "result": {
                 contract: Account(
@@ -111,11 +111,16 @@ def test_create_empty_contract_with_storage_and_call_it_1wei(
                         2: 0x6F4F0,
                         3: 1,
                         100: 0x62D37,
-                    }
+                    },
+                    code=bytes.fromhex(
+                        "5a6000557f600c6000556000600060006000600073c94f5374fce5edbc8e2a8697c15331676000527f7e6ebf0b61ea60f1000000000000000000000000000000000000000000000000602052604060006000f06001555a6002556000600060006000600160015461ea60f16003555a60645500"  # noqa: E501
+                    ),
                 ),
-                callee: Account(storage={1: 12}),
+                callee: Account(
+                    storage={1: 12}, code=bytes.fromhex("600c60015500")
+                ),
                 Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-                    storage={0: 12}, balance=1
+                    storage={0: 12}
                 ),
             },
         },
