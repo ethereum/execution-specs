@@ -12,12 +12,13 @@ from execution_testing.test_types.execution_witness.modifiers import (
     add_code,
     add_state_node,
     clear_headers,
+    prepend_header,
     remove_code,
     remove_code_at,
-    remove_state_node,
     remove_header_at,
     remove_state_node,
     replace_header_at,
+    reverse_codes,
     reverse_headers,
 )
 
@@ -90,18 +91,21 @@ def test_execution_witness_code_modifiers() -> None:
     """Code modifiers should update witness codes predictably."""
     witness = ExecutionWitness(
         state=[],
-        codes=[Bytes(b"aa")],
+        codes=[Bytes(b"aa"), Bytes(b"bb")],
         headers=[],
     )
 
-    added = add_code(Bytes(b"bb"))(witness)
-    assert added.codes == [Bytes(b"aa"), Bytes(b"bb")]
+    added = add_code(Bytes(b"cc"))(witness)
+    assert added.codes == [Bytes(b"aa"), Bytes(b"bb"), Bytes(b"cc")]
 
     removed = remove_code(Bytes(b"bb"))(added)
-    assert removed.codes == [Bytes(b"aa")]
+    assert removed.codes == [Bytes(b"aa"), Bytes(b"cc")]
 
     removed_by_index = remove_code_at(0)(added)
-    assert removed_by_index.codes == [Bytes(b"bb")]
+    assert removed_by_index.codes == [Bytes(b"bb"), Bytes(b"cc")]
+
+    reversed_codes = reverse_codes()(witness)
+    assert reversed_codes.codes == [Bytes(b"bb"), Bytes(b"aa")]
 
 
 def test_execution_witness_header_modifiers() -> None:
@@ -117,6 +121,9 @@ def test_execution_witness_header_modifiers() -> None:
 
     replaced = replace_header_at(0, Bytes(b"cc"))(witness)
     assert replaced.headers == [Bytes(b"cc"), Bytes(b"bb")]
+
+    prepended = prepend_header(Bytes(b"00"))(witness)
+    assert prepended.headers == [Bytes(b"00"), Bytes(b"aa"), Bytes(b"bb")]
 
     reversed_headers = reverse_headers()(witness)
     assert reversed_headers.headers == [Bytes(b"bb"), Bytes(b"aa")]

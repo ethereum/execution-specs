@@ -100,6 +100,19 @@ def remove_code_at(
     return transform
 
 
+def reverse_codes() -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Reverse the order of witness codes."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        return witness.model_copy(
+            update={"codes": list(reversed(witness.codes))}
+        )
+
+    return transform
+
+
 def clear_headers() -> Callable[[ExecutionWitness], ExecutionWitness]:
     """Remove all header entries from the witness."""
 
@@ -127,6 +140,19 @@ def remove_header_at(
                 f"Header index {index} out of range for witness headers"
             ) from exc
         return witness.model_copy(update={"headers": new_headers})
+
+    return transform
+
+
+def prepend_header(
+    header: Bytes,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Prepend a header entry to the witness."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        return witness.model_copy(update={"headers": [header, *witness.headers]})
 
     return transform
 
@@ -172,6 +198,8 @@ __all__ = [
     "remove_state_node",
     "remove_code",
     "remove_code_at",
+    "reverse_codes",
+    "prepend_header",
     "remove_header_at",
     "reverse_headers",
     "replace_header_at",
