@@ -6,6 +6,8 @@ and that modifies pytest hooks in order to fill test specs for all tests
 and writes the generated fixtures to file.
 """
 
+from __future__ import annotations
+
 import atexit
 import configparser
 import datetime
@@ -19,7 +21,7 @@ import time
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Self, Set, Type
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Self, Set, Type
 
 import pytest
 import xdist
@@ -91,7 +93,9 @@ from ..shared.helpers import (
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
 )
-from .pre_alloc import Alloc
+
+if TYPE_CHECKING:
+    from .pre_alloc import Alloc
 
 # Fixture output dir for keyboard interrupt cleanup (set in pytest_configure).
 # Used by _merge_on_exit to merge partial JSONL files on Ctrl+C or SIGTERM.
