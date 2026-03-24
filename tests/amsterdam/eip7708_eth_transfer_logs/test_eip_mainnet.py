@@ -27,7 +27,7 @@ def test_simple_transfer_mainnet(
 ) -> None:
     """Test that a simple ETH transfer emits a transfer log on mainnet."""
     sender = pre.fund_eoa()
-    recipient = pre.empty_account()
+    recipient = pre.nonexistent_account()
 
     tx = Transaction(
         ty=0x02,
@@ -76,7 +76,7 @@ def test_selfdestruct_mainnet(
 ) -> None:
     """Test that SELFDESTRUCT emits a transfer log on mainnet."""
     sender = pre.fund_eoa()
-    beneficiary = pre.empty_account()
+    beneficiary = pre.nonexistent_account()
 
     contract_code = Op.SELFDESTRUCT(beneficiary)
     contract = pre.deploy_contract(contract_code, balance=500)
