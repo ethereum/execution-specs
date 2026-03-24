@@ -186,7 +186,7 @@ uv run mypy              # Verifies type annotations.
 > mypy cache across all of them and avoid cold-start delays:
 >
 > ```bash
-> export MYPY_CACHE_DIR=~/.cache/mypy/execution-specs
+> export MYPY_CACHE_DIR=~/path/to/execution-specs/.mypy_cache
 > ```
 
 It is recommended to use a [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to keep your system Python installation clean.
