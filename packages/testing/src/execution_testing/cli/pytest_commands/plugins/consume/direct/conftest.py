@@ -58,7 +58,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # noqa: D103
     )
 
     consume_group.addoption(
-        "--bin",
+        "--evm-bin",
         action="append",
         dest="fixture_consumer_bin",
         type=Path,
@@ -110,8 +110,8 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
             (
                 "No fixture consumer binaries provided; using a dummy "
                 "consumer for collect-only; all possible fixture formats "
-                "will be collected. Specify fixture consumer(s) via `--bin` "
-                "to see actual collection results."
+                "will be collected. Specify fixture consumer(s) via "
+                "`--evm-bin` to see actual collection results."
             ),
             stacklevel=1,
         )
@@ -119,7 +119,7 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: D103
     elif not fixture_consumers:
         pytest.exit(
             "No fixture consumer binaries provided; please specify a binary "
-            "path via `--bin`."
+            "path via `--evm-bin`."
         )
     config.fixture_consumers = fixture_consumers  # type: ignore[attr-defined]
 

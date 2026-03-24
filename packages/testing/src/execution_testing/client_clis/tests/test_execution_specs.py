@@ -21,7 +21,7 @@ from execution_testing.test_types import Alloc, Environment, Transaction
 
 CURRENT_FOLDER = Path(realpath(__file__)).parent
 FIXTURES_ROOT = CURRENT_FOLDER / "fixtures"
-DEFAULT_EVM_T8N_BINARY_NAME = "ethereum-spec-evm-resolver"
+DEFAULT_EVM_T8N_BINARY_NAME = "ethereum-spec-evm"
 
 
 @pytest.fixture(autouse=True)
@@ -35,8 +35,8 @@ def monkeypatch_path_for_entry_points(
     This would typically be in the venv in which pytest is running these tests
     and fill, which, with uv, is `./.venv/bin`.
 
-    This is required in order for fill to locate the ethereum-spec-evm-resolver
-    "binary" (entrypoint) when being executed using pytester.
+    This is required so pytester-based invocations can locate the
+    execution-specs transition tool entrypoint while running in tests.
     """
     bin_dir = sysconfig.get_path("scripts")
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")

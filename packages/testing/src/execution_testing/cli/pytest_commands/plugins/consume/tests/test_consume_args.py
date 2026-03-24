@@ -232,3 +232,27 @@ def test_consume_simlimit_collectonly(
         if expected_filter_pattern.search(line)
     ]
     assert set(collected_test_ids) == set(expected_collected_test_ids)
+
+
+def test_direct_consume_requires_evm_bin(
+    pytester: Pytester,
+    fixtures_dir: Path,
+) -> None:
+    """Test that direct consume references --evm-bin in its usage error."""
+    pytester.copy_example(
+        name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-consume.ini"
+    )
+    consume_test_path = (
+        "src/execution_testing/cli/pytest_commands/plugins/"
+        "consume/direct/test_via_direct.py"
+    )
+    result = pytester.runpytest_subprocess(
+        "-c",
+        "pytest-consume.ini",
+        "--input",
+        str(fixtures_dir),
+        consume_test_path,
+    )
+    assert result.ret != pytest.ExitCode.OK
+    output = "\n".join(result.stdout.lines + result.stderr.lines)
+    assert "path via `--evm-bin`." in output
