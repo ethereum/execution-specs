@@ -1382,6 +1382,13 @@ def _combination_filter_reason(
         if not marker.args:
             continue
         predicate = marker.args[0]
+        if not callable(predicate):
+            pytest.exit(
+                f"filter_combinations predicate for "
+                f"'{item.nodeid}' is not callable: "
+                f"{predicate!r}",
+                returncode=pytest.ExitCode.USAGE_ERROR,
+            )
         if not predicate(**params):
             return marker.kwargs.get(
                 "reason", "rejected by filter_combinations"
