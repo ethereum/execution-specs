@@ -6,8 +6,7 @@ from typing import Any
 
 def test_slow_marker_gets_pre_alloc_group(pytester: Any) -> None:
     """
-    Test that slow tests without benchmark marker get pre_alloc_group
-    automatically.
+    Test that slow tests get pre_alloc_group automatically.
     """
     test_module = textwrap.dedent(
         """\
@@ -52,7 +51,7 @@ def test_slow_marker_gets_pre_alloc_group(pytester: Any) -> None:
 
 def test_slow_with_benchmark_no_pre_alloc(pytester: Any) -> None:
     """
-    Test that slow tests WITH benchmark marker do NOT get pre_alloc_group.
+    Test that slow tests in benchmark dir do NOT get pre_alloc_group.
     """
     test_module = textwrap.dedent(
         """\
@@ -60,7 +59,6 @@ def test_slow_with_benchmark_no_pre_alloc(pytester: Any) -> None:
         from execution_testing import  Alloc, StateTestFiller, Transaction
 
         @pytest.mark.slow
-        @pytest.mark.benchmark
         @pytest.mark.valid_from("Cancun")
         def test_slow_with_benchmark(state_test: StateTestFiller, pre: Alloc) -> None:
             sender = pre.fund_eoa()

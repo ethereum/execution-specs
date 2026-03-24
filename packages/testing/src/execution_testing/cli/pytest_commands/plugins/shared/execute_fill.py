@@ -113,10 +113,6 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
-        "benchmark: Tests relevant to benchmarking EVMs.",
-    )
-    config.addinivalue_line(
-        "markers",
         "exception_test: Negative tests that include an invalid block or "
         "transaction.",
     )
