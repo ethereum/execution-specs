@@ -690,20 +690,33 @@ class TestPydanticModelConversion:
         pytest.param(
             {"gas_price": 1, "max_fee_per_gas": 2},
             Transaction.InvalidFeePaymentError,
-            "only one type of fee payment field can be used",
+            "with type-2+ fee field 'max_fee_per_gas'",
             id="gas-price-and-max-fee-per-gas",
         ),
         pytest.param(
             {"gas_price": 1, "max_priority_fee_per_gas": 2},
             Transaction.InvalidFeePaymentError,
-            "only one type of fee payment field can be used",
+            "with type-2+ fee field 'max_priority_fee_per_gas'",
             id="gas-price-and-max-priority-fee-per-gas",
         ),
         pytest.param(
             {"gas_price": 1, "max_fee_per_blob_gas": 2},
             Transaction.InvalidFeePaymentError,
-            "only one type of fee payment field can be used",
+            "with type-2+ fee field 'max_fee_per_blob_gas'",
             id="gas-price-and-max-fee-per-blob-gas",
+        ),
+        pytest.param(
+            {
+                "gas_price": 1,
+                "max_fee_per_gas": 2,
+                "max_priority_fee_per_gas": 3,
+            },
+            Transaction.InvalidFeePaymentError,
+            (
+                "with type-2+ fee fields 'max_fee_per_gas' and "
+                "'max_priority_fee_per_gas'"
+            ),
+            id="gas-price-and-multiple-dynamic-fee-fields",
         ),
         pytest.param(
             {"ty": 0, "v": 1, "secret_key": 2},
@@ -725,6 +738,17 @@ def test_transaction_post_init_invalid_arg_combinations(  # noqa: D103
     with pytest.raises(expected_exception) as exc_info:
         Transaction(**invalid_tx_args)
     assert expected_exception_substring in str(exc_info.value)
+
+
+def test_invalid_fee_payment_error_message() -> None:
+    """Test the exact error message for mixed legacy and type-2+ fee fields."""
+    with pytest.raises(Transaction.InvalidFeePaymentError) as exc_info:
+        Transaction(gas_price=1, max_fee_per_gas=2)
+
+    error_msg = f"\n\t{str(exc_info.value)}"
+    print(error_msg)
+
+    assert "cannot mix" in error_msg
 
 
 @pytest.mark.parametrize(
