@@ -32,6 +32,7 @@ from execution_testing import (
     TestPhaseManager,
     Transaction,
 )
+from execution_testing.base_types.base_types import HashInt
 
 from .helpers import (
     CURSOR_INIT,
@@ -161,18 +162,20 @@ def _run_cross_contract_chase(
         for i in range(chain_length - 1):
             current = contracts[start + i]
             next_addr = contracts[start + i + 1]
-            pre[current].storage[0] = int.from_bytes(Address(next_addr), "big")
+            account = pre[current]
+            assert account is not None
+            account.storage[0] = int.from_bytes(Address(next_addr), "big")
 
     # Deploy dispatcher with entry-point lookup table.
     # Chain entries at slots CURSOR_INIT..CURSOR_INIT+N-1;
     # cursor at slot 0 starts at CURSOR_INIT.
-    entry_storage: dict[int, int] = {
-        CURSOR_INIT + tx_idx: int.from_bytes(
-            Address(contracts[tx_idx * chain_length]), "big"
+    entry_storage: dict[HashInt, HashInt] = {
+        HashInt(CURSOR_INIT + tx_idx): HashInt(
+            int.from_bytes(Address(contracts[tx_idx * chain_length]), "big")
         )
         for tx_idx in range(num_transactions)
     }
-    entry_storage[CURSOR_SLOT] = CURSOR_INIT
+    entry_storage[HashInt(CURSOR_SLOT)] = HashInt(CURSOR_INIT)
     dispatcher = pre.deploy_contract(
         code=create_dispatcher_contract(),
         storage=Storage(entry_storage),

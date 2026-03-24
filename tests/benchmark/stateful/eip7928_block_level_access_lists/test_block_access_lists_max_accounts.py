@@ -18,6 +18,7 @@ from execution_testing import (
     Op,
     Storage,
 )
+from execution_testing.base_types.base_types import HashInt
 
 from .helpers import (
     CURSOR_INIT,
@@ -106,7 +107,7 @@ def test_bal_max_account_access(
         pre=pre,
         benchmark_test=benchmark_test,
         contract_code=create_balance_loop_contract(plan.gas_threshold),
-        contract_storage=Storage({CURSOR_SLOT: CURSOR_INIT}),
+        contract_storage=Storage({HashInt(CURSOR_SLOT): HashInt(CURSOR_INIT)}),
         plan=plan,
         extra_expectations=extra,
     )

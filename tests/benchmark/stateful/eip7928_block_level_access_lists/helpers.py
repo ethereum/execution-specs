@@ -143,14 +143,13 @@ def plan_benchmark(
     min_useful = (
         intrinsic_gas + setup_gas + gas_threshold + gas_opcode_offset + 1
     )
-
+    gas_limits: list[int] = []
     # Build per-tx gas limits.
     if num_transactions is not None and tx_gas_limit is not None:
         gas_limits = [tx_gas_limit] * num_transactions
     else:
         max_tx_gas = fork.transaction_gas_limit_cap()
         assert max_tx_gas is not None
-        gas_limits: list[int] = []
         remaining = gas_benchmark_value
         while remaining >= min_useful:
             g = min(remaining, max_tx_gas)
