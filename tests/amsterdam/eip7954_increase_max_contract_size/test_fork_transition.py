@@ -14,11 +14,11 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Fork,
     Initcode,
     Op,
     Transaction,
     TransactionException,
+    TransitionFork,
     compute_create_address,
 )
 
@@ -35,10 +35,10 @@ CREATE2_SALT = 0xC0FFEE
 def test_max_code_size_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    fork: TransitionFork,
 ) -> None:
     """Ensure the new max code size limit activates at the fork boundary."""
-    code_size = fork.max_code_size()
+    code_size = fork.transitions_to().max_code_size()
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
 
@@ -56,7 +56,7 @@ def test_max_code_size_fork_transition(
                     sender=alice,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -67,7 +67,7 @@ def test_max_code_size_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -81,15 +81,15 @@ def test_max_code_size_fork_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@pytest.mark.with_all_create_opcodes()
+@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
 def test_max_code_size_via_create_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    fork: TransitionFork,
     create_opcode: Op,
 ) -> None:
     """Ensure the new max code size limit activates at the fork via opcodes."""
-    code_size = fork.max_code_size()
+    code_size = fork.transitions_to().max_code_size()
     deploy_code = Op.JUMPDEST * code_size
     initcode = Initcode(deploy_code=deploy_code)
     initcode_bytes = bytes(initcode)
@@ -137,7 +137,7 @@ def test_max_code_size_via_create_fork_transition(
                     sender=alice,
                     to=factory_pre,
                     data=initcode_bytes,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -148,7 +148,7 @@ def test_max_code_size_via_create_fork_transition(
                     sender=bob,
                     to=factory_post,
                     data=initcode_bytes,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -166,12 +166,12 @@ def test_max_code_size_via_create_fork_transition(
 def test_max_initcode_size_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    fork: TransitionFork,
 ) -> None:
     """Ensure the new max initcode size limit activates exactly at the fork."""
     initcode = Initcode(
         deploy_code=Op.STOP,
-        initcode_length=fork.max_initcode_size(),
+        initcode_length=fork.transitions_to().max_initcode_size(),
     )
 
     alice = pre.fund_eoa()
@@ -191,7 +191,7 @@ def test_max_initcode_size_fork_transition(
                     sender=alice,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                     error=initcode_too_large,
                 )
             ],
@@ -205,7 +205,7 @@ def test_max_initcode_size_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -218,17 +218,17 @@ def test_max_initcode_size_fork_transition(
     blockchain_test(pre=pre, blocks=blocks, post=post)
 
 
-@pytest.mark.with_all_create_opcodes()
+@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
 def test_max_initcode_size_via_create_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    fork: TransitionFork,
     create_opcode: Op,
 ) -> None:
     """Ensure the new max initcode size limit activates at fork via opcodes."""
     initcode = Initcode(
         deploy_code=Op.STOP,
-        initcode_length=fork.max_initcode_size(),
+        initcode_length=fork.transitions_to().max_initcode_size(),
     )
     initcode_bytes = bytes(initcode)
 
@@ -275,7 +275,7 @@ def test_max_initcode_size_via_create_fork_transition(
                     sender=alice,
                     to=factory_pre,
                     data=initcode_bytes,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -286,7 +286,7 @@ def test_max_initcode_size_via_create_fork_transition(
                     sender=bob,
                     to=factory_post,
                     data=initcode_bytes,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -308,13 +308,13 @@ def test_max_initcode_size_via_create_fork_transition(
 def test_max_code_size_with_max_initcode_fork_transition(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    fork: TransitionFork,
 ) -> None:
     """Ensure max code + max initcode activates at the fork boundary."""
-    deploy_code = Op.JUMPDEST * fork.max_code_size()
+    deploy_code = Op.JUMPDEST * fork.transitions_to().max_code_size()
     initcode = Initcode(
         deploy_code=deploy_code,
-        initcode_length=fork.max_initcode_size(),
+        initcode_length=fork.transitions_to().max_initcode_size(),
     )
 
     alice = pre.fund_eoa()
@@ -332,7 +332,7 @@ def test_max_code_size_with_max_initcode_fork_transition(
                     sender=alice,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                     error=initcode_too_large,
                 )
             ],
@@ -345,7 +345,7 @@ def test_max_code_size_with_max_initcode_fork_transition(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -361,10 +361,10 @@ def test_max_code_size_with_max_initcode_fork_transition(
 def test_parent_max_code_size_across_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
-    fork: Fork,
+    fork: TransitionFork,
 ) -> None:
     """Ensure previous max code size works after transition."""
-    parent = fork.parent()
+    parent = fork.transitions_from()
     assert parent is not None, "Parent fork must be defined for this test"
 
     code_size = parent.max_code_size()
@@ -385,7 +385,7 @@ def test_parent_max_code_size_across_fork(
                     sender=alice,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_from().transaction_gas_limit_cap(),
                 )
             ],
         ),
@@ -396,7 +396,7 @@ def test_parent_max_code_size_across_fork(
                     sender=bob,
                     to=None,
                     data=initcode,
-                    gas_limit=fork.transaction_gas_limit_cap(),
+                    gas_limit=fork.transitions_to().transaction_gas_limit_cap(),
                 )
             ],
         ),
