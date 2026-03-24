@@ -41,7 +41,14 @@ runs:
       shell: bash
       run: |
         echo "Removing stale Hive client images to force fresh builds..."
-        docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(hive/clients/|.*/(client-go|besu|nethermind))' | xargs -r docker rmi -f || true
+        images_to_remove=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(hive/clients/|.*/(client-go|besu|nethermind))' || true)
+        if [ -n "$images_to_remove" ]; then
+          echo "Found the following images to remove:"
+          echo "$images_to_remove"
+          echo "$images_to_remove" | xargs docker rmi -f
+        else
+          echo "No matching Hive client images found to remove."
+        fi
 
     - name: Start Hive in dev mode
       id: start-hive
