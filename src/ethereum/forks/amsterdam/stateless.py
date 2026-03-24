@@ -200,7 +200,9 @@ def verify_stateless_new_payload(
     """
     Statelessly validate the execution payload.
     """
-    new_payload_request_root = compute_new_payload_request_root(stateless_input)
+    new_payload_request_root = compute_new_payload_request_root(
+        stateless_input
+    )
     witness = stateless_input.witness
 
     try:

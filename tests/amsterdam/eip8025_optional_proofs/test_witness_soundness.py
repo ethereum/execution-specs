@@ -6,16 +6,11 @@ from execution_testing import (
     Alloc,
     Block,
     BlockchainTestFiller,
-    Bytes,
-    ExecutionWitnessCodesExpectation,
-    ExecutionWitnessHeadersExpectation,
     ExecutionWitnessStateExpectation,
     Op,
     Transaction,
 )
 from execution_testing.test_types.execution_witness.modifiers import (
-    remove_code,
-    remove_header_at,
     remove_state_node,
 )
 

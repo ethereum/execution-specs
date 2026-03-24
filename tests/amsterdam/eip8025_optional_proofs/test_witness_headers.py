@@ -9,7 +9,6 @@ from execution_testing import (
     Block,
     BlockchainTest,
     BlockchainTestFiller,
-    Bytes,
     ExecutionWitnessHeadersExpectation,
     Op,
     Transaction,

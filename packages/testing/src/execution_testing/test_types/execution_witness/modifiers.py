@@ -152,7 +152,9 @@ def prepend_header(
     def transform(
         witness: ExecutionWitness,
     ) -> ExecutionWitness:
-        return witness.model_copy(update={"headers": [header, *witness.headers]})
+        return witness.model_copy(
+            update={"headers": [header, *witness.headers]}
+        )
 
     return transform
 

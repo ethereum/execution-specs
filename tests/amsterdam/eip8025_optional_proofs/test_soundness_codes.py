@@ -101,7 +101,9 @@ def test_soundness_codes_missing_implicit_system_contract_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
-    """Removing implicit system-contract code from an empty block should fail."""
+    """
+    Removing implicit system-contract code from an empty block should fail.
+    """
     blockchain_test(
         pre=pre,
         blocks=[
