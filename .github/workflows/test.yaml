@@ -42,8 +42,25 @@ jobs:
       - name: Install build dependencies
         shell: bash
         run: sudo DEBIAN_FRONTEND=noninteractive apt-get install --yes --force-yes build-essential pkg-config
+      - name: Detect Python version
+        id: python
+        shell: bash
+        run: echo "version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')" >> "$GITHUB_OUTPUT"
+      - name: Restore mypy cache
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5.0.3
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-
       - name: Run static checks
         run: tox -e static
+      - name: Save mypy cache
+        if: always()
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5.0.3
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}
       - name: Validate workflow config variables
         run: |
           cat >> .github/actionlint.yaml << 'EOF'
