@@ -1412,8 +1412,8 @@ def pytest_collection_modifyitems(
     """
     items_to_remove = []
     deselected: List[pytest.Item] = []
-    # function name -> [reason, total, deselected_count]
-    filter_stats: Dict[str, List[Any]] = {}
+    # function name -> (reason, total, deselected_count)
+    filter_stats: Dict[str, Tuple[str, int, int]] = {}
 
     for i, item in enumerate(items):
         params = _get_item_params(item)
@@ -1428,15 +1428,18 @@ def pytest_collection_modifyitems(
                 reason = marker.kwargs.get(
                     "reason", "rejected by filter_combinations"
                 )
-                filter_stats[fn_name] = [reason, 0, 0]
-            stats = filter_stats[fn_name]
-            stats[1] += 1
+                filter_stats[fn_name] = (reason, 0, 0)
+            r, total, dc = filter_stats[fn_name]
+            total += 1
 
             filter_reason = _combination_filter_reason(item, params)
             if filter_reason is not None:
                 items_to_remove.append(i)
                 deselected.append(item)
-                stats[2] += 1
+                dc += 1
+
+            filter_stats[fn_name] = (r, total, dc)
+            if filter_reason is not None:
                 continue
 
         # --- validity markers ---
