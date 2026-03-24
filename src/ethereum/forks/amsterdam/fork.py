@@ -37,6 +37,7 @@ from ethereum.state import (
     State,
     apply_changes_to_state,
 )
+from ethereum.utils.byte import left_pad_zero_bytes
 
 from . import vm
 from .block_access_lists import (
