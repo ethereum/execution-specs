@@ -490,6 +490,7 @@ exclude = [
     "^site/",
     "^tests/json_loader/fixtures/",
 ]
+cache_fine_grained = true
 plugins = ["pydantic.mypy"]
 
 [tool.uv]
