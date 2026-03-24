@@ -43,7 +43,7 @@ def test_simple_transfer_emits_log(
     sender: EOA,
 ) -> None:
     """Test that a simple ETH transfer emits a transfer log."""
-    recipient = pre.empty_account()
+    recipient = pre.nonexistent_account()
 
     tx = Transaction(
         sender=sender,
@@ -113,7 +113,7 @@ def test_zero_value_transfer_no_log(
     sender: EOA,
 ) -> None:
     """Test that a zero-value transfer does NOT emit a transfer log."""
-    recipient = pre.empty_account()
+    recipient = pre.nonexistent_account()
 
     tx = Transaction(
         sender=sender,
@@ -647,7 +647,7 @@ def test_selfdestruct_with_value_emits_log(
     sender: EOA,
 ) -> None:
     """Test that SELFDESTRUCT with value emits a transfer log."""
-    beneficiary = pre.empty_account()
+    beneficiary = pre.nonexistent_account()
     contract_balance = 2000
 
     contract_code = Op.SELFDESTRUCT(beneficiary)
@@ -710,7 +710,7 @@ def test_zero_value_operations_no_log(
     op_type: str,
 ) -> None:
     """Test that zero-value operations do NOT emit transfer logs."""
-    target = pre.empty_account()
+    target = pre.nonexistent_account()
 
     if op_type == "call":
         contract_code = Op.CALL(gas=100_000, address=target, value=0)
@@ -902,7 +902,7 @@ def test_nested_calls_log_order(
     tx_value = 1000
 
     # Build chain: contracts[0] -> contracts[1] -> ... -> final_recipient
-    final_recipient = pre.empty_account()
+    final_recipient = pre.nonexistent_account()
     contracts: list[Address] = []
     expected_logs: list[TransactionLog] = []
 
@@ -1076,7 +1076,7 @@ def test_transfer_with_all_tx_types(
     typed_transaction: Transaction,
 ) -> None:
     """Test that ETH transfers emit logs for all transaction types."""
-    recipient = pre.empty_account()
+    recipient = pre.nonexistent_account()
     transfer_amount = 1000
 
     tx = typed_transaction.copy(
@@ -1101,8 +1101,8 @@ def test_multiple_transfers_same_block(
     verifying logs don't bleed across transactions.
     """
     sender = pre.fund_eoa()
-    recipient1 = pre.empty_account()
-    recipient2 = pre.empty_account()
+    recipient1 = pre.nonexistent_account()
+    recipient2 = pre.nonexistent_account()
 
     blocks = [
         Block(
@@ -1156,7 +1156,7 @@ def test_selfdestruct_then_transfer_same_block(
     - Tx2: sender -> contract (100) + contract -> beneficiary (100)
     """
     sender = pre.fund_eoa()
-    beneficiary = pre.empty_account()
+    beneficiary = pre.nonexistent_account()
 
     contract_code = Op.SELFDESTRUCT(beneficiary)
     contract = pre.deploy_contract(contract_code, balance=500)

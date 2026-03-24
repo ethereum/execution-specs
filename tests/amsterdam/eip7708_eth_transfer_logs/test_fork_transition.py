@@ -100,7 +100,7 @@ def test_burn_log_at_fork_transition(
         expected_logs = [[], [], []]
         post = {sender: Account(nonce=3)}
     else:
-        beneficiary = pre.empty_account()
+        beneficiary = pre.nonexistent_account()
         targets = [
             pre.deploy_contract(
                 Op.SELFDESTRUCT(beneficiary), balance=contract_balance
@@ -146,7 +146,7 @@ def test_transfer_log_fork_transition(
     At/after Amsterdam: ETH transfers emit Transfer logs.
     """
     sender = pre.fund_eoa()
-    recipient = pre.empty_account()
+    recipient = pre.nonexistent_account()
 
     blocks = [
         Block(
