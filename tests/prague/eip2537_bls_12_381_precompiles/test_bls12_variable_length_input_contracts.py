@@ -355,6 +355,7 @@ def test_invalid_zero_gas_g1msm(
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.G1MSM])
+@pytest.mark.json_loader
 def test_invalid_gas_g1msm(
     state_test: StateTestFiller,
     env: Environment,
@@ -513,6 +514,7 @@ def test_invalid_zero_gas_g2msm(
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
 @pytest.mark.parametrize("precompile_address", [Spec.G2MSM])
+@pytest.mark.json_loader
 def test_invalid_gas_g2msm(
     state_test: StateTestFiller,
     env: Environment,

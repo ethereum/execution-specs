@@ -121,12 +121,14 @@ class Txs:
                     self.successfully_parsed.append(idx)
             except UnsupportedTxError as e:
                 self.t8n.logger.warning(
-                    f"Unsupported transaction type {idx}: {e.error_message}"
+                    f"Unsupported transaction at index {idx}: "
+                    f"{e.error_message}"
                 )
                 self.rejected_txs[idx] = (
                     f"Unsupported transaction type: {e.error_message}"
                 )
-                self.all_txs.append(e.encoded_params)
+                if e.encoded_params is not None:
+                    self.all_txs.append(e.encoded_params)
             except Exception as e:
                 msg = f"Failed to parse transaction {idx}: {str(e)}"
                 self.t8n.logger.warning(msg, exc_info=e)
@@ -217,9 +219,10 @@ class Txs:
             if t8n.fork.has_signing_hash_155:
                 if protected:
                     signing_hash = t8n.fork.signing_hash_155(
-                        tx_decoded, U64(1)
+                        tx_decoded, self.t8n.chain_id
                     )
-                    v_addend = U256(37)  # Assuming chain_id = 1
+                    # EIP-155: CHAIN_ID * 2 + 35
+                    v_addend = U256(self.t8n.chain_id) * U256(2) + U256(35)
                 else:
                     signing_hash = t8n.fork.signing_hash_pre155(tx_decoded)
                     v_addend = U256(27)
@@ -314,25 +317,18 @@ class Result:
             # to the older forks
             from ethereum.forks.amsterdam.state import apply_changes_to_state
             from ethereum.forks.amsterdam.state_tracker import (
-                extract_block_diffs,
+                extract_block_diff,
             )
 
-            account_changes, storage_changes, code_changes = (
-                extract_block_diffs(t8n._block_state)
-            )
+            block_diff = extract_block_diff(t8n._block_state)
             state_root_value, _ = (
                 t8n.alloc.state.compute_state_root_and_trie_changes(
-                    account_changes, storage_changes
+                    block_diff.account_changes, block_diff.storage_changes
                 )
             )
             self.state_root = state_root_value
             # Apply diffs to pre-state for alloc output
-            apply_changes_to_state(
-                t8n.alloc.state,
-                account_changes,
-                storage_changes,
-                code_changes,
-            )
+            apply_changes_to_state(t8n.alloc.state, block_diff)
         else:
             self.state_root = t8n.fork.state_root(block_env.state)
         self.receipts = self.get_receipts_from_output(t8n, block_output)

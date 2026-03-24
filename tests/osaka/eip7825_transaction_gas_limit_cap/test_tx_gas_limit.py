@@ -342,6 +342,7 @@ def total_cost_floor_per_token(fork: Fork) -> int:
 )
 @pytest.mark.parametrize("zero_byte", [True, False])
 @pytest.mark.valid_from("Osaka")
+@pytest.mark.json_loader
 def test_tx_gas_limit_cap_full_calldata(
     state_test: StateTestFiller,
     pre: Alloc,

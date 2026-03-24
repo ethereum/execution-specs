@@ -1,0 +1,105 @@
+"""
+Test ported from static filler.
+
+Ported from:
+tests/static/state_tests/stQuadraticComplexityTest/Create1000ShnghaiFiller.json
+"""
+
+import pytest
+from execution_testing import (
+    EOA,
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Transaction,
+)
+from execution_testing.vm import Op
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
+
+
+@pytest.mark.ported_from(
+    [
+        "tests/static/state_tests/stQuadraticComplexityTest/Create1000ShnghaiFiller.json",  # noqa: E501
+    ],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.valid_until("Prague")
+@pytest.mark.parametrize(
+    "tx_gas_limit, expected_post",
+    [
+        (150000, {}),
+        (
+            250000000,
+            {
+                Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+                    storage={
+                        0: 0x7981FA24B134DEB51D71D250D7B0D9E33C8C5457,
+                        1: 1000,
+                    }
+                )
+            },
+        ),
+    ],
+    ids=["case0", "case1"],
+)
+@pytest.mark.pre_alloc_mutable
+@pytest.mark.slow
+def test_create1000_shnghai(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    tx_gas_limit: int,
+    expected_post: dict,
+) -> None:
+    """Test ported from static filler."""
+    coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+    sender = EOA(
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+    )
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        base_fee_per_gas=10,
+        gas_limit=8600000000,
+    )
+
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    # Source: LLL
+    # { (def 'i 0x80) (for {} (< @i 1000) [i](+ @i 1) [[ 0 ]] (CREATE 1 0 10) ) [[ 1 ]] @i}  # noqa: E501
+    contract = pre.deploy_contract(
+        code=(
+            Op.JUMPDEST
+            + Op.JUMPI(
+                pc=0x22,
+                condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0x3E8)),
+            )
+            + Op.SSTORE(
+                key=0x0, value=Op.CREATE(value=0x1, offset=0x0, size=0xA)
+            )
+            + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
+            + Op.JUMP(pc=0x0)
+            + Op.JUMPDEST
+            + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
+            + Op.STOP
+        ),
+        balance=0xFFFFFFFFFFFFF,
+        nonce=0,
+        address=Address("0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=contract,
+        gas_limit=tx_gas_limit,
+        value=10,
+    )
+
+    post = expected_post
+
+    state_test(env=env, pre=pre, post=post, tx=tx)

@@ -187,8 +187,10 @@ def test_arithmetic(
 
 @pytest.mark.parametrize("mod_bits", [255, 191, 127, 63])
 @pytest.mark.parametrize("opcode", [Op.MOD, Op.SMOD])
+@pytest.mark.repricing
 def test_mod(
     benchmark_test: BenchmarkTestFiller,
+    fixed_opcode_count: int,
     mod_bits: int,
     opcode: Op,
 ) -> None:
@@ -211,6 +213,8 @@ def test_mod(
     # just the SMOD implementation will have to additionally handle the
     # sign bits.
     # The result stays negative.
+    if fixed_opcode_count is not None:
+        pytest.skip("fixed-opcode-count not supported in test_mode")
     should_negate = opcode == Op.SMOD
 
     num_numerators = 15
@@ -416,4 +420,27 @@ def test_mod_arithmetic(
 
     benchmark_test(
         tx=tx,
+    )
+
+
+@pytest.mark.parametrize("base", [3, 5, 7, 11, 13, 136279841])
+@pytest.mark.parametrize("exp", [3, 5, 7, 11, 13, 136279841])
+def test_exp_bench_arithmetic(
+    benchmark_test: BenchmarkTestFiller, base: int, exp: int
+) -> None:
+    """Benchmark EXP instruction."""
+    tx_data = b"".join(
+        arg.to_bytes(32, byteorder="big") for arg in (base, exp)
+    )
+
+    setup = Op.CALLDATALOAD(0) + Op.CALLDATALOAD(32) + Op.DUP2 + Op.DUP2
+    attack_block = Op.DUP2 + Op.EXP
+    cleanup = Op.POP + Op.POP + Op.DUP2 + Op.DUP2
+    benchmark_test(
+        code_generator=JumpLoopGenerator(
+            setup=setup,
+            attack_block=attack_block,
+            cleanup=cleanup,
+            tx_kwargs={"data": tx_data},
+        ),
     )

@@ -4,53 +4,137 @@ import pytest
 from execution_testing import (
     Account,
     Alloc,
+    CodeGasMeasure,
+    Fork,
     StateTestFiller,
+    Storage,
     Transaction,
 )
-from execution_testing.base_types.base_types import Address
-from execution_testing.forks.helpers import Fork
+from execution_testing import (
+    Macros as Om,
+)
+from execution_testing.forks.forks.forks import Berlin
 from execution_testing.vm import Opcodes as Op
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-197.md"
-REFERENCE_SPEC_VERSION = "9f9b3d33440e7c122b6c9192facfc380bc009422"
+from .spec import PointG1, Spec, ref_spec_197
 
-EC_PAIRING_ADDRESS = Address(0x08)
+REFERENCE_SPEC_GIT_PATH = ref_spec_197.git_path
+REFERENCE_SPEC_VERSION = ref_spec_197.version
+
+
+@pytest.fixture
+def input_data() -> bytes:
+    """Default empty input data (0 pairs)."""
+    return b""
 
 
 @pytest.mark.valid_from("Byzantium")
-@pytest.mark.parametrize(
-    "address",
-    [
-        pytest.param(EC_PAIRING_ADDRESS, id="ecpairing"),
-    ],
-)
 @pytest.mark.parametrize("enough_gas", [True, False])
 def test_gas_costs(
     state_test: StateTestFiller,
     pre: Alloc,
-    fork: Fork,
-    address: Address,
+    precompile_gas: int,
     enough_gas: bool,
 ) -> None:
     """
-    Tests the constant gas behavior of `ecpairing` precompiled contract.
+    Test the base gas cost of the ecpairing precompile with zero pairs.
     """
-    gas = fork.gas_costs().GAS_PRECOMPILE_ECPAIRING_BASE
-    if not enough_gas:
-        gas -= 1
+    gas = precompile_gas if enough_gas else precompile_gas - 1
+    storage = Storage()
 
     account = pre.deploy_contract(
-        code=Op.SSTORE(0, Op.CALL(gas=gas, address=address)),
-        storage={0: 0xDEADBEEF},
+        code=Op.SSTORE(
+            storage.store_next(1 if enough_gas else 0),
+            Op.STATICCALL(gas=gas, address=Spec.ECPAIRING),
+        ),
+        storage=storage.canary(),
     )
 
     tx = Transaction(
         to=account,
         sender=pre.fund_eoa(),
-        gas_limit=100_0000,
-        protected=fork.supports_protected_txs(),
+        gas_limit=1_000_000,
+        protected=True,
     )
 
-    post = {account: Account(storage={0: 1 if enough_gas else 0})}
+    post = {account: Account(storage=storage)}
+
+    state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.valid_from("Byzantium")
+@pytest.mark.parametrize(
+    "input_data",
+    [
+        pytest.param(
+            PointG1(1, 3) + Spec.G2,
+            id="invalid_g1_point",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "extra_gas",
+    [
+        pytest.param(0, id="exact"),
+        pytest.param(100_000, id="extra_100k"),
+    ],
+)
+def test_invalid_gas_consumption(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    precompile_gas: int,
+    input_data: bytes,
+    extra_gas: int,
+) -> None:
+    """
+    Test that invalid input to ecpairing consumes all forwarded gas.
+
+    Use CodeGasMeasure to verify the STATICCALL with invalid input
+    consumes exactly the warm call cost plus all forwarded gas.
+    """
+    gas_forward = precompile_gas + extra_gas
+    input_size = len(input_data)
+    storage = Storage()
+
+    staticcall_code = Op.STATICCALL(
+        gas=gas_forward,
+        address=Spec.ECPAIRING,
+        args_size=input_size,
+    )
+    push_cost = staticcall_code.gas_cost(fork) - Op.STATICCALL(
+        address_warm=False
+    ).gas_cost(fork)
+
+    # Pre-EIP-2929: fixed G_call = 700; Berlin+: warm access cost.
+    gas_costs = fork.gas_costs()
+    if fork >= Berlin:
+        staticcall_base = gas_costs.GAS_WARM_ACCOUNT_ACCESS
+    else:
+        staticcall_base = 700
+
+    account = pre.deploy_contract(
+        code=(
+            Om.MSTORE(input_data)
+            # Warm the precompile address
+            + Op.POP(Op.STATICCALL(gas=0, address=Spec.ECPAIRING))
+            + CodeGasMeasure(
+                code=staticcall_code,
+                overhead_cost=push_cost,
+                extra_stack_items=1,
+                sstore_key=storage.store_next(staticcall_base + gas_forward),
+            )
+        ),
+        storage=storage.canary(),
+    )
+
+    tx = Transaction(
+        to=account,
+        sender=pre.fund_eoa(),
+        gas_limit=1_000_000,
+        protected=True,
+    )
+
+    post = {account: Account(storage=storage)}
 
     state_test(pre=pre, post=post, tx=tx)

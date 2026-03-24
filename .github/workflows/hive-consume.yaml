@@ -10,7 +10,7 @@ on:
       - ".gitignore"
       - ".vscode/**"
       - "whitelist.txt"
-      - "docs/**"                                                                                                                     
+      - "docs/**"
       - "mkdocs.yml"
   pull_request:
     paths:
@@ -71,15 +71,29 @@ jobs:
           - name: Engine
             mode: simulator
             simulator: ethereum/eels/consume-engine
+            sim_limit: ".*test_block_at_rlp_limit_with_logs.*Osaka.*"
+          # TODO: Enable once eels/consume-enginex simulator is added to Hive
+          # - name: consume-enginex
+          #   mode: simulator
+          #   simulator: ethereum/eels/consume-enginex
+          #   sim_limit: ".*push0.*(Shanghai|Cancun).*"
           - name: RLP
             mode: simulator
             simulator: ethereum/eels/consume-rlp
+            sim_limit: ".*test_block_at_rlp_limit_with_logs.*Osaka.*"
           - name: Sync
             mode: simulator
             simulator: ethereum/eels/consume-sync
+            sim_limit: ".*test_block_at_rlp_limit_with_logs.*Osaka.*"
           - name: Dev Mode
             mode: dev
             consume_command: engine
+            test_filter: "Osaka and test_block_at_rlp_limit_with_logs"
+          # TODO: Enable once we have a release with the pre-alloc builder format cf #2140
+          # - name: dev-mode-enginex
+          #   mode: dev
+          #   consume_command: enginex
+          #   test_filter: "(fork_shanghai or fork_cancun) and push0"
     steps:
       - name: Checkout execution-specs
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -122,7 +136,7 @@ jobs:
             --client go-ethereum \
             --client-file ../execution-specs/.github/configs/hive/latest.yaml \
             --sim.buildarg fixtures=${{ env.FIXTURES_URL }} \
-            --sim.limit=".*test_block_at_rlp_limit_with_logs.*Osaka.*" \
+            --sim.limit="${{ matrix.sim_limit }}" \
             --docker.output
 
       - name: Start Hive in dev mode
@@ -142,5 +156,4 @@ jobs:
           HIVE_SIMULATOR: ${{ steps.start-hive.outputs.hive-url }}
         run: |
           uv sync --all-extras
-          uv run consume ${{ matrix.consume_command }} --input ${{ env.FIXTURES_URL }} -k "Osaka and test_block_at_rlp_limit_with_logs"
-
+          uv run consume ${{ matrix.consume_command }} --input ${{ env.FIXTURES_URL }} -k "${{ matrix.test_filter }}"

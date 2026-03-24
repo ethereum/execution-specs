@@ -27,6 +27,7 @@ from ethereum.state import (
     EMPTY_CODE_HASH,
     Account,
     Address,
+    BlockDiff,
     InternalNode,
     Root,
 )
@@ -140,31 +141,22 @@ def close_state(state: State) -> None:
     del state._code_store
 
 
-def apply_changes_to_state(
-    state: State,
-    account_changes: Dict[Address, Optional[Account]],
-    storage_changes: Dict[Address, Dict[Bytes32, U256]],
-    code_changes: Dict[Hash32, Bytes],
-) -> None:
+def apply_changes_to_state(state: State, diff: BlockDiff) -> None:
     """
-    Apply block-level diffs to the ``State`` for the next block.
+    Apply block-level diff to the ``State`` for the next block.
 
     Parameters
     ----------
     state :
         The state to update.
-    account_changes :
-        Account changes to apply.
-    storage_changes :
-        Storage changes to apply.
-    code_changes :
-        Code changes to apply.
+    diff :
+        Account, storage, and code changes to apply.
 
     """
-    for address, account in account_changes.items():
+    for address, account in diff.account_changes.items():
         trie_set(state._main_trie, address, account)
 
-    for address, slots in storage_changes.items():
+    for address, slots in diff.storage_changes.items():
         trie = state._storage_tries.get(address)
         if trie is None:
             trie = Trie(secured=True, default=U256(0))
@@ -174,7 +166,7 @@ def apply_changes_to_state(
         if trie._data == {}:
             del state._storage_tries[address]
 
-    state._code_store.update(code_changes)
+    state._code_store.update(diff.code_changes)
 
 
 def store_code(state: State, code: Bytes) -> Hash32:

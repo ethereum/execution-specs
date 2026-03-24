@@ -205,6 +205,100 @@ def test_valid_mcopy_operations(
     )
 
 
+PATTERN = bytes.fromhex(
+    "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf"
+)
+
+
+@pytest.mark.parametrize(
+    "dest,src,length",
+    [
+        pytest.param(0x1010, 0x0000, 0x0020, id="clear_low_half_0"),
+        pytest.param(0x1020, 0x1010, 0x0010, id="clear_low_half_1"),
+        pytest.param(0x1020, 0x1040, 0x0010, id="clear_low_half_2"),
+        pytest.param(0x1030, 0x0000, 0x1020, id="clear_high_half_0"),
+        pytest.param(0x1021, 0x1020, 0x0123, id="memmove_forward"),
+        pytest.param(0x1020, 0x1023, 0x001D, id="memmove_backward"),
+    ],
+)
+@pytest.mark.ported_from(
+    [
+        "https://github.com/ethereum/tests/blob/v13.3/src/GeneralStateTestsFiller/Cancun/stEIP5656_MCOPY/MCOPY_memory_hashFiller.yml",  # noqa: E501
+    ],
+    pr=["https://github.com/ethereum/execution-specs/pull/2490"],
+)
+@pytest.mark.valid_from("Cancun")
+def test_mcopy_repeated(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    dest: int,
+    src: int,
+    length: int,
+) -> None:
+    """
+    Perform the same MCOPY twice and verify the memory hash after each.
+
+    For non-overlapping or idempotent copies the hash is the same both
+    times; for overlapping forward/backward moves the second copy
+    operates on already-modified memory, so the hashes differ.
+    """
+    # Build initial memory: zeros with PATTERN at offset 0x1020.
+    buf = bytearray(0x1020 + len(PATTERN))
+    buf[0x1020 : 0x1020 + len(PATTERN)] = PATTERN
+    initial = bytes(buf)
+
+    # Compute memory after first and second MCOPY.
+    after_first = mcopy(dest=dest, src=src, length=length, memory=initial)
+    after_second = mcopy(dest=dest, src=src, length=length, memory=after_first)
+
+    first_size = ceiling_division(len(after_first), 0x20) * 0x20
+    second_size = ceiling_division(len(after_second), 0x20) * 0x20
+    hash_first = keccak256(after_first.ljust(first_size, b"\x00"))
+    hash_second = keccak256(after_second.ljust(second_size, b"\x00"))
+
+    storage = Storage()
+
+    # Build bytecode: fill memory, MCOPY, hash, MCOPY again, hash.
+    code = Bytecode()
+    code += Op.MSTORE(
+        0x1020,
+        Op.PUSH32(PATTERN),
+    )
+    code += Op.MCOPY(
+        Op.CALLDATALOAD(0x00),
+        Op.CALLDATALOAD(0x20),
+        Op.CALLDATALOAD(0x40),
+    )
+    code += Op.SSTORE(
+        storage.store_next(hash_first, "hash_after_first_mcopy"),
+        Op.SHA3(0, Op.MSIZE),
+    )
+    code += Op.MCOPY(
+        Op.CALLDATALOAD(0x00),
+        Op.CALLDATALOAD(0x20),
+        Op.CALLDATALOAD(0x40),
+    )
+    code += Op.SSTORE(
+        storage.store_next(hash_second, "hash_after_second_mcopy"),
+        Op.SHA3(0, Op.MSIZE),
+    )
+
+    contract = pre.deploy_contract(code)
+    post = {contract: Account(storage=storage)}
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        post=post,
+        tx=Transaction(
+            sender=pre.fund_eoa(),
+            to=contract,
+            data=Hash(dest) + Hash(src) + Hash(length),
+            gas_limit=1_000_000,
+        ),
+    )
+
+
 @pytest.mark.parametrize("dest", [0x00, 0x20])
 @pytest.mark.parametrize("src", [0x00, 0x20])
 @pytest.mark.parametrize("length", [0x00, 0x01])

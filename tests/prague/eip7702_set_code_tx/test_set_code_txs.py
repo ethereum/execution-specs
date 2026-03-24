@@ -836,6 +836,7 @@ def test_set_code_to_self_caller(
 
 
 @pytest.mark.execute(pytest.mark.skip(reason="excessive gas"))
+@pytest.mark.json_loader
 def test_set_code_max_depth_call_stack(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -904,6 +905,7 @@ def test_set_code_max_depth_call_stack(
     "value",
     [0, 1],
 )
+@pytest.mark.json_loader
 def test_set_code_call_set_code(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2376,6 +2378,8 @@ def test_set_code_using_valid_synthetic_signatures(
         pytest.param(2, 1, 1, id="v=2"),
         pytest.param(27, 1, 1, id="v=27"),  # Type-0 transaction valid value
         pytest.param(28, 1, 1, id="v=28"),  # Type-0 transaction valid value
+        pytest.param(29, 1, 1, id="v=29"),  # Type-0 replay-protected
+        # transaction valid value (chain_id=2)
         pytest.param(35, 1, 1, id="v=35"),  # Type-0 replay-protected
         # transaction valid value
         pytest.param(36, 1, 1, id="v=36"),  # Type-0 replay-protected
@@ -2403,6 +2407,7 @@ def test_set_code_using_valid_synthetic_signatures(
         ),
     ],
 )
+@pytest.mark.json_loader
 def test_valid_tx_invalid_auth_signature(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -2692,6 +2697,7 @@ def test_nonce_validity(
 
 
 @pytest.mark.pre_alloc_mutable()
+@pytest.mark.json_loader
 def test_nonce_overflow_after_first_authorization(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -3345,6 +3351,7 @@ def test_reset_code(
 
 
 @pytest.mark.exception_test
+@pytest.mark.json_loader
 def test_contract_create(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -3373,6 +3380,7 @@ def test_contract_create(
 
 
 @pytest.mark.exception_test
+@pytest.mark.json_loader
 def test_empty_authorization_list(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -3981,6 +3989,7 @@ def test_authorization_reusing_nonce(
 )
 @pytest.mark.exception_test
 @pytest.mark.pre_alloc_mutable
+@pytest.mark.json_loader
 def test_set_code_from_account_with_non_delegating_code(
     state_test: StateTestFiller,
     pre: Alloc,

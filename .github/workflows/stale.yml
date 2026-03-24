@@ -1,0 +1,30 @@
+name: Manage stale issues and PRs
+on:
+  schedule:
+    - cron: '0 0 * * *'  # runs daily
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@b5d41d4e1d5dceea10e7104786b73624c18a190f  # v10.2.0
+        with:
+          # --- Stale settings ---
+          days-before-stale: 60
+
+          # raise this from the default 30
+          operations-per-run: 200
+
+          # process oldest first
+          ascending: true
+
+          # --- PR settings ---
+          days-before-pr-close: -1      # Never auto-close PRs
+          stale-pr-label: 'stale'
+          stale-pr-message: 'This PR has had no recent activity and has been marked as stale.'
+          close-pr-message: 'Closing this PR due to inactivity.'
+
+          # --- Issue settings ---
+          days-before-issue-close: -1   # Never auto-close issues
+          stale-issue-label: 'stale'
+          stale-issue-message: 'This issue has had no recent activity and has been marked as stale.'

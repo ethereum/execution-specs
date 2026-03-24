@@ -189,7 +189,7 @@ Below is an example.
 
 ```bash
 uv run pytest \
-    'tests/json_infra/test_state_tests.py::test_state_tests_frontier[stAttackTest - ContractCreationSpam - 0]' \
+    'tests/json_loader/test_state_tests.py::test_state_tests_frontier[stAttackTest - ContractCreationSpam - 0]' \
     --evm_trace
 ```
 

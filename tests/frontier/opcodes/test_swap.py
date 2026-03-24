@@ -108,6 +108,7 @@ def test_swap(
     ids=lambda op: str(op),
 )
 @pytest.mark.valid_from("Frontier")
+@pytest.mark.json_loader
 def test_stack_underflow(
     state_test: StateTestFiller,
     fork: Fork,

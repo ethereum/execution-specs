@@ -1864,6 +1864,7 @@ def test_double_auth(
 
 @pytest.mark.xdist_group(name="bigmem")
 @pytest.mark.valid_from("Prague")
+@pytest.mark.json_loader
 def test_pointer_resets_an_empty_code_account_with_storage(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,

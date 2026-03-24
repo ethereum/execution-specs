@@ -1985,6 +1985,7 @@ def test_bal_multiple_storage_writes_same_slot(
         pytest.param([2, 3, 4], id="depth_3"),
     ],
 )
+@pytest.mark.json_loader
 def test_bal_nested_delegatecall_storage_writes_net_zero(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,

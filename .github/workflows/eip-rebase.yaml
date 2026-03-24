@@ -7,13 +7,14 @@ on:
         description: 'Fork name (e.g., amsterdam)'
         required: true
         type: string
-      eip_number:
-        description: 'EIP number'
+        default: 'amsterdam'
+      eip_numbers:
+        description: 'List of EIP numbers (e.g., 1234,2345+3456 for eip-1234 and combined eip-2345+3456)'
         required: true
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.inputs.fork }}-${{ github.event.inputs.eip_number }}
+  group: ${{ github.workflow }}-${{ github.event.inputs.fork }}-${{ github.event.inputs.eip_numbers }}
   cancel-in-progress: false
 
 permissions:
@@ -32,8 +33,8 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
 
-      - name: Rebase EIP branch onto fork
+      - name: Rebase EIP branches onto fork
         uses: ./.github/actions/rebase-eip-branch
         with:
           fork: ${{ github.event.inputs.fork }}
-          eip_number: ${{ github.event.inputs.eip_number }}
+          eip_numbers: ${{ github.event.inputs.eip_numbers }}

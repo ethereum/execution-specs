@@ -64,6 +64,7 @@ G1_POINT_ZERO_FP = PointG1(
         ),
     ],
 )
+@pytest.mark.json_loader
 def test_valid(
     state_test: StateTestFiller,
     pre: Alloc,
@@ -138,6 +139,7 @@ def test_isogeny_kernel_values(
     ],
 )
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
+@pytest.mark.json_loader
 def test_invalid(
     state_test: StateTestFiller,
     pre: Alloc,

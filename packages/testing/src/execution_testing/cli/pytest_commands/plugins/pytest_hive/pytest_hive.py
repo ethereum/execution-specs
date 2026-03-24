@@ -247,6 +247,60 @@ def test_suite(
             users_file.unlink()
 
 
+@pytest.fixture(scope="module")
+def multi_test_hive_test(
+    test_suite: HiveTestSuite,
+    test_suite_name: str,
+) -> Generator[HiveTest, None, None]:
+    """
+    Create a module-scoped Hive test for multi-test client reuse.
+
+    Provide a Hive test context that persists across multiple
+    pytest tests within a module. Multi-test clients are started
+    under this context and reused across tests, avoiding
+    redundant client restarts.
+
+    This test lives for the entire module and prevents Hive from
+    terminating clients between individual pytest tests. This is
+    essential for simulators that batch multiple pytest tests
+    against the same client instance.
+
+    Usage:
+        Simulators start clients using this context via:
+        ``multi_test_hive_test: HiveTest`` fixture dependency.
+
+    Example:
+        ```python
+        @pytest.fixture(scope="function")
+        def client(multi_test_hive_test: HiveTest, ...):
+            client = multi_test_hive_test.start_client(...)
+            yield client
+            # Client lifecycle managed by simulator
+        ```
+
+    """
+    logger.info(
+        f"Creating multi-test Hive test for '{test_suite_name}' (module scope)"
+    )
+    test: HiveTest = test_suite.start_test(
+        name=f"{test_suite_name}-multi-test-clients",
+        description=(f"Multi-test client context for {test_suite_name}"),
+    )
+    logger.info(f"Multi-test Hive test created: {test.id}")
+    yield test
+
+    # End the multi-test context at module end
+    # Note: Simulators should manage client lifecycle themselves
+    # (e.g., stop clients when done, not rely on this teardown)
+    logger.info(f"Ending multi-test Hive test for '{test_suite_name}'")
+    test.end(
+        result=HiveTestResult(
+            test_pass=True,
+            details="Multi-test client context completed",
+        )
+    )
+
+
 @pytest.fixture(scope="function")
 def hive_test(
     request: pytest.FixtureRequest, test_suite: HiveTestSuite

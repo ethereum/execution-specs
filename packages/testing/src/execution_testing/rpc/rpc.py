@@ -587,6 +587,30 @@ class EthRPC(BaseRPC):
         ).result_or_raise()
         return int(response, 16)
 
+    def get_balances(
+        self,
+        addresses: List[Address],
+        block_number: BlockNumberType = "latest",
+    ) -> List[int]:
+        """`eth_getBalance` batch: Return balance for multiple addresses."""
+        if not addresses:
+            return []
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
+        logger.info(
+            f"Batch requesting balance of {len(addresses)} addresses "
+            f"at block {block}"
+        )
+        calls = [
+            RPCCall(method="getBalance", params=[f"{addr}", block])
+            for addr in addresses
+        ]
+        responses = self.post_batch_request(calls=calls)
+        return [int(r.result_or_raise(), 16) for r in responses]
+
     def get_code(
         self, address: Address, block_number: BlockNumberType = "latest"
     ) -> Bytes:
@@ -602,6 +626,30 @@ class EthRPC(BaseRPC):
             request=RPCCall(method="getCode", params=params)
         ).result_or_raise()
         return Bytes(response)
+
+    def get_codes(
+        self,
+        addresses: List[Address],
+        block_number: BlockNumberType = "latest",
+    ) -> List[Bytes]:
+        """`eth_getCode` batch: Return code for multiple addresses."""
+        if not addresses:
+            return []
+        block = (
+            hex(block_number)
+            if isinstance(block_number, int)
+            else block_number
+        )
+        logger.info(
+            f"Batch requesting code of {len(addresses)} addresses "
+            f"at block {block}"
+        )
+        calls = [
+            RPCCall(method="getCode", params=[f"{addr}", block])
+            for addr in addresses
+        ]
+        responses = self.post_batch_request(calls=calls)
+        return [Bytes(r.result_or_raise()) for r in responses]
 
     def get_transaction_count(
         self, address: Address, block_number: BlockNumberType = "latest"

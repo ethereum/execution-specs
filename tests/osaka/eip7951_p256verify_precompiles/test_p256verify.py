@@ -43,6 +43,7 @@ pytestmark = [
 @EIPChecklist.Precompile.Test.CallContexts.Normal()
 @EIPChecklist.Precompile.Test.Inputs.Valid()
 @EIPChecklist.Precompile.Test.Inputs.MaxValues()
+@pytest.mark.json_loader
 def test_wycheproof_valid(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
 ) -> None:
@@ -968,6 +969,7 @@ def test_valid(
 @EIPChecklist.Precompile.Test.InputLengths.Static.TooLong()
 @EIPChecklist.Precompile.Test.OutOfBounds.Max()
 @EIPChecklist.Precompile.Test.OutOfBounds.MaxPlusOne()
+@pytest.mark.json_loader
 def test_invalid(
     state_test: StateTestFiller, pre: Alloc, post: dict, tx: Transaction
 ) -> None:
