@@ -50,8 +50,9 @@ jobs:
         uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5.0.3
         with:
           path: .mypy_cache
-          key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}
+          key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}-${{ github.sha }}
           restore-keys: |
+            mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}-
             mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-
       - name: Run static checks
         run: tox -e static
@@ -60,7 +61,7 @@ jobs:
         uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5.0.3
         with:
           path: .mypy_cache
-          key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}
+          key: mypy-${{ runner.os }}-py${{ steps.python.outputs.version }}-${{ hashFiles('uv.lock') }}-${{ github.sha }}
       - name: Validate workflow config variables
         run: |
           cat >> .github/actionlint.yaml << 'EOF'
