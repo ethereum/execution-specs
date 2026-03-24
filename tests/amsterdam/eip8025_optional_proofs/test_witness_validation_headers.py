@@ -1,4 +1,4 @@
-"""Execution witness header soundness tests."""
+"""Execution witness header validation tests."""
 
 import pytest
 from execution_testing import (
@@ -24,7 +24,7 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
-def test_soundness_headers_missing_parent_header(
+def test_validation_headers_missing_parent_header(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -56,7 +56,7 @@ def test_soundness_headers_missing_parent_header(
     )
 
 
-def test_soundness_headers_missing_oldest_blockhash_ancestor(
+def test_validation_headers_missing_oldest_blockhash_ancestor(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -88,7 +88,7 @@ def test_soundness_headers_missing_oldest_blockhash_ancestor(
     )
 
 
-def test_soundness_headers_non_contiguous_chain(
+def test_validation_headers_non_contiguous_chain(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -120,7 +120,7 @@ def test_soundness_headers_non_contiguous_chain(
     )
 
 
-def test_soundness_headers_empty_block_missing_mandatory_parent(
+def test_validation_headers_empty_block_missing_mandatory_parent(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -142,7 +142,7 @@ def test_soundness_headers_empty_block_missing_mandatory_parent(
     )
 
 
-def test_soundness_headers_malformed_rlp_header(
+def test_validation_headers_malformed_rlp_header(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:

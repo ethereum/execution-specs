@@ -1,4 +1,4 @@
-"""Execution witness code soundness tests."""
+"""Execution witness code validation tests."""
 
 import pytest
 from execution_testing import (
@@ -27,7 +27,7 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
-def test_soundness_codes_missing_current_frame_code(
+def test_validation_codes_missing_current_frame_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -62,7 +62,7 @@ def test_soundness_codes_missing_current_frame_code(
     )
 
 
-def test_soundness_codes_missing_external_code_read_target(
+def test_validation_codes_missing_external_code_read_target(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -97,7 +97,7 @@ def test_soundness_codes_missing_external_code_read_target(
     )
 
 
-def test_soundness_codes_missing_implicit_system_contract_code(
+def test_validation_codes_missing_implicit_system_contract_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -121,7 +121,7 @@ def test_soundness_codes_missing_implicit_system_contract_code(
     )
 
 
-def test_soundness_codes_missing_7702_delegation_marker(
+def test_validation_codes_missing_7702_delegation_marker(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -159,7 +159,7 @@ def test_soundness_codes_missing_7702_delegation_marker(
     )
 
 
-def test_soundness_codes_missing_7702_delegated_target_code(
+def test_validation_codes_missing_7702_delegated_target_code(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -198,7 +198,7 @@ def test_soundness_codes_missing_7702_delegated_target_code(
     )
 
 
-def test_soundness_codes_missing_sender_delegation_marker(
+def test_validation_codes_missing_sender_delegation_marker(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -232,7 +232,7 @@ def test_soundness_codes_missing_sender_delegation_marker(
     )
 
 
-def test_soundness_codes_missing_redelegation_old_marker(
+def test_validation_codes_missing_redelegation_old_marker(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -283,7 +283,7 @@ def test_soundness_codes_missing_redelegation_old_marker(
     )
 
 
-def test_soundness_codes_missing_delegated_code_on_insufficient_balance_call(
+def test_validation_codes_missing_delegated_code_on_insufficient_balance_call(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -345,7 +345,7 @@ def test_soundness_codes_missing_delegated_code_on_insufficient_balance_call(
     )
 
 
-def test_soundness_codes_missing_second_marker_in_delegation_chain(
+def test_validation_codes_missing_second_marker_in_delegation_chain(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -389,7 +389,7 @@ def test_soundness_codes_missing_second_marker_in_delegation_chain(
     )
 
 
-def test_soundness_codes_extra_unused_bytecode(
+def test_validation_codes_extra_unused_bytecode(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
@@ -425,7 +425,7 @@ def test_soundness_codes_extra_unused_bytecode(
     )
 
 
-def test_witness_codes_unsorted_but_complete(
+def test_validation_codes_unsorted_but_complete(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:

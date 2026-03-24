@@ -1,4 +1,4 @@
-"""Execution witness soundness tests."""
+"""Execution witness state validation tests."""
 
 import pytest
 from execution_testing import (
@@ -26,7 +26,7 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
-def test_witness_soundness_missing_storage_proof_node(
+def test_validation_state_missing_storage_proof_node(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
