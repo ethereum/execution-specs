@@ -80,6 +80,39 @@ def remove_code(
     return transform
 
 
+def remove_code_at(
+    index: int,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Remove the bytecode entry at `index` from the witness codes list."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        new_codes = list(witness.codes)
+        try:
+            new_codes.pop(index)
+        except IndexError as exc:
+            raise IndexError(
+                f"Code index {index} out of range for witness codes"
+            ) from exc
+        return witness.model_copy(update={"codes": new_codes})
+
+    return transform
+
+
+def reverse_codes() -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Reverse the order of witness codes."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        return witness.model_copy(
+            update={"codes": list(reversed(witness.codes))}
+        )
+
+    return transform
+
+
 def clear_headers() -> Callable[[ExecutionWitness], ExecutionWitness]:
     """Remove all header entries from the witness."""
 
@@ -111,6 +144,34 @@ def remove_header_at(
     return transform
 
 
+def prepend_header(
+    header: Bytes,
+) -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Prepend a header entry to the witness."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        return witness.model_copy(
+            update={"headers": [header, *witness.headers]}
+        )
+
+    return transform
+
+
+def reverse_headers() -> Callable[[ExecutionWitness], ExecutionWitness]:
+    """Reverse the order of witness headers."""
+
+    def transform(
+        witness: ExecutionWitness,
+    ) -> ExecutionWitness:
+        return witness.model_copy(
+            update={"headers": list(reversed(witness.headers))}
+        )
+
+    return transform
+
+
 def replace_header_at(
     index: int,
     header: Bytes,
@@ -138,6 +199,10 @@ __all__ = [
     "clear_headers",
     "remove_state_node",
     "remove_code",
+    "remove_code_at",
+    "reverse_codes",
+    "prepend_header",
     "remove_header_at",
+    "reverse_headers",
     "replace_header_at",
 ]
