@@ -209,6 +209,26 @@ class TestFillPytester:
         run_fill(*fill_args)
         assert not default_html_path.exists()
 
+    def test_fill_pytest_help_does_not_create_empty_log_file(
+        self, pytester: Pytester
+    ) -> None:
+        """Help-mode startup should not leave behind an empty log file."""
+        log_dir = pytester.path / "logs"
+        pytester.copy_example(
+            name="src/execution_testing/cli/pytest_commands/pytest_ini_files/pytest-fill.ini"
+        )
+
+        result = pytester.runpytest(
+            "-c",
+            "pytest-fill.ini",
+            "--help",
+            "--log-to",
+            str(log_dir),
+        )
+
+        assert result.ret == pytest.ExitCode.OK
+        assert not list(log_dir.glob("*.log"))
+
     def test_generate_pre_alloc_groups_preserves_chain_id_for_valid_from(
         self,
         pytester: Pytester,
