@@ -20,6 +20,7 @@ from execution_testing.test_types.execution_witness.modifiers import (
     replace_header_at,
     reverse_codes,
     reverse_headers,
+    reverse_state_nodes,
 )
 
 
@@ -85,6 +86,9 @@ def test_execution_witness_state_modifiers_add_and_remove() -> None:
 
     restored = remove_state_node(Bytes(b"bb"))(modified)
     assert restored.state == [Bytes(b"aa")]
+
+    reversed_state = reverse_state_nodes()(modified)
+    assert reversed_state.state == [Bytes(b"bb"), Bytes(b"aa")]
 
 
 def test_execution_witness_code_modifiers() -> None:
