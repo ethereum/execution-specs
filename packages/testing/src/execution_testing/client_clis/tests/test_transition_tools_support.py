@@ -16,6 +16,9 @@ from execution_testing.client_clis import (
     ExecutionSpecsTransitionTool,
     TransitionTool,
 )
+from execution_testing.client_clis.clis.evmone import (
+    EvmOneTransitionTool,
+)
 from execution_testing.fixtures import BlockchainFixture
 from execution_testing.forks import (
     ArrowGlacier,
@@ -27,6 +30,7 @@ from execution_testing.forks import (
     GrayGlacier,
     London,
     MuirGlacier,
+    Osaka,
     Paris,
     Prague,
     get_deployed_forks,
@@ -77,6 +81,10 @@ def test_t8n_support(fork: Fork, installed_t8n: TransitionTool) -> None:
         Constantinople
     ]:
         return
+    # EvmOne doesn't yet support code at precompile addresses (Osaka
+    # deploys the modexp EVM contract at 0x05).
+    if isinstance(installed_t8n, EvmOneTransitionTool) and fork >= Osaka:
+        pytest.skip("EvmOne does not support evmified precompiles")
     env = Environment()
     sender = TestAddress
     storage_1 = Storage()

@@ -17,7 +17,7 @@ from execution_testing import (
 from execution_testing.forks import Osaka
 
 from ...byzantium.eip198_modexp_precompile.helpers import ModExpInput
-from ..eip7883_modexp_gas_increase.spec import Spec, Spec7883
+from ..eip7883_modexp_gas_increase.spec import Spec
 
 
 @pytest.fixture
@@ -67,15 +67,18 @@ def gas_measure_contract(
     call_succeeds: bool,
 ) -> Address:
     """
-    Deploys a contract that measures ModExp gas consumption and execution
-    result.
+    Deploy a contract that calls ModExp and checks the result.
 
-    Always stored:
+    Pre-Osaka (gas measurement):
       storage[0]: precompile call success
       storage[1]: return data length from precompile
-    Only if the precompile call succeeds:
-      storage[2]: gas consumed by precompile
-      storage[3]: hash of return data from precompile
+      storage[2]: gas consumed by precompile (only if call succeeds)
+      storage[3]: hash of return data from precompile (only if call succeeds)
+
+    Osaka+ (correctness only):
+      storage[0]: call success
+      storage[1]: return data length
+      storage[2]: hash of return data (only if call succeeds)
     """
     call_code = Op.CALL(
         precompile_gas,
@@ -87,6 +90,34 @@ def gas_measure_contract(
         0,
     )
 
+    if fork >= Osaka:
+        # Simplified: correctness only, no gas measurement
+        code = (
+            Op.CALLDATACOPY(dest_offset=0, offset=0, size=Op.CALLDATASIZE)
+            + Op.SSTORE(
+                call_contract_post_storage.store_next(call_succeeds),
+                call_code,
+            )
+            + Op.SSTORE(
+                call_contract_post_storage.store_next(
+                    len(modexp_expected) if call_succeeds else 0
+                ),
+                Op.RETURNDATASIZE(),
+            )
+        )
+        if call_succeeds:
+            code += Op.RETURNDATACOPY(
+                dest_offset=0, offset=0, size=Op.RETURNDATASIZE()
+            )
+            code += Op.SSTORE(
+                call_contract_post_storage.store_next(
+                    keccak256(bytes(modexp_expected))
+                ),
+                Op.SHA3(0, Op.RETURNDATASIZE()),
+            )
+        return pre.deploy_contract(code)
+
+    # Pre-Osaka: full gas measurement
     extra_gas = (
         Op.CALL(
             precompile_gas,
@@ -155,14 +186,15 @@ def precompile_gas(fork: Fork, modexp_input: ModExpInput) -> int:
     Calculate gas cost for the ModExp precompile and verify it matches expected
     gas.
     """
-    spec = Spec if fork < Osaka else Spec7883
+    if fork >= Osaka:
+        return 1_000_000  # Generous gas; no formula for EVM contract
     try:
-        calculated_gas = spec.calculate_gas_cost(modexp_input)
+        calculated_gas = Spec.calculate_gas_cost(modexp_input)
         return calculated_gas
     except Exception:
         # Used for `test_modexp_invalid_inputs` we expect the call to not
         # succeed. Return is for completeness.
-        return 500 if fork >= Osaka else 200
+        return 200
 
 
 @pytest.fixture
@@ -192,6 +224,8 @@ def total_gas_used(
     """
     Transaction gas limit used for the test (Can be overridden in the test).
     """
+    if fork >= Osaka:
+        return 10_000_000  # Generous gas for EVM contract
     intrinsic_gas_cost_calculator = (
         fork.transaction_intrinsic_cost_calculator()
     )

@@ -3098,6 +3098,45 @@ class Osaka(Prague, solc_name="cancun"):
     }
 
     @classmethod
+    def _modexp_contract_allocation(cls) -> Mapping:
+        """Return the modexp EVM contract allocation at address 0x05."""
+        with open(CURRENT_FOLDER / "contracts" / "modexp.bin", mode="r") as f:
+            return {
+                0x0000000000000000000000000000000000000005: {
+                    "nonce": 1,
+                    "code": bytes.fromhex(f.read().strip().removeprefix("0x")),
+                }
+            }
+
+    @classmethod
+    def pre_allocation(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
+        """
+        Osaka deploys the modexp contract at address 0x05, replacing
+        the former precompile with EVM bytecode.
+        """
+        del block_number, timestamp
+        return {
+            **cls._modexp_contract_allocation(),
+            **super(Osaka, cls).pre_allocation(),
+        }
+
+    @classmethod
+    def pre_allocation_blockchain(
+        cls, *, block_number: int = 0, timestamp: int = 0
+    ) -> Mapping:
+        """
+        Osaka deploys the modexp contract at address 0x05, replacing
+        the former precompile with EVM bytecode.
+        """
+        del block_number, timestamp
+        return {
+            **cls._modexp_contract_allocation(),
+            **super(Osaka, cls).pre_allocation_blockchain(),
+        }
+
+    @classmethod
     def engine_get_payload_version(
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
@@ -3171,15 +3210,20 @@ class Osaka(Prague, solc_name="cancun"):
         cls, *, block_number: int = 0, timestamp: int = 0
     ) -> List[Address]:
         """
-        At Osaka, a precompile for p256verify operation is added.
+        At Osaka, a precompile for p256verify operation is added and
+        modexp (0x05) is replaced by an EVM contract.
 
         P256VERIFY = 0x100
         """
         return [
             Address(0x100, label="P256VERIFY"),
-        ] + super(Osaka, cls).precompiles(
-            block_number=block_number, timestamp=timestamp
-        )
+        ] + [
+            p
+            for p in super(Osaka, cls).precompiles(
+                block_number=block_number, timestamp=timestamp
+            )
+            if p != Address(0x05)
+        ]
 
     @classmethod
     def gas_costs(
