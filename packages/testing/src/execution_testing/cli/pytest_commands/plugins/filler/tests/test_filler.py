@@ -1028,7 +1028,7 @@ def test_benchmark_excluded_from_default_fill(
     fill_base_args: list[str],
 ) -> None:
     """Verify normal fill excludes tests under benchmark/."""
-    result = testdir.runpytest(*fill_base_args, "-v", "-m", "not benchmark")
+    result = testdir.runpytest(*fill_base_args, "-v")
     result.assert_outcomes(
         passed=test_count_paris * 3,
         failed=0,
@@ -1037,22 +1037,14 @@ def test_benchmark_excluded_from_default_fill(
     )
 
 
-@pytest.mark.parametrize(
-    "marker_expr",
-    [
-        pytest.param("not benchmark", id="not-benchmark"),
-        pytest.param("not repricing", id="not-repricing"),
-    ],
-)
 @pytest.mark.usefixtures("paris_tests_dir", "benchmark_dir")
-def test_benchmark_not_collected_with_negated_marker(
+def test_benchmark_not_collected_with_negated_repricing(
     testdir: pytest.Testdir,
-    marker_expr: str,
     fill_base_args: list[str],
 ) -> None:
-    """Verify negated marker expressions exclude benchmark tests."""
+    """Verify ``-m 'not repricing'`` excludes benchmark tests."""
     result = testdir.runpytest(
-        *fill_base_args, "--collect-only", "-q", "-m", marker_expr
+        *fill_base_args, "--collect-only", "-q", "-m", "not repricing"
     )
     result.stdout.fnmatch_lines(["*test_paris_one*"])
     result.stdout.fnmatch_lines(["*test_paris_two*"])
@@ -1207,31 +1199,23 @@ def test_execute_benchmark_excluded_from_default_collection(
     testdir: pytest.Testdir,
     execute_base_args: list[str],
 ) -> None:
-    """Verify ``-m 'not benchmark'`` excludes benchmark/ in execute mode."""
-    result = testdir.runpytest(*execute_base_args, "-m", "not benchmark")
+    """Verify default execute collection excludes benchmark/."""
+    result = testdir.runpytest(*execute_base_args)
     result.stdout.fnmatch_lines(["*test_paris_one*"])
     result.stdout.fnmatch_lines(["*test_paris_two*"])
     result.stdout.no_fnmatch_line("*test_benchmark_one*")
 
 
-@pytest.mark.parametrize(
-    "marker_expr",
-    [
-        pytest.param("not benchmark", id="not-benchmark"),
-        pytest.param("not repricing", id="not-repricing"),
-    ],
-)
 @pytest.mark.usefixtures(
     "_mock_execute_rpc", "paris_tests_dir", "benchmark_dir"
 )
-def test_execute_benchmark_not_collected_with_negated_marker(
+def test_execute_benchmark_not_collected_with_negated_repricing(
     testdir: pytest.Testdir,
-    marker_expr: str,
     execute_base_args: list[str],
 ) -> None:
-    """Verify negated marker expressions exclude benchmark tests
+    """Verify ``-m 'not repricing'`` excludes benchmark tests
     in execute mode."""
-    result = testdir.runpytest(*execute_base_args, "-m", marker_expr)
+    result = testdir.runpytest(*execute_base_args, "-m", "not repricing")
     result.stdout.fnmatch_lines(["*test_paris_one*"])
     result.stdout.fnmatch_lines(["*test_paris_two*"])
     result.stdout.no_fnmatch_line("*test_benchmark_one*")
