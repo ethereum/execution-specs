@@ -1,8 +1,7 @@
 """
-# BLS12-381 Curve Operations
+Byte-level interface to BLS12-381 curve operations.
 
-Byte-level interface to BLS12-381 curve operations. All inputs and
-outputs are raw (unpadded) bytes.
+All inputs and outputs are raw (unpadded) bytes.
 """
 
 from typing import Sequence
