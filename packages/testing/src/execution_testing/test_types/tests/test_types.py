@@ -21,6 +21,7 @@ from ..block_types import (
     Environment,
     Withdrawal,
 )
+from ..receipt_types import TransactionReceipt
 from ..transaction_types import (
     AuthorizationTuple,
     Transaction,
@@ -91,6 +92,31 @@ def test_storage() -> None:
         "0x01": ("0x0200"),
         "0x02": ("0x0300"),
     }
+
+
+def test_transaction_receipt_maps_non_empty_root_to_post_state() -> None:
+    """Non-empty `root` from geth should be treated as pre-Byzantium state."""
+    receipt = TransactionReceipt.model_validate(
+        {
+            "root": "0x" + "11" * 32,
+            "status": "0x1",
+        }
+    )
+    assert str(receipt.post_state) == "0x" + "11" * 32
+    assert receipt.status is None
+
+
+def test_transaction_receipt_keeps_status_when_root_is_empty() -> None:
+    """Empty `root` should not override Byzantium-style receipt status."""
+    receipt = TransactionReceipt.model_validate(
+        {
+            "root": "0x",
+            "status": "0x1",
+        }
+    )
+    assert receipt.post_state is None
+    assert receipt.status is not None
+    assert int(receipt.status) == 1
 
 
 @pytest.mark.parametrize(
