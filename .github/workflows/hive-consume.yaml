@@ -139,6 +139,16 @@ jobs:
             --sim.limit="${{ matrix.sim_limit }}" \
             --docker.output
 
+      - name: Build Hive client images
+        if: matrix.mode == 'dev'
+        run: |
+          cd hive
+          ./hive \
+            --client go-ethereum \
+            --client-file ../execution-specs/.github/configs/hive/latest.yaml \
+            --docker.buildoutput
+        timeout-minutes: 10
+
       - name: Start Hive in dev mode
         if: matrix.mode == 'dev'
         id: start-hive
@@ -147,7 +157,7 @@ jobs:
           clients: go-ethereum
           client-file: execution-specs/.github/configs/hive/latest.yaml
           hive-path: hive
-          timeout: "120"
+          timeout: "30"
 
       - name: Run consume in dev mode
         if: matrix.mode == 'dev'
