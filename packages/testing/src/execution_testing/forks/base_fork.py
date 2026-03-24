@@ -906,7 +906,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @classmethod
     def ruleset(cls, value: int = 0) -> Dict[str, int]:
         """
-        Return the hive ruleset name for this fork.
+        Return the hive ruleset for this fork.
         """
         assert cls is not BaseFork
         parent = cls.parent()

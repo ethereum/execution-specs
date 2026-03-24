@@ -59,8 +59,9 @@ def test_transaction_gas(fork, state_test):
 ```python
 def test_transaction_types(fork, state_test):
     for tx_type in fork.tx_types():
-# Test each transaction type supported by this fork
-# ...
+        # Test each transaction type supported by this fork
+        # ...
+        pass
 ```
 
 ### 4. Determine Valid Opcodes
@@ -163,8 +164,8 @@ fork.is_deployed()  # Returns whether the fork is deployed to mainnet
 The framework supports creating transition forks that change behavior at specific block numbers or timestamps:
 
 ```python
-@transition_fork(to_fork=Shanghai, at_timestamp=15_000)
-class ParisToShanghaiAtTime15k(Paris):
+@transition_fork(to_fork=Shanghai, from_fork=Paris, at_timestamp=15_000)
+class ParisToShanghaiAtTime15k(TransitionBaseClass):
     """Paris to Shanghai transition at Timestamp 15k."""
     pass
 ```
@@ -225,8 +226,8 @@ With transition forks, you can test how behavior changes across fork boundaries:
 ```python
 # Behavior changes at block 5
 fork = BerlinToLondonAt5
-assert not fork.header_base_fee_required(block_number=4)  # Berlin doesn't require base fee
-assert fork.header_base_fee_required(block_number=5)  # London requires base fee
+assert not fork.fork_at(block_number=4).header_base_fee_required()  # Berlin doesn't require base fee
+assert fork.fork_at(block_number=5).header_base_fee_required()  # London requires base fee
 ```
 
 ## Adding New Fork Methods
@@ -234,9 +235,8 @@ assert fork.header_base_fee_required(block_number=5)  # London requires base fee
 When adding new fork methods, follow these guidelines:
 
 1. **Abstract Method Definition**: Add the new abstract method to `BaseFork` in `base_fork.py`
-2. **Consistent Parameter Pattern**: Use `block_number` and `timestamp` parameters with default values
-3. **Method Documentation**: Add docstrings explaining the purpose and behavior
-4. **Implementation in Subsequent Forks**: Implement the method in every subsequent fork class **only** if the fork
+2. **Method Documentation**: Add docstrings explaining the purpose and behavior
+3. **Implementation in Subsequent Forks**: Implement the method in every subsequent fork class **only** if the fork
    updates the value from previous forks.
 
 Example of adding a new method:
@@ -244,7 +244,7 @@ Example of adding a new method:
 ```python
 @classmethod
 @abstractmethod
-def supports_new_feature(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+def supports_new_feature(cls) -> bool:
     """Return whether the given fork supports the new feature."""
     pass
 ```
@@ -253,7 +253,7 @@ Implementation in a fork class:
 
 ```python
 @classmethod
-def supports_new_feature(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+def supports_new_feature(cls) -> bool:
     """Return whether the given fork supports the new feature."""
     return False  # Frontier doesn't support this feature
 ```
@@ -262,7 +262,7 @@ Implementation in a newer fork class:
 
 ```python
 @classmethod
-def supports_new_feature(cls, *, block_number: int = 0, timestamp: int = 0) -> bool:
+def supports_new_feature(cls) -> bool:
     """Return whether the given fork supports the new feature."""
     return True  # This fork does support the feature
 ```
