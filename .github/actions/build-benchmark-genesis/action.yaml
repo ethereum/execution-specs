@@ -37,6 +37,12 @@ runs:
         tar -xzf "${{ inputs.fixtures_path }}"
         echo "Fixtures extracted successfully"
 
+    - name: Remove stale client Docker images
+      shell: bash
+      run: |
+        echo "Removing stale Hive client images to force fresh builds..."
+        docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(hive/clients/|.*/(client-go|besu|nethermind))' | xargs -r docker rmi -f || true
+
     - name: Start Hive in dev mode
       id: start-hive
       uses: ./.github/actions/start-hive-dev
