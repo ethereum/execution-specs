@@ -65,7 +65,7 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     pass
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_OPCODE_PUSH_N)
+    charge_gas(evm, GasCosts.GAS_OPCODE_PUSH)
 
     # OPERATION
     data_to_push = U256.from_be_bytes(

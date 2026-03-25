@@ -128,7 +128,7 @@ class GasCosts:
     GAS_OPCODE_MLOAD: int
     GAS_OPCODE_MSTORE: int
     GAS_OPCODE_MSTORE8: int
-    GAS_OPCODE_PUSH_N: int
+    GAS_OPCODE_PUSH: int
     GAS_OPCODE_DUP: int
     GAS_OPCODE_SWAP: int
 
