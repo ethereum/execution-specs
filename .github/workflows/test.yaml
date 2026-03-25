@@ -73,8 +73,8 @@ jobs:
           EOF
           uvx --from actionlint-py actionlint
 
-  py3:
-    name: py3 (${{ matrix.label }})
+  fill:
+    name: fill (${{ matrix.label }})
     runs-on: [self-hosted-ghr, size-xl-x64]
     needs: static
     strategy:
@@ -104,8 +104,8 @@ jobs:
         with:
           python-version: "3.14"
       - uses: ./.github/actions/setup-env
-      - name: Run py3 tests (${{ matrix.label }})
-        run: just py3 --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
+      - name: Run fill (${{ matrix.label }})
+        run: just fill --from ${{ matrix.from_fork }} --until ${{ matrix.until_fork }}
         env:
           PYTEST_XDIST_AUTO_NUM_WORKERS: auto
       - name: Upload coverage reports to Codecov
