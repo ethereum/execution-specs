@@ -14,7 +14,7 @@ runs:
   using: "composite"
   steps:
     - name: Install uv and python ${{ inputs.python-version }}
-      uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82  # v7.5.0
+      uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
       with:
         enable-cache: ${{ inputs.enable-cache }}
         cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
@@ -24,6 +24,6 @@ runs:
       shell: bash
       run: echo "UV_PYTHON_PREFERENCE=only-managed" >> "$GITHUB_ENV"
     - name: Install just
-      uses: taiki-e/install-action@e24b8b7a939c6a537188f34a4163cb153dd85cf6  # v2.69.1
+      uses: taiki-e/install-action@e24b8b7a939c6a537188f34a4163cb153dd85cf6 # v2.69.1
       with:
-        tool: just@1.46.0
+        tool: just@1.46
