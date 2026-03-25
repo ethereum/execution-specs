@@ -886,6 +886,7 @@ def compact_to_nibbles(compact: Bytes) -> Tuple[Bytes, bool]:
 def _resolve_child_ref(
     node_db: Dict[Bytes, Bytes],
     child_ref: Extended,
+    secured: bool,
 ) -> MutableNode:
     """
     Resolve a child reference from an RLP-decoded trie node.
@@ -902,15 +903,18 @@ def _resolve_child_ref(
             f"Unexpected child ref length: {len(ref_bytes)}"
         )
         if ref_bytes in node_db:
-            return _decode_witness_node(node_db, node_db[ref_bytes])
+            return _decode_witness_node(
+                node_db, node_db[ref_bytes], secured
+            )
         return HashedNode(_hash=ref_bytes)
     else:
-        return _decode_witness_node(node_db, rlp.encode(child_ref))
+        return _decode_witness_node(node_db, rlp.encode(child_ref), secured)
 
 
 def _decode_witness_node(
     node_db: Dict[Bytes, Bytes],
     rlp_bytes: Bytes,
+    secured: bool,
 ) -> MutableNode:
     """
     Decode an RLP-encoded trie node into a ``MutableNode``.
@@ -950,7 +954,11 @@ def _decode_witness_node(
                 _rlp=rlp_bytes,
             )
         else:
-            child = _resolve_child_ref(node_db, decoded[1])
+            assert len(nibbles) > 0 or not secured, (
+                "ExtensionNode must have a non-empty path "
+                "in state/storage trie"
+            )
+            child = _resolve_child_ref(node_db, decoded[1], secured)
             assert isinstance(child, (MutableBranchNode, HashedNode)), (
                 "ExtensionNode child must be a BranchNode"
             )
@@ -964,13 +972,15 @@ def _decode_witness_node(
     elif len(decoded) == 17:
         children: List[Optional[MutableNode]] = []
         for i in range(16):
-            children.append(_resolve_child_ref(node_db, decoded[i]))
+            children.append(_resolve_child_ref(node_db, decoded[i], secured))
         value_raw = decoded[16]
         if isinstance(value_raw, (bytes, bytearray)):
             value = Bytes(value_raw)
         else:
             value = b""
-        # TODO: value is always empty in practice; refactor
+        assert value == b"" or not secured, (
+            "BranchNode value must be empty in state/storage trie"
+        )
         occupied = 16 - children.count(None) + (value != b"")
         assert occupied >= 2, "BranchNode must have at least 2 children"
         return MutableBranchNode(
@@ -1022,7 +1032,7 @@ def decode_witness_to_mpt(
         )
 
     root_rlp = node_db[root_hash]
-    root_node = _decode_witness_node(node_db, root_rlp)
+    root_node = _decode_witness_node(node_db, root_rlp, secured)
 
     return IncrementalMPT(
         secured=secured,

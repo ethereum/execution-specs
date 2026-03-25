@@ -21,8 +21,12 @@ from ethereum.state import (
 )
 
 from .incremental_mpt import (
+    HashedNode,
     IncrementalMPT,
-    compact_to_nibbles,
+    MutableBranchNode,
+    MutableExtensionNode,
+    MutableLeafNode,
+    MutableNode,
     decode_witness_to_mpt,
     mpt_root,
     mpt_set,
@@ -46,96 +50,56 @@ def build_code_db(code_entries: Tuple[Bytes, ...]) -> Dict[Hash32, Bytes]:
     return db
 
 
-def _resolve_node_ref(
-    node_db: Dict[Bytes, Bytes],
-    ref: object,
-) -> object:
-    """
-    Resolve a node reference to a decoded RLP object.
-
-    Handle inline nodes (lists), 32-byte hash references (look up
-    in node_db), and empty bytes (absent node).
-    """
-    if isinstance(ref, list):
-        return ref
-    if isinstance(ref, (bytes, bytearray)):
-        ref_bytes = Bytes(ref)
-        if len(ref_bytes) == 0:
-            return None
-        if len(ref_bytes) == 32:
-            if ref_bytes not in node_db:
-                return None
-            return rlp.decode(node_db[ref_bytes])
-        return rlp.decode(ref_bytes)
-    return None
-
-
 def _trie_lookup(
-    node_db: Dict[Bytes, Bytes],
-    root_hash: Root,
+    root_node: MutableNode,
     key_hash: Hash32,
 ) -> Optional[Bytes]:
     """
-    Walk MPT from root following nibblized key_hash.
+    Walk a decoded MPT from root following nibblized key_hash.
 
     Return leaf value or ``None`` if not found.
 
-    Parameters
-    ----------
-    node_db :
-        Mapping from node hash to RLP-encoded node data.
-    root_hash :
-        Root hash of the trie.
-    key_hash :
-        Hashed key to look up (will be nibblized).
-
     """
-    if root_hash == EMPTY_TRIE_ROOT:
-        return None
-    if root_hash not in node_db:
-        return None
-
     nibbles = bytearray()
     for byte in key_hash:
         nibbles.append(byte >> 4)
         nibbles.append(byte & 0x0F)
 
-    node = _resolve_node_ref(node_db, root_hash)
+    node = root_node
     pos = 0
 
     while node is not None:
-        if not isinstance(node, list):
+        if isinstance(node, HashedNode):
+            raise AssertionError(
+                "Encountered unresolved HashedNode during witness lookup"
+            )
+
+        if isinstance(node, MutableLeafNode):
+            if bytes(nibbles[pos:]) == node.rest_of_key:
+                return node.value
             return None
 
-        if len(node) == 2:
-            path = node[0]
-            assert isinstance(path, (bytes, bytearray))
-            segment, is_leaf = compact_to_nibbles(Bytes(path))
-            remaining = bytes(nibbles[pos:])
-
-            if is_leaf:
-                if remaining == segment:
-                    value = node[1]
-                    assert isinstance(value, (bytes, bytearray))
-                    return Bytes(value)
+        if isinstance(node, MutableExtensionNode):
+            segment = node.key_segment
+            if bytes(nibbles[pos : pos + len(segment)]) != segment:
                 return None
-            else:
-                if not remaining[: len(segment)] == segment:
-                    return None
-                pos += len(segment)
-                node = _resolve_node_ref(node_db, node[1])
+            pos += len(segment)
+            node = node.child
+            continue
 
-        elif len(node) == 17:
-            if pos >= len(nibbles):
-                value = node[16]
-                if isinstance(value, (bytes, bytearray)) and len(value) > 0:
-                    return Bytes(value)
-                return None
-            idx = nibbles[pos]
-            pos += 1
-            node = _resolve_node_ref(node_db, node[idx])
-        else:
-            return None
+        assert isinstance(node, MutableBranchNode), (
+            f"Unexpected node type {type(node)}"
+        )
+
+        assert pos <= len(nibbles), (
+            "BranchNode cannot appear past the end of a key "
+            "in state/storage trie"
+        )
+        if pos == len(nibbles):
+            return node.value or None
+        idx = nibbles[pos]
+        pos += 1
+        node = node.children[idx]
 
     return None
 
@@ -180,6 +144,25 @@ class WitnessState:
     _state_root: Root
     _code_db: Dict[Hash32, Bytes]
     _storage_root_cache: Dict[Address, Root] = field(default_factory=dict)
+    _decoded_secure_roots: Dict[Root, MutableNode] = field(
+        default_factory=dict
+    )
+
+    def _get_decoded_secure_root(self, root_hash: Root) -> MutableNode:
+        """Decode and cache a secured trie root for read-only lookups."""
+        if root_hash == EMPTY_TRIE_ROOT:
+            return None
+        if root_hash not in self._decoded_secure_roots:
+            decoded_mpt: IncrementalMPT[Bytes, Bytes] = (
+                decode_witness_to_mpt(
+                    self._node_db,
+                    root_hash,
+                    secured=True,
+                    default=b"",
+                )
+            )
+            self._decoded_secure_roots[root_hash] = decoded_mpt.root_node
+        return self._decoded_secure_roots[root_hash]
 
     def get_account_optional(self, address: Address) -> Optional[Account]:
         """
@@ -188,7 +171,9 @@ class WitnessState:
         Return ``None`` if there is no account at the address.
         """
         key_hash = keccak256(address)
-        leaf = _trie_lookup(self._node_db, self._state_root, key_hash)
+        leaf = _trie_lookup(
+            self._get_decoded_secure_root(self._state_root), key_hash
+        )
         if leaf is None:
             self._storage_root_cache[address] = EMPTY_TRIE_ROOT
             return None
@@ -209,7 +194,9 @@ class WitnessState:
             return U256(0)
 
         key_hash = keccak256(key)
-        leaf = _trie_lookup(self._node_db, storage_root, key_hash)
+        leaf = _trie_lookup(
+            self._get_decoded_secure_root(storage_root), key_hash
+        )
         if leaf is None:
             return U256(0)
 
