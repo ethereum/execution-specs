@@ -81,9 +81,9 @@ actionlint:
 
 # --- Fill Tests ---
 
-# Fill the tests using EELS (with Python)
-[group('fill')]
-py3 *args:
+# Fill the consensus tests using EELS (with Python)
+[group('consensus tests')]
+fill *args:
     @mkdir -p "{{ output_dir }}/py3/tmp" "{{ output_dir }}/py3/logs"
     uv run fill \
         -m "not slow" \
@@ -104,8 +104,8 @@ py3 *args:
         "$@" \
         tests
 
-# Fill the tests using EELS (with PyPy)
-[group('fill')]
+# Fill the base coverage consensus tests using EELS with PyPy
+[group('integration tests')]
 pypy3 *args:
     @mkdir -p "{{ output_dir }}/pypy3/tmp" "{{ output_dir }}/pypy3/logs"
     uv run --python pypy3.11 fill \
@@ -129,7 +129,7 @@ pypy3 *args:
 
 # --- Integration Tests ---
 
-# Fill and run EELS against the resulting test fixtures
+# Fill the base coverage consensus tests and run EELS against the fixtures
 [group('integration tests')]
 json_loader *args:
     @mkdir -p "{{ output_dir }}/json_loader/tmp"
@@ -178,7 +178,7 @@ tests_pytest_pypy3 *args:
 
 # Run benchmark framework unit tests (with Python)
 [group('unit tests')]
-[group('benchmarks')]
+[group('benchmark tests')]
 tests_benchmark_pytest_py3 *args:
     @mkdir -p "{{ output_dir }}/tests_benchmark_pytest_py3/tmp"
     uv run pytest \
@@ -189,7 +189,7 @@ tests_benchmark_pytest_py3 *args:
 # --- Benchmarks ---
 
 # Fill benchmark tests with --gas-benchmark-values
-[group('benchmarks')]
+[group('benchmark tests')]
 benchmark-gas-values *args:
     @mkdir -p "{{ output_dir }}/benchmark-gas-values/tmp" "{{ output_dir }}/benchmark-gas-values/logs"
     uv run fill \
@@ -207,7 +207,7 @@ benchmark-gas-values *args:
         tests/benchmark/compute
 
 # Fill benchmark tests with --fixed-opcode-count 1
-[group('benchmarks')]
+[group('benchmark tests')]
 benchmark-fixed-opcode-cli *args:
     @mkdir -p "{{ output_dir }}/benchmark-fixed-opcode-cli/tmp" "{{ output_dir }}/benchmark-fixed-opcode-cli/logs"
     uv run fill \
@@ -225,7 +225,7 @@ benchmark-fixed-opcode-cli *args:
         tests/benchmark/compute
 
 # Run benchmark_parser, then fill benchmark tests using its config
-[group('benchmarks')]
+[group('benchmark tests')]
 benchmark-fixed-opcode-config *args:
     @mkdir -p "{{ output_dir }}/benchmark-fixed-opcode-config/tmp" "{{ output_dir }}/benchmark-fixed-opcode-config/logs"
     uv run benchmark_parser
@@ -256,7 +256,7 @@ spec-docs:
 docs:
     GEN_TEST_DOC_VERSION="just" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs build --strict -d "{{ output_dir }}/docs/site"
 
-# Build HTML site documentation with mkdocs (fast mode, skips test case reference)
+# Build HTML site documentation with mkdocs (skip test case reference)
 [group('docs')]
 fast-docs:
     FAST_DOCS=True GEN_TEST_DOC_VERSION="just" DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib" uv run mkdocs build --strict -d "{{ output_dir }}/docs/site"
