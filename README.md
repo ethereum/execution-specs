@@ -81,9 +81,9 @@ The Ethereum specification is maintained as a Python library, for better integra
 
 Requires:
 
-- Python 3.11+,
-- [`uv`](https://docs.astral.sh/uv/) package manager,
-- [`just`](https://just.systems/) command runner (install via your package manager, [`uv tool install just-bin`](https://pypi.org/project/just-bin/), or [pre-built binaries](https://just.systems/man/en/pre-built-binaries.html)).
+* Python 3.11+,
+* [`uv`](https://docs.astral.sh/uv/) package manager,
+* [`just`](https://just.systems/) command runner (install via your package manager, [`uv tool install just-bin`](https://pypi.org/project/just-bin/), or [pre-built binaries](https://just.systems/man/en/pre-built-binaries.html)).
 
 ### Building Specification Documentation
 
