@@ -343,6 +343,13 @@ class Transaction(
     class InvalidFeePaymentError(Exception):
         """Transaction described more than one fee payment type."""
 
+        FEE_FIELD_LABELS = {
+            "gas_price": "legacy/type-1",
+            "max_fee_per_gas": "type-2+",
+            "max_priority_fee_per_gas": "type-2+",
+            "max_fee_per_blob_gas": "type-3+",
+        }
+
         def __init__(self, *conflicting_fields: str) -> None:
             """Store the conflicting fee fields used in the transaction."""
             self.conflicting_fields = conflicting_fields
@@ -350,41 +357,12 @@ class Transaction(
         def __str__(self) -> str:
             """Print exception string."""
             if not self.conflicting_fields:
-                return (
-                    "cannot mix legacy/type-1 and type-2+ fee fields in a "
-                    "single tx"
-                )
-
-            typed_fee_fields = tuple(
-                field_name
-                for field_name in self.conflicting_fields
-                if field_name != "gas_price"
+                return "cannot mix fee fields in a single tx"
+            labels = ", ".join(
+                f"'{f}' ({self.FEE_FIELD_LABELS[f]})"
+                for f in self.conflicting_fields
             )
-            formatted_typed_fields = [
-                f"'{field_name}'"
-                for field_name in self.conflicting_fields
-                if field_name != "gas_price"
-            ]
-            if len(formatted_typed_fields) == 1:
-                conflict_description = formatted_typed_fields[0]
-            elif len(formatted_typed_fields) == 2:
-                conflict_description = " and ".join(formatted_typed_fields)
-            else:
-                conflict_description = (
-                    ", ".join(formatted_typed_fields[:-1])
-                    + f", and {formatted_typed_fields[-1]}"
-                )
-            typed_field_label = (
-                "field" if len(typed_fee_fields) == 1 else "fields"
-            )
-
-            return (
-                "cannot mix legacy/type-1 fee field 'gas_price' with "
-                f"type-2+ fee {typed_field_label} {conflict_description}; "
-                "'gas_price' is for legacy/type-1 txs, while "
-                "'max_priority_fee_per_gas' and 'max_fee_per_gas' are for "
-                "type-2+ txs"
-            )
+            return f"cannot mix fee fields in a single tx: {labels}"
 
     class InvalidSignaturePrivateKeyError(Exception):
         """

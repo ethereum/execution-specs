@@ -62,8 +62,8 @@ def test_fill_reports_conflicting_fee_fields(pytester: Any) -> None:
 
     output = "\n".join((result.stdout, result.stderr))
     expected_message = (
-        "cannot mix legacy/type-1 fee field 'gas_price' with type-2+ fee "
-        "field 'max_fee_per_gas'"
+        "cannot mix fee fields in a single tx: "
+        "'gas_price' (legacy/type-1), 'max_fee_per_gas' (type-2+)"
     )
     assert expected_message in output
 
