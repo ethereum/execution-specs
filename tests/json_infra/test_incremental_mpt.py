@@ -195,6 +195,21 @@ def _build_trie_and_collect_nodes(
     return expected_root, node_db
 
 
+def _decode_root_from_rlp(
+    root_rlp: Bytes,
+    *,
+    secured: bool = False,
+) -> IncrementalMPT[Bytes, Bytes]:
+    """Decode a single synthetic witness root from its RLP bytes."""
+    root_hash = Root(keccak256(root_rlp))
+    return decode_witness_to_mpt(
+        {Bytes(root_hash): root_rlp},
+        root_hash,
+        secured=secured,
+        default=b"",
+    )
+
+
 class TestDecodeWitnessToMpt:
     """Test decode_witness_to_mpt with synthetic witness data."""
 
@@ -218,6 +233,130 @@ class TestDecodeWitnessToMpt:
             node_db, expected_root, secured=False, default=b""
         )
         assert mpt_root(mpt) == expected_root
+
+
+class TestMalformedWitnessNodes:
+    """Test malformed witness node decoding failures."""
+
+    def test_malformed_rlp_bytes(self) -> None:
+        """Malformed RLP should fail before node-shape validation."""
+        with pytest.raises(rlp.DecodingError):
+            _decode_root_from_rlp(Bytes(b"\xc1"))
+
+    def test_nonempty_byte_string_node(self) -> None:
+        """A decoded byte string node must be the empty node only."""
+        with pytest.raises(AssertionError, match="Expected empty node"):
+            _decode_root_from_rlp(Bytes(rlp.encode(b"\x01")))
+
+    def test_invalid_rlp_node_length(self) -> None:
+        """Only 2-item and 17-item node lists are valid."""
+        with pytest.raises(
+            AssertionError, match="Invalid RLP node length: 3"
+        ):
+            _decode_root_from_rlp(Bytes(rlp.encode([b"\x01", b"\x02", b"\x03"])))
+
+    def test_extension_with_empty_child_ref(self) -> None:
+        """Extension nodes must point to a branch child."""
+        root_rlp = Bytes(
+            rlp.encode([nibble_list_to_compact(Bytes(b"\x01"), False), b""])
+        )
+
+        with pytest.raises(
+            AssertionError, match="ExtensionNode child must be a BranchNode"
+        ):
+            _decode_root_from_rlp(root_rlp)
+
+    def test_extension_pointing_to_leaf(self) -> None:
+        """Extensions may not point directly to leaf nodes."""
+        leaf = [nibble_list_to_compact(Bytes(b"\x02"), True), b"value"]
+        root_rlp = Bytes(
+            rlp.encode([nibble_list_to_compact(Bytes(b"\x01"), False), leaf])
+        )
+
+        with pytest.raises(
+            AssertionError, match="ExtensionNode child must be a BranchNode"
+        ):
+            _decode_root_from_rlp(root_rlp)
+
+    def test_extension_pointing_to_extension(self) -> None:
+        """Extensions may not point directly to other extensions."""
+        branch = [b""] * 17
+        branch[0] = [nibble_list_to_compact(Bytes(b"\x03"), True), b"left"]
+        branch[1] = [nibble_list_to_compact(Bytes(b"\x04"), True), b"right"]
+        inner_extension = [
+            nibble_list_to_compact(Bytes(b"\x02"), False),
+            branch,
+        ]
+        root_rlp = Bytes(
+            rlp.encode(
+                [
+                    nibble_list_to_compact(Bytes(b"\x01"), False),
+                    inner_extension,
+                ]
+            )
+        )
+
+        with pytest.raises(
+            AssertionError, match="ExtensionNode child must be a BranchNode"
+        ):
+            _decode_root_from_rlp(root_rlp)
+
+    def test_extension_child_raw_nonzero_non_hash_bytes(self) -> None:
+        """Non-empty byte refs inside extensions must be 32-byte hashes."""
+        root_rlp = Bytes(
+            rlp.encode([nibble_list_to_compact(Bytes(b"\x01"), False), b"\x01"])
+        )
+
+        with pytest.raises(AssertionError, match="Unexpected child ref length"):
+            _decode_root_from_rlp(root_rlp)
+
+    def test_branch_with_zero_occupied_entries(self) -> None:
+        """A branch node must encode at least two occupied entries."""
+        with pytest.raises(
+            AssertionError, match="BranchNode must have at least 2 children"
+        ):
+            _decode_root_from_rlp(Bytes(rlp.encode([b""] * 17)))
+
+    def test_branch_with_single_occupied_entry(self) -> None:
+        """A branch node with only one child is non-canonical."""
+        branch = [b""] * 17
+        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"value"]
+
+        with pytest.raises(
+            AssertionError, match="BranchNode must have at least 2 children"
+        ):
+            _decode_root_from_rlp(Bytes(rlp.encode(branch)))
+
+    def test_secured_branch_with_value(self) -> None:
+        """Secured tries must not use the branch value slot."""
+        branch = [b""] * 17
+        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
+        branch[16] = b"terminal"
+
+        with pytest.raises(
+            AssertionError,
+            match="BranchNode value must be empty in state/storage trie",
+        ):
+            _decode_root_from_rlp(Bytes(rlp.encode(branch)), secured=True)
+
+    def test_secured_extension_with_empty_path(self) -> None:
+        """Secured tries must reject empty extension segments."""
+        branch = [b""] * 17
+        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
+        branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]
+        root_rlp = Bytes(
+            rlp.encode([nibble_list_to_compact(Bytes(b""), False), branch])
+        )
+
+        with pytest.raises(
+            AssertionError,
+            match="ExtensionNode must have a non-empty path",
+        ):
+            _decode_root_from_rlp(root_rlp, secured=True)
+
+
+class TestDecodeWitnessToMptMore:
+    """Additional decode_witness_to_mpt roundtrip coverage."""
 
     def test_multiple_entries(self) -> None:
         """Decode a trie with multiple entries and verify root."""
