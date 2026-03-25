@@ -195,7 +195,7 @@ class Frontier(
             GAS_OPCODE_MLOAD=GAS_VERY_LOW,
             GAS_OPCODE_MSTORE=GAS_VERY_LOW,
             GAS_OPCODE_MSTORE8=GAS_VERY_LOW,
-            GAS_OPCODE_PUSH_N=GAS_VERY_LOW,
+            GAS_OPCODE_PUSH=GAS_VERY_LOW,
             GAS_OPCODE_DUP=GAS_VERY_LOW,
             GAS_OPCODE_SWAP=GAS_VERY_LOW,
         )
@@ -432,7 +432,7 @@ class Frontier(
             Opcodes.JUMPDEST: gas_costs.GAS_JUMPDEST,
             # Push operations (PUSH1 through PUSH32)
             **{
-                getattr(Opcodes, f"PUSH{i}"): gas_costs.GAS_OPCODE_PUSH_N
+                getattr(Opcodes, f"PUSH{i}"): gas_costs.GAS_OPCODE_PUSH
                 for i in range(1, 33)
             },
             # Dup operations (DUP1 through DUP16)
