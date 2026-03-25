@@ -20,7 +20,7 @@ fix:
 
 # Run all static checks (spellcheck, lint, format, mypy, ...)
 [group('static analysis')]
-static: spellcheck lint format-check typecheck ethereum-spec-lint lock-check actionlint
+static: lint format-check lock-check actionlint ethereum-spec-lint spellcheck typecheck
 
 # Check spelling
 [group('static analysis')]
@@ -34,6 +34,8 @@ spellcheck:
         echo "To auto-fix interactively:"
         echo "  uv run codespell -i 3"
         exit 1
+    else
+        echo "uv run codespell  # passed!"
     fi
 
 # Add a word to the spellcheck whitelist
