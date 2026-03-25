@@ -1,5 +1,7 @@
 set positional-arguments := true
 
+alias help := list
+
 # List available recipes (default)
 [default, private]
 list:
