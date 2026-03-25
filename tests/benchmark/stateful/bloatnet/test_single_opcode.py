@@ -105,6 +105,7 @@ START_SLOT = (
 #   - Simulates real-world contract state accumulation over time
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("token_name", SLOAD_TOKENS)
 @pytest.mark.parametrize("existing_slots", [False, True])
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
@@ -625,6 +626,7 @@ def build_external_call(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("token_name", SSTORE_MINT_TOKENS)
 @pytest.mark.parametrize("existing_slots", [False, True])
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
@@ -1529,6 +1531,7 @@ def test_storage_sload_benchmark(
     )
 
 
+@pytest.mark.repricing
 @pytest.mark.parametrize("storage_keys_pre_set", [False, True])
 def test_storage_sload_same_key_benchmark(
     benchmark_test: BenchmarkTestFiller,
