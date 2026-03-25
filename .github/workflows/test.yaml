@@ -155,6 +155,7 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-uv
       - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-geth
       - uses: ./.github/actions/build-evmone
       - name: Run py3 tests
         run: just tests_pytest_py3
@@ -172,6 +173,7 @@ jobs:
         with:
           python-version: "pypy3.11"
       - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/setup-geth
       - uses: ./.github/actions/build-evmone
       - name: Run pypy3 tests
         run: just tests_pytest_pypy3
