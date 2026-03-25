@@ -356,7 +356,7 @@ files = [
 ]
 
 [tool.docc.output]
-path = "api_docs"
+path = ".just/spec-docs"
 extension = ".html"
 
 [tool.vulture]
