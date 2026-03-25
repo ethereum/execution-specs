@@ -39,8 +39,18 @@ def cursor_read() -> Bytecode:
 
 
 def cursor_write() -> Bytecode:
-    """PUSH1(CURSOR_SLOT) + SSTORE ← stack: [..., cursor]."""
-    return Op.PUSH1(CURSOR_SLOT) + Op.SSTORE
+    """
+    PUSH1(CURSOR_SLOT) + SSTORE ← stack: [..., cursor].
+
+    SSTORE metadata reflects runtime: cursor slot is warm
+    (setup SLOADs it) and nonzero-to-nonzero.
+    """
+    return Op.PUSH1(CURSOR_SLOT) + Op.SSTORE(
+        key_warm=True,
+        original_value=1,
+        current_value=1,
+        new_value=2,
+    )
 
 
 def default_teardown() -> Bytecode:
@@ -56,6 +66,31 @@ def sload_loop_body() -> Bytecode:
 def sload_loop_body_reverse() -> Bytecode:
     """SLOAD(cursor) then cursor-- (result discarded)."""
     return Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(0x01) + Op.SWAP1 + Op.SUB
+
+
+# -- Gas-check loop components -- #
+# Used by both gas_check_loop_contract (assembly) and plan_benchmark
+# (gas estimation).  Operand values are irrelevant for gas costs.
+
+
+def _pre_gas_header(gas_threshold: int = 0) -> Bytecode:
+    """Loop header prefix consumed before GAS reports."""
+    return Op.JUMPDEST + Op.PUSH3(gas_threshold) + Op.GAS
+
+
+def _loop_header(gas_threshold: int = 0) -> Bytecode:
+    """Full loop condition: JUMPDEST PUSH3 GAS GT ISZERO."""
+    return _pre_gas_header(gas_threshold) + Op.GT + Op.ISZERO
+
+
+def _loop_exit(target: int = 0) -> Bytecode:
+    """Exit jump when loop condition fails."""
+    return Op.PUSH2(target) + Op.JUMPI
+
+
+def _loop_back(target: int = 0) -> Bytecode:
+    """Back-edge jump to loop start."""
+    return Op.PUSH2(target) + Op.JUMP
 
 
 def gas_check_loop_contract(
@@ -75,25 +110,21 @@ def gas_check_loop_contract(
         teardown = default_teardown()
 
     loop_start = len(setup)
-    header = Op.JUMPDEST + Op.PUSH3(gas_threshold) + Op.GAS + Op.GT + Op.ISZERO
+    header = _loop_header(gas_threshold)
     loop_end = (
         loop_start
         + len(header)
-        + 3
-        + 1  # PUSH2(loop_end) + JUMPI
+        + len(_loop_exit())
         + len(body)
-        + 3
-        + 1  # PUSH2(loop_start) + JUMP
+        + len(_loop_back())
     )
 
     return (
         setup
         + header
-        + Op.PUSH2(loop_end)
-        + Op.JUMPI
+        + _loop_exit(loop_end)
         + body
-        + Op.PUSH2(loop_start)
-        + Op.JUMP
+        + _loop_back(loop_start)
         + teardown
     )
 
@@ -127,20 +158,13 @@ def plan_benchmark(
     if teardown is None:
         teardown = default_teardown()
 
-    # All gas costs derived from bytecode.
-    loop_header = (
-        Op.JUMPDEST
-        + Op.GAS
-        + Op.PUSH3(0)
-        + Op.GT
-        + Op.ISZERO
-        + Op.PUSH2(0)
-        + Op.JUMPI
+    overhead = (
+        _loop_header().gas_cost(fork)
+        + _loop_exit().gas_cost(fork)
+        + _loop_back().gas_cost(fork)
     )
-    loop_footer = Op.PUSH2(0) + Op.JUMP
-    overhead = loop_header.gas_cost(fork) + loop_footer.gas_cost(fork)
     teardown_gas = teardown.gas_cost(fork)
-    gas_opcode_offset = (Op.JUMPDEST + Op.GAS).gas_cost(fork)
+    gas_opcode_offset = _pre_gas_header().gas_cost(fork)
 
     gas_threshold = loop_body_gas + overhead + teardown_gas
     iteration_gas = loop_body_gas + overhead
