@@ -272,3 +272,15 @@ changelog:
 [group('docs')]
 markdownlint:
     uv run markdownlintcli2_soft_fail
+
+# --- Housekeeping ---
+
+# Remove caches and build artifacts (.pytest_cache, .mypy_cache, __pycache__, ...)
+[group('housekeeping')]
+clean *args:
+    uv run eest clean "$@"
+
+# Remove caches, build artifacts, .just, and .venv
+[group('housekeeping')]
+clean-all *args:
+    uv run eest clean --all "$@"
