@@ -129,8 +129,8 @@ class ExtendMemory:
 @dataclass
 class MessageCallGas:
     """
-    Define the gas cost and gas given to the sub-call for
-    executing the call opcodes.
+    Define the gas cost and gas given to the sub-call for executing the call
+    opcodes.
 
     `cost`: `ethereum.base_types.Uint`
         The gas required to execute the call opcode, excludes
