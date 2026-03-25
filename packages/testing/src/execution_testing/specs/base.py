@@ -17,7 +17,7 @@ from typing import (
 )
 
 import pytest
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
 
 from execution_testing.base_types import to_hex
@@ -96,6 +96,7 @@ class FillResult(BaseModel):
     benchmark_gas_used: int | None = None
     benchmark_opcode_count: OpcodeCount | None = None
     post_verifications: PostVerifications | None = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class BaseTest(BaseModel):

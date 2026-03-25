@@ -1818,6 +1818,7 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                     opcode_count=t8n.opcode_count,
                     ref_spec=reference_spec,
                     _info_metadata=t8n._info_metadata,
+                    fill_metadata=fill_result.metadata or None,
                 )
 
                 output_subdir = resolve_fixture_subfolder(

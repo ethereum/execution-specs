@@ -173,6 +173,7 @@ class BaseFixture(CamelModel):
         opcode_count: OpcodeCount | None,
         ref_spec: ReferenceSpec | None,
         _info_metadata: Dict[str, Any] | None,
+        fill_metadata: Dict[str, Any] | None = None,
     ) -> None:
         """Fill the info field for this fixture."""
         if "comment" not in self.info:
@@ -182,6 +183,8 @@ class BaseFixture(CamelModel):
         self.info["url"] = fixture_source_url
         if opcode_count is not None:
             self.info["opcode_count"] = opcode_count.model_dump()
+        if fill_metadata:
+            self.info.update(fill_metadata)
         if ref_spec is not None:
             ref_spec.write_info(self.info)
         if _info_metadata:
