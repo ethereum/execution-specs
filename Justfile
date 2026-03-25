@@ -1,7 +1,7 @@
 set positional-arguments := true
 
 # List available recipes (default)
-[default,private]
+[default, private]
 list:
     @just --list
 
@@ -20,8 +20,8 @@ fix:
     uv run ruff check --fix
 
 # Run all static checks (spellcheck, lint, format, mypy, ...)
-[group('static analysis')]
-static: lint format-check lock-check actionlint ethereum-spec-lint spellcheck typecheck
+[group('static analysis'), parallel]
+static: typecheck ethereum-spec-lint spellcheck actionlint lock-check format-check lint
 
 # Check spelling
 [group('static analysis')]
