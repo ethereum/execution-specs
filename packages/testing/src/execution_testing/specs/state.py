@@ -38,6 +38,7 @@ from execution_testing.fixtures import (
     StateFixture,
 )
 from execution_testing.fixtures.common import FixtureBlobSchedule
+from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.fixtures.state import (
     FixtureConfig,
     FixtureEnvironment,
@@ -511,6 +512,7 @@ class StateTest(BaseTest):
             gas_optimization=gas_optimization,
             benchmark_gas_used=transition_tool_output.result.gas_used,
             benchmark_opcode_count=transition_tool_output.result.opcode_count,
+            post_verifications=PostVerifications.from_alloc(self.post),
         )
 
     def get_genesis_environment(self) -> Environment:

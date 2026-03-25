@@ -30,6 +30,7 @@ from pydantic_core.core_schema import ValidatorFunctionWrapHandler
 
 from execution_testing.base_types import CamelModel, ReferenceSpec
 from execution_testing.client_clis.cli_types import OpcodeCount
+from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork, TransitionFork
 
 
@@ -73,6 +74,9 @@ class BaseFixture(CamelModel):
 
     info: Dict[str, Dict[str, Any] | str] = Field(
         default_factory=dict, alias="_info"
+    )
+    post_verifications: PostVerifications | None = Field(
+        default=None, alias="postVerifications"
     )
 
     # Fixture format properties

@@ -74,6 +74,7 @@ from execution_testing.fixtures.common import (
     FixtureBlobSchedule,
     FixtureTransactionReceipt,
 )
+from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.test_types import (
     Alloc,
@@ -930,6 +931,7 @@ class BlockchainTest(BaseTest):
             gas_optimization=None,
             benchmark_gas_used=benchmark_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
+            post_verifications=PostVerifications.from_alloc(self.post),
         )
 
     def make_hive_fixture(
@@ -1075,6 +1077,7 @@ class BlockchainTest(BaseTest):
             gas_optimization=None,
             benchmark_gas_used=benchmark_gas_used,
             benchmark_opcode_count=benchmark_opcode_count,
+            post_verifications=PostVerifications.from_alloc(self.post),
         )
 
     def generate(

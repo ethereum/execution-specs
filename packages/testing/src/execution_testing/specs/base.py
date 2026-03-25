@@ -33,6 +33,7 @@ from execution_testing.fixtures import (
     FixtureFormat,
     LabeledFixtureFormat,
 )
+from execution_testing.fixtures.post_verifications import PostVerifications
 from execution_testing.forks import Fork, TransitionFork
 from execution_testing.forks.base_fork import BaseFork
 from execution_testing.test_types import Environment, Withdrawal
@@ -94,6 +95,7 @@ class FillResult(BaseModel):
     gas_optimization: int | None
     benchmark_gas_used: int | None = None
     benchmark_opcode_count: OpcodeCount | None = None
+    post_verifications: PostVerifications | None = None
 
 
 class BaseTest(BaseModel):

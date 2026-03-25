@@ -796,6 +796,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Only creates debug output when explicitly specified."
         ),
     )
+    debug_group.addoption(
+        "--post-verifications",
+        action="store_true",
+        dest="post_verifications",
+        default=False,
+        help=(
+            "Include a postVerifications field in fixture output "
+            "that records which post-state checks were "
+            "performed during filling."
+        ),
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -1767,6 +1778,11 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                         )
                 assert fill_result is not None
                 fixture = fill_result.fixture
+                if (
+                    request.config.getoption("post_verifications")
+                    and fill_result.post_verifications is not None
+                ):
+                    fixture.post_verifications = fill_result.post_verifications
                 # If operation mode is benchmarking, check the gas used.
                 self.validate_benchmark_gas(
                     benchmark_gas_used=fill_result.benchmark_gas_used,
