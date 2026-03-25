@@ -81,25 +81,30 @@ lock-check:
 actionlint:
     uv run actionlint -pyflakes pyflakes -shellcheck "shellcheck -S warning"
 
+# Generate HTML coverage report from last just fill run
+[group('consensus tests')]
+coverage:
+    uv run coverage html -d "{{ output_dir }}/fill/coverage-html"
+
 # --- Fill Tests ---
 
 # Fill the consensus tests using EELS (with Python)
 [group('consensus tests')]
 fill *args:
-    @mkdir -p "{{ output_dir }}/py3/tmp" "{{ output_dir }}/py3/logs"
+    @mkdir -p "{{ output_dir }}/fill/tmp" "{{ output_dir }}/fill/logs"
     uv run fill \
         -m "not slow" \
         -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
-        --output="{{ output_dir }}/py3/fixtures" \
+        --output="{{ output_dir }}/fill/fixtures" \
         --cov-config=pyproject.toml \
         --cov=ethereum \
         --cov-report=term \
-        --cov-report "xml:{{ output_dir }}/py3/coverage.xml" \
+        --cov-report "xml:{{ output_dir }}/fill/coverage.xml" \
         --no-cov-on-fail \
         --cov-branch \
-        --basetemp="{{ output_dir }}/py3/tmp" \
-        --log-to "{{ output_dir }}/py3/logs" \
+        --basetemp="{{ output_dir }}/fill/tmp" \
+        --log-to "{{ output_dir }}/fill/logs" \
         --clean \
         --until {{ latest_fork }} \
         --durations=50 \
