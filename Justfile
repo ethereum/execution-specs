@@ -107,7 +107,7 @@ fill *args:
         --basetemp="{{ output_dir }}/fill/tmp" \
         --log-to "{{ output_dir }}/fill/logs" \
         --clean \
-        --until {{ latest_fork }} \
+        --until "{{ latest_fork }}" \
         --durations=50 \
         "$@" \
         tests
@@ -130,7 +130,7 @@ pypy3 *args:
         --basetemp="{{ output_dir }}/pypy3/tmp" \
         --log-to "{{ output_dir }}/pypy3/logs" \
         --clean \
-        --until {{ latest_fork }} \
+        --until "{{ latest_fork }}" \
         --ignore=tests/ported_static \
         "$@" \
         tests
@@ -143,7 +143,7 @@ json_loader *args:
     @mkdir -p "{{ output_dir }}/json_loader/tmp"
     uv run fill \
         -m "eels_base_coverage and not derived_test" \
-        --until {{ latest_fork }} \
+        --until "{{ latest_fork }}" \
         -n {{ xdist_workers }} --dist=loadgroup \
         --skip-index \
         --clean \
