@@ -20,3 +20,8 @@ bal:
   evm-type: develop
   fill-params: --fork=Amsterdam --fill-static-tests
   feature_only: true
+
+static:
+  evm-type: stable
+  fill-params: --until=Amsterdam --fill-static-tests --generate-all-formats --post-verifications tests/static
+  feature_only: true
