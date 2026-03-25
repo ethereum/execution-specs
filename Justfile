@@ -1,7 +1,8 @@
 set positional-arguments := true
 
-# List available recipes
-default:
+# List available recipes (default)
+[default,private]
+list:
     @just --list
 
 root := justfile_directory()
