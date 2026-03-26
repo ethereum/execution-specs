@@ -573,4 +573,5 @@ def test_mixed_sload_sstore(
         pre=pre,
         blocks=[Block(txs=txs)],
         skip_gas_used_validation=True,
+        expected_receipt_status=True,
     )
