@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_returndatasize_after_successful_staticcall
 
 Ported from:
-tests/static/state_tests/stReturnDataTest
-returndatasize_after_successful_staticcallFiller.json
+state_tests/stReturnDataTest/returndatasize_after_successful_staticcallFiller.json
 """
 
 import pytest
@@ -19,13 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stReturnDataTest/returndatasize_after_successful_staticcallFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stReturnDataTest/returndatasize_after_successful_staticcallFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -33,10 +31,10 @@ def test_returndatasize_after_successful_staticcall(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_returndatasize_after_successful_staticcall"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
+        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
     )
 
     env = Environment(
@@ -44,56 +42,43 @@ def test_returndatasize_after_successful_staticcall(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
 
-    pre.deploy_contract(
-        code=(
-            Op.MSTORE(
-                offset=0x0,
-                value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-            )
-            + Op.RETURN(offset=0x0, size=0x6)
-            + Op.STOP
-        ),
-        balance=0x6400000000,
-        nonce=0,
-        address=Address("0x0c6426ee9b84ce08176d8d295613a7d10c48576b"),  # noqa: E501
-    )
-    # Source: LLL
-    # { (seq (STATICCALL 60000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)))}  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.POP(
-                Op.STATICCALL(
-                    gas=0xEA60,
-                    address=0xC6426EE9B84CE08176D8D295613A7D10C48576B,
-                    args_offset=0x0,
-                    args_size=0x0,
-                    ret_offset=0x0,
-                    ret_size=0x0,
-                ),
-            )
-            + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
-            + Op.STOP
-        ),
+    # Source: lll
+    # { (seq (STATICCALL 60000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)))}
+    target = pre.deploy_contract(
+        code=Op.POP(Op.STATICCALL(gas=0xea60, address=0xc6426ee9b84ce08176d8d295613a7d10c48576b, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE) + Op.STOP,
         storage={
-            0x0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
         },
         nonce=0,
         address=Address("0xb59b41f3a1359dd85455601db8e79f621d7e63f6"),  # noqa: E501
     )
+    # Source: lll
+    # { (MSTORE 0x0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (RETURN 0 6) }
+    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+        + Op.RETURN(offset=0x0, size=0x6) + Op.STOP,
+        balance=0x6400000000,
+        nonce=0,
+        address=Address("0x0c6426ee9b84ce08176d8d295613a7d10c48576b"),  # noqa: E501
+    )
     pre[sender] = Account(balance=0x6400000000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=100000,
+        nonce=0,
+        gas_price=10,
     )
 
-    post = {
-        contract: Account(storage={0: 6}),
-    }
+    post = {target: Account(storage={0: 6})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

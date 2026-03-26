@@ -1,9 +1,8 @@
 """
-Legacy Test from Christoph. J.
+Legacy Test from Christoph. J
 
 Ported from:
-tests/static/state_tests/stCallCreateCallCodeTest
-createNameRegistratorPerTxsFiller.json
+state_tests/stCallCreateCallCodeTest/createNameRegistratorPerTxsFiller.json
 """
 
 import pytest
@@ -18,13 +17,12 @@ from execution_testing import (
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stCallCreateCallCodeTest/createNameRegistratorPerTxsFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stCallCreateCallCodeTest/createNameRegistratorPerTxsFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -32,10 +30,10 @@ def test_create_name_registrator_per_txs(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Legacy Test from Christoph. J."""
+    """Legacy Test from Christoph."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
 
     env = Environment(
@@ -43,26 +41,31 @@ def test_create_name_registrator_per_txs(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000000,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex(
-            "6001600155601080600c6000396000f3006000355415600957005b60203560003555"  # noqa: E501
-        ),
+        data=bytes.fromhex("6001600155601080600c6000396000f3006000355415600957005b60203560003555"),  # noqa: E501
         gas_limit=1250528,
-        value=100000,
+        value=0x186a0,
+        nonce=0,
+        gas_price=10,
     )
 
     post = {
         Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-            storage={1: 1},
-        ),
+                storage={1: 1},
+                code=bytes.fromhex("396000f3006000355415600957005b60"),
+                balance=0x186a0,
+                nonce=1,
+            ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,8 +1,8 @@
 """
-data0 - create collision to empty, data1 - to empty but nonce, data2 - to...
+data0 - create collision to empty, data1 - to empty but nonce, data2 - to contract with code
 
 Ported from:
-tests/static/state_tests/stCreateTest/CreateCollisionToEmpty2Filler.json
+state_tests/stCreateTest/CreateCollisionToEmpty2Filler.json
 """
 
 import pytest
@@ -16,225 +16,231 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "0000000000000000000000001000000000000000000000000000000000000000",
+    "0000000000000000000000002000000000000000000000000000000000000000",
+    "0000000000000000000000003000000000000000000000000000000000000000",
+]
+TX_GAS = [600000, 54000]
+TX_VALUE = [0, 1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stCreateTest/CreateCollisionToEmpty2Filler.json",  # noqa: E501
-    ],
+    ["state_tests/stCreateTest/CreateCollisionToEmpty2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_gas_limit, tx_value, expected_post",
+    "d, g, v",
     [
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            600000,
-            0,
-            {
-                Address("0x1000000000000000000000000000000000000000"): Account(
-                    storage={1: 0x13136008B64FF592819B2FA6D43F2835C452020E}
-                ),
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={1: 1}
-                ),
-            },
+        pytest.param(
+            0, 0, 0,
+            id="d0-g0-v0",
         ),
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            600000,
-            1,
-            {
-                Address("0x1000000000000000000000000000000000000000"): Account(
-                    storage={1: 0x13136008B64FF592819B2FA6D43F2835C452020E}
-                ),
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
-                    storage={1: 1}
-                ),
-            },
+        pytest.param(
+            0, 0, 1,
+            id="d0-g0-v1",
         ),
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            54000,
-            0,
-            {},
+        pytest.param(
+            0, 1, 0,
+            id="d0-g1-v0",
         ),
-        (
-            "0000000000000000000000001000000000000000000000000000000000000000",
-            54000,
-            1,
-            {},
+        pytest.param(
+            0, 1, 1,
+            id="d0-g1-v1",
         ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            600000,
-            0,
-            {},
+        pytest.param(
+            1, 0, 0,
+            id="d1-g0-v0",
         ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            600000,
-            1,
-            {},
+        pytest.param(
+            1, 0, 1,
+            id="d1-g0-v1",
         ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            54000,
-            0,
-            {},
+        pytest.param(
+            1, 1, 0,
+            id="d1-g1-v0",
         ),
-        (
-            "0000000000000000000000002000000000000000000000000000000000000000",
-            54000,
-            1,
-            {},
+        pytest.param(
+            1, 1, 1,
+            id="d1-g1-v1",
         ),
-        (
-            "0000000000000000000000003000000000000000000000000000000000000000",
-            600000,
-            0,
-            {},
+        pytest.param(
+            2, 0, 0,
+            id="d2-g0-v0",
         ),
-        (
-            "0000000000000000000000003000000000000000000000000000000000000000",
-            600000,
-            1,
-            {},
+        pytest.param(
+            2, 0, 1,
+            id="d2-g0-v1",
         ),
-        (
-            "0000000000000000000000003000000000000000000000000000000000000000",
-            54000,
-            0,
-            {},
+        pytest.param(
+            2, 1, 0,
+            id="d2-g1-v0",
         ),
-        (
-            "0000000000000000000000003000000000000000000000000000000000000000",
-            54000,
-            1,
-            {},
+        pytest.param(
+            2, 1, 1,
+            id="d2-g1-v1",
         ),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
-        "case10",
-        "case11",
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_create_collision_to_empty2(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    tx_gas_limit: int,
-    tx_value: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Data0 - create collision to empty, data1 - to empty but nonce,..."""
+    """data0 - create collision to empty, data1 - to empty but nonce, data..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    contract_0 = Address("0x1a00000000000000000000000000000000000000")
+    contract_1 = Address("0x1000000000000000000000000000000000000000")
+    contract_2 = Address("0x2000000000000000000000000000000000000000")
+    contract_3 = Address("0x3000000000000000000000000000000000000000")
+    contract_4 = Address("0x13136008b64ff592819b2fa6d43f2835c452020e")
+    contract_5 = Address("0x0bf4c804e0579073baf54ec4ec37cd04f3455c65")
+    contract_6 = Address("0x4b86c4ed99b87f0f396bc0c76885453c343916ed")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
-    callee = Address("0x0bf4c804e0579073baf54ec4ec37cd04f3455c65")
-    callee_2 = Address("0x13136008b64ff592819b2fa6d43f2835c452020e")
 
     env = Environment(
         fee_recipient=coinbase,
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
-    pre[callee] = Account(balance=0, nonce=2)
-    # Source: LLL
-    # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
-    pre.deploy_contract(
-        code=(
-            Op.MSTORE(offset=0x0, value=0x6001600155)
-            + Op.SSTORE(
-                key=0x1, value=Op.CREATE(value=0x0, offset=0x1B, size=0x5)
-            )
-            + Op.STOP
-        ),
-        nonce=0,
-        address=Address("0x1000000000000000000000000000000000000000"),  # noqa: E501
-    )
-    pre[callee_2] = Account(balance=10, nonce=0)
-    # Source: LLL
+    pre[sender] = Account(balance=0xe8d4a51000)
+    # Source: lll
     # { (CALL 80000 (CALLDATALOAD 0) 0 0 0 0 0) }
-    contract = pre.deploy_contract(
-        code=(
-            Op.CALL(
-                gas=0x13880,
-                address=Op.CALLDATALOAD(offset=0x0),
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-            + Op.STOP
-        ),
+    contract_0 = pre.deploy_contract(
+        code=Op.CALL(gas=0x13880, address=Op.CALLDATALOAD(offset=0x0), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.STOP,
         nonce=0,
         address=Address("0x1a00000000000000000000000000000000000000"),  # noqa: E501
     )
-    # Source: LLL
+    # Source: lll
     # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
-    pre.deploy_contract(
-        code=(
-            Op.MSTORE(offset=0x0, value=0x6001600155)
-            + Op.SSTORE(
-                key=0x1, value=Op.CREATE(value=0x0, offset=0x1B, size=0x5)
-            )
-            + Op.STOP
-        ),
+    contract_1 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=0x6001600155)
+        + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x0, offset=0x1b, size=0x5))
+        + Op.STOP,
+        nonce=0,
+        address=Address("0x1000000000000000000000000000000000000000"),  # noqa: E501
+    )
+    # Source: lll
+    # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
+    contract_2 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=0x6001600155)
+        + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x0, offset=0x1b, size=0x5))
+        + Op.STOP,
         nonce=0,
         address=Address("0x2000000000000000000000000000000000000000"),  # noqa: E501
     )
-    # Source: LLL
+    # Source: lll
     # { (MSTORE 0 0x6001600155) [[1]] (CREATE 0 27 5) }
-    pre.deploy_contract(
-        code=(
-            Op.MSTORE(offset=0x0, value=0x6001600155)
-            + Op.SSTORE(
-                key=0x1, value=Op.CREATE(value=0x0, offset=0x1B, size=0x5)
-            )
-            + Op.STOP
-        ),
+    contract_3 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=0x6001600155)
+        + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x0, offset=0x1b, size=0x5))
+        + Op.STOP,
         nonce=0,
         address=Address("0x3000000000000000000000000000000000000000"),  # noqa: E501
     )
-    # Source: raw bytecode
-    pre.deploy_contract(
+    pre[contract_4] = Account(balance=10)
+    pre[contract_5] = Account(balance=0, nonce=2)
+    # Source: raw
+    # 0x1122334455
+    contract_6 = pre.deploy_contract(
         code=bytes.fromhex("1122334455"),
         nonce=0,
         address=Address("0x4b86c4ed99b87f0f396bc0c76885453c343916ed"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xE8D4A51000)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': 0, 'gas': 1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        contract_1: Account(storage={}, nonce=0),
+        contract_4: Account(storage={}, code=b"", balance=10, nonce=0),
+    },
+        },
+        {
+            "indexes": {'data': 0, 'gas': 0, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        contract_1: Account(
+                storage={1: 0x13136008b64ff592819b2fa6d43f2835c452020e},
+                nonce=1,
+            ),
+        contract_4: Account(storage={1: 1}, code=b"", balance=10, nonce=1),
+    },
+        },
+        {
+            "indexes": {'data': [1, 2], 'gas': 1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        contract_2: Account(storage={1: 0}, nonce=0),
+        contract_5: Account(storage={}, code=b"", nonce=2),
+    },
+        },
+        {
+            "indexes": {'data': 1, 'gas': 0, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        contract_2: Account(storage={1: 0}, nonce=0),
+        contract_5: Account(storage={}, code=b"", nonce=2),
+    },
+        },
+        {
+            "indexes": {'data': 2, 'gas': 0, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        contract_3: Account(storage={1: 0}, nonce=0),
+        contract_6: Account(
+                storage={},
+                code=bytes.fromhex("1122334455"),
+                nonce=0,
+            ),
+    },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        data=tx_data,
-        gas_limit=tx_gas_limit,
-        value=tx_value,
+        to=contract_0,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

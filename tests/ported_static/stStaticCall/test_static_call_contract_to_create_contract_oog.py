@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_static_call_contract_to_create_contract_oog
 
 Ported from:
-tests/static/state_tests/stStaticCall
-static_CallContractToCreateContractOOGFiller.json
+state_tests/stStaticCall/static_CallContractToCreateContractOOGFiller.json
 """
 
 import pytest
@@ -17,47 +16,58 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+]
+TX_GAS = [100000]
+TX_VALUE = [0, 1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stStaticCall/static_CallContractToCreateContractOOGFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stStaticCall/static_CallContractToCreateContractOOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "d, g, v",
     [
-        (0, {}),
-        (
-            1,
-            {
-                Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
-                    storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6}
-                ),
-                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-                    storage={0: 12}
-                ),
-            },
+        pytest.param(
+            0, 0, 0,
+            id="-v0",
+        ),
+        pytest.param(
+            0, 0, 1,
+            id="-v1",
         ),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.slow
 def test_static_call_contract_to_create_contract_oog(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_value: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Test ported from static filler."""
+    """test_static_call_contract_to_create_contract_oog"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    contract_0 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
 
     env = Environment(
@@ -65,43 +75,57 @@ def test_static_call_contract_to_create_contract_oog(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
 
-    # Source: LLL
-    # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3) [[0]](CREATE 1 11 21) (STATICCALL 0 (SLOAD 0) 0 0 0 0)}  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.MSTORE(
-                offset=0x0,
-                value=0x600C60005566602060406000F060205260076039F3,
-            )
-            + Op.SSTORE(
-                key=0x0, value=Op.CREATE(value=0x1, offset=0xB, size=0x15)
-            )
-            + Op.STATICCALL(
-                gas=0x0,
-                address=Op.SLOAD(key=0x0),
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-            + Op.STOP
-        ),
+    # Source: lll
+    # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3) [[0]](CREATE 1 11 21) (STATICCALL 0 (SLOAD 0) 0 0 0 0)}
+    contract_0 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=0x600c60005566602060406000f060205260076039f3)
+        + Op.SSTORE(key=0x0, value=Op.CREATE(value=0x1, offset=0xb, size=0x15))
+        + Op.STATICCALL(gas=0x0, address=Op.SLOAD(key=0x0), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)  # noqa: E501
+        + Op.STOP,
         nonce=0,
         address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2540BE400)
+    pre[sender] = Account(balance=0x2540be400)
+
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': -1, 'gas': -1, 'value': 0},
+            "network": ['>=Cancun'],
+            "result": {
+        contract_0: Account(storage={0: 0}, nonce=0),
+        sender: Account(nonce=1),
+    },
+        },
+        {
+            "indexes": {'data': -1, 'gas': -1, 'value': 1},
+            "network": ['>=Cancun'],
+            "result": {
+        contract_0: Account(
+                storage={0: 0xd2571607e241ecf590ed94b12d87c94babe36db6},
+                nonce=1,
+            ),
+        sender: Account(nonce=1),
+    },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        gas_limit=100000,
-        value=tx_value,
+        to=contract_0,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

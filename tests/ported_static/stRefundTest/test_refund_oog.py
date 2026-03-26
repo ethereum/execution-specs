@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_refund_oog
 
 Ported from:
-tests/static/state_tests/stRefundTest/refund_OOGFiller.json
+state_tests/stRefundTest/refund_OOGFiller.json
 """
 
 import pytest
@@ -18,11 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stRefundTest/refund_OOGFiller.json"],
+    ["state_tests/stRefundTest/refund_OOGFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -30,10 +31,10 @@ def test_refund_oog(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_refund_oog"""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
     sender = EOA(
-        key=0x8518C6B13163F88376ADBDE956B3D6C1E4E027E25E20994C1AD0D78B8FD7FAC9
+        key=0x8518c6b13163f88376adbde956b3d6c1e4e027e25e20994c1ad0d78b8fd7fac9
     )
 
     env = Environment(
@@ -41,31 +42,38 @@ def test_refund_oog(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x7A120)
     pre[coinbase] = Account(balance=0, nonce=1)
-    # Source: LLL
+    # Source: lll
     # { [[ 1 ]] 0 }
-    contract = pre.deploy_contract(
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
-        storage={0x1: 0x1},
-        balance=0xDE0B6B3A7640000,
+        storage={1: 1},
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0xf4c9fc42faeda49049e3b8e2b97a17cc2fe95718"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0x7a120)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=26005,
         value=10,
+        nonce=0,
+        gas_price=10,
     )
 
     post = {
-        contract: Account(storage={1: 1}),
+        target: Account(storage={1: 1}, balance=0xde0b6b3a7640000),
+        coinbase: Account(balance=0),
+        sender: Account(balance=0x3a94e, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

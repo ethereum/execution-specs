@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_call_bounds3
 
 Ported from:
-tests/static/state_tests/stMemoryStressTest/CALL_Bounds3Filler.json
+state_tests/stMemoryStressTest/CALL_Bounds3Filler.json
 """
 
 import pytest
@@ -16,35 +16,61 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+]
+TX_GAS = [150000, 1000000, 16777216]
+TX_VALUE = [1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stMemoryStressTest/CALL_Bounds3Filler.json"],
+    ["state_tests/stMemoryStressTest/CALL_Bounds3Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, expected_post",
+    "d, g, v",
     [
-        (150000, {}),
-        (1000000, {}),
-        (16777216, {}),
+        pytest.param(
+            0, 0, 0,
+            id="-g0",
+        ),
+        pytest.param(
+            0, 1, 0,
+            id="-g1",
+        ),
+        pytest.param(
+            0, 2, 0,
+            id="-g2",
+        ),
     ],
-    ids=["case0", "case1", "case2"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_call_bounds3(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Test ported from static filler."""
+    """test_call_bounds3"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xEF111BBDAB3A1622936AFDFC9BBEC4B5BC05B4FA4B1EF0CE2A55CEF552F7650E
+        key=0xef111bbdab3a1622936afdfc9bbec4b5bc05b4fa4b1ef0ce2a55cef552f7650e
     )
 
     env = Environment(
@@ -52,112 +78,57 @@ def test_call_bounds3(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-    )
-    # Source: LLL
-    # { (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0xffffffffffffffff 0 0xffffffffffffffff)  (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0xffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffff)  (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffff 0xffffffff 0xffffffff 0xffffffff) (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff) (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff) (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.POP(
-                Op.CALL(
-                    gas=0x7FFFFFFFFFFFFFF,
-                    address=0x849F53126ADE5F72469029537296F2B6644D4D41,
-                    value=0x0,
-                    args_offset=0x0,
-                    args_size=0xFFFFFFFFFFFFFFFF,
-                    ret_offset=0x0,
-                    ret_size=0xFFFFFFFFFFFFFFFF,
-                ),
-            )
-            + Op.POP(
-                Op.CALL(
-                    gas=0x7FFFFFFFFFFFFFF,
-                    address=0x849F53126ADE5F72469029537296F2B6644D4D41,
-                    value=0x0,
-                    args_offset=0x0,
-                    args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                    ret_offset=0x0,
-                    ret_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                ),
-            )
-            + Op.POP(
-                Op.CALL(
-                    gas=0x7FFFFFFFFFFFFFF,
-                    address=0x849F53126ADE5F72469029537296F2B6644D4D41,
-                    value=0x0,
-                    args_offset=0x0,
-                    args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                    ret_offset=0x0,
-                    ret_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                ),
-            )
-            + Op.POP(
-                Op.CALL(
-                    gas=0x7FFFFFFFFFFFFFF,
-                    address=0x849F53126ADE5F72469029537296F2B6644D4D41,
-                    value=0x0,
-                    args_offset=0xFFFFFFFF,
-                    args_size=0xFFFFFFFF,
-                    ret_offset=0xFFFFFFFF,
-                    ret_size=0xFFFFFFFF,
-                ),
-            )
-            + Op.POP(
-                Op.CALL(
-                    gas=0x7FFFFFFFFFFFFFF,
-                    address=0x849F53126ADE5F72469029537296F2B6644D4D41,
-                    value=0x0,
-                    args_offset=0xFFFFFFFFFFFFFFFF,
-                    args_size=0xFFFFFFFFFFFFFFFF,
-                    ret_offset=0xFFFFFFFFFFFFFFFF,
-                    ret_size=0xFFFFFFFFFFFFFFFF,
-                ),
-            )
-            + Op.POP(
-                Op.CALL(
-                    gas=0x7FFFFFFFFFFFFFF,
-                    address=0x849F53126ADE5F72469029537296F2B6644D4D41,
-                    value=0x0,
-                    args_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                    args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                    ret_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                    ret_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
-                ),
-            )
-            + Op.CALL(
-                gas=0x7FFFFFFFFFFFFFF,
-                address=0x849F53126ADE5F72469029537296F2B6644D4D41,
-                value=0x0,
-                args_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                args_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                ret_offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                ret_size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-            )
-            + Op.STOP
-        ),
+    # Source: lll
+    # { (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0xffffffffffffffff 0 0xffffffffffffffff)  (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0xffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffff)  (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffff 0xffffffff 0xffffffff 0xffffffff) (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff 0xffffffffffffffff) (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff) (CALL 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) }
+    target = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=0x7ffffffffffffff, address=0x849f53126ade5f72469029537296f2b6644d4d41, value=0x0, args_offset=0x0, args_size=0xffffffffffffffff, ret_offset=0x0, ret_size=0xffffffffffffffff))
+        + Op.POP(Op.CALL(gas=0x7ffffffffffffff, address=0x849f53126ade5f72469029537296f2b6644d4d41, value=0x0, args_offset=0x0, args_size=0xffffffffffffffffffffffffffffffff, ret_offset=0x0, ret_size=0xffffffffffffffffffffffffffffffff))
+        + Op.POP(Op.CALL(gas=0x7ffffffffffffff, address=0x849f53126ade5f72469029537296f2b6644d4d41, value=0x0, args_offset=0x0, args_size=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, ret_offset=0x0, ret_size=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))
+        + Op.POP(Op.CALL(gas=0x7ffffffffffffff, address=0x849f53126ade5f72469029537296f2b6644d4d41, value=0x0, args_offset=0xffffffff, args_size=0xffffffff, ret_offset=0xffffffff, ret_size=0xffffffff))
+        + Op.POP(Op.CALL(gas=0x7ffffffffffffff, address=0x849f53126ade5f72469029537296f2b6644d4d41, value=0x0, args_offset=0xffffffffffffffff, args_size=0xffffffffffffffff, ret_offset=0xffffffffffffffff, ret_size=0xffffffffffffffff))
+        + Op.POP(Op.CALL(gas=0x7ffffffffffffff, address=0x849f53126ade5f72469029537296f2b6644d4d41, value=0x0, args_offset=0xffffffffffffffffffffffffffffffff, args_size=0xffffffffffffffffffffffffffffffff, ret_offset=0xffffffffffffffffffffffffffffffff, ret_size=0xffffffffffffffffffffffffffffffff))
+        + Op.CALL(gas=0x7ffffffffffffff, address=0x849f53126ade5f72469029537296f2b6644d4d41, value=0x0, args_offset=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, args_size=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, ret_offset=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, ret_size=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+        + Op.STOP,
         nonce=0,
         address=Address("0x82475c10fea2425b322d1f97fcef265c5dc7c8c9"),  # noqa: E501
     )
-    pre.deploy_contract(
-        code=(
-            Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0))) + Op.STOP
-        ),
+    # Source: lll
+    # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
+    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0))) + Op.STOP,  # noqa: E501
         nonce=0,
         address=Address("0x849f53126ade5f72469029537296f2b6644d4d41"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0xffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': -1, 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        target: Account(balance=0),
+        addr_0x1000000000000000000000000000000000000001: Account(storage={0: 0}),
+    },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        gas_limit=tx_gas_limit,
-        value=1,
+        to=target,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

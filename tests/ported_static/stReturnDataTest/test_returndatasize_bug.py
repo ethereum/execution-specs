@@ -1,8 +1,8 @@
 """
-RETURNDATASIZE after a failing CALL (due to insufficient balance) should...
+RETURNDATASIZE after a failing CALL (due to insufficient balance) should return 0
 
 Ported from:
-tests/static/state_tests/stReturnDataTest/returndatasize_bugFiller.json
+state_tests/stReturnDataTest/returndatasize_bugFiller.json
 """
 
 import pytest
@@ -18,13 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stReturnDataTest/returndatasize_bugFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stReturnDataTest/returndatasize_bugFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -32,10 +31,10 @@ def test_returndatasize_bug(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """RETURNDATASIZE after a failing CALL (due to insufficient balance)..."""
+    """RETURNDATASIZE after a failing CALL (due to insufficient balance) s..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
+        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
     )
 
     env = Environment(
@@ -43,60 +42,44 @@ def test_returndatasize_bug(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=111669149696,
     )
 
-    pre.deploy_contract(
-        code=(
-            Op.POP(
-                Op.CALL(
-                    gas=0xA,
-                    address=0x1,
-                    value=0xC350,
-                    args_offset=0x0,
-                    args_size=0x0,
-                    ret_offset=0x0,
-                    ret_size=0x0,
-                ),
-            )
-            + Op.SSTORE(key=0x1, value=0x1)
-            + Op.STOP
-        ),
-        nonce=0,
-        address=Address("0x0a6de4978faa392285cc6411dfe442872304deb1"),  # noqa: E501
-    )
-    # Source: LLL
-    # { (CALL 1 <contract:0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 50000 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)) }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.POP(
-                Op.CALL(
-                    gas=0x1,
-                    address=0xA6DE4978FAA392285CC6411DFE442872304DEB1,
-                    value=0xC350,
-                    args_offset=0x0,
-                    args_size=0x0,
-                    ret_offset=0x0,
-                    ret_size=0x0,
-                ),
-            )
-            + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
-            + Op.STOP
-        ),
-        storage={0x0: 0x1},
-        balance=0xDE0B6B3A7640000,
+    # Source: lll
+    # { (CALL 1 <contract:0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 50000 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)) }
+    target = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=0x1, address=0xa6de4978faa392285cc6411dfe442872304deb1, value=0xc350, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE) + Op.STOP,
+        storage={0: 1},
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0x0d7bc2fbd330f7d4ec71764551a8b9cfb11619f5"),  # noqa: E501
     )
+    # Source: lll
+    # { (CALL 10 1 50000 0 0 0 0) (SSTORE 1 1) }
+    addr_0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 = pre.deploy_contract(
+        code=Op.POP(Op.CALL(gas=0xa, address=0x1, value=0xc350, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
+        nonce=0,
+        address=Address("0x0a6de4978faa392285cc6411dfe442872304deb1"),  # noqa: E501
+    )
     pre[sender] = Account(balance=0x6400000000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=100000,
+        nonce=0,
+        gas_price=10,
     )
 
-    post: dict = {}
+    post = {
+        target: Account(storage={0: 0}),
+        addr_0x1f572e5295c57f15886f9b263e2f6d2d6c7b5ec6: Account(storage={1: 0}),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,8 +1,8 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com.
+Ori Pomerantz   qbzzt1@gmail.com
 
 Ported from:
-tests/static/state_tests/stBadOpcode/operationDiffGasFiller.yml
+state_tests/stBadOpcode/operationDiffGasFiller.yml
 """
 
 import pytest
@@ -16,138 +16,116 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d300000000000000000000000000000000000000000000000000000000000000fa00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d3000000000000000000000000000000000000000000000000000000000000005100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d3000000000000000000000000000000000000000000000000000000000000005200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d3000000000000000000000000000000000000000000000000000000000000005300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d3000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+    "048071d3000000000000000000000000000000000000000000000000000000000000003b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",
+]
+TX_GAS = [16777216]
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stBadOpcode/operationDiffGasFiller.yml"],
+    ["state_tests/stBadOpcode/operationDiffGasFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "d, g, v",
     [
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2700}
-                )
-            },
+        pytest.param(
+            0, 0, 0,
+            id="CREATE",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2700}
-                )
-            },
+        pytest.param(
+            1, 0, 0,
+            id="CREATE2",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0x0000000000000000000000000000000000c0def5"): Account(
-                    storage={0: 0x1C1BD7A2F25CA2F4577AD12388656BC147F96DAB}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 54300}
-                ),
-            },
+        pytest.param(
+            2, 0, 0,
+            id="CALL",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0x0000000000000000000000000000000000c0def0"): Account(
-                    storage={0: 0xB44F2C88D3D4283CD1E54E418C4FF7E6A6C73202}
-                ),
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 54200}
-                ),
-            },
+        pytest.param(
+            3, 0, 0,
+            id="CALLCODE",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2700}
-                )
-            },
+        pytest.param(
+            4, 0, 0,
+            id="DELEGATECALL",
         ),
-        (
-            "048071d3000000000000000000000000000000000000000000000000000000000000003b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2800}
-                )
-            },
+        pytest.param(
+            5, 0, 0,
+            id="STATICCALL",
         ),
-        (
-            "048071d3000000000000000000000000000000000000000000000000000000000000005100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 9200}
-                )
-            },
+        pytest.param(
+            6, 0, 0,
+            id="MLOAD",
         ),
-        (
-            "048071d3000000000000000000000000000000000000000000000000000000000000005300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 9200}
-                )
-            },
+        pytest.param(
+            7, 0, 0,
+            id="MSTORE",
         ),
-        (
-            "048071d3000000000000000000000000000000000000000000000000000000000000005200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 9200}
-                )
-            },
+        pytest.param(
+            8, 0, 0,
+            id="MSTORE8",
         ),
-        (
-            "048071d3000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 18400}
-                )
-            },
+        pytest.param(
+            9, 0, 0,
+            id="SHA3",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000fa00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 2700}
-                )
-            },
+        pytest.param(
+            10, 0, 0,
+            id="EXTCODE",
         ),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
-        "case10",
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_operation_diff_gas(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Ori Pomerantz   qbzzt1@gmail.com."""
+    """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    contract_0 = Address("0x0000000000000000000000000000000000c0def0")
+    contract_1 = Address("0x0000000000000000000000000000000000c0def5")
+    contract_2 = Address("0x0000000000000000000000000000000000c0def1")
+    contract_3 = Address("0x0000000000000000000000000000000000c0def2")
+    contract_4 = Address("0x0000000000000000000000000000000000c0def4")
+    contract_5 = Address("0x0000000000000000000000000000000000c0defa")
+    contract_6 = Address("0x000000000000000000000000000000000000ca11")
+    contract_7 = Address("0x0000000000000000000000000000000000c0de51")
+    contract_8 = Address("0x0000000000000000000000000000000000c0de52")
+    contract_9 = Address("0x0000000000000000000000000000000000c0de53")
+    contract_10 = Address("0x0000000000000000000000000000000000c0de20")
+    contract_11 = Address("0x0000000000000000000000000000000000c0de3b")
+    contract_12 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
 
     env = Environment(
@@ -155,248 +133,213 @@ def test_operation_diff_gas(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
 
-    # Source: Yul
-    # {
+    # Source: yul
+    # berlin {
+    #    sstore(0,create(0, 0, 0x200))
+    # }
+    contract_0 = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x200))  # noqa: E501
+        + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        address=Address("0x0000000000000000000000000000000000c0def0"),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    sstore(0,create2(0, 0, 0x200, 0x5A17))
+    # }
+    contract_1 = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.CREATE2(value=Op.DUP1, offset=0x0, size=0x200, salt=0x5a17))  # noqa: E501
+        + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        address=Address("0x0000000000000000000000000000000000c0def5"),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
+    # }
+    contract_2 = pre.deploy_contract(
+        code=Op.CALL(gas=Op.GAS, address=0xca11, value=Op.DUP1, args_offset=Op.DUP2, args_size=Op.DUP2, ret_offset=0x0, ret_size=0x100)
+        + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        address=Address("0x0000000000000000000000000000000000c0def1"),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    let retval := callcode(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
+    # }
+    contract_3 = pre.deploy_contract(
+        code=Op.CALLCODE(gas=Op.GAS, address=0xca11, value=Op.DUP1, args_offset=Op.DUP2, args_size=Op.DUP2, ret_offset=0x0, ret_size=0x100)
+        + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        address=Address("0x0000000000000000000000000000000000c0def2"),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    let retval := delegatecall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
+    # }
+    contract_4 = pre.deploy_contract(
+        code=Op.DELEGATECALL(gas=Op.GAS, address=0xca11, args_offset=Op.DUP2, args_size=Op.DUP2, ret_offset=0x0, ret_size=0x100)
+        + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        address=Address("0x0000000000000000000000000000000000c0def4"),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    let retval := staticcall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
+    # }
+    contract_5 = pre.deploy_contract(
+        code=Op.STATICCALL(gas=Op.GAS, address=0xca11, args_offset=Op.DUP2, args_size=Op.DUP2, ret_offset=0x0, ret_size=0x100)
+        + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        address=Address("0x0000000000000000000000000000000000c0defa"),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
     #    mstore(0, 0xDEADBEEF)
     #    return(0, 0x100)
     # }
-    pre.deploy_contract(
-        code=(
-            Op.MSTORE(offset=0x0, value=0xDEADBEEF)
-            + Op.RETURN(offset=0x0, size=0x100)
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
+    contract_6 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=0xdeadbeef)
+        + Op.RETURN(offset=0x0, size=0x100),
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
         address=Address("0x000000000000000000000000000000000000ca11"),  # noqa: E501
     )
-    # Source: Yul
-    # {
+    # Source: yul
+    # berlin {
+    #    let useless := mload(0xBEEF)
+    # }
+    contract_7 = pre.deploy_contract(
+        code=Op.MLOAD(offset=0xbeef) + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        address=Address("0x0000000000000000000000000000000000c0de51"),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    mstore(0xBEEF, 0xFF)
+    # }
+    contract_8 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0xbeef, value=0xff) + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        address=Address("0x0000000000000000000000000000000000c0de52"),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
+    #    mstore8(0xBEEF, 0xFF)
+    # }
+    contract_9 = pre.deploy_contract(
+        code=Op.MSTORE8(offset=0xbeef, value=0xff) + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
+        address=Address("0x0000000000000000000000000000000000c0de53"),  # noqa: E501
+    )
+    # Source: yul
+    # berlin {
     #    let useless := keccak256(0,0xBEEF)
     # }
-    pre.deploy_contract(
-        code=Op.SHA3(offset=0x0, size=0xBEEF) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
+    contract_10 = pre.deploy_contract(
+        code=Op.SHA3(offset=0x0, size=0xbeef) + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
         address=Address("0x0000000000000000000000000000000000c0de20"),  # noqa: E501
     )
-    # Source: Yul
-    # {
+    # Source: yul
+    # berlin {
     #   let addr := 0xCA11
     #   extcodecopy(addr, 0, 0, extcodesize(addr))
     # }
-    pre.deploy_contract(
-        code=(
-            Op.PUSH2[0xCA11]
-            + Op.PUSH1[0x0]
-            + Op.DUP1
-            + Op.EXTCODESIZE(address=Op.DUP3)
-            + Op.SWAP3
-            + Op.EXTCODECOPY
-            + Op.STOP
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
+    contract_11 = pre.deploy_contract(
+        code=Op.PUSH2[0xca11] + Op.PUSH1[0x0] + Op.DUP1
+        + Op.EXTCODESIZE(address=Op.DUP3) + Op.SWAP3 + Op.EXTCODECOPY + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
         address=Address("0x0000000000000000000000000000000000c0de3b"),  # noqa: E501
     )
-    # Source: Yul
-    # {
-    #    let useless := mload(0xBEEF)
-    # }
-    pre.deploy_contract(
-        code=Op.MLOAD(offset=0xBEEF) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        address=Address("0x0000000000000000000000000000000000c0de51"),  # noqa: E501
-    )
-    # Source: Yul
-    # {
-    #    mstore(0xBEEF, 0xFF)
-    # }
-    pre.deploy_contract(
-        code=Op.MSTORE(offset=0xBEEF, value=0xFF) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        address=Address("0x0000000000000000000000000000000000c0de52"),  # noqa: E501
-    )
-    # Source: Yul
-    # {
-    #    mstore8(0xBEEF, 0xFF)
-    # }
-    pre.deploy_contract(
-        code=Op.MSTORE8(offset=0xBEEF, value=0xFF) + Op.STOP,
-        balance=0xBA1A9CE0BA1A9CE,
-        address=Address("0x0000000000000000000000000000000000c0de53"),  # noqa: E501
-    )
-    # Source: Yul
-    # {
-    #    sstore(0,create(0, 0, 0x200))
-    # }
-    pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x0,
-                value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x200),
-            )
-            + Op.STOP
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
-        address=Address("0x0000000000000000000000000000000000c0def0"),  # noqa: E501
-    )
-    # Source: Yul
-    # {
-    #    let retval := call(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
-    # }
-    pre.deploy_contract(
-        code=(
-            Op.CALL(
-                gas=Op.GAS,
-                address=0xCA11,
-                value=Op.DUP1,
-                args_offset=Op.DUP2,
-                args_size=Op.DUP2,
-                ret_offset=0x0,
-                ret_size=0x100,
-            )
-            + Op.STOP
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
-        address=Address("0x0000000000000000000000000000000000c0def1"),  # noqa: E501
-    )
-    # Source: Yul
-    # {
-    #    let retval := callcode(gas(), 0xCA11, 0, 0, 0x100, 0, 0x100)
-    # }
-    pre.deploy_contract(
-        code=(
-            Op.CALLCODE(
-                gas=Op.GAS,
-                address=0xCA11,
-                value=Op.DUP1,
-                args_offset=Op.DUP2,
-                args_size=Op.DUP2,
-                ret_offset=0x0,
-                ret_size=0x100,
-            )
-            + Op.STOP
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
-        address=Address("0x0000000000000000000000000000000000c0def2"),  # noqa: E501
-    )
-    # Source: Yul
-    # {
-    #    let retval := delegatecall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
-    # }
-    pre.deploy_contract(
-        code=(
-            Op.DELEGATECALL(
-                gas=Op.GAS,
-                address=0xCA11,
-                args_offset=Op.DUP2,
-                args_size=Op.DUP2,
-                ret_offset=0x0,
-                ret_size=0x100,
-            )
-            + Op.STOP
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
-        address=Address("0x0000000000000000000000000000000000c0def4"),  # noqa: E501
-    )
-    # Source: Yul
-    # {
-    #    sstore(0,create2(0, 0, 0x200, 0x5A17))
-    # }
-    pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x0,
-                value=Op.CREATE2(
-                    value=Op.DUP1,
-                    offset=0x0,
-                    size=0x200,
-                    salt=0x5A17,
-                ),
-            )
-            + Op.STOP
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
-        address=Address("0x0000000000000000000000000000000000c0def5"),  # noqa: E501
-    )
-    # Source: Yul
-    # {
-    #    let retval := staticcall(gas(), 0xCA11, 0, 0x100, 0, 0x100)
-    # }
-    pre.deploy_contract(
-        code=(
-            Op.STATICCALL(
-                gas=Op.GAS,
-                address=0xCA11,
-                args_offset=Op.DUP2,
-                args_size=Op.DUP2,
-                ret_offset=0x0,
-                ret_size=0x100,
-            )
-            + Op.STOP
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
-        address=Address("0x0000000000000000000000000000000000c0defa"),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
-    # Source: Yul
-    # {
-    #   // Run the operation with gasAmt, gasAmt+gasDiff, gasAmt+2*gasDiff, etc.  # noqa: E501
+    # Source: yul
+    # berlin {
+    #   // Run the operation with gasAmt, gasAmt+gasDiff, gasAmt+2*gasDiff, etc.
     #   let gasAmt := calldataload(0x24)
     #   let gasDiff := calldataload(0x44)
     #   let addr := add(0xC0DE00, calldataload(0x04))
     #   let result := 0
-    #
+    # 
     #   for { } eq(result, 0) { } {     // Until the operation is successful
     #      result := call(gasAmt, addr, 0, 0, 0, 0, 0)
     #      gasAmt := add(gasAmt, gasDiff)
     #   }
     #   sstore(0, sub(gasAmt, gasDiff))
     # }
-    contract = pre.deploy_contract(
-        code=(
-            Op.CALLDATALOAD(offset=0x44)
-            + Op.CALLDATALOAD(offset=0x24)
-            + Op.ADD(Op.CALLDATALOAD(offset=0x4), 0xC0DE00)
-            + Op.PUSH1[0x0]
-            + Op.DUP1
-            + Op.JUMPDEST
-            + Op.JUMPI(pc=0x1C, condition=Op.EQ)
-            + Op.POP
-            + Op.SSTORE(key=0x0, value=Op.SUB)
-            + Op.STOP
-            + Op.JUMPDEST
-            + Op.PUSH1[0x0]
-            + Op.DUP4
-            + Op.CALL(
-                gas=Op.DUP10,
-                address=Op.DUP8,
-                value=Op.DUP1,
-                args_offset=Op.DUP1,
-                args_size=Op.DUP1,
-                ret_offset=Op.DUP1,
-                ret_size=Op.DUP2,
-            )
-            + Op.SWAP4
-            + Op.ADD
-            + Op.SWAP3
-            + Op.JUMP(pc=0x11)
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
+    contract_12 = pre.deploy_contract(
+        code=Op.CALLDATALOAD(offset=0x44) + Op.CALLDATALOAD(offset=0x24)
+        + Op.ADD(Op.CALLDATALOAD(offset=0x4), 0xc0de00) + Op.PUSH1[0x0] + Op.DUP1
+        + Op.JUMPDEST + Op.JUMPI(pc=0x1c, condition=Op.EQ) + Op.POP
+        + Op.SSTORE(key=0x0, value=Op.SUB) + Op.STOP + Op.JUMPDEST
+        + Op.PUSH1[0x0] + Op.DUP4
+        + Op.CALL(gas=Op.DUP10, address=Op.DUP8, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=Op.DUP1, ret_size=Op.DUP2)
+        + Op.SWAP4 + Op.ADD + Op.SWAP3 + Op.JUMP(pc=0x11),
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce, nonce=1)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': [0], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {contract_12: Account(storage={0: 54200})},
+        },
+        {
+            "indexes": {'data': [1], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {contract_12: Account(storage={0: 54300})},
+        },
+        {
+            "indexes": {'data': [2, 3, 4, 5], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {contract_12: Account(storage={0: 2700})},
+        },
+        {
+            "indexes": {'data': [8, 6, 7], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {contract_12: Account(storage={0: 9200})},
+        },
+        {
+            "indexes": {'data': [10], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {contract_12: Account(storage={0: 2800})},
+        },
+        {
+            "indexes": {'data': [9], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {contract_12: Account(storage={0: 18400})},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        data=tx_data,
-        gas_limit=16777216,
+        to=contract_12,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         nonce=1,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

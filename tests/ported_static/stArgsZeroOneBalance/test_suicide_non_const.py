@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_suicide_non_const
 
 Ported from:
-tests/static/state_tests/stArgsZeroOneBalance/suicideNonConstFiller.yml
+state_tests/stArgsZeroOneBalance/suicideNonConstFiller.yml
 """
 
 import pytest
@@ -16,36 +16,58 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+]
+TX_GAS = [400000]
+TX_VALUE = [0, 1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stArgsZeroOneBalance/suicideNonConstFiller.yml",  # noqa: E501
-    ],
+    ["state_tests/stArgsZeroOneBalance/suicideNonConstFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "d, g, v",
     [
-        (0, {}),
-        (1, {}),
+        pytest.param(
+            0, 0, 0,
+            id="-v0",
+        ),
+        pytest.param(
+            0, 0, 1,
+            id="-v1",
+        ),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_suicide_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_value: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Test ported from static filler."""
+    """test_suicide_non_const"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    contract_0 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
 
     env = Environment(
@@ -53,33 +75,48 @@ def test_suicide_non_const(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
 
-    # Source: LLL
+    # Source: lll
     # { (SELFDESTRUCT (BALANCE 0x095e7baea6a6c7c4c2dfeb977efac326af552d87)) }
-    contract = pre.deploy_contract(
-        code=(
-            Op.SELFDESTRUCT(
-                address=Op.BALANCE(
-                    address=0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87,
-                ),
-            )
-            + Op.STOP
-        ),
+    contract_0 = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(address=Op.BALANCE(address=0x95e7baea6a6c7c4c2dfeb977efac326af552d87))
+        + Op.STOP,
         nonce=0,
         address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': -1, 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        contract_0: Account(
+                storage={},
+                code=bytes.fromhex("73095e7baea6a6c7c4c2dfeb977efac326af552d8731ff00"),  # noqa: E501
+                balance=0,
+                nonce=0,
+            ),
+    },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        gas_limit=400000,
-        value=tx_value,
+        to=contract_0,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_call_recursive_bomb0_oog_at_max_call_depth
 
 Ported from:
-tests/static/state_tests/stSystemOperationsTest
-CallRecursiveBomb0_OOG_atMaxCallDepthFiller.json
+state_tests/stSystemOperationsTest/CallRecursiveBomb0_OOG_atMaxCallDepthFiller.json
 """
 
 import pytest
@@ -19,13 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stSystemOperationsTest/CallRecursiveBomb0_OOG_atMaxCallDepthFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stSystemOperationsTest/CallRecursiveBomb0_OOG_atMaxCallDepthFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
@@ -34,10 +32,10 @@ def test_call_recursive_bomb0_oog_at_max_call_depth(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_call_recursive_bomb0_oog_at_max_call_depth"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
     )
 
     env = Environment(
@@ -45,54 +43,35 @@ def test_call_recursive_bomb0_oog_at_max_call_depth(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=110000000000,
     )
 
-    # Source: LLL
-    # { [[ 0 ]] (+ (SLOAD 0) 1) [[ 2 ]] (MUL (DIV @@0 0x0402) 0xfffffffffffffffffff) [[ 1 ]] (CALL (- (GAS) 1024) (ADDRESS) 0 0 (MUL (DIV @@0 0x0402) 0xfffffffffffffffffff) 0 0) }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
-            + Op.SSTORE(
-                key=0x2,
-                value=Op.MUL(
-                    Op.DIV(Op.SLOAD(key=0x0), 0x402),
-                    0xFFFFFFFFFFFFFFFFFFF,
-                ),
-            )
-            + Op.SSTORE(
-                key=0x1,
-                value=Op.CALL(
-                    gas=Op.SUB(Op.GAS, 0x400),
-                    address=Op.ADDRESS,
-                    value=0x0,
-                    args_offset=0x0,
-                    args_size=Op.MUL(
-                        Op.DIV(Op.SLOAD(key=0x0), 0x402),
-                        0xFFFFFFFFFFFFFFFFFFF,
-                    ),
-                    ret_offset=0x0,
-                    ret_size=0x0,
-                ),
-            )
-            + Op.STOP
-        ),
-        balance=0x1312D00,
+    # Source: lll
+    # { [[ 0 ]] (+ (SLOAD 0) 1) [[ 2 ]] (MUL (DIV @@0 0x0402) 0xfffffffffffffffffff) [[ 1 ]] (CALL (- (GAS) 1024) (ADDRESS) 0 0 (MUL (DIV @@0 0x0402) 0xfffffffffffffffffff) 0 0) }
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
+        + Op.SSTORE(key=0x2, value=Op.MUL(Op.DIV(Op.SLOAD(key=0x0), 0x402), 0xfffffffffffffffffff))  # noqa: E501
+        + Op.SSTORE(key=0x1, value=Op.CALL(gas=Op.SUB(Op.GAS, 0x400), address=Op.ADDRESS, value=0x0, args_offset=0x0, args_size=Op.MUL(Op.DIV(Op.SLOAD(key=0x0), 0x402), 0xfffffffffffffffffff), ret_offset=0x0, ret_size=0x0))  # noqa: E501
+        + Op.STOP,
+        balance=0x1312d00,
         nonce=0,
         address=Address("0x44872316ef00e0cd82e980900e6b85077b65e32f"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=100000000000,
-        value=100000,
+        value=0x186a0,
+        nonce=0,
+        gas_price=10,
     )
 
-    post = {
-        contract: Account(storage={0: 749, 1: 1}),
-    }
+    post = {target: Account(storage={0: 749, 1: 1})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

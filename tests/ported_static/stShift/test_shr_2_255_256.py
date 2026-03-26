@@ -1,8 +1,8 @@
 """
-Taken from https://github.com/ethereum/EIPs/blob/master/EIPS/eip-145.md.
+Taken from https://github.com/ethereum/EIPs/blob/master/EIPS/eip-145.md
 
 Ported from:
-tests/static/state_tests/stShift/shr_2^255_256Filler.json
+state_tests/stShift/shr_2^255_256Filler.json
 """
 
 import pytest
@@ -18,11 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stShift/shr_2^255_256Filler.json"],
+    ["state_tests/stShift/shr_2^255_256Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -30,10 +31,10 @@ def test_shr_2_255_256(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Taken from..."""
+    """Taken from https://github."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
     )
 
     env = Environment(
@@ -41,35 +42,36 @@ def test_shr_2_255_256(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    # Source: raw bytecode
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x0,
-                value=Op.SHR(
-                    0x100,
-                    0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
-                ),
-            )
-        ),
-        storage={0x0: 0x3},
-        balance=0xDE0B6B3A7640000,
+    # Source: raw
+    # 0x7f80000000000000000000000000000000000000000000000000000000000000006101001c600055
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.SHR(0x100, 0x8000000000000000000000000000000000000000000000000000000000000000)),  # noqa: E501
+        storage={0: 3},
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0x634045b2e9ef0249256f6c175beddb252ccdcc65"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=400000,
-        value=100000,
+        value=0x186a0,
+        nonce=0,
+        gas_price=10,
     )
 
-    post: dict = {}
+    post = {
+        target: Account(storage={0: 0}, balance=0xde0b6b3a76586a0),
+        sender: Account(storage={}, code=b"", nonce=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

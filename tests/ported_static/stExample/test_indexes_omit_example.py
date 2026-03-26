@@ -1,8 +1,8 @@
 """
-expect section set -indexes field by default equal to -1.
+expect section set -indexes field by default equal to -1
 
 Ported from:
-tests/static/state_tests/stExample/indexesOmitExampleFiller.yml
+state_tests/stExample/indexesOmitExampleFiller.yml
 """
 
 import pytest
@@ -18,11 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stExample/indexesOmitExampleFiller.yml"],
+    ["state_tests/stExample/indexesOmitExampleFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -30,10 +31,10 @@ def test_indexes_omit_example(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Expect section set -indexes field by default equal to -1."""
+    """expect section set -indexes field by default equal to -1"""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
     sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
     )
 
     env = Environment(
@@ -41,33 +42,41 @@ def test_indexes_omit_example(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=71794957647893862,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    # Source: LLL
+    pre[coinbase] = Account(balance=0, nonce=1)
+    # Source: lll
     # {
     #    ; Can also add lll style comments here
-    #    [[0]] (ADD 1 1)
+    #    [[0]] (ADD 1 1) 
     # }
-    contract = pre.deploy_contract(
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)) + Op.STOP,
-        balance=0xDE0B6B3A7640000,
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0xad21eb96c7a254c810474f7b1e1e66ca449a3426"),  # noqa: E501
     )
-    pre[coinbase] = Account(balance=0, nonce=1)
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=400000,
-        value=100000,
+        value=0x186a0,
+        nonce=0,
+        gas_price=10,
     )
 
     post = {
-        contract: Account(storage={0: 2}),
+        target: Account(
+                storage={0: 2},
+                code=bytes.fromhex("600160010160005500"),
+            ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

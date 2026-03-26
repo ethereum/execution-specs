@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_zero_value_call_to_one_storage_key_oog_revert_paris
 
 Ported from:
-tests/static/state_tests/stZeroCallsRevert
-ZeroValue_CALL_ToOneStorageKey_OOGRevert_ParisFiller.json
+state_tests/stZeroCallsRevert/ZeroValue_CALL_ToOneStorageKey_OOGRevert_ParisFiller.json
 """
 
 import pytest
@@ -19,13 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stZeroCallsRevert/ZeroValue_CALL_ToOneStorageKey_OOGRevert_ParisFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stZeroCallsRevert/ZeroValue_CALL_ToOneStorageKey_OOGRevert_ParisFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -33,59 +31,51 @@ def test_zero_value_call_to_one_storage_key_oog_revert_paris(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_zero_value_call_to_one_storage_key_oog_revert_paris"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address("0x4757608f18b70777ae788dd4056eeed52f7aa68f")  # noqa: E501
     sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
+        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
     )
-    callee = Address("0x4757608f18b70777ae788dd4056eeed52f7aa68f")
 
     env = Environment(
         fee_recipient=coinbase,
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
-    # Source: LLL
-    # { [[0]](GAS) [[1]] (CALL 60000 <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]]12 [[3]]12 [[4]]12 [[100]] (GAS) }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(key=0x0, value=Op.GAS)
-            + Op.SSTORE(
-                key=0x1,
-                value=Op.CALL(
-                    gas=0xEA60,
-                    address=0x4757608F18B70777AE788DD4056EEED52F7AA68F,
-                    value=0x0,
-                    args_offset=0x0,
-                    args_size=0x0,
-                    ret_offset=0x0,
-                    ret_size=0x0,
-                ),
-            )
-            + Op.SSTORE(key=0x2, value=0xC)
-            + Op.SSTORE(key=0x3, value=0xC)
-            + Op.SSTORE(key=0x4, value=0xC)
-            + Op.SSTORE(key=0x64, value=Op.GAS)
-            + Op.STOP
-        ),
+    pre[sender] = Account(balance=0xe8d4a51000)
+    # Source: lll
+    # { [[0]](GAS) [[1]] (CALL 60000 <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]]12 [[3]]12 [[4]]12 [[100]] (GAS) }
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x1, value=Op.CALL(gas=0xea60, address=0x4757608f18b70777ae788dd4056eeed52f7aa68f, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+        + Op.SSTORE(key=0x2, value=0xc) + Op.SSTORE(key=0x3, value=0xc)
+        + Op.SSTORE(key=0x4, value=0xc) + Op.SSTORE(key=0x64, value=Op.GAS)
+        + Op.STOP,
         nonce=0,
         address=Address("0x3b02666bf6e822d04045c3aae0d6b4d6a64249c3"),  # noqa: E501
     )
-    pre[callee] = Account(balance=10, nonce=0, storage={0x0: 0x1})
-    pre[sender] = Account(balance=0xE8D4A51000)
+    pre[addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=10, storage={0: 1})
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=135000,
+        nonce=0,
+        gas_price=10,
     )
 
     post = {
-        callee: Account(storage={0: 1}),
+        sender: Account(nonce=1),
+        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={0: 1}, balance=10),
+        target: Account(storage={0: 0, 1: 0, 100: 0}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

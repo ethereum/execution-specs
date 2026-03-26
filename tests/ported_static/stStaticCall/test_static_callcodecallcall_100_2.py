@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_static_callcodecallcall_100_2
 
 Ported from:
-tests/static/state_tests/stStaticCall/static_callcodecallcall_100_2Filler.json
+state_tests/stStaticCall/static_callcodecallcall_100_2Filler.json
 """
 
 import pytest
@@ -16,51 +16,57 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+]
+TX_GAS = [3000000]
+TX_VALUE = [0, 1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stStaticCall/static_callcodecallcall_100_2Filler.json",  # noqa: E501
-    ],
+    ["state_tests/stStaticCall/static_callcodecallcall_100_2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "d, g, v",
     [
-        (
-            0,
-            {
-                Address("0x9f233647d252a405337c598a262f95052c23f7ee"): Account(
-                    storage={0: 1, 1: 1}
-                )
-            },
+        pytest.param(
+            0, 0, 0,
+            id="-v0",
         ),
-        (
-            1,
-            {
-                Address("0x9f233647d252a405337c598a262f95052c23f7ee"): Account(
-                    storage={0: 1, 1: 1}
-                )
-            },
+        pytest.param(
+            0, 0, 1,
+            id="-v1",
         ),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.slow
 def test_static_callcodecallcall_100_2(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_value: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Test ported from static filler."""
+    """test_static_callcodecallcall_100_2"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
     )
 
     env = Environment(
@@ -68,79 +74,67 @@ def test_static_callcodecallcall_100_2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
 
-    pre.deploy_contract(
+    # Source: lll
+    # {  [[ 0 ]] (CALLCODE 350000 <contract:0x1000000000000000000000000000000000000001> (CALLVALUE) 0 64 0 64 ) [[ 1 ]] 1}
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.CALLCODE(gas=0x55730, address=0x47f2744d161ace12cc52a51922d3cee2e8ab3b89, value=Op.CALLVALUE, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))  # noqa: E501
+        + Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
+        balance=0xde0b6b3a7640000,
+        nonce=0,
+        address=Address("0x9f233647d252a405337c598a262f95052c23f7ee"),  # noqa: E501
+    )
+    # Source: lll
+    # {  (STATICCALL 300000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) }
+    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(
+        code=Op.STATICCALL(gas=0x493e0, address=0xef859513ae36c397c43170a2980741575916167b, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40)
+        + Op.STOP,
+        balance=0xde0b6b3a7640000,
+        nonce=0,
+        address=Address("0x47f2744d161ace12cc52a51922d3cee2e8ab3b89"),  # noqa: E501
+    )
+    # Source: lll
+    # {  (STATICCALL 250000 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) }
+    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(
+        code=Op.STATICCALL(gas=0x3d090, address=0x2a142c79a9b097c111ce945214226126b75e332c, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40)
+        + Op.STOP,
+        balance=0xde0b6b3a7640000,
+        nonce=0,
+        address=Address("0xef859513ae36c397c43170a2980741575916167b"),  # noqa: E501
+    )
+    # Source: lll
+    # {  (MSTORE 1 1) }
+    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x2a142c79a9b097c111ce945214226126b75e332c"),  # noqa: E501
     )
-    pre.deploy_contract(
-        code=(
-            Op.STATICCALL(
-                gas=0x493E0,
-                address=0xEF859513AE36C397C43170A2980741575916167B,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-            + Op.STOP
-        ),
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address("0x47f2744d161ace12cc52a51922d3cee2e8ab3b89"),  # noqa: E501
-    )
-    # Source: LLL
-    # {  [[ 0 ]] (CALLCODE 350000 <contract:0x1000000000000000000000000000000000000001> (CALLVALUE) 0 64 0 64 ) [[ 1 ]] 1}  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x0,
-                value=Op.CALLCODE(
-                    gas=0x55730,
-                    address=0x47F2744D161ACE12CC52A51922D3CEE2E8AB3B89,
-                    value=Op.CALLVALUE,
-                    args_offset=0x0,
-                    args_size=0x40,
-                    ret_offset=0x0,
-                    ret_size=0x40,
-                ),
-            )
-            + Op.SSTORE(key=0x1, value=0x1)
-            + Op.STOP
-        ),
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address("0x9f233647d252a405337c598a262f95052c23f7ee"),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    pre.deploy_contract(
-        code=(
-            Op.STATICCALL(
-                gas=0x3D090,
-                address=0x2A142C79A9B097C111CE945214226126B75E332C,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-            + Op.STOP
-        ),
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address("0xef859513ae36c397c43170a2980741575916167b"),  # noqa: E501
-    )
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': -1, 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {target: Account(storage={0: 1, 1: 1})},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        gas_limit=3000000,
-        value=tx_value,
+        to=target,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

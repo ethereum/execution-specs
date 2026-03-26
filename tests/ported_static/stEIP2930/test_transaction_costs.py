@@ -1,418 +1,301 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Ori Pomerantz qbzzt1@gmail.com
 
 Ported from:
-tests/static/state_tests/stEIP2930/transactionCostsFiller.yml
+state_tests/stEIP2930/transactionCostsFiller.yml
 """
 
 import pytest
 from execution_testing import (
     EOA,
-    AccessList,
     Account,
     Address,
     Alloc,
     Environment,
-    Hash,
     StateTestFiller,
     Transaction,
+    AccessList,
+    Hash,
+)
+from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+    "00",
+]
+TX_GAS = [400000]
+TX_VALUE = [100000]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
+
+TX_ACCESS_LISTS: dict[int, list] = {
+    2: [
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000102"),
+            storage_keys=[
+            ],
+        ),
+    ],
+    3: [
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+            ],
+        ),
+    ],
+    4: [
+        AccessList(
+            address=Address("0xff00000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+            ],
+        ),
+    ],
+    5: [
+        AccessList(
+            address=Address("0xff00000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x000000000000000000000000000000000000000fffffffffffffffffffffffff"),  # noqa: E501
+            ],
+        ),
+    ],
+    6: [
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000001"),  # noqa: E501
+            ],
+        ),
+    ],
+    7: [
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000102"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000001"),  # noqa: E501
+            ],
+        ),
+    ],
+    8: [
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000001"),  # noqa: E501
+            ],
+        ),
+    ],
+    9: [
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+            ],
+        ),
+    ],
+    10: [
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+            ],
+        ),
+    ],
+    11: [
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000100"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000010"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000fffffffffffffff"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000101"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000010"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000102"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000010"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000fffffffffffffff"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000103"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000010"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000104"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000010"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000fffffffffffffff"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000105"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000010"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000001111"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000002222"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000003333"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000106"),
+            storage_keys=[
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000107"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000010"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000108"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000010"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000fffffffffffffff"),  # noqa: E501
+            ],
+        ),
+        AccessList(
+            address=Address("0x0000000000000000000000000000000000000109"),
+            storage_keys=[
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash("0x0000000000000000000000000000000000000000000000000000000000000010"),  # noqa: E501
+            ],
+        ),
+    ],
+}
+
+
+def _tx_access_list(d: int) -> list:
+    """Get access list for data index d."""
+    return TX_ACCESS_LISTS.get(d, [])
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stEIP2930/transactionCostsFiller.yml"],
+    ["state_tests/stEIP2930/transactionCostsFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Cancun")
 @pytest.mark.parametrize(
-    "tx_access_list, expected_post",
+    "d, g, v",
     [
-        ([], {}),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000100"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000fffffffffffffff"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000102"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000fffffffffffffff"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000103"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000104"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000fffffffffffffff"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000105"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000001111"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000002222"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000003333"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000106"
-                    ),
-                    storage_keys=[],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000107"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000108"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000fffffffffffffff"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000109"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-            ],
-            {},
+        pytest.param(
+            0, 0, 0,
+            id="type0",
         ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000102"
-                    ),
-                    storage_keys=[],
-                )
-            ],
-            {},
+        pytest.param(
+            1, 0, 0,
+            id="addrs_0_keys_0",
         ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0xff00000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                )
-            ],
-            {},
+        pytest.param(
+            2, 0, 0,
+            id="addrs_1_keys_0",
         ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0xff00000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x000000000000000000000000000000000000000fffffffffffffffffffffffff"
-                            # noqa: E501
-                        )
-                    ],
-                )
-            ],
-            {},
+        pytest.param(
+            3, 0, 0,
+            id="addrs_1_keys_1",
         ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                )
-            ],
-            {},
+        pytest.param(
+            4, 0, 0,
+            id="addrs_1_keys_1",
         ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                    ],
-                )
-            ],
-            {},
+        pytest.param(
+            5, 0, 0,
+            id="addrs_1_keys_1",
         ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000001"
-                            # noqa: E501
-                        ),
-                    ],
-                )
-            ],
-            {},
+        pytest.param(
+            6, 0, 0,
+            id="addrs_1_keys_2",
         ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000001"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-            ],
-            {},
+        pytest.param(
+            7, 0, 0,
+            id="addrs_2_keys_2",
         ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-            ],
-            {},
+        pytest.param(
+            8, 0, 0,
+            id="addrs_2_keys_2",
         ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000102"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000001"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-            ],
-            {},
+        pytest.param(
+            9, 0, 0,
+            id="addrs_2_keys_2",
         ),
-        (None, {}),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
-        "case10",
-        "case11",
+        pytest.param(
+            10, 0, 0,
+            id="addrs_1_keys_2",
+        ),
+        pytest.param(
+            11, 0, 0,
+            id="addrs_10_keys_25",
+        ),
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_transaction_costs(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_access_list: list | None,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail.com."""
+    """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x7778A3B885EA30938725C6E00831943A454477163CDBC252DEBEB9612B4FA5F7
+        key=0x7778a3b885ea30938725c6e00831943a454477163cdbc252debeb9612b4fa5f7
     )
 
     env = Environment(
@@ -420,454 +303,72 @@ def test_transaction_costs(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=71794957647893862,
     )
 
-    # Source: raw bytecode
-    contract = pre.deploy_contract(
-        code=bytes.fromhex("00"),
-        balance=0xBA1A9CE0BA1A9CE,
+    # Source: raw
+    # 0x00
+    target = pre.deploy_contract(
+        code=Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
         nonce=0,
-        address=Address("0x1bf4bd50bbda0f09948556f87d37f86f2e19e84a"),
-        # noqa: E501
+        address=Address("0x1bf4bd50bbda0f09948556f87d37f86f2e19e84a"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5FA9C18)
+    pre[sender] = Account(balance=0x5fa9c18)
+
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': [0, 1], 'gas': -1, 'value': -1},
+            "network": ['Cancun'],
+            "result": {sender: Account(balance=0x5f5e100)},
+        },
+        {
+            "indexes": {'data': [0, 1], 'gas': -1, 'value': -1},
+            "network": ['>=Prague'],
+            "result": {sender: Account(balance=0x5f5e0c4)},
+        },
+        {
+            "indexes": {'data': [2], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {sender: Account(balance=0x5f58340)},
+        },
+        {
+            "indexes": {'data': [3, 4, 5], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {sender: Account(balance=0x5f53908)},
+        },
+        {
+            "indexes": {'data': [6, 10], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {sender: Account(balance=0x5f4eed0)},
+        },
+        {
+            "indexes": {'data': [7, 8, 9], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {sender: Account(balance=0x5f49110)},
+        },
+        {
+            "indexes": {'data': [11], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {sender: Account(balance=0x5eaf808)},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        data=bytes.fromhex("00"),
-        gas_limit=400000,
-        value=100000,
-        access_list=tx_access_list,
-    )
-
-    post = expected_post
-
-    state_test(env=env, pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.ported_from(
-    ["tests/static/state_tests/stEIP2930/transactionCostsFiller.yml"],
-)
-@pytest.mark.valid_from("Prague")
-@pytest.mark.parametrize(
-    "tx_access_list, expected_post",
-    [
-        ([], {}),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000100"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000fffffffffffffff"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000102"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000fffffffffffffff"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000103"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000104"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000fffffffffffffff"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000105"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000001111"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000002222"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000003333"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000106"
-                    ),
-                    storage_keys=[],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000107"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000108"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000fffffffffffffff"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000109"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000010"
-                            # noqa: E501
-                        ),
-                    ],
-                ),
-            ],
-            {},
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000102"
-                    ),
-                    storage_keys=[],
-                )
-            ],
-            {},
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0xff00000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                )
-            ],
-            {},
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0xff00000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x000000000000000000000000000000000000000fffffffffffffffffffffffff"
-                            # noqa: E501
-                        )
-                    ],
-                )
-            ],
-            {},
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                )
-            ],
-            {},
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                    ],
-                )
-            ],
-            {},
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        ),
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000001"
-                            # noqa: E501
-                        ),
-                    ],
-                )
-            ],
-            {},
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000001"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-            ],
-            {},
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-            ],
-            {},
-        ),
-        (
-            [
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000101"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000000"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-                AccessList(
-                    address=Address(
-                        "0x0000000000000000000000000000000000000102"
-                    ),
-                    storage_keys=[
-                        Hash(
-                            "0x0000000000000000000000000000000000000000000000000000000000000001"
-                            # noqa: E501
-                        )
-                    ],
-                ),
-            ],
-            {},
-        ),
-        (None, {}),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
-        "case10",
-        "case11",
-    ],
-)
-@pytest.mark.pre_alloc_mutable
-def test_transaction_costs_from_prague(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    tx_access_list: list | None,
-    expected_post: dict,
-) -> None:
-    """Ori Pomerantz qbzzt1@gmail.com."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    sender = EOA(
-        key=0x7778A3B885EA30938725C6E00831943A454477163CDBC252DEBEB9612B4FA5F7
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=71794957647893862,
-    )
-
-    # Source: raw bytecode
-    contract = pre.deploy_contract(
-        code=bytes.fromhex("00"),
-        balance=0xBA1A9CE0BA1A9CE,
+        to=target,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
         nonce=0,
-        address=Address("0x1bf4bd50bbda0f09948556f87d37f86f2e19e84a"),
-        # noqa: E501
-    )
-    pre[sender] = Account(balance=0x5FA9C18)
-
-    tx = Transaction(
-        sender=sender,
-        to=contract,
-        data=bytes.fromhex("00"),
-        gas_limit=400000,
-        value=100000,
-        access_list=tx_access_list,
+        gas_price=10,
+        access_list=_tx_access_list(d),
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_callcode_sha256_1_nonzero_value
 
 Ported from:
-tests/static/state_tests/stPreCompiledContracts2
-CALLCODESha256_1_nonzeroValueFiller.json
+state_tests/stPreCompiledContracts2/CALLCODESha256_1_nonzeroValueFiller.json
 """
 
 import pytest
@@ -19,13 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stPreCompiledContracts2/CALLCODESha256_1_nonzeroValueFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stPreCompiledContracts2/CALLCODESha256_1_nonzeroValueFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -33,10 +31,10 @@ def test_callcode_sha256_1_nonzero_value(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_callcode_sha256_1_nonzero_value"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
     )
 
     env = Environment(
@@ -44,49 +42,40 @@ def test_callcode_sha256_1_nonzero_value(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
 
-    # Source: LLL
+    # Source: lll
     # { [[ 2 ]] (CALLCODE 200000 2 0x13 0 0 0 32) [[ 0 ]] (MLOAD 0)}
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x2,
-                value=Op.CALLCODE(
-                    gas=0x30D40,
-                    address=0x2,
-                    value=0x13,
-                    args_offset=0x0,
-                    args_size=0x0,
-                    ret_offset=0x0,
-                    ret_size=0x20,
-                ),
-            )
-            + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-            + Op.STOP
-        ),
-        balance=0xBEBC200,
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x2, value=Op.CALLCODE(gas=0x30d40, address=0x2, value=0x13, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x20))  # noqa: E501
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
+        balance=0xbebc200,
         nonce=0,
         address=Address("0xa32d9ac4a5ba456f9e539ac5c756230eebc72f85"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=365224,
-        value=100000,
+        value=0x186a0,
+        nonce=0,
+        gas_price=10,
     )
 
     post = {
-        contract: Account(
-            storage={
-                0: 0xE3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855,  # noqa: E501
-                2: 1,
-            },
-        ),
+        target: Account(
+                storage={
+            0: 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855,
+            2: 1,
+        },
+            ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

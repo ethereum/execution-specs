@@ -1,8 +1,8 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Ori Pomerantz qbzzt1@gmail.com
 
 Ported from:
-tests/static/state_tests/stEIP150singleCodeGasPrices/eip2929-ffFiller.yml
+state_tests/stEIP150singleCodeGasPrices/eip2929-ffFiller.yml
 """
 
 import pytest
@@ -16,116 +16,96 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "693c61390000000000000000000000000000000000000000000000000000000000000000",
+    "693c61390000000000000000000000000000000000000000000000000000000000000031",
+    "693c6139000000000000000000000000000000000000000000000000000000000000003b",
+    "693c6139000000000000000000000000000000000000000000000000000000000000003c",
+    "693c6139000000000000000000000000000000000000000000000000000000000000003f",
+    "693c613900000000000000000000000000000000000000000000000000000000000000f1",
+    "693c613900000000000000000000000000000000000000000000000000000000000000f2",
+    "693c613900000000000000000000000000000000000000000000000000000000000000f4",
+    "693c613900000000000000000000000000000000000000000000000000000000000000fa",
+]
+TX_GAS = [16777216]
+TX_VALUE = [1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stEIP150singleCodeGasPrices/eip2929-ffFiller.yml",  # noqa: E501
-    ],
+    ["state_tests/stEIP150singleCodeGasPrices/eip2929-ffFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "d, g, v",
     [
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000031",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 5126, 1: 105}
-                )
-            },
+        pytest.param(
+            0, 0, 0,
+            id="simple",
         ),
-        (
-            "693c613900000000000000000000000000000000000000000000000000000000000000f1",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 5126, 1: 105}
-                )
-            },
+        pytest.param(
+            1, 0, 0,
+            id="balance",
         ),
-        (
-            "693c613900000000000000000000000000000000000000000000000000000000000000f2",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 5126, 1: 105}
-                )
-            },
+        pytest.param(
+            2, 0, 0,
+            id="extcodesize",
         ),
-        (
-            "693c613900000000000000000000000000000000000000000000000000000000000000f4",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 5126, 1: 105}
-                )
-            },
+        pytest.param(
+            3, 0, 0,
+            id="extcodecopy",
         ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000003c",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 5126, 1: 105}
-                )
-            },
+        pytest.param(
+            4, 0, 0,
+            id="extcodehash",
         ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000003f",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 5126, 1: 105}
-                )
-            },
+        pytest.param(
+            5, 0, 0,
+            id="call",
         ),
-        (
-            "693c6139000000000000000000000000000000000000000000000000000000000000003b",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 5126, 1: 105}
-                )
-            },
+        pytest.param(
+            6, 0, 0,
+            id="callcode",
         ),
-        (
-            "693c61390000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 7726, 1: 105}
-                )
-            },
+        pytest.param(
+            7, 0, 0,
+            id="delegatecall",
         ),
-        (
-            "693c613900000000000000000000000000000000000000000000000000000000000000fa",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={0: 5126, 1: 105}
-                )
-            },
+        pytest.param(
+            8, 0, 0,
+            id="staticcall",
         ),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_eip2929_minus_ff(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail.com."""
+    """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    contract_0 = Address("0x000000000000000000000000000000000000de57")
+    contract_1 = Address("0x000000000000000000000000000000000000ca11")
+    contract_2 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
 
     env = Environment(
@@ -133,47 +113,48 @@ def test_eip2929_minus_ff(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
 
-    # Source: LLL
-    # {
-    #      (selfdestruct 0xDE57)
-    # }
-    pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0xDE57) + Op.STOP,
-        balance=0xDE0B6B3A7640000,
-        nonce=0,
-        address=Address("0x000000000000000000000000000000000000ca11"),  # noqa: E501
-    )
-    # Source: raw bytecode
-    pre.deploy_contract(
-        code=bytes.fromhex("00"),
+    # Source: raw
+    # 0x00
+    contract_0 = pre.deploy_contract(
+        code=Op.STOP,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000de57"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
-    # Source: LLL
+    # Source: lll
+    # {
+    #      (selfdestruct 0xDE57)
+    # }
+    contract_1 = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(address=0xde57) + Op.STOP,
+        balance=0xde0b6b3a7640000,
+        nonce=0,
+        address=Address("0x000000000000000000000000000000000000ca11"),  # noqa: E501
+    )
+    # Source: lll
     # {
     #    (def 'operation $4)
-    #
+    # 
     #    (def 'measurementCost 0x08)
-    #
+    #    
     #    ; Make sure not to be overwritten by extcodecopy
     #    (def 'gasB4     0x100)
-    #    (def 'gasAfter  0x120)
-    #
+    #    (def 'gasAfter  0x120) 
+    # 
     #    ; Write something so the storage won't be new
     #    [gasB4] 0xFF
     #    [gasAfter] 0xFF
-    #
+    #       
     #    (def 'NOP 0)
     #    (def 'dest 0xDE57)   ; destination address
-    #
+    # 
     #    ; Read so access to that account later won't trigger EIP2929 costs
     #    (balance 0xca11)
-    #
+    # 
     #    ; If we need to add the destination address to the active set,
     #    ; do so.
     #    (if (= operation 0x31) (balance dest) NOP)
@@ -184,171 +165,80 @@ def test_eip2929_minus_ff(
     #    (if (= operation 0xF2) (callcode 0x10000 dest 0 0 0 0 0) NOP)
     #    (if (= operation 0xF4) (delegatecall 0x10000 dest 0 0 0 0) NOP)
     #    (if (= operation 0xFA) (staticcall 0x10000 dest 0 0 0 0) NOP)
-    #
+    # 
     # ... (18 more lines)
-    contract = pre.deploy_contract(
-        code=(
-            Op.MSTORE(offset=0x100, value=0xFF)
-            + Op.MSTORE(offset=0x120, value=0xFF)
-            + Op.POP(Op.BALANCE(address=0xCA11))
-            + Op.JUMPI(
-                pc=Op.PUSH2[0x21],
-                condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x31),
-            )
-            + Op.PUSH1[0x0]
-            + Op.JUMP(pc=Op.PUSH2[0x26])
-            + Op.JUMPDEST
-            + Op.BALANCE(address=0xDE57)
-            + Op.JUMPDEST
-            + Op.POP
-            + Op.JUMPI(
-                pc=Op.PUSH2[0x38],
-                condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3B),
-            )
-            + Op.PUSH1[0x0]
-            + Op.JUMP(pc=Op.PUSH2[0x3D])
-            + Op.JUMPDEST
-            + Op.EXTCODESIZE(address=0xDE57)
-            + Op.JUMPDEST
-            + Op.POP
-            + Op.JUMPI(
-                pc=Op.PUSH2[0x50],
-                condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3C),
-            )
-            + Op.POP(0x0)
-            + Op.JUMP(pc=Op.PUSH2[0x5B])
-            + Op.JUMPDEST
-            + Op.EXTCODECOPY(
-                address=0xDE57, dest_offset=0x0, offset=0x0, size=0x1
-            )
-            + Op.JUMPDEST
-            + Op.JUMPI(
-                pc=Op.PUSH2[0x6C],
-                condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3F),
-            )
-            + Op.PUSH1[0x0]
-            + Op.JUMP(pc=Op.PUSH2[0x71])
-            + Op.JUMPDEST
-            + Op.EXTCODEHASH(address=0xDE57)
-            + Op.JUMPDEST
-            + Op.POP
-            + Op.JUMPI(
-                pc=Op.PUSH2[0x83],
-                condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xF1),
-            )
-            + Op.PUSH1[0x0]
-            + Op.JUMP(pc=Op.PUSH2[0x96])
-            + Op.JUMPDEST
-            + Op.CALL(
-                gas=0x10000,
-                address=0xDE57,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-            + Op.JUMPDEST
-            + Op.POP
-            + Op.JUMPI(
-                pc=Op.PUSH2[0xA8],
-                condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xF2),
-            )
-            + Op.PUSH1[0x0]
-            + Op.JUMP(pc=Op.PUSH2[0xBB])
-            + Op.JUMPDEST
-            + Op.CALLCODE(
-                gas=0x10000,
-                address=0xDE57,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-            + Op.JUMPDEST
-            + Op.POP
-            + Op.JUMPI(
-                pc=Op.PUSH2[0xCD],
-                condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xF4),
-            )
-            + Op.PUSH1[0x0]
-            + Op.JUMP(pc=Op.PUSH2[0xDE])
-            + Op.JUMPDEST
-            + Op.DELEGATECALL(
-                gas=0x10000,
-                address=0xDE57,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-            + Op.JUMPDEST
-            + Op.POP
-            + Op.JUMPI(
-                pc=Op.PUSH2[0xF0],
-                condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xFA),
-            )
-            + Op.PUSH1[0x0]
-            + Op.JUMP(pc=0x101)
-            + Op.JUMPDEST
-            + Op.STATICCALL(
-                gas=0x10000,
-                address=0xDE57,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-            + Op.JUMPDEST
-            + Op.POP
-            + Op.MSTORE(offset=0x100, value=Op.GAS)
-            + Op.POP(
-                Op.CALL(
-                    gas=0x1000000,
-                    address=0xCA11,
-                    value=0x0,
-                    args_offset=0x0,
-                    args_size=0x0,
-                    ret_offset=0x0,
-                    ret_size=0x0,
-                ),
-            )
-            + Op.MSTORE(offset=0x120, value=Op.GAS)
-            + Op.SSTORE(
-                key=0x0,
-                value=Op.SUB(
-                    Op.SUB(Op.MLOAD(offset=0x100), Op.MLOAD(offset=0x120)),
-                    0x8,
-                ),
-            )
-            + Op.MSTORE(offset=0x100, value=Op.GAS)
-            + Op.POP(Op.BALANCE(address=0xDE57))
-            + Op.MSTORE(offset=0x120, value=Op.GAS)
-            + Op.SSTORE(
-                key=0x1,
-                value=Op.SUB(
-                    Op.SUB(Op.MLOAD(offset=0x100), Op.MLOAD(offset=0x120)),
-                    0x8,
-                ),
-            )
-            + Op.STOP
-        ),
-        balance=0xBA1A9CE0BA1A9CE,
+    contract_2 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x100, value=0xff)
+        + Op.MSTORE(offset=0x120, value=0xff)
+        + Op.POP(Op.BALANCE(address=0xca11))
+        + Op.JUMPI(pc=Op.PUSH2[0x21], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x31))
+        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0x26]) + Op.JUMPDEST
+        + Op.BALANCE(address=0xde57) + Op.JUMPDEST + Op.POP
+        + Op.JUMPI(pc=Op.PUSH2[0x38], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3b))
+        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0x3d]) + Op.JUMPDEST
+        + Op.EXTCODESIZE(address=0xde57) + Op.JUMPDEST + Op.POP
+        + Op.JUMPI(pc=Op.PUSH2[0x50], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3c))
+        + Op.POP(0x0) + Op.JUMP(pc=Op.PUSH2[0x5b]) + Op.JUMPDEST
+        + Op.EXTCODECOPY(address=0xde57, dest_offset=0x0, offset=0x0, size=0x1)
+        + Op.JUMPDEST
+        + Op.JUMPI(pc=Op.PUSH2[0x6c], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3f))
+        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0x71]) + Op.JUMPDEST
+        + Op.EXTCODEHASH(address=0xde57) + Op.JUMPDEST + Op.POP
+        + Op.JUMPI(pc=Op.PUSH2[0x83], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xf1))
+        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0x96]) + Op.JUMPDEST
+        + Op.CALL(gas=0x10000, address=0xde57, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.JUMPDEST + Op.POP
+        + Op.JUMPI(pc=Op.PUSH2[0xa8], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xf2))
+        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0xbb]) + Op.JUMPDEST
+        + Op.CALLCODE(gas=0x10000, address=0xde57, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.JUMPDEST + Op.POP
+        + Op.JUMPI(pc=Op.PUSH2[0xcd], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xf4))
+        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0xde]) + Op.JUMPDEST
+        + Op.DELEGATECALL(gas=0x10000, address=0xde57, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.JUMPDEST + Op.POP
+        + Op.JUMPI(pc=Op.PUSH2[0xf0], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xfa))
+        + Op.PUSH1[0x0] + Op.JUMP(pc=0x101) + Op.JUMPDEST
+        + Op.STATICCALL(gas=0x10000, address=0xde57, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.JUMPDEST + Op.POP + Op.MSTORE(offset=0x100, value=Op.GAS)
+        + Op.POP(Op.CALL(gas=0x1000000, address=0xca11, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.MSTORE(offset=0x120, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x100), Op.MLOAD(offset=0x120)), 0x8))  # noqa: E501
+        + Op.MSTORE(offset=0x100, value=Op.GAS)
+        + Op.POP(Op.BALANCE(address=0xde57))
+        + Op.MSTORE(offset=0x120, value=Op.GAS)
+        + Op.SSTORE(key=0x1, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x100), Op.MLOAD(offset=0x120)), 0x8))  # noqa: E501
+        + Op.STOP,
+        balance=0xba1a9ce0ba1a9ce,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': [0], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {contract_2: Account(storage={0: 7726, 1: 105})},
+        },
+        {
+            "indexes": {'data': [1, 2, 3, 4, 5, 6, 7, 8], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {contract_2: Account(storage={0: 5126, 1: 105})},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        data=tx_data,
-        gas_limit=16777216,
-        value=1,
+        to=contract_2,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

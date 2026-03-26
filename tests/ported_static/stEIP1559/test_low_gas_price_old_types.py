@@ -1,8 +1,8 @@
 """
-Ori Pomerantz qbzzt1@gmail.com.
+Ori Pomerantz qbzzt1@gmail.com
 
 Ported from:
-tests/static/state_tests/stEIP1559/lowGasPriceOldTypesFiller.yml
+state_tests/stEIP1559/lowGasPriceOldTypesFiller.yml
 """
 
 import pytest
@@ -15,37 +15,64 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    AccessList,
+    Hash,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "00",
+    "01",
+]
+TX_GAS = [400000]
+TX_VALUE = [100000]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stEIP1559/lowGasPriceOldTypesFiller.yml"],
+    ["state_tests/stEIP1559/lowGasPriceOldTypesFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_access_list",
+    "d, g, v",
     [
-        ("00", None),
-        ("01", []),
+        pytest.param(
+            0, 0, 0,
+            id="d0",
+            marks=pytest.mark.exception_test,
+        ),
+        pytest.param(
+            1, 0, 0,
+            id="d1",
+            marks=pytest.mark.exception_test,
+        ),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.exception_test
 def test_low_gas_price_old_types(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    tx_access_list: list | None,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Ori Pomerantz qbzzt1@gmail.com."""
+    """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
+        key=0xde0c95357363da5c1c5a73bd7c2781ca5c9fecc1014103b5e1d1e990ae8208ec
     )
 
     env = Environment(
@@ -53,36 +80,44 @@ def test_low_gas_price_old_types(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=1000,
         gas_limit=71794957647893862,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
-    # Source: Yul
-    # {
+    # Source: yul
+    # berlin {
     #     sstore(0, add(1,1))
     # }
-    contract = pre.deploy_contract(
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
-        balance=0xDE0B6B3A7640000,
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0xd71b14c239fc39327f25764dd784c85ef0285fda"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=1)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': -1, 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {},
+            "expect_exception": {">=Cancun": TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        data=tx_data,
-        gas_limit=400000,
-        gas_price=999,
+        to=target,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
         nonce=1,
-        value=100000,
-        access_list=tx_access_list,
-        error=TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
+        gas_price=999,
+        error=_exc,
     )
 
-    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

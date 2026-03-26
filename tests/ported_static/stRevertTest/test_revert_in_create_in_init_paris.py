@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_revert_in_create_in_init_paris
 
 Ported from:
-tests/static/state_tests/stRevertTest/RevertInCreateInInit_ParisFiller.json
+state_tests/stRevertTest/RevertInCreateInInit_ParisFiller.json
 """
 
 import pytest
@@ -17,13 +17,12 @@ from execution_testing import (
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stRevertTest/RevertInCreateInInit_ParisFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stRevertTest/RevertInCreateInInit_ParisFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,40 +30,38 @@ def test_revert_in_create_in_init_paris(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_revert_in_create_in_init_paris"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f = Address("0x4757608f18b70777ae788dd4056eeed52f7aa68f")  # noqa: E501
     sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
+        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
     )
-    contract = Address("0x4757608f18b70777ae788dd4056eeed52f7aa68f")
 
     env = Environment(
         fee_recipient=coinbase,
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=42949672960,
     )
 
-    pre[contract] = Account(balance=10, nonce=0, storage={0x0: 0x1})
+    pre[addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f] = Account(balance=10, storage={0: 1})
     pre[sender] = Account(balance=0x6400000000)
+
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex(
-            "3050600d80602460003960006000f0503d6000556020600060003e6000516001550000fe"  # noqa: E501
-            "6211223360005260206000fd00"
-        ),
+        data=bytes.fromhex("3050600d80602460003960006000f0503d6000556020600060003e6000516001550000fe6211223360005260206000fd00"),  # noqa: E501
         gas_limit=200000,
+        nonce=0,
+        gas_price=10,
     )
 
     post = {
-        Address("0x1775da0b19ad27f26c9de9e2b1e61a91cf8134cc"): Account(
-            storage={0: 32, 1: 0x112233},
-        ),
-        contract: Account(storage={0: 1}),
+        addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f: Account(storage={0: 1}, balance=10),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

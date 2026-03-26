@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_sha3_non_const
 
 Ported from:
-tests/static/state_tests/stArgsZeroOneBalance/sha3NonConstFiller.yml
+state_tests/stArgsZeroOneBalance/sha3NonConstFiller.yml
 """
 
 import pytest
@@ -16,52 +16,57 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+]
+TX_GAS = [400000]
+TX_VALUE = [0, 1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stArgsZeroOneBalance/sha3NonConstFiller.yml"],
+    ["state_tests/stArgsZeroOneBalance/sha3NonConstFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_value, expected_post",
+    "d, g, v",
     [
-        (
-            0,
-            {
-                Address("0x8f7eceea4b37c6f7faf5d64d64fbffbcd14b79a4"): Account(
-                    storage={
-                        0: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            0, 0, 0,
+            id="-v0",
         ),
-        (
-            1,
-            {
-                Address("0x8f7eceea4b37c6f7faf5d64d64fbffbcd14b79a4"): Account(
-                    storage={
-                        0: 0xBC36789E7A1E281436464229828F817D6612F7B477D66591FF96A9E064BCC98A  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            0, 0, 1,
+            id="-v1",
         ),
     ],
-    ids=["case0", "case1"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_sha3_non_const(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_value: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Test ported from static filler."""
+    """test_sha3_non_const"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
     )
 
     env = Environment(
@@ -69,39 +74,58 @@ def test_sha3_non_const(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    # Source: LLL
-    # { [[ 0 ]](KECCAK256 (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x0,
-                value=Op.SHA3(
-                    offset=Op.BALANCE(
-                        address=0x8F7ECEEA4B37C6F7FAF5D64D64FBFFBCD14B79A4,
-                    ),
-                    size=Op.BALANCE(
-                        address=0x8F7ECEEA4B37C6F7FAF5D64D64FBFFBCD14B79A4,
-                    ),
-                ),
-            )
-            + Op.STOP
-        ),
+    # Source: lll
+    # { [[ 0 ]](KECCAK256 (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.SHA3(offset=Op.BALANCE(address=0x8f7eceea4b37c6f7faf5d64d64fbffbcd14b79a4), size=Op.BALANCE(address=0x8f7eceea4b37c6f7faf5d64d64fbffbcd14b79a4)))  # noqa: E501
+        + Op.STOP,
         nonce=0,
         address=Address("0x8f7eceea4b37c6f7faf5d64d64fbffbcd14b79a4"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': -1, 'gas': -1, 'value': 0},
+            "network": ['>=Cancun'],
+            "result": {
+        target: Account(
+                storage={
+            0: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
+        },
+            ),
+    },
+        },
+        {
+            "indexes": {'data': -1, 'gas': -1, 'value': 1},
+            "network": ['>=Cancun'],
+            "result": {
+        target: Account(
+                storage={
+            0: 0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a,
+        },
+            ),
+    },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        gas_limit=400000,
-        value=tx_value,
+        to=target,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

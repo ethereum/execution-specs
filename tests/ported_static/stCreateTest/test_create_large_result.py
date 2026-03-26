@@ -1,8 +1,8 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com.
+Ori Pomerantz   qbzzt1@gmail.com
 
 Ported from:
-tests/static/state_tests/stCreateTest/createLargeResultFiller.yml
+state_tests/stCreateTest/createLargeResultFiller.yml
 """
 
 import pytest
@@ -16,194 +16,131 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000000100",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000000100",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000000100",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000000100",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000006000",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000006000",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000006000",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000006000",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000006001",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000006001",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000006001",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000006001",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000f3000000000000000000000000000000000000000000000000000000000000c000",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000f3000000000000000000000000000000000000000000000000000000000000c000",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000fd000000000000000000000000000000000000000000000000000000000000c000",
+    "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000fd000000000000000000000000000000000000000000000000000000000000c000",
+]
+TX_GAS = [80000000]
+TX_VALUE = [0]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stCreateTest/createLargeResultFiller.yml"],
+    ["state_tests/stCreateTest/createLargeResultFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "d, g, v",
     [
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000f3000000000000000000000000000000000000000000000000000000000000c000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 0x4B1649D}
-                )
-            },
+        pytest.param(
+            0, 0, 0,
+            id="CREATE-RETURN",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000006000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={
-                        0: 0x553E6C30AF61E7A3576F31311EA8A620F80D047E,
-                        1: 0x4BBCE4,
-                        2: 0xDCBCC213F0C91B71D38DEDD06C95CCB99467B9B05F275BED536DE1044F5F18FA,  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            1, 0, 0,
+            id="CREATE2-RETURN",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000006001",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 0x4B16491}
-                )
-            },
+        pytest.param(
+            2, 0, 0,
+            id="CREATE-REVERT",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000000100",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={
-                        0: 0x553E6C30AF61E7A3576F31311EA8A620F80D047E,
-                        1: 0x1777F,
-                        2: 0xD956C0ABD597440481902014A37B733358EE7685461EB1B5916EEFD83381E6D9,  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            3, 0, 0,
+            id="CREATE2-REVERT",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000fd000000000000000000000000000000000000000000000000000000000000c000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 54116}
-                )
-            },
+        pytest.param(
+            4, 0, 0,
+            id="CREATE-RETURN-MAX",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000006000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 48356}
-                )
-            },
+        pytest.param(
+            5, 0, 0,
+            id="CREATE2-RETURN-MAX",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000006001",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 48362}
-                )
-            },
+        pytest.param(
+            6, 0, 0,
+            id="CREATE-REVERT-MAX",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000000100",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 44927}
-                )
-            },
+        pytest.param(
+            7, 0, 0,
+            id="CREATE2-REVERT-MAX",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000f3000000000000000000000000000000000000000000000000000000000000c000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 0x4B1649E}
-                )
-            },
+        pytest.param(
+            8, 0, 0,
+            id="CREATE-RETURN-TOOBIG",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000006000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={
-                        0: 0xA5DC71D47D0D8DCF5990E81C74E981BAF24A8FA2,
-                        1: 0x4BBD2E,
-                        2: 0xDCBCC213F0C91B71D38DEDD06C95CCB99467B9B05F275BED536DE1044F5F18FA,  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            9, 0, 0,
+            id="CREATE2-RETURN-TOOBIG",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000006001",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 0x4B16492}
-                )
-            },
+        pytest.param(
+            10, 0, 0,
+            id="CREATE-REVERT-TOOBIG",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000f30000000000000000000000000000000000000000000000000000000000000100",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={
-                        0: 0x595C5D0C272757CFF0B3DCA4ED60D60CD6E9F58,
-                        1: 0x177C9,
-                        2: 0xD956C0ABD597440481902014A37B733358EE7685461EB1B5916EEFD83381E6D9,  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            11, 0, 0,
+            id="CREATE2-REVERT-TOOBIG",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000fd000000000000000000000000000000000000000000000000000000000000c000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 54190}
-                )
-            },
+        pytest.param(
+            12, 0, 0,
+            id="CREATE-RETURN-HUGE",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000006000",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 48430}
-                )
-            },
+        pytest.param(
+            13, 0, 0,
+            id="CREATE2-RETURN-HUGE",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000006001",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 48436}
-                )
-            },
+        pytest.param(
+            14, 0, 0,
+            id="CREATE-REVERT-HUGE",
         ),
-        (
-            "048071d300000000000000000000000000000000000000000000000000000000000000f500000000000000000000000000000000000000000000000000000000000000fd0000000000000000000000000000000000000000000000000000000000000100",  # noqa: E501
-            {
-                Address("0xcccccccccccccccccccccccccccccccccccccccc"): Account(
-                    storage={1: 45001}
-                )
-            },
+        pytest.param(
+            15, 0, 0,
+            id="CREATE2-REVERT-HUGE",
         ),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
-        "case10",
-        "case11",
-        "case12",
-        "case13",
-        "case14",
-        "case15",
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_create_large_result(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Ori Pomerantz   qbzzt1@gmail.com."""
+    """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    contract_0 = Address("0x000000000000000000000000000000000000c0de")
+    contract_1 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
 
     env = Environment(
@@ -211,116 +148,209 @@ def test_create_large_result(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
 
-    # Source: Yul
+    # Source: yul
+    # london
     # {
     #    // Store some data
     #    mstore(0, not(0))
-    #
+    # 
     #    // Copy the requested length from the constructor code
     #    codecopy(0x100, 0x100, 0x20)
-    #
+    #    
     #    // Return it as the new contract
     #    return(0, mload(0x100))
     # }
-    pre.deploy_contract(
-        code=(
-            Op.MSTORE(offset=0x0, value=Op.NOT(0x0))
-            + Op.CODECOPY(dest_offset=Op.DUP1, offset=0x100, size=0x20)
-            + Op.RETURN(offset=0x0, size=Op.MLOAD(offset=0x100))
-        ),
+    contract_0 = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=Op.NOT(0x0))
+        + Op.CODECOPY(dest_offset=Op.DUP1, offset=0x100, size=0x20)
+        + Op.RETURN(offset=0x0, size=Op.MLOAD(offset=0x100)),
+        nonce=1,
         address=Address("0x000000000000000000000000000000000000c0de"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE, nonce=1)
-    # Source: Yul
+    # Source: yul
+    # london
     # {
     #   sstore(1, gas())
-    #
+    # 
     #   // The operation to run
     #   // F0 - CREATE
     #   // F5 - CREATE2
     #   let operation := calldataload(0x04)
-    #
+    # 
     #   // The constructor ends with
     #   // F3 - RETURN
     #   // FD - REVERT
     #   let constructorEnd := calldataload(0x24)
-    #
+    # 
     #   // The size of the contract getting created
     #   let contractSize := calldataload(0x44)
-    #
+    # 
     #   // Create the constructor.
     #   let codeSize := extcodesize(0xC0DE)
     #   extcodecopy(0xC0DE, 0, 0, codeSize)
-    #
+    # 
     #   // Modify the last opcode
     #   mstore8(sub(codeSize, 1), constructorEnd)
-    #
+    # 
     #   // Include the requested contract size
     #   mstore(0x100, contractSize)
-    #
+    # 
     #   // Create the contract
     #   let newAddr
     #   switch operation
-    #   case 0xF0 { newAddr := create(0, 0, 0x120) }
-    # ... (9 more lines)
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(key=0x1, value=Op.GAS)
-            + Op.CALLDATALOAD(offset=0x4)
-            + Op.CALLDATALOAD(offset=0x24)
-            + Op.CALLDATALOAD(offset=0x44)
-            + Op.SWAP1
-            + Op.PUSH1[0x1]
-            + Op.EXTCODESIZE(address=0xC0DE)
-            + Op.EXTCODECOPY(
-                address=0xC0DE,
-                dest_offset=Op.DUP1,
-                offset=0x0,
-                size=Op.DUP1,
-            )
-            + Op.SUB
-            + Op.MSTORE8
-            + Op.PUSH2[0x100]
-            + Op.MSTORE
-            + Op.PUSH1[0x0]
-            + Op.SWAP1
-            + Op.JUMPI(pc=0x53, condition=Op.EQ(0xF0, Op.DUP1))
-            + Op.PUSH1[0xF5]
-            + Op.JUMPI(pc=0x44, condition=Op.EQ)
-            + Op.JUMPDEST
-            + Op.SSTORE(key=0x0, value=Op.DUP1)
-            + Op.SSTORE(key=0x1, value=Op.SUB(Op.SLOAD(key=0x1), Op.GAS))
-            + Op.SSTORE(key=0x2, value=Op.EXTCODEHASH)
-            + Op.STOP
-            + Op.JUMPDEST
-            + Op.POP
-            + Op.CREATE2(value=Op.DUP1, offset=0x0, size=0x120, salt=0x5A17)
-            + Op.JUMP(pc=0x32)
-            + Op.JUMPDEST
-            + Op.POP
-            + Op.POP
-            + Op.CREATE(value=Op.DUP1, offset=0x0, size=0x120)
-            + Op.JUMP(pc=0x32)
-        ),
-        storage={0x0: 0x60A7, 0x1: 0x60A7, 0x2: 0x60A7},
-        balance=0xBA1A9CE0BA1A9CE,
+    # ... (10 more lines)
+    contract_1 = pre.deploy_contract(
+        code=Op.SSTORE(key=0x1, value=Op.GAS) + Op.CALLDATALOAD(offset=0x4)
+        + Op.CALLDATALOAD(offset=0x24) + Op.CALLDATALOAD(offset=0x44) + Op.SWAP1
+        + Op.PUSH1[0x1] + Op.EXTCODESIZE(address=0xc0de)
+        + Op.EXTCODECOPY(address=0xc0de, dest_offset=Op.DUP1, offset=0x0, size=Op.DUP1)
+        + Op.SUB + Op.MSTORE8 + Op.PUSH2[0x100] + Op.MSTORE + Op.PUSH1[0x0]
+        + Op.SWAP1 + Op.JUMPI(pc=0x53, condition=Op.EQ(0xf0, Op.DUP1))
+        + Op.PUSH1[0xf5] + Op.JUMPI(pc=0x44, condition=Op.EQ) + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=Op.DUP1)
+        + Op.SSTORE(key=0x1, value=Op.SUB(Op.SLOAD(key=0x1), Op.GAS))
+        + Op.SSTORE(key=0x2, value=Op.EXTCODEHASH) + Op.STOP + Op.JUMPDEST
+        + Op.POP + Op.CREATE2(value=Op.DUP1, offset=0x0, size=0x120, salt=0x5a17)
+        + Op.JUMP(pc=0x32) + Op.JUMPDEST + Op.POP * 2
+        + Op.CREATE(value=Op.DUP1, offset=0x0, size=0x120) + Op.JUMP(pc=0x32),
+        storage={0: 24743, 1: 24743, 2: 24743},
+        balance=0xba1a9ce0ba1a9ce,
+        nonce=1,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce, nonce=1)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': [0], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {
+        contract_1: Account(
+                storage={
+            0: 0x553e6c30af61e7a3576f31311ea8a620f80d047e,
+            1: 0x1777f,
+            2: 0xd956c0abd597440481902014a37b733358ee7685461eb1b5916eefd83381e6d9,
+        },
+            ),
+    },
+        },
+        {
+            "indexes": {'data': [1], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {
+        contract_1: Account(
+                storage={
+            0: 0x595c5d0c272757cff0b3dca4ed60d60cd6e9f58,
+            1: 0x177c9,
+            2: 0xd956c0abd597440481902014a37b733358ee7685461eb1b5916eefd83381e6d9,
+        },
+            ),
+    },
+        },
+        {
+            "indexes": {'data': [2], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 44927, 2: 0})},
+        },
+        {
+            "indexes": {'data': [3], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 45001, 2: 0})},
+        },
+        {
+            "indexes": {'data': [4], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {
+        contract_1: Account(
+                storage={
+            0: 0x553e6c30af61e7a3576f31311ea8a620f80d047e,
+            1: 0x4bbce4,
+            2: 0xdcbcc213f0c91b71d38dedd06c95ccb99467b9b05f275bed536de1044f5f18fa,
+        },
+            ),
+    },
+        },
+        {
+            "indexes": {'data': [5], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {
+        contract_1: Account(
+                storage={
+            0: 0xa5dc71d47d0d8dcf5990e81c74e981baf24a8fa2,
+            1: 0x4bbd2e,
+            2: 0xdcbcc213f0c91b71d38dedd06c95ccb99467b9b05f275bed536de1044f5f18fa,
+        },
+            ),
+    },
+        },
+        {
+            "indexes": {'data': [6], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 48356, 2: 0})},
+        },
+        {
+            "indexes": {'data': [7], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 48430, 2: 0})},
+        },
+        {
+            "indexes": {'data': [8], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 0x4b16491, 2: 0})},
+        },
+        {
+            "indexes": {'data': [9], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 0x4b16492, 2: 0})},
+        },
+        {
+            "indexes": {'data': [10], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 48362, 2: 0})},
+        },
+        {
+            "indexes": {'data': [11], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 48436, 2: 0})},
+        },
+        {
+            "indexes": {'data': [12], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 0x4b1649d, 2: 0})},
+        },
+        {
+            "indexes": {'data': [13], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 0x4b1649e, 2: 0})},
+        },
+        {
+            "indexes": {'data': [14], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 54116, 2: 0})},
+        },
+        {
+            "indexes": {'data': [15], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun<Osaka'],
+            "result": {contract_1: Account(storage={0: 0, 1: 54190, 2: 0})},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        data=tx_data,
-        gas_limit=80000000,
+        to=contract_1,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
         nonce=1,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

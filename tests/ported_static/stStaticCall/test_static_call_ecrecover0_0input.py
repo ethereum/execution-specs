@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_static_call_ecrecover0_0input
 
 Ported from:
-tests/static/state_tests/stStaticCall/static_CallEcrecover0_0inputFiller.json
+state_tests/stStaticCall/static_CallEcrecover0_0inputFiller.json
 """
 
 import pytest
@@ -16,120 +16,93 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000001",
+    "0000000000000000000000000000000000000000000000000000000000000002",
+    "0000000000000000000000000000000000000000000000000000000000000003",
+    "0000000000000000000000000000000000000000000000000000000000000004",
+    "0000000000000000000000000000000000000000000000000000000000000005",
+    "0000000000000000000000000000000000000000000000000000000000000006",
+    "0000000000000000000000000000000000000000000000000000000000000007",
+    "0000000000000000000000000000000000000000000000000000000000000008",
+]
+TX_GAS = [3652240]
+TX_VALUE = [100000]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stStaticCall/static_CallEcrecover0_0inputFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stStaticCall/static_CallEcrecover0_0inputFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
-@pytest.mark.valid_until("Prague")
 @pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
+    "d, g, v",
     [
-        (
-            "0000000000000000000000000000000000000000000000000000000000000000",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
+        pytest.param(
+            0, 0, 0,
+            id="d0",
         ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000001",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
+        pytest.param(
+            1, 0, 0,
+            id="d1",
         ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000002",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={
-                        0: 0x8209944E898F69A7BD10A23C839D341E935FD5CA,
-                        2: 1,
-                    }
-                )
-            },
+        pytest.param(
+            2, 0, 0,
+            id="d2",
         ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000003",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={
-                        0: 0x4300A157335CB7C9FC9423E011D7DD51090D093F,
-                        2: 1,
-                    }
-                )
-            },
+        pytest.param(
+            3, 0, 0,
+            id="d3",
         ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000004",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
+        pytest.param(
+            4, 0, 0,
+            id="d4",
         ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000005",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
+        pytest.param(
+            5, 0, 0,
+            id="d5",
         ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000006",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
+        pytest.param(
+            6, 0, 0,
+            id="d6",
         ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000007",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
+        pytest.param(
+            7, 0, 0,
+            id="d7",
         ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000008",
-            {},
+        pytest.param(
+            8, 0, 0,
+            id="d8",
         ),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
     ],
 )
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.slow
 def test_static_call_ecrecover0_0input(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Test ported from static filler."""
+    """test_static_call_ecrecover0_0input"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
     )
 
     env = Environment(
@@ -137,208 +110,72 @@ def test_static_call_ecrecover0_0input(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
-    # Source: LLL
-    # { [[ 2 ]] (STATICCALL 300000 (CALLDATALOAD 0) 0 128 128 32) [[ 0 ]] (MOD (MLOAD 128) (EXP 2 160)) }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x2,
-                value=Op.STATICCALL(
-                    gas=0x493E0,
-                    address=Op.CALLDATALOAD(offset=0x0),
-                    args_offset=0x0,
-                    args_size=0x80,
-                    ret_offset=0x80,
-                    ret_size=0x20,
-                ),
-            )
-            + Op.SSTORE(
-                key=0x0,
-                value=Op.MOD(Op.MLOAD(offset=0x80), Op.EXP(0x2, 0xA0)),
-            )
-            + Op.STOP
-        ),
-        balance=0x1312D00,
+    # Source: lll
+    # { [[ 2 ]] (STATICCALL 300000 (CALLDATALOAD 0) 0 128 128 32) [[ 0 ]] (MOD (MLOAD 128) (EXP 2 160)) }
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x2, value=Op.STATICCALL(gas=0x493e0, address=Op.CALLDATALOAD(offset=0x0), args_offset=0x0, args_size=0x80, ret_offset=0x80, ret_size=0x20))  # noqa: E501
+        + Op.SSTORE(key=0x0, value=Op.MOD(Op.MLOAD(offset=0x80), Op.EXP(0x2, 0xa0)))  # noqa: E501
+        + Op.STOP,
+        balance=0x1312d00,
         nonce=0,
         address=Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': 8, 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {target: Account(storage={2: 0})},
+        },
+        {
+            "indexes": {'data': [0, 1, 4, 5, 6, 7], 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {target: Account(storage={2: 1})},
+        },
+        {
+            "indexes": {'data': 2, 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        target: Account(
+                storage={
+            0: 0x8209944e898f69a7bd10a23c839d341e935fd5ca,
+            2: 1,
+        },
+            ),
+    },
+        },
+        {
+            "indexes": {'data': 3, 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        target: Account(
+                storage={
+            0: 0x4300a157335cb7c9fc9423e011d7dd51090d093f,
+            2: 1,
+        },
+            ),
+    },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        data=tx_data,
-        gas_limit=3652240,
-        value=100000,
-    )
-
-    post = expected_post
-
-    state_test(env=env, pre=pre, post=post, tx=tx)
-
-
-@pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stStaticCall/static_CallEcrecover0_0inputFiller.json",  # noqa: E501
-    ],
-)
-@pytest.mark.valid_from("Osaka")
-@pytest.mark.parametrize(
-    "tx_data_hex, expected_post",
-    [
-        (
-            "0000000000000000000000000000000000000000000000000000000000000000",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000001",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000002",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={
-                        0: 0x8209944E898F69A7BD10A23C839D341E935FD5CA,
-                        2: 1,
-                    }
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000003",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={
-                        0: 0x4300A157335CB7C9FC9423E011D7DD51090D093F,
-                        2: 1,
-                    }
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000004",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000005",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000006",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000007",
-            {
-                Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"): Account(
-                    storage={2: 1}
-                )
-            },
-        ),
-        (
-            "0000000000000000000000000000000000000000000000000000000000000008",
-            {},
-        ),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-    ],
-)
-@pytest.mark.pre_alloc_mutable
-@pytest.mark.slow
-def test_static_call_ecrecover0_0input_from_osaka(
-    state_test: StateTestFiller,
-    pre: Alloc,
-    tx_data_hex: str,
-    expected_post: dict,
-) -> None:
-    """Test ported from static filler."""
-    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
-    )
-
-    env = Environment(
-        fee_recipient=coinbase,
-        number=1,
-        timestamp=1000,
-        prev_randao=0x20000,
-        base_fee_per_gas=10,
-        gas_limit=10000000,
-    )
-
-    # Source: LLL
-    # { [[ 2 ]] (STATICCALL 300000 (CALLDATALOAD 0) 0 128 128 32) [[ 0 ]] (MOD (MLOAD 128) (EXP 2 160)) }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x2,
-                value=Op.STATICCALL(
-                    gas=0x493E0,
-                    address=Op.CALLDATALOAD(offset=0x0),
-                    args_offset=0x0,
-                    args_size=0x80,
-                    ret_offset=0x80,
-                    ret_size=0x20,
-                ),
-            )
-            + Op.SSTORE(
-                key=0x0,
-                value=Op.MOD(Op.MLOAD(offset=0x80), Op.EXP(0x2, 0xA0)),
-            )
-            + Op.STOP
-        ),
-        balance=0x1312D00,
+        to=target,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
         nonce=0,
-        address=Address("0x1fd04a51ac69c94c58521d30e2defc4856a581b0"),  # noqa: E501
-    )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
-
-    tx = Transaction(
-        sender=sender,
-        to=contract,
-        data=tx_data,
-        gas_limit=3652240,
-        value=100000,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,8 +1,8 @@
 """
-An example how to use ranges in expect section.
+An example how to use ranges in expect section
 
 Ported from:
-tests/static/state_tests/stExample/rangesExampleFiller.yml
+state_tests/stExample/rangesExampleFiller.yml
 """
 
 import pytest
@@ -16,347 +16,148 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "01",
+    "01",
+    "01",
+    "04",
+]
+TX_GAS = [400000, 1400000, 2400000]
+TX_VALUE = [100000, 200000]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stExample/rangesExampleFiller.yml"],
+    ["state_tests/stExample/rangesExampleFiller.yml"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_gas_limit, tx_value, expected_post",
+    "d, g, v",
     [
-        (
-            "01",
-            400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            0, 0, 0,
+            id="transaction1-g0-v0",
         ),
-        (
-            "01",
-            400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            0, 0, 1,
+            id="transaction1-g0-v1",
         ),
-        (
-            "01",
-            1400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            0, 1, 0,
+            id="transaction1-g1-v0",
         ),
-        (
-            "01",
-            1400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            0, 1, 1,
+            id="transaction1-g1-v1",
         ),
-        (
-            "01",
-            2400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            0, 2, 0,
+            id="transaction1-g2-v0",
         ),
-        (
-            "01",
-            2400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            0, 2, 1,
+            id="transaction1-g2-v1",
         ),
-        (
-            "01",
-            400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            1, 0, 0,
+            id="d1-g0-v0",
         ),
-        (
-            "01",
-            400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            1, 0, 1,
+            id="d1-g0-v1",
         ),
-        (
-            "01",
-            1400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            1, 1, 0,
+            id="d1-g1-v0",
         ),
-        (
-            "01",
-            1400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            1, 1, 1,
+            id="d1-g1-v1",
         ),
-        (
-            "01",
-            2400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            1, 2, 0,
+            id="d1-g2-v0",
         ),
-        (
-            "01",
-            2400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            1, 2, 1,
+            id="d1-g2-v1",
         ),
-        (
-            "04",
-            400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x400000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            2, 0, 0,
+            id="d2-g0-v0",
         ),
-        (
-            "04",
-            400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x400000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            2, 0, 1,
+            id="d2-g0-v1",
         ),
-        (
-            "04",
-            1400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x400000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            2, 1, 0,
+            id="d2-g1-v0",
         ),
-        (
-            "04",
-            1400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x400000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            2, 1, 1,
+            id="d2-g1-v1",
         ),
-        (
-            "04",
-            2400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x400000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            2, 2, 0,
+            id="d2-g2-v0",
         ),
-        (
-            "04",
-            2400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x400000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            2, 2, 1,
+            id="d2-g2-v1",
         ),
-        (
-            "01",
-            400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            3, 0, 0,
+            id="d3-g0-v0",
         ),
-        (
-            "01",
-            400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            3, 0, 1,
+            id="d3-g0-v1",
         ),
-        (
-            "01",
-            1400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            3, 1, 0,
+            id="d3-g1-v0",
         ),
-        (
-            "01",
-            1400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            3, 1, 1,
+            id="d3-g1-v1",
         ),
-        (
-            "01",
-            2400000,
-            100000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            3, 2, 0,
+            id="d3-g2-v0",
         ),
-        (
-            "01",
-            2400000,
-            200000,
-            {
-                Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"): Account(
-                    storage={
-                        0: 0x100000000000000000000000000000000000000000000000000000000000000  # noqa: E501
-                    }
-                )
-            },
+        pytest.param(
+            3, 2, 1,
+            id="d3-g2-v1",
         ),
-    ],
-    ids=[
-        "case0",
-        "case1",
-        "case2",
-        "case3",
-        "case4",
-        "case5",
-        "case6",
-        "case7",
-        "case8",
-        "case9",
-        "case10",
-        "case11",
-        "case12",
-        "case13",
-        "case14",
-        "case15",
-        "case16",
-        "case17",
-        "case18",
-        "case19",
-        "case20",
-        "case21",
-        "case22",
-        "case23",
     ],
 )
 @pytest.mark.pre_alloc_mutable
 def test_ranges_example(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    tx_gas_limit: int,
-    tx_value: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """An example how to use ranges in expect section."""
+    """An example how to use ranges in expect section"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
     )
 
     env = Environment(
@@ -364,32 +165,71 @@ def test_ranges_example(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=71794957647893862,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    # Source: LLL
+    # Source: lll
     # {
-    #    [[0]] (CALLDATALOAD 0)
+    #    [[0]] (CALLDATALOAD 0) 
     # }
-    contract = pre.deploy_contract(
+    target = pre.deploy_contract(
         code=Op.SSTORE(key=0x0, value=Op.CALLDATALOAD(offset=0x0)) + Op.STOP,
-        balance=0xDE0B6B3A7640000,
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0xa054bc58f204030cbc0ec558a5b88ac9bd5aded2"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': [0, 1, 2], 'gas': 0, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        target: Account(
+                storage={
+            0: 0x100000000000000000000000000000000000000000000000000000000000000,
+        },
+            ),
+    },
+        },
+        {
+            "indexes": {'data': [0, 1, 2], 'gas': [1, 2], 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        target: Account(
+                storage={
+            0: 0x100000000000000000000000000000000000000000000000000000000000000,
+        },
+            ),
+    },
+        },
+        {
+            "indexes": {'data': 3, 'gas': [0, 1, 2], 'value': [0, 1]},
+            "network": ['>=Cancun'],
+            "result": {
+        target: Account(
+                storage={
+            0: 0x400000000000000000000000000000000000000000000000000000000000000,
+        },
+            ),
+    },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        data=tx_data,
-        gas_limit=tx_gas_limit,
-        value=tx_value,
+        to=target,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

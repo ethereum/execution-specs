@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_create_e_contract_create_ne_contract_in_init_tr
 
 Ported from:
-tests/static/state_tests/stCreateTest
-CREATE_EContractCreateNEContractInInit_TrFiller.json
+state_tests/stCreateTest/CREATE_EContractCreateNEContractInInit_TrFiller.json
 """
 
 import pytest
@@ -19,13 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stCreateTest/CREATE_EContractCreateNEContractInInit_TrFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stCreateTest/CREATE_EContractCreateNEContractInInit_TrFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -33,10 +31,11 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_create_e_contract_create_ne_contract_in_init_tr"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    contract_0 = Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
 
     env = Environment(
@@ -44,32 +43,35 @@ def test_create_e_contract_create_ne_contract_in_init_tr(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xE8D4A51000)
-    # Source: LLL
+    pre[sender] = Account(balance=0xe8d4a51000)
+    # Source: lll
     # {[[1]]12}
-    contract = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
-        balance=0xE8D4A51000,
+    contract_0 = pre.deploy_contract(
+        code=Op.SSTORE(key=0x1, value=0xc) + Op.STOP,
+        balance=0xe8d4a51000,
         nonce=0,
         address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
+
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex(
-            "6000600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60f150"  # noqa: E501
-            "6d64600c6000556000526005601bf3600052600e60126000f0"
-        ),
+        data=bytes.fromhex("6000600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60f1506d64600c6000556000526005601bf3600052600e60126000f0"),  # noqa: E501
         gas_limit=600000,
+        nonce=0,
+        gas_price=10,
     )
 
     post = {
-        contract: Account(storage={1: 12}),
+        contract_0: Account(storage={1: 12}),
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(nonce=2),  # noqa: E501
+        Address("0x64e2ebd6405af8cb348aec519084d3fff42ebba6"): Account(code=bytes.fromhex("600c600055")),  # noqa: E501
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

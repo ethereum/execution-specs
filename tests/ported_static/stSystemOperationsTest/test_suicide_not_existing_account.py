@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_suicide_not_existing_account
 
 Ported from:
-tests/static/state_tests/stSystemOperationsTest
-suicideNotExistingAccountFiller.json
+state_tests/stSystemOperationsTest/suicideNotExistingAccountFiller.json
 """
 
 import pytest
@@ -19,13 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stSystemOperationsTest/suicideNotExistingAccountFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stSystemOperationsTest/suicideNotExistingAccountFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -33,10 +31,10 @@ def test_suicide_not_existing_account(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_suicide_not_existing_account"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
     )
 
     env = Environment(
@@ -44,30 +42,35 @@ def test_suicide_not_existing_account(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
-    # Source: LLL
+    # Source: lll
     # { (SELFDESTRUCT 0xaa1722f3947def4cf144679da39c4c32bdc35681 )}
-    contract = pre.deploy_contract(
-        code=(
-            Op.SELFDESTRUCT(address=0xAA1722F3947DEF4CF144679DA39C4C32BDC35681)
-            + Op.STOP
-        ),
-        balance=0xDE0B6B3A7640000,
+    target = pre.deploy_contract(
+        code=Op.SELFDESTRUCT(address=0xaa1722f3947def4cf144679da39c4c32bdc35681)
+        + Op.STOP,
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0x70c22830049f2678c8aa93d0060683cd67696495"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=1000000,
-        value=100000,
+        value=0x186a0,
+        nonce=0,
+        gas_price=10,
     )
 
-    post: dict = {}
+    post = {
+        Address("0xaa1722f3947def4cf144679da39c4c32bdc35681"): Account(balance=0xde0b6b3a76586a0),  # noqa: E501
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

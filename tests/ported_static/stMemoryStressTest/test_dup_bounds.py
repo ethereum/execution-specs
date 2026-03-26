@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_dup_bounds
 
 Ported from:
-tests/static/state_tests/stMemoryStressTest/DUP_BoundsFiller.json
+state_tests/stMemoryStressTest/DUP_BoundsFiller.json
 """
 
 import pytest
@@ -16,34 +16,61 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+]
+TX_GAS = [150000, 1000000, 16777216]
+TX_VALUE = [1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stMemoryStressTest/DUP_BoundsFiller.json"],
+    ["state_tests/stMemoryStressTest/DUP_BoundsFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit",
+    "d, g, v",
     [
-        150000,
-        1000000,
-        16777216,
+        pytest.param(
+            0, 0, 0,
+            id="-g0",
+        ),
+        pytest.param(
+            0, 1, 0,
+            id="-g1",
+        ),
+        pytest.param(
+            0, 2, 0,
+            id="-g2",
+        ),
     ],
-    ids=["case0", "case1", "case2"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_dup_bounds(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Test ported from static filler."""
+    """test_dup_bounds"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x31B5AF02B012484AE954B3A43943242EDE546A2E76FC0A6ACC17435107C385EB
+        key=0x31b5af02b012484ae954b3a43943242ede546a2e76fc0a6acc17435107c385eb
     )
 
     env = Environment(
@@ -51,490 +78,88 @@ def test_dup_bounds(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
 
-    # Source: raw bytecode
-    contract = pre.deploy_contract(
-        code=(
-            Op.PUSH1[0x0]
-            + Op.POP(Op.DUP1)
-            + Op.POP
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.POP(Op.DUP1)
-            + Op.POP
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP1)
-            + Op.POP
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP1)
-            + Op.POP
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.POP(Op.DUP1)
-            + Op.POP
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.POP(Op.DUP2)
-            + Op.POP
-            + Op.POP
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.POP(Op.DUP2)
-            + Op.POP
-            + Op.POP
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP2)
-            + Op.POP
-            + Op.POP
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP2)
-            + Op.POP
-            + Op.POP
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.POP(Op.DUP2)
-            + Op.POP
-            + Op.POP
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.POP(Op.DUP3)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.POP(Op.DUP3)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP3)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP3)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.POP(Op.DUP3)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.POP(Op.DUP4)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.POP(Op.DUP4)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP4)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP4)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.POP(Op.DUP4)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.POP(Op.DUP5)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.POP(Op.DUP5)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP5)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP5)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.POP(Op.DUP5)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.POP(Op.DUP6)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.POP(Op.DUP6)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP6)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP6)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.POP(Op.DUP6)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.POP(Op.DUP7)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.POP(Op.DUP7)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP7)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP7)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.POP(Op.DUP7)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.PUSH1[0x0]
-            + Op.POP(Op.DUP8)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.PUSH4[0xFFFFFFFF]
-            + Op.POP(Op.DUP8)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.PUSH8[0xFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP8)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.PUSH16[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
-            + Op.POP(Op.DUP8)
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.POP
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.PUSH32[
-                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
-            ]
-            + Op.DUP8
-        ),
+    # Source: raw
+    # 0x600080505063ffffffff80505067ffffffffffffffff8050506fffffffffffffffffffffffffffffffff8050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff805050600060008150505063ffffffff63ffffffff8150505067ffffffffffffffff67ffffffffffffffff815050506fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff815050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff81505050600060006000825050505063ffffffff63ffffffff63ffffffff825050505067ffffffffffffffff67ffffffffffffffff67ffffffffffffffff82505050506fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff82505050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8250505050600060006000600083505050505063ffffffff63ffffffff63ffffffff63ffffffff83505050505067ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff8350505050506fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff8350505050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff835050505050600060006000600060008450505050505063ffffffff63ffffffff63ffffffff63ffffffff63ffffffff8450505050505067ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff845050505050506fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff845050505050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff84505050505050600060006000600060006000855050505050505063ffffffff63ffffffff63ffffffff63ffffffff63ffffffff63ffffffff855050505050505067ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff85505050505050506fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff85505050505050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8550505050505050600060006000600060006000600086505050505050505063ffffffff63ffffffff63ffffffff63ffffffff63ffffffff63ffffffff63ffffffff86505050505050505067ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff8650505050505050506fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff8650505050505050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff865050505050505050600060006000600060006000600060008750505050505050505063ffffffff63ffffffff63ffffffff63ffffffff63ffffffff63ffffffff63ffffffff63ffffffff8750505050505050505067ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff67ffffffffffffffff875050505050505050506fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff6fffffffffffffffffffffffffffffffff875050505050505050507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff87
+    target = pre.deploy_contract(
+        code=Op.PUSH1[0x0] + Op.POP(Op.DUP1) + Op.POP + Op.PUSH4[0xffffffff]
+        + Op.POP(Op.DUP1) + Op.POP + Op.PUSH8[0xffffffffffffffff]
+        + Op.POP(Op.DUP1) + Op.POP
+        + Op.PUSH16[0xffffffffffffffffffffffffffffffff] + Op.POP(Op.DUP1)
+        + Op.POP
+        + Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff]
+        + Op.POP(Op.DUP1) + Op.POP + Op.PUSH1[0x0] * 2 + Op.POP(Op.DUP2)
+        + Op.POP * 2 + Op.PUSH4[0xffffffff] * 2 + Op.POP(Op.DUP2) + Op.POP * 2
+        + Op.PUSH8[0xffffffffffffffff] * 2 + Op.POP(Op.DUP2) + Op.POP * 2
+        + Op.PUSH16[0xffffffffffffffffffffffffffffffff] * 2 + Op.POP(Op.DUP2)
+        + Op.POP * 2
+        + Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff] * 2
+        + Op.POP(Op.DUP2) + Op.POP * 2 + Op.PUSH1[0x0] * 3 + Op.POP(Op.DUP3)
+        + Op.POP * 3 + Op.PUSH4[0xffffffff] * 3 + Op.POP(Op.DUP3) + Op.POP * 3
+        + Op.PUSH8[0xffffffffffffffff] * 3 + Op.POP(Op.DUP3) + Op.POP * 3
+        + Op.PUSH16[0xffffffffffffffffffffffffffffffff] * 3 + Op.POP(Op.DUP3)
+        + Op.POP * 3
+        + Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff] * 3
+        + Op.POP(Op.DUP3) + Op.POP * 3 + Op.PUSH1[0x0] * 4 + Op.POP(Op.DUP4)
+        + Op.POP * 4 + Op.PUSH4[0xffffffff] * 4 + Op.POP(Op.DUP4) + Op.POP * 4
+        + Op.PUSH8[0xffffffffffffffff] * 4 + Op.POP(Op.DUP4) + Op.POP * 4
+        + Op.PUSH16[0xffffffffffffffffffffffffffffffff] * 4 + Op.POP(Op.DUP4)
+        + Op.POP * 4
+        + Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff] * 4
+        + Op.POP(Op.DUP4) + Op.POP * 4 + Op.PUSH1[0x0] * 5 + Op.POP(Op.DUP5)
+        + Op.POP * 5 + Op.PUSH4[0xffffffff] * 5 + Op.POP(Op.DUP5) + Op.POP * 5
+        + Op.PUSH8[0xffffffffffffffff] * 5 + Op.POP(Op.DUP5) + Op.POP * 5
+        + Op.PUSH16[0xffffffffffffffffffffffffffffffff] * 5 + Op.POP(Op.DUP5)
+        + Op.POP * 5
+        + Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff] * 5
+        + Op.POP(Op.DUP5) + Op.POP * 5 + Op.PUSH1[0x0] * 6 + Op.POP(Op.DUP6)
+        + Op.POP * 6 + Op.PUSH4[0xffffffff] * 6 + Op.POP(Op.DUP6) + Op.POP * 6
+        + Op.PUSH8[0xffffffffffffffff] * 6 + Op.POP(Op.DUP6) + Op.POP * 6
+        + Op.PUSH16[0xffffffffffffffffffffffffffffffff] * 6 + Op.POP(Op.DUP6)
+        + Op.POP * 6
+        + Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff] * 6
+        + Op.POP(Op.DUP6) + Op.POP * 6 + Op.PUSH1[0x0] * 7 + Op.POP(Op.DUP7)
+        + Op.POP * 7 + Op.PUSH4[0xffffffff] * 7 + Op.POP(Op.DUP7) + Op.POP * 7
+        + Op.PUSH8[0xffffffffffffffff] * 7 + Op.POP(Op.DUP7) + Op.POP * 7
+        + Op.PUSH16[0xffffffffffffffffffffffffffffffff] * 7 + Op.POP(Op.DUP7)
+        + Op.POP * 7
+        + Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff] * 7
+        + Op.POP(Op.DUP7) + Op.POP * 7 + Op.PUSH1[0x0] * 8 + Op.POP(Op.DUP8)
+        + Op.POP * 8 + Op.PUSH4[0xffffffff] * 8 + Op.POP(Op.DUP8) + Op.POP * 8
+        + Op.PUSH8[0xffffffffffffffff] * 8 + Op.POP(Op.DUP8) + Op.POP * 8
+        + Op.PUSH16[0xffffffffffffffffffffffffffffffff] * 8 + Op.POP(Op.DUP8)
+        + Op.POP * 8
+        + Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff] * 8
+        + Op.DUP8,
         nonce=0,
         address=Address("0xe860bd7bf0474923e526cbe86fa5b5f76aee36ed"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFF)
+    pre[sender] = Account(balance=0x7fffffffffffffff)
+
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': -1, 'gas': -1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {target: Account(balance=1)},
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        gas_limit=tx_gas_limit,
-        value=1,
+        to=target,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post: dict = {}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

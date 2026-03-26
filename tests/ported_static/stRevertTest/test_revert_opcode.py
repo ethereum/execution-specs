@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_revert_opcode
 
 Ported from:
-tests/static/state_tests/stRevertTest/RevertOpcodeFiller.json
+state_tests/stRevertTest/RevertOpcodeFiller.json
 """
 
 import pytest
@@ -16,37 +16,65 @@ from execution_testing import (
     Transaction,
 )
 from execution_testing.vm import Op
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "",
+]
+TX_GAS = [800000, 30000]
+TX_VALUE = [0, 10]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stRevertTest/RevertOpcodeFiller.json"],
+    ["state_tests/stRevertTest/RevertOpcodeFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_gas_limit, tx_value, expected_post",
+    "d, g, v",
     [
-        (800000, 0, {}),
-        (800000, 10, {}),
-        (30000, 0, {}),
-        (30000, 10, {}),
+        pytest.param(
+            0, 0, 0,
+            id="-g0-v0",
+        ),
+        pytest.param(
+            0, 0, 1,
+            id="-g0-v1",
+        ),
+        pytest.param(
+            0, 1, 0,
+            id="-g1-v0",
+        ),
+        pytest.param(
+            0, 1, 1,
+            id="-g1-v1",
+        ),
     ],
-    ids=["case0", "case1", "case2", "case3"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_revert_opcode(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_gas_limit: int,
-    tx_value: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Test ported from static filler."""
+    """test_revert_opcode"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
+        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
     )
 
     env = Environment(
@@ -54,29 +82,52 @@ def test_revert_opcode(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
-    # Source: raw bytecode
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(key=0x0, value=0x1)
-            + Op.REVERT(offset=0x0, size=0x1)
-            + Op.SSTORE(key=0x1, value=0x11)
-        ),
+    pre[sender] = Account(balance=0xe8d4a51000)
+    # Source: raw
+    # 0x600160005560016000fd6011600155
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=0x1) + Op.REVERT(offset=0x0, size=0x1)
+        + Op.SSTORE(key=0x1, value=0x11),
         nonce=0,
         address=Address("0xf5eaf70f313ab7c223ded96f5a804abc49bf804a"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xE8D4A51000)
+
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': -1, 'gas': 0, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        target: Account(storage={}, balance=0),
+    },
+        },
+        {
+            "indexes": {'data': -1, 'gas': 1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        target: Account(storage={}, balance=0),
+    },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        gas_limit=tx_gas_limit,
-        value=tx_value,
+        to=target,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

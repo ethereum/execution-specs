@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_out_of_gas_contract_creation
 
 Ported from:
-tests/static/state_tests/stInitCodeTest/OutOfGasContractCreationFiller.json
+state_tests/stInitCodeTest/OutOfGasContractCreationFiller.json
 """
 
 import pytest
@@ -15,51 +15,66 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
+from execution_testing.forks import Fork
+from execution_testing.specs.static_state.expect_section import (
+    resolve_expect_post,
+)
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
+
+TX_DATA = [
+    "600a80600c6000396000f200600160008035811a8100",
+    "600160015560026001556003600155600460015560056001556006600155",
+]
+TX_GAS = [56000, 150000]
+TX_VALUE = [1]
+
+
+def _tx_data(d: int) -> bytes:
+    """Convert TX_DATA[d] hex string to bytes."""
+    return bytes.fromhex(TX_DATA[d])
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stInitCodeTest/OutOfGasContractCreationFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stInitCodeTest/OutOfGasContractCreationFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
-    "tx_data_hex, tx_gas_limit, expected_post",
+    "d, g, v",
     [
-        ("600a80600c6000396000f200600160008035811a8100", 56000, {}),
-        ("600a80600c6000396000f200600160008035811a8100", 150000, {}),
-        (
-            "600160015560026001556003600155600460015560056001556006600155",
-            56000,
-            {},
+        pytest.param(
+            0, 0, 0,
+            id="d0-g0",
         ),
-        (
-            "600160015560026001556003600155600460015560056001556006600155",
-            150000,
-            {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                    storage={1: 6}
-                )
-            },
+        pytest.param(
+            0, 1, 0,
+            id="d0-g1",
+        ),
+        pytest.param(
+            1, 0, 0,
+            id="d1-g0",
+        ),
+        pytest.param(
+            1, 1, 0,
+            id="d1-g1",
         ),
     ],
-    ids=["case0", "case1", "case2", "case3"],
 )
 @pytest.mark.pre_alloc_mutable
 def test_out_of_gas_contract_creation(
     state_test: StateTestFiller,
     pre: Alloc,
-    tx_data_hex: str,
-    tx_gas_limit: int,
-    expected_post: dict,
+    fork: Fork,
+    d: int,
+    g: int,
+    v: int,
 ) -> None:
-    """Test ported from static filler."""
+    """test_out_of_gas_contract_creation"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
 
     env = Environment(
@@ -67,24 +82,52 @@ def test_out_of_gas_contract_creation(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000000000,
     )
 
-    pre[sender] = Account(
-        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-    )
+    pre[sender] = Account(balance=0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
 
-    tx_data = bytes.fromhex(tx_data_hex) if tx_data_hex else b""
+    expect_entries_: list[dict] = [
+        {
+            "indexes": {'data': 0, 'gas': 1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
+    },
+        },
+        {
+            "indexes": {'data': 1, 'gas': 1, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(nonce=1),  # noqa: E501
+    },
+        },
+        {
+            "indexes": {'data': -1, 'gas': 0, 'value': -1},
+            "network": ['>=Cancun'],
+            "result": {
+        sender: Account(nonce=1),
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
+    },
+        },
+    ]
+
+    post, _exc = resolve_expect_post(expect_entries_, d, g, v, fork)
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=tx_data,
-        gas_limit=tx_gas_limit,
-        value=1,
+        data=_tx_data(d),
+        gas_limit=TX_GAS[g],
+        value=TX_VALUE[v],
+        nonce=0,
+        gas_price=10,
+        error=_exc,
     )
 
-    post = expected_post
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_static_call_value_inherit_from_call
 
 Ported from:
-tests/static/state_tests/stStaticCall
-static_call_value_inherit_from_callFiller.json
+state_tests/stStaticCall/static_call_value_inherit_from_callFiller.json
 """
 
 import pytest
@@ -19,25 +18,23 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stStaticCall/static_call_value_inherit_from_callFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stStaticCall/static_call_value_inherit_from_callFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.slow
 def test_static_call_value_inherit_from_call(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_static_call_value_inherit_from_call"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
+        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
     )
 
     env = Environment(
@@ -45,70 +42,53 @@ def test_static_call_value_inherit_from_call(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=10000000,
     )
 
-    # Source: LLL
-    # { (CALL 100000 <contract:0x094f5374fce5edbc8e2a8697c15331677e6ebf0b> 10 0 0 0 0) }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.CALL(
-                gas=0x186A0,
-                address=0x453C54CFC5AF8E6FD9110C386DA8FBC47105D611,
-                value=0xA,
-                args_offset=0x0,
-                args_size=0x0,
-                ret_offset=0x0,
-                ret_size=0x0,
-            )
-            + Op.STOP
-        ),
-        nonce=0,
-        address=Address("0x0af4ae2156e6347e93d875a9d46085e31e57bbe9"),  # noqa: E501
-    )
-    callee = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x0,
-                value=Op.STATICCALL(
-                    gas=0xC350,
-                    address=0xCB9A81371BC2600A843F60738091E390318CDA9C,
-                    args_offset=0x0,
-                    args_size=0x0,
-                    ret_offset=0x0,
-                    ret_size=0x20,
-                ),
-            )
-            + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
-            + Op.STOP
-        ),
-        storage={0x1: 0x1},
+    pre[sender] = Account(balance=0xe8d4a51000)
+    # Source: lll
+    # { [[0]] (STATICCALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 32) [[1]] (MLOAD 0) }
+    addr_0x094f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.STATICCALL(gas=0xc350, address=0xcb9a81371bc2600a843f60738091e390318cda9c, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x20))  # noqa: E501
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0)) + Op.STOP,
+        storage={1: 1},
         balance=1,
         nonce=0,
         address=Address("0x453c54cfc5af8e6fd9110c386da8fbc47105d611"),  # noqa: E501
     )
-    pre.deploy_contract(
-        code=(
-            Op.MSTORE(offset=0x0, value=Op.CALLVALUE)
-            + Op.RETURN(offset=0x0, size=0x20)
-            + Op.STOP
-        ),
+    # Source: lll
+    # { (CALL 100000 <contract:0x094f5374fce5edbc8e2a8697c15331677e6ebf0b> 10 0 0 0 0) }
+    target = pre.deploy_contract(
+        code=Op.CALL(gas=0x186a0, address=0x453c54cfc5af8e6fd9110c386da8fbc47105d611, value=0xa, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.STOP,
+        nonce=0,
+        address=Address("0x0af4ae2156e6347e93d875a9d46085e31e57bbe9"),  # noqa: E501
+    )
+    # Source: lll
+    # { (MSTORE 0 (CALLVALUE)) (RETURN 0 32) }
+    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=Op.CALLVALUE)
+        + Op.RETURN(offset=0x0, size=0x20) + Op.STOP,
         balance=1,
         nonce=0,
         address=Address("0xcb9a81371bc2600a843f60738091e390318cda9c"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xE8D4A51000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=460000,
         value=10,
+        nonce=0,
+        gas_price=10,
     )
 
     post = {
-        callee: Account(storage={0: 1}),
+        addr_0x094f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={0: 1, 1: 0}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

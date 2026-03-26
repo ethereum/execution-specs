@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_transaction_create_suicide_in_initcode
 
 Ported from:
-tests/static/state_tests/stInitCodeTest
-TransactionCreateSuicideInInitcodeFiller.json
+state_tests/stInitCodeTest/TransactionCreateSuicideInInitcodeFiller.json
 """
 
 import pytest
@@ -18,13 +17,12 @@ from execution_testing import (
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stInitCodeTest/TransactionCreateSuicideInInitcodeFiller.json",  # noqa: E501
-    ],
+    ["state_tests/stInitCodeTest/TransactionCreateSuicideInInitcodeFiller.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -32,10 +30,10 @@ def test_transaction_create_suicide_in_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_transaction_create_suicide_in_initcode"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
+        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
     )
 
     env = Environment(
@@ -43,12 +41,14 @@ def test_transaction_create_suicide_in_initcode(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=100000000,
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0x3B9ACA00)
+    pre[sender] = Account(balance=0x3b9aca00)
+
 
     tx = Transaction(
         sender=sender,
@@ -56,8 +56,13 @@ def test_transaction_create_suicide_in_initcode(
         data=bytes.fromhex("30ff00"),
         gas_limit=155000,
         value=1,
+        nonce=0,
+        gas_price=10,
     )
 
-    post: dict = {}
+    post = {
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
+        sender: Account(nonce=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

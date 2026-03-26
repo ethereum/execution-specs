@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_random_statetest418
 
 Ported from:
-tests/static/state_tests/stRandom2/randomStatetest418Filler.json
+state_tests/stRandom2/randomStatetest418Filler.json
 """
 
 import pytest
@@ -18,11 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stRandom2/randomStatetest418Filler.json"],
+    ["state_tests/stRandom2/randomStatetest418Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.valid_until("Prague")
@@ -31,10 +32,10 @@ def test_random_statetest418(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_random_statetest418"""
     coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
     sender = EOA(
-        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
+        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
     )
 
     env = Environment(
@@ -42,66 +43,48 @@ def test_random_statetest418(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    # Source: raw bytecode
-    pre.deploy_contract(
-        code=(
-            Op.JUMPI(
-                pc=0x9,
-                condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
-            )
-            + Op.STOP
-            + Op.JUMPDEST
-            + Op.SSTORE(
-                key=Op.CALLDATALOAD(offset=0x0),
-                value=Op.CALLDATALOAD(offset=0x20),
-            )
-        ),
-        balance=46,
-        nonce=0,
-        address=coinbase,  # noqa: E501
-    )
-    # Source: raw bytecode
-    contract = pre.deploy_contract(
-        code=(
-            Op.PUSH32[0x0]
-            + Op.NUMBER
-            + Op.LOG3(
-                offset=Op.SLT(
-                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
-                    Op.COINBASE,
-                ),
-                size=Op.PUSH32[0x0],
-                topic_1=Op.PUSH32[0xC350],
-                topic_2=Op.PUSH32[0x4F3F701464972E74606D6EA82D4D3080599A0E79],
-                topic_3=Op.PUSH32[0x1],
-            )
-            + Op.LOG0(offset=Op.PC, size=0x349706)
-            + Op.SSTORE(key=Op.MLOAD(offset=0x0), value=Op.BALANCE)
-        ),
+    # Source: raw
+    # 0x7f0000000000000000000000000000000000000000000000000000000000000000437f00000000000000000000000000000000000000000000000000000000000000017f000000000000000000000000<contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>7f000000000000000000000000000000000000000000000000000000000000c3507f0000000000000000000000000000000000000000000000000000000000000000417fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff12a36234970658a03160005155
+    target = pre.deploy_contract(
+        code=Op.PUSH32[0x0] + Op.NUMBER
+        + Op.LOG3(offset=Op.SLT(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, Op.COINBASE), size=Op.PUSH32[0x0], topic_1=Op.PUSH32[0xc350], topic_2=Op.PUSH32[0x4f3f701464972e74606d6ea82d4d3080599a0e79], topic_3=Op.PUSH32[0x1])
+        + Op.LOG0(offset=Op.PC, size=0x349706)
+        + Op.SSTORE(key=Op.MLOAD(offset=0x0), value=Op.BALANCE),
         nonce=0,
         address=Address("0xb3ceb9e1ce94d2e429039525e57315f4bd255f06"),  # noqa: E501
     )
+    # Source: raw
+    # 0x6000355415600957005b60203560003555
+    coinbase = pre.deploy_contract(
+        code=Op.JUMPI(pc=0x9, condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))))  # noqa: E501
+        + Op.STOP + Op.JUMPDEST
+        + Op.SSTORE(key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)),  # noqa: E501
+        balance=46,
+        nonce=0,
+        address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
+    )
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
-        data=bytes.fromhex(
-            "7f0000000000000000000000000000000000000000000000000000000000000000437f00"  # noqa: E501
-            "000000000000000000000000000000000000000000000000000000000000017f00000000"  # noqa: E501
-            "00000000000000004f3f701464972e74606d6ea82d4d3080599a0e797f00000000000000"  # noqa: E501
-            "0000000000000000000000000000000000000000000000c3507f00000000000000000000"  # noqa: E501
-            "00000000000000000000000000000000000000000000417fffffffffffffffffffffffff"  # noqa: E501
-            "ffffffffffffffffffffffffffffffffffffffff12a36234970658a031"
-        ),
+        to=target,
+        data=bytes.fromhex("7f0000000000000000000000000000000000000000000000000000000000000000437f00000000000000000000000000000000000000000000000000000000000000017f0000000000000000000000004f3f701464972e74606d6ea82d4d3080599a0e797f000000000000000000000000000000000000000000000000000000000000c3507f0000000000000000000000000000000000000000000000000000000000000000417fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff12a36234970658a031"),  # noqa: E501
         gas_limit=392462029,
-        value=1705540168,
+        value=0x65a87a48,
+        nonce=0,
+        gas_price=10,
     )
 
-    post: dict = {}
+    post = {
+        target: Account(storage={}, nonce=0),
+        coinbase: Account(storage={}, nonce=0),
+        sender: Account(storage={}, code=b"", nonce=1),
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

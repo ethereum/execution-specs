@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_static_callcodecallcallcode_101_ooge_2
 
 Ported from:
-tests/static/state_tests/stStaticCall
-static_callcodecallcallcode_101_OOGE_2Filler.json
+state_tests/stStaticCall/static_callcodecallcallcode_101_OOGE_2Filler.json
 """
 
 import pytest
@@ -19,25 +18,23 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stStaticCall/static_callcodecallcallcode_101_OOGE_2Filler.json",  # noqa: E501
-    ],
+    ["state_tests/stStaticCall/static_callcodecallcallcode_101_OOGE_2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
-@pytest.mark.slow
 def test_static_callcodecallcallcode_101_ooge_2(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_static_callcodecallcallcode_101_ooge_2"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
     )
 
     env = Environment(
@@ -45,90 +42,59 @@ def test_static_callcodecallcallcode_101_ooge_2(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=30000000,
     )
 
-    pre.deploy_contract(
-        code=(
-            Op.STATICCALL(
-                gas=0x186A0,
-                address=0x25D69E6A677BD6D872F436BAD807C3244A268673,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-            + Op.STOP
-        ),
-        nonce=0,
-        address=Address("0x13ddac4297b5c0fb95bbc6d982184549393a980d"),  # noqa: E501
-    )
-    pre.deploy_contract(
-        code=(
-            Op.CALLCODE(
-                gas=0x4E34,
-                address=0xFBEF21C5A6C2ADCF3D769F085E0CC9FE9A8DF954,
-                value=0x0,
-                args_offset=0x0,
-                args_size=0x40,
-                ret_offset=0x0,
-                ret_size=0x40,
-            )
-            + Op.STOP
-        ),
-        nonce=0,
-        address=Address("0x25d69e6a677bd6d872f436bad807c3244a268673"),  # noqa: E501
-    )
-    # Source: LLL
-    # {  [[ 0 ]] (CALLCODE 150000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) [[ 1 ]] 1 }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.SSTORE(
-                key=0x0,
-                value=Op.CALLCODE(
-                    gas=0x249F0,
-                    address=0x13DDAC4297B5C0FB95BBC6D982184549393A980D,
-                    value=0x0,
-                    args_offset=0x0,
-                    args_size=0x40,
-                    ret_offset=0x0,
-                    ret_size=0x40,
-                ),
-            )
-            + Op.SSTORE(key=0x1, value=0x1)
-            + Op.STOP
-        ),
-        balance=0xDE0B6B3A7640000,
+    # Source: lll
+    # {  [[ 0 ]] (CALLCODE 150000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) [[ 1 ]] 1 }
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.CALLCODE(gas=0x249f0, address=0x13ddac4297b5c0fb95bbc6d982184549393a980d, value=0x0, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))  # noqa: E501
+        + Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0x66227cf0a560e1f6f9e94345dd1b5c6758923ba6"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
-    pre.deploy_contract(
-        code=(
-            Op.JUMPDEST
-            + Op.JUMPI(
-                pc=0x1C,
-                condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350)),
-            )
-            + Op.POP(Op.EXTCODESIZE(address=0x1))
-            + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
-            + Op.JUMP(pc=0x0)
-            + Op.JUMPDEST
-            + Op.STOP
-        ),
+    # Source: lll
+    # {  (STATICCALL 100000 <contract:0x1000000000000000000000000000000000000002> 0 64 0 64 ) }
+    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(
+        code=Op.STATICCALL(gas=0x186a0, address=0x25d69e6a677bd6d872f436bad807c3244a268673, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40)
+        + Op.STOP,
+        nonce=0,
+        address=Address("0x13ddac4297b5c0fb95bbc6d982184549393a980d"),  # noqa: E501
+    )
+    # Source: lll
+    # {  (CALLCODE 20020 <contract:0x1000000000000000000000000000000000000003> 0 0 64 0 64 ) }
+    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(
+        code=Op.CALLCODE(gas=0x4e34, address=0xfbef21c5a6c2adcf3d769f085e0cc9fe9a8df954, value=0x0, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40)
+        + Op.STOP,
+        nonce=0,
+        address=Address("0x25d69e6a677bd6d872f436bad807c3244a268673"),  # noqa: E501
+    )
+    # Source: lll
+    # {  (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) (EXTCODESIZE 1)) }
+    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(
+        code=Op.JUMPDEST
+        + Op.JUMPI(pc=0x1c, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xc350)))
+        + Op.POP(Op.EXTCODESIZE(address=0x1))
+        + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
+        + Op.JUMP(pc=0x0) + Op.JUMPDEST + Op.STOP,
         nonce=0,
         address=Address("0xfbef21c5a6c2adcf3d769f085e0cc9fe9a8df954"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=172000,
+        nonce=0,
+        gas_price=10,
     )
 
-    post = {
-        contract: Account(storage={0: 1, 1: 1}),
-    }
+    post = {target: Account(storage={0: 1, 1: 1})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

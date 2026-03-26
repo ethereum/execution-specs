@@ -1,0 +1,120 @@
+"""
+BLOB005
+
+Ported from:
+state_tests/Cancun/stEIP4844_blobtransactions/opcodeBlobhBoundsFiller.yml
+"""
+
+import pytest
+from execution_testing import (
+    EOA,
+    Account,
+    Address,
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Transaction,
+    AccessList,
+    Hash,
+)
+from execution_testing.vm import Op
+
+REFERENCE_SPEC_GIT_PATH = "N/A"
+
+REFERENCE_SPEC_VERSION = "N/A"
+
+
+@pytest.mark.ported_from(
+    ["state_tests/Cancun/stEIP4844_blobtransactions/opcodeBlobhBoundsFiller.yml"],
+)
+@pytest.mark.valid_from("Cancun")
+@pytest.mark.pre_alloc_mutable
+def test_opcode_blobh_bounds(
+    state_test: StateTestFiller,
+    pre: Alloc,
+) -> None:
+    """BLOB005"""
+    coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+    sender = EOA(
+        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
+    )
+
+    env = Environment(
+        fee_recipient=coinbase,
+        number=1,
+        timestamp=1000,
+        prev_randao=0x20000,
+        difficulty=0x20000,
+        base_fee_per_gas=1,
+        excess_blob_gas=0,
+        gas_limit=68719476736,
+    )
+
+    # Source: lll
+    # {
+    #    ; Can also add lll style comments here
+    #    [[0]] (BLOBHASH 0)
+    #    [[1]] (BLOBHASH 10) 
+    #    [[2]] (BLOBHASH 0xffffffff) ; 32
+    #    [[3]] (BLOBHASH 0xffffffffffffffff)  ; 64
+    #    [[4]] (BLOBHASH 0xffffffffffffffffffffffffffffffff) ; 128
+    #    [[5]] (BLOBHASH 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) ; 256
+    # }
+    target = pre.deploy_contract(
+        code=Op.SSTORE(key=0x0, value=Op.BLOBHASH(index=0x0))
+        + Op.SSTORE(key=0x1, value=Op.BLOBHASH(index=0xa))
+        + Op.SSTORE(key=0x2, value=Op.BLOBHASH(index=0xffffffff))
+        + Op.SSTORE(key=0x3, value=Op.BLOBHASH(index=0xffffffffffffffff))
+        + Op.SSTORE(key=0x4, value=Op.BLOBHASH(index=0xffffffffffffffffffffffffffffffff))  # noqa: E501
+        + Op.SSTORE(key=0x5, value=Op.BLOBHASH(index=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))  # noqa: E501
+        + Op.STOP,
+        storage={0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1},
+        balance=0xde0b6b3a7640000,
+        nonce=0,
+        address=Address("0xc8126e943c569c35df09619f8e1e67460acff695"),  # noqa: E501
+    )
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
+
+    tx = Transaction(
+        sender=sender,
+        to=target,
+        data=bytes.fromhex("00"),
+        gas_limit=4000000,
+        value=0x186a0,
+        max_fee_per_gas=5000000000,
+        max_priority_fee_per_gas=2,
+        nonce=0,
+        max_fee_per_blob_gas=10,
+        blob_versioned_hashes=[
+            Hash(
+                "0x01a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"  # noqa: E501
+            ),
+            Hash(
+                "0x01a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"  # noqa: E501
+            ),
+        ],
+        access_list=[
+            AccessList(
+                address=Address("0xc8126e943c569c35df09619f8e1e67460acff695"),
+                storage_keys=[
+                    Hash(
+                        "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                    ),
+                    Hash(
+                        "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    post = {
+        target: Account(
+                storage={
+            0: 0x1a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8,
+        },
+            ),
+    }
+
+    state_test(env=env, pre=pre, post=post, tx=tx)

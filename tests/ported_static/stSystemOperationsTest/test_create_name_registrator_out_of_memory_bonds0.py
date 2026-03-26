@@ -1,9 +1,8 @@
 """
-Test ported from static filler.
+test_create_name_registrator_out_of_memory_bonds0
 
 Ported from:
-tests/static/state_tests/stSystemOperationsTest
-createNameRegistratorOutOfMemoryBonds0Filler.json
+state_tests/stSystemOperationsTest/createNameRegistratorOutOfMemoryBonds0Filler.json
 """
 
 import pytest
@@ -19,13 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    [
-        "tests/static/state_tests/stSystemOperationsTest/createNameRegistratorOutOfMemoryBonds0Filler.json",  # noqa: E501
-    ],
+    ["state_tests/stSystemOperationsTest/createNameRegistratorOutOfMemoryBonds0Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -33,10 +31,10 @@ def test_create_name_registrator_out_of_memory_bonds0(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_create_name_registrator_out_of_memory_bonds0"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
+        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
     )
 
     env = Environment(
@@ -44,37 +42,34 @@ def test_create_name_registrator_out_of_memory_bonds0(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=1000000,
     )
 
-    # Source: LLL
-    # { (MSTORE 0 0x601080600c6000396000f3006000355415600957005b60203560003555) [[ 0 ]] (CREATE 23 0xfffffffffff 29) }  # noqa: E501
-    contract = pre.deploy_contract(
-        code=(
-            Op.MSTORE(
-                offset=0x0,
-                value=0x601080600C6000396000F3006000355415600957005B60203560003555,  # noqa: E501
-            )
-            + Op.SSTORE(
-                key=0x0,
-                value=Op.CREATE(value=0x17, offset=0xFFFFFFFFFFF, size=0x1D),
-            )
-            + Op.STOP
-        ),
-        balance=0xDE0B6B3A7640000,
+    # Source: lll
+    # { (MSTORE 0 0x601080600c6000396000f3006000355415600957005b60203560003555) [[ 0 ]] (CREATE 23 0xfffffffffff 29) }
+    target = pre.deploy_contract(
+        code=Op.MSTORE(offset=0x0, value=0x601080600c6000396000f3006000355415600957005b60203560003555)
+        + Op.SSTORE(key=0x0, value=Op.CREATE(value=0x17, offset=0xfffffffffff, size=0x1d))  # noqa: E501
+        + Op.STOP,
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0x8593273fe085739b33e6a5d293bb84f3224ba9ad"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xDE0B6B3A7640000)
+    pre[sender] = Account(balance=0xde0b6b3a7640000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=300000,
-        value=100000,
+        value=0x186a0,
+        nonce=0,
+        gas_price=10,
     )
 
-    post: dict = {}
+    post = {target: Account(storage={}, nonce=0)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

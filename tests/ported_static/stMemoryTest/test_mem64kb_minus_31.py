@@ -1,8 +1,8 @@
 """
-Test ported from static filler.
+test_mem64kb_minus_31
 
 Ported from:
-tests/static/state_tests/stMemoryTest/mem64kb-31Filler.json
+state_tests/stMemoryTest/mem64kb-31Filler.json
 """
 
 import pytest
@@ -18,11 +18,12 @@ from execution_testing import (
 from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["tests/static/state_tests/stMemoryTest/mem64kb-31Filler.json"],
+    ["state_tests/stMemoryTest/mem64kb-31Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -30,10 +31,10 @@ def test_mem64kb_minus_31(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test ported from static filler."""
+    """test_mem64kb_minus_31"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
+        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
     )
 
     env = Environment(
@@ -41,34 +42,37 @@ def test_mem64kb_minus_31(
         number=1,
         timestamp=1000,
         prev_randao=0x20000,
+        difficulty=0x20000,
         base_fee_per_gas=10,
         gas_limit=42949672960,
     )
 
-    pre[sender] = Account(balance=0x6400000000)
-    # Source: LLL
+    # Source: lll
     # { (MSTORE 63937 42) [[ 1 ]] (MLOAD 63937) [[ 0 ]] (MSIZE) }
-    contract = pre.deploy_contract(
-        code=(
-            Op.MSTORE(offset=0xF9C1, value=0x2A)
-            + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0xF9C1))
-            + Op.SSTORE(key=0x0, value=Op.MSIZE)
-            + Op.STOP
-        ),
-        balance=0xDE0B6B3A7640000,
+    target = pre.deploy_contract(
+        code=Op.MSTORE(offset=0xf9c1, value=0x2a)
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0xf9c1))
+        + Op.SSTORE(key=0x0, value=Op.MSIZE) + Op.STOP,
+        balance=0xde0b6b3a7640000,
         nonce=0,
         address=Address("0xc500d8b6a0ac6a677dbb818b03d5d596da40c315"),  # noqa: E501
     )
+    pre[sender] = Account(balance=0x6400000000)
+
 
     tx = Transaction(
         sender=sender,
-        to=contract,
+        to=target,
+        data=b'',
         gas_limit=100000,
         value=10,
+        nonce=0,
+        gas_price=10,
     )
 
     post = {
-        contract: Account(storage={0: 64000, 1: 42}),
+        target: Account(storage={0: 64000, 1: 42}, nonce=0),
+        sender: Account(storage={}, code=b"", nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

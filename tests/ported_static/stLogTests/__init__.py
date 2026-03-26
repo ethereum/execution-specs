@@ -1,1 +1,0 @@
-"""Tests ported from stLogTests."""
