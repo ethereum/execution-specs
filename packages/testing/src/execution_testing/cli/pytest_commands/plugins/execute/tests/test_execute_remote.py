@@ -138,14 +138,10 @@ def _build_client_genesis(seed_keys: List[EOA]) -> dict:
         ),
         parent_beacon_block_root=env.parent_beacon_block_root,
         requests_hash=Requests()
-        if TEST_FORK.header_requests_required(
-            block_number=block_number, timestamp=timestamp
-        )
+        if TEST_FORK.header_requests_required()
         else None,
         block_access_list_hash=Hash(EmptyTrieRoot)
-        if TEST_FORK.header_bal_hash_required(
-            block_number=block_number, timestamp=timestamp
-        )
+        if TEST_FORK.header_bal_hash_required()
         else None,
     )
 
