@@ -1,0 +1,294 @@
+---
+CallcodeToPrecompileFromTransaction:
+  _info:
+    comment: |
+      Contract B staticcalls contract A.
+      Contract A callcodes precompiled contracts.
+      It should execute successfully for each precompiled contract.
+  env:
+    currentCoinbase: '0xcafe000000000000000000000000000000000001'
+    currentDifficulty: '0x20000'
+    currentGasLimit: '10000000'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+  expect:
+  - indexes:
+      data: !!int -1
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Cancun"
+    result:
+      a000000000000000000000000000000000000000:
+        balance: '1000'
+        storage: {}
+      b000000000000000000000000000000000000000:
+        balance: '1100'
+        storage:
+          '0x00': '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
+          '0x01': '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
+          # precompiled contract #1 - Recovery of ECDSA signature
+          '0x0a00': '0x01'
+          '0x0a01': '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+          '0x0a02': '0x01'
+          # precompiled contract #2 - Hash function SHA256
+          '0x0a03': '0x01'
+          '0x0a04': '0x0ccccccccccccccccccccccccccccccccccccccccccccccccccc000000'
+          '0x0a05': '0x73f5062fb68ed2a1ec82ff8c73f9251bb9cf53a623bc93527e16bc5ae29dad74'
+          # precompiled contract #3 - Hash function RIPEMD160
+          '0x0a06': '0x01'
+          '0x0a07': '0x0ccccccccccccccccccccccccccccccccccccccccccccccccccc000000'
+          '0x0a08': '0x14ef238cfa4075e9ede92f18b1566c1dd0b99aaa'
+          # precompiled contract #4 - Identity
+          '0x0a09': '0x01'
+          '0x0a10': '0x0ccccccccccccccccccccccccccccccccccccccccccccccccccc000000'
+          # precompiled contract #5 - Modular exponentiation
+          '0x0a11': '0x01'
+          '0x0a12': '0x01'
+          # precompiled contract #6 - Addition on elliptic curve alt_bn128
+          '0x0a13': '0x01'
+          '0x0a14': '0x1f4d1d80177b1377743d1901f70d7389be7f7a35a35bfd234a8aaee615b88c49'
+          '0x0a15': '0x018683193ae021a2f8920fed186cde5d9b1365116865281ccf884c1f28b1df8f'
+          # precompiled contract #7 - Scalar multiplication on elliptic curve alt_bn128
+          '0x0a16': '0x01'
+          '0x0a17': '0x1f4d1d80177b1377743d1901f70d7389be7f7a35a35bfd234a8aaee615b88c49'
+          '0x0a18': '0x018683193ae021a2f8920fed186cde5d9b1365116865281ccf884c1f28b1df8f'
+          # precompiled contract #8 - Checking a pairing equation on curve alt_bn128
+          '0x0a19': '0x01'
+          '0x0a20': '0x01'
+          # precompiled contract #1 - Recovery of ECDSA signature
+          '0x0b00': '0x01'
+          '0x0b01': '0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+          '0x0b02': '0x01'
+          # precompiled contract #2 - Hash function SHA256
+          '0x0b03': '0x01'
+          '0x0b04': '0x0ccccccccccccccccccccccccccccccccccccccccccccccccccc000000'
+          '0x0b05': '0x73f5062fb68ed2a1ec82ff8c73f9251bb9cf53a623bc93527e16bc5ae29dad74'
+          # precompiled contract #3 - Hash function RIPEMD160
+          '0x0b06': '0x01'
+          '0x0b07': '0x0ccccccccccccccccccccccccccccccccccccccccccccccccccc000000'
+          '0x0b08': '0x14ef238cfa4075e9ede92f18b1566c1dd0b99aaa'
+          # precompiled contract #4 - Identity
+          '0x0b09': '0x01'
+          '0x0b10': '0x0ccccccccccccccccccccccccccccccccccccccccccccccccccc000000'
+          # precompiled contract #5 - Modular exponentiation
+          '0x0b11': '0x01'
+          '0x0b12': '0x01'
+          # precompiled contract #6 - Addition on elliptic curve alt_bn128
+          '0x0b13': '0x01'
+          '0x0b14': '0x1f4d1d80177b1377743d1901f70d7389be7f7a35a35bfd234a8aaee615b88c49'
+          '0x0b15': '0x018683193ae021a2f8920fed186cde5d9b1365116865281ccf884c1f28b1df8f'
+          # precompiled contract #7 - Scalar multiplication on elliptic curve alt_bn128
+          '0x0b16': '0x01'
+          '0x0b17': '0x1f4d1d80177b1377743d1901f70d7389be7f7a35a35bfd234a8aaee615b88c49'
+          '0x0b18': '0x018683193ae021a2f8920fed186cde5d9b1365116865281ccf884c1f28b1df8f'
+          # precompiled contract #8 - Checking a pairing equation on curve alt_bn128
+          '0x0b19': '0x01'
+          '0x0b20': '0x01'
+  pre:
+    b000000000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage:
+        '0x00': '0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf'
+        '0x01': '0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf'
+      code: |
+        {
+          [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+          (STATICCALL (GAS) 0xa000000000000000000000000000000000000000 0 0 0x0a0000 0x012020)
+          [[ 0x01 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+          ;; save results to store
+          [[ 0x0a00 ]] @0x0a0000  [[ 0x0b00 ]] @0x0b0000
+          [[ 0x0a01 ]] @0x0a0100  [[ 0x0b01 ]] @0x0b0100
+          [[ 0x0a02 ]] @0x0a0200  [[ 0x0b02 ]] @0x0b0200
+          [[ 0x0a03 ]] @0x0a0300  [[ 0x0b03 ]] @0x0b0300
+          [[ 0x0a04 ]] @0x0a0400  [[ 0x0b04 ]] @0x0b0400
+          [[ 0x0a05 ]] @0x0a0500  [[ 0x0b05 ]] @0x0b0500
+          [[ 0x0a06 ]] @0x0a0600  [[ 0x0b06 ]] @0x0b0600
+          [[ 0x0a07 ]] @0x0a0700  [[ 0x0b07 ]] @0x0b0700
+          [[ 0x0a08 ]] @0x0a0800  [[ 0x0b08 ]] @0x0b0800
+          [[ 0x0a09 ]] @0x0a0900  [[ 0x0b09 ]] @0x0b0900
+          [[ 0x0a10 ]] @0x0a1000  [[ 0x0b10 ]] @0x0b1000
+          [[ 0x0a11 ]] @0x0a1100  [[ 0x0b11 ]] @0x0b1100
+          [[ 0x0a12 ]] @0x0a1200  [[ 0x0b12 ]] @0x0b1200
+          [[ 0x0a13 ]] @0x0a1300  [[ 0x0b13 ]] @0x0b1300
+          [[ 0x0a14 ]] @0x0a1400  [[ 0x0b14 ]] @0x0b1400
+          [[ 0x0a15 ]] @0x0a1500  [[ 0x0b15 ]] @0x0b1500
+          [[ 0x0a16 ]] @0x0a1600  [[ 0x0b16 ]] @0x0b1600
+          [[ 0x0a17 ]] @0x0a1700  [[ 0x0b17 ]] @0x0b1700
+          [[ 0x0a18 ]] @0x0a1800  [[ 0x0b18 ]] @0x0b1800
+          [[ 0x0a19 ]] @0x0a1900  [[ 0x0b19 ]] @0x0b1900
+          [[ 0x0a20 ]] @0x0a2000  [[ 0x0b20 ]] @0x0b2000
+        }
+    a000000000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: |
+        {
+          ;; Recovery of ECDSA signature
+          [ 0x00 ] 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c
+          [ 0x20 ] 28
+          [ 0x40 ] 0x73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f
+          [ 0x60 ] 0xeeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549
+          ;; zero value
+          [ 0x0a0000 ] (CALLCODE (GAS) 1 0 0 128 0x2000 32)
+          [ 0x0a0100 ] (MOD @0x2000 (EXP 2 160))
+          [ 0x0a0200 ] (EQ (ORIGIN) @0x0a0100)
+          [ 0x2000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          ;; non zero value
+          [ 0x0b0000 ] (CALLCODE (GAS) 1 1 0 128 0x2020 32)
+          [ 0x0b0100 ] (MOD @0x2020 (EXP 2 160))
+          [ 0x0b0200 ] (EQ (ORIGIN) @0x0b0100)
+          [ 0x00 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x20 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x40 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x60 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x2020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+
+          ;; Hash function SHA256
+          [ 0x00 ] 0x0000000ccccccccccccccccccccccccccccccccccccccccccccccccccc000000
+          ;; zero value
+          [ 0x0a0300 ] (CALLCODE (GAS) 2 0 0 32 0x2000 32)
+          [ 0x0a0400 ] @0
+          [ 0x0a0500 ] @0x2000
+          [ 0x2000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          ;; non zero value
+          [ 0x0b0300 ] (CALLCODE (GAS) 2 1 0 32 0x2020 32)
+          [ 0x0b0400 ] @0
+          [ 0x0b0500 ] @0x2020
+          [ 0x00 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x2020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+
+          ;; Hash function RIPEMD160
+          [ 0x00 ] 0x0000000ccccccccccccccccccccccccccccccccccccccccccccccccccc000000
+          ;; zero value
+          [ 0x0a0600 ] (CALLCODE (GAS) 3 0 0 32 0x2000 32)
+          [ 0x0a0700 ] @0
+          [ 0x0a0800 ] @0x2000
+          [ 0x2000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          ;; non zero value
+          [ 0x0b0600 ] (CALLCODE (GAS) 3 1 0 32 0x2020 32)
+          [ 0x0b0700 ] @0
+          [ 0x0b0800 ] @0x2020
+          [ 0x00 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x2020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+
+          ;; Identity
+          [ 0x00 ] 0x0000000ccccccccccccccccccccccccccccccccccccccccccccccccccc000000
+          ;; zero value
+          [ 0x0a0900 ] (CALLCODE (GAS) 4 0 0 32 0x2000 32)
+          [ 0x0a1000 ] @0x2000
+          [ 0x2000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          ;; non zero value
+          [ 0x0b0900 ] (CALLCODE (GAS) 4 1 0 32 0x2020 32)
+          [ 0x0b1000 ] @0x2020
+          [ 0x00 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x2020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+
+          ;; Modular exponentiation
+          [ 0x00 ] 1
+          [ 0x20 ] 32
+          [ 0x40 ] 32
+          [ 0x60 ] 0x03fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc
+          [ 0x80 ] 0x2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc
+          [ 0xa0 ] 0x2f00000000000000000000000000000000000000000000000000000000000000
+          ;; zero value
+          [ 0x0a1100 ] (CALLCODE (GAS) 5 0 0 0xa1 0x2000 32)
+          [ 0x0a1200 ] @0x2000
+          [ 0x2000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          ;; non zero value
+          [ 0x0b1100 ] (CALLCODE (GAS) 5 1 0 0xa1 0x2020 32)
+          [ 0x0b1200 ] @0x2020
+          [ 0x00 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x20 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x40 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x60 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x80 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0xa0 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x2020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+
+          ;; Addition on elliptic curve alt_bn128
+          [ 0x00 ] 0x0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd2
+          [ 0x20 ] 0x16da2f5cb6be7a0aa72c440c53c9bbdfec6c36c7d515536431b3a865468acbba
+          [ 0x40 ] 0x1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc286
+          [ 0x60 ] 0x0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4
+          ;; zero value
+          [ 0x0a1300 ] (CALLCODE (GAS) 6 0 0 128 0x2000 64)
+          [ 0x0a1400 ] @0x2000
+          [ 0x0a1500 ] @0x2020
+          [ 0x2000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x2020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          ;; non zero value
+          [ 0x0b1300 ] (CALLCODE (GAS) 6 1 0 128 0x3000 64)
+          [ 0x0b1400 ] @0x3000
+          [ 0x0b1500 ] @0x3020
+          [ 0x00 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x20 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x40 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x60 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x3000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x3020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+
+          ;; Scalar multiplication on elliptic curve alt_bn128
+          [ 0x00 ] 0x0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd2
+          [ 0x20 ] 0x16da2f5cb6be7a0aa72c440c53c9bbdfec6c36c7d515536431b3a865468acbba
+          [ 0x40 ] 0x0000000000000000000000000000000000000000000000000000000000000003
+          ;; zero value
+          [ 0x0a1600 ] (CALLCODE (GAS) 7 0 0 96 0x2000 64)
+          [ 0x0a1700 ] @0x2000
+          [ 0x0a1800 ] @0x2020
+          [ 0x2000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x2020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          ;; non zero value
+          [ 0x0b1600 ] (CALLCODE (GAS) 7 1 0 96 0x3000 64)
+          [ 0x0b1700 ] @0x3000
+          [ 0x0b1800 ] @0x3020
+          [ 0x00 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x20 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x40 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x3000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          [ 0x3020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+
+          ;; Checking a pairing equation on curve alt_bn128
+          ;; proof.A + vk.A + negateG1(proof.Ap) + P2
+          [ 0x0000 ] 0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59
+          [ 0x0020 ] 0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41
+          [ 0x0040 ] 0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7
+          [ 0x0060 ] 0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678
+          [ 0x0080 ] 0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d
+          [ 0x00a0 ] 0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550
+          [ 0x00c0 ] 0x111e129f1cf1097710d41c4ac70fcdfa5ba2023c6ff1cbeac322de49d1b6df7c
+          [ 0x00e0 ] 0x2032c61a830e3c17286de9462bf242fca2883585b93870a73853face6a6bf411
+          [ 0x0100 ] 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2
+          [ 0x0120 ] 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed
+          [ 0x0140 ] 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b
+          [ 0x0160 ] 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa
+          ;; zero value
+          [ 0x0a1900 ] (CALLCODE (GAS) 8 0 0 0x0180 0x2000 32)
+          [ 0x0a2000 ] @0x2000
+          [ 0x2000 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+          ;; non zero value
+          [ 0x0b1900 ] (CALLCODE (GAS) 8 1 0 0x0180 0x2020 32)
+          [ 0x0b2000 ] @0x2020
+          [ 0x2020 ] 0x0000000000000000000000000000000000000000000000000000000000000000
+
+          ;; return all computed values to caller for checking
+          (RETURN 0x0a0000 0x012020)
+        }
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '4000000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: '0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+    to: 'b000000000000000000000000000000000000000'
+    value:
+    - '100'

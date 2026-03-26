@@ -102,6 +102,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    2: [
+    ],
     3: [
         AccessList(
             address=Address("0xf00000000000000000000000000000000000f101"),
@@ -120,6 +122,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    5: [
+    ],
     6: [
         AccessList(
             address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),
@@ -128,6 +132,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
                 Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
             ],
         ),
+    ],
+    7: [
     ],
     8: [
         AccessList(
@@ -138,6 +144,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    9: [
+    ],
     10: [
         AccessList(
             address=Address("0x0000000000000000000000000000000000000001"),
@@ -146,6 +154,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
                 Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
             ],
         ),
+    ],
+    11: [
     ],
     12: [
         AccessList(
@@ -162,6 +172,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             storage_keys=[
             ],
         ),
+    ],
+    14: [
     ],
     15: [
         AccessList(
@@ -181,6 +193,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    17: [
+    ],
     18: [
         AccessList(
             address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),
@@ -189,6 +203,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
                 Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
             ],
         ),
+    ],
+    19: [
     ],
     20: [
         AccessList(
@@ -199,6 +215,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    21: [
+    ],
     22: [
         AccessList(
             address=Address("0x0000000000000000000000000000000000000001"),
@@ -207,6 +225,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
                 Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
             ],
         ),
+    ],
+    23: [
     ],
     24: [
         AccessList(
@@ -223,6 +243,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             storage_keys=[
             ],
         ),
+    ],
+    26: [
     ],
     27: [
         AccessList(
@@ -242,6 +264,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    29: [
+    ],
     30: [
         AccessList(
             address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),
@@ -250,6 +274,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
                 Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
             ],
         ),
+    ],
+    31: [
     ],
     32: [
         AccessList(
@@ -260,6 +286,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    33: [
+    ],
     34: [
         AccessList(
             address=Address("0x0000000000000000000000000000000000000001"),
@@ -268,6 +296,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
                 Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
             ],
         ),
+    ],
+    35: [
     ],
     36: [
         AccessList(
@@ -284,6 +314,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             storage_keys=[
             ],
         ),
+    ],
+    38: [
     ],
     39: [
         AccessList(
@@ -303,6 +335,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    41: [
+    ],
     42: [
         AccessList(
             address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),
@@ -311,6 +345,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
                 Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
             ],
         ),
+    ],
+    43: [
     ],
     44: [
         AccessList(
@@ -321,6 +357,8 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    45: [
+    ],
     46: [
         AccessList(
             address=Address("0x0000000000000000000000000000000000000001"),
@@ -330,12 +368,14 @@ TX_ACCESS_LISTS: dict[int, list] = {
             ],
         ),
     ],
+    47: [
+    ],
 }
 
 
-def _tx_access_list(d: int) -> list:
-    """Get access list for data index d."""
-    return TX_ACCESS_LISTS.get(d, [])
+def _tx_access_list(d: int) -> list | None:
+    """Get access list for data index d. None means no access list (legacy tx)."""
+    return TX_ACCESS_LISTS.get(d)
 
 
 @pytest.mark.ported_from(

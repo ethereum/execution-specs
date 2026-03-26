@@ -115,6 +115,8 @@ def test_14_revert_after_nested_staticcall(
         max_fee_per_gas=2000,
         max_priority_fee_per_gas=0,
         nonce=0,
+        access_list=[
+        ],
     )
 
     post = {target: Account(storage={0: 10, 1: 0, 2: 1, 3: 10})}

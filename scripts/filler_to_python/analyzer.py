@@ -163,6 +163,12 @@ def analyze(
         model, tags, addr_to_var, sender_tag_name
     )
 
+    # Track if sender is not in the pre-state (for fund_eoa handling).
+    # When True, the generated test uses pre.fund_eoa(amount=0) instead
+    # of EOA(key=...), matching the static fill's setup() step 7.
+    if sender_tag_name and not any(a.is_sender for a in accounts):
+        sender_ir.not_in_pre = True
+
     # 10. Build environment
     environment_ir = _build_environment(model, tags, addr_to_var)
 
@@ -592,29 +598,6 @@ def _build_accounts(
             )
         )
 
-    # If the sender is tagged but not in the pre-state, add a synthetic
-    # account with balance=0 (matches what static fill's setup() does
-    # via pre.fund_eoa(amount=0) in step 7)
-    if sender_tag_name and not any(a.is_sender for a in accounts):
-        resolved = tags.get(sender_tag_name)
-        if resolved:
-            addr_hex = _addr_hex(resolved)
-            var_name = addr_to_var.get(addr_hex, "sender")
-            accounts.append(
-                AccountIR(
-                    var_name=var_name,
-                    is_tagged=True,
-                    is_eoa=True,
-                    is_sender=True,
-                    balance=0,
-                    nonce=None,
-                    address=addr_hex,
-                    source_comment="",
-                    code_expr="",
-                    storage={},
-                )
-            )
-
     return accounts, needs_op
 
 
@@ -888,11 +871,14 @@ def _build_transaction_ir(
         for d in model.transaction.data
     )
     if has_any_al and is_multi_case:
-        # Build per-data access list map
+        # Build per-data access list map.
+        # Include entries where access_list is not None (even if empty [])
+        # because access_list=[] makes the tx type-2 (EIP-2930), while
+        # access_list=None keeps it legacy.
         per_data_al: dict[int, list[AccessListEntryIR]] = {}
         for d in model.transaction.data:
             data_box = model.transaction.data[d.index]
-            if data_box.access_list is not None and data_box.access_list:
+            if data_box.access_list is not None:
                 per_data_al[d.index] = _resolve_access_list(
                     data_box.access_list
                 )
@@ -955,7 +941,7 @@ def _build_transaction_ir(
                 if model.transaction.nonce is not None
                 else None
             ),
-            access_list=access_list_entries if access_list_entries else None,
+            access_list=access_list_entries if has_any_al else None,
             per_data_access_lists=per_data_access_lists,
             data_inline=data_inline,
             gas_limit=gas_limit_single,

@@ -64,6 +64,8 @@ def test_transaction_intinsic_bug_paris(
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=20,
         nonce=1,
+        access_list=[
+        ],
         error=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
     )
 

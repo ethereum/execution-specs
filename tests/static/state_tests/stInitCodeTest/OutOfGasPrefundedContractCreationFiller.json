@@ -1,0 +1,80 @@
+{
+    "OutOfGasPrefundedContractCreation" : {
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "1000000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : [0, 1],
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "//comment" : "Contract creation OOG on create, and on internal opcode inside create",
+                "result" : {
+            	    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                       	"nonce" : "0x01"
+            	    },
+            	    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+                      	"balance" : "0x01"
+              	    }
+                }
+            },
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : [2],
+                    "value" : -1
+                },
+                "network" : [">=Cancun"],
+                "//comment" : "Contract creation OOG on internal opcode inside create",
+                "result" : {
+            	    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                       	"nonce" : "0x01"
+            	    },
+            	    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+                       	"balance" : "0x02"
+              	    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0f424000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+                "balance" : "0x01",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+	},
+        "transaction" : {
+            "data" : [
+                "{ (CREATE 1 0 (lll (seq (sstore 0 0x112233) (STOP) ) 0)) (STOP) }"
+            ],
+            "gasLimit" : [
+                "154000",
+                "65000",
+                "95000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "",
+            "value" : [
+                "1"
+            ]
+        }
+    }
+}

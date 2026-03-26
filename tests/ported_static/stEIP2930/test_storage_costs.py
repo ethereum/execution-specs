@@ -359,9 +359,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
 }
 
 
-def _tx_access_list(d: int) -> list:
-    """Get access list for data index d."""
-    return TX_ACCESS_LISTS.get(d, [])
+def _tx_access_list(d: int) -> list | None:
+    """Get access list for data index d. None means no access list (legacy tx)."""
+    return TX_ACCESS_LISTS.get(d)
 
 
 @pytest.mark.ported_from(

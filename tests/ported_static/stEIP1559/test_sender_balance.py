@@ -73,6 +73,8 @@ def test_sender_balance(
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=100,
         nonce=0,
+        access_list=[
+        ],
     )
 
     post = {target: Account(storage={0: 0xde0b6b3a6fe6060})}

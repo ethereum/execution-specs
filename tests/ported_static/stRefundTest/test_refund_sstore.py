@@ -71,6 +71,8 @@ def test_refund_sstore(
         gas_limit=2601000,
         nonce=1,
         gas_price=1000,
+        access_list=[
+        ],
     )
 
     post = {sender: Account(balance=0xe8d4ee4e00)}

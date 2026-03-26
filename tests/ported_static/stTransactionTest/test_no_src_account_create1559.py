@@ -41,6 +41,8 @@ def _tx_data(d: int) -> bytes:
     return bytes.fromhex(TX_DATA[d])
 
 TX_ACCESS_LISTS: dict[int, list] = {
+    0: [
+    ],
     1: [
         AccessList(
             address=Address("0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0"),
@@ -60,9 +62,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
 }
 
 
-def _tx_access_list(d: int) -> list:
-    """Get access list for data index d."""
-    return TX_ACCESS_LISTS.get(d, [])
+def _tx_access_list(d: int) -> list | None:
+    """Get access list for data index d. None means no access list (legacy tx)."""
+    return TX_ACCESS_LISTS.get(d)
 
 
 @pytest.mark.ported_from(
@@ -176,9 +178,7 @@ def test_no_src_account_create1559(
     """test_no_src_account_create1559"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     addr_0xbad0000000000000000000000000000000000000 = Address("0xc22941800a5a392672dc35d8e088ba1bc90891b1")  # noqa: E501
-    sender = EOA(
-        key=0xd6dd1375f0f26fe9f1087d99f8721c0c373ed104600b6b87b213019bd8ce0f39
-    )
+    sender = pre.fund_eoa(amount=0)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -191,7 +191,6 @@ def test_no_src_account_create1559(
     )
 
     pre[addr_0xbad0000000000000000000000000000000000000] = Account(balance=0, nonce=24743)
-    pre[sender] = Account(balance=0)
 
     expect_entries_: list[dict] = [
         {

@@ -74,6 +74,8 @@ def test_tip_too_high(
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=1001,
         nonce=1,
+        access_list=[
+        ],
         error=TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS,
     )
 

@@ -40,6 +40,18 @@ def _tx_data(d: int) -> bytes:
     """Convert TX_DATA[d] hex string to bytes."""
     return bytes.fromhex(TX_DATA[d])
 
+TX_ACCESS_LISTS: dict[int, list] = {
+    0: [
+    ],
+    1: [
+    ],
+}
+
+
+def _tx_access_list(d: int) -> list | None:
+    """Get access list for data index d. None means no access list (legacy tx)."""
+    return TX_ACCESS_LISTS.get(d)
+
 
 @pytest.mark.ported_from(
     ["state_tests/stEIP1559/valCausesOOFFiller.yml"],
@@ -185,6 +197,7 @@ def test_val_causes_oof(
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=0,
         nonce=1,
+        access_list=_tx_access_list(d),
         error=_exc,
     )
 

@@ -115,6 +115,8 @@ def test_10_revert_undoes_store_after_return(
         max_fee_per_gas=2000,
         max_priority_fee_per_gas=0,
         nonce=0,
+        access_list=[
+        ],
     )
 
     post = {target: Account(storage={0: 5, 1: 0, 2: 1, 3: 5})}

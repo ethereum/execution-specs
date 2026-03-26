@@ -42,6 +42,8 @@ def _tx_data(d: int) -> bytes:
     return bytes.fromhex(TX_DATA[d])
 
 TX_ACCESS_LISTS: dict[int, list] = {
+    0: [
+    ],
     1: [
         AccessList(
             address=Address("0x4d7b154e5bf8310a4d8220c8eed80020e4b8f86f"),
@@ -61,9 +63,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
 }
 
 
-def _tx_access_list(d: int) -> list:
-    """Get access list for data index d."""
-    return TX_ACCESS_LISTS.get(d, [])
+def _tx_access_list(d: int) -> list | None:
+    """Get access list for data index d. None means no access list (legacy tx)."""
+    return TX_ACCESS_LISTS.get(d)
 
 
 @pytest.mark.ported_from(
@@ -176,9 +178,7 @@ def test_no_src_account1559(
 ) -> None:
     """test_no_src_account1559"""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    sender = EOA(
-        key=0xd6dd1375f0f26fe9f1087d99f8721c0c373ed104600b6b87b213019bd8ce0f39
-    )
+    sender = pre.fund_eoa(amount=0)
 
     env = Environment(
         fee_recipient=coinbase,
@@ -197,7 +197,6 @@ def test_no_src_account1559(
         nonce=0,
         address=Address("0x4d7b154e5bf8310a4d8220c8eed80020e4b8f86f"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0)
 
     expect_entries_: list[dict] = [
         {

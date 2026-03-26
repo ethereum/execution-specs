@@ -73,6 +73,8 @@ def test_low_fee_cap(
         max_fee_per_gas=999,
         max_priority_fee_per_gas=100,
         nonce=1,
+        access_list=[
+        ],
         error=TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
     )
 

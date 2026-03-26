@@ -106,6 +106,7 @@ class SenderIR:
     is_tagged: bool = False
     key: int | None = None
     balance: int = 0
+    not_in_pre: bool = False
 
 
 @dataclass
