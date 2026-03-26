@@ -16,7 +16,6 @@ from execution_testing import (
     Conditional,
     Create2PreimageLayout,
     Fork,
-    Hash,
     Op,
     Transaction,
     While,
@@ -433,7 +432,23 @@ def test_mixed_sload_sstore(
     sload_percent: int,
     sstore_percent: int,
 ) -> None:
-    """Benchmark mixed SLOAD/SSTORE on bloatnet."""
+    """
+    Benchmark mixed SLOAD/SSTORE on bloatnet.
+
+    Uses runtime gas checking instead of pre-calculated iteration
+    counts.  Each ERC20 contract has its own implementation with
+    different per-call gas costs, so a single gas model cannot
+    predict the right iteration count.  Instead the contract
+    checks remaining gas via the GAS opcode each iteration and
+    splits the budget between SLOAD and SSTORE phases using a
+    pre-computed gas floor.
+    """
+    # The gas threshold is the minimum gas reserved to exit the
+    # loops and execute cleanup (SSTORE to persist slot offset).
+    # 150_000 is conservative: cold approve ~25K + cleanup ~20K.
+    gas_threshold = 150_000
+    slot_offset_key = 0  # storage slot for persistent offset
+
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
@@ -441,50 +456,66 @@ def test_mixed_sload_sstore(
     )
 
     # Contract Construction
-    # MEM[0] = function selector
-    # MEM[32] = address/slot offset (incremented each iteration)
-    # MEM[64] = spender/amount for approve (copied from MEM[32])
+    # MEM[0]   = function selector
+    # MEM[32]  = address/slot offset (incremented each iteration)
+    # MEM[64]  = spender/amount for approve (copied from MEM[32])
+    # MEM[96]  = initial_gas snapshot
+    # MEM[128] = gas_floor for SLOAD phase
     setup = (
         Op.MSTORE(
             0,
             BALANCEOF_SELECTOR,
-            # gas accounting
             old_memory_size=0,
             new_memory_size=32,
         )
         + Op.MSTORE(
             32,
-            Op.CALLDATALOAD(64),  # Slot Offset
-            # gas accounting
+            Op.SLOAD(slot_offset_key),
             old_memory_size=32,
             new_memory_size=64,
         )
-        + Op.CALLDATALOAD(0)  # [num_sload_calls]
+        + Op.MSTORE(
+            96,
+            Op.GAS,
+            old_memory_size=64,
+            new_memory_size=128,
+        )
+        # gas_floor = initial_gas * sstore_percent / 100
+        # This is the gas level at which SLOADs stop and
+        # SSTOREs begin, leaving sstore_percent of the
+        # initial gas for the SSTORE phase.
+        + Op.MSTORE(
+            128,
+            Op.DIV(Op.MUL(Op.MLOAD(96), sstore_percent), 100),
+            old_memory_size=128,
+            new_memory_size=160,
+        )
     )
 
+    # SLOAD loop — STATICCALL since balanceOf is a view function.
+    # Continues while both: gas is above the sload/sstore
+    # transition floor AND above the safety threshold.
     sload_loop = While(
         body=Op.POP(
-            Op.CALL(
+            Op.STATICCALL(
                 address=erc20_address,
-                value=0,
                 args_offset=28,
                 args_size=36,
                 ret_offset=0,
                 ret_size=0,
-                # gas accounting
                 address_warm=True,
             )
         )
         + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1)),
-        condition=DECREMENT_COUNTER_CONDITION,
+        condition=Op.AND(
+            Op.GT(Op.GAS, Op.MLOAD(128)),
+            Op.GT(Op.GAS, gas_threshold),
+        ),
     )
 
-    transition = (
-        Op.POP  # remove 0 counter from sload loop
-        + Op.MSTORE(0, APPROVE_SELECTOR)
-        + Op.CALLDATALOAD(32)  # [num_sstore_calls]
-    )
+    transition = Op.MSTORE(0, APPROVE_SELECTOR)
 
+    # SSTORE loop — runs until gas drops below safety threshold.
     sstore_loop = While(
         body=(
             Op.MSTORE(64, Op.MLOAD(32))
@@ -496,159 +527,50 @@ def test_mixed_sload_sstore(
                     args_size=68,
                     ret_offset=0,
                     ret_size=0,
-                    # gas accounting
                     address_warm=True,
                 )
             )
             + Op.MSTORE(32, Op.ADD(Op.MLOAD(32), 1))
         ),
-        condition=DECREMENT_COUNTER_CONDITION,
+        condition=Op.GT(Op.GAS, gas_threshold),
     )
+
+    # Persist the final slot offset so the next tx continues
+    # from where this one left off.
+    cleanup = Op.SSTORE(slot_offset_key, Op.MLOAD(32))
 
     # Contract Deployment
-    code = setup + sload_loop + transition + sstore_loop
-    attack_contract_address = pre.deploy_contract(code=code)
+    code = setup + sload_loop + transition + sstore_loop + cleanup
+    attack_contract_address = pre.deploy_contract(
+        code=code,
+        storage={slot_offset_key: 0},
+    )
 
-    # Gas Accounting
-    setup_cost = setup.gas_cost(fork)
-    sload_loop_cost = sload_loop.gas_cost(fork)
-    transition_cost = transition.gas_cost(fork)
-    sstore_loop_cost = sstore_loop.gas_cost(fork)
-
+    # Transaction Construction — no iteration count math.
+    # Each tx gets up to tx_gas_limit gas; the contract
+    # self-regulates via the GAS opcode.
     access_list = [AccessList(address=erc20_address, storage_keys=[])]
-    intrinsic_cost_calc = fork.transaction_intrinsic_cost_calculator()
-    max_intrinsic = intrinsic_cost_calc(
+    intrinsic_gas_cost = fork.transaction_intrinsic_cost_calculator()(
         access_list=access_list,
-        calldata=b"\xff" * 96,
     )
 
-    # ERC20 balanceOf bytecode structure (gas cost model):
-    sload_dispatch = (
-        # Selector dispatch
-        Op.PUSH4(BALANCEOF_SELECTOR)
-        + Op.EQ
-        + Op.JUMPI
-        # Function body
-        + Op.JUMPDEST
-        + Op.MSTORE(0, Op.CALLDATALOAD(4))
-        + Op.MSTORE(32, 0)
-        + Op.MSTORE(
-            0,
-            Op.SLOAD(
-                Op.SHA3(
-                    0,
-                    64,
-                    # gas accounting
-                    data_size=64,
-                    old_memory_size=0,
-                    new_memory_size=64,
-                )
-            ),
-        )
-        + Op.RETURN(0, 32)
-    )
-
-    sload_dispatch_cost = sload_dispatch.gas_cost(fork)
-
-    # ERC20 approve bytecode structure (gas cost model):
-    sstore_dispatch = (
-        # Selector dispatch
-        Op.PUSH4(APPROVE_SELECTOR)
-        + Op.EQ
-        + Op.JUMPI
-        # Function body
-        + Op.JUMPDEST
-        + Op.CALLDATALOAD(4)
-        + Op.CALLDATALOAD(36)
-        + Op.MSTORE(0, Op.CALLER)
-        + Op.MSTORE(32, 1)
-        + Op.MSTORE(
-            32,
-            Op.SHA3(
-                0,
-                64,
-                # gas accounting
-                data_size=64,
-                old_memory_size=0,
-                new_memory_size=64,
-            ),
-        )
-        + Op.MSTORE(0, Op.CALLDATALOAD(4))
-        + Op.SHA3(
-            0,
-            64,
-            # gas accounting
-            data_size=64,
-        )
-        + Op.DUP1
-        + Op.SLOAD.with_metadata(key_warm=False)
-        + Op.POP
-        + Op.SSTORE
-        # Return true
-        + Op.MSTORE(0, 1)
-        + Op.RETURN(0, 32)
-    )
-
-    sstore_dispatch_cost = sstore_dispatch.gas_cost(fork)
-
-    sload_iter_cost = sload_loop_cost + sload_dispatch_cost
-    sstore_iter_cost = sstore_loop_cost + sstore_dispatch_cost
-    fixed_overhead = max_intrinsic + setup_cost + transition_cost
-
-    # Attack Loop
     gas_remaining = gas_benchmark_value
     txs = []
-    slot_offset = 0
-    total_gas_consumed = 0
-
-    while gas_remaining > fixed_overhead + sload_iter_cost + sstore_iter_cost:
-        gas_available = min(gas_remaining, tx_gas_limit)
-
-        if gas_available < fixed_overhead + sload_iter_cost + sstore_iter_cost:
-            break
-
-        available = gas_available - fixed_overhead
-        sload_gas = (available * sload_percent) // 100
-        sstore_gas = (available * sstore_percent) // 100
-
-        num_sload = sload_gas // sload_iter_cost
-        num_sstore = sstore_gas // sstore_iter_cost
-
-        if num_sload == 0 or num_sstore == 0:
-            break
-
-        calldata = Hash(num_sload) + Hash(num_sstore) + Hash(slot_offset)
-        actual_intrinsic = intrinsic_cost_calc(
-            access_list=access_list,
-            calldata=bytes(calldata),
-            return_cost_deducted_prior_execution=True,
-        )
-        tx_gas = (
-            actual_intrinsic
-            + setup_cost
-            + transition_cost
-            + num_sload * sload_iter_cost
-            + num_sstore * sstore_iter_cost
-        )
-
+    while gas_remaining >= intrinsic_gas_cost + gas_threshold:
+        gas_limit = min(gas_remaining, tx_gas_limit)
         txs.append(
             Transaction(
-                gas_limit=tx_gas,
-                data=calldata,
+                gas_limit=gas_limit,
                 to=attack_contract_address,
                 sender=pre.fund_eoa(),
                 access_list=access_list,
             )
         )
-
-        total_gas_consumed += tx_gas
-        gas_remaining -= gas_available
-        slot_offset += num_sload + num_sstore
+        gas_remaining -= gas_limit
 
     assert txs, "Gas loop produced zero transactions"
     benchmark_test(
         pre=pre,
         blocks=[Block(txs=txs)],
-        expected_benchmark_gas_used=total_gas_consumed,
         skip_gas_used_validation=True,
     )
