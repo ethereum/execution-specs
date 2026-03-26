@@ -75,7 +75,9 @@ def pytest_configure(config: pytest.Config) -> None:
             "flags or the CHAIN_ID/RPC_CHAIN_ID environment variables."
         )
 
-    setattr(config, "_original_chain_id_default", ChainConfigDefaults.chain_id)
+    setattr(  # noqa: B010
+        config, "_original_chain_id_default", ChainConfigDefaults.chain_id
+    )
 
     # write to config
     ChainConfigDefaults.chain_id = chain_id
@@ -84,4 +86,6 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_unconfigure(config: pytest.Config) -> None:
     """Restore the previous chain-id default after the session ends."""
     if hasattr(config, "_original_chain_id_default"):
-        ChainConfigDefaults.chain_id = getattr(config, "_original_chain_id_default")
+        ChainConfigDefaults.chain_id = getattr(  # noqa: B009
+            config, "_original_chain_id_default"
+        )
