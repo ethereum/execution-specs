@@ -1,9 +1,17 @@
 """Tests for execute command click CLI."""
 
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 from click.testing import CliRunner
 
 from ..pytest_commands.execute import execute
+from ...test_types.chain_config_types import (
+    DEFAULT_CHAIN_ID,
+    ChainConfigDefaults,
+)
+from ...test_types.transaction_types import Transaction
 
 
 @pytest.fixture
@@ -108,3 +116,45 @@ def test_all_execute_subcommands_help_no_conflicts(runner: CliRunner) -> None:
             f"execute {subcommand} --help has conflicting option string\n"
             f"Output: {result.output}"
         )
+
+
+def test_execute_remote_leaks_chain_id_into_later_defaults(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """Demonstrate that an in-process execute session leaks chain ID."""
+    inner_test = tmp_path / "test_inner.py"
+    inner_test.write_text(
+        "\n".join(
+            [
+                "from execution_testing import Account, Environment, TestAddress, Transaction",
+                "",
+                "def test_noop(state_test) -> None:",
+                "    state_test(",
+                "        env=Environment(),",
+                "        pre={TestAddress: Account(balance=1_000_000)},",
+                "        post={},",
+                "        tx=Transaction(),",
+                "    )",
+            ]
+        )
+    )
+
+    ChainConfigDefaults.chain_id = DEFAULT_CHAIN_ID
+    with patch(
+        "execution_testing.cli.pytest_commands.plugins.execute.rpc.remote.EthRPC"
+    ) as mock_eth_rpc:
+        mock_eth_rpc.return_value.chain_id.return_value = 12345
+        result = runner.invoke(
+            execute,
+            [
+                "remote",
+                "--rpc-endpoint=http://localhost:12345",
+                "--chain-id=12345",
+                "--collect-only",
+                "-q",
+                str(inner_test),
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert Transaction().chain_id == DEFAULT_CHAIN_ID
