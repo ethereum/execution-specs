@@ -84,6 +84,4 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_unconfigure(config: pytest.Config) -> None:
     """Restore the previous chain-id default after the session ends."""
     if hasattr(config, "_original_chain_id_default"):
-        ChainConfigDefaults.chain_id = getattr(
-            config, "_original_chain_id_default"
-        )
+        ChainConfigDefaults.chain_id = getattr(config, "_original_chain_id_default")
