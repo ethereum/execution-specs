@@ -33,10 +33,8 @@ from execution_testing import (
 
 from ethereum.crypto.hash import keccak256
 
-# TODO: Due to directory name this is required, link this to the
-# corresponding reference in amsterdam tests?
-REFERENCE_SPEC_GIT_PATH = "DUMMY/BAL.md"
-REFERENCE_SPEC_VERSION = "1.0"
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7928.md"
+REFERENCE_SPEC_VERSION = "aca88aa0932580c29d0233f902cb4390e88b8c41"
 
 pytestmark = pytest.mark.valid_from("Amsterdam")
 
