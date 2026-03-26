@@ -6,12 +6,12 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from ..pytest_commands.execute import execute
 from ...test_types.chain_config_types import (
     DEFAULT_CHAIN_ID,
     ChainConfigDefaults,
 )
 from ...test_types.transaction_types import Transaction
+from ..pytest_commands.execute import execute
 
 
 @pytest.fixture
@@ -126,7 +126,12 @@ def test_execute_remote_leaks_chain_id_into_later_defaults(
     inner_test.write_text(
         "\n".join(
             [
-                "from execution_testing import Account, Environment, TestAddress, Transaction",
+                "from execution_testing import (",
+                "    Account,",
+                "    Environment,",
+                "    TestAddress,",
+                "    Transaction,",
+                ")",
                 "",
                 "def test_noop(state_test) -> None:",
                 "    state_test(",
