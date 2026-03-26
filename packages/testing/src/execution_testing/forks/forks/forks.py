@@ -47,6 +47,7 @@ from ..base_fork import (
     TransactionIntrinsicCostCalculator,
 )
 from ..gas_costs import GasCosts
+from .eips.eip_7928 import EIP7928
 from .helpers import ceiling_division, fake_exponential
 
 CURRENT_FILE = Path(realpath(__file__))
@@ -2834,43 +2835,12 @@ class BPO5(BPO4, bpo_fork=True):
     pass
 
 
-class Amsterdam(BPO2):
+class Amsterdam(EIP7928, BPO2):
     """Amsterdam fork."""
 
     # TODO: We may need to adjust which BPO Amsterdam inherits from as the
     #  related Amsterdam specs change over time, and before Amsterdam is
     #  live on mainnet.
-
-    @classmethod
-    def header_bal_hash_required(cls) -> bool:
-        """
-        From Amsterdam, header must contain block access list hash (EIP-7928).
-        """
-        return True
-
-    @classmethod
-    def gas_costs(cls) -> GasCosts:
-        """
-        On Amsterdam, the cost per block access list item is introduced
-        in EIP-7928.
-        """
-        return replace(
-            super(Amsterdam, cls).gas_costs(),
-            GAS_BLOCK_ACCESS_LIST_ITEM=2000,
-        )
-
-    @classmethod
-    def empty_block_bal_item_count(cls) -> int:
-        """
-        Return the BAL item count for an empty Amsterdam block.
-
-        Four system contracts produce 15 items:
-          EIP-4788 beacon roots:           1 address + 1 write + 1 read = 3
-          EIP-2935 history storage:        1 address + 1 write          = 2
-          EIP-7002 withdrawal requests:    1 address + 4 reads          = 5
-          EIP-7251 consolidation requests: 1 address + 4 reads          = 5
-        """
-        return 15
 
     @classmethod
     def is_deployed(cls) -> bool:
@@ -2886,11 +2856,3 @@ class Amsterdam(BPO2):
     def engine_get_payload_version(cls) -> Optional[int]:
         """From Amsterdam, get payload calls must use version 6."""
         return 6
-
-    @classmethod
-    def engine_execution_payload_block_access_list(cls) -> bool:
-        """
-        From Amsterdam, engine execution payload includes `block_access_list`
-        as a parameter.
-        """
-        return True

@@ -283,10 +283,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
             )
         else:
             cls._fork_by_timestamp = fork_by_timestamp
-        base_class = cls.__bases__[0]
-        assert issubclass(base_class, BaseFork)
-        if base_class != BaseFork:
-            base_class._children.add(cls)
+        base_fork_class = None
+        for base_class in cls.__bases__:
+            if issubclass(base_class, BaseFork):
+                base_fork_class = base_class
+                break
+        assert base_fork_class is not None
+        if base_fork_class != BaseFork:
+            base_fork_class._children.add(cls)
 
     # Header information abstract methods
     @classmethod
@@ -852,11 +856,15 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     @classmethod
     def parent(cls) -> Type["BaseFork"] | None:
         """Return the parent fork."""
-        base_class = cls.__bases__[0]
-        assert issubclass(base_class, BaseFork)
-        if base_class == BaseFork:
+        base_fork_class = None
+        for base_class in cls.__bases__:
+            if issubclass(base_class, BaseFork):
+                base_fork_class = base_class
+                break
+        assert base_fork_class is not None
+        if base_fork_class == BaseFork:
             return None
-        return base_class
+        return base_fork_class
 
     @classmethod
     def non_bpo_ancestor(cls) -> Type["BaseFork"]:

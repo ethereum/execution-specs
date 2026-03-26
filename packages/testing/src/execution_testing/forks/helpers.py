@@ -99,14 +99,6 @@ def get_development_forks() -> List[Type[BaseFork]]:
     return [fork for fork in get_forks() if not fork.is_deployed()]
 
 
-def get_parent_fork(fork: Type[BaseFork]) -> Type[BaseFork]:
-    """Return parent fork of the specified fork."""
-    parent_fork = fork.__base__
-    if not parent_fork:
-        raise InvalidForkError(f"Parent fork of {fork} not found.")
-    return parent_fork
-
-
 def get_closest_fork(fork: Type[BaseFork]) -> Optional[Type[BaseFork]]:
     """Return None if BaseFork is passed, otherwise return the fork itself."""
     if fork is BaseFork:
@@ -284,14 +276,14 @@ def forks_from_until(
     Return specified fork and all forks after it until and including the second
     specified fork.
     """
-    prev_fork = fork_until
+    prev_fork: Type[BaseFork] | None = fork_until
 
     forks: List[Type[BaseFork]] = []
 
-    while prev_fork != BaseFork and prev_fork != fork_from:
+    while prev_fork is not None and prev_fork != fork_from:
         forks.insert(0, prev_fork)
 
-        prev_fork = get_parent_fork(prev_fork)
+        prev_fork = prev_fork.parent()
 
     if prev_fork == BaseFork:
         return []
