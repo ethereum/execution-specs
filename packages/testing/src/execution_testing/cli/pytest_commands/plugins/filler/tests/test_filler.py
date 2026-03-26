@@ -872,7 +872,6 @@ test_module_environment_variables = textwrap.dedent(
         ),
     ],
 )
-@pytest.mark.usefixtures("restore_environment_defaults")
 def test_fill_variables(
     testdir: pytest.Testdir,
     args: list[str],
