@@ -227,7 +227,7 @@ class Bytecode:
         )
 
         return Bytecode(
-            bytes(self) + bytes(other),
+            self._bytes_ + other._bytes_,
             popped_stack_items=c_pop,
             pushed_stack_items=c_push,
             min_stack_height=c_min,
@@ -256,10 +256,32 @@ class Bytecode:
             raise ValueError("Cannot multiply by a negative number")
         if other == 0:
             return Bytecode()
-        output = self
-        for _ in range(other - 1):
-            output += self
-        return output
+        if other == 1:
+            return Bytecode(self)
+
+        result_bytes = self._bytes_ * other
+
+        a_pop = self.popped_stack_items
+        a_push = self.pushed_stack_items
+        a_min = self.min_stack_height
+        a_max = self.max_stack_height
+        net = a_push - a_pop
+        repeats = other - 1
+
+        c_pop = a_pop + max(0, -net) * repeats
+        c_push = a_push + max(0, net) * repeats
+        c_min = a_min + max(0, -net) * repeats
+        c_max = a_max + abs(net) * repeats
+
+        return Bytecode(
+            result_bytes,
+            popped_stack_items=c_pop,
+            pushed_stack_items=c_push,
+            min_stack_height=c_min,
+            max_stack_height=c_max,
+            terminating=self.terminating,
+            opcode_list=self.opcode_list * other,
+        )
 
     def hex(self) -> str:
         """
