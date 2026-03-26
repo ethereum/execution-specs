@@ -53,6 +53,11 @@ def sload_loop_body() -> Bytecode:
     return Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(0x01) + Op.ADD
 
 
+def sload_loop_body_reverse() -> Bytecode:
+    """SLOAD(cursor) then cursor-- (result discarded)."""
+    return Op.DUP1 + Op.SLOAD + Op.POP + Op.PUSH1(0x01) + Op.SWAP1 + Op.SUB
+
+
 def gas_check_loop_contract(
     setup: Bytecode,
     body: Bytecode,
@@ -192,10 +197,10 @@ def run_bal_benchmark(
 
     num_txs = len(plan.gas_limits)
     with TestPhaseManager.execution():
-        senders = [pre.fund_eoa() for _ in range(num_txs)]
+        sender = pre.fund_eoa()
         transactions = [
             Transaction(
-                sender=senders[i],
+                sender=sender,
                 to=contract,
                 gas_limit=plan.gas_limits[i],
                 data=b"",
@@ -206,6 +211,8 @@ def run_bal_benchmark(
     # BAL expectations: contract slots + sender nonces.
     # Use validate_any_change for cursor — exact values depend
     # on gas dynamics and are verified by consensus test suites.
+    # All txs share a single sender to prevent trivial per-sender
+    # optimizations in BAL implementations.
     expectations: dict[Address, BalAccountExpectation] = {
         contract: BalAccountExpectation(
             storage_reads=sorted(set(data_slot_reads or [])),
@@ -216,16 +223,16 @@ def run_bal_benchmark(
                 )
             ],
         ),
-    }
-    for tx_idx, sender in enumerate(senders):
-        expectations[sender] = BalAccountExpectation(
+        sender: BalAccountExpectation(
             nonce_changes=[
                 BalNonceChange(
                     block_access_index=tx_idx + 1,
-                    post_nonce=1,
+                    post_nonce=tx_idx + 1,
                 )
+                for tx_idx in range(num_txs)
             ],
-        )
+        ),
+    }
     if extra_expectations:
         expectations.update(extra_expectations)
 
@@ -236,12 +243,12 @@ def run_bal_benchmark(
         ),
     )
 
-    # Post-state: only check sender nonces (sanity).
+    # Post-state: only check sender nonce (sanity).
     # Exact storage values depend on gas dynamics and may be
     # slightly off; consensus correctness is verified elsewhere.
-    post: dict[Address, Account] = {}
-    for sender in senders:
-        post[sender] = Account(nonce=1)
+    post: dict[Address, Account] = {
+        sender: Account(nonce=num_txs),
+    }
 
     benchmark_test(
         pre=pre, post=post, blocks=[block], skip_gas_used_validation=True

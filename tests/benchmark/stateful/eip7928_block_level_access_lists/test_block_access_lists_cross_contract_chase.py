@@ -182,11 +182,12 @@ def _run_cross_contract_chase(
     )
 
     # All TXs call the dispatcher with empty calldata.
+    # Single sender prevents trivial per-sender optimizations.
     with TestPhaseManager.execution():
-        senders = [pre.fund_eoa() for _ in range(num_transactions)]
+        sender = pre.fund_eoa()
         transactions = [
             Transaction(
-                sender=senders[i],
+                sender=sender,
                 to=dispatcher,
                 gas_limit=gas_limits[i],
                 data=b"",
@@ -207,15 +208,15 @@ def _run_cross_contract_chase(
         ],
     )
 
-    for tx_idx, sender in enumerate(senders):
-        account_expectations[sender] = BalAccountExpectation(
-            nonce_changes=[
-                BalNonceChange(
-                    block_access_index=tx_idx + 1,
-                    post_nonce=1,
-                )
-            ],
-        )
+    account_expectations[sender] = BalAccountExpectation(
+        nonce_changes=[
+            BalNonceChange(
+                block_access_index=tx_idx + 1,
+                post_nonce=tx_idx + 1,
+            )
+            for tx_idx in range(num_transactions)
+        ],
+    )
 
     for contract in contracts:
         account_expectations[contract] = BalAccountExpectation(
@@ -229,9 +230,9 @@ def _run_cross_contract_chase(
         ),
     )
 
-    post: dict[Address, Account] = {}
-    for sender in senders:
-        post[sender] = Account(nonce=1)
+    post: dict[Address, Account] = {
+        sender: Account(nonce=num_transactions),
+    }
 
     benchmark_test(
         pre=pre, post=post, blocks=[block], skip_gas_used_validation=True
