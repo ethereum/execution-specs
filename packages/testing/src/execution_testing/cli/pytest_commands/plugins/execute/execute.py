@@ -26,6 +26,7 @@ from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
     labeled_format_parameter_set,
+    option_was_explicitly_set,
 )
 from ..spec_version_checker.spec_version_checker import EIPSpecTestItem
 from .pre_alloc import Alloc
@@ -200,8 +201,9 @@ def pytest_configure(config: pytest.Config) -> None:
        called before the pytest-html plugin's pytest_configure to ensure that
        it uses the modified `htmlpath` option.
     """
-    # Modify the block gas limit if specified.
-    if config.getoption("transaction_gas_limit"):
+    # Keep execute-mode overrides working, but avoid rewriting the global
+    # default when this plugin is merely imported into nested pytest sessions.
+    if option_was_explicitly_set(config, "--transaction-gas-limit"):
         EnvironmentDefaults.gas_limit = config.getoption(
             "transaction_gas_limit"
         )

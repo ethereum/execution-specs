@@ -89,6 +89,7 @@ from ..shared.helpers import (
     get_spec_format_for_item,
     is_help_or_collectonly_mode,
     labeled_format_parameter_set,
+    option_was_explicitly_set,
 )
 from ..spec_version_checker.spec_version_checker import (
     get_ref_spec_from_module,
@@ -827,7 +828,7 @@ def pytest_configure(config: pytest.Config) -> None:
     """
     # Register custom markers
     # Modify the block gas limit if specified.
-    if config.getoption("block_gas_limit"):
+    if option_was_explicitly_set(config, "--block-gas-limit"):
         EnvironmentDefaults.gas_limit = config.getoption("block_gas_limit")
 
     # Initialize fixture output configuration

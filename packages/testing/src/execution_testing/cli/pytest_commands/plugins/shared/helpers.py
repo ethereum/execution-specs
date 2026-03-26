@@ -16,6 +16,18 @@ from execution_testing.fixtures import (
 from execution_testing.specs import BaseTest
 
 
+def option_was_explicitly_set(config: pytest.Config, option_name: str) -> bool:
+    """Return whether a long CLI option was passed explicitly."""
+    normalized_option = option_name.strip()
+    if not normalized_option.startswith("--"):
+        normalized_option = f"--{normalized_option}"
+
+    for arg in config.invocation_params.args:
+        if arg == normalized_option or arg.startswith(f"{normalized_option}="):
+            return True
+    return False
+
+
 def is_help_or_collectonly_mode(config: pytest.Config) -> bool:
     """Check if pytest is running in a help or collectonly mode."""
     return (
