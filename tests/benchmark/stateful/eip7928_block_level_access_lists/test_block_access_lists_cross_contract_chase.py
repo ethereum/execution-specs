@@ -123,19 +123,87 @@ def _compute_tx_gas_limits(
     return gas_limits
 
 
+def _max_chain_depth(
+    fork: Fork,
+    gas_for_chain: int,
+) -> int:
+    """
+    Simulate nested CALL gas forwarding (63/64 rule).
+
+    Each chain contract SLOADs slot 0, then CALLs the next
+    contract.  The 63/64 rule (EIP-150) means each depth
+    receives exponentially less gas.  Return the max depth
+    where every contract has enough gas to execute.
+    """
+    # Chain contract before CALL: SLOAD(0) + check + push args.
+    # Mirrors create_chain_contract non-sentinel path up to CALL.
+    check = Op.PUSH1(0x00) + Op.SLOAD + Op.DUP1 + Op.ISZERO
+    skip_jump = Op.PUSH1(0x00) + Op.JUMPI
+    call_args = (
+        Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.DUP6
+        + Op.GAS
+    )
+    pre_call = (check + skip_jump + call_args).gas_cost(fork)
+    call_base = Op.CALL.gas_cost(fork)
+
+    # Sentinel (last contract): SLOAD(0) returns 0, JUMPI taken.
+    sentinel_cost = (
+        check + Op.PUSH1(0x00) + Op.JUMPI + Op.JUMPDEST + Op.STOP
+    ).gas_cost(fork)
+
+    gas = gas_for_chain
+    depth = 0
+    while depth < MAX_CALL_DEPTH:
+        if gas < sentinel_cost:
+            break
+        after_call_base = gas - pre_call - call_base
+        if after_call_base <= 0:
+            # Enough for sentinel but not another hop.
+            depth += 1
+            break
+        forwarded = after_call_base * 63 // 64
+        if forwarded < sentinel_cost:
+            depth += 1
+            break
+        gas = forwarded
+        depth += 1
+    return depth
+
+
 def _calculate_params(
     fork: Fork,
     gas_limits: list[int],
 ) -> tuple[int, int]:
     """Return (num_transactions, chain_length)."""
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()()
-    dispatcher_cost = create_dispatcher_contract().gas_cost(fork)
-    chain_hop_cost = create_chain_contract().gas_cost(fork)
-    # Use the smallest tx gas to determine chain length.
+
+    # Dispatcher gas consumed before its CALL forwards gas.
+    dispatcher_pre_call = (
+        cursor_read()
+        + Op.DUP1
+        + Op.SLOAD
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.PUSH1(0x00)
+        + Op.DUP6
+        + Op.GAS
+    ).gas_cost(fork)
+    dispatcher_call_base = Op.CALL.gas_cost(fork)
+
     min_gas = min(gas_limits)
-    available = min_gas - intrinsic_gas - dispatcher_cost
-    chain_by_gas = available // chain_hop_cost
-    chain_length = min(chain_by_gas, MAX_CALL_DEPTH)
+    after_dispatcher = (
+        min_gas - intrinsic_gas - dispatcher_pre_call - dispatcher_call_base
+    )
+    # 63/64 forwarded from dispatcher's CALL to chain[0].
+    gas_for_chain = after_dispatcher * 63 // 64
+    chain_length = _max_chain_depth(fork, gas_for_chain)
     return len(gas_limits), chain_length
 
 
