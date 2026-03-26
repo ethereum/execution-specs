@@ -872,6 +872,16 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return base_fork_class
 
     @classmethod
+    def parent_or_fail(cls) -> Type["BaseFork"]:
+        """Return the parent fork or raise if the class has no parent."""
+        parent = cls.parent()
+        if parent is None:
+            raise Exception(
+                f"Expected class {cls.__name__} to have a parent fork."
+            )
+        return parent
+
+    @classmethod
     def non_bpo_ancestor(cls) -> Type["BaseFork"]:
         """Return the nearest non-BPO ancestor fork."""
         ancestor = cls

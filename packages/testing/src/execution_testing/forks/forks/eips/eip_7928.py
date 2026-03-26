@@ -8,6 +8,7 @@ https://eips.ethereum.org/EIPS/eip-7928
 """
 
 from dataclasses import replace
+from typing import Optional
 
 from ...base_fork import BaseFork
 from ...gas_costs import GasCosts
@@ -36,7 +37,7 @@ class EIP7928(BaseFork):
     @classmethod
     def empty_block_bal_item_count(cls) -> int:
         """
-        Return the BAL item count for an empty Amsterdam block.
+        Return the BAL item count for an empty EIP-7928 block.
 
         Four system contracts produce 15 items:
           EIP-4788 beacon roots:           1 address + 1 write + 1 read = 3
@@ -49,7 +50,21 @@ class EIP7928(BaseFork):
     @classmethod
     def engine_execution_payload_block_access_list(cls) -> bool:
         """
-        From Amsterdam, engine execution payload includes `block_access_list`
+        From EIP-7928, engine execution payload includes `block_access_list`
         as a parameter.
         """
         return True
+
+    @classmethod
+    def engine_new_payload_version(cls) -> Optional[int]:
+        """From EIP-7928, new payload calls must bump the version."""
+        parent_version = cls.parent_or_fail().engine_new_payload_version()
+        assert parent_version is not None
+        return parent_version + 1
+
+    @classmethod
+    def engine_get_payload_version(cls) -> Optional[int]:
+        """From EIP-7928, get payload calls must bump the version."""
+        parent_version = cls.parent_or_fail().engine_get_payload_version()
+        assert parent_version is not None
+        return parent_version + 1

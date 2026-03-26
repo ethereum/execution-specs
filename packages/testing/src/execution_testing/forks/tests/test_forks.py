@@ -680,3 +680,8 @@ class TestSelectedForkSetWithTransitionBoundaries:
         assert OsakaToBPO1AtTime15k in result
         assert BPO1ToBPO2AtTime15k in result
         assert BPO2ToAmsterdamAtTime15k not in result
+
+
+def test_method_versions() -> None:  # noqa: D103
+    assert Amsterdam.engine_new_payload_version() == 5
+    assert Amsterdam.engine_get_payload_version() == 6

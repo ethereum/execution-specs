@@ -2846,13 +2846,3 @@ class Amsterdam(EIP7928, BPO2):
     def is_deployed(cls) -> bool:
         """Return True if this fork is deployed."""
         return False
-
-    @classmethod
-    def engine_new_payload_version(cls) -> Optional[int]:
-        """From Amsterdam, new payload calls must use version 5."""
-        return 5
-
-    @classmethod
-    def engine_get_payload_version(cls) -> Optional[int]:
-        """From Amsterdam, get payload calls must use version 6."""
-        return 6
