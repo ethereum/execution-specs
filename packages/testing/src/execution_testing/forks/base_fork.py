@@ -285,7 +285,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
             cls._fork_by_timestamp = fork_by_timestamp
         base_fork_class = None
         for base_class in cls.__bases__:
-            if issubclass(base_class, BaseFork):
+            if issubclass(base_class, BaseFork) and not base_class.is_eip():
                 base_fork_class = base_class
                 break
         assert base_fork_class is not None
@@ -854,11 +854,16 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         return cls._bpo_fork
 
     @classmethod
+    def is_eip(cls) -> bool:
+        """Return whether this class is an EIP."""
+        return cls.__name__.startswith("EIP")
+
+    @classmethod
     def parent(cls) -> Type["BaseFork"] | None:
         """Return the parent fork."""
         base_fork_class = None
         for base_class in cls.__bases__:
-            if issubclass(base_class, BaseFork):
+            if issubclass(base_class, BaseFork) and not base_class.is_eip():
                 base_fork_class = base_class
                 break
         assert base_fork_class is not None

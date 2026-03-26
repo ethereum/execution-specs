@@ -9,10 +9,11 @@ https://eips.ethereum.org/EIPS/eip-7928
 
 from dataclasses import replace
 
+from ...base_fork import BaseFork
 from ...gas_costs import GasCosts
 
 
-class EIP7928:
+class EIP7928(BaseFork):
     """EIP-7928 fork."""
 
     @classmethod
@@ -28,7 +29,7 @@ class EIP7928:
         The cost per block access list item is introduced in EIP-7928.
         """
         return replace(
-            super(EIP7928, cls).gas_costs(),  # type: ignore[misc]
+            super(EIP7928, cls).gas_costs(),
             GAS_BLOCK_ACCESS_LIST_ITEM=2000,
         )
 

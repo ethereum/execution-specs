@@ -44,7 +44,11 @@ for fork_name in forks.__dict__:
     fork = forks.__dict__[fork_name]
     if not isinstance(fork, type):
         continue
-    if issubclass(fork, BaseFork) and fork is not BaseFork:
+    if (
+        issubclass(fork, BaseFork)
+        and fork is not BaseFork
+        and not fork.is_eip()
+    ):
         all_forks.append(fork)
 
 transition_forks: List[Type[TransitionBaseClass]] = []
