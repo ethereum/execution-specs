@@ -690,19 +690,22 @@ class TestPydanticModelConversion:
         pytest.param(
             {"gas_price": 1, "max_fee_per_gas": 2},
             Transaction.InvalidFeePaymentError,
-            "with type-2+ fee field 'max_fee_per_gas'",
+            "'gas_price' (legacy/type-1), 'max_fee_per_gas' (type-2+)",
             id="gas-price-and-max-fee-per-gas",
         ),
         pytest.param(
             {"gas_price": 1, "max_priority_fee_per_gas": 2},
             Transaction.InvalidFeePaymentError,
-            "with type-2+ fee field 'max_priority_fee_per_gas'",
+            (
+                "'gas_price' (legacy/type-1), "
+                "'max_priority_fee_per_gas' (type-2+)"
+            ),
             id="gas-price-and-max-priority-fee-per-gas",
         ),
         pytest.param(
             {"gas_price": 1, "max_fee_per_blob_gas": 2},
             Transaction.InvalidFeePaymentError,
-            "with type-2+ fee field 'max_fee_per_blob_gas'",
+            "'gas_price' (legacy/type-1), 'max_fee_per_blob_gas' (type-3+)",
             id="gas-price-and-max-fee-per-blob-gas",
         ),
         pytest.param(
@@ -713,8 +716,9 @@ class TestPydanticModelConversion:
             },
             Transaction.InvalidFeePaymentError,
             (
-                "with type-2+ fee fields 'max_fee_per_gas' and "
-                "'max_priority_fee_per_gas'"
+                "'gas_price' (legacy/type-1), "
+                "'max_fee_per_gas' (type-2+), "
+                "'max_priority_fee_per_gas' (type-2+)"
             ),
             id="gas-price-and-multiple-dynamic-fee-fields",
         ),
