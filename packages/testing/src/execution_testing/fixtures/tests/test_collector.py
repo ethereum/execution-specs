@@ -22,7 +22,6 @@ def _make_fixture(nonce: int = 0) -> TransactionFixture:
         f"test description {nonce}",
         fixture_source_url="http://example.com",
         ref_spec=None,
-        opcode_count=None,
         _info_metadata={},
     )
     return fixture

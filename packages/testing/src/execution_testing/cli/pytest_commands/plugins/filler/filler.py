@@ -1811,14 +1811,21 @@ def base_test_parametrizer(cls: Type[BaseTest]) -> Any:
                             fixture.post_state, group.pre
                         )
 
+                fill_metadata: Dict[str, Any] = {}
+                if t8n.opcode_count is not None:
+                    fill_metadata["opcode_count"] = (
+                        t8n.opcode_count.model_dump()
+                    )
+                if fill_result.metadata:
+                    fill_metadata.update(fill_result.metadata)
+
                 fixture.fill_info(
                     t8n.version(),
                     test_case_description,
                     fixture_source_url=fixture_source_url,
-                    opcode_count=t8n.opcode_count,
                     ref_spec=reference_spec,
                     _info_metadata=t8n._info_metadata,
-                    fill_metadata=fill_result.metadata or None,
+                    metadata=fill_metadata,
                 )
 
                 output_subdir = resolve_fixture_subfolder(
