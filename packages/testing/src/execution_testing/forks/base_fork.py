@@ -436,6 +436,56 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def _calculate_sstore_refund(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Calculate SSTORE gas refund based on metadata."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_sstore_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Calculate SSTORE gas cost based on metadata."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_call_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """
+        Calculate CALL/DELEGATECALL/STATICCALL gas cost based on metadata.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_create_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """CREATE gas is constant at Frontier."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_return_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Calculate RETURN gas cost based on metadata."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _calculate_selfdestruct_gas(
+        cls, opcode: OpcodeBase, gas_costs: GasCosts
+    ) -> int:
+        """Calculate SELFDESTRUCT gas cost based on metadata."""
+        pass
+
+    @classmethod
+    @abstractmethod
     def memory_expansion_gas_calculator(cls) -> MemoryExpansionGasCalculator:
         """
         Return a callable that calculates the gas cost of memory expansion for
