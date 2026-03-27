@@ -75,10 +75,8 @@ def test_create_name_registrator_zero_mem2(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=300000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

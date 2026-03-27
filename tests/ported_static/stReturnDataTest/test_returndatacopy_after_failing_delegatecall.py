@@ -90,9 +90,7 @@ def test_returndatacopy_after_failing_delegatecall(
     tx = Transaction(
         sender=sender,
         to=addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6,
-        data=b"",
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

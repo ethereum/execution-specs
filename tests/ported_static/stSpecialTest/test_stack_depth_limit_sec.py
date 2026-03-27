@@ -56,7 +56,6 @@ def test_stack_depth_limit_sec(
         ),
         gas_limit=1000000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

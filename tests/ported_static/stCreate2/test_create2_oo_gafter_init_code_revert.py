@@ -84,9 +84,7 @@ def test_create2_oo_gafter_init_code_revert(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=75000,
-        nonce=0,
         gas_price=10,
     )
 

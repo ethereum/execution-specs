@@ -632,9 +632,7 @@ def test_contract_creation_spam(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=10000000,
-        nonce=0,
         gas_price=10,
     )
 

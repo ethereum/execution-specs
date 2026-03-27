@@ -81,9 +81,7 @@ def test_deleagate_call_after_value_transfer(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=453081,
-        nonce=0,
         gas_price=10,
     )
 

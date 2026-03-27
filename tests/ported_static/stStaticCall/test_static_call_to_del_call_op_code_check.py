@@ -148,7 +148,6 @@ def test_static_call_to_del_call_op_code_check(
         ),
         gas_limit=1000000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

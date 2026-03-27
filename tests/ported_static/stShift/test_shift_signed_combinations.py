@@ -316,10 +316,8 @@ def test_shift_signed_combinations(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=80000000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

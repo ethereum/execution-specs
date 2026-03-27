@@ -188,7 +188,6 @@ def test_callcode_in_initcode_to_empty_contract(
         to=contract_0,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

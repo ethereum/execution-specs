@@ -82,9 +82,7 @@ def test_zero_value_call_to_non_zero_balance_oog_revert(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=135000,
-        nonce=0,
         gas_price=10,
     )
 

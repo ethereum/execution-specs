@@ -85,7 +85,6 @@ def test_random_statetest577(
         data=bytes.fromhex("42"),
         gas_limit=400000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

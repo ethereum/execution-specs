@@ -92,10 +92,8 @@ def test_post_to_return1(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=300000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

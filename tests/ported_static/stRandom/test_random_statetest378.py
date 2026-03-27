@@ -92,7 +92,6 @@ def test_random_statetest378(
         ),
         gas_limit=1231102875,
         value=0x63E033B2,
-        nonce=0,
         gas_price=10,
     )
 

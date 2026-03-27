@@ -53,7 +53,6 @@ def test_create_contract_sstore_during_init(
         to=None,
         data=bytes.fromhex("60ff600055"),
         gas_limit=150000,
-        nonce=0,
         gas_price=10,
     )
 

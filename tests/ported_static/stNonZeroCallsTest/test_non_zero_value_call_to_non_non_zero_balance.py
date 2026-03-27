@@ -79,9 +79,7 @@ def test_non_zero_value_call_to_non_non_zero_balance(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

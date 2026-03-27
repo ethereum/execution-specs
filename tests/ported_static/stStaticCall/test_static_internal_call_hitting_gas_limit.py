@@ -83,10 +83,8 @@ def test_static_internal_call_hitting_gas_limit(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=21100,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

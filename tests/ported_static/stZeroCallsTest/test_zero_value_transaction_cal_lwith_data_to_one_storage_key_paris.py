@@ -61,7 +61,6 @@ def test_zero_value_transaction_cal_lwith_data_to_one_storage_key_paris(
         to=addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b,
         data=bytes.fromhex("1122334455667788991011121314151617181920"),
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

@@ -240,7 +240,6 @@ def test_static_call_ask_more_gas_on_depth2_then_transaction_has(
         to=target,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

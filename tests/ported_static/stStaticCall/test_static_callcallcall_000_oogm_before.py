@@ -117,9 +117,7 @@ def test_static_callcallcall_000_oogm_before(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=1720000,
-        nonce=0,
         gas_price=10,
     )
 

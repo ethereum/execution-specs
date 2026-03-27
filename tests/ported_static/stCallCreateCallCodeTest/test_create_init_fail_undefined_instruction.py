@@ -109,10 +109,8 @@ def test_create_init_fail_undefined_instruction(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=900000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

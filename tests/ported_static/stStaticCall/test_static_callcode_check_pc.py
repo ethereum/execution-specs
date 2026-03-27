@@ -79,9 +79,7 @@ def test_static_callcode_check_pc(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=1100000,
-        nonce=0,
         gas_price=10,
     )
 

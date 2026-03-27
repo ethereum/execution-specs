@@ -81,10 +81,8 @@ def test_static_call_lose_gas_oog(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=200000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

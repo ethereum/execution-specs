@@ -64,9 +64,7 @@ def test_create_contract_via_contract_oog_init_code(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=105044,
-        nonce=0,
         gas_price=10,
     )
 

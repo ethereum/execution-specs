@@ -88,10 +88,8 @@ def test_static_call_ecrecover0_complete_return_value(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=365224,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

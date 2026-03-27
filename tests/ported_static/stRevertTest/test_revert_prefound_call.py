@@ -77,9 +77,7 @@ def test_revert_prefound_call(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=94000,
-        nonce=0,
         gas_price=10,
     )
 

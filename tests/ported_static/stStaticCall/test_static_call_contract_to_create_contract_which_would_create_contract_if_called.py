@@ -78,9 +78,7 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=300000,
-        nonce=0,
         gas_price=10,
     )
 

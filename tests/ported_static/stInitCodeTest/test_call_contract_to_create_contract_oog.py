@@ -74,7 +74,6 @@ def test_call_contract_to_create_contract_oog(
         to=target,
         data=bytes.fromhex("00"),
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

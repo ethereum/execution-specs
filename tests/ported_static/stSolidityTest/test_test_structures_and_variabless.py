@@ -234,7 +234,6 @@ def test_test_structures_and_variabless(
         data=bytes.fromhex("c0406226"),
         gas_limit=350000,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

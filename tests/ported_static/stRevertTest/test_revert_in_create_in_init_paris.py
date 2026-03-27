@@ -61,7 +61,6 @@ def test_revert_in_create_in_init_paris(
             "3050600d80602460003960006000f0503d6000556020600060003e6000516001550000fe6211223360005260206000fd00"  # noqa: E501
         ),
         gas_limit=200000,
-        nonce=0,
         gas_price=10,
     )
 

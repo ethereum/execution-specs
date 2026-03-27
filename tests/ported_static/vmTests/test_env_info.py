@@ -366,7 +366,6 @@ def test_env_info(
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
         value=TX_VALUE[v],
-        nonce=0,
         gas_price=4660,
         error=_exc,
     )

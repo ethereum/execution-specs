@@ -228,10 +228,8 @@ def test_subcall_return_more_then_expected(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=400000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

@@ -62,10 +62,8 @@ def test_mem32kb_single_byte_minus_31(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=100000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

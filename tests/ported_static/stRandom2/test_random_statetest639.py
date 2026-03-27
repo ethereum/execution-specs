@@ -154,10 +154,8 @@ def test_random_statetest639(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=1612042127,
         value=0x49C00898,
-        nonce=0,
         gas_price=10,
     )
 

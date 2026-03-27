@@ -79,9 +79,7 @@ def test_delegate_call_on_eip_with_mem_expanding_calls(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

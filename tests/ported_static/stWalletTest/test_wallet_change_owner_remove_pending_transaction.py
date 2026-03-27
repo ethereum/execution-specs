@@ -92,7 +92,6 @@ def test_wallet_change_owner_remove_pending_transaction(
             "f00d4b5d000000000000000000000000a94f5374fce5edbc8e2a8697c15331677e6ebf0b000000000000000000000000aaaf5374fce5edbc8e2a8697c15331677e6ebaaa"  # noqa: E501
         ),
         gas_limit=10000000,
-        nonce=0,
         gas_price=10,
     )
 

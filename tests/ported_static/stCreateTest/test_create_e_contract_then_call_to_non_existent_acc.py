@@ -78,9 +78,7 @@ def test_create_e_contract_then_call_to_non_existent_acc(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

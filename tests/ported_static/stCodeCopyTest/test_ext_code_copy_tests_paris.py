@@ -110,9 +110,7 @@ def test_ext_code_copy_tests_paris(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=400000,
-        nonce=0,
         gas_price=10,
     )
 

@@ -53,10 +53,8 @@ def test_transaction_to_addressh160minus_one(
     tx = Transaction(
         sender=sender,
         to=Address("0xffffffffffffffffffffffffffffffffffffffff"),
-        data=b"",
         gas_limit=22000,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

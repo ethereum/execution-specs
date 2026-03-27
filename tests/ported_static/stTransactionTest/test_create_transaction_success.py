@@ -56,7 +56,6 @@ def test_create_transaction_success(
         ),
         gas_limit=70000,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

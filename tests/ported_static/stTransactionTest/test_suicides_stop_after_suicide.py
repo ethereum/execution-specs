@@ -80,10 +80,8 @@ def test_suicides_stop_after_suicide(
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=b"",
         gas_limit=83700,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

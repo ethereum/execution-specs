@@ -78,7 +78,6 @@ def test_call_contract_to_create_contract_which_would_create_contract_if_called(
         to=contract_0,
         data=bytes.fromhex("00"),
         gas_limit=200000,
-        nonce=0,
         gas_price=10,
     )
 

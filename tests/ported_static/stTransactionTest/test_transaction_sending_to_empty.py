@@ -51,9 +51,7 @@ def test_transaction_sending_to_empty(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=b"",
         gas_limit=53000,
-        nonce=0,
         gas_price=10,
     )
 

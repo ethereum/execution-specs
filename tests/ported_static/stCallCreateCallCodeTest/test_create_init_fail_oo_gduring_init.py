@@ -65,10 +65,8 @@ def test_create_init_fail_oo_gduring_init(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=53021,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

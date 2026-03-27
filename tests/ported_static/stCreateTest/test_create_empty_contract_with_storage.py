@@ -80,9 +80,7 @@ def test_create_empty_contract_with_storage(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

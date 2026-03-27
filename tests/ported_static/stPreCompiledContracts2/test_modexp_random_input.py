@@ -125,7 +125,6 @@ def test_modexp_random_input(
         to=Address("0x0000000000000000000000000000000000000005"),
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

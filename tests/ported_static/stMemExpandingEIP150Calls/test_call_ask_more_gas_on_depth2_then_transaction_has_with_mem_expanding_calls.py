@@ -99,9 +99,7 @@ def test_call_ask_more_gas_on_depth2_then_transaction_has_with_mem_expanding_cal
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

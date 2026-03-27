@@ -77,7 +77,6 @@ def test_opcode_blobhash_out_of_range(
         value=0x186A0,
         max_fee_per_gas=5000000000,
         max_priority_fee_per_gas=2,
-        nonce=0,
         max_fee_per_blob_gas=10,
         blob_versioned_hashes=[
             Hash(

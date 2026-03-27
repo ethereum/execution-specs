@@ -51,10 +51,8 @@ def test_transaction_sending_to_zero(
     tx = Transaction(
         sender=sender,
         to=Address("0x0000000000000000000000000000000000000000"),
-        data=b"",
         gas_limit=25000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

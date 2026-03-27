@@ -125,9 +125,7 @@ def test_static_revert_depth2(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=1706850,
-        nonce=0,
         gas_price=10,
     )
 

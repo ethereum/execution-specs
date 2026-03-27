@@ -62,7 +62,6 @@ def test_nashatyrev_suicide_revert(
         to=target,
         data=bytes.fromhex("c0406226"),
         gas_limit=500000,
-        nonce=0,
         gas_price=10,
     )
 

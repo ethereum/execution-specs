@@ -85,10 +85,8 @@ def test_log1_non_empty_mem(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=210000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

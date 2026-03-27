@@ -166,7 +166,6 @@ def test_test_overflow(
         to=target,
         data=bytes.fromhex("c0406226"),
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

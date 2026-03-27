@@ -63,10 +63,8 @@ def test_transaction_colliding_with_non_empty_account_send_paris(
     tx = Transaction(
         sender=sender,
         to=addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87,
-        data=b"",
         gas_limit=400000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
         error=TransactionException.SENDER_NOT_EOA,
     )

@@ -288,7 +288,6 @@ def test_sstore_change_from_external_call_in_init_code(
         to=None,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

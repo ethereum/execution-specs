@@ -83,9 +83,7 @@ def test_zero_value_delegatecall_to_one_storage_key_oog_revert_paris(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=135000,
-        nonce=0,
         gas_price=10,
     )
 

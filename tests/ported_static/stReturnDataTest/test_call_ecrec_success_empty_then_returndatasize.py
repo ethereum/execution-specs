@@ -74,9 +74,7 @@ def test_call_ecrec_success_empty_then_returndatasize(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

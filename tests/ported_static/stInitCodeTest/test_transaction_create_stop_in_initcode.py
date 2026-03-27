@@ -54,7 +54,6 @@ def test_transaction_create_stop_in_initcode(
         data=bytes.fromhex("600a80600c600039600000f20000600160008035811a81"),
         gas_limit=55000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

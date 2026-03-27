@@ -103,9 +103,7 @@ def test_create2_on_depth1023(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=9151314442816847871,
-        nonce=0,
         gas_price=10,
     )
 

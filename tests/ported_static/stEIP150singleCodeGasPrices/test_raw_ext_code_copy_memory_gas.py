@@ -78,9 +78,7 @@ def test_raw_ext_code_copy_memory_gas(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

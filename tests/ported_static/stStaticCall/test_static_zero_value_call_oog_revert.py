@@ -74,9 +74,7 @@ def test_static_zero_value_call_oog_revert(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=1350000,
-        nonce=0,
         gas_price=10,
     )
 

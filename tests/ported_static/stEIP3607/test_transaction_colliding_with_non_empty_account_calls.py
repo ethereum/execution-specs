@@ -66,10 +66,8 @@ def test_transaction_colliding_with_non_empty_account_calls(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=400000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
         error=TransactionException.SENDER_NOT_EOA,
     )

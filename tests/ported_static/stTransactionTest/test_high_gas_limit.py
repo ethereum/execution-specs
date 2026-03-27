@@ -56,7 +56,6 @@ def test_high_gas_limit(
         data=bytes.fromhex("3240349548983454"),
         gas_limit=100000,
         value=900,
-        nonce=0,
         gas_price=10,
     )
 

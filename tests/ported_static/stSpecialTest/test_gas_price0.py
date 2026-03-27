@@ -60,10 +60,8 @@ def test_gas_price0(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=656192,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

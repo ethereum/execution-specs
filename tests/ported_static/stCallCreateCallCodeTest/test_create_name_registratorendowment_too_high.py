@@ -70,9 +70,7 @@ def test_create_name_registratorendowment_too_high(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=300000,
-        nonce=0,
         gas_price=10,
     )
 

@@ -97,9 +97,7 @@ def test_static_call_goes_oog_on_second_level(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=220000,
-        nonce=0,
         gas_price=10,
     )
 

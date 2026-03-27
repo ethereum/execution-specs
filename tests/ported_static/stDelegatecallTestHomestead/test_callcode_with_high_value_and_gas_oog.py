@@ -91,10 +91,8 @@ def test_callcode_with_high_value_and_gas_oog(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=3000000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

@@ -69,7 +69,6 @@ def test_wallet_default_with_out_value(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=10000000,
         nonce=1,
         gas_price=10,

@@ -162,7 +162,6 @@ def test_static_call_goes_oog_on_second_level2(
         to=target,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

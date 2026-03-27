@@ -161,7 +161,6 @@ def test_static_calldelcode_01_ooge(
         to=target,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

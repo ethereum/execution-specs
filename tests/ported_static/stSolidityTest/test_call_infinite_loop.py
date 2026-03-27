@@ -101,7 +101,6 @@ def test_call_infinite_loop(
         data=bytes.fromhex("296df0df"),
         gas_limit=300000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

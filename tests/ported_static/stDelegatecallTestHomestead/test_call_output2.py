@@ -83,10 +83,8 @@ def test_call_output2(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=900000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

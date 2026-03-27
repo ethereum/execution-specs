@@ -58,7 +58,6 @@ def test_create_name_registrator_per_txs_after(
         ),
         gas_limit=200000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

@@ -274,9 +274,7 @@ def test_selfdestruct_eip2929(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=8000000,
-        nonce=0,
         gas_price=10,
     )
 

@@ -111,7 +111,6 @@ def test_mem_copy_self(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=16777216,
         nonce=1,
         gas_price=10,

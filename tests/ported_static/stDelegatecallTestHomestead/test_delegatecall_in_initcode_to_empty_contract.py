@@ -72,9 +72,7 @@ def test_delegatecall_in_initcode_to_empty_contract(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=453081,
-        nonce=0,
         gas_price=10,
     )
 

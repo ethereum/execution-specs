@@ -82,9 +82,7 @@ def test_call_zero_v_call_suicide(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

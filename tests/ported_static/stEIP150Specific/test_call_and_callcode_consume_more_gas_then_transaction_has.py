@@ -93,9 +93,7 @@ def test_call_and_callcode_consume_more_gas_then_transaction_has(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

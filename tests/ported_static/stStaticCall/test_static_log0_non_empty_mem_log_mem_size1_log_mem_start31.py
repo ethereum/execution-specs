@@ -86,10 +86,8 @@ def test_static_log0_non_empty_mem_log_mem_size1_log_mem_start31(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=210000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

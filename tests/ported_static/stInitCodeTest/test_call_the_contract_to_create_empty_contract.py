@@ -65,7 +65,6 @@ def test_call_the_contract_to_create_empty_contract(
         data=bytes.fromhex("00"),
         gas_limit=100000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

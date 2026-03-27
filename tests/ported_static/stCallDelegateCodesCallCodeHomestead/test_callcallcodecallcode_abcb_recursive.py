@@ -112,9 +112,7 @@ def test_callcallcodecallcode_abcb_recursive(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

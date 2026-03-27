@@ -76,9 +76,7 @@ def test_create_high_nonce(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=16777216,
-        nonce=0,
         gas_price=10,
     )
 

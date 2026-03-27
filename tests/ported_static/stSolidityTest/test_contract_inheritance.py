@@ -216,7 +216,6 @@ def test_contract_inheritance(
         to=target,
         data=bytes.fromhex("c0406226"),
         gas_limit=35000000,
-        nonce=0,
         gas_price=10,
     )
 

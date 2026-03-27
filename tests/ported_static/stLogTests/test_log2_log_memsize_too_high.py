@@ -90,10 +90,8 @@ def test_log2_log_memsize_too_high(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=210000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

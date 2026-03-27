@@ -81,10 +81,8 @@ def test_call1024_balance_too_low(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=17592186099592,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

@@ -55,7 +55,6 @@ def test_transaction_create_random_init_code(
         data=bytes.fromhex("600a80600c6000396000f200600160008035811a8100"),
         gas_limit=64599,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

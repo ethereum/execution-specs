@@ -127,9 +127,7 @@ def test_callcallcodecallcode_011(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=3000000,
-        nonce=0,
         gas_price=10,
     )
 

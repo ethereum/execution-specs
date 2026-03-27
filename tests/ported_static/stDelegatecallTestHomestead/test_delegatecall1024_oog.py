@@ -84,10 +84,8 @@ def test_delegatecall1024_oog(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=15720826,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

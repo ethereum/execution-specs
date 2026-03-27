@@ -67,10 +67,8 @@ def test_stack_limit_push31_1025(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=100000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

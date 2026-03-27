@@ -65,9 +65,7 @@ def test_eip2315_not_removed(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=400000,
-        nonce=0,
         gas_price=10,
     )
 

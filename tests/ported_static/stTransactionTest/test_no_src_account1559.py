@@ -290,7 +290,6 @@ def test_no_src_account1559(
         value=TX_VALUE[v],
         max_fee_per_gas=2000,
         max_priority_fee_per_gas=10,
-        nonce=0,
         access_list=_tx_access_list(d),
         error=_exc,
     )

@@ -72,9 +72,7 @@ def test_non_zero_value_suicide_to_one_storage_key_paris(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

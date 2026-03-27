@@ -84,7 +84,6 @@ def test_overflow_gas_require2(
         to=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
         data=bytes.fromhex("3240349548983454"),
         gas_limit=1152921504606846976,
-        nonce=0,
         gas_price=80,
         error=_exc,
     )

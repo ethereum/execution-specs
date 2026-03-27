@@ -67,10 +67,8 @@ def test_create_oo_gafter_init_code_returndata_size(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=55054,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

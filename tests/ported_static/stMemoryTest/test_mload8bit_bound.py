@@ -60,10 +60,8 @@ def test_mload8bit_bound(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=220000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

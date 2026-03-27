@@ -79,10 +79,8 @@ def test_delegatecall1024(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=9214364837600034817,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

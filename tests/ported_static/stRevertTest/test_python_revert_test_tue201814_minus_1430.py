@@ -433,7 +433,6 @@ def test_python_revert_test_tue201814_minus_1430(
         ),
         gas_limit=2643883,
         value=0x254FFCC0,
-        nonce=0,
         gas_price=10,
     )
 

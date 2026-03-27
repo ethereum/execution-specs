@@ -83,10 +83,8 @@ def test_refund_call_a_not_enough_gas_in_call(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=85000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

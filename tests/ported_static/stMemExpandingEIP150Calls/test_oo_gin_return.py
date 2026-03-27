@@ -215,7 +215,6 @@ def test_oo_gin_return(
         to=target,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

@@ -68,9 +68,7 @@ def test_contract_creation_oo_gdont_leave_empty_contract(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=93056,
-        nonce=0,
         gas_price=10,
     )
 

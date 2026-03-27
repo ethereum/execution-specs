@@ -66,9 +66,7 @@ def test_returndatacopy_initial_big_sum(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

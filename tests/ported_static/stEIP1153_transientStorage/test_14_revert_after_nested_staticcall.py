@@ -146,7 +146,6 @@ def test_14_revert_after_nested_staticcall(
         gas_limit=400000,
         max_fee_per_gas=2000,
         max_priority_fee_per_gas=0,
-        nonce=0,
         access_list=[],
     )
 

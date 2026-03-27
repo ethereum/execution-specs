@@ -220,7 +220,6 @@ def test_static_call_and_callcode_consume_more_gas_then_transaction_has(
         to=target,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

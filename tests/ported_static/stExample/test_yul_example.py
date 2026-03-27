@@ -68,9 +68,7 @@ def test_yul_example(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=16777216,
-        nonce=0,
         gas_price=10,
     )
 

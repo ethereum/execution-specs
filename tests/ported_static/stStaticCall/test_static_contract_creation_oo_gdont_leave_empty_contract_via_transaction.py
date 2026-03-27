@@ -99,7 +99,6 @@ def test_static_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
             "604060006040600073200000000000000000000000000000000000000161c350fa"  # noqa: E501
         ),
         gas_limit=96000,
-        nonce=0,
         gas_price=10,
     )
 

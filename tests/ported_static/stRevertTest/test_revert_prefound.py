@@ -67,9 +67,7 @@ def test_revert_prefound(
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=b"",
         gas_limit=1040000,
-        nonce=0,
         gas_price=10,
     )
 

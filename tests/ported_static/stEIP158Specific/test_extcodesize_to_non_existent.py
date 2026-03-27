@@ -68,9 +68,7 @@ def test_extcodesize_to_non_existent(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

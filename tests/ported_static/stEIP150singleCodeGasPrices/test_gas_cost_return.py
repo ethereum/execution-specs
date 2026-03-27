@@ -142,7 +142,6 @@ def test_gas_cost_return(
         data=bytes.fromhex("00"),
         gas_limit=16777216,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

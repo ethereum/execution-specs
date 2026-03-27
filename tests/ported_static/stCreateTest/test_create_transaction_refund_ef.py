@@ -67,7 +67,6 @@ def test_create_transaction_refund_ef(
             "600080808080625ef94d61c350f15060ef60005360016000f3"
         ),
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

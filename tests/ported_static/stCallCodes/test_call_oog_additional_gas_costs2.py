@@ -81,9 +81,7 @@ def test_call_oog_additional_gas_costs2(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=30000,
-        nonce=0,
         gas_price=10,
     )
 

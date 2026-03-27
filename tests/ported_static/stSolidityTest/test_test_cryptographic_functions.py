@@ -252,7 +252,6 @@ def test_test_cryptographic_functions(
         data=bytes.fromhex("c0406226"),
         gas_limit=35000000,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

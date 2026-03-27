@@ -115,9 +115,7 @@ def test_returndatasize_after_oog_after_deeper(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=200000,
-        nonce=0,
         gas_price=10,
     )
 

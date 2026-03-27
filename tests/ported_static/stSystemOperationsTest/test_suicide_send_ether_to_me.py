@@ -60,10 +60,8 @@ def test_suicide_send_ether_to_me(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=1000000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

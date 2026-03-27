@@ -63,10 +63,8 @@ def test_recursive_create(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=465224,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

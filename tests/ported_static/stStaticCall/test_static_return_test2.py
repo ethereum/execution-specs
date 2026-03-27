@@ -87,9 +87,7 @@ def test_static_return_test2(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=250000,
-        nonce=0,
         gas_price=10,
     )
 

@@ -100,9 +100,7 @@ def test_static_call_recursive_bomb_pre_call2(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=9214364837600034817,
-        nonce=0,
         gas_price=10,
     )
 

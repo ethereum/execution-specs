@@ -714,7 +714,6 @@ def test_create_results(
         to=contract_0,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

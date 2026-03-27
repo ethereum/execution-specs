@@ -90,10 +90,8 @@ def test_create2_contract_suicide_during_init_then_store_then_return(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=600000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

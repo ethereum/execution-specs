@@ -259,7 +259,6 @@ def test_recursive_create_contracts_create4_contracts(
         ),
         gas_limit=300000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

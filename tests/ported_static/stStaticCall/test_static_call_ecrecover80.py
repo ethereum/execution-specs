@@ -88,10 +88,8 @@ def test_static_call_ecrecover80(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=3652240,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

@@ -81,10 +81,8 @@ def test_raw_call_gas_value_transfer_memory_ask(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=500000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

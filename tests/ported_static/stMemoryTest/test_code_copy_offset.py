@@ -84,10 +84,8 @@ def test_code_copy_offset(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=400000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

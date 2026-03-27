@@ -51,10 +51,8 @@ def test_transaction_to_itself(
     tx = Transaction(
         sender=sender,
         to=sender,
-        data=b"",
         gas_limit=25000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

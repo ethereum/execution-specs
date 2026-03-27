@@ -92,10 +92,8 @@ def test_callcode_ecrecover0_overlapping_input_output(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=365224,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

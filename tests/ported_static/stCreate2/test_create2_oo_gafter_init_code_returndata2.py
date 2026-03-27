@@ -131,7 +131,6 @@ def test_create2_oo_gafter_init_code_returndata2(
         to=contract_0,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

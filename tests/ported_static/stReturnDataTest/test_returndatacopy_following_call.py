@@ -85,9 +85,7 @@ def test_returndatacopy_following_call(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

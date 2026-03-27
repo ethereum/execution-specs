@@ -152,7 +152,6 @@ def test_callcode_to_name_registrator_zero_mem_expanion(
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
         value=TX_VALUE[v],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

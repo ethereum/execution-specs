@@ -73,9 +73,7 @@ def test_returndatacopy_0_0_following_successful_create(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

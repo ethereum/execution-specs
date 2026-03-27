@@ -73,10 +73,8 @@ def test_jumpdest_attackwith_jump(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=100000000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

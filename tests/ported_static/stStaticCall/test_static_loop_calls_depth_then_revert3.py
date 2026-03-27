@@ -82,9 +82,7 @@ def test_static_loop_calls_depth_then_revert3(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=9214364837600034817,
-        nonce=0,
         gas_price=10,
     )
 

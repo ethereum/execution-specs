@@ -70,10 +70,8 @@ def test_create_name_registrator_pre_store1_not_enough_gas(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=73071,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

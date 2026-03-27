@@ -81,10 +81,8 @@ def test_suicides_and_internal_call_suicides_oog(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=50000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

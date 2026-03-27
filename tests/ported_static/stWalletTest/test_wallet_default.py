@@ -69,7 +69,6 @@ def test_wallet_default(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=10000000,
         value=100,
         nonce=1,

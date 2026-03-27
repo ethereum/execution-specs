@@ -80,9 +80,7 @@ def test_delegatecall_in_initcode_to_existing_contract_oog(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=153096,
-        nonce=0,
         gas_price=10,
     )
 

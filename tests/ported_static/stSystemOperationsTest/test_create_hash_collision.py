@@ -77,10 +77,8 @@ def test_create_hash_collision(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=10000000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

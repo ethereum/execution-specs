@@ -70,7 +70,6 @@ def test_basefee_example(
         value=0x186A0,
         max_fee_per_gas=5000000000,
         max_priority_fee_per_gas=2,
-        nonce=0,
         access_list=[
             AccessList(
                 address=Address("0xad21eb96c7a254c810474f7b1e1e66ca449a3426"),

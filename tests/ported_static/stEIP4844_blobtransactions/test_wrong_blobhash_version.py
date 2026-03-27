@@ -75,7 +75,6 @@ def test_wrong_blobhash_version(
         value=0x186A0,
         max_fee_per_gas=5000000000,
         max_priority_fee_per_gas=2,
-        nonce=0,
         max_fee_per_blob_gas=10,
         blob_versioned_hashes=[
             Hash(

@@ -232,7 +232,6 @@ def test_static_raw_call_gas_ask(
         to=contract_1,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

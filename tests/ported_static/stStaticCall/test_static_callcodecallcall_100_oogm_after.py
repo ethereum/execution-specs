@@ -126,9 +126,7 @@ def test_static_callcodecallcall_100_oogm_after(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=1720000,
-        nonce=0,
         gas_price=10,
     )
 

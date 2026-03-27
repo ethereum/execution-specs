@@ -90,7 +90,6 @@ def test_wallet_confirm(
             "797af6276877e4536b661640954061cdbc3a9761fb5245c340fcb1721307cd9d5f285c96"  # noqa: E501
         ),
         gas_limit=10000000,
-        nonce=0,
         gas_price=10,
     )
 

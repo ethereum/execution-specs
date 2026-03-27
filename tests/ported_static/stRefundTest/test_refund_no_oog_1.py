@@ -62,9 +62,7 @@ def test_refund_no_oog_1(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=26006,
-        nonce=0,
         gas_price=10,
     )
 

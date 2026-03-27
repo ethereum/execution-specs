@@ -101,7 +101,6 @@ def test_call_recursive_methods(
         data=bytes.fromhex("981a3165"),
         gas_limit=60000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

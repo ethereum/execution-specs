@@ -149,7 +149,6 @@ def test_extcodecopy(
         ),
         gas_limit=100000,
         value=0x24A39757,
-        nonce=0,
         gas_price=483694712,
     )
 

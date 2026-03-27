@@ -73,7 +73,6 @@ def test_test_name_registrator(
         ),
         gas_limit=1000000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

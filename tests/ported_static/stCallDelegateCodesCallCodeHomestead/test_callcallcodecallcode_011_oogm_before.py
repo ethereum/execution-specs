@@ -119,9 +119,7 @@ def test_callcallcodecallcode_011_oogm_before(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=172000,
-        nonce=0,
         gas_price=10,
     )
 

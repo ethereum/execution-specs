@@ -120,9 +120,7 @@ def test_callcodecallcall_100_ooge(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=1000000,
-        nonce=0,
         gas_price=10,
     )
 

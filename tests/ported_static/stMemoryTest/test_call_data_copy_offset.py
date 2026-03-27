@@ -86,10 +86,8 @@ def test_call_data_copy_offset(
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=b"",
         gas_limit=400000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

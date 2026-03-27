@@ -89,9 +89,7 @@ def test_ext_code_copy_target_range_longer_than_code_tests(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=400000,
-        nonce=0,
         gas_price=10,
     )
 

@@ -56,7 +56,6 @@ def test_multi_owned_construction_correct(
         ),
         gas_limit=10000000,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

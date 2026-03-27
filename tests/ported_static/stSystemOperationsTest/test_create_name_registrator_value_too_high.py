@@ -71,9 +71,7 @@ def test_create_name_registrator_value_too_high(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=300000,
-        nonce=0,
         gas_price=10,
     )
 

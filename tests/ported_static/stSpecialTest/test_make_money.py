@@ -82,10 +82,8 @@ def test_make_money(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=228500,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

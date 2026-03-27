@@ -95,9 +95,7 @@ def test_touch_to_empty_account_revert_paris(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=70000,
-        nonce=0,
         gas_price=10,
     )
 

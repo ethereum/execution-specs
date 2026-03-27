@@ -388,7 +388,6 @@ def test_delegatecall_to_precompile_from_contract_initialization(
         ),
         gas_limit=4000000,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

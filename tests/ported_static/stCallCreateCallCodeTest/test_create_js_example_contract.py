@@ -406,7 +406,6 @@ def test_create_js_example_contract(
         ),
         gas_limit=600000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

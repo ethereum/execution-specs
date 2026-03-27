@@ -318,10 +318,12 @@ def {{ test_name }}(
         value=TX_VALUE[v],
 {% endif %}
 {% else %}
-{% if tx.data_inline %}
+{% if tx.data_inline and tx.data_inline != "b''" %}
         data={{ tx.data_inline }},
 {% endif %}
+{% if tx.gas_limit is not none and tx.gas_limit != 21000 %}
         gas_limit={{ tx.gas_limit }},
+{% endif %}
 {% if tx.value %}
         value={{ tx.value | format_int }},
 {% endif %}
@@ -332,7 +334,7 @@ def {{ test_name }}(
 {% if tx.max_priority_fee_per_gas is not none %}
         max_priority_fee_per_gas={{ tx.max_priority_fee_per_gas }},
 {% endif %}
-{% if tx.nonce is not none %}
+{% if tx.nonce is not none and tx.nonce != 0 %}
         nonce={{ tx.nonce }},
 {% endif %}
 {% if tx.gas_price is not none %}

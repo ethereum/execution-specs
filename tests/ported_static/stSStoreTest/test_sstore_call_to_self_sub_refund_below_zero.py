@@ -74,9 +74,7 @@ def test_sstore_call_to_self_sub_refund_below_zero(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=2367154,
-        nonce=0,
         gas_price=10,
     )
 

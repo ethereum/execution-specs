@@ -61,10 +61,8 @@ def test_create_message_reverted(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=21882,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

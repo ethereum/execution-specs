@@ -394,7 +394,6 @@ def test_eoa_empty_paris(
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
         value=TX_VALUE[v],
-        nonce=0,
         gas_price=100,
         error=_exc,
     )

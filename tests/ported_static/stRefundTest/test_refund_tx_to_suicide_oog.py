@@ -63,10 +63,8 @@ def test_refund_tx_to_suicide_oog(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=21002,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

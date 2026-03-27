@@ -53,7 +53,6 @@ def test_codesize_init(
         to=None,
         data=bytes.fromhex("38600155303b60025500"),
         gas_limit=15000000,
-        nonce=0,
         gas_price=10,
     )
 

@@ -66,11 +66,9 @@ def test_sender_balance(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=60000,
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=100,
-        nonce=0,
         access_list=[],
     )
 

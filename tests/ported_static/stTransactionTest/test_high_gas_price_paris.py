@@ -57,10 +57,7 @@ def test_high_gas_price_paris(
     tx = Transaction(
         sender=sender,
         to=addr_0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0,
-        data=b"",
-        gas_limit=21000,
         value=1,
-        nonce=0,
         gas_price=5513909011300771210646237381366090850155713555506693525688456381329244268,  # noqa: E501
         error=[
             TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,

@@ -188,7 +188,6 @@ def test_create2_first_byte_loop(
         to=entry,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

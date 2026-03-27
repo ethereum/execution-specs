@@ -59,9 +59,7 @@ def test_revert_on_empty_stack(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=2000000,
-        nonce=0,
         gas_price=10,
     )
 

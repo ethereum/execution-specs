@@ -144,7 +144,6 @@ def test_contract_creation_make_call_that_ask_more_gas_then_transaction_provided
         to=None,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

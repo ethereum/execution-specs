@@ -148,7 +148,6 @@ def test_10_revert_undoes_store_after_return(
         gas_limit=400000,
         max_fee_per_gas=2000,
         max_priority_fee_per_gas=0,
-        nonce=0,
         access_list=[],
     )
 

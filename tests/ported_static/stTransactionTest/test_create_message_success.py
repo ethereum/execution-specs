@@ -62,10 +62,8 @@ def test_create_message_success(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=131882,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

@@ -111,10 +111,8 @@ def test_static_return50000_2(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=15500000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

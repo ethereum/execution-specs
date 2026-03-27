@@ -65,10 +65,8 @@ def test_raw_create_gas_value_transfer(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=500000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

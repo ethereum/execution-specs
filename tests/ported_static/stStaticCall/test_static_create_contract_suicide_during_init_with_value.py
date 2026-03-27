@@ -125,7 +125,6 @@ def test_static_create_contract_suicide_during_init_with_value(
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
         value=TX_VALUE[v],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

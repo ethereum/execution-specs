@@ -141,7 +141,6 @@ def test_random_statetest554(
         ),
         gas_limit=1845353713,
         value=0x485341CC,
-        nonce=0,
         gas_price=10,
     )
 

@@ -66,10 +66,8 @@ def test_suicides_and_send_money_to_itself_ether_destroyed(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=31700,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

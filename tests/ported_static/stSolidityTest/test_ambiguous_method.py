@@ -81,7 +81,6 @@ def test_ambiguous_method(
         data=bytes.fromhex("c0406226"),
         gas_limit=300000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

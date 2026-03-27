@@ -64,9 +64,7 @@ def test_create_and_gas_inside_create(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

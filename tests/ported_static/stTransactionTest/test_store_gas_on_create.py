@@ -61,10 +61,8 @@ def test_store_gas_on_create(
     tx = Transaction(
         sender=sender,
         to=coinbase,
-        data=b"",
         gas_limit=131882,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

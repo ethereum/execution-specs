@@ -121,9 +121,7 @@ def test_callcodecallcall_100_suicide_end(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=3000000,
-        nonce=0,
         gas_price=10,
     )
 

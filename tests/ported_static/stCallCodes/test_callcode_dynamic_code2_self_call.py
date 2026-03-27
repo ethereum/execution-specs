@@ -213,7 +213,6 @@ def test_callcode_dynamic_code2_self_call(
         to=contract_0,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

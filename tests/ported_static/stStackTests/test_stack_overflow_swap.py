@@ -58,7 +58,6 @@ def test_stack_overflow_swap(
         ),
         gas_limit=6000000,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

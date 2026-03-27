@@ -97,9 +97,7 @@ def test_call_outsize_then_create2_successful_then_returndatasize(
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=b"",
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

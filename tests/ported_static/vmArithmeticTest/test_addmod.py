@@ -515,7 +515,6 @@ def test_addmod(
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
         value=TX_VALUE[v],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

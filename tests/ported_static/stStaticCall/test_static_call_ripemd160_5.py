@@ -76,10 +76,8 @@ def test_static_call_ripemd160_5(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=10000000,
         value=0x186A0,
-        nonce=0,
         gas_price=10,
     )
 

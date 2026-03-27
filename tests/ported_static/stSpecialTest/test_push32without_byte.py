@@ -58,7 +58,6 @@ def test_push32without_byte(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=500000,
         nonce=1,
         gas_price=10,

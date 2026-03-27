@@ -77,9 +77,7 @@ def test_self_balance_update(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=200000,
-        nonce=0,
         gas_price=10,
     )
 

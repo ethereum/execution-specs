@@ -455,7 +455,6 @@ def test_revert_opcode_in_calls_on_non_empty_return_data(
         to=target,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

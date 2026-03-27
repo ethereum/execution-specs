@@ -89,9 +89,7 @@ def test_returndatasize_after_failing_delegatecall(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

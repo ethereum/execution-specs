@@ -132,7 +132,6 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
         to=None,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

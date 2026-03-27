@@ -362,10 +362,8 @@ def test_staticcall_to_precompile_from_called_contract(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=1000000,
         value=100,
-        nonce=0,
         gas_price=10,
     )
 

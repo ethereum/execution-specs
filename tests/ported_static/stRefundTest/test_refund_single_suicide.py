@@ -130,7 +130,6 @@ def test_refund_single_suicide(
         to=target,
         data=bytes.fromhex("c0406226"),
         gas_limit=300000,
-        nonce=0,
         gas_price=10,
     )
 

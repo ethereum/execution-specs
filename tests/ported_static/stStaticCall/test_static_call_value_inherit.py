@@ -83,10 +83,8 @@ def test_static_call_value_inherit(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=460000,
         value=10,
-        nonce=0,
         gas_price=10,
     )
 

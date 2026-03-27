@@ -61,9 +61,7 @@ def test_point_at_infinity_ec_recover(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=10000000,
-        nonce=0,
         gas_price=10,
     )
 

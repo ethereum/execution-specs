@@ -191,7 +191,6 @@ def test_static_callcodecallcall_100_oogm_before(
         to=target,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )

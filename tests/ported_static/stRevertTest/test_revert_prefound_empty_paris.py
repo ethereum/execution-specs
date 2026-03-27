@@ -67,9 +67,7 @@ def test_revert_prefound_empty_paris(
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=b"",
         gas_limit=940000,
-        nonce=0,
         gas_price=10,
     )
 

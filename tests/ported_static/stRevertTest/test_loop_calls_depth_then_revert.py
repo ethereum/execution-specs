@@ -86,9 +86,7 @@ def test_loop_calls_depth_then_revert(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=10000000,
-        nonce=0,
         gas_price=10,
     )
 

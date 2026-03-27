@@ -53,9 +53,7 @@ def test_create_contract_via_transaction_cost53000(
     tx = Transaction(
         sender=sender,
         to=None,
-        data=b"",
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

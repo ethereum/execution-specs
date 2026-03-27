@@ -78,7 +78,6 @@ def test_random_statetest_default_minus_tue_07_58_41_minus_15153_minus_575192_lo
     tx = Transaction(
         sender=sender,
         to=coinbase,
-        data=b"",
         gas_limit=6282759,
         nonce=28,
         gas_price=10,

@@ -159,7 +159,6 @@ def test_exp_power2(
         ),
         gas_limit=16777216,
         value=1,
-        nonce=0,
         gas_price=10,
     )
 

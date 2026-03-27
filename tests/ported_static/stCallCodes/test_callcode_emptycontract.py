@@ -72,9 +72,7 @@ def test_callcode_emptycontract(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=1050440,
-        nonce=0,
         gas_price=10,
     )
 

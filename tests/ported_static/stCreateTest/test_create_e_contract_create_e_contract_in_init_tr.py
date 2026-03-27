@@ -67,7 +67,6 @@ def test_create_e_contract_create_e_contract_in_init_tr(
             "6000600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60f150602060006000f0"  # noqa: E501
         ),
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

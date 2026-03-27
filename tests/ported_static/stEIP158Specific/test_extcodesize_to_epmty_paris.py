@@ -72,9 +72,7 @@ def test_extcodesize_to_epmty_paris(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=600000,
-        nonce=0,
         gas_price=10,
     )
 

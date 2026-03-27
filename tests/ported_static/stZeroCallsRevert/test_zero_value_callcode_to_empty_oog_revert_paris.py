@@ -82,9 +82,7 @@ def test_zero_value_callcode_to_empty_oog_revert_paris(
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b"",
         gas_limit=135000,
-        nonce=0,
         gas_price=10,
     )
 

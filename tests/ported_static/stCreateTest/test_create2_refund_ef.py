@@ -110,9 +110,7 @@ def test_create2_refund_ef(
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=b"",
         gas_limit=100000,
-        nonce=0,
         gas_price=10,
     )
 

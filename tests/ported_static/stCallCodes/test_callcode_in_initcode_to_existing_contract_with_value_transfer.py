@@ -80,9 +80,7 @@ def test_callcode_in_initcode_to_existing_contract_with_value_transfer(
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b"",
         gas_limit=453081,
-        nonce=0,
         gas_price=10,
     )
 

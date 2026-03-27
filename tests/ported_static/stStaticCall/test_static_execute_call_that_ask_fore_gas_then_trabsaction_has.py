@@ -165,7 +165,6 @@ def test_static_execute_call_that_ask_fore_gas_then_trabsaction_has(
         to=target,
         data=_tx_data(d),
         gas_limit=TX_GAS[g],
-        nonce=0,
         gas_price=10,
         error=_exc,
     )
