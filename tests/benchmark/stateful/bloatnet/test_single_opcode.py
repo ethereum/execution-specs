@@ -192,7 +192,6 @@ def test_sload_erc20_generic(
 #   - Simulates real-world contract state accumulation over time
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize("token_name", SLOAD_TOKENS)
 @pytest.mark.parametrize("existing_slots", [False, True])
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
@@ -451,7 +450,6 @@ def test_sstore_erc20_generic(
     )
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize("token_name", SSTORE_TOKENS)
 @pytest.mark.parametrize("write_new_value", [False, True])
@@ -804,7 +802,6 @@ def build_external_call(
     )
 
 
-@pytest.mark.repricing
 @pytest.mark.parametrize("token_name", SSTORE_MINT_TOKENS)
 @pytest.mark.parametrize("existing_slots", [False, True])
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
