@@ -22,7 +22,16 @@ from .fill import FillCommand
     multiple=True,
     help="Generate checklist only for specific EIP(s)",
 )
-def checklist(output: str, eip: tuple[int, ...], **kwargs: Any) -> None:
+@click.option(
+    "--until",
+    "-u",
+    type=str,
+    default=None,
+    help="Include upcoming forks up to and including this fork",
+)
+def checklist(
+    output: str, eip: tuple[int, ...], until: str | None, **kwargs: Any
+) -> None:
     """
     Generate EIP test checklists based on pytest.mark.eip_checklist markers.
 
@@ -39,6 +48,9 @@ def checklist(output: str, eip: tuple[int, ...], **kwargs: Any) -> None:
         # Generate checklists for specific test path
         uv run checklist tests/prague/eip7702*
 
+        # Include upcoming forks
+        uv run checklist --eip 8037 --until Amsterdam
+
         # Specify output directory
         uv run checklist --output ./my-checklists
 
@@ -51,6 +63,10 @@ def checklist(output: str, eip: tuple[int, ...], **kwargs: Any) -> None:
     # Add EIP filter if specified
     for eip_num in eip:
         args.extend(["--checklist-eip", str(eip_num)])
+
+    # Add --until fork if specified
+    if until:
+        args.extend(["--until", until])
 
     command = FillCommand(
         plugins=[
