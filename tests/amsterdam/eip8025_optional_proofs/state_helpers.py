@@ -2,12 +2,12 @@
 
 from collections.abc import Mapping, Sequence
 
-from ethereum.crypto.hash import Hash32, keccak256
 from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U256, Uint
 from execution_testing import Account, Address, Alloc, Bytes, Storage
 from execution_testing.forks import Amsterdam
 
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.forks.amsterdam.incremental_mpt import (
     build_mpt,
     mpt_get,
@@ -17,9 +17,13 @@ from ethereum.forks.amsterdam.incremental_mpt import (
 from ethereum.forks.amsterdam.trie import EMPTY_TRIE_ROOT
 from ethereum.state import (
     EMPTY_CODE_HASH,
-    Account as StateAccount,
-    Address as StateAddress,
     Root,
+)
+from ethereum.state import (
+    Account as StateAccount,
+)
+from ethereum.state import (
+    Address as StateAddress,
 )
 
 
@@ -155,9 +159,7 @@ def _storage_root_for_account(account: Account) -> Root:
 def _state_account(account: Account) -> StateAccount:
     """Convert an execution-testing account into the spec account type."""
     code = bytes(account.code)
-    code_hash = (
-        EMPTY_CODE_HASH if len(code) == 0 else Hash32(keccak256(code))
-    )
+    code_hash = EMPTY_CODE_HASH if len(code) == 0 else Hash32(keccak256(code))
     return StateAccount(
         nonce=Uint(int(account.nonce)),
         balance=U256(int(account.balance)),
@@ -190,8 +192,8 @@ def _collect_account_node_set(
         default=None,
         get_storage_root=get_storage_root,
     )
-    for address in addresses:
-        mpt_get(account_mpt, StateAddress(bytes(address)))
+    for addr in addresses:
+        mpt_get(account_mpt, StateAddress(bytes(addr)))
     return set(account_mpt.witness.accessed_nodes.values())
 
 

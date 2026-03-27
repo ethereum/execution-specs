@@ -1,6 +1,6 @@
 """Tests for WitnessState."""
 
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 from ethereum_rlp import rlp
@@ -277,7 +277,7 @@ class TestCanonicalSecureTrieValidation:
 
     def test_account_trie_rejects_nonempty_branch_value(self) -> None:
         """Secured account tries must not use the branch value slot."""
-        branch = [b""] * 17
+        branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
         branch[16] = b"terminal"
         state_root, node_db = _root_witness(Bytes(rlp.encode(branch)))
@@ -295,10 +295,12 @@ class TestCanonicalSecureTrieValidation:
 
     def test_storage_trie_rejects_nonempty_branch_value(self) -> None:
         """Secured storage tries must not use the branch value slot."""
-        branch = [b""] * 17
+        branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
         branch[16] = b"terminal"
-        storage_root, storage_node_db = _root_witness(Bytes(rlp.encode(branch)))
+        storage_root, storage_node_db = _root_witness(
+            Bytes(rlp.encode(branch))
+        )
         state_root, state_node_db = _single_account_state_witness(
             storage_root=storage_root
         )
@@ -316,7 +318,7 @@ class TestCanonicalSecureTrieValidation:
 
     def test_account_trie_rejects_zero_length_extension_path(self) -> None:
         """Secured account tries must reject empty extension segments."""
-        branch = [b""] * 17
+        branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
         branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]
         root_rlp = Bytes(
@@ -337,7 +339,7 @@ class TestCanonicalSecureTrieValidation:
 
     def test_storage_trie_rejects_zero_length_extension_path(self) -> None:
         """Secured storage tries must reject empty extension segments."""
-        branch = [b""] * 17
+        branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
         branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]
         root_rlp = Bytes(

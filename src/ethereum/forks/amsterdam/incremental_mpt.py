@@ -903,9 +903,7 @@ def _resolve_child_ref(
             f"Unexpected child ref length: {len(ref_bytes)}"
         )
         if ref_bytes in node_db:
-            return _decode_witness_node(
-                node_db, node_db[ref_bytes], secured
-            )
+            return _decode_witness_node(node_db, node_db[ref_bytes], secured)
         return HashedNode(_hash=ref_bytes)
     else:
         return _decode_witness_node(node_db, rlp.encode(child_ref), secured)
@@ -925,6 +923,8 @@ def _decode_witness_node(
         Mapping from node hash to RLP-encoded node data.
     rlp_bytes :
         The RLP-encoded node to decode.
+    secured :
+        Whether the trie uses secured (hashed) keys.
 
     """
     node_hash: Optional[Bytes] = None

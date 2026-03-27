@@ -10,7 +10,6 @@ from execution_testing import (
     Op,
     Transaction,
 )
-from execution_testing.forks import Amsterdam
 
 from .state_helpers import (
     as_storage,

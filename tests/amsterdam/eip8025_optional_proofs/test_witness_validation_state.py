@@ -24,8 +24,8 @@ from ethereum.forks.amsterdam.incremental_mpt import compact_to_nibbles
 
 from .state_helpers import (
     as_storage,
-    collect_account_path_only_nodes,
     build_large_storage,
+    collect_account_path_only_nodes,
     collect_account_proof_nodes,
     collect_storage_delete_auxiliary_nodes,
     collect_storage_proof_nodes,
@@ -331,7 +331,7 @@ def test_validation_state_missing_account_node_for_storage_resolution(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
-    """Removing the account proof that gates storage-root lookup should fail."""
+    """Removing the account proof gating storage-root lookup fails."""
     read_slot = 1
     storage = build_large_storage([read_slot])
 

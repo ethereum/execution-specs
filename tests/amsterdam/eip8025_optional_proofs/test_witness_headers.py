@@ -15,6 +15,7 @@ from execution_testing import (
 )
 from execution_testing.client_clis import TransitionTool
 from execution_testing.fixtures import BlockchainFixture
+from execution_testing.fixtures.blockchain import FixtureBlock
 from execution_testing.forks import Amsterdam
 from execution_testing.test_types.execution_witness.modifiers import (
     prepend_header,
@@ -324,7 +325,9 @@ def test_witness_headers_extra_unused_older_ancestor(
         .fixture
     )
     assert isinstance(probe_fixture, BlockchainFixture)
-    extra_header = probe_fixture.blocks[0].header.rlp
+    probe_block = probe_fixture.blocks[0]
+    assert isinstance(probe_block, FixtureBlock)
+    extra_header = probe_block.header.rlp
 
     blocks = [Block(txs=[]) for _ in range(offset + 1)]
     blocks.append(

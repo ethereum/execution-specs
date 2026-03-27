@@ -153,13 +153,11 @@ class WitnessState:
         if root_hash == EMPTY_TRIE_ROOT:
             return None
         if root_hash not in self._decoded_secure_roots:
-            decoded_mpt: IncrementalMPT[Bytes, Bytes] = (
-                decode_witness_to_mpt(
-                    self._node_db,
-                    root_hash,
-                    secured=True,
-                    default=b"",
-                )
+            decoded_mpt: IncrementalMPT[Bytes, Bytes] = decode_witness_to_mpt(
+                self._node_db,
+                root_hash,
+                secured=True,
+                default=b"",
             )
             self._decoded_secure_roots[root_hash] = decoded_mpt.root_node
         return self._decoded_secure_roots[root_hash]

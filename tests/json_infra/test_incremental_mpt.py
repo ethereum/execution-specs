@@ -1,5 +1,7 @@
 """Tests for the incremental MPT witness decoding and HashedNode."""
 
+from typing import Any
+
 import pytest
 from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
@@ -250,10 +252,10 @@ class TestMalformedWitnessNodes:
 
     def test_invalid_rlp_node_length(self) -> None:
         """Only 2-item and 17-item node lists are valid."""
-        with pytest.raises(
-            AssertionError, match="Invalid RLP node length: 3"
-        ):
-            _decode_root_from_rlp(Bytes(rlp.encode([b"\x01", b"\x02", b"\x03"])))
+        with pytest.raises(AssertionError, match="Invalid RLP node length: 3"):
+            _decode_root_from_rlp(
+                Bytes(rlp.encode([b"\x01", b"\x02", b"\x03"]))
+            )
 
     def test_extension_with_empty_child_ref(self) -> None:
         """Extension nodes must point to a branch child."""
@@ -280,10 +282,10 @@ class TestMalformedWitnessNodes:
 
     def test_extension_pointing_to_extension(self) -> None:
         """Extensions may not point directly to other extensions."""
-        branch = [b""] * 17
+        branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x03"), True), b"left"]
         branch[1] = [nibble_list_to_compact(Bytes(b"\x04"), True), b"right"]
-        inner_extension = [
+        inner_extension: list[Any] = [
             nibble_list_to_compact(Bytes(b"\x02"), False),
             branch,
         ]
@@ -304,10 +306,14 @@ class TestMalformedWitnessNodes:
     def test_extension_child_raw_nonzero_non_hash_bytes(self) -> None:
         """Non-empty byte refs inside extensions must be 32-byte hashes."""
         root_rlp = Bytes(
-            rlp.encode([nibble_list_to_compact(Bytes(b"\x01"), False), b"\x01"])
+            rlp.encode(
+                [nibble_list_to_compact(Bytes(b"\x01"), False), b"\x01"]
+            )
         )
 
-        with pytest.raises(AssertionError, match="Unexpected child ref length"):
+        with pytest.raises(
+            AssertionError, match="Unexpected child ref length"
+        ):
             _decode_root_from_rlp(root_rlp)
 
     def test_branch_with_zero_occupied_entries(self) -> None:
@@ -319,7 +325,7 @@ class TestMalformedWitnessNodes:
 
     def test_branch_with_single_occupied_entry(self) -> None:
         """A branch node with only one child is non-canonical."""
-        branch = [b""] * 17
+        branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"value"]
 
         with pytest.raises(
@@ -329,7 +335,7 @@ class TestMalformedWitnessNodes:
 
     def test_secured_branch_with_value(self) -> None:
         """Secured tries must not use the branch value slot."""
-        branch = [b""] * 17
+        branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
         branch[16] = b"terminal"
 
@@ -341,7 +347,7 @@ class TestMalformedWitnessNodes:
 
     def test_secured_extension_with_empty_path(self) -> None:
         """Secured tries must reject empty extension segments."""
-        branch = [b""] * 17
+        branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
         branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]
         root_rlp = Bytes(
