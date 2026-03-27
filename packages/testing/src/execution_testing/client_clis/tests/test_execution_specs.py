@@ -5,8 +5,7 @@ import os
 import sysconfig
 from os.path import realpath
 from pathlib import Path
-from shutil import which
-from typing import Dict, List, Type
+from typing import Dict, List
 
 import pytest
 from pydantic import TypeAdapter
