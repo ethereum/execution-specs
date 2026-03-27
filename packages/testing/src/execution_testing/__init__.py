@@ -22,6 +22,7 @@ from .benchmark import (
     BenchmarkCodeGenerator,
     ExtCallGenerator,
     JumpLoopGenerator,
+    StubConfig,
 )
 from .checklists import EIPChecklist
 from .exceptions import (
@@ -135,6 +136,7 @@ __all__ = (
     "BenchmarkCodeGenerator",
     "BenchmarkTest",
     "BenchmarkTestFiller",
+    "StubConfig",
     "Blob",
     "BlobsTest",
     "BlobsTestFiller",

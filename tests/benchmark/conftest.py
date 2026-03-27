@@ -4,15 +4,26 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from execution_testing import Fork
+from execution_testing import Fork, StubConfig
 
 DEFAULT_BENCHMARK_FORK = "Prague"
+
+_stub_config_key = pytest.StashKey[StubConfig]()
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Build StubConfig from ``--address-stubs``."""
+    address_stubs = config.getoption("address_stubs", default=None)
+    stubs = address_stubs.root if address_stubs else {}
+    config.stash[_stub_config_key] = StubConfig(stubs=stubs)
 
 
 def pytest_generate_tests(metafunc: Any) -> None:
     """
-    Modify test generation to enforce default benchmark fork for benchmark
-    tests.
+    Modify test generation for benchmark tests.
+
+    Enforce default benchmark fork and inject stub parametrization
+    for tests marked with ``@pytest.mark.stub_parametrize``.
     """
     benchmark_dir = Path(__file__).parent
     test_file_path = Path(metafunc.definition.fspath)
@@ -30,6 +41,14 @@ def pytest_generate_tests(metafunc: Any) -> None:
         if not has_valid_from:
             benchmark_marker = pytest.mark.valid_from(DEFAULT_BENCHMARK_FORK)
             metafunc.definition.add_marker(benchmark_marker)
+
+    # Inject parametrization from StubConfig for stub_parametrize markers
+    cfg = metafunc.config.stash.get(_stub_config_key, None)
+    if cfg is not None:
+        for marker in metafunc.definition.iter_markers("stub_parametrize"):
+            param_name, attr_name = marker.args
+            values = getattr(cfg, attr_name)
+            metafunc.parametrize(param_name, values, **marker.kwargs)
 
 
 def pytest_ignore_collect(collection_path: Path, config: Any) -> bool | None:
