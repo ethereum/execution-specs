@@ -28,7 +28,7 @@ from .exceptions import OutOfGasError
 
 class GasCosts:
     """
-    Constant gas values for the Amsterdam fork of the EVM.
+    Constant gas values for the EVM.
 
     These values may be patched at runtime by a future gas repricing utility
     """

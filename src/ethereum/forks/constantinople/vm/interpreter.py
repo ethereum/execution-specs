@@ -174,7 +174,7 @@ def process_create_message(message: Message) -> Evm:
     if not evm.error:
         contract_code = evm.output
         contract_code_gas = (
-            Uint(len(contract_code)) * GasCosts.GAS_CODE_DEPOSIT_PER_BYTE
+            ulen(contract_code) * GasCosts.GAS_CODE_DEPOSIT_PER_BYTE
         )
         try:
             charge_gas(evm, contract_code_gas)
