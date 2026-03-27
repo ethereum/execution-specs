@@ -363,6 +363,73 @@ def test_block_gas_used_with_state_ops(
     )
 
 
+@pytest.mark.valid_from("Amsterdam")
+def test_block_2d_gas_valid_when_cumulative_exceeds_limit(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify block validity under 2D gas when sum(txGasUsed) > gas_limit.
+
+    EIP-8037 block validity: max(regular, state) <= gas_limit.
+    Receipt cumulative_gas_used sums both dimensions per-tx, so it
+    can legitimately exceed gas_limit. Clients must not use the 1D
+    cumulative check for block validation.
+    """
+    gas_costs = fork.gas_costs()
+    sstore_state_gas = fork.sstore_state_gas()
+
+    tx_regular = (
+        gas_costs.GAS_TX_BASE
+        + 2 * gas_costs.GAS_VERY_LOW
+        + gas_costs.GAS_STORAGE_UPDATE
+    )
+    tx_state = sstore_state_gas
+    tx_gas_used = tx_regular + tx_state
+    num_txs = 5
+
+    # 2D bound < gas_limit < 1D bound
+    two_d_bound = num_txs * max(tx_regular, tx_state)
+    one_d_bound = num_txs * tx_gas_used
+    block_gas_limit = (two_d_bound + one_d_bound) // 2
+    assert two_d_bound < block_gas_limit < one_d_bound
+
+    env = Environment(gas_limit=block_gas_limit)
+    tx_limit = tx_gas_used + 1000
+
+    txs = []
+    post = {}
+    for _ in range(num_txs):
+        storage = Storage()
+        contract = pre.deploy_contract(
+            code=Op.SSTORE(storage.store_next(1), 1),
+        )
+        txs.append(
+            Transaction(
+                to=contract,
+                gas_limit=tx_limit,
+                sender=pre.fund_eoa(),
+            ),
+        )
+        post[contract] = Account(storage=storage)
+
+    blockchain_test(
+        genesis_environment=env,
+        pre=pre,
+        blocks=[
+            Block(
+                txs=txs,
+                gas_limit=block_gas_limit,
+                header_verify=Header(
+                    gas_used=num_txs * tx_state,
+                ),
+            ),
+        ],
+        post=post,
+    )
+
+
 @pytest.mark.parametrize(
     "gas_above_cap",
     [
