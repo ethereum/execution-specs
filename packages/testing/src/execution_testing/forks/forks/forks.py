@@ -15,7 +15,6 @@ from execution_testing.base_types import (
     Address,
     BlobSchedule,
     Bytes,
-    ForkBlobSchedule,
     ZeroPaddedHexNumber,
 )
 from execution_testing.base_types.conversions import BytesConvertible
@@ -38,6 +37,11 @@ from ..base_fork import (
 )
 from ..gas_costs import GasCosts
 from .eips.amsterdam.eip_7928 import EIP7928
+from .eips.cancun.eip_1153 import EIP1153
+from .eips.cancun.eip_4788 import EIP4788
+from .eips.cancun.eip_4844 import EIP4844
+from .eips.cancun.eip_5656 import EIP5656
+from .eips.cancun.eip_7516 import EIP7516
 from .eips.osaka.eip_7594 import EIP7594
 from .eips.osaka.eip_7825 import EIP7825
 from .eips.osaka.eip_7918 import EIP7918
@@ -53,7 +57,10 @@ from .eips.prague.eip_7623 import EIP7623
 from .eips.prague.eip_7685 import EIP7685
 from .eips.prague.eip_7691 import EIP7691
 from .eips.prague.eip_7702 import EIP7702
-from .helpers import ceiling_division, fake_exponential
+from .eips.shanghai.eip_3855 import EIP3855
+from .eips.shanghai.eip_3860 import EIP3860
+from .eips.shanghai.eip_4895 import EIP4895
+from .helpers import ceiling_division
 
 CURRENT_FILE = Path(realpath(__file__))
 CURRENT_FOLDER = CURRENT_FILE.parent
@@ -1825,328 +1832,21 @@ class Paris(
 
 
 class Shanghai(
+    EIP3855,
+    EIP3860,
+    EIP4895,
     Paris,
     fork_by_timestamp=True,
-    engine_new_payload_version_bump=True,
-    engine_forkchoice_updated_version_bump=True,
-    engine_get_payload_version_bump=True,
 ):
     """Shanghai fork."""
 
-    @classmethod
-    def header_withdrawals_required(cls) -> bool:
-        """Withdrawals are required starting from Shanghai."""
-        return True
-
-    @classmethod
-    def max_initcode_size(cls) -> int:
-        """From Shanghai, the initcode size is now limited. See EIP-3860."""
-        return 0xC000
-
-    @classmethod
-    def _calculate_create_gas(
-        cls, opcode: OpcodeBase, gas_costs: GasCosts
-    ) -> int:
-        """
-        Calculate CREATE gas cost based on metadata (from Shanghai, includes
-        initcode cost).
-        """
-        metadata = opcode.metadata
-
-        # Get base cost from parent fork
-        base_cost = super(Shanghai, cls)._calculate_create_gas(
-            opcode, gas_costs
-        )
-
-        # Add initcode cost (EIP-3860)
-        init_code_size = metadata["init_code_size"]
-        init_code_words = (init_code_size + 31) // 32
-        init_code_gas = gas_costs.GAS_CODE_INIT_PER_WORD * init_code_words
-
-        return base_cost + init_code_gas
-
-    @classmethod
-    def _calculate_create2_gas(
-        cls, opcode: OpcodeBase, gas_costs: GasCosts
-    ) -> int:
-        """
-        Calculate CREATE2 gas cost based on metadata (from Shanghai,
-        includes initcode cost).
-        """
-        metadata = opcode.metadata
-
-        # Get base cost from parent fork (includes keccak hash cost)
-        base_cost = super(Shanghai, cls)._calculate_create2_gas(
-            opcode, gas_costs
-        )
-
-        # Add initcode cost (EIP-3860)
-        init_code_size = metadata["init_code_size"]
-        init_code_words = (init_code_size + 31) // 32
-        init_code_gas = gas_costs.GAS_CODE_INIT_PER_WORD * init_code_words
-
-        return base_cost + init_code_gas
-
-    @classmethod
-    def opcode_gas_map(
-        cls,
-    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
-        """Add Shanghai opcodes gas costs."""
-        gas_costs = cls.gas_costs()
-        base_map = super(Shanghai, cls).opcode_gas_map()
-        return {
-            **base_map,
-            Opcodes.PUSH0: gas_costs.GAS_BASE,
-        }
-
-    @classmethod
-    def valid_opcodes(cls) -> List[Opcodes]:
-        """Return list of Opcodes that are valid to work on this fork."""
-        return [Opcodes.PUSH0] + super(Shanghai, cls).valid_opcodes()
+    pass
 
 
-class Cancun(
-    Shanghai,
-    engine_new_payload_version_bump=True,
-    engine_forkchoice_updated_version_bump=True,
-    engine_get_payload_version_bump=True,
-    engine_get_blobs_version_bump=True,
-    update_blob_constants={  # every value is an int or a Literal
-        "FIELD_ELEMENTS_PER_BLOB": 4096,
-        "BYTES_PER_FIELD_ELEMENT": 32,
-        "CELL_LENGTH": 2048,
-        # EIP-2537: Main subgroup order = q, due to this BLS_MODULUS
-        # every blob byte (uint256) must be smaller than 116
-        "BLS_MODULUS": (
-            0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
-        ),
-        # https://github.com/ethereum/consensus-specs/blob/
-        # cc6996c22692d70e41b7a453d925172ee4b719ad/specs/deneb/
-        # polynomial-commitments.md?plain=1#L78
-        "BYTES_PER_PROOF": 48,
-        "BYTES_PER_COMMITMENT": 48,
-        "AMOUNT_CELL_PROOFS": 0,
-        "BLOB_GAS_PER_BLOB": 2**17,
-        "MAX_BLOBS_PER_BLOCK": 6,
-        "TARGET_BLOBS_PER_BLOCK": 3,
-        "BLOB_BASE_FEE_UPDATE_FRACTION": 3338477,
-        "MIN_BASE_FEE_PER_BLOB_GAS": 1,
-    },
-):
+class Cancun(EIP5656, EIP1153, EIP4788, EIP4844, EIP7516, Shanghai):
     """Cancun fork."""
 
-    @classmethod
-    def header_excess_blob_gas_required(cls) -> bool:
-        """Excess blob gas is required starting from Cancun."""
-        return True
-
-    @classmethod
-    def header_blob_gas_used_required(cls) -> bool:
-        """Blob gas used is required starting from Cancun."""
-        return True
-
-    @classmethod
-    def header_beacon_root_required(cls) -> bool:
-        """Parent beacon block root is required starting from Cancun."""
-        return True
-
-    @classmethod
-    def blob_gas_price_calculator(cls) -> BlobGasPriceCalculator:
-        """Return a callable that calculates the blob gas price at Cancun."""
-        min_base_fee_per_blob_gas = cls.min_base_fee_per_blob_gas()
-        blob_base_fee_update_fraction = cls.blob_base_fee_update_fraction()
-
-        def fn(*, excess_blob_gas: int) -> int:
-            return fake_exponential(
-                min_base_fee_per_blob_gas,
-                excess_blob_gas,
-                blob_base_fee_update_fraction,
-            )
-
-        return fn
-
-    @classmethod
-    def excess_blob_gas_calculator(cls) -> ExcessBlobGasCalculator:
-        """
-        Return a callable that calculates the excess blob gas for a block at
-        Cancun.
-        """
-        target_blobs_per_block = cls.target_blobs_per_block()
-        blob_gas_per_blob = cls.blob_gas_per_blob()
-        blob_target_gas_per_block = target_blobs_per_block * blob_gas_per_blob
-
-        def fn(
-            *,
-            parent_excess_blob_gas: int | None = None,
-            parent_excess_blobs: int | None = None,
-            parent_blob_gas_used: int | None = None,
-            parent_blob_count: int | None = None,
-            # Required for Osaka as using this as base
-            parent_base_fee_per_gas: int,
-        ) -> int:
-            del parent_base_fee_per_gas
-
-            if parent_excess_blob_gas is None:
-                assert parent_excess_blobs is not None, (
-                    "Parent excess blobs are required"
-                )
-                parent_excess_blob_gas = (
-                    parent_excess_blobs * blob_gas_per_blob
-                )
-            if parent_blob_gas_used is None:
-                assert parent_blob_count is not None, (
-                    "Parent blob count is required"
-                )
-                parent_blob_gas_used = parent_blob_count * blob_gas_per_blob
-            if (
-                parent_excess_blob_gas + parent_blob_gas_used
-                < blob_target_gas_per_block
-            ):
-                return 0
-            else:
-                return (
-                    parent_excess_blob_gas
-                    + parent_blob_gas_used
-                    - blob_target_gas_per_block
-                )
-
-        return fn
-
-    @classmethod
-    def supports_blobs(cls) -> bool:
-        """At Cancun, blobs support is enabled."""
-        return True
-
-    @classmethod
-    def blob_reserve_price_active(cls) -> bool:
-        """Blob reserve price is not supported in Cancun."""
-        return False
-
-    @classmethod
-    def full_blob_tx_wrapper_version(cls) -> int | None:
-        """
-        Pre-Osaka forks don't use tx wrapper versions for full blob
-        transactions.
-        """
-        return None
-
-    @classmethod
-    def blob_schedule(cls) -> BlobSchedule | None:
-        """
-        At Cancun, the fork object runs this routine to get the updated blob
-        schedule.
-        """
-        parent_fork = cls.parent()
-        assert parent_fork is not None, "Parent fork must be defined"
-        blob_schedule = parent_fork.blob_schedule() or BlobSchedule()
-        current_blob_schedule = ForkBlobSchedule(
-            target_blobs_per_block=cls.target_blobs_per_block(),
-            max_blobs_per_block=cls.max_blobs_per_block(),
-            base_fee_update_fraction=cls.blob_base_fee_update_fraction(),
-        )
-        blob_schedule.append(fork=cls.name(), schedule=current_blob_schedule)
-        return blob_schedule
-
-    @classmethod
-    def tx_types(cls) -> List[int]:
-        """At Cancun, blob type transactions are introduced."""
-        return [3] + super(Cancun, cls).tx_types()
-
-    @classmethod
-    def precompiles(cls) -> List[Address]:
-        """At Cancun, a precompile for kzg point evaluation is introduced."""
-        return [
-            Address(10, label="KZG_POINT_EVALUATION"),
-        ] + super(Cancun, cls).precompiles()
-
-    @classmethod
-    def system_contracts(cls) -> List[Address]:
-        """Cancun introduces the system contract for EIP-4788."""
-        return [
-            Address(
-                0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02,
-                label="BEACON_ROOTS_ADDRESS",
-            )
-        ]
-
-    @classmethod
-    def pre_allocation_blockchain(cls) -> Mapping:
-        """
-        Cancun requires pre-allocation of the beacon root contract for EIP-4788
-        on blockchain type tests.
-        """
-        new_allocation = {
-            0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02: {
-                "nonce": 1,
-                "code": "0x3373fffffffffffffffffffffffffffffffffffffffe14604d"
-                "57602036146024575f5ffd5b5f35801560495762001fff810690"
-                "815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd"
-                "5b62001fff42064281555f359062001fff015500",
-            }
-        }
-        return new_allocation | super(Cancun, cls).pre_allocation_blockchain()  # type: ignore
-
-    @classmethod
-    def engine_new_payload_blob_hashes(cls) -> bool:
-        """From Cancun, payloads must have blob hashes."""
-        return True
-
-    @classmethod
-    def engine_new_payload_beacon_root(cls) -> bool:
-        """From Cancun, payloads must have a parent beacon block root."""
-        return True
-
-    @classmethod
-    def gas_costs(cls) -> GasCosts:
-        """On Cancun, the point evaluation precompile gas cost is set."""
-        return replace(
-            super(Cancun, cls).gas_costs(),
-            GAS_PRECOMPILE_POINT_EVALUATION=50_000,
-        )
-
-    @classmethod
-    def opcode_gas_map(
-        cls,
-    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
-        """
-        Return a mapping of opcodes to their gas costs for Cancun.
-
-        Adds Cancun-specific opcodes: BLOBHASH, BLOBBASEFEE, TLOAD, TSTORE,
-        MCOPY.
-        """
-        gas_costs = cls.gas_costs()
-        memory_expansion_calculator = cls.memory_expansion_gas_calculator()
-
-        # Get parent fork's opcode gas map
-        base_map = super(Cancun, cls).opcode_gas_map()
-
-        # Add Cancun-specific opcodes
-        return {
-            **base_map,
-            # EIP-4844: Shard Blob Transactions
-            Opcodes.BLOBHASH: gas_costs.GAS_VERY_LOW,
-            # EIP-7516: BLOBBASEFEE opcode
-            Opcodes.BLOBBASEFEE: gas_costs.GAS_BASE,
-            # EIP-1153: Transient storage opcodes
-            Opcodes.TLOAD: gas_costs.GAS_WARM_SLOAD,
-            Opcodes.TSTORE: gas_costs.GAS_WARM_SLOAD,
-            # EIP-5656: MCOPY - Memory copying instruction
-            Opcodes.MCOPY: cls._with_memory_expansion(
-                cls._with_data_copy(gas_costs.GAS_VERY_LOW, gas_costs),
-                memory_expansion_calculator,
-            ),
-        }
-
-    @classmethod
-    def valid_opcodes(cls) -> List[Opcodes]:
-        """Return list of Opcodes that are valid to work on this fork."""
-        return [
-            Opcodes.BLOBHASH,
-            Opcodes.BLOBBASEFEE,
-            Opcodes.TLOAD,
-            Opcodes.TSTORE,
-            Opcodes.MCOPY,
-        ] + super(Cancun, cls).valid_opcodes()
+    pass
 
 
 class Prague(
