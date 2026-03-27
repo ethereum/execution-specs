@@ -68,16 +68,11 @@ def balance(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    is_cold_access = address not in evm.accessed_addresses
-    gas_cost = (
-        GasCosts.GAS_COLD_ACCOUNT_ACCESS
-        if is_cold_access
-        else GasCosts.GAS_WARM_ACCESS
-    )
-    if is_cold_access:
+    if address in evm.accessed_addresses:
+        charge_gas(evm, GasCosts.GAS_WARM_ACCESS)
+    else:
         evm.accessed_addresses.add(address)
-
-    charge_gas(evm, gas_cost)
+        charge_gas(evm, GasCosts.GAS_COLD_ACCOUNT_ACCESS)
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
@@ -345,16 +340,11 @@ def extcodesize(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    is_cold_access = address not in evm.accessed_addresses
-    access_gas_cost = (
-        GasCosts.GAS_COLD_ACCOUNT_ACCESS
-        if is_cold_access
-        else GasCosts.GAS_WARM_ACCESS
-    )
-    if is_cold_access:
+    if address in evm.accessed_addresses:
+        charge_gas(evm, GasCosts.GAS_WARM_ACCESS)
+    else:
         evm.accessed_addresses.add(address)
-
-    charge_gas(evm, access_gas_cost)
+        charge_gas(evm, GasCosts.GAS_COLD_ACCOUNT_ACCESS)
 
     # OPERATION
     tx_state = evm.message.tx_env.state
@@ -391,16 +381,13 @@ def extcodecopy(evm: Evm) -> None:
         evm.memory, [(memory_start_index, size)]
     )
 
-    is_cold_access = address not in evm.accessed_addresses
-    access_gas_cost = (
-        GasCosts.GAS_COLD_ACCOUNT_ACCESS
-        if is_cold_access
-        else GasCosts.GAS_WARM_ACCESS
-    )
-    total_gas_cost = access_gas_cost + copy_gas_cost + extend_memory.cost
-
-    if is_cold_access:
+    if address in evm.accessed_addresses:
+        access_gas_cost = GasCosts.GAS_WARM_ACCESS
+    else:
         evm.accessed_addresses.add(address)
+        access_gas_cost = GasCosts.GAS_COLD_ACCOUNT_ACCESS
+
+    total_gas_cost = access_gas_cost + copy_gas_cost + extend_memory.cost
 
     charge_gas(evm, total_gas_cost)
 
@@ -494,14 +481,11 @@ def extcodehash(evm: Evm) -> None:
     address = to_address_masked(pop(evm.stack))
 
     # GAS
-    is_cold_access = address not in evm.accessed_addresses
-    access_gas_cost = (
-        GasCosts.GAS_COLD_ACCOUNT_ACCESS
-        if is_cold_access
-        else GasCosts.GAS_WARM_ACCESS
-    )
-    if is_cold_access:
+    if address in evm.accessed_addresses:
+        access_gas_cost = GasCosts.GAS_WARM_ACCESS
+    else:
         evm.accessed_addresses.add(address)
+        access_gas_cost = GasCosts.GAS_COLD_ACCOUNT_ACCESS
 
     charge_gas(evm, access_gas_cost)
 
