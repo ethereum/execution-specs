@@ -683,5 +683,35 @@ class TestSelectedForkSetWithTransitionBoundaries:
 
 
 def test_method_versions() -> None:  # noqa: D103
-    assert Amsterdam.engine_new_payload_version() == 5
+    assert London.engine_get_blobs_version() is None
+    assert London.engine_get_payload_version() is None
+    assert London.engine_new_payload_version() is None
+    assert London.engine_forkchoice_updated_version() is None
+
+    assert Paris.engine_get_blobs_version() is None
+    assert Paris.engine_get_payload_version() == 1
+    assert Paris.engine_new_payload_version() == 1
+    assert Paris.engine_forkchoice_updated_version() == 1
+
+    assert Shanghai.engine_get_blobs_version() is None
+    assert Shanghai.engine_get_payload_version() == 2
+    assert Shanghai.engine_new_payload_version() == 2
+    assert Shanghai.engine_forkchoice_updated_version() == 2
+
+    assert Cancun.engine_get_blobs_version() == 1
+    assert Cancun.engine_get_payload_version() == 3
+    assert Cancun.engine_new_payload_version() == 3
+    assert Cancun.engine_forkchoice_updated_version() == 3
+
+    assert Prague.engine_get_blobs_version() == 1
+    assert Prague.engine_get_payload_version() == 4
+    assert Prague.engine_new_payload_version() == 4
+    assert Prague.engine_forkchoice_updated_version() == 3
+
+    assert Osaka.engine_get_blobs_version() == 2
+    assert Osaka.engine_get_payload_version() == 5
+    assert Osaka.engine_new_payload_version() == 4
+    assert Osaka.engine_forkchoice_updated_version() == 3
+
     assert Amsterdam.engine_get_payload_version() == 6
+    assert Amsterdam.engine_new_payload_version() == 5

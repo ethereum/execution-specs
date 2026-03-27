@@ -12,7 +12,7 @@ description = "Ethereum execution layer client test generation and runner framew
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-license-files = [ "LICENSE" ]
+license-files = ["LICENSE"]
 keywords = ["ethereum", "testing", "blockchain"]
 classifiers = [
     "Programming Language :: Python :: 3.11",
@@ -71,8 +71,8 @@ lint = [
     "types-requests>=2.31,<2.33",
 ]
 dev = [
-    {include-group = "test"},
-    {include-group = "lint"},
+    { include-group = "test" },
+    { include-group = "lint" },
 ]
 
 [project.scripts]
@@ -106,7 +106,7 @@ where = ["src"]
 exclude = ["*tests*"]
 
 [tool.setuptools.package-data]
-"execution_testing.forks" = ["forks/contracts/*.bin"]
+"execution_testing.forks" = ["forks/eips/**/*.bin"]
 "execution_testing.cli.pytest_commands.plugins.execute" = ["eth_config/networks.yml"]
 "execution_testing.cli.eest.make" = ["templates/*.j2"]
 "execution_testing.cli.pytest_commands" = ["pytest_ini_files/*.ini"]

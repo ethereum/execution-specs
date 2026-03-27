@@ -248,6 +248,12 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _ruleset_name: ClassVar[Optional[str]] = None
     _fork_by_timestamp: ClassVar[bool] = False
 
+    # Method version bumps
+    _engine_new_payload_version_bump: ClassVar[bool] = False
+    _engine_forkchoice_updated_version_bump: ClassVar[bool] = False
+    _engine_get_payload_version_bump: ClassVar[bool] = False
+    _engine_get_blobs_version_bump: ClassVar[bool] = False
+
     # make mypy happy
     BLOB_CONSTANTS: ClassVar[Dict[str, Union[int, Literal["big"]]]] = {}
 
@@ -265,6 +271,10 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         bpo_fork: bool = False,
         ruleset_name: Optional[str] = None,
         fork_by_timestamp: Optional[bool] = None,
+        engine_new_payload_version_bump: Optional[bool] = None,
+        engine_forkchoice_updated_version_bump: Optional[bool] = None,
+        engine_get_payload_version_bump: Optional[bool] = None,
+        engine_get_blobs_version_bump: Optional[bool] = None,
     ) -> None:
         """
         Initialize new fork with values that don't carry over to subclass
@@ -291,6 +301,49 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         assert base_fork_class is not None
         if base_fork_class != BaseFork:
             base_fork_class._children.add(cls)
+        eip_bases = [
+            base_class
+            for base_class in cls.__bases__
+            if issubclass(base_class, BaseFork) and base_class.is_eip()
+        ]
+        # Bump the versions if any of the EIPs bump the version
+        if engine_new_payload_version_bump is not None:
+            cls._engine_new_payload_version_bump = (
+                engine_new_payload_version_bump
+            )
+        else:
+            cls._engine_new_payload_version_bump = any(
+                eip_base._engine_new_payload_version_bump
+                for eip_base in eip_bases
+            )
+
+        if engine_forkchoice_updated_version_bump is not None:
+            cls._engine_forkchoice_updated_version_bump = (
+                engine_forkchoice_updated_version_bump
+            )
+        else:
+            cls._engine_forkchoice_updated_version_bump = any(
+                eip_base._engine_forkchoice_updated_version_bump
+                for eip_base in eip_bases
+            )
+
+        if engine_get_payload_version_bump is not None:
+            cls._engine_get_payload_version_bump = (
+                engine_get_payload_version_bump
+            )
+        else:
+            cls._engine_get_payload_version_bump = any(
+                eip_base._engine_get_payload_version_bump
+                for eip_base in eip_bases
+            )
+
+        if engine_get_blobs_version_bump is not None:
+            cls._engine_get_blobs_version_bump = engine_get_blobs_version_bump
+        else:
+            cls._engine_get_blobs_version_bump = any(
+                eip_base._engine_get_blobs_version_bump
+                for eip_base in eip_bases
+            )
 
     # Header information abstract methods
     @classmethod
@@ -640,15 +693,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     # Engine API information abstract methods
     @classmethod
     @abstractmethod
-    def engine_new_payload_version(cls) -> Optional[int]:
-        """
-        Return `None` if this fork's payloads cannot be sent over the engine
-        API, or the payload version if it can.
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
     def engine_new_payload_blob_hashes(cls) -> bool:
         """
         Return true if the engine api version requires new payload calls to
@@ -709,32 +753,62 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
+    # Engine API method versions
     @classmethod
-    @abstractmethod
+    def engine_new_payload_version(cls) -> Optional[int]:
+        """
+        Return `None` if this fork's payloads cannot be sent over the engine
+        API, or the payload version if it can.
+        """
+        current_version = 0
+        current_cls: Type["BaseFork"] | None = cls
+        while current_cls is not None:
+            if current_cls._engine_new_payload_version_bump:
+                current_version += 1
+            current_cls = current_cls.parent()
+        return current_version if current_version > 0 else None
+
+    @classmethod
     def engine_forkchoice_updated_version(cls) -> Optional[int]:
         """
         Return `None` if the forks canonical chain cannot be set using the
         forkchoice method.
         """
-        pass
+        current_version = 0
+        current_cls: Type["BaseFork"] | None = cls
+        while current_cls is not None:
+            if current_cls._engine_forkchoice_updated_version_bump:
+                current_version += 1
+            current_cls = current_cls.parent()
+        return current_version if current_version > 0 else None
 
     @classmethod
-    @abstractmethod
     def engine_get_payload_version(cls) -> Optional[int]:
         """
         Return `None` if the forks canonical chain cannot build a payload using
         the engine API.
         """
-        pass
+        current_version = 0
+        current_cls: Type["BaseFork"] | None = cls
+        while current_cls is not None:
+            if current_cls._engine_get_payload_version_bump:
+                current_version += 1
+            current_cls = current_cls.parent()
+        return current_version if current_version > 0 else None
 
     @classmethod
-    @abstractmethod
     def engine_get_blobs_version(cls) -> Optional[int]:
         """
         Return `None` if the fork does not support the engine get blobs
         version.
         """
-        pass
+        current_version = 0
+        current_cls: Type["BaseFork"] | None = cls
+        while current_cls is not None:
+            if current_cls._engine_get_blobs_version_bump:
+                current_version += 1
+            current_cls = current_cls.parent()
+        return current_version if current_version > 0 else None
 
     # EVM information abstract methods
     @classmethod

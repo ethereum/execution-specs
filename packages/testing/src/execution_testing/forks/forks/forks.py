@@ -3,19 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from hashlib import sha256
 from os.path import realpath
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Mapping,
-    Optional,
-    Sized,
-)
+from typing import TYPE_CHECKING, Callable, Dict, List, Literal, Mapping, Sized
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import FixtureHeader
@@ -47,7 +37,22 @@ from ..base_fork import (
     TransactionIntrinsicCostCalculator,
 )
 from ..gas_costs import GasCosts
-from .eips.eip_7928 import EIP7928
+from .eips.amsterdam.eip_7928 import EIP7928
+from .eips.osaka.eip_7594 import EIP7594
+from .eips.osaka.eip_7825 import EIP7825
+from .eips.osaka.eip_7918 import EIP7918
+from .eips.osaka.eip_7934 import EIP7934
+from .eips.osaka.eip_7939 import EIP7939
+from .eips.osaka.eip_7951 import EIP7951
+from .eips.prague.eip_2537 import EIP2537
+from .eips.prague.eip_2935 import EIP2935
+from .eips.prague.eip_6110 import EIP6110
+from .eips.prague.eip_7002 import EIP7002
+from .eips.prague.eip_7251 import EIP7251
+from .eips.prague.eip_7623 import EIP7623
+from .eips.prague.eip_7685 import EIP7685
+from .eips.prague.eip_7691 import EIP7691
+from .eips.prague.eip_7702 import EIP7702
 from .helpers import ceiling_division, fake_exponential
 
 CURRENT_FILE = Path(realpath(__file__))
@@ -919,11 +924,6 @@ class Frontier(BaseFork, solc_name="homestead"):
         return 0
 
     @classmethod
-    def engine_new_payload_version(cls) -> Optional[int]:
-        """At genesis, payloads cannot be sent through the engine API."""
-        return None
-
-    @classmethod
     def header_beacon_root_required(cls) -> bool:
         """At genesis, header must not contain parent beacon block root."""
         return False
@@ -967,23 +967,6 @@ class Frontier(BaseFork, solc_name="homestead"):
         At genesis, payload attributes do not include the max blobs per block.
         """
         return False
-
-    @classmethod
-    def engine_forkchoice_updated_version(cls) -> Optional[int]:
-        """
-        At genesis, forkchoice updates cannot be sent through the engine API.
-        """
-        return cls.engine_new_payload_version()
-
-    @classmethod
-    def engine_get_payload_version(cls) -> Optional[int]:
-        """At genesis, payloads cannot be retrieved through the engine API."""
-        return cls.engine_new_payload_version()
-
-    @classmethod
-    def engine_get_blobs_version(cls) -> Optional[int]:
-        """At genesis, blobs cannot be retrieved through the engine API."""
-        return None
 
     @classmethod
     def get_reward(cls) -> int:
@@ -1865,6 +1848,10 @@ class Paris(
     London,
     transition_tool_name="Merge",
     ruleset_name="MERGE",
+    # Engine API method bumps
+    engine_new_payload_version_bump=True,
+    engine_forkchoice_updated_version_bump=True,
+    engine_get_payload_version_bump=True,
 ):
     """Paris (Merge) fork."""
 
@@ -1883,24 +1870,20 @@ class Paris(
         """Paris updates the reward to 0."""
         return 0
 
-    @classmethod
-    def engine_new_payload_version(cls) -> Optional[int]:
-        """From Paris, payloads can be sent through the engine API."""
-        return 1
 
-
-class Shanghai(Paris, fork_by_timestamp=True):
+class Shanghai(
+    Paris,
+    fork_by_timestamp=True,
+    engine_new_payload_version_bump=True,
+    engine_forkchoice_updated_version_bump=True,
+    engine_get_payload_version_bump=True,
+):
     """Shanghai fork."""
 
     @classmethod
     def header_withdrawals_required(cls) -> bool:
         """Withdrawals are required starting from Shanghai."""
         return True
-
-    @classmethod
-    def engine_new_payload_version(cls) -> Optional[int]:
-        """From Shanghai, new payload calls must use version 2."""
-        return 2
 
     @classmethod
     def max_initcode_size(cls) -> int:
@@ -1969,7 +1952,13 @@ class Shanghai(Paris, fork_by_timestamp=True):
         return [Opcodes.PUSH0] + super(Shanghai, cls).valid_opcodes()
 
 
-class Cancun(Shanghai):
+class Cancun(
+    Shanghai,
+    engine_new_payload_version_bump=True,
+    engine_forkchoice_updated_version_bump=True,
+    engine_get_payload_version_bump=True,
+    engine_get_blobs_version_bump=True,
+):
     """Cancun fork."""
 
     BLOB_CONSTANTS = {  # every value is an int or a Literal
@@ -2191,16 +2180,6 @@ class Cancun(Shanghai):
         return new_allocation | super(Cancun, cls).pre_allocation_blockchain()  # type: ignore
 
     @classmethod
-    def engine_new_payload_version(cls) -> Optional[int]:
-        """From Cancun, new payload calls must use version 3."""
-        return 3
-
-    @classmethod
-    def engine_get_blobs_version(cls) -> Optional[int]:
-        """At Cancun, the engine get blobs version is 1."""
-        return 1
-
-    @classmethod
     def engine_new_payload_blob_hashes(cls) -> bool:
         """From Cancun, payloads must have blob hashes."""
         return True
@@ -2263,7 +2242,18 @@ class Cancun(Shanghai):
         ] + super(Cancun, cls).valid_opcodes()
 
 
-class Prague(Cancun):
+class Prague(
+    EIP7691,
+    EIP7685,
+    EIP2935,
+    EIP7251,
+    EIP7002,
+    EIP6110,
+    EIP7623,
+    EIP7702,
+    EIP2537,
+    Cancun,
+):
     """Prague fork."""
 
     # update some blob constants
@@ -2276,314 +2266,17 @@ class Prague(Cancun):
         "BLOB_BASE_FEE_UPDATE_FRACTION": 5007716,
     }
 
-    @classmethod
-    def precompiles(cls) -> List[Address]:
-        """
-        At Prague, precompiles for BLS operations are added.
 
-        BLS12_G1ADD = 0x0B
-        BLS12_G1MSM = 0x0C
-        BLS12_G2ADD = 0x0D
-        BLS12_G2MSM = 0x0E
-        BLS12_PAIRING_CHECK = 0x0F
-        BLS12_MAP_FP_TO_G1 = 0x10
-        BLS12_MAP_FP2_TO_G2 = 0x11
-        """
-        return [
-            Address(11, label="BLS12_G1ADD"),
-            Address(12, label="BLS12_G1MSM"),
-            Address(13, label="BLS12_G2ADD"),
-            Address(14, label="BLS12_G2MSM"),
-            Address(15, label="BLS12_PAIRING_CHECK"),
-            Address(16, label="BLS12_MAP_FP_TO_G1"),
-            Address(17, label="BLS12_MAP_FP2_TO_G2"),
-        ] + super(Prague, cls).precompiles()
-
-    @classmethod
-    def tx_types(cls) -> List[int]:
-        """At Prague, set-code type transactions are introduced."""
-        return [4] + super(Prague, cls).tx_types()
-
-    @classmethod
-    def gas_costs(cls) -> GasCosts:
-        """
-        On Prague, the standard token cost and the floor token costs are
-        introduced due to EIP-7623.
-        """
-        return replace(
-            super(Prague, cls).gas_costs(),
-            GAS_TX_DATA_TOKEN_STANDARD=4,  # https://eips.ethereum.org/EIPS/eip-7623
-            GAS_TX_DATA_TOKEN_FLOOR=10,
-            GAS_AUTH_PER_EMPTY_ACCOUNT=25_000,
-            REFUND_AUTH_PER_EXISTING_ACCOUNT=12_500,
-            GAS_PRECOMPILE_BLS_G1ADD=375,
-            GAS_PRECOMPILE_BLS_G1MUL=12_000,
-            GAS_PRECOMPILE_BLS_G1MAP=5_500,
-            GAS_PRECOMPILE_BLS_G2ADD=600,
-            GAS_PRECOMPILE_BLS_G2MUL=22_500,
-            GAS_PRECOMPILE_BLS_G2MAP=23_800,
-            GAS_PRECOMPILE_BLS_PAIRING_BASE=37_700,
-            GAS_PRECOMPILE_BLS_PAIRING_PER_PAIR=32_600,
-        )
-
-    @classmethod
-    def system_contracts(cls) -> List[Address]:
-        """
-        Prague introduces the system contracts for EIP-6110, EIP-7002, EIP-7251
-        and EIP-2935.
-        """
-        return [
-            Address(
-                0x00000000219AB540356CBB839CBE05303D7705FA,
-                label="DEPOSIT_CONTRACT_ADDRESS",
-            ),
-            Address(
-                0x00000961EF480EB55E80D19AD83579A64C007002,
-                label="WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS",
-            ),
-            Address(
-                0x0000BBDDC7CE488642FB579F8B00F3A590007251,
-                label="CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS",
-            ),
-            Address(
-                0x0000F90827F1C53A10CB7A02335B175320002935,
-                label="HISTORY_STORAGE_ADDRESS",
-            ),
-        ] + super(Prague, cls).system_contracts()
-
-    @classmethod
-    def max_request_type(cls) -> int:
-        """
-        At Prague, three request types are introduced, hence the max request
-        type is 2.
-        """
-        return 2
-
-    @classmethod
-    def calldata_gas_calculator(cls) -> CalldataGasCalculator:
-        """
-        Return a callable that calculates the transaction gas cost for its
-        calldata depending on its contents.
-        """
-        gas_costs = cls.gas_costs()
-
-        def fn(*, data: BytesConvertible, floor: bool = False) -> int:
-            raw = Bytes(data)
-            num_zeros = raw.count(0)
-            num_non_zeros = len(raw) - num_zeros
-            tokens = num_zeros + num_non_zeros * 4
-            if floor:
-                return tokens * gas_costs.GAS_TX_DATA_TOKEN_FLOOR
-            return tokens * gas_costs.GAS_TX_DATA_TOKEN_STANDARD
-
-        return fn
-
-    @classmethod
-    def _calculate_call_gas(
-        cls, opcode: OpcodeBase, gas_costs: GasCosts
-    ) -> int:
-        """
-        At Prague, the call gas cost needs to take the authorization into
-        account.
-        """
-        metadata = opcode.metadata
-
-        base_cost = super(Prague, cls)._calculate_call_gas(opcode, gas_costs)
-
-        if metadata["delegated_address"] or metadata["delegated_address_warm"]:
-            if metadata["delegated_address_warm"]:
-                base_cost += gas_costs.GAS_WARM_ACCESS
-            else:
-                base_cost += gas_costs.GAS_COLD_ACCOUNT_ACCESS
-
-        return base_cost
-
-    @classmethod
-    def transaction_data_floor_cost_calculator(
-        cls,
-    ) -> TransactionDataFloorCostCalculator:
-        """
-        On Prague, due to EIP-7623, the transaction data floor cost is
-        introduced.
-        """
-        calldata_gas_calculator = cls.calldata_gas_calculator()
-        gas_costs = cls.gas_costs()
-
-        def fn(*, data: BytesConvertible) -> int:
-            return (
-                calldata_gas_calculator(data=data, floor=True)
-                + gas_costs.GAS_TX_BASE
-            )
-
-        return fn
-
-    @classmethod
-    def transaction_intrinsic_cost_calculator(
-        cls,
-    ) -> TransactionIntrinsicCostCalculator:
-        """
-        At Prague, the transaction intrinsic cost needs to take the
-        authorizations into account.
-        """
-        super_fn = super(Prague, cls).transaction_intrinsic_cost_calculator()
-        gas_costs = cls.gas_costs()
-        transaction_data_floor_cost_calculator = (
-            cls.transaction_data_floor_cost_calculator()
-        )
-
-        def fn(
-            *,
-            calldata: BytesConvertible = b"",
-            contract_creation: bool = False,
-            access_list: List[AccessList] | None = None,
-            authorization_list_or_count: Sized | int | None = None,
-            return_cost_deducted_prior_execution: bool = False,
-        ) -> int:
-            intrinsic_cost: int = super_fn(
-                calldata=calldata,
-                contract_creation=contract_creation,
-                access_list=access_list,
-                return_cost_deducted_prior_execution=False,
-            )
-            if authorization_list_or_count is not None:
-                if isinstance(authorization_list_or_count, Sized):
-                    authorization_list_or_count = len(
-                        authorization_list_or_count
-                    )
-                intrinsic_cost += (
-                    authorization_list_or_count
-                    * gas_costs.GAS_AUTH_PER_EMPTY_ACCOUNT
-                )
-
-            if return_cost_deducted_prior_execution:
-                return intrinsic_cost
-
-            transaction_floor_data_cost = (
-                transaction_data_floor_cost_calculator(data=calldata)
-            )
-            return max(intrinsic_cost, transaction_floor_data_cost)
-
-        return fn
-
-    @classmethod
-    def blob_base_fee_update_fraction(cls) -> int:
-        """Return the blob base fee update fraction for Prague."""
-        return 5007716
-
-    @classmethod
-    def target_blobs_per_block(cls) -> int:
-        """Blobs in Prague, have a static target of 6 blobs per block."""
-        return 6
-
-    @classmethod
-    def max_blobs_per_block(cls) -> int:
-        """Blobs in Prague, have a static max of 9 blobs per block."""
-        return 9
-
-    @classmethod
-    def pre_allocation_blockchain(cls) -> Mapping:
-        """
-        Prague requires pre-allocation of the beacon chain deposit contract for
-        EIP-6110, the exits contract for EIP-7002, and the history storage
-        contract for EIP-2935.
-        """
-        new_allocation = {}
-
-        # Add the beacon chain deposit contract
-        deposit_contract_tree_depth = 32
-        storage = {}
-        next_hash = sha256(b"\x00" * 64).digest()
-        for i in range(
-            deposit_contract_tree_depth + 2,
-            deposit_contract_tree_depth * 2 + 1,
-        ):
-            storage[i] = next_hash
-            next_hash = sha256(next_hash + next_hash).digest()
-
-        with open(
-            CURRENT_FOLDER / "contracts" / "deposit_contract.bin", mode="rb"
-        ) as f:
-            new_allocation.update(
-                {
-                    0x00000000219AB540356CBB839CBE05303D7705FA: {
-                        "nonce": 1,
-                        "code": f.read(),
-                        "storage": storage,
-                    }
-                }
-            )
-
-        # EIP-7002: Add the withdrawal request contract
-        with open(
-            CURRENT_FOLDER / "contracts" / "withdrawal_request.bin", mode="rb"
-        ) as f:
-            new_allocation.update(
-                {
-                    0x00000961EF480EB55E80D19AD83579A64C007002: {
-                        "nonce": 1,
-                        "code": f.read(),
-                    },
-                }
-            )
-
-        # EIP-7251: Add the consolidation request contract
-        with open(
-            CURRENT_FOLDER / "contracts" / "consolidation_request.bin",
-            mode="rb",
-        ) as f:
-            new_allocation.update(
-                {
-                    0x0000BBDDC7CE488642FB579F8B00F3A590007251: {
-                        "nonce": 1,
-                        "code": f.read(),
-                    },
-                }
-            )
-
-        # EIP-2935: Add the history storage contract
-        with open(
-            CURRENT_FOLDER / "contracts" / "history_contract.bin", mode="rb"
-        ) as f:
-            new_allocation.update(
-                {
-                    0x0000F90827F1C53A10CB7A02335B175320002935: {
-                        "nonce": 1,
-                        "code": f.read(),
-                    }
-                }
-            )
-
-        return new_allocation | super(Prague, cls).pre_allocation_blockchain()  # type: ignore
-
-    @classmethod
-    def header_requests_required(cls) -> bool:
-        """
-        Prague requires that the execution layer header contains the beacon
-        chain requests hash.
-        """
-        return True
-
-    @classmethod
-    def engine_new_payload_requests(cls) -> bool:
-        """
-        From Prague, new payloads include the requests hash as a parameter.
-        """
-        return True
-
-    @classmethod
-    def engine_new_payload_version(cls) -> Optional[int]:
-        """From Prague, new payload calls must use version 4."""
-        return 4
-
-    @classmethod
-    def engine_forkchoice_updated_version(cls) -> Optional[int]:
-        """
-        At Prague, version number of NewPayload and ForkchoiceUpdated diverge.
-        """
-        return 3
-
-
-class Osaka(Prague, solc_name="cancun"):
+class Osaka(
+    EIP7939,
+    EIP7934,
+    EIP7825,
+    EIP7918,
+    EIP7594,
+    EIP7951,
+    Prague,
+    solc_name="cancun",
+):
     """Osaka fork."""
 
     # update some blob constants
@@ -2591,152 +2284,6 @@ class Osaka(Prague, solc_name="cancun"):
         **Prague.BLOB_CONSTANTS,  # same base constants as prague
         "AMOUNT_CELL_PROOFS": 128,
     }
-
-    @classmethod
-    def engine_get_payload_version(cls) -> Optional[int]:
-        """From Osaka, get payload calls must use version 5."""
-        return 5
-
-    @classmethod
-    def engine_get_blobs_version(cls) -> Optional[int]:
-        """At Osaka, the engine get blobs version is 2."""
-        return 2
-
-    @classmethod
-    def full_blob_tx_wrapper_version(cls) -> int | None:
-        """At Osaka, the full blob transaction wrapper version is defined."""
-        return 1
-
-    @classmethod
-    def transaction_gas_limit_cap(cls) -> int | None:
-        """At Osaka, transaction gas limit is capped at 16 million (2**24)."""
-        return 16_777_216
-
-    @classmethod
-    def block_rlp_size_limit(cls) -> int | None:
-        """From Osaka, block RLP size is limited as specified in EIP-7934."""
-        max_block_size = 10_485_760
-        safety_margin = 2_097_152
-        return max_block_size - safety_margin
-
-    @classmethod
-    def opcode_gas_map(
-        cls,
-    ) -> Dict[OpcodeBase, int | Callable[[OpcodeBase], int]]:
-        """Add Osaka opcodes gas costs."""
-        gas_costs = cls.gas_costs()
-        base_map = super(Osaka, cls).opcode_gas_map()
-        return {
-            **base_map,
-            Opcodes.CLZ: gas_costs.GAS_LOW,
-        }
-
-    @classmethod
-    def valid_opcodes(cls) -> List[Opcodes]:
-        """Return list of Opcodes that are valid to work on this fork."""
-        return [
-            Opcodes.CLZ,
-        ] + super(Prague, cls).valid_opcodes()
-
-    @classmethod
-    def precompiles(cls) -> List[Address]:
-        """
-        At Osaka, a precompile for p256verify operation is added.
-
-        P256VERIFY = 0x100
-        """
-        return [
-            Address(0x100, label="P256VERIFY"),
-        ] + super(Osaka, cls).precompiles()
-
-    @classmethod
-    def gas_costs(cls) -> GasCosts:
-        """On Osaka, the P256VERIFY precompile gas cost is set."""
-        return replace(
-            super(Osaka, cls).gas_costs(),
-            GAS_PRECOMPILE_P256VERIFY=6_900,
-        )
-
-    @classmethod
-    def excess_blob_gas_calculator(cls) -> ExcessBlobGasCalculator:
-        """
-        Return a callable that calculates the excess blob gas for a block.
-        """
-        target_blobs_per_block = cls.target_blobs_per_block()
-        blob_gas_per_blob = cls.blob_gas_per_blob()
-        blob_target_gas_per_block = target_blobs_per_block * blob_gas_per_blob
-        max_blobs_per_block = cls.max_blobs_per_block()
-        blob_base_cost = 2**13  # EIP-7918 new parameter
-
-        def fn(
-            *,
-            parent_excess_blob_gas: int | None = None,
-            parent_excess_blobs: int | None = None,
-            parent_blob_gas_used: int | None = None,
-            parent_blob_count: int | None = None,
-            parent_base_fee_per_gas: int,  # EIP-7918 additional parameter
-        ) -> int:
-            if parent_excess_blob_gas is None:
-                assert parent_excess_blobs is not None, (
-                    "Parent excess blobs are required"
-                )
-                parent_excess_blob_gas = (
-                    parent_excess_blobs * blob_gas_per_blob
-                )
-            if parent_blob_gas_used is None:
-                assert parent_blob_count is not None, (
-                    "Parent blob count is required"
-                )
-                parent_blob_gas_used = parent_blob_count * blob_gas_per_blob
-            if (
-                parent_excess_blob_gas + parent_blob_gas_used
-                < blob_target_gas_per_block
-            ):
-                return 0
-
-            # EIP-7918: Apply reserve price when execution costs dominate blob
-            # costs
-            current_blob_base_fee = cls.blob_gas_price_calculator()(
-                excess_blob_gas=parent_excess_blob_gas
-            )
-            reserve_price_active = (
-                blob_base_cost * parent_base_fee_per_gas
-                > blob_gas_per_blob * current_blob_base_fee
-            )
-            if reserve_price_active:
-                blob_excess_adjustment = (
-                    parent_blob_gas_used
-                    * (max_blobs_per_block - target_blobs_per_block)
-                    // max_blobs_per_block
-                )
-                return parent_excess_blob_gas + blob_excess_adjustment
-
-            # Original EIP-4844 calculation
-            return (
-                parent_excess_blob_gas
-                + parent_blob_gas_used
-                - blob_target_gas_per_block
-            )
-
-        return fn
-
-    @classmethod
-    def max_blobs_per_tx(cls) -> int:
-        """
-        Blobs in Osaka, have a static max of 6 blobs per tx. Differs from the
-        max per block.
-        """
-        return 6
-
-    @classmethod
-    def blob_reserve_price_active(cls) -> bool:
-        """Blob reserve price is supported in Osaka."""
-        return True
-
-    @classmethod
-    def blob_base_cost(cls) -> int:
-        """Return the base cost of a blob at a given fork."""
-        return 2**13  # EIP-7918 new parameter
 
 
 class BPO1(Osaka, bpo_fork=True):

@@ -8,14 +8,19 @@ https://eips.ethereum.org/EIPS/eip-7928
 """
 
 from dataclasses import replace
-from typing import Optional
 
-from ...base_fork import BaseFork
-from ...gas_costs import GasCosts
+from ....base_fork import BaseFork
+from ....gas_costs import GasCosts
 
 
-class EIP7928(BaseFork):
-    """EIP-7928 fork."""
+class EIP7928(
+    BaseFork,
+    # Engine API method version bumps
+    # New field `blockAccessList` in ExecutionPayload
+    engine_new_payload_version_bump=True,
+    engine_get_payload_version_bump=True,
+):
+    """EIP-7928 class."""
 
     @classmethod
     def header_bal_hash_required(cls) -> bool:
@@ -54,17 +59,3 @@ class EIP7928(BaseFork):
         as a parameter.
         """
         return True
-
-    @classmethod
-    def engine_new_payload_version(cls) -> Optional[int]:
-        """From EIP-7928, new payload calls must bump the version."""
-        parent_version = cls.parent_or_fail().engine_new_payload_version()
-        assert parent_version is not None
-        return parent_version + 1
-
-    @classmethod
-    def engine_get_payload_version(cls) -> Optional[int]:
-        """From EIP-7928, get payload calls must bump the version."""
-        parent_version = cls.parent_or_fail().engine_get_payload_version()
-        assert parent_version is not None
-        return parent_version + 1
