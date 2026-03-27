@@ -487,6 +487,4 @@ def resolve_expect_post_fork(
 
         return result, exception
 
-    raise ValueError(
-        f"No matching expect entry for fork={fork}"
-    )
+    raise ValueError(f"No matching expect entry for fork={fork}")
