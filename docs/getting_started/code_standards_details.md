@@ -103,24 +103,6 @@ Don't use raw `subprocess.run()` in pytester-based tests. If you need process is
 
 Both methods return a `RunResult` with `.ret`, `.outlines`, `.errlines`, `assert_outcomes()`, and `fnmatch_lines()`. When the inner test is expected to fail, use `capsys.readouterr()` after `runpytest_subprocess()` to suppress the inner failure output that pytester replays to stdout.
 
-## Formatting and Line Length
-
-The Python code in @ethereum/execution-spec-tests is formatted with `ruff` with a line length of 100 characters.
-
-### Ignoring Bulk Change Commits
-
-The maximum line length was changed from 80 to 100 in Q2 2023. To ignore this bulk change commit in git blame output, use the `.git-blame-ignore-revs` file:
-
-```console
-git blame --ignore-revs-file .git-blame-ignore-revs docs/gen_test_case_reference.py
-```
-
-To use the revs file persistently with `git blame`:
-
-```console
-git config blame.ignoreRevsFile .git-blame-ignore-revs
-```
-
 ## Building and Verifying Docs Locally
 
 To quickly build and browse the HTML documentation locally run:
