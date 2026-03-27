@@ -26,6 +26,7 @@ REFERENCE_SPEC_VERSION = "N/A"
     ["state_tests/stStaticCall/static_Return50000_2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.pre_alloc_mutable
 def test_static_return50000_2(
     state_test: StateTestFiller,

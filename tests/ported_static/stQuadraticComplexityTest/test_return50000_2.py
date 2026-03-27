@@ -41,6 +41,7 @@ def _tx_data(d: int) -> bytes:
     ["state_tests/stQuadraticComplexityTest/Return50000_2Filler.json"],
 )
 @pytest.mark.valid_from("Cancun")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "d, g, v",
     [
