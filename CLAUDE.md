@@ -42,6 +42,7 @@ When reviewing PRs that implement or test EIPs:
 ## When to Use Skills
 
 - Writing or modifying tests → run `/write-test` first
+- Writing or modifying pytester-based plugin tests → run `/pytester` first
 - Filling test fixtures → run `/fill-tests` first
 - Implementing an EIP or modifying fork code in `src/` → run `/implement-eip` first
 - Modifying GitHub Actions workflows → run `/edit-workflow` first
@@ -53,6 +54,7 @@ When reviewing PRs that implement or test EIPs:
 ## Available Skills
 
 - `/write-test` — test writing patterns, fixtures, markers, bytecode helpers
+- `/pytester` — pytester execution modes, isolation, output handling for plugin tests
 - `/fill-tests` — `fill` CLI reference, flags, debugging, benchmark tests
 - `/implement-eip` — fork structure, import rules, adding opcodes/precompiles/tx types
 - `/edit-workflow` — GitHub Actions conventions and version pinning
