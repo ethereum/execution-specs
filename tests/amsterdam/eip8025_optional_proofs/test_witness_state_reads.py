@@ -94,6 +94,46 @@ def test_witness_state_reverted_sload_still_contains_storage_proof(
     )
 
 
+def test_witness_state_reverted_inner_sload_still_contains_storage_proof(
+    pre: Alloc,
+    blockchain_test: BlockchainTestFiller,
+) -> None:
+    """
+    A reverted inner-call SLOAD should still leave its proof nodes in witness.
+    """
+    storage = build_large_storage([1])
+    proof_nodes = collect_storage_proof_nodes(storage, [1])
+    assert proof_nodes
+
+    callee = pre.deploy_contract(
+        code=Op.SLOAD(1) + Op.POP + Op.REVERT(0, 0),
+        storage=as_storage(storage),
+    )
+    caller = pre.deploy_contract(
+        code=Op.CALL(Op.GAS, callee, 0, 0, 0, 0, 0) + Op.POP + Op.STOP,
+    )
+    sender = pre.fund_eoa()
+    tx = Transaction(sender=sender, to=caller, gas_limit=500_000)
+
+    blockchain_test(
+        pre=pre,
+        blocks=[
+            Block(
+                txs=[tx],
+                expected_execution_witness_state=(
+                    ExecutionWitnessStateExpectation(
+                        nodes_present=proof_nodes,
+                    )
+                ),
+            )
+        ],
+        post={
+            sender: Account(nonce=1),
+            callee: Account(storage=storage),
+        },
+    )
+
+
 def test_witness_state_sload_absent_slot_contains_storage_proof(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
