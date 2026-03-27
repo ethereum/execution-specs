@@ -60,7 +60,8 @@ class RethExceptionMapper(ExceptionMapper):
             r"max fee per blob gas \(\d+\)"
         ),
         TransactionException.INTRINSIC_GAS_TOO_LOW: (
-            r"call gas cost \(\d+\) exceeds the gas limit \(\d+\)"
+            r"call gas cost \(\d+\) exceeds the gas limit \(\d+\)|"
+            r"gas floor \(\d+\) exceeds the gas limit \(\d+\)"
         ),
         TransactionException.INTRINSIC_GAS_BELOW_FLOOR_GAS_COST: (
             r"gas floor \(\d+\) exceeds the gas limit \(\d+\)"
@@ -122,6 +123,9 @@ class RethExceptionMapper(ExceptionMapper):
         ),
         BlockException.INCORRECT_BLOCK_FORMAT: (
             r"block access list hash mismatch"
+        ),
+        BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
+           r"block access list cost exceeds gas limit"
         ),
         # Reth does not validate the sizes or offsets of the deposit
         # contract logs. As a workaround we have set
