@@ -28,6 +28,7 @@ from ethereum_spec_tools.lint.lints.glacier_forks_hygiene import (
     GlacierForksHygiene,
 )
 from ethereum_spec_tools.lint.lints.import_hygiene import ImportHygiene
+from ethereum_spec_tools.lint.lints.uint_len import UintLenHygiene
 from ethereum_spec_tools.new_fork.codemod.comment import CommentReplaceCommand
 from ethereum_spec_tools.new_fork.codemod.constant import SetConstantCommand
 from ethereum_spec_tools.new_fork.codemod.string_replace import (
@@ -111,6 +112,9 @@ Trace.returnData
 Trace.refund
 Trace.opName
 FinalTrace.gasUsed
+
+# src/ethereum_spec_tools/lint/lints/uint_len.py
+UintLenHygiene
 
 # src/ethereum_spec_tools/lint/lints/glacier_forks_hygiene.py
 GlacierForksHygiene
