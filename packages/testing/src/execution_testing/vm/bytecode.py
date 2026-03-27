@@ -238,7 +238,7 @@ class Bytecode:
 
     def __radd__(self, other: "Bytecode | int | None") -> "Bytecode":
         """
-        Concatenate the opcode byte representation with another bytes object.
+        Repeat the bytecode a given number of times.
         """
         if other is None or (isinstance(other, int) and other == 0):
             # Edge case for sum() function
