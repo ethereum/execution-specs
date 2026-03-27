@@ -658,8 +658,9 @@ class BlockchainTest(BaseTest):
         # executing the block by simply counting the type-3 txs, we need to set
         # the correct value by default.
         blob_gas_used: int | None = None
-        if (blob_gas_per_blob := fork.blob_gas_per_blob()) > 0:
-            blob_gas_used = blob_gas_per_blob * count_blobs(txs)
+        if fork.supports_blobs():
+            if (blob_gas_per_blob := fork.blob_gas_per_blob()) > 0:
+                blob_gas_used = blob_gas_per_blob * count_blobs(txs)
 
         header = FixtureHeader(
             **(

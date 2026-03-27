@@ -682,6 +682,10 @@ class TestSelectedForkSetWithTransitionBoundaries:
         assert BPO2ToAmsterdamAtTime15k not in result
 
 
+def test_blob_constants() -> None:  # noqa: D103
+    assert Osaka.get_blob_constant("AMOUNT_CELL_PROOFS") == 128
+
+
 def test_method_versions() -> None:  # noqa: D103
     assert London.engine_get_blobs_version() is None
     assert London.engine_get_payload_version() is None

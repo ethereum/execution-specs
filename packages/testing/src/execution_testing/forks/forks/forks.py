@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from os.path import realpath
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Dict, List, Literal, Mapping, Sized
+from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, Sized
 
 if TYPE_CHECKING:
     from execution_testing.fixtures.blockchain import FixtureHeader
@@ -834,42 +834,9 @@ class Frontier(BaseFork, solc_name="homestead"):
         )
 
     @classmethod
-    def min_base_fee_per_blob_gas(cls) -> int:
-        """Return the amount of blob gas used per blob at a given fork."""
-        raise NotImplementedError(
-            f"Base fee per blob gas is not supported in {cls.name()}"
-        )
-
-    @classmethod
-    def blob_base_fee_update_fraction(cls) -> int:
-        """Return the blob base fee update fraction at a given fork."""
-        raise NotImplementedError(
-            f"Blob base fee update fraction is not supported in {cls.name()}"
-        )
-
-    @classmethod
-    def blob_gas_per_blob(cls) -> int:
-        """Return the amount of blob gas used per blob at a given fork."""
-        return 0
-
-    @classmethod
     def supports_blobs(cls) -> bool:
         """Blobs are not supported at Frontier."""
         return False
-
-    @classmethod
-    def target_blobs_per_block(cls) -> int:
-        """Return the target number of blobs per block at a given fork."""
-        raise NotImplementedError(
-            f"Target blobs per block is not supported in {cls.name()}"
-        )
-
-    @classmethod
-    def max_blobs_per_block(cls) -> int:
-        """Return the max number of blobs per block at a given fork."""
-        raise NotImplementedError(
-            f"Max blobs per block is not supported in {cls.name()}"
-        )
 
     @classmethod
     def blob_reserve_price_active(cls) -> bool:
@@ -882,25 +849,11 @@ class Frontier(BaseFork, solc_name="homestead"):
         )
 
     @classmethod
-    def blob_base_cost(cls) -> int:
-        """Return the base cost of a blob at a given fork."""
-        raise NotImplementedError(
-            f"Blob base cost is not supported in {cls.name()}"
-        )
-
-    @classmethod
     def full_blob_tx_wrapper_version(cls) -> int | None:
         """Return the version of the full blob transaction wrapper."""
         raise NotImplementedError(
             "Full blob transaction wrapper version is not supported in "
             f"{cls.name()}"
-        )
-
-    @classmethod
-    def max_blobs_per_tx(cls) -> int:
-        """Return the max number of blobs per tx at a given fork."""
-        raise NotImplementedError(
-            f"Max blobs per tx is not supported in {cls.name()}"
         )
 
     @classmethod
@@ -1958,10 +1911,7 @@ class Cancun(
     engine_forkchoice_updated_version_bump=True,
     engine_get_payload_version_bump=True,
     engine_get_blobs_version_bump=True,
-):
-    """Cancun fork."""
-
-    BLOB_CONSTANTS = {  # every value is an int or a Literal
+    update_blob_constants={  # every value is an int or a Literal
         "FIELD_ELEMENTS_PER_BLOB": 4096,
         "BYTES_PER_FIELD_ELEMENT": 32,
         "CELL_LENGTH": 2048,
@@ -1975,19 +1925,15 @@ class Cancun(
         # polynomial-commitments.md?plain=1#L78
         "BYTES_PER_PROOF": 48,
         "BYTES_PER_COMMITMENT": 48,
-        "KZG_ENDIANNESS": "big",
         "AMOUNT_CELL_PROOFS": 0,
-    }
-
-    @classmethod
-    def get_blob_constant(cls, name: str) -> int | Literal["big"]:
-        """Return blob constant if it exists."""
-        retrieved_constant = cls.BLOB_CONSTANTS.get(name)
-        assert retrieved_constant is not None, (
-            f"You tried to retrieve the blob constant {name} but it does "
-            "not exist!"
-        )
-        return retrieved_constant
+        "BLOB_GAS_PER_BLOB": 2**17,
+        "MAX_BLOBS_PER_BLOCK": 6,
+        "TARGET_BLOBS_PER_BLOCK": 3,
+        "BLOB_BASE_FEE_UPDATE_FRACTION": 3338477,
+        "MIN_BASE_FEE_PER_BLOB_GAS": 1,
+    },
+):
+    """Cancun fork."""
 
     @classmethod
     def header_excess_blob_gas_required(cls) -> bool:
@@ -2067,40 +2013,9 @@ class Cancun(
         return fn
 
     @classmethod
-    def min_base_fee_per_blob_gas(cls) -> int:
-        """Return the minimum base fee per blob gas for Cancun."""
-        return 1
-
-    @classmethod
-    def blob_base_fee_update_fraction(cls) -> int:
-        """Return the blob base fee update fraction for Cancun."""
-        return 3338477
-
-    @classmethod
-    def blob_gas_per_blob(cls) -> int:
-        """Blobs are enabled starting from Cancun."""
-        return 2**17
-
-    @classmethod
     def supports_blobs(cls) -> bool:
         """At Cancun, blobs support is enabled."""
         return True
-
-    @classmethod
-    def target_blobs_per_block(cls) -> int:
-        """
-        Blobs are enabled starting from Cancun, with a static target of 3 blobs
-        per block.
-        """
-        return 3
-
-    @classmethod
-    def max_blobs_per_block(cls) -> int:
-        """
-        Blobs are enabled starting from Cancun, with a static max of 6 blobs
-        per block.
-        """
-        return 6
 
     @classmethod
     def blob_reserve_price_active(cls) -> bool:
@@ -2114,14 +2029,6 @@ class Cancun(
         transactions.
         """
         return None
-
-    @classmethod
-    def max_blobs_per_tx(cls) -> int:
-        """
-        Blobs are enabled starting from Cancun, with a static max equal to the
-        max per block.
-        """
-        return cls.max_blobs_per_block()
 
     @classmethod
     def blob_schedule(cls) -> BlobSchedule | None:
@@ -2256,15 +2163,7 @@ class Prague(
 ):
     """Prague fork."""
 
-    # update some blob constants
-    BLOB_CONSTANTS = {
-        **Cancun.BLOB_CONSTANTS,  # same base constants as cancun
-        "MAX_BLOBS_PER_BLOCK": 9,  # but overwrite or add these
-        "TARGET_BLOBS_PER_BLOCK": 6,
-        "MAX_BLOB_GAS_PER_BLOCK": 1179648,
-        "BLOB_TARGET_GAS_PER_BLOCK": 786432,
-        "BLOB_BASE_FEE_UPDATE_FRACTION": 5007716,
-    }
+    pass
 
 
 class Osaka(
@@ -2279,52 +2178,46 @@ class Osaka(
 ):
     """Osaka fork."""
 
-    # update some blob constants
-    BLOB_CONSTANTS = {
-        **Prague.BLOB_CONSTANTS,  # same base constants as prague
-        "AMOUNT_CELL_PROOFS": 128,
-    }
+    pass
 
 
-class BPO1(Osaka, bpo_fork=True):
+class BPO1(
+    Osaka,
+    bpo_fork=True,
+    update_blob_constants={
+        "BLOB_BASE_FEE_UPDATE_FRACTION": 8346193,
+        "TARGET_BLOBS_PER_BLOCK": 10,
+        "MAX_BLOBS_PER_BLOCK": 15,
+    },
+):
     """Mainnet BPO1 fork - Blob Parameter Only fork 1."""
 
-    @classmethod
-    def blob_base_fee_update_fraction(cls) -> int:
-        """Return the blob base fee update fraction for BPO1."""
-        return 8346193
-
-    @classmethod
-    def target_blobs_per_block(cls) -> int:
-        """Blobs in BPO1 have a target of 10 blobs per block."""
-        return 10
-
-    @classmethod
-    def max_blobs_per_block(cls) -> int:
-        """Blobs in BPO1 have a max of 15 blobs per block."""
-        return 15
+    pass
 
 
-class BPO2(BPO1, bpo_fork=True):
+class BPO2(
+    BPO1,
+    bpo_fork=True,
+    update_blob_constants={
+        "BLOB_BASE_FEE_UPDATE_FRACTION": 11684671,
+        "TARGET_BLOBS_PER_BLOCK": 14,
+        "MAX_BLOBS_PER_BLOCK": 21,
+    },
+):
     """Mainnet BPO2 fork - Blob Parameter Only fork 2."""
 
-    @classmethod
-    def blob_base_fee_update_fraction(cls) -> int:
-        """Return the blob base fee update fraction for BPO2."""
-        return 11684671
-
-    @classmethod
-    def target_blobs_per_block(cls) -> int:
-        """Blobs in BPO2 have a target of 14 blobs per block."""
-        return 14
-
-    @classmethod
-    def max_blobs_per_block(cls) -> int:
-        """Blobs in BPO2 have a max of 21 blobs per block."""
-        return 21
+    pass
 
 
-class BPO3(BPO2, bpo_fork=True):
+class BPO3(
+    BPO2,
+    bpo_fork=True,
+    update_blob_constants={
+        "BLOB_BASE_FEE_UPDATE_FRACTION": 20609697,
+        "TARGET_BLOBS_PER_BLOCK": 21,
+        "MAX_BLOBS_PER_BLOCK": 32,
+    },
+):
     """
     Pseudo BPO3 fork - Blob Parameter Only fork 3.
     For testing purposes only.
@@ -2335,42 +2228,22 @@ class BPO3(BPO2, bpo_fork=True):
         """BPO3 is a pseudo fork for testing, not deployed to mainnet."""
         return False
 
-    @classmethod
-    def blob_base_fee_update_fraction(cls) -> int:
-        """Return the blob base fee update fraction for BPO3."""
-        return 20609697
 
-    @classmethod
-    def target_blobs_per_block(cls) -> int:
-        """Blobs in BPO3 have a target of 21 blobs per block."""
-        return 21
-
-    @classmethod
-    def max_blobs_per_block(cls) -> int:
-        """Blobs in BPO3 have a max of 32 blobs per block."""
-        return 32
-
-
-class BPO4(BPO3, bpo_fork=True):
+class BPO4(
+    BPO3,
+    bpo_fork=True,
+    update_blob_constants={
+        "BLOB_BASE_FEE_UPDATE_FRACTION": 13739630,
+        "TARGET_BLOBS_PER_BLOCK": 14,
+        "MAX_BLOBS_PER_BLOCK": 21,
+    },
+):
     """
     Pseudo BPO4 fork - Blob Parameter Only fork 4.
     For testing purposes only. Testing a decrease in values from BPO3.
     """
 
-    @classmethod
-    def blob_base_fee_update_fraction(cls) -> int:
-        """Return the blob base fee update fraction for BPO4."""
-        return 13739630
-
-    @classmethod
-    def target_blobs_per_block(cls) -> int:
-        """Blobs in BPO4 have a target of 14 blobs per block."""
-        return 14
-
-    @classmethod
-    def max_blobs_per_block(cls) -> int:
-        """Blobs in BPO4 have a max of 21 blobs per block."""
-        return 21
+    pass
 
 
 class BPO5(BPO4, bpo_fork=True):

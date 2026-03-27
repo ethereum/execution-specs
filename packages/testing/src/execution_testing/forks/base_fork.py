@@ -8,14 +8,12 @@ from typing import (
     ClassVar,
     Dict,
     List,
-    Literal,
     Mapping,
     Optional,
     Protocol,
     Set,
     Sized,
     Type,
-    Union,
 )
 
 if TYPE_CHECKING:
@@ -247,20 +245,13 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
     _children: ClassVar[Set[Type["BaseFork"]]] = set()
     _ruleset_name: ClassVar[Optional[str]] = None
     _fork_by_timestamp: ClassVar[bool] = False
+    _blob_constants: ClassVar[Dict[str, int]] = {}
 
     # Method version bumps
     _engine_new_payload_version_bump: ClassVar[bool] = False
     _engine_forkchoice_updated_version_bump: ClassVar[bool] = False
     _engine_get_payload_version_bump: ClassVar[bool] = False
     _engine_get_blobs_version_bump: ClassVar[bool] = False
-
-    # make mypy happy
-    BLOB_CONSTANTS: ClassVar[Dict[str, Union[int, Literal["big"]]]] = {}
-
-    @classmethod
-    def get_blob_constant(cls, name: str) -> int | Literal["big"]:
-        """Return value of requested blob constant."""
-        raise NotImplementedError
 
     def __init_subclass__(
         cls,
@@ -271,6 +262,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         bpo_fork: bool = False,
         ruleset_name: Optional[str] = None,
         fork_by_timestamp: Optional[bool] = None,
+        update_blob_constants: Optional[Dict[str, int]] = None,
         engine_new_payload_version_bump: Optional[bool] = None,
         engine_forkchoice_updated_version_bump: Optional[bool] = None,
         engine_get_payload_version_bump: Optional[bool] = None,
@@ -344,6 +336,14 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
                 eip_base._engine_get_blobs_version_bump
                 for eip_base in eip_bases
             )
+
+        # Calculate blob constants
+        cls._blob_constants = base_fork_class._blob_constants.copy()
+        if update_blob_constants is not None:
+            cls._blob_constants |= update_blob_constants
+        else:
+            for eip_base in eip_bases:
+                cls._blob_constants |= eip_base._blob_constants
 
     # Header information abstract methods
     @classmethod
@@ -576,24 +576,7 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         """
         pass
 
-    @classmethod
-    @abstractmethod
-    def min_base_fee_per_blob_gas(cls) -> int:
-        """Return the minimum base fee per blob gas at a given fork."""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def blob_gas_per_blob(cls) -> int:
-        """Return the amount of blob gas used per blob at a given fork."""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def blob_base_fee_update_fraction(cls) -> int:
-        """Return the blob base fee update fraction at a given fork."""
-        pass
-
+    # Blob constants methods
     @classmethod
     @abstractmethod
     def supports_blobs(cls) -> bool:
@@ -601,22 +584,54 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         pass
 
     @classmethod
-    @abstractmethod
+    def get_blob_constant(cls, name: str) -> int:
+        """Return blob constant if it exists."""
+        assert cls.supports_blobs(), (
+            "Requested a blob constant in a fork that does not support blobs"
+        )
+        retrieved_constant = cls._blob_constants.get(name)
+        assert retrieved_constant is not None, (
+            f"You tried to retrieve the blob constant {name} but it does "
+            "not exist!"
+        )
+        return retrieved_constant
+
+    @classmethod
+    def min_base_fee_per_blob_gas(cls) -> int:
+        """Return the minimum base fee per blob gas at a given fork."""
+        return cls.get_blob_constant("MIN_BASE_FEE_PER_BLOB_GAS")
+
+    @classmethod
+    def blob_gas_per_blob(cls) -> int:
+        """Return the amount of blob gas used per blob at a given fork."""
+        return cls.get_blob_constant("BLOB_GAS_PER_BLOB")
+
+    @classmethod
+    def blob_base_fee_update_fraction(cls) -> int:
+        """Return the blob base fee update fraction at a given fork."""
+        return cls.get_blob_constant("BLOB_BASE_FEE_UPDATE_FRACTION")
+
+    @classmethod
     def target_blobs_per_block(cls) -> int:
         """Return the target blobs per block at a given fork."""
-        pass
+        return cls.get_blob_constant("TARGET_BLOBS_PER_BLOCK")
 
     @classmethod
-    @abstractmethod
     def max_blobs_per_tx(cls) -> int:
         """Return the max blobs per transaction at a given fork."""
-        pass
+        if "MAX_BLOBS_PER_TX" in cls._blob_constants:
+            return cls._blob_constants["MAX_BLOBS_PER_TX"]
+        return cls.get_blob_constant("MAX_BLOBS_PER_BLOCK")
 
     @classmethod
-    @abstractmethod
     def max_blobs_per_block(cls) -> int:
         """Return the max blobs per block at a given fork."""
-        pass
+        return cls.get_blob_constant("MAX_BLOBS_PER_BLOCK")
+
+    @classmethod
+    def blob_base_cost(cls) -> int:
+        """Return the base cost of a blob at a given fork."""
+        return cls.get_blob_constant("BLOB_BASE_COST")
 
     @classmethod
     @abstractmethod
@@ -625,12 +640,6 @@ class BaseFork(ForkOpcodeInterface, metaclass=BaseForkMeta):
         Return whether the fork uses a reserve price mechanism for blobs or
         not.
         """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def blob_base_cost(cls) -> int:
-        """Return the base cost of a blob at a given fork."""
         pass
 
     @classmethod
