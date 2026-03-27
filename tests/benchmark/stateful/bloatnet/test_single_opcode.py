@@ -58,7 +58,7 @@ START_SLOT = (
 )
 
 
-@pytest.mark.parametrize("token_name", SLOAD_TOKENS)
+@pytest.mark.stub_parametrize("token_name", "sload_tokens")
 def test_sload_erc20_generic(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -357,7 +357,7 @@ def test_sload_erc20_balanceof(
     benchmark_test(pre=pre, blocks=blocks, skip_gas_used_validation=True)
 
 
-@pytest.mark.parametrize("token_name", SSTORE_TOKENS)
+@pytest.mark.stub_parametrize("token_name", "sstore_tokens")
 def test_sstore_erc20_generic(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
