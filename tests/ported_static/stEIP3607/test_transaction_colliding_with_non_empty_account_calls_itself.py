@@ -1,5 +1,5 @@
 """
-Account with non-empty code attempts to send tx to call itself
+Account with non-empty code attempts to send tx to call itself.
 
 Ported from:
 state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_callsItselfFiller.yml
@@ -24,7 +24,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_callsItselfFiller.yml"],
+    [
+        "state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_callsItselfFiller.yml"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.exception_test
@@ -33,10 +35,10 @@ def test_transaction_colliding_with_non_empty_account_calls_itself(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Account with non-empty code attempts to send tx to call itself"""
+    """Account with non-empty code attempts to send tx to call itself."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
     sender = EOA(
-        key=0x402790500ea083a617ec567407d9ec3bbb3a5c8b812547d9f66e8d7878b8a75d
+        key=0x402790500EA083A617EC567407D9EC3BBB3A5C8B812547D9F66E8D7878B8A75D
     )
 
     env = Environment(
@@ -50,15 +52,16 @@ def test_transaction_colliding_with_non_empty_account_calls_itself(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0xde0b6b3a7640000, code=Op.SSTORE(key=0x1, value=0x0))  # noqa: E501
-
+    pre[sender] = Account(
+        balance=0xDE0B6B3A7640000, code=Op.SSTORE(key=0x1, value=0x0)
+    )
 
     tx = Transaction(
         sender=sender,
         to=sender,
-        data=b'',
+        data=b"",
         gas_limit=400000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
         error=TransactionException.SENDER_NOT_EOA,

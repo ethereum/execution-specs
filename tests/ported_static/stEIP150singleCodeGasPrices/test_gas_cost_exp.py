@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/gasCostExpFiller.yml
@@ -15,26 +15,26 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
 REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
-    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020",
-    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000052",
-    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000ff0000000000000000000000000000000000000000000000000000000000000052",
-    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000084",
-    "c5b5a1ae000000000000000000000000000000000000000000000000000000000000ffff0000000000000000000000000000000000000000000000000000000000000084",
-    "c5b5a1ae000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000b6",
-    "c5b5a1ae0000000000000000000000000000000000000000000000000000000000ffffff00000000000000000000000000000000000000000000000000000000000000b6",
-    "c5b5a1ae000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000e8",
-    "c5b5a1ae00000000000000000000000000000000000000000000000000000000ffffffff00000000000000000000000000000000000000000000000000000000000000e8",
+    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020",  # noqa: E501
+    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000052",  # noqa: E501
+    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000ff0000000000000000000000000000000000000000000000000000000000000052",  # noqa: E501
+    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000084",  # noqa: E501
+    "c5b5a1ae000000000000000000000000000000000000000000000000000000000000ffff0000000000000000000000000000000000000000000000000000000000000084",  # noqa: E501
+    "c5b5a1ae000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000b6",  # noqa: E501
+    "c5b5a1ae0000000000000000000000000000000000000000000000000000000000ffffff00000000000000000000000000000000000000000000000000000000000000b6",  # noqa: E501
+    "c5b5a1ae000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000e8",  # noqa: E501
+    "c5b5a1ae00000000000000000000000000000000000000000000000000000000ffffffff00000000000000000000000000000000000000000000000000000000000000e8",  # noqa: E501
 ]
 TX_GAS = [16777216]
 TX_VALUE = [1]
@@ -53,39 +53,57 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="d2",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="d3",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="d4",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="d5",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="d6",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="d7",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="d8",
         ),
     ],
@@ -102,7 +120,7 @@ def test_gas_cost_exp(
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x40ac0fc28c27e961ee46ec43355a094de205856edbd4654cf2577c2608d4ec1e
+        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
     )
 
     env = Environment(
@@ -119,51 +137,57 @@ def test_gas_cost_exp(
     # {
     #   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     #   ; Initialization
-    # 
+    #
     #   ; Variables (0x20 byte wide)
     #   (def 'powerOf           0x000)  ; A to the power of @powerOf
     #   (def 'expectedCost      0x020)  ; Expected gas cost
     #   (def 'gasB4             0x040)  ; Before the action being measured
     #   (def 'gasAfter          0x060)  ; After the action being measured
-    # 
+    #
     #   ; Understand CALLDATA. It is four bytes of function
     #   ; selector (irrelevant) followed by 32 byte words
     #   ; of the parameters
     #   [powerOf]       $4
     #   [expectedCost]  $36
-    # 
-    # 
+    #
+    #
     #   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     #   ; Run the operation
     #   [gasB4]    (gas)
     #   (exp 2 @powerOf)
     #   [gasAfter] (gas)
-    # 
-    # 
+    #
+    #
     #   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     #   ; Return value
-    # 
+    #
     #   [[0]] (- @gasB4 @gasAfter @expectedCost)
     # }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x4))
         + Op.MSTORE(offset=0x20, value=Op.CALLDATALOAD(offset=0x24))
         + Op.MSTORE(offset=0x40, value=Op.GAS)
         + Op.POP(Op.EXP(0x2, Op.MLOAD(offset=0x0)))
         + Op.MSTORE(offset=0x60, value=Op.GAS)
-        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x40), Op.MLOAD(offset=0x60)), Op.MLOAD(offset=0x20)))  # noqa: E501
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.SUB(
+                Op.SUB(Op.MLOAD(offset=0x40), Op.MLOAD(offset=0x60)),
+                Op.MLOAD(offset=0x20),
+            ),
+        )
         + Op.STOP,
         storage={0: 24743},
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x087aab8070088fbbe4f60141cf79032d28528b89"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={0: 0})},
         },
     ]
@@ -180,6 +204,5 @@ def test_gas_cost_exp(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

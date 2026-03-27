@@ -10,13 +10,12 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
-from execution_testing.base_types import Address, HexNumber
+from execution_testing.base_types import Address
+from execution_testing.base_types import Hash as EHash
 from execution_testing.cli.evm_bytes import process_evm_bytes_string
 from execution_testing.exceptions import TransactionException
-from execution_testing.forks import Fork, get_forks
+from execution_testing.forks import get_forks
 from execution_testing.specs import StateStaticTest
-from execution_testing.specs.static_state.account import AccountInFiller
 from execution_testing.specs.static_state.common import Tag, TagDict
 from execution_testing.specs.static_state.common.tags import (
     ContractTag,
@@ -24,29 +23,10 @@ from execution_testing.specs.static_state.common.tags import (
     SenderTag,
 )
 from execution_testing.specs.static_state.expect_section import (
-    AccountInExpectSection,
-    ExpectException,
     ForkSet,
 )
-from execution_testing.test_types import Alloc, EOA, eoa_from_hash
+from execution_testing.test_types import EOA, Alloc, eoa_from_hash
 from execution_testing.vm import Op
-
-
-class _AnalyzerAlloc(Alloc):
-    """Alloc subclass that supports fund_eoa for analysis."""
-
-    _eoa_counter: int = 0
-
-    def fund_eoa(
-        self, amount: Any = None, label: Any = None, **kwargs: Any
-    ) -> EOA:
-        """Create a deterministic EOA for analysis."""
-        self._eoa_counter += 1
-        from execution_testing.base_types import Hash as EHash
-
-        h = EHash(self._eoa_counter.to_bytes(32, "big"))
-        eoa = eoa_from_hash(h, 0)
-        return eoa
 
 from .ir import (
     AccessListEntryIR,
@@ -61,7 +41,7 @@ from .ir import (
 )
 
 try:
-    from execution_testing.cli.pytest_commands.plugins.filler.static_filler import (
+    from execution_testing.cli.pytest_commands.plugins.filler.static_filler import (  # noqa: E501
         NoIntResolver,
     )
 except ImportError:
@@ -82,6 +62,23 @@ SLOW_CATEGORIES = {
 }
 
 MAX_BYTECODE_OP_SIZE = 24576
+
+
+class _AnalyzerAlloc(Alloc):
+    """Alloc subclass that supports fund_eoa for analysis."""
+
+    _eoa_counter: int = 0
+
+    def fund_eoa(
+        self,
+        _amount: Any = None,
+        _label: Any = None,
+        **_kwargs: Any,
+    ) -> EOA:
+        """Create a deterministic EOA for analysis."""
+        self._eoa_counter += 1
+        h = EHash(self._eoa_counter.to_bytes(32, "big"))
+        return eoa_from_hash(h, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -154,9 +151,7 @@ def analyze(
 
     # Detect fork-dependent single-case tests (multiple expect sections
     # with different networks but only one (d, g, v) combo)
-    is_fork_dependent = (
-        not is_multi_case and len(model.expect) > 1
-    )
+    is_fork_dependent = not is_multi_case and len(model.expect) > 1
 
     # 9. Build accounts
     accounts, needs_op = _build_accounts(
@@ -205,16 +200,6 @@ def analyze(
 
     # 16. Test name
     py_test_name = _filler_name_to_test_name(test_name)
-
-    # 17. Single-case data
-    single_post = None
-    single_error = None
-    if not is_multi_case and expect_entries:
-        single_post = expect_entries[0].result
-        if expect_entries[0].expect_exception:
-            exc_values = list(expect_entries[0].expect_exception.values())
-            if exc_values:
-                single_error = exc_values[0]
 
     return IntermediateTestModel(
         test_name=py_test_name,
@@ -405,19 +390,80 @@ def _sanitize_var_name(name: str, used: set[str]) -> str:
     if not var or var[0].isdigit():
         var = "addr_" + var
     # Avoid Python keywords and builtins
-    _RESERVED = {
-        "type", "hash", "id", "input", "range", "list", "dict",
-        "return", "class", "def", "for", "if", "else", "elif",
-        "while", "break", "continue", "pass", "import", "from",
-        "as", "with", "try", "except", "finally", "raise", "yield",
-        "lambda", "global", "nonlocal", "assert", "del", "in", "is",
-        "not", "and", "or", "True", "False", "None", "async", "await",
-        "print", "exec", "eval", "open", "map", "filter", "set",
-        "bytes", "int", "str", "float", "bool", "object", "super",
-        "property", "staticmethod", "classmethod", "abs", "all", "any",
-        "bin", "hex", "oct", "len", "max", "min", "pow", "sum", "zip",
+    _reserved = {
+        "type",
+        "hash",
+        "id",
+        "input",
+        "range",
+        "list",
+        "dict",
+        "return",
+        "class",
+        "def",
+        "for",
+        "if",
+        "else",
+        "elif",
+        "while",
+        "break",
+        "continue",
+        "pass",
+        "import",
+        "from",
+        "as",
+        "with",
+        "try",
+        "except",
+        "finally",
+        "raise",
+        "yield",
+        "lambda",
+        "global",
+        "nonlocal",
+        "assert",
+        "del",
+        "in",
+        "is",
+        "not",
+        "and",
+        "or",
+        "True",
+        "False",
+        "None",
+        "async",
+        "await",
+        "print",
+        "exec",
+        "eval",
+        "open",
+        "map",
+        "filter",
+        "set",
+        "bytes",
+        "int",
+        "str",
+        "float",
+        "bool",
+        "object",
+        "super",
+        "property",
+        "staticmethod",
+        "classmethod",
+        "abs",
+        "all",
+        "any",
+        "bin",
+        "hex",
+        "oct",
+        "len",
+        "max",
+        "min",
+        "pow",
+        "sum",
+        "zip",
     }
-    if var in _RESERVED:
+    if var in _reserved:
         var = var + "_"
     base = var
     counter = 2
@@ -453,7 +499,10 @@ def _build_sender_ir(
                 if address_or_tag.name == tag_name:
                     balance = int(account.balance) if account.balance else 0
                     break
-        return SenderIR(is_tagged=False, key=key_int, balance=balance), tag_name
+        return (
+            SenderIR(is_tagged=False, key=key_int, balance=balance),
+            tag_name,
+        )
     else:
         key_int = int.from_bytes(bytes(model.transaction.secret_key), "big")
         # Find sender balance from pre-state
@@ -533,7 +582,9 @@ def _build_accounts(
                 is_eoa = True
             resolved = tags.get(tag_name)
             addr_hex = _addr_hex(resolved) if resolved else None
-            var_name = addr_to_var.get(addr_hex, tag_name) if addr_hex else tag_name
+            var_name = (
+                addr_to_var.get(addr_hex, tag_name) if addr_hex else tag_name
+            )
         else:
             addr_hex = _addr_hex(address_or_tag)
             var_name = addr_to_var.get(addr_hex, f"addr_{addr_hex[:10]}")
@@ -611,9 +662,11 @@ def _build_environment(
     if isinstance(model.env.current_coinbase, Tag):
         tag_name = model.env.current_coinbase.name
         resolved = tags.get(tag_name)
-        coinbase_var = addr_to_var.get(
-            _addr_hex(resolved), tag_name
-        ) if resolved else tag_name
+        coinbase_var = (
+            addr_to_var.get(_addr_hex(resolved), tag_name)
+            if resolved
+            else tag_name
+        )
     else:
         addr = _addr_hex(model.env.current_coinbase)
         coinbase_var = addr_to_var.get(addr, "coinbase")
@@ -652,9 +705,7 @@ def _fork_set_to_constraints(
     """Reconstruct constraint strings from an expanded ForkSet."""
     set_fork_names = sorted(
         [str(f) for f in fork_set],
-        key=lambda f: all_fork_names.index(f)
-        if f in all_fork_names
-        else 999,
+        key=lambda f: all_fork_names.index(f) if f in all_fork_names else 999,
     )
 
     if not set_fork_names:
@@ -735,9 +786,7 @@ def _build_expect_entries(
                     tag_name = address_or_tag.name
                     resolved_raw = tags.get(tag_name)
                     addr = (
-                        _addr_hex(resolved_raw)
-                        if resolved_raw
-                        else tag_name
+                        _addr_hex(resolved_raw) if resolved_raw else tag_name
                     )
                 var_ref = addr_to_var.get(addr, f'Address("{addr}")')
             else:
@@ -763,7 +812,7 @@ def _build_expect_entries(
                 for k, v in resolved_storage.items():
                     storage[int(k)] = int(v)
                 # Capture ANY keys from _any_map
-                if hasattr(resolved_storage, '_any_map'):
+                if hasattr(resolved_storage, "_any_map"):
                     for k in resolved_storage._any_map:
                         storage_any_keys.append(int(k))
 
@@ -804,9 +853,7 @@ def _build_expect_entries(
                 )
                 constraint_key = ",".join(constraint_strs)
                 exc_value = expect.expect_exception.root[fork_set_key]
-                expect_exc[constraint_key] = _format_exception_value(
-                    exc_value
-                )
+                expect_exc[constraint_key] = _format_exception_value(exc_value)
 
         entries.append(
             ExpectEntryIR(
@@ -888,16 +935,12 @@ def _build_transaction_ir(
         # Single-case: use first data entry's access list
         first_data = model.transaction.data[0]
         if first_data.access_list is not None:
-            access_list_entries = _resolve_access_list(
-                first_data.access_list
-            )
+            access_list_entries = _resolve_access_list(first_data.access_list)
 
     # Blob versioned hashes
     blob_hashes: list[str] | None = None
     if model.transaction.blob_versioned_hashes is not None:
-        blob_hashes = [
-            str(h) for h in model.transaction.blob_versioned_hashes
-        ]
+        blob_hashes = [str(h) for h in model.transaction.blob_versioned_hashes]
 
     # Single-case inlines
     data_inline: str | None = None
@@ -979,13 +1022,13 @@ def _build_address_constants(
             seen.add(addr)
 
     # All non-sender, non-contract pre-state accounts (tagged or not)
-    for address_or_tag, account in model.pre.root.items():
+    for address_or_tag, _acct in model.pre.root.items():
         if isinstance(address_or_tag, Tag):
             tag_name = address_or_tag.name
             # Skip sender
             if sender_tag_name and tag_name == sender_tag_name:
                 continue
-            # Skip ContractTag accounts (they get address from deploy_contract)
+            # Skip ContractTag accounts (they get address via deploy_contract)
             # SenderTag accounts are EOAs even if they have code
             if isinstance(address_or_tag, ContractTag):
                 continue

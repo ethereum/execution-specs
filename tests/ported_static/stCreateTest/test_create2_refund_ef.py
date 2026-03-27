@@ -36,7 +36,7 @@ def test_create2_refund_ef(
     contract_0 = Address("0x00000000000000000000000000000000005ef94d")
     contract_1 = Address("0x000000000000000000000000000000000c5ea705")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -49,12 +49,12 @@ def test_create2_refund_ef(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x5af3107a4000)
+    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: yul
     # london {
     #   sstore(0,0)
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=Op.DUP1, value=0x0) + Op.STOP,
         storage={0: 1},
         nonce=0,
@@ -70,7 +70,7 @@ def test_create2_refund_ef(
     #     sstore(0, r)
     #     stop()
     #   }
-    # 
+    #
     #   object "initcode" {
     #     code {
     #       // call gas refund provider
@@ -81,21 +81,36 @@ def test_create2_refund_ef(
     #     }
     #   }
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.PUSH1[0x0] + Op.PUSH1[0x19]
-        + Op.CODECOPY(dest_offset=Op.DUP4, offset=0x11, size=Op.DUP1) + Op.DUP2
-        + Op.DUP1 + Op.SSTORE(key=0x0, value=Op.CREATE2) + Op.STOP + Op.INVALID
-        + Op.POP(Op.CALL(gas=0xc350, address=0x5ef94d, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=Op.DUP1, ret_size=0x0))
-        + Op.MSTORE8(offset=0x0, value=0xef) + Op.RETURN(offset=0x0, size=0x1),
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x0]
+        + Op.PUSH1[0x19]
+        + Op.CODECOPY(dest_offset=Op.DUP4, offset=0x11, size=Op.DUP1)
+        + Op.DUP2
+        + Op.DUP1
+        + Op.SSTORE(key=0x0, value=Op.CREATE2)
+        + Op.STOP
+        + Op.INVALID
+        + Op.POP(
+            Op.CALL(
+                gas=0xC350,
+                address=0x5EF94D,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            )
+        )
+        + Op.MSTORE8(offset=0x0, value=0xEF)
+        + Op.RETURN(offset=0x0, size=0x1),
         nonce=0,
         address=Address("0x000000000000000000000000000000000c5ea705"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         nonce=0,
         gas_price=10,
@@ -103,7 +118,9 @@ def test_create2_refund_ef(
 
     post = {
         contract_0: Account(storage={0: 1}),
-        Address("0xbe8f87148d0767989cce2e6a6a5d91c7d0c840e0"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0xbe8f87148d0767989cce2e6a6a5d91c7d0c840e0"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,5 +1,5 @@
 """
-test_static_call_ripemd160_4
+Test_static_call_ripemd160_4.
 
 Ported from:
 state_tests/stStaticCall/static_CallRipemd160_4Filler.json
@@ -31,10 +31,10 @@ def test_static_call_ripemd160_4(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_static_call_ripemd160_4"""
+    """Test_static_call_ripemd160_4."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -48,35 +48,48 @@ def test_static_call_ripemd160_4(
     )
 
     # Source: lll
-    # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) [[ 2 ]] (STATICCALL 720 3 0 32 0 32) [[ 0 ]] (MLOAD 0)}
-    target = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-        + Op.SSTORE(key=0x2, value=Op.STATICCALL(gas=0x2d0, address=0x3, args_offset=0x0, args_size=0x20, ret_offset=0x0, ret_size=0x20))  # noqa: E501
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
-        balance=0x1312d00,
+    # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) [[ 2 ]] (STATICCALL 720 3 0 32 0 32) [[ 0 ]] (MLOAD 0)}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+        )
+        + Op.SSTORE(
+            key=0x2,
+            value=Op.STATICCALL(
+                gas=0x2D0,
+                address=0x3,
+                args_offset=0x0,
+                args_size=0x20,
+                ret_offset=0x0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        balance=0x1312D00,
         nonce=0,
         address=Address("0xd2243cbf1de778d48e5fae09f95d4707623a9fb6"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=365224,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
         target: Account(
-                storage={
-            0: 0x1cf4e77f5966e13e109703cd8a0df7ceda7f3dc3,
-            2: 1,
-        },
-            ),
+            storage={
+                0: 0x1CF4E77F5966E13E109703CD8A0DF7CEDA7F3DC3,
+                2: 1,
+            },
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,5 +1,5 @@
 """
-test_create2_code_size_limit
+Test_create2_code_size_limit.
 
 Ported from:
 state_tests/stCodeSizeLimit/create2CodeSizeLimitFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -46,11 +46,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="valid",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="invalid",
         ),
     ],
@@ -64,11 +68,11 @@ def test_create2_code_size_limit(
     g: int,
     v: int,
 ) -> None:
-    """test_create2_code_size_limit"""
+    """Test_create2_code_size_limit."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -81,45 +85,55 @@ def test_create2_code_size_limit(
         gas_limit=20000000,
     )
 
-    pre[sender] = Account(balance=0xbebc200)
+    pre[sender] = Account(balance=0xBEBC200)
     # Source: yul
-    # berlin 
+    # berlin
     # {
-    #   mstore(0, calldataload(0)) 
+    #   mstore(0, calldataload(0))
     #   sstore(0, create2(0, 0, calldatasize(), 0))
     #   sstore(1, 1)
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
-        + Op.SSTORE(key=0x0, value=Op.CREATE2(value=Op.DUP1, offset=Op.DUP2, size=Op.CALLDATASIZE, salt=0x0))  # noqa: E501
-        + Op.SSTORE(key=Op.DUP1, value=0x1) + Op.STOP,
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CREATE2(
+                value=Op.DUP1, offset=Op.DUP2, size=Op.CALLDATASIZE, salt=0x0
+            ),
+        )
+        + Op.SSTORE(key=Op.DUP1, value=0x1)
+        + Op.STOP,
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_0: Account(
-                storage={
-            0: 0x81c305016ab9ca56033a07cc37e7a30fc3e079ac,
-            1: 1,
-        },
-            ),
-        Address("0x81c305016ab9ca56033a07cc37e7a30fc3e079ac"): Account(storage={}, balance=0, nonce=1),  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                contract_0: Account(
+                    storage={
+                        0: 0x81C305016AB9CA56033A07CC37E7A30FC3E079AC,
+                        1: 1,
+                    },
+                ),
+                Address("0x81c305016ab9ca56033a07cc37e7a30fc3e079ac"): Account(
+                    storage={}, balance=0, nonce=1
+                ),
+            },
         },
         {
-            "indexes": {'data': [1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_0: Account(storage={0: 0, 1: 1}),
-        Address("0x81c305016ab9ca56033a07cc37e7a30fc3e079ac"): Account.NONEXISTENT,  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                contract_0: Account(storage={0: 0, 1: 1}),
+                Address(
+                    "0x81c305016ab9ca56033a07cc37e7a30fc3e079ac"
+                ): Account.NONEXISTENT,
+            },
         },
     ]
 
@@ -134,6 +148,5 @@ def test_create2_code_size_limit(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

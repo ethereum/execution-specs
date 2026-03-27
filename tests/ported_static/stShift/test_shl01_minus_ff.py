@@ -1,5 +1,5 @@
 """
-test_shl01_minus_ff
+Test_shl01_minus_ff.
 
 Ported from:
 state_tests/stShift/shl01-ffFiller.json
@@ -31,10 +31,10 @@ def test_shl01_minus_ff(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_shl01_minus_ff"""
+    """Test_shl01_minus_ff."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
 
     env = Environment(
@@ -49,34 +49,33 @@ def test_shl01_minus_ff(
 
     # Source: raw
     # 0x600160ff1b600055
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.SHL(0xff, 0x1)),
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.SHL(0xFF, 0x1)),
         storage={0: 3},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x6750ccb18bd2d092093f25bf1eaebe77f4ecb9a2"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=400000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
         target: Account(
-                storage={
-            0: 0x8000000000000000000000000000000000000000000000000000000000000000,
-        },
-                code=bytes.fromhex("600160ff1b600055"),
-                balance=0xde0b6b3a76586a0,
-            ),
+            storage={
+                0: 0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+            },
+            code=bytes.fromhex("600160ff1b600055"),
+            balance=0xDE0B6B3A76586A0,
+        ),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

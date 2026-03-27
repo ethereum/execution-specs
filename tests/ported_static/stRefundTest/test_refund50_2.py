@@ -1,5 +1,5 @@
 """
-test_refund50_2
+Test_refund50_2.
 
 Ported from:
 state_tests/stRefundTest/refund50_2Filler.json
@@ -31,10 +31,10 @@ def test_refund50_2(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_refund50_2"""
+    """Test_refund50_2."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
     sender = EOA(
-        key=0xdc4efa209aecdd4c2d5201a419ea27506151b4ec687f14a613229e310932491b
+        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
     )
 
     env = Environment(
@@ -49,24 +49,27 @@ def test_refund50_2(
 
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
-    # { [[ 10 ]] 1 [[ 11 ]] 1 [[ 1 ]] 0 [[ 2 ]] 0 [[ 3 ]] 0 [[ 4 ]] 0 [[ 5 ]] 0 }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0xa, value=0x1) + Op.SSTORE(key=0xb, value=0x1)
-        + Op.SSTORE(key=0x1, value=0x0) + Op.SSTORE(key=0x2, value=0x0)
-        + Op.SSTORE(key=0x3, value=0x0) + Op.SSTORE(key=0x4, value=0x0)
-        + Op.SSTORE(key=0x5, value=0x0) + Op.STOP,
+    # { [[ 10 ]] 1 [[ 11 ]] 1 [[ 1 ]] 0 [[ 2 ]] 0 [[ 3 ]] 0 [[ 4 ]] 0 [[ 5 ]] 0 }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0xA, value=0x1)
+        + Op.SSTORE(key=0xB, value=0x1)
+        + Op.SSTORE(key=0x1, value=0x0)
+        + Op.SSTORE(key=0x2, value=0x0)
+        + Op.SSTORE(key=0x3, value=0x0)
+        + Op.SSTORE(key=0x4, value=0x0)
+        + Op.SSTORE(key=0x5, value=0x0)
+        + Op.STOP,
         storage={1: 1, 2: 1, 3: 1, 4: 1, 5: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xdd9bc2aec4f69625b8f1d9d0facb81c72e9a4d59"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x989680)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         nonce=0,
         gas_price=10,
@@ -75,7 +78,7 @@ def test_refund50_2(
     post = {
         target: Account(storage={10: 1, 11: 1}),
         coinbase: Account(balance=0),
-        sender: Account(balance=0x8d926c, nonce=1),
+        sender: Account(balance=0x8D926C, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

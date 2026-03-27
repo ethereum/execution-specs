@@ -1,5 +1,5 @@
 """
-test_eoa_empty_paris
+Test_eoa_empty_paris.
 
 Ported from:
 state_tests/stSpecialTest/eoaEmptyParisFiller.yml
@@ -16,11 +16,11 @@ from execution_testing import (
     Transaction,
     TransactionException,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -47,37 +47,53 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0-g0-v0",
         ),
         pytest.param(
-            0, 0, 1,
+            0,
+            0,
+            1,
             id="d0-g0-v1",
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="d0-g1-v0",
         ),
         pytest.param(
-            0, 1, 1,
+            0,
+            1,
+            1,
             id="d0-g1-v1",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1-g0-v0",
         ),
         pytest.param(
-            1, 0, 1,
+            1,
+            0,
+            1,
             id="d1-g0-v1",
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
-            1, 1, 0,
+            1,
+            1,
+            0,
             id="d1-g1-v0",
         ),
         pytest.param(
-            1, 1, 1,
+            1,
+            1,
+            1,
             id="d1-g1-v1",
         ),
     ],
@@ -91,7 +107,7 @@ def test_eoa_empty_paris(
     g: int,
     v: int,
 ) -> None:
-    """test_eoa_empty_paris"""
+    """Test_eoa_empty_paris."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x000000000000000000000000000000000000bad1")
     contract_1 = Address("0x000000000000000000000000000000000000bad2")
@@ -100,7 +116,7 @@ def test_eoa_empty_paris(
     contract_4 = Address("0x000000000000000000000000000000000000dead")
     contract_5 = Address("0x000000000000000000000000000000000000c0de")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -113,10 +129,10 @@ def test_eoa_empty_paris(
         gas_limit=89128960,
     )
 
-    pre[sender] = Account(balance=0x3b9aca00)
+    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: hex
     # 0x
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code="",
         balance=1,
         nonce=0,
@@ -124,14 +140,14 @@ def test_eoa_empty_paris(
     )
     # Source: hex
     # 0x
-    contract_1 = pre.deploy_contract(
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code="",
         nonce=1,
         address=Address("0x000000000000000000000000000000000000bad2"),  # noqa: E501
     )
     # Source: hex
     # 0x
-    contract_2 = pre.deploy_contract(
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code="",
         balance=1,
         nonce=1,
@@ -139,7 +155,7 @@ def test_eoa_empty_paris(
     )
     # Source: hex
     # 0x
-    contract_3 = pre.deploy_contract(
+    contract_3 = pre.deploy_contract(  # noqa: F841
         code="",
         storage={57005: 48879},
         balance=10,
@@ -151,7 +167,7 @@ def test_eoa_empty_paris(
     # {
     #    selfdestruct(origin())
     # }
-    contract_4 = pre.deploy_contract(
+    contract_4 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=Op.ORIGIN),
         balance=10000,
         nonce=1,
@@ -162,7 +178,7 @@ def test_eoa_empty_paris(
     # {
     #    let eoa := origin()   // external owner account
     #    sstore(0, eoa)
-    #    sstore(0x31, balance(eoa))   // balance at this point, where it is assumed we used gasLimit gas
+    #    sstore(0x31, balance(eoa))   // balance at this point, where it is assumed we used gasLimit gas  # noqa: E501
     #    sstore(0x3B, extcodesize(eoa))
     #    sstore(0x3F, extcodehash(eoa))
     #    sstore(0x013F, extcodehash(add(eoa, 0x1)))
@@ -171,175 +187,202 @@ def test_eoa_empty_paris(
     #    sstore(0xBAD3, extcodehash(0xBAD3))
     #    sstore(0xBAD4, extcodehash(0xBAD4))
     #    sstore(0xBAD5, extcodehash(0xBAD5))
-    # 
+    #
     #    // The gas cost of calling the EOA (it should be warm)
     #    let gas0 := gas()
     #    pop(call(gas(), eoa, calldataload(4), 0, 0, 0, 0))
     #    sstore(0xF1, sub(gas0, gas()))
-    # 
+    #
     #    // Gas cost of selfdestruct going to the EOA (should also be warm)
     #    gas0 := gas()
     #    pop(call(gas(), 0xDEAD, 0, 0, 0, 0, 0))
-    #    sstore(0xFF, sub(gas0, gas()))           
+    #    sstore(0xFF, sub(gas0, gas()))
     # }
-    contract_5 = pre.deploy_contract(
-        code=Op.ORIGIN + Op.SSTORE(key=0x0, value=Op.DUP1)
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.ORIGIN
+        + Op.SSTORE(key=0x0, value=Op.DUP1)
         + Op.SSTORE(key=0x31, value=Op.BALANCE(address=Op.DUP1))
-        + Op.SSTORE(key=0x3b, value=Op.EXTCODESIZE(address=Op.DUP1))
-        + Op.SSTORE(key=0x3f, value=Op.EXTCODEHASH(address=Op.DUP1))
-        + Op.SSTORE(key=0x13f, value=Op.EXTCODEHASH(address=Op.ADD(Op.DUP2, 0x1)))  # noqa: E501
-        + Op.SSTORE(key=0xbad1, value=Op.EXTCODEHASH(address=0xbad1))
-        + Op.SSTORE(key=0xbad2, value=Op.EXTCODEHASH(address=0xbad2))
-        + Op.SSTORE(key=0xbad3, value=Op.EXTCODEHASH(address=0xbad3))
-        + Op.SSTORE(key=0xbad4, value=Op.EXTCODEHASH(address=0xbad4))
-        + Op.SSTORE(key=0xbad5, value=Op.EXTCODEHASH(address=0xbad5))
-        + Op.PUSH1[0x0] + Op.DUP1 * 3 + Op.GAS + Op.SWAP5
-        + Op.CALLDATALOAD(offset=0x4) + Op.SWAP1 + Op.GAS + Op.POP(Op.CALL)
-        + Op.GAS + Op.SWAP1 + Op.SSTORE(key=0xf1, value=Op.SUB) + Op.GAS
-        + Op.POP(Op.CALL(gas=Op.GAS, address=0xdead, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=Op.DUP1, ret_size=0x0))
-        + Op.GAS + Op.SWAP1 + Op.SSTORE(key=0xff, value=Op.SUB) + Op.STOP,
+        + Op.SSTORE(key=0x3B, value=Op.EXTCODESIZE(address=Op.DUP1))
+        + Op.SSTORE(key=0x3F, value=Op.EXTCODEHASH(address=Op.DUP1))
+        + Op.SSTORE(
+            key=0x13F, value=Op.EXTCODEHASH(address=Op.ADD(Op.DUP2, 0x1))
+        )
+        + Op.SSTORE(key=0xBAD1, value=Op.EXTCODEHASH(address=0xBAD1))
+        + Op.SSTORE(key=0xBAD2, value=Op.EXTCODEHASH(address=0xBAD2))
+        + Op.SSTORE(key=0xBAD3, value=Op.EXTCODEHASH(address=0xBAD3))
+        + Op.SSTORE(key=0xBAD4, value=Op.EXTCODEHASH(address=0xBAD4))
+        + Op.SSTORE(key=0xBAD5, value=Op.EXTCODEHASH(address=0xBAD5))
+        + Op.PUSH1[0x0]
+        + Op.DUP1 * 3
+        + Op.GAS
+        + Op.SWAP5
+        + Op.CALLDATALOAD(offset=0x4)
+        + Op.SWAP1
+        + Op.GAS
+        + Op.POP(Op.CALL)
+        + Op.GAS
+        + Op.SWAP1
+        + Op.SSTORE(key=0xF1, value=Op.SUB)
+        + Op.GAS
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0xDEAD,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            )
+        )
+        + Op.GAS
+        + Op.SWAP1
+        + Op.SSTORE(key=0xFF, value=Op.SUB)
+        + Op.STOP,
         nonce=1,
         address=Address("0x000000000000000000000000000000000000c0de"),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': 0, 'gas': 0, 'value': 0},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 0, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_5: Account(
-                storage={
-            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b,
-            49: 0,
-            59: 0,
-            63: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            241: 118,
-            255: 7626,
-            319: 0,
-            47825: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47826: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47827: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47828: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-        },
-            ),
-    },
+                sender: Account(nonce=1),
+                contract_5: Account(
+                    storage={
+                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 0,
+                        59: 0,
+                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        241: 118,
+                        255: 7626,
+                        319: 0,
+                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': 0, 'value': 0},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 1, "gas": 0, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_5: Account(
-                storage={
-            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b,
-            49: 0,
-            59: 0,
-            63: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            241: 6818,
-            255: 7626,
-            319: 0,
-            47825: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47826: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47827: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47828: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-        },
-            ),
-    },
+                sender: Account(nonce=1),
+                contract_5: Account(
+                    storage={
+                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 0,
+                        59: 0,
+                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        241: 6818,
+                        255: 7626,
+                        319: 0,
+                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': 1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": 1},
+            "network": [">=Cancun"],
             "result": {},
-            "expect_exception": {">=Cancun": TransactionException.INSUFFICIENT_ACCOUNT_FUNDS},
+            "expect_exception": {
+                ">=Cancun": TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
+            },
         },
         {
-            "indexes": {'data': 0, 'gas': 1, 'value': 0},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 0, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_5: Account(
-                storage={
-            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b,
-            49: 100,
-            59: 0,
-            63: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            241: 118,
-            255: 7626,
-            319: 0,
-            47825: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47826: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47827: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47828: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-        },
-            ),
-    },
+                sender: Account(nonce=1),
+                contract_5: Account(
+                    storage={
+                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 100,
+                        59: 0,
+                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        241: 118,
+                        255: 7626,
+                        319: 0,
+                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': 1, 'value': 0},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_5: Account(
-                storage={
-            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b,
-            49: 100,
-            59: 0,
-            63: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            241: 6818,
-            255: 7626,
-            319: 0,
-            47825: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47826: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47827: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47828: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-        },
-            ),
-    },
+                sender: Account(nonce=1),
+                contract_5: Account(
+                    storage={
+                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 100,
+                        59: 0,
+                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        241: 6818,
+                        255: 7626,
+                        319: 0,
+                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': 0, 'gas': 1, 'value': 1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 0, "gas": 1, "value": 1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_5: Account(
-                storage={
-            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b,
-            49: 0,
-            59: 0,
-            63: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            241: 118,
-            255: 7626,
-            319: 0,
-            47825: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47826: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47827: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47828: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-        },
-            ),
-    },
+                sender: Account(nonce=1),
+                contract_5: Account(
+                    storage={
+                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 0,
+                        59: 0,
+                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        241: 118,
+                        255: 7626,
+                        319: 0,
+                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': 1, 'value': 1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 1, "gas": 1, "value": 1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_5: Account(
-                storage={
-            0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b,
-            49: 0,
-            59: 0,
-            63: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            241: 6818,
-            255: 7626,
-            319: 0,
-            47825: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47826: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47827: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-            47828: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470,
-        },
-            ),
-    },
+                sender: Account(nonce=1),
+                contract_5: Account(
+                    storage={
+                        0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                        49: 0,
+                        59: 0,
+                        63: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        241: 6818,
+                        255: 7626,
+                        319: 0,
+                        47825: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47826: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47827: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                        47828: 0xC5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470,  # noqa: E501
+                    },
+                ),
+            },
         },
     ]
 
@@ -355,6 +398,5 @@ def test_eoa_empty_paris(
         gas_price=100,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

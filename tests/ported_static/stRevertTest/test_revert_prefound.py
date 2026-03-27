@@ -1,5 +1,5 @@
 """
-test_revert_prefound
+Test_revert_prefound.
 
 Ported from:
 state_tests/stRevertTest/RevertPrefoundFiller.json
@@ -31,12 +31,12 @@ def test_revert_prefound(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_revert_prefound"""
+    """Test_revert_prefound."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7")
     contract_1 = Address("0xa000000000000000000000000000000000000000")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -49,23 +49,25 @@ def test_revert_prefound(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     pre[contract_0] = Account(balance=1)
     # Source: lll
     # { [[0]] (CREATE 0 0 32) [[1]]12}
-    contract_1 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CREATE(value=0x0, offset=0x0, size=0x20))  # noqa: E501
-        + Op.SSTORE(key=0x1, value=0xc) + Op.STOP,
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0, value=Op.CREATE(value=0x0, offset=0x0, size=0x20)
+        )
+        + Op.SSTORE(key=0x1, value=0xC)
+        + Op.STOP,
         balance=1,
         nonce=0,
         address=Address("0xa000000000000000000000000000000000000000"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=b'',
+        data=b"",
         gas_limit=1040000,
         nonce=0,
         gas_price=10,

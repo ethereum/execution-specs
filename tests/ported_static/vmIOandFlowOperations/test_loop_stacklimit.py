@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/loop_stacklimitFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -46,11 +46,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="loop_1021",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="loop_1020",
         ),
     ],
@@ -67,7 +71,7 @@ def test_loop_stacklimit(
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xa62d63f95900b04ccd3fee13360de78966f24695945e8b2c09e646352bc5af94
+        key=0xA62D63F95900B04CCD3FEE13360DE78966F24695945E8B2C09E646352BC5AF94
     )
 
     env = Environment(
@@ -82,27 +86,51 @@ def test_loop_stacklimit(
 
     # Source: lll
     # {
-    #    (asm 0 CALLVALUE JUMPDEST 1 SWAP1 SUB SWAP1 1 ADD DUP2 DUP1 3 JUMPI 0 MSTORE 1 MSTORE 0 MSIZE RETURN)
+    #    (asm 0 CALLVALUE JUMPDEST 1 SWAP1 SUB SWAP1 1 ADD DUP2 DUP1 3 JUMPI 0 MSTORE 1 MSTORE 0 MSIZE RETURN)  # noqa: E501
     # }
-    addr_0x0000000000000000000000000000000000001000 = pre.deploy_contract(
-        code=Op.PUSH1[0x0] + Op.CALLVALUE + Op.JUMPDEST + Op.PUSH1[0x1] + Op.SWAP1
-        + Op.SUB + Op.SWAP1 + Op.PUSH1[0x1] + Op.ADD + Op.DUP2
-        + Op.JUMPI(pc=0x3, condition=Op.DUP1) + Op.PUSH1[0x0] + Op.MSTORE
-        + Op.PUSH1[0x1] + Op.MSTORE + Op.RETURN(offset=Op.MSIZE, size=0x0)
+    addr_0x0000000000000000000000000000000000001000 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x0]
+        + Op.CALLVALUE
+        + Op.JUMPDEST
+        + Op.PUSH1[0x1]
+        + Op.SWAP1
+        + Op.SUB
+        + Op.SWAP1
+        + Op.PUSH1[0x1]
+        + Op.ADD
+        + Op.DUP2
+        + Op.JUMPI(pc=0x3, condition=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.MSTORE
+        + Op.PUSH1[0x1]
+        + Op.MSTORE
+        + Op.RETURN(offset=Op.MSIZE, size=0x0)
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x15f0298e83391f673b708790f259f3f34dfbd788"),  # noqa: E501
     )
     # Source: raw
     # 0x6000345b60019003906001018180600357600052600152600059f300
-    addr_0x0000000000000000000000000000000000001001 = pre.deploy_contract(
-        code=Op.PUSH1[0x0] + Op.CALLVALUE + Op.JUMPDEST + Op.PUSH1[0x1] + Op.SWAP1
-        + Op.SUB + Op.SWAP1 + Op.PUSH1[0x1] + Op.ADD + Op.DUP2
-        + Op.JUMPI(pc=0x3, condition=Op.DUP1) + Op.PUSH1[0x0] + Op.MSTORE
-        + Op.PUSH1[0x1] + Op.MSTORE + Op.RETURN(offset=Op.MSIZE, size=0x0)
+    addr_0x0000000000000000000000000000000000001001 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x0]
+        + Op.CALLVALUE
+        + Op.JUMPDEST
+        + Op.PUSH1[0x1]
+        + Op.SWAP1
+        + Op.SUB
+        + Op.SWAP1
+        + Op.PUSH1[0x1]
+        + Op.ADD
+        + Op.DUP2
+        + Op.JUMPI(pc=0x3, condition=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.MSTORE
+        + Op.PUSH1[0x1]
+        + Op.MSTORE
+        + Op.RETURN(offset=Op.MSIZE, size=0x0)
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x3b20573c5048e5ba16083407e59fc0bbc044b6c0"),  # noqa: E501
     )
@@ -110,11 +138,18 @@ def test_loop_stacklimit(
     # {
     #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
     # }
-    target = pre.deploy_contract(
-        code=Op.DELEGATECALL(gas=Op.GAS, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         storage={0: 0},
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xf9b46c1d708104b4e6007d17ae485b0a00d8e952"),  # noqa: E501
     )
@@ -122,8 +157,8 @@ def test_loop_stacklimit(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0, 1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={0: 0})},
         },
     ]
@@ -140,6 +175,5 @@ def test_loop_stacklimit(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

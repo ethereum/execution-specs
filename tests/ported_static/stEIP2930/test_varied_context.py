@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP2930/variedContextFiller.yml
@@ -8,20 +8,20 @@ state_tests/stEIP2930/variedContextFiller.yml
 import pytest
 from execution_testing import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
-    AccessList,
-    Hash,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -73,13 +73,18 @@ def _tx_data(d: int) -> bytes:
     """Convert TX_DATA[d] hex string to bytes."""
     return bytes.fromhex(TX_DATA[d])
 
+
 TX_ACCESS_LISTS: dict[int, list] = {
     0: [
         AccessList(
             address=Address("0x0000000000000000000000000000000000001000"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -87,8 +92,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x000000000000000000000000000000000000c057"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -96,8 +105,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000001002"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -105,8 +118,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x000000000000000000000000000000000000c057"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -114,8 +131,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000001001"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -123,8 +144,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x000000000000000000000000000000000000c057"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -132,8 +157,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000001003"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -141,8 +170,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x00000000000000000000000000000000ead0c057"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -150,8 +183,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000001010"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -159,8 +196,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -168,7 +209,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x00000000000000000000000000000000dead0111"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -176,7 +219,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000001011"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -184,7 +229,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x00000000000000000000000000000000dead0112"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -192,7 +239,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000001012"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -200,7 +249,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000000000"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -208,7 +259,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x000000000000000000000000000000000000f113"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -216,7 +269,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x000000000000000000000000000000000000f114"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -224,7 +279,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000001014"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -232,7 +289,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x000000000000000000000000000000000000f115"),
             storage_keys=[
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -240,7 +299,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000001015"),
             storage_keys=[
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -248,40 +309,108 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x0000000000000000000000000000000000001016"),
             storage_keys=[
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000beef"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f000"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f001"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f002"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f003"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f004"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f005"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f006"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f007"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f008"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f009"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f00a"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f00b"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f00c"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f00d"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f00e"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f00f"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f010"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f011"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f012"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f013"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f014"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f015"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f016"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f017"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f018"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f019"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f01a"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f01b"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f01c"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f01d"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f01e"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000f01f"),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000beef"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f000"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f001"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f002"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f003"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f004"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f005"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f006"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f007"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f008"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f009"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f00a"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f00b"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f00c"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f00d"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f00e"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f00f"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f010"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f011"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f012"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f013"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f014"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f015"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f016"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f017"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f018"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f019"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f01a"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f01b"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f01c"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f01d"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f01e"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000f01f"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -289,8 +418,12 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0xf000000000000000000000000000000000000116"),
             storage_keys=[
-                Hash("0x00000000000000000000000000000000000000000000000000000000000060a7"),  # noqa: E501
-                Hash("0x000000000000000000000000000000000000000000000000000000000000beef"),  # noqa: E501
+                Hash(
+                    "0x00000000000000000000000000000000000000000000000000000000000060a7"  # noqa: E501
+                ),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000beef"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -298,7 +431,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0xf342e57f24e0333f3af34af08fdbbe9c72cbd37c"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -306,7 +441,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0xf342e57f24e0333f3af34af08fdbbe9c72cbd37c"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000001"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -314,7 +451,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0xd82f21135ed7d7d833a9f2a0f1cf6c3da214b8e3"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -322,7 +461,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0xf342e57f24e0333f3af34af08fdbbe9c72cbd37c"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -330,7 +471,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -338,7 +481,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"),
             storage_keys=[
-                Hash("0x000000000000000000000000000000000000000000000000000000000000ffff"),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000ffff"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -346,7 +491,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x530508498d2aa75d8e591612809fec3d37a45615"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -354,7 +501,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"),
             storage_keys=[
-                Hash("0x000000000000000000000000000000000000000000000000000000000000ffff"),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000ffff"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -362,7 +511,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0xb76ab2d646c4df221edd345957d0a396a2ab1b6d"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -370,7 +521,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"),
             storage_keys=[
-                Hash("0x000000000000000000000000000000000000000000000000000000000000ffff"),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000ffff"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -378,7 +531,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x83fbdae70258ac0fa837b701cc63cedf48d4b6bf"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -386,7 +541,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"),
             storage_keys=[
-                Hash("0x000000000000000000000000000000000000000000000000000000000000ffff"),  # noqa: E501
+                Hash(
+                    "0x000000000000000000000000000000000000000000000000000000000000ffff"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -394,7 +551,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x000000000000000000000000000000000000f126"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -402,7 +561,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0x000000000000000000000000000000000000f126"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000020"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000020"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -410,7 +571,7 @@ TX_ACCESS_LISTS: dict[int, list] = {
 
 
 def _tx_access_list(d: int) -> list | None:
-    """Get access list for data index d. None means no access list (legacy tx)."""
+    """Get access list for data index d. None means no access list (legacy tx)."""  # noqa: E501
     return TX_ACCESS_LISTS.get(d)
 
 
@@ -422,147 +583,219 @@ def _tx_access_list(d: int) -> list | None:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="delegateCallerInAccessList",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="delegateCalleeInAccessList",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="callcodeCallerInAccessList",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="callcodeCalleeInAccessList",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="callCallerInAccessList",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="callCalleeInAccessList",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="staticcallCallerInAccessList",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="staticcallCalleeInAccessList",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="callRevertCalleeInAccessList",
         ),
         pytest.param(
-            9, 0, 0,
+            9,
+            0,
+            0,
             id="callRevertCallerInAccessList",
         ),
         pytest.param(
-            10, 0, 0,
+            10,
+            0,
+            0,
             id="callWriteSuicideValid",
         ),
         pytest.param(
-            11, 0, 0,
+            11,
+            0,
+            0,
             id="callWriteSuicideInvalid",
         ),
         pytest.param(
-            12, 0, 0,
+            12,
+            0,
+            0,
             id="callReadSuicideValid",
         ),
         pytest.param(
-            13, 0, 0,
+            13,
+            0,
+            0,
             id="callReadSuicideInvalid",
         ),
         pytest.param(
-            14, 0, 0,
+            14,
+            0,
+            0,
             id="staticWriteInvalid",
         ),
         pytest.param(
-            15, 0, 0,
+            15,
+            0,
+            0,
             id="staticWriteValid",
         ),
         pytest.param(
-            16, 0, 0,
+            16,
+            0,
+            0,
             id="writeValidGas",
         ),
         pytest.param(
-            17, 0, 0,
+            17,
+            0,
+            0,
             id="writeInvalidOOG",
         ),
         pytest.param(
-            18, 0, 0,
+            18,
+            0,
+            0,
             id="readValidGas",
         ),
         pytest.param(
-            19, 0, 0,
+            19,
+            0,
+            0,
             id="readInvalidOOG",
         ),
         pytest.param(
-            20, 0, 0,
+            20,
+            0,
+            0,
             id="recurseValid",
         ),
         pytest.param(
-            21, 0, 0,
+            21,
+            0,
+            0,
             id="recurseInvalid",
         ),
         pytest.param(
-            22, 0, 0,
+            22,
+            0,
+            0,
             id="createValid",
         ),
         pytest.param(
-            23, 0, 0,
+            23,
+            0,
+            0,
             id="createInvalid",
         ),
         pytest.param(
-            24, 0, 0,
+            24,
+            0,
+            0,
             id="create2Valid",
         ),
         pytest.param(
-            25, 0, 0,
+            25,
+            0,
+            0,
             id="create2Invalid",
         ),
         pytest.param(
-            26, 0, 0,
+            26,
+            0,
+            0,
             id="callCreatedValid",
         ),
         pytest.param(
-            27, 0, 0,
+            27,
+            0,
+            0,
             id="callCreatedInvalid",
         ),
         pytest.param(
-            28, 0, 0,
+            28,
+            0,
+            0,
             id="callCreate2edValid",
         ),
         pytest.param(
-            29, 0, 0,
+            29,
+            0,
+            0,
             id="callCreate2edInvalid",
         ),
         pytest.param(
-            30, 0, 0,
+            30,
+            0,
+            0,
             id="createAndCallValid",
         ),
         pytest.param(
-            31, 0, 0,
+            31,
+            0,
+            0,
             id="createAndCallInvalid",
         ),
         pytest.param(
-            32, 0, 0,
+            32,
+            0,
+            0,
             id="create2AndCallValid",
         ),
         pytest.param(
-            33, 0, 0,
+            33,
+            0,
+            0,
             id="create2AndCallInvalid",
         ),
         pytest.param(
-            34, 0, 0,
+            34,
+            0,
+            0,
             id="callTwiceValid",
         ),
         pytest.param(
-            35, 0, 0,
+            35,
+            0,
+            0,
             id="callTwiceInvalid",
         ),
     ],
@@ -606,7 +839,7 @@ def test_varied_context(
     contract_25 = Address("0x000000000000000000000000000000000000f126")
     contract_26 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -622,13 +855,20 @@ def test_varied_context(
     # Source: lll
     # {
     #    ; DELEGATE_VALID   DELEGATE_INVALID
-    # 
+    #
     #    (delegatecall (gas) 0xC057 0 0 0 0)
     # }
-    contract_0 = pre.deploy_contract(
-        code=Op.DELEGATECALL(gas=Op.GAS, address=0xc057, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xC057,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -637,10 +877,18 @@ def test_varied_context(
     #    ; CALL_VALID    CALL_INVALID
     #    (call (gas) 0xC057 0 0 0 0 0)
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.CALL(gas=Op.GAS, address=0xc057, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=Op.GAS,
+            address=0xC057,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -649,10 +897,18 @@ def test_varied_context(
     #    ; CALLCODE_VALID       CALLCODE_INVALID
     #    (callcode (gas) 0xC057 0 0 0 0 0)
     # }
-    contract_2 = pre.deploy_contract(
-        code=Op.CALLCODE(gas=Op.GAS, address=0xc057, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=Op.GAS,
+            address=0xC057,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -661,117 +917,147 @@ def test_varied_context(
     #    ; 0xC057: DELEGATE_VALID DELEGATE_INVALID
     #    ;         CALL_INVALID CALL_VALID
     #    ;         CALLCODE_VALID CALLCODE_INVALID
-    # 
-    # 
+    #
+    #
     #  ; Write to [[0]], and see how much gas that cost. It should
     #  ; cost more when it is not declared storage
     #    [0]   (gas)
     #   [[0]]  0x02
     #    [0]   (- @0 (gas) 17)
     #   [[1]] @0
-    # 
+    #
     #  ; The 17 is the cost of the extra opcodes:
     #  ; PUSH1 0x00, MSTORE
     #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
     #  ; GAS
-    # 
+    #
     #  ; Read [[0x60A7]], and see how much gas that cost. It should
     #  ; cost more when it is not declared storage
     #    [0]   (gas)
     #   [0x20] @@0x60A7
     #    [0]   (- @0 (gas) 16)
     #   [[2]] @0
-    # 
+    #
     #  ; The 16 is the cost of the extra opcodes
     # }
-    contract_3 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=Op.GAS) + Op.SSTORE(key=0x0, value=0x2)  # noqa: E501
-        + Op.MSTORE(offset=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x11))
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0x2)
+        + Op.MSTORE(
+            offset=0x0,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x11),
+        )
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
         + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x60a7))
-        + Op.MSTORE(offset=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x10))
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0)) + Op.STOP,
+        + Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x60A7))
+        + Op.MSTORE(
+            offset=0x0,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x10),
+        )
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
         storage={24743: 57005},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000c057"),  # noqa: E501
     )
     # Source: lll
     # {
     #    ; STATICCALL_VALID  STATICCALL_INVALID
-    # 
+    #
     #    ; Need to store the result here, because static call is, well, static
     #    (staticcall (gas) 0xEAD0C057 0 0 0 0x20)
     #    [[0]] @0
     # }
-    contract_4 = pre.deploy_contract(
-        code=Op.POP(Op.STATICCALL(gas=Op.GAS, address=0xead0c057, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x20))
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=0xEAD0C057,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
     # Source: lll
     # {
     #  ;   STATICCALL_VALID  STATICCALL_INVALID
-    # 
-    # 
+    #
+    #
     #  ; Read [[0x60A7]], and see how much gas that cost. It should
     #  ; cost more when it is not declared storage
     #    [0]   (gas)
     #  [0x20] @@0x60A7
     #    [0]   (- @0 (gas) 19)
     #  ; The 19 is the cost of the extra opcodes
-    # 
+    #
     #  (return 0x00 0x20) ; a.k.a. @0
     # }
-    contract_5 = pre.deploy_contract(
+    contract_5 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x60a7))
-        + Op.MSTORE(offset=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x13))
-        + Op.RETURN(offset=0x0, size=0x20) + Op.STOP,
+        + Op.MSTORE(offset=0x20, value=Op.SLOAD(key=0x60A7))
+        + Op.MSTORE(
+            offset=0x0,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x13),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.STOP,
         storage={24743: 57005},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x00000000000000000000000000000000ead0c057"),  # noqa: E501
     )
     # Source: lll
     # {
     #  ;   CALL_REVERT_VALID     CALL_REVERT_INVALID
-    # 
+    #
     #  ; Write to [[0]], and see how much gas that cost. It should
     #  ; cost more when it is not declared storage
     #    [0]   (gas)
     #   [[0]]  0x02
     #    [0]   (- @0 (gas) 17)
-    # 
+    #
     #  ; The 17 is the cost of the extra opcodes:
     #  ; PUSH1 0x00, MSTORE
     #  ; PUSH1 0x02, PUSH1 0x00, (and then comes the SSTORE we are measuring)
     #  ; GAS
-    # 
+    #
     #  ; Read [[0x60A7]], and see how much gas that cost. It should
     #  ; cost more when it is not declared storage
     #   [0x20] (gas)
     #   [0x40] @@0x60A7
     #   [0x20] (- @0x20 (gas) 26)
-    # 
+    #
     #  ; The 29 is the cost of the extra opcodes
-    # 
+    #
     #  ; Send the results the only way we can
-    # 
+    #
     #  (revert 0 0x40)
     # }
-    contract_6 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=Op.GAS) + Op.SSTORE(key=0x0, value=0x2)  # noqa: E501
-        + Op.MSTORE(offset=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x11))
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0x2)
+        + Op.MSTORE(
+            offset=0x0,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x11),
+        )
         + Op.MSTORE(offset=0x20, value=Op.GAS)
-        + Op.MSTORE(offset=0x40, value=Op.SLOAD(key=0x60a7))
-        + Op.MSTORE(offset=0x20, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x20), Op.GAS), 0x1a))
-        + Op.REVERT(offset=0x0, size=0x40) + Op.STOP,
+        + Op.MSTORE(offset=0x40, value=Op.SLOAD(key=0x60A7))
+        + Op.MSTORE(
+            offset=0x20,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x20), Op.GAS), 0x1A),
+        )
+        + Op.REVERT(offset=0x0, size=0x40)
+        + Op.STOP,
         storage={24743: 48879},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001010"),  # noqa: E501
     )
@@ -782,12 +1068,24 @@ def test_varied_context(
     #    (call (gas) 0xDEAD0111 0 0 0 0 0)
     #    [[0]] (- @0 (gas) 0x7fe8)
     # }
-    contract_7 = pre.deploy_contract(
+    contract_7 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=Op.GAS, address=0xdead0111, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x7fe8))  # noqa: E501
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0xDEAD0111,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(
+            key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x7FE8)
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001011"),  # noqa: E501
     )
@@ -795,13 +1093,14 @@ def test_varied_context(
     # {
     #    ; CALL_WRITE_SUICIDE_VALID      CALL_WRITE_SUICIDE_INVALID
     #    [[0]] 0xDEAD
-    # 
+    #
     #    (selfdestruct 0)
     # }
-    contract_8 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0xdead) + Op.SELFDESTRUCT(address=0x0)
+    contract_8 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0xDEAD)
+        + Op.SELFDESTRUCT(address=0x0)
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x00000000000000000000000000000000dead0111"),  # noqa: E501
     )
@@ -812,12 +1111,24 @@ def test_varied_context(
     #    (call (gas) 0xDEAD0112 0 0 0 0 0)
     #    [[0]] (- @0 (gas) 0x7fe8)
     # }
-    contract_9 = pre.deploy_contract(
+    contract_9 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=Op.GAS, address=0xdead0112, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x7fe8))  # noqa: E501
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0xDEAD0112,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(
+            key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x7FE8)
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001012"),  # noqa: E501
     )
@@ -825,48 +1136,61 @@ def test_varied_context(
     # {
     #    ; CALL_READ_SUICIDE_VALID      CALL_READ_SUICIDE_INVALID
     #    @@0
-    # 
+    #
     #    (selfdestruct 0)
     # }
-    contract_10 = pre.deploy_contract(
-        code=Op.POP(Op.SLOAD(key=0x0)) + Op.SELFDESTRUCT(address=0x0) + Op.STOP,  # noqa: E501
-        storage={0: 0xdead0060a7},
-        balance=0xde0b6b3a7640000,
+    contract_10 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(Op.SLOAD(key=0x0))
+        + Op.SELFDESTRUCT(address=0x0)
+        + Op.STOP,
+        storage={0: 0xDEAD0060A7},
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x00000000000000000000000000000000dead0112"),  # noqa: E501
     )
     # Source: lll
     # {  ; STATIC_WRITE_VALID     STATIC_WRITE_INVALID
-    # 
+    #
     #    [0x00] 0x0BAD
-    # 
+    #
     #    ; If the call is successful @0 becomes 0x600D
     #    (staticcall (gas) 0xF113 0 0 0 0x20)
-    # 
+    #
     #    [[0]] @0x00
     # }
-    contract_11 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xbad)
-        + Op.POP(Op.STATICCALL(gas=Op.GAS, address=0xf113, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x20))
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
+    contract_11 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0xBAD)
+        + Op.POP(
+            Op.STATICCALL(
+                gas=Op.GAS,
+                address=0xF113,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
         storage={0: 24743},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001013"),  # noqa: E501
     )
     # Source: lll
     # {  ; STATIC_WRITE_VALID     STATIC_WRITE_INVALID
     #    [[0]] 0xDEAD60A7
-    # 
+    #
     #    ; If we get here, GOOD
     #    [0] 0x600D
     #    (return 0 0x20)
     # }
-    contract_12 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0xdead60a7)
-        + Op.MSTORE(offset=0x0, value=0x600d) + Op.RETURN(offset=0x0, size=0x20)
+    contract_12 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0xDEAD60A7)
+        + Op.MSTORE(offset=0x0, value=0x600D)
+        + Op.RETURN(offset=0x0, size=0x20)
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000f113"),  # noqa: E501
     )
@@ -874,22 +1198,30 @@ def test_varied_context(
     # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
     #    (call 0x0B65 0xF114 0 0 0 0 0x20)
     # }
-    contract_13 = pre.deploy_contract(
-        code=Op.CALL(gas=0xb65, address=0xf114, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x20)
+    contract_13 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0xB65,
+            address=0xF114,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001014"),  # noqa: E501
     )
     # Source: lll
     # {  ; WRITE_INVALID_OOG    WRITE_VALID_NO_OOG
-    # 
+    #
     #   [[0]] 0x600D
     # }
-    contract_14 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
+    contract_14 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x600D) + Op.STOP,
         storage={0: 2989},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000f114"),  # noqa: E501
     )
@@ -897,10 +1229,18 @@ def test_varied_context(
     # {  ; READ_INVALID_OOG    READ_VALID_NO_OOG
     #    (call 0x1800 0xF115 0 0 0 0 0x20)
     # }
-    contract_15 = pre.deploy_contract(
-        code=Op.CALL(gas=0x1800, address=0xf115, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x20)
+    contract_15 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0x1800,
+            address=0xF115,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001015"),  # noqa: E501
     )
@@ -909,77 +1249,110 @@ def test_varied_context(
     #    [0] @@0x60A7
     #    [[0]] 0x600D
     # }
-    contract_16 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=Op.SLOAD(key=0x60a7))
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
+    contract_16 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.SLOAD(key=0x60A7))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
         storage={0: 2989, 24743: 57005},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000f115"),  # noqa: E501
     )
     # Source: lll
     # {  ; RECURSE_VALID   RECURSE_INVALID
     #    (def 'NOP 0)
-    # 
+    #
     #    ; Read storage cell zero, so the first time we read it to won't
     #    ; be added to the cost
     #    @@0
-    # 
+    #
     #    ; Write to [[0xBEEF]], and see how much gas that cost. It should
     #    ; cost more when it is not declared storage
     #      [0]   (gas)
     #     [[0xBEEF]]  0x02
     #      [0]   (- @0 (gas) 17)
-    # 
+    #
     #    ; Read [[0x60A7]], and see how much gas that cost. It should
     #    ; cost more when it is not declared storage
     #    [0x20] (gas)
     #    [0xA0] @@0x60A7
     #    [0x20] (- @0x20 (gas) 35)
-    # 
+    #
     #    ; Write to a different cell each time
     #    [0x40] (gas)
     #    [[(+ 0xF000 @@0)]] 0xBEEF
     #    [0x40] (- @0x40 (gas) 0x78)
-    # 
+    #
     #    ; Read from a different cell each time
     #    [0x60] (gas)
     #    @@(+ 0xF010 @@0)
     #    [0x60] (- @0x60 (gas) 0x7a)
-    # 
-    # 
+    #
+    #
     # ... (13 more lines)
-    contract_17 = pre.deploy_contract(
-        code=Op.POP(Op.SLOAD(key=0x0)) + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0xbeef, value=0x2)
-        + Op.MSTORE(offset=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x11))
+    contract_17 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(Op.SLOAD(key=0x0))
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0xBEEF, value=0x2)
+        + Op.MSTORE(
+            offset=0x0,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x0), Op.GAS), 0x11),
+        )
         + Op.MSTORE(offset=0x20, value=Op.GAS)
-        + Op.MSTORE(offset=0xa0, value=Op.SLOAD(key=0x60a7))
-        + Op.MSTORE(offset=0x20, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x20), Op.GAS), 0x23))
+        + Op.MSTORE(offset=0xA0, value=Op.SLOAD(key=0x60A7))
+        + Op.MSTORE(
+            offset=0x20,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x20), Op.GAS), 0x23),
+        )
         + Op.MSTORE(offset=0x40, value=Op.GAS)
-        + Op.SSTORE(key=Op.ADD(0xf000, Op.SLOAD(key=0x0)), value=0xbeef)
-        + Op.MSTORE(offset=0x40, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x40), Op.GAS), 0x78))
+        + Op.SSTORE(key=Op.ADD(0xF000, Op.SLOAD(key=0x0)), value=0xBEEF)
+        + Op.MSTORE(
+            offset=0x40,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x40), Op.GAS), 0x78),
+        )
         + Op.MSTORE(offset=0x60, value=Op.GAS)
-        + Op.POP(Op.SLOAD(key=Op.ADD(0xf010, Op.SLOAD(key=0x0))))
-        + Op.MSTORE(offset=0x60, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x60), Op.GAS), 0x7a))
-        + Op.SSTORE(key=Op.ADD(0x100, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x0))  # noqa: E501
-        + Op.SSTORE(key=Op.ADD(0x200, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x20))  # noqa: E501
-        + Op.SSTORE(key=Op.ADD(0x300, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x40))  # noqa: E501
-        + Op.SSTORE(key=Op.ADD(0x400, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x60))  # noqa: E501
-        + Op.JUMPI(pc=0x9b, condition=Op.GT(Op.SLOAD(key=0x0), 0x0))
-        + Op.PUSH1[0x0] + Op.JUMP(pc=0xb4) + Op.JUMPDEST
+        + Op.POP(Op.SLOAD(key=Op.ADD(0xF010, Op.SLOAD(key=0x0))))
+        + Op.MSTORE(
+            offset=0x60,
+            value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x60), Op.GAS), 0x7A),
+        )
+        + Op.SSTORE(
+            key=Op.ADD(0x100, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x0)
+        )
+        + Op.SSTORE(
+            key=Op.ADD(0x200, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x20)
+        )
+        + Op.SSTORE(
+            key=Op.ADD(0x300, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x40)
+        )
+        + Op.SSTORE(
+            key=Op.ADD(0x400, Op.SLOAD(key=0x0)), value=Op.MLOAD(offset=0x60)
+        )
+        + Op.JUMPI(pc=0x9B, condition=Op.GT(Op.SLOAD(key=0x0), 0x0))
+        + Op.PUSH1[0x0]
+        + Op.JUMP(pc=0xB4)
+        + Op.JUMPDEST
         + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
-        + Op.CALL(gas=Op.GAS, address=0x1016, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
-        + Op.JUMPDEST + Op.STOP,
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0x1016,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
         storage={0: 15, 24743: 57005},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001016"),  # noqa: E501
     )
     # Source: lll
     # {
     #   ; CREATE_VALID   CREATE_INVALID
-    # 
+    #
     #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
     #   ; code buffers that get 0x100 (256 bytes)
     #   (def 'constructorCode   0x000)
@@ -987,9 +1360,9 @@ def test_varied_context(
     #   (def 'contractLength    0x200)
     #   (def 'constructorLength 0x220)
     #   (def 'addr              0x240)
-    # 
+    #
     #   (def 'bufLength         0x100)
-    # 
+    #
     #   ; Create the contract code
     #   [contractLength]
     #     (lll
@@ -997,7 +1370,7 @@ def test_varied_context(
     #          [[0]] 0xFF
     #       } contractCode
     #     )     ; contract lll
-    # 
+    #
     #   ; Create the constructor code, which runs with the contract address
     #   ; of the newly created contract. If we declare that address in the
     #   ; transaction's access list we get the discount
@@ -1008,27 +1381,42 @@ def test_varied_context(
     #          [0] (gas)
     #          [[0]] 0xFFFF
     # ... (14 more lines)
-    contract_18 = pre.deploy_contract(
+    contract_18 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x6]
         + Op.CODECOPY(dest_offset=0x100, offset=0x33, size=Op.DUP1)
-        + Op.PUSH2[0x200] + Op.MSTORE + Op.PUSH1[0x21]
+        + Op.PUSH2[0x200]
+        + Op.MSTORE
+        + Op.PUSH1[0x21]
         + Op.CODECOPY(dest_offset=0x0, offset=0x39, size=Op.DUP1)
-        + Op.PUSH2[0x220] + Op.MSTORE
-        + Op.MSTORE(offset=0x240, value=Op.CREATE(value=0x0, offset=0x0, size=Op.ADD(0x100, Op.MLOAD(offset=0x200))))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240)) + Op.STOP + Op.INVALID  # noqa: E501
-        + Op.SSTORE(key=0x0, value=0xff) + Op.STOP
-        + Op.MSTORE(offset=0x0, value=Op.GAS) + Op.SSTORE(key=0x0, value=0xffff)  # noqa: E501
+        + Op.PUSH2[0x220]
+        + Op.MSTORE
+        + Op.MSTORE(
+            offset=0x240,
+            value=Op.CREATE(
+                value=0x0,
+                offset=0x0,
+                size=Op.ADD(0x100, Op.MLOAD(offset=0x200)),
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240))
+        + Op.STOP
+        + Op.INVALID
+        + Op.SSTORE(key=0x0, value=0xFF)
+        + Op.STOP
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0xFFFF)
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.CODECOPY(dest_offset=0x0, offset=0x100, size=0x100)
-        + Op.RETURN(offset=0x0, size=0x10) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.RETURN(offset=0x0, size=0x10)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001020"),  # noqa: E501
     )
     # Source: lll
     # {
     #   ; CREATE2_VALID   CREATE2_INVALID
-    # 
+    #
     #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
     #   ; code buffers that get 0x100 (256 bytes)
     #   (def 'constructorCode   0x000)
@@ -1036,9 +1424,9 @@ def test_varied_context(
     #   (def 'contractLength    0x200)
     #   (def 'constructorLength 0x220)
     #   (def 'addr              0x240)
-    # 
+    #
     #   (def 'bufLength         0x100)
-    # 
+    #
     #   ; Create the contract code
     #   [contractLength]
     #     (lll
@@ -1046,7 +1434,7 @@ def test_varied_context(
     #          [[0]] 0xFF
     #       } contractCode
     #     )     ; contract lll
-    # 
+    #
     #   ; Create the constructor code, which runs with the contract address
     #   ; of the newly created contract. If we declare that address in the
     #   ; transaction's access list we get the discount
@@ -1057,28 +1445,44 @@ def test_varied_context(
     #          [0] (gas)
     #          [[0]] 0xFFFF
     # ... (14 more lines)
-    contract_19 = pre.deploy_contract(
+    contract_19 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x6]
         + Op.CODECOPY(dest_offset=0x100, offset=0x36, size=Op.DUP1)
-        + Op.PUSH2[0x200] + Op.MSTORE + Op.PUSH1[0x21]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x3c, size=Op.DUP1)
-        + Op.PUSH2[0x220] + Op.MSTORE
-        + Op.MSTORE(offset=0x240, value=Op.CREATE2(value=0x0, offset=0x0, size=Op.ADD(0x100, Op.MLOAD(offset=0x200)), salt=0x5a17))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240)) + Op.STOP + Op.INVALID  # noqa: E501
-        + Op.SSTORE(key=0x0, value=0xff) + Op.STOP
-        + Op.MSTORE(offset=0x0, value=Op.GAS) + Op.SSTORE(key=0x0, value=0xffff)  # noqa: E501
+        + Op.PUSH2[0x200]
+        + Op.MSTORE
+        + Op.PUSH1[0x21]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x3C, size=Op.DUP1)
+        + Op.PUSH2[0x220]
+        + Op.MSTORE
+        + Op.MSTORE(
+            offset=0x240,
+            value=Op.CREATE2(
+                value=0x0,
+                offset=0x0,
+                size=Op.ADD(0x100, Op.MLOAD(offset=0x200)),
+                salt=0x5A17,
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240))
+        + Op.STOP
+        + Op.INVALID
+        + Op.SSTORE(key=0x0, value=0xFF)
+        + Op.STOP
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0xFFFF)
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.CODECOPY(dest_offset=0x0, offset=0x100, size=0x100)
-        + Op.RETURN(offset=0x0, size=0x10) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.RETURN(offset=0x0, size=0x10)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001021"),  # noqa: E501
     )
     # Source: lll
     # {
     #   ; CALL_CREATED_VALID     CALL_CREATED_INVALID
-    # 
-    # 
+    #
+    #
     #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
     #   ; code buffers that get 0x100 (256 bytes)
     #   (def 'constructorCode   0x000)
@@ -1086,9 +1490,9 @@ def test_varied_context(
     #   (def 'contractLength    0x200)
     #   (def 'constructorLength 0x220)
     #   (def 'addr              0x240)
-    # 
+    #
     #   (def 'bufLength         0x100)
-    # 
+    #
     #   ; Create the contract code
     #   [contractLength]
     #     (lll
@@ -1099,35 +1503,60 @@ def test_varied_context(
     #          [[1]] (- @0 (gas))
     #       } contractCode
     #     )     ; contract lll
-    # 
-    # 
+    #
+    #
     #   ; Create the constructor code
     #   [constructorLength]
     #     (lll
     #       {
     # ... (13 more lines)
-    contract_20 = pre.deploy_contract(
+    contract_20 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x44, size=Op.DUP1)
-        + Op.PUSH2[0x200] + Op.MSTORE + Op.PUSH1[0xf]
+        + Op.PUSH2[0x200]
+        + Op.MSTORE
+        + Op.PUSH1[0xF]
         + Op.CODECOPY(dest_offset=0x0, offset=0x57, size=Op.DUP1)
-        + Op.PUSH2[0x220] + Op.MSTORE
-        + Op.MSTORE(offset=0x240, value=Op.CREATE(value=0x0, offset=0x0, size=Op.ADD(0x100, Op.MLOAD(offset=0x200))))
-        + Op.POP(Op.CALL(gas=Op.GAS, address=Op.MLOAD(offset=0x240), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240)) + Op.STOP + Op.INVALID  # noqa: E501
-        + Op.MSTORE(offset=0x0, value=Op.GAS) + Op.SSTORE(key=0x0, value=0xffff)  # noqa: E501
+        + Op.PUSH2[0x220]
+        + Op.MSTORE
+        + Op.MSTORE(
+            offset=0x240,
+            value=Op.CREATE(
+                value=0x0,
+                offset=0x0,
+                size=Op.ADD(0x100, Op.MLOAD(offset=0x200)),
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.MLOAD(offset=0x240),
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240))
+        + Op.STOP
+        + Op.INVALID
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0xFFFF)
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.STOP + Op.CODECOPY(dest_offset=0x0, offset=0x100, size=0x100)
-        + Op.RETURN(offset=0x0, size=0x80) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.STOP
+        + Op.CODECOPY(dest_offset=0x0, offset=0x100, size=0x100)
+        + Op.RETURN(offset=0x0, size=0x80)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001022"),  # noqa: E501
     )
     # Source: lll
     # {
     #   ; CALL_CREATE2_ED_VALID     CALL_CREATE2_ED_INVALID
-    # 
-    # 
+    #
+    #
     #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
     #   ; code buffers that get 0x100 (256 bytes)
     #   (def 'constructorCode   0x000)
@@ -1135,9 +1564,9 @@ def test_varied_context(
     #   (def 'contractLength    0x200)
     #   (def 'constructorLength 0x220)
     #   (def 'addr              0x240)
-    # 
+    #
     #   (def 'bufLength         0x100)
-    # 
+    #
     #   ; Create the contract code
     #   [contractLength]
     #     (lll
@@ -1148,34 +1577,60 @@ def test_varied_context(
     #          [[1]] (- @0 (gas))
     #       } contractCode
     #     )     ; contract lll
-    # 
-    # 
+    #
+    #
     #   ; Create the constructor code
     #   [constructorLength]
     #     (lll
     #       {
     # ... (13 more lines)
-    contract_21 = pre.deploy_contract(
+    contract_21 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x47, size=Op.DUP1)
-        + Op.PUSH2[0x200] + Op.MSTORE + Op.PUSH1[0xf]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x5a, size=Op.DUP1)
-        + Op.PUSH2[0x220] + Op.MSTORE
-        + Op.MSTORE(offset=0x240, value=Op.CREATE2(value=0x0, offset=0x0, size=Op.ADD(0x100, Op.MLOAD(offset=0x200)), salt=0x5a17))
-        + Op.POP(Op.CALL(gas=Op.GAS, address=Op.MLOAD(offset=0x240), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240)) + Op.STOP + Op.INVALID  # noqa: E501
-        + Op.MSTORE(offset=0x0, value=Op.GAS) + Op.SSTORE(key=0x0, value=0xffff)  # noqa: E501
+        + Op.PUSH2[0x200]
+        + Op.MSTORE
+        + Op.PUSH1[0xF]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x5A, size=Op.DUP1)
+        + Op.PUSH2[0x220]
+        + Op.MSTORE
+        + Op.MSTORE(
+            offset=0x240,
+            value=Op.CREATE2(
+                value=0x0,
+                offset=0x0,
+                size=Op.ADD(0x100, Op.MLOAD(offset=0x200)),
+                salt=0x5A17,
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.MLOAD(offset=0x240),
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240))
+        + Op.STOP
+        + Op.INVALID
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0xFFFF)
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.STOP + Op.CODECOPY(dest_offset=0x0, offset=0x100, size=0x100)
-        + Op.RETURN(offset=0x0, size=0x80) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.STOP
+        + Op.CODECOPY(dest_offset=0x0, offset=0x100, size=0x100)
+        + Op.RETURN(offset=0x0, size=0x80)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001023"),  # noqa: E501
     )
     # Source: lll
     # {
     #   ; CREATE_&_CALL_VALID           CREATE_&_CALL_INVALID
-    # 
+    #
     #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
     #   ; code buffers that get 0x100 (256 bytes)
     #   (def 'constructorCode   0x000)
@@ -1183,9 +1638,9 @@ def test_varied_context(
     #   (def 'contractLength    0x200)
     #   (def 'constructorLength 0x220)
     #   (def 'addr              0x240)
-    # 
+    #
     #   (def 'bufLength         0x100)
-    # 
+    #
     #   ; Create the contract code
     #   [contractLength]
     #     (lll
@@ -1196,38 +1651,63 @@ def test_varied_context(
     #          [[2]] (- @0 (gas))
     #       } contractCode
     #     )     ; contract lll
-    # 
-    # 
+    #
+    #
     #   ; Create the constructor code
     #   [constructorLength]
     #     (lll
     #       {
     #          ; write to storage
     # ... (18 more lines)
-    contract_22 = pre.deploy_contract(
+    contract_22 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x44, size=Op.DUP1)
-        + Op.PUSH2[0x200] + Op.MSTORE + Op.PUSH1[0x21]
+        + Op.PUSH2[0x200]
+        + Op.MSTORE
+        + Op.PUSH1[0x21]
         + Op.CODECOPY(dest_offset=0x0, offset=0x57, size=Op.DUP1)
-        + Op.PUSH2[0x220] + Op.MSTORE
-        + Op.MSTORE(offset=0x240, value=Op.CREATE(value=0x0, offset=0x0, size=Op.ADD(0x100, Op.MLOAD(offset=0x200))))
-        + Op.POP(Op.CALL(gas=Op.GAS, address=Op.MLOAD(offset=0x240), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240)) + Op.STOP + Op.INVALID  # noqa: E501
-        + Op.MSTORE(offset=0x0, value=Op.GAS) + Op.SSTORE(key=0x0, value=0xffff)  # noqa: E501
+        + Op.PUSH2[0x220]
+        + Op.MSTORE
+        + Op.MSTORE(
+            offset=0x240,
+            value=Op.CREATE(
+                value=0x0,
+                offset=0x0,
+                size=Op.ADD(0x100, Op.MLOAD(offset=0x200)),
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.MLOAD(offset=0x240),
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240))
+        + Op.STOP
+        + Op.INVALID
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0xFFFF)
         + Op.SSTORE(key=0x2, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.STOP + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x0, value=0xffff)
+        + Op.STOP
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0xFFFF)
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.CODECOPY(dest_offset=0x0, offset=0x100, size=0x100)
-        + Op.RETURN(offset=0x0, size=0x80) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.RETURN(offset=0x0, size=0x80)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001024"),  # noqa: E501
     )
     # Source: lll
     # {
     #   ; CREATE2_&_CALL_VALID           CREATE2_&_CALL_INVALID
-    # 
+    #
     #   ; Variables are 0x20 bytes (= 256 bits) apart, except for
     #   ; code buffers that get 0x100 (256 bytes)
     #   (def 'constructorCode   0x000)
@@ -1235,9 +1715,9 @@ def test_varied_context(
     #   (def 'contractLength    0x200)
     #   (def 'constructorLength 0x220)
     #   (def 'addr              0x240)
-    # 
+    #
     #   (def 'bufLength         0x100)
-    # 
+    #
     #   ; Create the contract code
     #   [contractLength]
     #     (lll
@@ -1248,31 +1728,57 @@ def test_varied_context(
     #          [[2]] (- @0 (gas))
     #       } contractCode
     #     )     ; contract lll
-    # 
-    # 
+    #
+    #
     #   ; Create the constructor code
     #   [constructorLength]
     #     (lll
     #       {
     #          ; write to storage
     # ... (18 more lines)
-    contract_23 = pre.deploy_contract(
+    contract_23 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x13]
         + Op.CODECOPY(dest_offset=0x100, offset=0x47, size=Op.DUP1)
-        + Op.PUSH2[0x200] + Op.MSTORE + Op.PUSH1[0x21]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x5a, size=Op.DUP1)
-        + Op.PUSH2[0x220] + Op.MSTORE
-        + Op.MSTORE(offset=0x240, value=Op.CREATE2(value=0x0, offset=0x0, size=Op.ADD(0x100, Op.MLOAD(offset=0x200)), salt=0x5a17))
-        + Op.POP(Op.CALL(gas=Op.GAS, address=Op.MLOAD(offset=0x240), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240)) + Op.STOP + Op.INVALID  # noqa: E501
-        + Op.MSTORE(offset=0x0, value=Op.GAS) + Op.SSTORE(key=0x0, value=0xffff)  # noqa: E501
+        + Op.PUSH2[0x200]
+        + Op.MSTORE
+        + Op.PUSH1[0x21]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x5A, size=Op.DUP1)
+        + Op.PUSH2[0x220]
+        + Op.MSTORE
+        + Op.MSTORE(
+            offset=0x240,
+            value=Op.CREATE2(
+                value=0x0,
+                offset=0x0,
+                size=Op.ADD(0x100, Op.MLOAD(offset=0x200)),
+                salt=0x5A17,
+            ),
+        )
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.MLOAD(offset=0x240),
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x240))
+        + Op.STOP
+        + Op.INVALID
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0xFFFF)
         + Op.SSTORE(key=0x2, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.STOP + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x0, value=0xffff)
+        + Op.STOP
+        + Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0xFFFF)
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.CODECOPY(dest_offset=0x0, offset=0x100, size=0x100)
-        + Op.RETURN(offset=0x0, size=0x80) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.RETURN(offset=0x0, size=0x80)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001025"),  # noqa: E501
     )
@@ -1282,11 +1788,29 @@ def test_varied_context(
     #   (call (gas) 0xF126 0 0 0 0 0)
     #   (call (gas) 0xF126 0 0 0 0 0)
     # }
-    contract_24 = pre.deploy_contract(
-        code=Op.POP(Op.CALL(gas=Op.GAS, address=0xf126, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.CALL(gas=Op.GAS, address=0xf126, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_24 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0xF126,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xF126,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001026"),  # noqa: E501
     )
@@ -1296,19 +1820,23 @@ def test_varied_context(
     #   [0] (gas)
     #   [[0x00]] 0x60A7
     #   [0] (- @0 (gas))
-    # 
+    #
     #   ; If @@1 is empty, write to it. Otherwise, write to @@2
     #   (if (= @@1 0) {[[1]] @0} {[[2]] @0})
-    # 
+    #
     # }
-    contract_25 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=Op.GAS) + Op.SSTORE(key=0x0, value=0x60a7)  # noqa: E501
+    contract_25 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=Op.GAS)
+        + Op.SSTORE(key=0x0, value=0x60A7)
         + Op.MSTORE(offset=0x0, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.JUMPI(pc=0x24, condition=Op.EQ(Op.SLOAD(key=0x1), 0x0))
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0)) + Op.JUMP(pc=0x2b)
-        + Op.JUMPDEST + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
-        + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x0))
+        + Op.JUMP(pc=0x2B)
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.JUMPDEST
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000f126"),  # noqa: E501
     )
@@ -1316,395 +1844,442 @@ def test_varied_context(
     # {
     #     ; ccc...ccc  revert and suicide contract
     #     (call (gas) (+ 0x1000 $4) 0 0 0 0 0x40)
-    # 
+    #
     #     ; Write the returned results, if any
     #     [[0]] @0x00
     #     [[1]] @0x20
     # }
-    contract_26 = pre.deploy_contract(
-        code=Op.POP(Op.CALL(gas=Op.GAS, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x40))
+    contract_26 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20)) + Op.STOP,
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x20))
+        + Op.STOP,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_0: Account(storage={0: 2, 1: 20003, 2: 107})},
         },
         {
-            "indexes": {'data': [1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_0: Account(storage={0: 2, 1: 22103, 2: 2107})},
         },
         {
-            "indexes": {'data': [2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={0: 2, 1: 20003, 2: 107})},
         },
         {
-            "indexes": {'data': [3], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={0: 2, 1: 22103, 2: 2107})},
         },
         {
-            "indexes": {'data': [4], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
-            "result": {contract_3: Account(storage={0: 2, 1: 22103, 2: 2107, 24743: 57005})},
+            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract_3: Account(
+                    storage={0: 2, 1: 22103, 2: 2107, 24743: 57005}
+                )
+            },
         },
         {
-            "indexes": {'data': [5], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
-            "result": {contract_3: Account(storage={0: 2, 1: 20003, 2: 107, 24743: 57005})},
+            "indexes": {"data": [5], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract_3: Account(
+                    storage={0: 2, 1: 20003, 2: 107, 24743: 57005}
+                )
+            },
         },
         {
-            "indexes": {'data': [6], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [6], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_4: Account(storage={0: 2107})},
         },
         {
-            "indexes": {'data': [7], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [7], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_4: Account(storage={0: 107})},
         },
         {
-            "indexes": {'data': [8], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [8], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_26: Account(storage={0: 20003, 1: 100})},
         },
         {
-            "indexes": {'data': [9], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [9], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_26: Account(storage={0: 22103, 1: 2100})},
         },
         {
-            "indexes": {'data': [10], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [10], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_7: Account(storage={0: 20001})},
         },
         {
-            "indexes": {'data': [11], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [11], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_7: Account(storage={0: 24601})},
         },
         {
-            "indexes": {'data': [12], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [12], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_9: Account(storage={0: 100})},
         },
         {
-            "indexes": {'data': [13], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [13], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_9: Account(storage={0: 4600})},
         },
         {
-            "indexes": {'data': [14, 15], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [14, 15], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_11: Account(storage={0: 2989})},
         },
         {
-            "indexes": {'data': [16], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [16], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_14: Account(storage={0: 24589})},
         },
         {
-            "indexes": {'data': [17], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [17], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_14: Account(storage={0: 2989})},
         },
         {
-            "indexes": {'data': [18], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [18], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_16: Account(storage={0: 24589, 24743: 57005})},
         },
         {
-            "indexes": {'data': [19], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [19], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_16: Account(storage={0: 2989, 24743: 57005})},
         },
         {
-            "indexes": {'data': [20], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [20], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_17: Account(
-                storage={
-            0: 0,
-            256: 103,
-            257: 103,
-            258: 103,
-            259: 103,
-            260: 103,
-            261: 103,
-            262: 103,
-            263: 103,
-            264: 103,
-            265: 103,
-            266: 103,
-            267: 103,
-            268: 103,
-            269: 103,
-            270: 103,
-            271: 20003,
-            512: 100,
-            513: 100,
-            514: 100,
-            515: 100,
-            516: 100,
-            517: 100,
-            518: 100,
-            519: 100,
-            520: 100,
-            521: 100,
-            522: 100,
-            523: 100,
-            524: 100,
-            525: 100,
-            526: 100,
-            527: 100,
-            768: 20003,
-            769: 20003,
-            770: 20003,
-            771: 20003,
-            772: 20003,
-            773: 20003,
-            774: 20003,
-            775: 20003,
-            776: 20003,
-            777: 20003,
-            778: 20003,
-            779: 20003,
-            780: 20003,
-            781: 20003,
-            782: 20003,
-            783: 20003,
-            1024: 100,
-            1025: 100,
-            1026: 100,
-            1027: 100,
-            1028: 100,
-            1029: 100,
-            1030: 100,
-            1031: 100,
-            1032: 100,
-            1033: 100,
-            1034: 100,
-            1035: 100,
-            1036: 100,
-            1037: 100,
-            1038: 100,
-            1039: 100,
-            24743: 57005,
-            48879: 2,
-            61440: 48879,
-            61441: 48879,
-            61442: 48879,
-            61443: 48879,
-            61444: 48879,
-            61445: 48879,
-            61446: 48879,
-            61447: 48879,
-            61448: 48879,
-            61449: 48879,
-            61450: 48879,
-            61451: 48879,
-            61452: 48879,
-            61453: 48879,
-            61454: 48879,
-            61455: 48879,
-        },
-            ),
-    },
+                contract_17: Account(
+                    storage={
+                        0: 0,
+                        256: 103,
+                        257: 103,
+                        258: 103,
+                        259: 103,
+                        260: 103,
+                        261: 103,
+                        262: 103,
+                        263: 103,
+                        264: 103,
+                        265: 103,
+                        266: 103,
+                        267: 103,
+                        268: 103,
+                        269: 103,
+                        270: 103,
+                        271: 20003,
+                        512: 100,
+                        513: 100,
+                        514: 100,
+                        515: 100,
+                        516: 100,
+                        517: 100,
+                        518: 100,
+                        519: 100,
+                        520: 100,
+                        521: 100,
+                        522: 100,
+                        523: 100,
+                        524: 100,
+                        525: 100,
+                        526: 100,
+                        527: 100,
+                        768: 20003,
+                        769: 20003,
+                        770: 20003,
+                        771: 20003,
+                        772: 20003,
+                        773: 20003,
+                        774: 20003,
+                        775: 20003,
+                        776: 20003,
+                        777: 20003,
+                        778: 20003,
+                        779: 20003,
+                        780: 20003,
+                        781: 20003,
+                        782: 20003,
+                        783: 20003,
+                        1024: 100,
+                        1025: 100,
+                        1026: 100,
+                        1027: 100,
+                        1028: 100,
+                        1029: 100,
+                        1030: 100,
+                        1031: 100,
+                        1032: 100,
+                        1033: 100,
+                        1034: 100,
+                        1035: 100,
+                        1036: 100,
+                        1037: 100,
+                        1038: 100,
+                        1039: 100,
+                        24743: 57005,
+                        48879: 2,
+                        61440: 48879,
+                        61441: 48879,
+                        61442: 48879,
+                        61443: 48879,
+                        61444: 48879,
+                        61445: 48879,
+                        61446: 48879,
+                        61447: 48879,
+                        61448: 48879,
+                        61449: 48879,
+                        61450: 48879,
+                        61451: 48879,
+                        61452: 48879,
+                        61453: 48879,
+                        61454: 48879,
+                        61455: 48879,
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': [21], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [21], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_17: Account(
-                storage={
-            0: 0,
-            256: 103,
-            257: 103,
-            258: 103,
-            259: 103,
-            260: 103,
-            261: 103,
-            262: 103,
-            263: 103,
-            264: 103,
-            265: 103,
-            266: 103,
-            267: 103,
-            268: 103,
-            269: 103,
-            270: 103,
-            271: 22103,
-            512: 100,
-            513: 100,
-            514: 100,
-            515: 100,
-            516: 100,
-            517: 100,
-            518: 100,
-            519: 100,
-            520: 100,
-            521: 100,
-            522: 100,
-            523: 100,
-            524: 100,
-            525: 100,
-            526: 100,
-            527: 2100,
-            768: 22103,
-            769: 22103,
-            770: 22103,
-            771: 22103,
-            772: 22103,
-            773: 22103,
-            774: 22103,
-            775: 22103,
-            776: 22103,
-            777: 22103,
-            778: 22103,
-            779: 22103,
-            780: 22103,
-            781: 22103,
-            782: 22103,
-            783: 22103,
-            1024: 2100,
-            1025: 2100,
-            1026: 2100,
-            1027: 2100,
-            1028: 2100,
-            1029: 2100,
-            1030: 2100,
-            1031: 2100,
-            1032: 2100,
-            1033: 2100,
-            1034: 2100,
-            1035: 2100,
-            1036: 2100,
-            1037: 2100,
-            1038: 2100,
-            1039: 2100,
-            24743: 57005,
-            48879: 2,
-            61440: 48879,
-            61441: 48879,
-            61442: 48879,
-            61443: 48879,
-            61444: 48879,
-            61445: 48879,
-            61446: 48879,
-            61447: 48879,
-            61448: 48879,
-            61449: 48879,
-            61450: 48879,
-            61451: 48879,
-            61452: 48879,
-            61453: 48879,
-            61454: 48879,
-            61455: 48879,
-        },
-            ),
-    },
+                contract_17: Account(
+                    storage={
+                        0: 0,
+                        256: 103,
+                        257: 103,
+                        258: 103,
+                        259: 103,
+                        260: 103,
+                        261: 103,
+                        262: 103,
+                        263: 103,
+                        264: 103,
+                        265: 103,
+                        266: 103,
+                        267: 103,
+                        268: 103,
+                        269: 103,
+                        270: 103,
+                        271: 22103,
+                        512: 100,
+                        513: 100,
+                        514: 100,
+                        515: 100,
+                        516: 100,
+                        517: 100,
+                        518: 100,
+                        519: 100,
+                        520: 100,
+                        521: 100,
+                        522: 100,
+                        523: 100,
+                        524: 100,
+                        525: 100,
+                        526: 100,
+                        527: 2100,
+                        768: 22103,
+                        769: 22103,
+                        770: 22103,
+                        771: 22103,
+                        772: 22103,
+                        773: 22103,
+                        774: 22103,
+                        775: 22103,
+                        776: 22103,
+                        777: 22103,
+                        778: 22103,
+                        779: 22103,
+                        780: 22103,
+                        781: 22103,
+                        782: 22103,
+                        783: 22103,
+                        1024: 2100,
+                        1025: 2100,
+                        1026: 2100,
+                        1027: 2100,
+                        1028: 2100,
+                        1029: 2100,
+                        1030: 2100,
+                        1031: 2100,
+                        1032: 2100,
+                        1033: 2100,
+                        1034: 2100,
+                        1035: 2100,
+                        1036: 2100,
+                        1037: 2100,
+                        1038: 2100,
+                        1039: 2100,
+                        24743: 57005,
+                        48879: 2,
+                        61440: 48879,
+                        61441: 48879,
+                        61442: 48879,
+                        61443: 48879,
+                        61444: 48879,
+                        61445: 48879,
+                        61446: 48879,
+                        61447: 48879,
+                        61448: 48879,
+                        61449: 48879,
+                        61450: 48879,
+                        61451: 48879,
+                        61452: 48879,
+                        61453: 48879,
+                        61454: 48879,
+                        61455: 48879,
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': [22], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [22], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0xf342e57f24e0333f3af34af08fdbbe9c72cbd37c"): Account(storage={0: 65535, 1: 20017}),  # noqa: E501
-    },
+                Address("0xf342e57f24e0333f3af34af08fdbbe9c72cbd37c"): Account(
+                    storage={0: 65535, 1: 20017}
+                ),
+            },
         },
         {
-            "indexes": {'data': [23], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [23], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0xf342e57f24e0333f3af34af08fdbbe9c72cbd37c"): Account(storage={0: 65535, 1: 22117}),  # noqa: E501
-    },
+                Address("0xf342e57f24e0333f3af34af08fdbbe9c72cbd37c"): Account(
+                    storage={0: 65535, 1: 22117}
+                ),
+            },
         },
         {
-            "indexes": {'data': [24], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [24], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0xd82f21135ed7d7d833a9f2a0f1cf6c3da214b8e3"): Account(storage={0: 65535, 1: 20017}),  # noqa: E501
-    },
+                Address("0xd82f21135ed7d7d833a9f2a0f1cf6c3da214b8e3"): Account(
+                    storage={0: 65535, 1: 20017}
+                ),
+            },
         },
         {
-            "indexes": {'data': [25], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [25], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0xd82f21135ed7d7d833a9f2a0f1cf6c3da214b8e3"): Account(storage={0: 65535, 1: 22117}),  # noqa: E501
-    },
+                Address("0xd82f21135ed7d7d833a9f2a0f1cf6c3da214b8e3"): Account(
+                    storage={0: 65535, 1: 22117}
+                ),
+            },
         },
         {
-            "indexes": {'data': [26], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [26], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"): Account(storage={0: 65535, 1: 20017}),  # noqa: E501
-    },
+                Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"): Account(
+                    storage={0: 65535, 1: 20017}
+                ),
+            },
         },
         {
-            "indexes": {'data': [27], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [27], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"): Account(storage={0: 65535, 1: 22117}),  # noqa: E501
-    },
+                Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"): Account(
+                    storage={0: 65535, 1: 22117}
+                ),
+            },
         },
         {
-            "indexes": {'data': [28], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [28], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x530508498d2aa75d8e591612809fec3d37a45615"): Account(storage={0: 65535, 1: 20017}),  # noqa: E501
-    },
+                Address("0x530508498d2aa75d8e591612809fec3d37a45615"): Account(
+                    storage={0: 65535, 1: 20017}
+                ),
+            },
         },
         {
-            "indexes": {'data': [29], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [29], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x530508498d2aa75d8e591612809fec3d37a45615"): Account(storage={0: 65535, 1: 22117}),  # noqa: E501
-    },
+                Address("0x530508498d2aa75d8e591612809fec3d37a45615"): Account(
+                    storage={0: 65535, 1: 22117}
+                ),
+            },
         },
         {
-            "indexes": {'data': [30], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [30], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0xb76ab2d646c4df221edd345957d0a396a2ab1b6d"): Account(storage={0: 65535, 1: 20017, 2: 117}),  # noqa: E501
-    },
+                Address("0xb76ab2d646c4df221edd345957d0a396a2ab1b6d"): Account(
+                    storage={0: 65535, 1: 20017, 2: 117}
+                ),
+            },
         },
         {
-            "indexes": {'data': [31], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [31], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0xb76ab2d646c4df221edd345957d0a396a2ab1b6d"): Account(storage={0: 65535, 1: 22117, 2: 117}),  # noqa: E501
-    },
+                Address("0xb76ab2d646c4df221edd345957d0a396a2ab1b6d"): Account(
+                    storage={0: 65535, 1: 22117, 2: 117}
+                ),
+            },
         },
         {
-            "indexes": {'data': [32], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [32], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x83fbdae70258ac0fa837b701cc63cedf48d4b6bf"): Account(storage={0: 65535, 1: 20017, 2: 117}),  # noqa: E501
-    },
+                Address("0x83fbdae70258ac0fa837b701cc63cedf48d4b6bf"): Account(
+                    storage={0: 65535, 1: 20017, 2: 117}
+                ),
+            },
         },
         {
-            "indexes": {'data': [33], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [33], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x83fbdae70258ac0fa837b701cc63cedf48d4b6bf"): Account(storage={0: 65535, 1: 22117, 2: 117}),  # noqa: E501
-    },
+                Address("0x83fbdae70258ac0fa837b701cc63cedf48d4b6bf"): Account(
+                    storage={0: 65535, 1: 22117, 2: 117}
+                ),
+            },
         },
         {
-            "indexes": {'data': [34], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
-            "result": {contract_25: Account(storage={0: 24743, 1: 20017, 2: 117})},
+            "indexes": {"data": [34], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract_25: Account(storage={0: 24743, 1: 20017, 2: 117})
+            },
         },
         {
-            "indexes": {'data': [35], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
-            "result": {contract_25: Account(storage={0: 24743, 1: 22117, 2: 117})},
+            "indexes": {"data": [35], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {
+                contract_25: Account(storage={0: 24743, 1: 22117, 2: 117})
+            },
         },
     ]
 
@@ -1721,6 +2296,5 @@ def test_varied_context(
         access_list=_tx_access_list(d),
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

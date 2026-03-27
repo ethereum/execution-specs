@@ -1,5 +1,5 @@
 """
-test_internal_call_hitting_gas_limit_success
+Test_internal_call_hitting_gas_limit_success.
 
 Ported from:
 state_tests/stTransactionTest/InternalCallHittingGasLimitSuccessFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stTransactionTest/InternalCallHittingGasLimitSuccessFiller.json"],
+    [
+        "state_tests/stTransactionTest/InternalCallHittingGasLimitSuccessFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,10 +33,10 @@ def test_internal_call_hitting_gas_limit_success(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_internal_call_hitting_gas_limit_success"""
+    """Test_internal_call_hitting_gas_limit_success."""
     coinbase = Address("0x2adf5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0xf79127a3004abde26a4cbd80c428cb10f829fa11b54d36e7b326f4f4a5927acf
+        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
     )
 
     env = Environment(
@@ -47,28 +49,35 @@ def test_internal_call_hitting_gas_limit_success(
         gas_limit=220000,
     )
 
-    pre[sender] = Account(balance=0x3b9aca00)
+    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: lll
-    # { (CALL 25000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) }
-    target = pre.deploy_contract(
-        code=Op.CALL(gas=0x61a8, address=0x9f499a40cbc961c5230197401ce369d5c53ed896, value=0x1, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    # { (CALL 25000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0x61A8,
+            address=0x9F499A40CBC961C5230197401CE369D5C53ED896,
+            value=0x1,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0x786a1ab68bb1c7eb88a1b844d6f4d4a51022de2c"),  # noqa: E501
     )
     # Source: lll
     # {[[1]]55}
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(
+    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x37) + Op.STOP,
         nonce=0,
         address=Address("0x9f499a40cbc961c5230197401ce369d5c53ed896"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=150000,
         value=10,
         nonce=0,
@@ -76,7 +85,9 @@ def test_internal_call_hitting_gas_limit_success(
     )
 
     post = {
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={1: 55}, balance=1),
+        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+            storage={1: 55}, balance=1
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

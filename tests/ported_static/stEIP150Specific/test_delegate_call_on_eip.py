@@ -1,5 +1,5 @@
 """
-test_delegate_call_on_eip
+Test_delegate_call_on_eip.
 
 Ported from:
 state_tests/stEIP150Specific/DelegateCallOnEIPFiller.json
@@ -31,10 +31,10 @@ def test_delegate_call_on_eip(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_delegate_call_on_eip"""
+    """Test_delegate_call_on_eip."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -47,12 +47,22 @@ def test_delegate_call_on_eip(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { [8] (GAS) (SSTORE 9 (DELEGATECALL 600000 <contract:0x1000000000000000000000000000000000000105> 0 0 0 0)) [[8]] (SUB @8 (GAS)) }
-    target = pre.deploy_contract(
+    # { [8] (GAS) (SSTORE 9 (DELEGATECALL 600000 <contract:0x1000000000000000000000000000000000000105> 0 0 0 0)) [[8]] (SUB @8 (GAS)) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x8, value=Op.GAS)
-        + Op.SSTORE(key=0x9, value=Op.DELEGATECALL(gas=0x927c0, address=0xfd59abae521384b5731ac657616680219fbc423d, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+        + Op.SSTORE(
+            key=0x9,
+            value=Op.DELEGATECALL(
+                gas=0x927C0,
+                address=0xFD59ABAE521384B5731AC657616680219FBC423D,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.SSTORE(key=0x8, value=Op.SUB(Op.MLOAD(offset=0x8), Op.GAS))
         + Op.STOP,
         nonce=0,
@@ -60,17 +70,16 @@ def test_delegate_call_on_eip(
     )
     # Source: lll
     # { (SSTORE 0 0x12) }
-    addr_0x1000000000000000000000000000000000000105 = pre.deploy_contract(
+    addr_0x1000000000000000000000000000000000000105 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x12) + Op.STOP,
         nonce=0,
         address=Address("0xfd59abae521384b5731ac657616680219fbc423d"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=600000,
         nonce=0,
         gas_price=10,

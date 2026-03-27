@@ -1,5 +1,5 @@
 """
-test_create_high_nonce
+Test_create_high_nonce.
 
 Ported from:
 state_tests/stCreateTest/CREATE_HighNonceFiller.yml
@@ -31,11 +31,11 @@ def test_create_high_nonce(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_create_high_nonce"""
+    """Test_create_high_nonce."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,30 +48,35 @@ def test_create_high_nonce(
         gas_limit=89128960,
     )
 
-    pre[sender] = Account(balance=0x3b9aca00)
+    pre[sender] = Account(balance=0x3B9ACA00)
     # Source: yul
     # byzantium
     # {
     #   // initcode: { return(0, 1) }
-    #   mstore(0, 0x60016000f3000000000000000000000000000000000000000000000000000000)
+    #   mstore(0, 0x60016000f3000000000000000000000000000000000000000000000000000000)  # noqa: E501
     #   sstore(0, create(0, 0, 5))
     #   sstore(1, 1)
-    # 
+    #
     #   let noOptimization := msize()
     # }
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x60016000f3000000000000000000000000000000000000000000000000000000)
-        + Op.SSTORE(key=0x0, value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x5))  # noqa: E501
-        + Op.SSTORE(key=Op.DUP1, value=0x1) + Op.STOP,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0x60016000F3000000000000000000000000000000000000000000000000000000,  # noqa: E501
+        )
+        + Op.SSTORE(
+            key=0x0, value=Op.CREATE(value=Op.DUP1, offset=0x0, size=0x5)
+        )
+        + Op.SSTORE(key=Op.DUP1, value=0x1)
+        + Op.STOP,
         nonce=18446744073709551615,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=16777216,
         nonce=0,
         gas_price=10,
@@ -80,7 +85,9 @@ def test_create_high_nonce(
     post = {
         sender: Account(nonce=1),
         contract_0: Account(storage={0: 0, 1: 1}, nonce=18446744073709551615),
-        Address("0x04e9a8460199e670ffb592f93a2f74bdcb44b0bd"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0x04e9a8460199e670ffb592f93a2f74bdcb44b0bd"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

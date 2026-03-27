@@ -1,5 +1,5 @@
 """
-test_transaction_create_suicide_in_initcode
+Test_transaction_create_suicide_in_initcode.
 
 Ported from:
 state_tests/stInitCodeTest/TransactionCreateSuicideInInitcodeFiller.json
@@ -22,7 +22,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stInitCodeTest/TransactionCreateSuicideInInitcodeFiller.json"],
+    [
+        "state_tests/stInitCodeTest/TransactionCreateSuicideInInitcodeFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -30,10 +32,10 @@ def test_transaction_create_suicide_in_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_transaction_create_suicide_in_initcode"""
+    """Test_transaction_create_suicide_in_initcode."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -47,8 +49,7 @@ def test_transaction_create_suicide_in_initcode(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0x3b9aca00)
-
+    pre[sender] = Account(balance=0x3B9ACA00)
 
     tx = Transaction(
         sender=sender,
@@ -61,7 +62,9 @@ def test_transaction_create_suicide_in_initcode(
     )
 
     post = {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
         sender: Account(nonce=1),
     }
 

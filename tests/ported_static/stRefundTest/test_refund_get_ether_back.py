@@ -1,5 +1,5 @@
 """
-test_refund_get_ether_back
+Test_refund_get_ether_back.
 
 Ported from:
 state_tests/stRefundTest/refund_getEtherBackFiller.json
@@ -31,10 +31,10 @@ def test_refund_get_ether_back(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_refund_get_ether_back"""
+    """Test_refund_get_ether_back."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
     sender = EOA(
-        key=0x29268b0c3308094249e9a06c02739f688d492d6325ca24b36ef949e5fc20af27
+        key=0x29268B0C3308094249E9A06C02739F688D492D6325CA24B36EF949E5FC20AF27
     )
 
     env = Environment(
@@ -50,20 +50,19 @@ def test_refund_get_ether_back(
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[ 1 ]] 0 }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xf4c9fc42faeda49049e3b8e2b97a17cc2fe95718"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3cf773d0)
-
+    pre[sender] = Account(balance=0x3CF773D0)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=228500,
         value=10,
         nonce=0,
@@ -71,9 +70,9 @@ def test_refund_get_ether_back(
     )
 
     post = {
-        target: Account(storage={}, balance=0xde0b6b3a764000a),
+        target: Account(storage={}, balance=0xDE0B6B3A764000A),
         coinbase: Account(balance=0),
-        sender: Account(balance=0x3cf4376a, nonce=1),
+        sender: Account(balance=0x3CF4376A, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -59,7 +59,10 @@ def format_account(a: AccountAssertionIR) -> str:
         if a.storage_any_keys:
             # Need Storage object with set_expect_any calls
             storage_str = format_storage(a.storage)
-            parts.append(f"storage=_storage_with_any({storage_str}, {a.storage_any_keys})")
+            any_keys = a.storage_any_keys
+            parts.append(
+                f"storage=_storage_with_any({storage_str}, {any_keys})"
+            )
         else:
             parts.append(f"storage={format_storage(a.storage)}")
     if a.code is not None:
@@ -180,21 +183,69 @@ def render_test(ir: IntermediateTestModel) -> str:
     if "." in short_docstring:
         short_docstring = short_docstring[: short_docstring.index(".") + 1]
     if len(short_docstring) > 70:
-        short_docstring = short_docstring[:67] + "..."
+        # Truncate at word boundary
+        truncated = short_docstring[:67]
+        last_space = truncated.rfind(" ")
+        if last_space > 40:
+            truncated = truncated[:last_space]
+        short_docstring = truncated + "..."
+    # Ensure ends with period (D400/D415)
+    if not short_docstring.endswith("."):
+        short_docstring += "."
+    # Capitalize first letter (D403), avoid "This" (D404)
+    if short_docstring and short_docstring[0].islower():
+        short_docstring = short_docstring[0].upper() + short_docstring[1:]
+    if short_docstring.startswith("This "):
+        short_docstring = "Test: t" + short_docstring[2:]
     # Escape any quotes
     short_docstring = short_docstring.replace('"', '\\"')
 
-    # Build docstring
+    # Build docstring — ensure first line ends with period (D400/D415)
     docstring = ir.filler_comment or ir.test_name
+    first_line = docstring.split("\n")[0]
+    if not first_line.rstrip().endswith("."):
+        docstring = (
+            first_line.rstrip() + ".\n" + "\n".join(docstring.split("\n")[1:])
+        )
+        docstring = docstring.rstrip()
+    # Capitalize first letter (D403) and avoid starting with "This" (D404)
+    if docstring and docstring[0].islower():
+        docstring = docstring[0].upper() + docstring[1:]
+    if docstring.startswith("This "):
+        docstring = "Test: " + docstring[0].lower() + docstring[1:]
+    # Ensure all docstring lines fit 79 chars.
+    # First line must end with period (D400), so truncate if needed.
+    import textwrap
+
+    doc_lines = docstring.split("\n")
+    first = doc_lines[0]
+    if len(first) > 75:
+        # Truncate at word boundary, add period
+        trunc = first[:72]
+        sp = trunc.rfind(" ")
+        if sp > 40:
+            trunc = trunc[:sp]
+        first = trunc + "..."
+        if not first.endswith("."):
+            first += "."
+    doc_lines[0] = first
+    # Ensure blank line after first line so D400 only checks line 1
+    if len(doc_lines) > 1 and doc_lines[1].strip():
+        doc_lines.insert(1, "")
+    wrapped_lines: list[str] = [doc_lines[0]]
+    for line in doc_lines[1:]:
+        if len(line) > 79:
+            wrapped_lines.extend(textwrap.wrap(line, width=79))
+        else:
+            wrapped_lines.append(line)
+    docstring = "\n".join(wrapped_lines)
 
     # Has exceptions?
     has_exceptions = any(p.has_exception for p in ir.parameters)
 
     # Needs _storage_with_any helper?
     needs_storage_any = any(
-        a.storage_any_keys
-        for entry in ir.expect_entries
-        for a in entry.result
+        a.storage_any_keys for entry in ir.expect_entries for a in entry.result
     )
 
     # Single-case post and error

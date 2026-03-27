@@ -1,5 +1,5 @@
 """
-test_mstroe8_dejavu
+Test_mstroe8_dejavu.
 
 Ported from:
 state_tests/stMemoryTest/mstroe8_dejavuFiller.json
@@ -31,10 +31,10 @@ def test_mstroe8_dejavu(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_mstroe8_dejavu"""
+    """Test_mstroe8_dejavu."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x7dd1d0ec78fe936b0e88f8c21226f51f048579915c7baff1c5d7fd84b2139bf1
+        key=0x7DD1D0EC78FE936B0E88F8C21226F51F048579915C7BAFF1C5D7FD84B2139BF1
     )
 
     env = Environment(
@@ -49,19 +49,18 @@ def test_mstroe8_dejavu(
 
     # Source: raw
     # 0x60F1630FFFFFFF53
-    target = pre.deploy_contract(
-        code=Op.MSTORE8(offset=0xfffffff, value=0xf1),
-        balance=0xde0b6b3a7640000,
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE8(offset=0xFFFFFFF, value=0xF1),
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xabf77e5b1365493306a9a197d08677715b84ca69"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x271000000000)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         value=10,
         nonce=0,

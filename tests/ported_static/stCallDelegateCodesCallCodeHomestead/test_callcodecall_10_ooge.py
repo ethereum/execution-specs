@@ -1,5 +1,5 @@
 """
-DELEGATE -> CALLCODE -> CODE OOG
+DELEGATE -> CALLCODE -> CODE OOG.
 
 Ported from:
 state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10_OOGEFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10_OOGEFiller.json"],
+    [
+        "state_tests/stCallDelegateCodesCallCodeHomestead/callcodecall_10_OOGEFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,10 +33,10 @@ def test_callcodecall_10_ooge(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """DELEGATE -> CALLCODE -> CODE OOG"""
+    """DELEGATE -> CALLCODE -> CODE OOG."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -48,37 +50,59 @@ def test_callcodecall_10_ooge(
     )
 
     # Source: lll
-    # {  [[ 0 ]] (DELEGATECALL 800000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.DELEGATECALL(gas=0xc3500, address=0x8e6e134402f2eeca8e910e8ec62b45b36ee31f30, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))  # noqa: E501
+    # {  [[ 0 ]] (DELEGATECALL 800000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.DELEGATECALL(
+                gas=0xC3500,
+                address=0x8E6E134402F2EECA8E910E8EC62B45B36EE31F30,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x0e7163a4a90126c4a13e52f48e84c74600e844da"),  # noqa: E501
     )
     # Source: lll
-    # {  [[ 1 ]] (CALLCODE 600000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) [[11]] 1 }
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=Op.CALLCODE(gas=0x927c0, address=0x766b2cf0691f51029181fc511395b7ab71353a88, value=0x0, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))  # noqa: E501
-        + Op.SSTORE(key=0xb, value=0x1) + Op.STOP,
+    # {  [[ 1 ]] (CALLCODE 600000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) [[11]] 1 }  # noqa: E501
+    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x1,
+            value=Op.CALLCODE(
+                gas=0x927C0,
+                address=0x766B2CF0691F51029181FC511395B7AB71353A88,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
+        + Op.SSTORE(key=0xB, value=0x1)
+        + Op.STOP,
         nonce=0,
         address=Address("0x8e6e134402f2eeca8e910e8ec62b45b36ee31f30"),  # noqa: E501
     )
     # Source: lll
     # {  (SSTORE 2 1) (KECCAK256 0x00 0x2fffff) }
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x2, value=0x1) + Op.SHA3(offset=0x0, size=0x2fffff)
+    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x2, value=0x1)
+        + Op.SHA3(offset=0x0, size=0x2FFFFF)
         + Op.STOP,
         nonce=0,
         address=Address("0x766b2cf0691f51029181fc511395b7ab71353a88"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=1000000,
         nonce=0,
         gas_price=10,
@@ -87,7 +111,9 @@ def test_callcodecall_10_ooge(
     post = {
         target: Account(storage={0: 1, 11: 1}),
         addr_0x1000000000000000000000000000000000000001: Account(storage={}),
-        addr_0x1000000000000000000000000000000000000002: Account(storage={2: 0}),
+        addr_0x1000000000000000000000000000000000000002: Account(
+            storage={2: 0}
+        ),
         sender: Account(storage={1: 0}),
     }
 

@@ -1,5 +1,5 @@
 """
-test_callto_return2
+Test_callto_return2.
 
 Ported from:
 state_tests/stSystemOperationsTest/CalltoReturn2Filler.json
@@ -31,10 +31,10 @@ def test_callto_return2(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_callto_return2"""
+    """Test_callto_return2."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -48,34 +48,53 @@ def test_callto_return2(
     )
 
     # Source: lll
-    # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (MSTORE 32 0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa ) [[ 0 ]] (CALL 5000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 23 0 64 0 2 ) }
-    target = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-        + Op.MSTORE(offset=0x20, value=0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa)
-        + Op.SSTORE(key=0x0, value=Op.CALL(gas=0x1388, address=0x2b45331c406df38b99656c3ed3a97ef219979232, value=0x17, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x2))  # noqa: E501
+    # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (MSTORE 32 0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa ) [[ 0 ]] (CALL 5000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 23 0 64 0 2 ) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x20,
+            value=0xAAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFAA,  # noqa: E501
+        )
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=0x1388,
+                address=0x2B45331C406DF38B99656C3ED3A97EF219979232,
+                value=0x17,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x2,
+            ),
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xbd44c6eb4f918aa9ab1da6bca875839b1250e4e9"),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155603760005360026000f2
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=0x1) + Op.MSTORE8(offset=0x0, value=0x37)
-        + Op.PUSH1[0x2] + Op.PUSH1[0x0] + Op.CALLCODE,
+    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0x1)
+        + Op.MSTORE8(offset=0x0, value=0x37)
+        + Op.PUSH1[0x2]
+        + Op.PUSH1[0x0]
+        + Op.CALLCODE,
         balance=23,
         nonce=0,
         address=Address("0x2b45331c406df38b99656c3ed3a97ef219979232"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=300000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )

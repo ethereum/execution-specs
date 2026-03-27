@@ -1,5 +1,5 @@
 """
-test_call1024_pre_calls
+Test_call1024_pre_calls.
 
 Ported from:
 state_tests/stDelegatecallTestHomestead/Call1024PreCallsFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -46,15 +46,21 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
         pytest.param(
-            0, 2, 0,
+            0,
+            2,
+            0,
             id="-g2",
         ),
     ],
@@ -68,11 +74,13 @@ def test_call1024_pre_calls(
     g: int,
     v: int,
 ) -> None:
-    """test_call1024_pre_calls"""
+    """Test_call1024_pre_calls."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address("0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0")  # noqa: E501
+    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
+        "0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0"
+    )
     sender = EOA(
-        key=0xcc381c83857b17ca629268ed418e2915a0287b84efe9cf2204c020302e83cda0
+        key=0xCC381C83857B17CA629268ED418E2915A0287B84EFE9CF2204C020302E83CDA0
     )
 
     env = Environment(
@@ -85,15 +93,49 @@ def test_call1024_pre_calls(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0xfffffffffffffffffffffffffffffffff)
-    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=7000)
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
+        balance=7000
+    )
     # Source: lll
-    # { [[ 2 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[ 3 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0)  [[ 0 ]] (ADD @@0 1) [[ 1 ]] (DELEGATECALL 0xfffffffffff <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x2, value=Op.CALL(gas=0xffff, address=0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0, value=0x1, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
-        + Op.SSTORE(key=0x3, value=Op.CALL(gas=0xffff, address=0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0, value=0x1, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+    # { [[ 2 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0) [[ 3 ]] (CALL 0xffff <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 0 0 0)  [[ 0 ]] (ADD @@0 1) [[ 1 ]] (DELEGATECALL 0xfffffffffff <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0xFFFF,
+                address=0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0x3,
+            value=Op.CALL(
+                gas=0xFFFF,
+                address=0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
-        + Op.SSTORE(key=0x1, value=Op.DELEGATECALL(gas=0xfffffffffff, address=0x515e9a6500c10f0db92754d10136694bb188153b, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.DELEGATECALL(
+                gas=0xFFFFFFFFFFF,
+                address=0x515E9A6500C10F0DB92754D10136694BB188153B,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
         balance=2024,
         nonce=0,
@@ -102,18 +144,18 @@ def test_call1024_pre_calls(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {target: Account(storage={0: 1025, 1: 1, 2: 0, 3: 0})},
         },
         {
-            "indexes": {'data': -1, 'gas': 2, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": -1, "gas": 2, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {target: Account(storage={0: 989, 1: 1, 2: 1, 3: 1})},
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {target: Account(storage={0: 1025, 1: 1, 2: 0})},
         },
     ]
@@ -130,6 +172,5 @@ def test_call1024_pre_calls(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

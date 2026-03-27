@@ -1,5 +1,5 @@
 """
-test_suicides_stop_after_suicide
+Test_suicides_stop_after_suicide.
 
 Ported from:
 state_tests/stTransactionTest/SuicidesStopAfterSuicideFiller.json
@@ -31,12 +31,12 @@ def test_suicides_stop_after_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_suicides_stop_after_suicide"""
+    """Test_suicides_stop_after_suicide."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     contract_0 = Address("0x0000000000000000000000000000000000000000")
     contract_1 = Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -51,7 +51,7 @@ def test_suicides_stop_after_suicide(
 
     # Source: lll
     # {(SELFDESTRUCT 0x0000000000000000000000000000000000000001)}
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0x1) + Op.STOP,
         balance=1110,
         nonce=0,
@@ -59,21 +59,28 @@ def test_suicides_stop_after_suicide(
     )
     pre[sender] = Account(balance=0x7459280)
     # Source: lll
-    # {(SELFDESTRUCT 0) (CALL 30000 0x0000000000000000000000000000000000000000 0 0 0 0 0) }
-    contract_1 = pre.deploy_contract(
+    # {(SELFDESTRUCT 0) (CALL 30000 0x0000000000000000000000000000000000000000 0 0 0 0 0) }  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0x0)
-        + Op.CALL(gas=0x7530, address=0x0, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.CALL(
+            gas=0x7530,
+            address=0x0,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         balance=10000,
         nonce=0,
         address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=b'',
+        data=b"",
         gas_limit=83700,
         value=10,
         nonce=0,
@@ -84,11 +91,11 @@ def test_suicides_stop_after_suicide(
         contract_0: Account(storage={}),
         sender: Account(nonce=1),
         contract_1: Account(
-                storage={},
-                code=bytes.fromhex("6000ff600060006000600060006000617530f100"),
-                balance=0,
-                nonce=0,
-            ),
+            storage={},
+            code=bytes.fromhex("6000ff600060006000600060006000617530f100"),
+            balance=0,
+            nonce=0,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

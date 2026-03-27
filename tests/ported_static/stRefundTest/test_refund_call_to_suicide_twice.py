@@ -1,5 +1,5 @@
 """
-test_refund_call_to_suicide_twice
+Test_refund_call_to_suicide_twice.
 
 Ported from:
 state_tests/stRefundTest/refund_CallToSuicideTwiceFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -46,11 +46,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
     ],
@@ -64,10 +68,10 @@ def test_refund_call_to_suicide_twice(
     g: int,
     v: int,
 ) -> None:
-    """test_refund_call_to_suicide_twice"""
+    """Test_refund_call_to_suicide_twice."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x6f0117d3e9c684c7d6e1e6b79dc3880da2bebe77c765b171c062fdffd38a673f
+        key=0x6F0117D3E9C684C7D6E1E6B79DC3880DA2BEBE77C765B171C062FDFFD38A673F
     )
 
     env = Environment(
@@ -81,46 +85,75 @@ def test_refund_call_to_suicide_twice(
     )
 
     # Source: lll
-    # { [[ 0 ]] (CALL (CALLDATALOAD 0) <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 ) (CALL (CALLDATALOAD 0) <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=Op.CALLDATALOAD(offset=0x0), address=0x9dea1ad5123f3d8b91cfc830b1c602597883e97c, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
-        + Op.CALL(gas=Op.CALLDATALOAD(offset=0x0), address=0x9dea1ad5123f3d8b91cfc830b1c602597883e97c, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    # { [[ 0 ]] (CALL (CALLDATALOAD 0) <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 ) (CALL (CALLDATALOAD 0) <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=Op.CALLDATALOAD(offset=0x0),
+                address=0x9DEA1AD5123F3D8B91CFC830B1C602597883E97C,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.CALL(
+            gas=Op.CALLDATALOAD(offset=0x0),
+            address=0x9DEA1AD5123F3D8B91CFC830B1C602597883E97C,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         storage={1: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x81bdbaa560b5ad52b0f9857cf4ca40b74d4b6996"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2540be400)
+    pre[sender] = Account(balance=0x2540BE400)
     # Source: lll
-    # { (SELFDESTRUCT <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) }
-    addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0x81bdbaa560b5ad52b0f9857cf4ca40b74d4b6996)
+    # { (SELFDESTRUCT <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>) }  # noqa: E501
+    addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(
+            address=0x81BDBAA560B5AD52B0F9857CF4CA40B74D4B6996
+        )
         + Op.STOP,
         storage={1: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x9dea1ad5123f3d8b91cfc830b1c602597883e97c"),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': 0, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        target: Account(storage={0: 0, 1: 1}, balance=0xde0b6b3a764000a),
-        sender: Account(nonce=1),
-        addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa: Account(storage={1: 1}),
-    },
+                target: Account(
+                    storage={0: 0, 1: 1}, balance=0xDE0B6B3A764000A
+                ),
+                sender: Account(nonce=1),
+                addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa: Account(
+                    storage={1: 1}
+                ),
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        target: Account(storage={0: 1, 1: 1}, balance=0x1bc16d674ec8000a),
-        sender: Account(nonce=1),
-        addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa: Account(storage={1: 1}, balance=0, nonce=0),
-    },
+                target: Account(
+                    storage={0: 1, 1: 1}, balance=0x1BC16D674EC8000A
+                ),
+                sender: Account(nonce=1),
+                addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa: Account(
+                    storage={1: 1}, balance=0, nonce=0
+                ),
+            },
         },
     ]
 
@@ -136,6 +169,5 @@ def test_refund_call_to_suicide_twice(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

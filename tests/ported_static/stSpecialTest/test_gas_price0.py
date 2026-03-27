@@ -1,5 +1,5 @@
 """
-test_gas_price0
+Test_gas_price0.
 
 Ported from:
 state_tests/stSpecialTest/gasPrice0Filler.json
@@ -31,10 +31,10 @@ def test_gas_price0(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_gas_price0"""
+    """Test_gas_price0."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
 
     env = Environment(
@@ -49,21 +49,20 @@ def test_gas_price0(
 
     # Source: raw
     # 0x6001600101600055
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, 0x1)),
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xbcc1197ccd23a97607f2f96d031f3432e0d16a02"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=656192,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )

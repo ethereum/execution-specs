@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/eip2929-ffFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -53,39 +53,57 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="simple",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="balance",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="extcodesize",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="extcodecopy",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="extcodehash",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="call",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="callcode",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="delegatecall",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="staticcall",
         ),
     ],
@@ -105,7 +123,7 @@ def test_eip2929_minus_ff(
     contract_1 = Address("0x000000000000000000000000000000000000ca11")
     contract_2 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -120,7 +138,7 @@ def test_eip2929_minus_ff(
 
     # Source: raw
     # 0x00
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000de57"),  # noqa: E501
@@ -129,32 +147,32 @@ def test_eip2929_minus_ff(
     # {
     #      (selfdestruct 0xDE57)
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0xde57) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(address=0xDE57) + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000ca11"),  # noqa: E501
     )
     # Source: lll
     # {
     #    (def 'operation $4)
-    # 
+    #
     #    (def 'measurementCost 0x08)
-    #    
+    #
     #    ; Make sure not to be overwritten by extcodecopy
     #    (def 'gasB4     0x100)
-    #    (def 'gasAfter  0x120) 
-    # 
+    #    (def 'gasAfter  0x120)
+    #
     #    ; Write something so the storage won't be new
     #    [gasB4] 0xFF
     #    [gasAfter] 0xFF
-    #       
+    #
     #    (def 'NOP 0)
     #    (def 'dest 0xDE57)   ; destination address
-    # 
+    #
     #    ; Read so access to that account later won't trigger EIP2929 costs
     #    (balance 0xca11)
-    # 
+    #
     #    ; If we need to add the destination address to the active set,
     #    ; do so.
     #    (if (= operation 0x31) (balance dest) NOP)
@@ -165,64 +183,169 @@ def test_eip2929_minus_ff(
     #    (if (= operation 0xF2) (callcode 0x10000 dest 0 0 0 0 0) NOP)
     #    (if (= operation 0xF4) (delegatecall 0x10000 dest 0 0 0 0) NOP)
     #    (if (= operation 0xFA) (staticcall 0x10000 dest 0 0 0 0) NOP)
-    # 
+    #
     # ... (18 more lines)
-    contract_2 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x100, value=0xff)
-        + Op.MSTORE(offset=0x120, value=0xff)
-        + Op.POP(Op.BALANCE(address=0xca11))
-        + Op.JUMPI(pc=Op.PUSH2[0x21], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x31))
-        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0x26]) + Op.JUMPDEST
-        + Op.BALANCE(address=0xde57) + Op.JUMPDEST + Op.POP
-        + Op.JUMPI(pc=Op.PUSH2[0x38], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3b))
-        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0x3d]) + Op.JUMPDEST
-        + Op.EXTCODESIZE(address=0xde57) + Op.JUMPDEST + Op.POP
-        + Op.JUMPI(pc=Op.PUSH2[0x50], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3c))
-        + Op.POP(0x0) + Op.JUMP(pc=Op.PUSH2[0x5b]) + Op.JUMPDEST
-        + Op.EXTCODECOPY(address=0xde57, dest_offset=0x0, offset=0x0, size=0x1)
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x100, value=0xFF)
+        + Op.MSTORE(offset=0x120, value=0xFF)
+        + Op.POP(Op.BALANCE(address=0xCA11))
+        + Op.JUMPI(
+            pc=Op.PUSH2[0x21],
+            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x31),
+        )
+        + Op.PUSH1[0x0]
+        + Op.JUMP(pc=Op.PUSH2[0x26])
         + Op.JUMPDEST
-        + Op.JUMPI(pc=Op.PUSH2[0x6c], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3f))
-        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0x71]) + Op.JUMPDEST
-        + Op.EXTCODEHASH(address=0xde57) + Op.JUMPDEST + Op.POP
-        + Op.JUMPI(pc=Op.PUSH2[0x83], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xf1))
-        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0x96]) + Op.JUMPDEST
-        + Op.CALL(gas=0x10000, address=0xde57, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
-        + Op.JUMPDEST + Op.POP
-        + Op.JUMPI(pc=Op.PUSH2[0xa8], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xf2))
-        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0xbb]) + Op.JUMPDEST
-        + Op.CALLCODE(gas=0x10000, address=0xde57, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
-        + Op.JUMPDEST + Op.POP
-        + Op.JUMPI(pc=Op.PUSH2[0xcd], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xf4))
-        + Op.PUSH1[0x0] + Op.JUMP(pc=Op.PUSH2[0xde]) + Op.JUMPDEST
-        + Op.DELEGATECALL(gas=0x10000, address=0xde57, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
-        + Op.JUMPDEST + Op.POP
-        + Op.JUMPI(pc=Op.PUSH2[0xf0], condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xfa))
-        + Op.PUSH1[0x0] + Op.JUMP(pc=0x101) + Op.JUMPDEST
-        + Op.STATICCALL(gas=0x10000, address=0xde57, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
-        + Op.JUMPDEST + Op.POP + Op.MSTORE(offset=0x100, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=0x1000000, address=0xca11, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.MSTORE(offset=0x120, value=Op.GAS)
-        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x100), Op.MLOAD(offset=0x120)), 0x8))  # noqa: E501
+        + Op.BALANCE(address=0xDE57)
+        + Op.JUMPDEST
+        + Op.POP
+        + Op.JUMPI(
+            pc=Op.PUSH2[0x38],
+            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3B),
+        )
+        + Op.PUSH1[0x0]
+        + Op.JUMP(pc=Op.PUSH2[0x3D])
+        + Op.JUMPDEST
+        + Op.EXTCODESIZE(address=0xDE57)
+        + Op.JUMPDEST
+        + Op.POP
+        + Op.JUMPI(
+            pc=Op.PUSH2[0x50],
+            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3C),
+        )
+        + Op.POP(0x0)
+        + Op.JUMP(pc=Op.PUSH2[0x5B])
+        + Op.JUMPDEST
+        + Op.EXTCODECOPY(address=0xDE57, dest_offset=0x0, offset=0x0, size=0x1)
+        + Op.JUMPDEST
+        + Op.JUMPI(
+            pc=Op.PUSH2[0x6C],
+            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3F),
+        )
+        + Op.PUSH1[0x0]
+        + Op.JUMP(pc=Op.PUSH2[0x71])
+        + Op.JUMPDEST
+        + Op.EXTCODEHASH(address=0xDE57)
+        + Op.JUMPDEST
+        + Op.POP
+        + Op.JUMPI(
+            pc=Op.PUSH2[0x83],
+            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xF1),
+        )
+        + Op.PUSH1[0x0]
+        + Op.JUMP(pc=Op.PUSH2[0x96])
+        + Op.JUMPDEST
+        + Op.CALL(
+            gas=0x10000,
+            address=0xDE57,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.JUMPDEST
+        + Op.POP
+        + Op.JUMPI(
+            pc=Op.PUSH2[0xA8],
+            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xF2),
+        )
+        + Op.PUSH1[0x0]
+        + Op.JUMP(pc=Op.PUSH2[0xBB])
+        + Op.JUMPDEST
+        + Op.CALLCODE(
+            gas=0x10000,
+            address=0xDE57,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.JUMPDEST
+        + Op.POP
+        + Op.JUMPI(
+            pc=Op.PUSH2[0xCD],
+            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xF4),
+        )
+        + Op.PUSH1[0x0]
+        + Op.JUMP(pc=Op.PUSH2[0xDE])
+        + Op.JUMPDEST
+        + Op.DELEGATECALL(
+            gas=0x10000,
+            address=0xDE57,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.JUMPDEST
+        + Op.POP
+        + Op.JUMPI(
+            pc=Op.PUSH2[0xF0],
+            condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0xFA),
+        )
+        + Op.PUSH1[0x0]
+        + Op.JUMP(pc=0x101)
+        + Op.JUMPDEST
+        + Op.STATICCALL(
+            gas=0x10000,
+            address=0xDE57,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
+        + Op.JUMPDEST
+        + Op.POP
         + Op.MSTORE(offset=0x100, value=Op.GAS)
-        + Op.POP(Op.BALANCE(address=0xde57))
+        + Op.POP(
+            Op.CALL(
+                gas=0x1000000,
+                address=0xCA11,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
         + Op.MSTORE(offset=0x120, value=Op.GAS)
-        + Op.SSTORE(key=0x1, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x100), Op.MLOAD(offset=0x120)), 0x8))  # noqa: E501
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.SUB(
+                Op.SUB(Op.MLOAD(offset=0x100), Op.MLOAD(offset=0x120)), 0x8
+            ),
+        )
+        + Op.MSTORE(offset=0x100, value=Op.GAS)
+        + Op.POP(Op.BALANCE(address=0xDE57))
+        + Op.MSTORE(offset=0x120, value=Op.GAS)
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.SUB(
+                Op.SUB(Op.MLOAD(offset=0x100), Op.MLOAD(offset=0x120)), 0x8
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={0: 7726, 1: 105})},
         },
         {
-            "indexes": {'data': [1, 2, 3, 4, 5, 6, 7, 8], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {
+                "data": [1, 2, 3, 4, 5, 6, 7, 8],
+                "gas": -1,
+                "value": -1,
+            },
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={0: 5126, 1: 105})},
         },
     ]
@@ -239,6 +362,5 @@ def test_eip2929_minus_ff(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

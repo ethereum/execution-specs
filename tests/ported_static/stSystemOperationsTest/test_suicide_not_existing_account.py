@@ -1,5 +1,5 @@
 """
-test_suicide_not_existing_account
+Test_suicide_not_existing_account.
 
 Ported from:
 state_tests/stSystemOperationsTest/suicideNotExistingAccountFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stSystemOperationsTest/suicideNotExistingAccountFiller.json"],
+    [
+        "state_tests/stSystemOperationsTest/suicideNotExistingAccountFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,10 +33,10 @@ def test_suicide_not_existing_account(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_suicide_not_existing_account"""
+    """Test_suicide_not_existing_account."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -49,28 +51,31 @@ def test_suicide_not_existing_account(
 
     # Source: lll
     # { (SELFDESTRUCT 0xaa1722f3947def4cf144679da39c4c32bdc35681 )}
-    target = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0xaa1722f3947def4cf144679da39c4c32bdc35681)
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(
+            address=0xAA1722F3947DEF4CF144679DA39C4C32BDC35681
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x70c22830049f2678c8aa93d0060683cd67696495"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=1000000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
-        Address("0xaa1722f3947def4cf144679da39c4c32bdc35681"): Account(balance=0xde0b6b3a76586a0),  # noqa: E501
+        Address("0xaa1722f3947def4cf144679da39c4c32bdc35681"): Account(
+            balance=0xDE0B6B3A76586A0
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

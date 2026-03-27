@@ -1,5 +1,5 @@
 """
-test_return1
+Test_return1.
 
 Ported from:
 state_tests/stSystemOperationsTest/return1Filler.json
@@ -31,10 +31,10 @@ def test_return1(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_return1"""
+    """Test_return1."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -49,22 +49,22 @@ def test_return1(
 
     # Source: lll
     # { (MSTORE8 0 55) (RETURN 0 2)}
-    target = pre.deploy_contract(
-        code=Op.MSTORE8(offset=0x0, value=0x37) + Op.RETURN(offset=0x0, size=0x2)
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE8(offset=0x0, value=0x37)
+        + Op.RETURN(offset=0x0, size=0x2)
         + Op.STOP,
         balance=23,
         nonce=0,
         address=Address("0xe50c84b8b720a23e1bfb8bfaaee5f44b6dd44139"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=1000000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )

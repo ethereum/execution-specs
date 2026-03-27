@@ -1,5 +1,5 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com
+Ori Pomerantz   qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stExample/eip1559Filler.yml
@@ -8,14 +8,14 @@ state_tests/stExample/eip1559Filler.yml
 import pytest
 from execution_testing import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
-    AccessList,
-    Hash,
 )
 from execution_testing.vm import Op
 
@@ -36,7 +36,7 @@ def test_eip1559(
     """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xde0c95357363da5c1c5a73bd7c2781ca5c9fecc1014103b5e1d1e990ae8208ec
+        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
     )
 
     env = Environment(
@@ -54,15 +54,15 @@ def test_eip1559(
     #    (sstore 0 (gasprice))
     #    (sstore 1 (basefee))
     # }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.GASPRICE)
-        + Op.SSTORE(key=0x1, value=Op.BASEFEE) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        + Op.SSTORE(key=0x1, value=Op.BASEFEE)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x38dc047054d46298a5bb7ed3a0bad84bf69090d4"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=1)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     tx = Transaction(
         sender=sender,

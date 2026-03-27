@@ -1,5 +1,5 @@
 """
-test_log0_non_empty_mem_log_mem_size1_log_mem_start31
+Test_log0_non_empty_mem_log_mem_size1_log_mem_start31.
 
 Ported from:
 state_tests/stLogTests/log0_nonEmptyMem_logMemSize1_logMemStart31Filler.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stLogTests/log0_nonEmptyMem_logMemSize1_logMemStart31Filler.json"],
+    [
+        "state_tests/stLogTests/log0_nonEmptyMem_logMemSize1_logMemStart31Filler.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,10 +33,10 @@ def test_log0_non_empty_mem_log_mem_size1_log_mem_start31(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_log0_non_empty_mem_log_mem_size1_log_mem_start31"""
+    """Test_log0_non_empty_mem_log_mem_size1_log_mem_start31."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -48,32 +50,46 @@ def test_log0_non_empty_mem_log_mem_size1_log_mem_start31(
     )
 
     # Source: lll
-    # { [[ 0 ]] (CALL 1000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=0x3e8, address=0x897fee72afb437be678ee00c486726da08adb887, value=0x17, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+    # { [[ 0 ]] (CALL 1000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=0x3E8,
+                address=0x897FEE72AFB437BE678EE00C486726DA08ADB887,
+                value=0x17,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x1e5597b6168fe79952cb2de7af91c3449bc95bd4"),  # noqa: E501
     )
     # Source: lll
-    # { (MSTORE 0 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd) (LOG0 31 1) }
-    addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd)
-        + Op.LOG0(offset=0x1f, size=0x1) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+    # { (MSTORE 0 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd) (LOG0 31 1) }  # noqa: E501
+    addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xAABBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCCDD,  # noqa: E501
+        )
+        + Op.LOG0(offset=0x1F, size=0x1)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x897fee72afb437be678ee00c486726da08adb887"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=210000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )

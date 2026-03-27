@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmTests/suicideFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -47,15 +47,21 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="caller",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="random",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="myself",
         ),
     ],
@@ -76,7 +82,7 @@ def test_suicide(
     contract_2 = Address("0x0000000000000000000000000000000000001002")
     contract_3 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -93,9 +99,9 @@ def test_suicide(
     # {
     #    (selfdestruct (caller))
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=Op.CALLER) + Op.STOP,
-        balance=0xff000000000000,
+        balance=0xFF000000000000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -103,8 +109,8 @@ def test_suicide(
     # {
     #    (selfdestruct 0xdead)
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0xdead) + Op.STOP,
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(address=0xDEAD) + Op.STOP,
         balance=0x100000000000,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
@@ -113,7 +119,7 @@ def test_suicide(
     # {
     #    (selfdestruct (address))
     # }
-    contract_2 = pre.deploy_contract(
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=Op.ADDRESS) + Op.STOP,
         balance=0x100000000000,
         nonce=0,
@@ -123,34 +129,44 @@ def test_suicide(
     # {
     #    (call (gas) $4 0 0 0 0 0)
     # }
-    contract_3 = pre.deploy_contract(
-        code=Op.CALL(gas=Op.GAS, address=Op.CALLDATALOAD(offset=0x4), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=Op.GAS,
+            address=Op.CALLDATALOAD(offset=0x4),
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         balance=0x100000000000,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5af3107a4000)
+    pre[sender] = Account(balance=0x5AF3107A4000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(balance=0x5af31075d9de),
-        contract_3: Account(balance=0xff100000000000),
-    },
+                sender: Account(balance=0x5AF31075D9DE),
+                contract_3: Account(balance=0xFF100000000000),
+            },
         },
         {
-            "indexes": {'data': [1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x000000000000000000000000000000000000dead"): Account(balance=0x100000000000),  # noqa: E501
-    },
+                Address("0x000000000000000000000000000000000000dead"): Account(
+                    balance=0x100000000000
+                ),
+            },
         },
         {
-            "indexes": {'data': [2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_3: Account(balance=0x100000000000)},
         },
     ]
@@ -166,6 +182,5 @@ def test_suicide(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

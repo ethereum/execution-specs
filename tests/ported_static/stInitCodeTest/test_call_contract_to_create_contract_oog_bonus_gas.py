@@ -1,5 +1,5 @@
 """
-test_call_contract_to_create_contract_oog_bonus_gas
+Test_call_contract_to_create_contract_oog_bonus_gas.
 
 Ported from:
 state_tests/stInitCodeTest/CallContractToCreateContractOOGBonusGasFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stInitCodeTest/CallContractToCreateContractOOGBonusGasFiller.json"],
+    [
+        "state_tests/stInitCodeTest/CallContractToCreateContractOOGBonusGasFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,11 +33,11 @@ def test_call_contract_to_create_contract_oog_bonus_gas(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_call_contract_to_create_contract_oog_bonus_gas"""
+    """Test_call_contract_to_create_contract_oog_bonus_gas."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -49,18 +51,27 @@ def test_call_contract_to_create_contract_oog_bonus_gas(
     )
 
     # Source: lll
-    # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3)[[0]](CREATE 1 11 21)(CALL 0 (SLOAD 0) 12 0 0 0 0)}
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x600c60005566602060406000f060205260076039f3)
-        + Op.SSTORE(key=0x0, value=Op.CREATE(value=0x1, offset=0xb, size=0x15))
-        + Op.CALL(gas=0x0, address=Op.SLOAD(key=0x0), value=0xc, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)  # noqa: E501
+    # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3)[[0]](CREATE 1 11 21)(CALL 0 (SLOAD 0) 12 0 0 0 0)}  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0, value=0x600C60005566602060406000F060205260076039F3
+        )
+        + Op.SSTORE(key=0x0, value=Op.CREATE(value=0x1, offset=0xB, size=0x15))
+        + Op.CALL(
+            gas=0x0,
+            address=Op.SLOAD(key=0x0),
+            value=0xC,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         balance=112,
         nonce=0,
         address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3b9aca00)
-
+    pre[sender] = Account(balance=0x3B9ACA00)
 
     tx = Transaction(
         sender=sender,
@@ -73,11 +84,13 @@ def test_call_contract_to_create_contract_oog_bonus_gas(
 
     post = {
         contract_0: Account(
-                storage={0: 0xd2571607e241ecf590ed94b12d87c94babe36db6},
-                nonce=1,
-            ),
+            storage={0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6},
+            nonce=1,
+        ),
         sender: Account(nonce=1),
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(storage={0: 12}, balance=1, nonce=1),  # noqa: E501
+        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+            storage={0: 12}, balance=1, nonce=1
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

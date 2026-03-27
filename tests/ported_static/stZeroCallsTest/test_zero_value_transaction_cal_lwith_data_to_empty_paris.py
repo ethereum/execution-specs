@@ -1,5 +1,5 @@
 """
-test_zero_value_transaction_cal_lwith_data_to_empty_paris
+Test_zero_value_transaction_cal_lwith_data_to_empty_paris.
 
 Ported from:
 state_tests/stZeroCallsTest/ZeroValue_TransactionCALLwithData_ToEmpty_ParisFiller.json
@@ -22,7 +22,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stZeroCallsTest/ZeroValue_TransactionCALLwithData_ToEmpty_ParisFiller.json"],
+    [
+        "state_tests/stZeroCallsTest/ZeroValue_TransactionCALLwithData_ToEmpty_ParisFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -30,11 +32,13 @@ def test_zero_value_transaction_cal_lwith_data_to_empty_paris(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_zero_value_transaction_cal_lwith_data_to_empty_paris"""
+    """Test_zero_value_transaction_cal_lwith_data_to_empty_paris."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address("0x76fae819612a29489a1a43208613d8f8557b8898")  # noqa: E501
+    addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
+        "0x76fae819612a29489a1a43208613d8f8557b8898"
+    )
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -47,9 +51,8 @@ def test_zero_value_transaction_cal_lwith_data_to_empty_paris(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     pre[addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=10)
-
 
     tx = Transaction(
         sender=sender,
@@ -60,6 +63,8 @@ def test_zero_value_transaction_cal_lwith_data_to_empty_paris(
         gas_price=10,
     )
 
-    post = {addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(balance=10)}
+    post = {
+        addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(balance=10)
+    }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

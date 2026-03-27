@@ -1,5 +1,5 @@
 """
-test_static_create_contract_suicide_during_init_then_store_then_return
+Test_static_create_contract_suicide_during_init_then_store_then_return.
 
 Ported from:
 state_tests/stStaticCall/static_CREATE_ContractSuicideDuringInit_ThenStoreThenReturnFiller.json
@@ -15,19 +15,19 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
 REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
-    "600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273d94f5374fce5edbc8e2a8697c15331677e6ebf0bff600060006000600073d94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa50600b600055600e6012f3",
-    "600060006000600073094f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273d94f5374fce5edbc8e2a8697c15331677e6ebf0bff600060006000600073194f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa50600b600055600e6012f3",
+    "600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273d94f5374fce5edbc8e2a8697c15331677e6ebf0bff600060006000600073d94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa50600b600055600e6012f3",  # noqa: E501
+    "600060006000600073094f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa506d64600c6000556000526005601bf360005273d94f5374fce5edbc8e2a8697c15331677e6ebf0bff600060006000600073194f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60fa50600b600055600e6012f3",  # noqa: E501
 ]
 TX_GAS = [600000]
 TX_VALUE = [10]
@@ -39,18 +39,24 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stStaticCall/static_CREATE_ContractSuicideDuringInit_ThenStoreThenReturnFiller.json"],
+    [
+        "state_tests/stStaticCall/static_CREATE_ContractSuicideDuringInit_ThenStoreThenReturnFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
     ],
@@ -64,14 +70,14 @@ def test_static_create_contract_suicide_during_init_then_store_then_return(
     g: int,
     v: int,
 ) -> None:
-    """test_static_create_contract_suicide_during_init_then_store_then_return"""
+    """Test_static_create_contract_suicide_during_init_then_store_then_return."""  # noqa: E501
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     contract_1 = Address("0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     contract_2 = Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b")
     contract_3 = Address("0x194f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -84,31 +90,31 @@ def test_static_create_contract_suicide_during_init_then_store_then_return(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # {[[1]]12}
-    contract_0 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=0xc) + Op.STOP,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         nonce=0,
         address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
     # Source: lll
     # {[[1]]12}
-    contract_1 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=0xc) + Op.STOP,
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         nonce=0,
         address=Address("0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
     # Source: lll
     # { (MSTORE 1 1) }
-    contract_2 = pre.deploy_contract(
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x094f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
     # Source: lll
     # {(MSTORE 1 1) }
-    contract_3 = pre.deploy_contract(
+    contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x1, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x194f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
@@ -116,15 +122,17 @@ def test_static_create_contract_suicide_during_init_then_store_then_return(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
-        contract_0: Account(storage={1: 0}, balance=0),
-        contract_1: Account(storage={1: 0}, balance=10),
-        contract_2: Account(storage={1: 0}, balance=0),
-        contract_3: Account(storage={1: 0}, balance=0),
-    },
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+                contract_0: Account(storage={1: 0}, balance=0),
+                contract_1: Account(storage={1: 0}, balance=10),
+                contract_2: Account(storage={1: 0}, balance=0),
+                contract_3: Account(storage={1: 0}, balance=0),
+            },
         },
     ]
 
@@ -140,6 +148,5 @@ def test_static_create_contract_suicide_during_init_then_store_then_return(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

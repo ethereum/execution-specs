@@ -1,5 +1,5 @@
 """
-test_create_e_contract_then_call_to_non_existent_acc
+Test_create_e_contract_then_call_to_non_existent_acc.
 
 Ported from:
 state_tests/stCreateTest/CREATE_EContract_ThenCALLToNonExistentAccFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCreateTest/CREATE_EContract_ThenCALLToNonExistentAccFiller.json"],
+    [
+        "state_tests/stCreateTest/CREATE_EContract_ThenCALLToNonExistentAccFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,11 +33,11 @@ def test_create_e_contract_then_call_to_non_existent_acc(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_create_e_contract_then_call_to_non_existent_acc"""
+    """Test_create_e_contract_then_call_to_non_existent_acc."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,24 +50,35 @@ def test_create_e_contract_then_call_to_non_existent_acc(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { [[0]](GAS) [[1]] (CREATE 0 0 32) [[2]](GAS) [[3]] (CALL 60000 0xe1ecf98489fa9ed60a664fc4998db699cfa39d40 0 0 0 0 0) [[100]] (GAS) }
-    contract_0 = pre.deploy_contract(
+    # { [[0]](GAS) [[1]] (CREATE 0 0 32) [[2]](GAS) [[3]] (CALL 60000 0xe1ecf98489fa9ed60a664fc4998db699cfa39d40 0 0 0 0 0) [[100]] (GAS) }  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x0, offset=0x0, size=0x20))
         + Op.SSTORE(key=0x2, value=Op.GAS)
-        + Op.SSTORE(key=0x3, value=Op.CALL(gas=0xea60, address=0xe1ecf98489fa9ed60a664fc4998db699cfa39d40, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
-        + Op.SSTORE(key=0x64, value=Op.GAS) + Op.STOP,
+        + Op.SSTORE(
+            key=0x3,
+            value=Op.CALL(
+                gas=0xEA60,
+                address=0xE1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(key=0x64, value=Op.GAS)
+        + Op.STOP,
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=600000,
         nonce=0,
         gas_price=10,
@@ -73,16 +86,20 @@ def test_create_e_contract_then_call_to_non_existent_acc(
 
     post = {
         contract_0: Account(
-                storage={
-            0: 0x8d5b6,
-            1: 0xf1ecf98489fa9ed60a664fc4998db699cfa39d40,
-            2: 0x7abf8,
-            3: 1,
-            100: 0x6f50b,
-        },
-            ),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(nonce=1),  # noqa: E501
-        Address("0xe1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account.NONEXISTENT,  # noqa: E501
+            storage={
+                0: 0x8D5B6,
+                1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                2: 0x7ABF8,
+                3: 1,
+                100: 0x6F50B,
+            },
+        ),
+        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+            nonce=1
+        ),
+        Address(
+            "0xe1ecf98489fa9ed60a664fc4998db699cfa39d40"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

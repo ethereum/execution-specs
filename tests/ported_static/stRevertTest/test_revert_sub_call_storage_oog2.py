@@ -1,5 +1,5 @@
 """
-test_revert_sub_call_storage_oog2
+Test_revert_sub_call_storage_oog2.
 
 Ported from:
 state_tests/stRevertTest/RevertSubCallStorageOOG2Filler.json
@@ -44,19 +44,27 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0-v0",
         ),
         pytest.param(
-            0, 0, 1,
+            0,
+            0,
+            1,
             id="-g0-v1",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1-v0",
         ),
         pytest.param(
-            0, 1, 1,
+            0,
+            1,
+            1,
             id="-g1-v1",
         ),
     ],
@@ -70,10 +78,10 @@ def test_revert_sub_call_storage_oog2(
     g: int,
     v: int,
 ) -> None:
-    """test_revert_sub_call_storage_oog2"""
+    """Test_revert_sub_call_storage_oog2."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -86,11 +94,13 @@ def test_revert_sub_call_storage_oog2(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: raw
-    # 0x60606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063b28175c4146046578063c0406226146052575b6000565b3460005760506076565b005b34600057605c6081565b604051808215151515815260200191505060405180910390f35b600c6000819055505b565b600060896076565b600d600081905550600e6001819055505b905600a165627a7a72305820b7c6987c21e63fed8a74d899557744a3be8d3fda191ce0f56cf261d6b860f6b40029
-    target = pre.deploy_contract(
-        code=bytes.fromhex("60606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063b28175c4146046578063c0406226146052575b6000565b3460005760506076565b005b34600057605c6081565b604051808215151515815260200191505060405180910390f35b600c6000819055505b565b600060896076565b600d600081905550600e6001819055505b905600a165627a7a72305820b7c6987c21e63fed8a74d899557744a3be8d3fda191ce0f56cf261d6b860f6b40029"),  # noqa: E501
+    # 0x60606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063b28175c4146046578063c0406226146052575b6000565b3460005760506076565b005b34600057605c6081565b604051808215151515815260200191505060405180910390f35b600c6000819055505b565b600060896076565b600d600081905550600e6001819055505b905600a165627a7a72305820b7c6987c21e63fed8a74d899557744a3be8d3fda191ce0f56cf261d6b860f6b40029  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=bytes.fromhex(
+            "60606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063b28175c4146046578063c0406226146052575b6000565b3460005760506076565b005b34600057605c6081565b604051808215151515815260200191505060405180910390f35b600c6000819055505b565b600060896076565b600d600081905550600e6001819055505b905600a165627a7a72305820b7c6987c21e63fed8a74d899557744a3be8d3fda191ce0f56cf261d6b860f6b40029"  # noqa: E501
+        ),
         balance=1,
         nonce=0,
         address=Address("0x48bc00be37fe77bd0f7b7b8009f908fc534a028b"),  # noqa: E501
@@ -98,18 +108,20 @@ def test_revert_sub_call_storage_oog2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={}, balance=1, nonce=0)},
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': 0},
-            "network": ['>=Cancun'],
-            "result": {target: Account(storage={0: 13, 1: 14}, balance=1, nonce=0)},
+            "indexes": {"data": -1, "gas": 1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                target: Account(storage={0: 13, 1: 14}, balance=1, nonce=0)
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': 1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 1, "value": 1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={}, balance=1, nonce=0)},
         },
     ]
@@ -126,6 +138,5 @@ def test_revert_sub_call_storage_oog2(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

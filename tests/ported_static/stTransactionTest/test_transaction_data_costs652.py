@@ -1,5 +1,5 @@
 """
-test_transaction_data_costs652
+Test_transaction_data_costs652.
 
 Ported from:
 state_tests/stTransactionTest/TransactionDataCosts652Filler.json
@@ -44,11 +44,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -62,10 +66,10 @@ def test_transaction_data_costs652(
     g: int,
     v: int,
 ) -> None:
-    """test_transaction_data_costs652"""
+    """Test_transaction_data_costs652."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xdc4efa209aecdd4c2d5201a419ea27506151b4ec687f14a613229e310932491b
+        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
     )
 
     env = Environment(
@@ -82,8 +86,8 @@ def test_transaction_data_costs652(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {sender: Account(nonce=1)},
         },
     ]
@@ -99,6 +103,5 @@ def test_transaction_data_costs652(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

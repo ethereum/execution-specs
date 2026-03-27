@@ -1,5 +1,5 @@
 """
-test_random_statetest84
+Test_random_statetest84.
 
 Ported from:
 state_tests/stRandom/randomStatetest84Filler.json
@@ -31,10 +31,10 @@ def test_random_statetest84(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_random_statetest84"""
+    """Test_random_statetest84."""
     coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
     sender = EOA(
-        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
 
     env = Environment(
@@ -48,35 +48,48 @@ def test_random_statetest84(
     )
 
     # Source: raw
-    # 0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000001000000000000000000000000000000000000000044457f0000000000000000000000000000000000000000000000000000000000000001187f00000000000000000000000000000000000000000000000000000000000000017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff52155955
-    target = pre.deploy_contract(
-        code=Op.PUSH32[0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe]
-        + Op.PUSH32[0x10000000000000000000000000000000000000000] + Op.PREVRANDAO
+    # 0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000001000000000000000000000000000000000000000044457f0000000000000000000000000000000000000000000000000000000000000001187f00000000000000000000000000000000000000000000000000000000000000017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff52155955  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH32[
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+        ]
+        + Op.PUSH32[0x10000000000000000000000000000000000000000]
+        + Op.PREVRANDAO
         + Op.XOR(Op.PUSH32[0x1], Op.GASLIMIT)
-        + Op.MSTORE(offset=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, value=Op.PUSH32[0x1])
+        + Op.MSTORE(
+            offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            value=Op.PUSH32[0x1],
+        )
         + Op.SSTORE(key=Op.MSIZE, value=Op.ISZERO),
         nonce=0,
         address=Address("0x08e8be5786db8a32df25c732dea4a9f3e1b16e1b"),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(
-        code=Op.JUMPI(pc=0x9, condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))))  # noqa: E501
-        + Op.STOP + Op.JUMPDEST
-        + Op.SSTORE(key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)),  # noqa: E501
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
         balance=46,
         nonce=0,
         address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000001000000000000000000000000000000000000000044457f0000000000000000000000000000000000000000000000000000000000000001187f00000000000000000000000000000000000000000000000000000000000000017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff521559"),  # noqa: E501
+        data=bytes.fromhex(
+            "7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f000000000000000000000001000000000000000000000000000000000000000044457f0000000000000000000000000000000000000000000000000000000000000001187f00000000000000000000000000000000000000000000000000000000000000017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff521559"  # noqa: E501
+        ),
         gas_limit=100000,
-        value=0x28841bd1,
+        value=0x28841BD1,
         nonce=0,
         gas_price=10,
     )

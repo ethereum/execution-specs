@@ -35,7 +35,7 @@ def test_returndatacopy_after_failing_create(
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -49,24 +49,24 @@ def test_returndatacopy_after_failing_create(
     )
 
     # Source: lll
-    # { (MSTORE 0 0x600260005260206000fd) (create2 0 22 10 0) (SSTORE 0 (RETURNDATASIZE)) (RETURNDATACOPY 0 0 32) (SSTORE 1 (MLOAD 0)) }
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x600260005260206000fd)
-        + Op.POP(Op.CREATE2(value=0x0, offset=0x16, size=0xa, salt=0x0))
+    # { (MSTORE 0 0x600260005260206000fd) (create2 0 22 10 0) (SSTORE 0 (RETURNDATASIZE)) (RETURNDATACOPY 0 0 32) (SSTORE 1 (MLOAD 0)) }  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x600260005260206000FD)
+        + Op.POP(Op.CREATE2(value=0x0, offset=0x16, size=0xA, salt=0x0))
         + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
         + Op.RETURNDATACOPY(dest_offset=0x0, offset=0x0, size=0x20)
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0)) + Op.STOP,
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
         storage={0: 1},
         nonce=0,
         address=Address("0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         nonce=0,
         gas_price=10,

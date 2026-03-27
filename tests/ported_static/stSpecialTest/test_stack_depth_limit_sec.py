@@ -1,5 +1,5 @@
 """
-test_stack_depth_limit_sec
+Test_stack_depth_limit_sec.
 
 Ported from:
 state_tests/stSpecialTest/StackDepthLimitSECFiller.json
@@ -30,10 +30,10 @@ def test_stack_depth_limit_sec(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_stack_depth_limit_sec"""
+    """Test_stack_depth_limit_sec."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -46,13 +46,14 @@ def test_stack_depth_limit_sec(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x2540be400)
-
+    pre[sender] = Account(balance=0x2540BE400)
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex("305032503350600460006000396000515060046000600037600051506f600060006000600060003060405a03f160005260106010f3"),  # noqa: E501
+        data=bytes.fromhex(
+            "305032503350600460006000396000515060046000600037600051506f600060006000600060003060405a03f160005260106010f3"  # noqa: E501
+        ),
         gas_limit=1000000,
         value=10,
         nonce=0,
@@ -61,9 +62,9 @@ def test_stack_depth_limit_sec(
 
     post = {
         Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                code=bytes.fromhex("600060006000600060003060405a03f1"),
-                balance=10,
-            ),
+            code=bytes.fromhex("600060006000600060003060405a03f1"),
+            balance=10,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

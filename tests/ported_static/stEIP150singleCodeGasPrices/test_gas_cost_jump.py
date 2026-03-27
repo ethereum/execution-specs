@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/gasCostJumpFiller.yml
@@ -15,20 +15,20 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
 REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
-    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000004",
-    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000006",
-    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000006",
+    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000004",  # noqa: E501
+    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
+    "c5b5a1ae00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000006",  # noqa: E501
 ]
 TX_GAS = [16777216]
 TX_VALUE = [1]
@@ -47,15 +47,21 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="d2",
         ),
     ],
@@ -77,7 +83,7 @@ def test_gas_cost_jump(
     contract_3 = Address("0x0000000000000000000000000000000000004000")
     contract_4 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -92,33 +98,33 @@ def test_gas_cost_jump(
 
     # Source: raw
     # 0x600060005B5B00
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x0] * 2 + Op.JUMPDEST * 2 + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
     # Source: raw
     # 0x60006005565B00
-    contract_1 = pre.deploy_contract(
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x0] + Op.JUMP(pc=0x5) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000002000"),  # noqa: E501
     )
     # Source: raw
     # 0x60016005575B00
-    contract_2 = pre.deploy_contract(
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(pc=0x5, condition=0x1) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000003000"),  # noqa: E501
     )
     # Source: raw
     # 0x60006005575B00
-    contract_3 = pre.deploy_contract(
+    contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(pc=0x5, condition=0x0) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000004000"),  # noqa: E501
     )
@@ -126,69 +132,121 @@ def test_gas_cost_jump(
     # {
     #   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     #   ; Initialization
-    # 
+    #
     #   ; Variables (0x20 byte wide)
     #   (def 'gasB4             0x000)  ; Before the action being measured
-    # 
+    #
     #   ; Gas cost for a baseline operation (call a contract that does mstore
     #   ; and then mload)
     #   (def 'gasBaseline       0x020)
-    # 
+    #
     #   ; Gas for for the action intself (call a contract plus <whatever>)
     #   (def 'gasAction         0x040)
-    # 
+    #
     #   ; Understand CALLDATA. It is four bytes of function
     #   ; selector (irrelevant) followed by 32 byte words
     #   ; of the parameters
     #   (def 'action        $4 )
     #   (def 'expectedCost  $36)
-    # 
+    #
     #   ; Constants
     #   (def  'NOP    0) ; No operation (for if statements)
-    # 
+    #
     #   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     #   ; Define the actions
-    # 
+    #
     #   ; Store the gas amount
     #   (def 'gas0 [gasB4]    (gas))
-    # 
+    #
     #   ; Get the baseline cost
     # ... (51 more lines)
-    contract_4 = pre.deploy_contract(
+    contract_4 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=0x10000, address=0x1000, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.POP(
+            Op.CALL(
+                gas=0x10000,
+                address=0x1000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
         + Op.MSTORE(offset=0x20, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
-        + Op.JUMPI(pc=0x2e, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x1))
-        + Op.POP(0x0) + Op.JUMP(pc=0x4e) + Op.JUMPDEST
+        + Op.JUMPI(pc=0x2E, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x1))
+        + Op.POP(0x0)
+        + Op.JUMP(pc=0x4E)
+        + Op.JUMPDEST
         + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=0x10000, address=0x2000, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.POP(
+            Op.CALL(
+                gas=0x10000,
+                address=0x2000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
         + Op.MSTORE(offset=0x40, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x5e, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x2))
-        + Op.POP(0x0) + Op.JUMP(pc=0x7e) + Op.JUMPDEST
+        + Op.JUMPI(pc=0x5E, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x2))
+        + Op.POP(0x0)
+        + Op.JUMP(pc=0x7E)
+        + Op.JUMPDEST
         + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=0x10000, address=0x3000, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.POP(
+            Op.CALL(
+                gas=0x10000,
+                address=0x3000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
         + Op.MSTORE(offset=0x40, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x8e, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3))
-        + Op.POP(0x0) + Op.JUMP(pc=0xae) + Op.JUMPDEST
+        + Op.JUMPI(pc=0x8E, condition=Op.EQ(Op.CALLDATALOAD(offset=0x4), 0x3))
+        + Op.POP(0x0)
+        + Op.JUMP(pc=0xAE)
+        + Op.JUMPDEST
         + Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=0x10000, address=0x4000, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.POP(
+            Op.CALL(
+                gas=0x10000,
+                address=0x4000,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
         + Op.MSTORE(offset=0x40, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.JUMPDEST
-        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SUB(Op.MLOAD(offset=0x40), Op.MLOAD(offset=0x20)), Op.CALLDATALOAD(offset=0x24)))  # noqa: E501
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.SUB(
+                Op.SUB(Op.MLOAD(offset=0x40), Op.MLOAD(offset=0x20)),
+                Op.CALLDATALOAD(offset=0x24),
+            ),
+        )
         + Op.STOP,
         storage={0: 24743},
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_4: Account(storage={0: 0})},
         },
     ]
@@ -205,6 +263,5 @@ def test_gas_cost_jump(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

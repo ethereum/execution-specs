@@ -1,5 +1,5 @@
 """
-test_vitalik_transaction_test_paris
+Test_vitalik_transaction_test_paris.
 
 Ported from:
 state_tests/stEIP158Specific/vitalikTransactionTestParisFiller.json
@@ -30,11 +30,11 @@ def test_vitalik_transaction_test_paris(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_vitalik_transaction_test_paris"""
+    """Test_vitalik_transaction_test_paris."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4")
     sender = EOA(
-        key=0xc85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4
+        key=0xC85EF7D79691FE79573B1A7064C19C1A9819EBDBD1FAAAB1A8EC92344438AAF4
     )
 
     env = Environment(
@@ -48,21 +48,22 @@ def test_vitalik_transaction_test_paris(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0xffffffffffffffffffff, nonce=335)
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFF, nonce=335)
     # Source: hex
     # 0x
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code="",
         balance=10,
         nonce=0,
         address=Address("0xee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex("6000607f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050596100718061006c59396100dd5661005f8061000e60003961006d566000603f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050fe5b6000f35b816000f0905060405260006000600060006000604051620249f0f15061000080610108600039610108565b6000f3"),  # noqa: E501
+        data=bytes.fromhex(
+            "6000607f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050596100718061006c59396100dd5661005f8061000e60003961006d566000603f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050fe5b6000f35b816000f0905060405260006000600060006000604051620249f0f15061000080610108600039610108565b6000f3"  # noqa: E501
+        ),
         gas_limit=2097151,
         nonce=335,
         gas_price=10,
@@ -71,13 +72,17 @@ def test_vitalik_transaction_test_paris(
     post = {
         coinbase: Account(storage={}, code=b"", nonce=1),
         sender: Account(storage={}, code=b"", nonce=336),
-        Address("0x1bc78ae0e5ec5cb439f1d5355d6f90d38343e109"): Account(storage={}, code=b"", nonce=3),  # noqa: E501
+        Address("0x1bc78ae0e5ec5cb439f1d5355d6f90d38343e109"): Account(
+            storage={}, code=b"", nonce=3
+        ),
         Address("0x51f9d7f98e997bdd6bebde4c2dd27be8c99303aa"): Account(
-                storage={},
-                code=bytes.fromhex("6000603f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050fe"),  # noqa: E501
-                balance=0,
-                nonce=1,
+            storage={},
+            code=bytes.fromhex(
+                "6000603f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050fe"  # noqa: E501
             ),
+            balance=0,
+            nonce=1,
+        ),
         contract_0: Account(storage={}, code=b"", balance=10, nonce=0),
     }
 

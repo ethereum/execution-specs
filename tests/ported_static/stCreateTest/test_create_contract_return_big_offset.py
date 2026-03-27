@@ -1,5 +1,5 @@
 """
-test_create_contract_return_big_offset
+Test_create_contract_return_big_offset.
 
 Ported from:
 state_tests/stCreateTest/CREATE_ContractRETURNBigOffsetFiller.yml
@@ -47,19 +47,27 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="d2",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="d3",
         ),
     ],
@@ -73,10 +81,10 @@ def test_create_contract_return_big_offset(
     g: int,
     v: int,
 ) -> None:
-    """test_create_contract_return_big_offset"""
+    """Test_create_contract_return_big_offset."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -89,16 +97,18 @@ def test_create_contract_return_big_offset(
         gas_limit=89128960,
     )
 
-    pre[sender] = Account(balance=0x9184e72a000)
+    pre[sender] = Account(balance=0x9184E72A000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+            },
         },
     ]
 
@@ -113,6 +123,5 @@ def test_create_contract_return_big_offset(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

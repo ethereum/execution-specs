@@ -1,5 +1,5 @@
 """
-test_test_name_registrator
+Test_test_name_registrator.
 
 Ported from:
 state_tests/stSystemOperationsTest/TestNameRegistratorFiller.json
@@ -31,10 +31,10 @@ def test_test_name_registrator(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_test_name_registrator"""
+    """Test_test_name_registrator."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -49,33 +49,40 @@ def test_test_name_registrator(
 
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    target = pre.deploy_contract(
-        code=Op.JUMPI(pc=0x9, condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))))  # noqa: E501
-        + Op.STOP + Op.JUMPDEST
-        + Op.SSTORE(key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)),  # noqa: E501
-        balance=0xde0b6b3a7640000,
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xfd6034ff12fad248c17ca3c09f0d7b19243275cd"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa"),  # noqa: E501
+        data=bytes.fromhex(
+            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffafffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa"  # noqa: E501
+        ),
         gas_limit=1000000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
         target: Account(
-                storage={
-            0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa,
-        },
-            ),
+            storage={
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA,  # noqa: E501
+            },
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/popFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -46,11 +46,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="pop1",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="pop2",
         ),
     ],
@@ -70,7 +74,7 @@ def test_pop(
     contract_1 = Address("0x0000000000000000000000000000000000001001")
     contract_2 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -85,17 +89,17 @@ def test_pop(
 
     # Source: raw
     # 0x6002600360045055
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x2] + Op.PUSH1[0x3] + Op.POP(0x4) + Op.SSTORE,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
     # Source: raw
     # 0x5060026003600455
-    contract_1 = pre.deploy_contract(
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.POP + Op.PUSH1[0x2] + Op.SSTORE(key=0x4, value=0x3),
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -103,10 +107,17 @@ def test_pop(
     # {
     #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
     # }
-    contract_2 = pre.deploy_contract(
-        code=Op.DELEGATECALL(gas=Op.GAS, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
@@ -114,13 +125,13 @@ def test_pop(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={3: 2})},
         },
         {
-            "indexes": {'data': [1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={4: 0})},
         },
     ]
@@ -137,6 +148,5 @@ def test_pop(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

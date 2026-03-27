@@ -1,5 +1,5 @@
 """
-test_callcode_to_name_registrator_zero_mem_expanion
+Test_callcode_to_name_registrator_zero_mem_expanion.
 
 Ported from:
 state_tests/stSystemOperationsTest/callcodeToNameRegistratorZeroMemExpanionFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -38,18 +38,24 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stSystemOperationsTest/callcodeToNameRegistratorZeroMemExpanionFiller.json"],
+    [
+        "state_tests/stSystemOperationsTest/callcodeToNameRegistratorZeroMemExpanionFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,10 +69,10 @@ def test_callcode_to_name_registrator_zero_mem_expanion(
     g: int,
     v: int,
 ) -> None:
-    """test_callcode_to_name_registrator_zero_mem_expanion"""
+    """Test_callcode_to_name_registrator_zero_mem_expanion."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -80,37 +86,60 @@ def test_callcode_to_name_registrator_zero_mem_expanion(
     )
 
     # Source: lll
-    # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (MSTORE 32 0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa ) [[ 0 ]] (CALLCODE 5000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 23 0 0 0 0) }
-    target = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-        + Op.MSTORE(offset=0x20, value=0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa)
-        + Op.SSTORE(key=0x0, value=Op.CALLCODE(gas=0x1388, address=0x15eb18969e0925c8e4a76fd7cbce36a2b056b27e, value=0x17, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+    # { (MSTORE 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (MSTORE 32 0xaaffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaa ) [[ 0 ]] (CALLCODE 5000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 23 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+        )
+        + Op.MSTORE(
+            offset=0x20,
+            value=0xAAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFAA,  # noqa: E501
+        )
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CALLCODE(
+                gas=0x1388,
+                address=0x15EB18969E0925C8E4A76FD7CBCE36A2B056B27E,
+                value=0x17,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x82f454dea4d0958bced42315a0e580848b2c440c"),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0x9, condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))))  # noqa: E501
-        + Op.STOP + Op.JUMPDEST
-        + Op.SSTORE(key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)),  # noqa: E501
+    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
         balance=23,
         nonce=0,
         address=Address("0x15eb18969e0925c8e4a76fd7cbce36a2b056b27e"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={})},
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={0: 1})},
         },
     ]
@@ -127,6 +156,5 @@ def test_callcode_to_name_registrator_zero_mem_expanion(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

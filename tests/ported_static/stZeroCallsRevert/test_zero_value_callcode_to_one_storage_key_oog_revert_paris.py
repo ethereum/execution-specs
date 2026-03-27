@@ -1,5 +1,5 @@
 """
-test_zero_value_callcode_to_one_storage_key_oog_revert_paris
+Test_zero_value_callcode_to_one_storage_key_oog_revert_paris.
 
 Ported from:
 state_tests/stZeroCallsRevert/ZeroValue_CALLCODE_ToOneStorageKey_OOGRevert_ParisFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stZeroCallsRevert/ZeroValue_CALLCODE_ToOneStorageKey_OOGRevert_ParisFiller.json"],
+    [
+        "state_tests/stZeroCallsRevert/ZeroValue_CALLCODE_ToOneStorageKey_OOGRevert_ParisFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,11 +33,13 @@ def test_zero_value_callcode_to_one_storage_key_oog_revert_paris(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_zero_value_callcode_to_one_storage_key_oog_revert_paris"""
+    """Test_zero_value_callcode_to_one_storage_key_oog_revert_paris."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address("0x4757608f18b70777ae788dd4056eeed52f7aa68f")  # noqa: E501
+    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
+        "0x4757608f18b70777ae788dd4056eeed52f7aa68f"
+    )
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -48,25 +52,39 @@ def test_zero_value_callcode_to_one_storage_key_oog_revert_paris(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { [[0]](GAS) [[1]] (CALLCODE 60000 <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]]12 [[3]]12 [[4]]12 [[100]] (GAS) }
-    target = pre.deploy_contract(
+    # { [[0]](GAS) [[1]] (CALLCODE 60000 <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0 0) [[2]]12 [[3]]12 [[4]]12 [[100]] (GAS) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x1, value=Op.CALLCODE(gas=0xea60, address=0x4757608f18b70777ae788dd4056eeed52f7aa68f, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
-        + Op.SSTORE(key=0x2, value=0xc) + Op.SSTORE(key=0x3, value=0xc)
-        + Op.SSTORE(key=0x4, value=0xc) + Op.SSTORE(key=0x64, value=Op.GAS)
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.CALLCODE(
+                gas=0xEA60,
+                address=0x4757608F18B70777AE788DD4056EEED52F7AA68F,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(key=0x2, value=0xC)
+        + Op.SSTORE(key=0x3, value=0xC)
+        + Op.SSTORE(key=0x4, value=0xC)
+        + Op.SSTORE(key=0x64, value=Op.GAS)
         + Op.STOP,
         nonce=0,
         address=Address("0x17b72dd2bf680549809eb79d47a19391b362e383"),  # noqa: E501
     )
-    pre[addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=10, storage={0: 1})
-
+    pre[addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
+        balance=10, storage={0: 1}
+    )
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=135000,
         nonce=0,
         gas_price=10,
@@ -74,7 +92,9 @@ def test_zero_value_callcode_to_one_storage_key_oog_revert_paris(
 
     post = {
         sender: Account(nonce=1),
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={0: 1}, balance=10),
+        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+            storage={0: 1}, balance=10
+        ),
         target: Account(storage={0: 0, 1: 0, 100: 0}),
     }
 

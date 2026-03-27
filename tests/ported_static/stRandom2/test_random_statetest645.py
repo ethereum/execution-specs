@@ -1,5 +1,5 @@
 """
-Geth Failed this test on Frontier and Homestead
+Geth Failed this test on Frontier and Homestead.
 
 Ported from:
 state_tests/stRandom2/randomStatetest645Filler.json
@@ -15,18 +15,18 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
 REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
-    "326e3696ffc10e3e95c67d29784a35ba967d416feb1e1712098bcbb4d20454c1681694f51d8591ff7b80f0e4da50c89a0a777fa7666abccfbd600e213bd71da4925c2a2115799e9c3bb1622f075452",
+    "326e3696ffc10e3e95c67d29784a35ba967d416feb1e1712098bcbb4d20454c1681694f51d8591ff7b80f0e4da50c89a0a777fa7666abccfbd600e213bd71da4925c2a2115799e9c3bb1622f075452",  # noqa: E501
 ]
 TX_GAS = [26970]
 TX_VALUE = [4074160023, 0]
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-v0",
         ),
         pytest.param(
-            0, 0, 1,
+            0,
+            0,
+            1,
             id="-v1",
         ),
     ],
@@ -63,11 +67,13 @@ def test_random_statetest645(
     g: int,
     v: int,
 ) -> None:
-    """Geth Failed this test on Frontier and Homestead"""
+    """Geth Failed this test on Frontier and Homestead."""
     coinbase = Address("0xaa0103980a7c3113d3a8f81478b0281492eb3d38")
-    addr_0xffffffffffffffffffffffffffffffffffffffff = Address("0x9e9c03f8f885c32813db5207fd04870f08327f30")  # noqa: E501
+    addr_0xffffffffffffffffffffffffffffffffffffffff = Address(
+        "0x9e9c03f8f885c32813db5207fd04870f08327f30"
+    )
     sender = EOA(
-        key=0xe5fb93861a38e5458e9d2ff0203d01d1d8167fa9c0db762cc5ca50eb43b3376
+        key=0xE5FB93861A38E5458E9D2FF0203D01D1D8167FA9C0DB762CC5CA50EB43B3376
     )
 
     env = Environment(
@@ -81,36 +87,51 @@ def test_random_statetest645(
     )
 
     # Source: raw
-    # 0x58679b8e24022d8c28f3620b55a06384bc2f83136515b61916f0f579ea3e9d28799d45aa77bf1fc1a84edf0193dea2d610209eaaf9c814
-    addr_0x1000000000000000000000000000000000000000 = pre.deploy_contract(
-        code=Op.PC + Op.PUSH8[0x9b8e24022d8c28f3] + Op.SGT(0x84bc2f83, 0xb55a0)
-        + Op.EQ(0xea3e9d28799d45aa77bf1fc1a84edf0193dea2d610209eaaf9c8, 0x15b61916f0f5),
-        balance=0xbcbaf5a33577f162,
+    # 0x58679b8e24022d8c28f3620b55a06384bc2f83136515b61916f0f579ea3e9d28799d45aa77bf1fc1a84edf0193dea2d610209eaaf9c814  # noqa: E501
+    addr_0x1000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
+        code=Op.PC
+        + Op.PUSH8[0x9B8E24022D8C28F3]
+        + Op.SGT(0x84BC2F83, 0xB55A0)
+        + Op.EQ(
+            0xEA3E9D28799D45AA77BF1FC1A84EDF0193DEA2D610209EAAF9C8,
+            0x15B61916F0F5,
+        ),
+        balance=0xBCBAF5A33577F162,
         nonce=29,
         address=Address("0x322c72dedad1a81092ab9ba908fbec8779ce1c32"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x6f1f70fea641f30a)
+    pre[sender] = Account(balance=0x6F1F70FEA641F30A)
     # Source: raw
-    # 0x63cbb01282621d72de5268022948f746c938a0cb7c01ef17f23ed237d9f3262c4eb1b95112820595b127c516074df06223db7e0c396eb18074f148d96fd766dda35b6cc250661b5f83f0ed625ba68a5ff49aa1
-    coinbase = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x1d72de, value=0xcbb01282)
-        + Op.LOG1(offset=0xc396eb18074f148d96fd766dda35b6cc250661b5f83f0ed625ba68a5ff49a, size=0x1ef17f23ed237d9f3262c4eb1b95112820595b127c516074df06223db, topic_1=0x22948f746c938a0cb),
-        balance=0x2be1cfd5d6d6b0b7,
+    # 0x63cbb01282621d72de5268022948f746c938a0cb7c01ef17f23ed237d9f3262c4eb1b95112820595b127c516074df06223db7e0c396eb18074f148d96fd766dda35b6cc250661b5f83f0ed625ba68a5ff49aa1  # noqa: E501
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x1D72DE, value=0xCBB01282)
+        + Op.LOG1(
+            offset=0xC396EB18074F148D96FD766DDA35B6CC250661B5F83F0ED625BA68A5FF49A,  # noqa: E501
+            size=0x1EF17F23ED237D9F3262C4EB1B95112820595B127C516074DF06223DB,
+            topic_1=0x22948F746C938A0CB,
+        ),
+        balance=0x2BE1CFD5D6D6B0B7,
         nonce=175,
         address=Address("0xaa0103980a7c3113d3a8f81478b0281492eb3d38"),  # noqa: E501
     )
-    pre[addr_0xffffffffffffffffffffffffffffffffffffffff] = Account(balance=0xb3508c0f8a22f8a1, nonce=28)
+    pre[addr_0xffffffffffffffffffffffffffffffffffffffff] = Account(
+        balance=0xB3508C0F8A22F8A1, nonce=28
+    )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        addr_0x1000000000000000000000000000000000000000: Account(storage={}, nonce=29),
-        sender: Account(storage={}, code=b"", nonce=1),
-        coinbase: Account(storage={}, nonce=175),
-        addr_0xffffffffffffffffffffffffffffffffffffffff: Account(storage={}, code=b"", nonce=28),
-    },
+                addr_0x1000000000000000000000000000000000000000: Account(
+                    storage={}, nonce=29
+                ),
+                sender: Account(storage={}, code=b"", nonce=1),
+                coinbase: Account(storage={}, nonce=175),
+                addr_0xffffffffffffffffffffffffffffffffffffffff: Account(
+                    storage={}, code=b"", nonce=28
+                ),
+            },
         },
     ]
 
@@ -126,6 +147,5 @@ def test_random_statetest645(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

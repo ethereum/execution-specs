@@ -1,5 +1,5 @@
 """
-test_static_zero_value_suicide_oog_revert
+Test_static_zero_value_suicide_oog_revert.
 
 Ported from:
 state_tests/stStaticCall/static_ZeroValue_SUICIDE_OOGRevertFiller.json
@@ -31,10 +31,10 @@ def test_static_zero_value_suicide_oog_revert(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_static_zero_value_suicide_oog_revert"""
+    """Test_static_zero_value_suicide_oog_revert."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -47,29 +47,40 @@ def test_static_zero_value_suicide_oog_revert(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { (STATICCALL 100000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) (KECCAK256 0x00 0x2fffff) }
-    target = pre.deploy_contract(
-        code=Op.POP(Op.STATICCALL(gas=0x186a0, address=0xda2eb5512889130c4af686a291b08665b889cb22, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SHA3(offset=0x0, size=0x2fffff) + Op.STOP,
+    # { (STATICCALL 100000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) (KECCAK256 0x00 0x2fffff) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.STATICCALL(
+                gas=0x186A0,
+                address=0xDA2EB5512889130C4AF686A291B08665B889CB22,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SHA3(offset=0x0, size=0x2FFFFF)
+        + Op.STOP,
         nonce=0,
         address=Address("0xcbecd26bebbaeddef56fce1849f78096332b11ab"),  # noqa: E501
     )
     # Source: lll
     # { (SELFDESTRUCT <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>)  }
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0xda2eb5512889130c4af686a291b08665b889cb22)
+    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(
+            address=0xDA2EB5512889130C4AF686A291B08665B889CB22
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0xda2eb5512889130c4af686a291b08665b889cb22"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=1000000,
         nonce=0,
         gas_price=10,

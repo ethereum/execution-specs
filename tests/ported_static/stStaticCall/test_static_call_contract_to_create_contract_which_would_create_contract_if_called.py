@@ -1,5 +1,5 @@
 """
-test_static_call_contract_to_create_contract_which_would_create_contract_if_called
+Test_static_call_contract_to_create_contract_which_would_create_contract...
 
 Ported from:
 state_tests/stStaticCall/static_CallContractToCreateContractWhichWouldCreateContractIfCalledFiller.json
@@ -23,19 +23,21 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stStaticCall/static_CallContractToCreateContractWhichWouldCreateContractIfCalledFiller.json"],
+    [
+        "state_tests/stStaticCall/static_CallContractToCreateContractWhichWouldCreateContractIfCalledFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
-def test_static_call_contract_to_create_contract_which_would_create_contract_if_called(
+def test_static_call_contract_to_create_contract_which_would_create_contract_if_called(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_static_call_contract_to_create_contract_which_would_create_con..."""
+    """Test_static_call_contract_to_create_contract_which_would_create_con..."""  # noqa: E501
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -49,23 +51,34 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
     )
 
     # Source: lll
-    # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3) [[ 0 ]](CREATE 1 11 21) [[ 1 ]] (STATICCALL 150000 (SLOAD 0) 0 0 0 0)}
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x600c60005566602060406000f060205260076039f3)
-        + Op.SSTORE(key=0x0, value=Op.CREATE(value=0x1, offset=0xb, size=0x15))
-        + Op.SSTORE(key=0x1, value=Op.STATICCALL(gas=0x249f0, address=Op.SLOAD(key=0x0), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+    # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3) [[ 0 ]](CREATE 1 11 21) [[ 1 ]] (STATICCALL 150000 (SLOAD 0) 0 0 0 0)}  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0, value=0x600C60005566602060406000F060205260076039F3
+        )
+        + Op.SSTORE(key=0x0, value=Op.CREATE(value=0x1, offset=0xB, size=0x15))
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.STATICCALL(
+                gas=0x249F0,
+                address=Op.SLOAD(key=0x0),
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
         balance=1000,
         nonce=0,
         address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2540be400)
-
+    pre[sender] = Account(balance=0x2540BE400)
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=300000,
         nonce=0,
         gas_price=10,
@@ -73,15 +86,19 @@ def test_static_call_contract_to_create_contract_which_would_create_contract_if_
 
     post = {
         contract_0: Account(
-                storage={
-            0: 0xd2571607e241ecf590ed94b12d87c94babe36db6,
-            1: 0,
-        },
-                nonce=1,
-            ),
-        Address("0x62c01474f089b07dae603491675dc5b5748f7049"): Account.NONEXISTENT,  # noqa: E501
+            storage={
+                0: 0xD2571607E241ECF590ED94B12D87C94BABE36DB6,
+                1: 0,
+            },
+            nonce=1,
+        ),
+        Address(
+            "0x62c01474f089b07dae603491675dc5b5748f7049"
+        ): Account.NONEXISTENT,
         sender: Account(nonce=1),
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(storage={0: 12}, balance=1, nonce=1),  # noqa: E501
+        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+            storage={0: 12}, balance=1, nonce=1
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

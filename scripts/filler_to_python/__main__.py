@@ -33,7 +33,7 @@ def post_format(source: str) -> str:
     except FileNotFoundError:
         pass  # ruff not installed
 
-    # ruff check --fix
+    # ruff check --fix (accept output even with remaining unfixable issues)
     try:
         result = subprocess.run(
             [
@@ -49,27 +49,35 @@ def post_format(source: str) -> str:
             text=True,
             env={**os.environ, "RUST_MIN_STACK": "8388608"},
         )
-        if result.returncode == 0:
+        if result.stdout:
             source = result.stdout
     except FileNotFoundError:
         pass
 
-    # Add # noqa: E501 for unsplittable long lines
+    # Add # noqa for generated code issues that can't be auto-fixed.
+    # Track docstring boundaries to avoid adding noqa inside docstrings.
     lines = source.split("\n")
     fixed_lines: list[str] = []
+    in_docstring = False
     for line in lines:
-        if len(line) > 79 and "# noqa: E501" not in line:
-            # Only add noqa if the line can't be easily split
-            stripped = line.rstrip()
-            if (
-                'bytes.fromhex("' in stripped
-                or "Hash(" in stripped
-                or 'Address("' in stripped
-                or "key=" in stripped
-            ):
-                fixed_lines.append(stripped + "  # noqa: E501")
-            else:
-                fixed_lines.append(line)
+        stripped = line.rstrip()
+        if '"""' in stripped:
+            count = stripped.count('"""')
+            if count == 1:
+                in_docstring = not in_docstring
+            # count == 2 means open+close on same line, no state change
+        if in_docstring:
+            fixed_lines.append(line)
+            continue
+        noqa_parts: list[str] = []
+        if len(stripped) > 79:
+            noqa_parts.append("E501")
+        # F841: deploy_contract assigns to variables used in expect dicts
+        if "= pre.deploy_contract(" in stripped:
+            noqa_parts.append("F841")
+        if noqa_parts and "# noqa" not in stripped:
+            codes = ", ".join(noqa_parts)
+            fixed_lines.append(f"{stripped}  # noqa: {codes}")
         else:
             fixed_lines.append(line)
     source = "\n".join(fixed_lines)
@@ -132,7 +140,11 @@ def process_single_filler(
         try:
             ast.parse(source)
         except SyntaxError as e:
-            logger.error("Syntax error in generated code for %s: %s", filler_path, e)
+            logger.error(
+                "Syntax error in generated code for %s: %s",
+                filler_path,
+                e,
+            )
             return "fail"
 
         # Format
@@ -150,7 +162,9 @@ def process_single_filler(
         # Write __init__.py if needed
         init_file = out_subdir / "__init__.py"
         if not init_file.exists():
-            init_file.write_text("")
+            init_file.write_text(
+                f'"""Ported static tests: {category}."""  # noqa: N999\n'
+            )
 
         out_file = out_subdir / _filler_name_to_filename(filler_path.stem)
         out_file.write_text(source)
@@ -227,7 +241,9 @@ def main() -> None:
             line = line.strip()
             if line and not line.startswith("#"):
                 allowed.add(line)
-        filler_paths = [p for p in filler_paths if str(p) in allowed or p.name in allowed]
+        filler_paths = [
+            p for p in filler_paths if str(p) in allowed or p.name in allowed
+        ]
 
     if not filler_paths:
         logger.warning("No filler files found.")

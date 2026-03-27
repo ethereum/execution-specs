@@ -1,5 +1,5 @@
 """
-test_create_e_contract_create_ne_contract_in_init_oog_tr
+Test_create_e_contract_create_ne_contract_in_init_oog_tr.
 
 Ported from:
 state_tests/stCreateTest/CREATE_EContractCreateNEContractInInitOOG_TrFiller.json
@@ -15,18 +15,18 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
 REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
-    "6000600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60f1506d64600c6000556000526005601bf3600052600e60126000f0",
+    "6000600060006000600073c94f5374fce5edbc8e2a8697c15331677e6ebf0b61ea60f1506d64600c6000556000526005601bf3600052600e60126000f0",  # noqa: E501
 ]
 TX_GAS = [160000, 60000]
 TX_VALUE = [0]
@@ -38,18 +38,24 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCreateTest/CREATE_EContractCreateNEContractInInitOOG_TrFiller.json"],
+    [
+        "state_tests/stCreateTest/CREATE_EContractCreateNEContractInInitOOG_TrFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,11 +69,11 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
     g: int,
     v: int,
 ) -> None:
-    """test_create_e_contract_create_ne_contract_in_init_oog_tr"""
+    """Test_create_e_contract_create_ne_contract_in_init_oog_tr."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -80,34 +86,42 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # {[[1]]12}
-    contract_0 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=0xc) + Op.STOP,
-        balance=0xe8d4a51000,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
+        balance=0xE8D4A51000,
         nonce=0,
         address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(storage={1: 12}),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(nonce=2),  # noqa: E501
-        Address("0xa42676447b7cedfa5fde894d1d3df24aab362701"): Account.NONEXISTENT,  # noqa: E501
-    },
+                contract_0: Account(storage={1: 12}),
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=2
+                ),
+                Address(
+                    "0xa42676447b7cedfa5fde894d1d3df24aab362701"
+                ): Account.NONEXISTENT,
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(storage={1: 0}),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
-        Address("0xa42676447b7cedfa5fde894d1d3df24aab362701"): Account.NONEXISTENT,  # noqa: E501
-    },
+                contract_0: Account(storage={1: 0}),
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+                Address(
+                    "0xa42676447b7cedfa5fde894d1d3df24aab362701"
+                ): Account.NONEXISTENT,
+            },
         },
     ]
 
@@ -122,6 +136,5 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

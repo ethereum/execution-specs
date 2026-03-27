@@ -1,5 +1,5 @@
 """
-test_jump_bounds2
+Test_jump_bounds2.
 
 Ported from:
 state_tests/stMemoryStressTest/JUMP_Bounds2Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,10 +67,10 @@ def test_jump_bounds2(
     g: int,
     v: int,
 ) -> None:
-    """test_jump_bounds2"""
+    """Test_jump_bounds2."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x31b5af02b012484ae954b3a43943242ede546a2e76fc0a6acc17435107c385eb
+        key=0x31B5AF02B012484AE954B3A43943242EDE546A2E76FC0A6ACC17435107C385EB
     )
 
     env = Environment(
@@ -80,26 +84,31 @@ def test_jump_bounds2(
     )
 
     # Source: raw
-    # 0x63ffffffff5667ffffffffffffffff566fffffffffffffffffffffffffffffffff567fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff56
-    target = pre.deploy_contract(
-        code=Op.JUMP(pc=0xffffffff) + Op.JUMP(pc=0xffffffffffffffff)
-        + Op.JUMP(pc=0xffffffffffffffffffffffffffffffff)
-        + Op.JUMP(pc=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff),
+    # 0x63ffffffff5667ffffffffffffffff566fffffffffffffffffffffffffffffffff567fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff56  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMP(pc=0xFFFFFFFF)
+        + Op.JUMP(pc=0xFFFFFFFFFFFFFFFF)
+        + Op.JUMP(pc=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+        + Op.JUMP(
+            pc=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+        ),
         nonce=0,
         address=Address("0xde573d26b8c4a55fd9daa17e8f93347c269ee4f6"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7fffffffffffffff)
+    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFF)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        target: Account(
-                code=bytes.fromhex("63ffffffff5667ffffffffffffffff566fffffffffffffffffffffffffffffffff567fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff56"),  # noqa: E501
-                balance=0,
-            ),
-    },
+                target: Account(
+                    code=bytes.fromhex(
+                        "63ffffffff5667ffffffffffffffff566fffffffffffffffffffffffffffffffff567fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff56"  # noqa: E501
+                    ),
+                    balance=0,
+                ),
+            },
         },
     ]
 
@@ -115,6 +124,5 @@ def test_jump_bounds2(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

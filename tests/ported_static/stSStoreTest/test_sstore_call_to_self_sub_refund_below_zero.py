@@ -1,5 +1,5 @@
 """
-Test where accnt has slot 1 value of '2', is cleared, then calls itself and overwrites with '3', causing a refund-deduction in second call context
+Test where accnt has slot 1 value of '2', is cleared, then calls itself...
 
 Ported from:
 state_tests/stSStoreTest/SstoreCallToSelfSubRefundBelowZeroFiller.json
@@ -31,10 +31,10 @@ def test_sstore_call_to_self_sub_refund_below_zero(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test where accnt has slot 1 value of '2', is cleared, then calls it..."""
+    """Test where accnt has slot 1 value of '2', is cleared, then calls..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xaf50993ba9fd52f2a61fcd1dc6d59a44e7af39f4289201cc19ea7d30e8e27e83
+        key=0xAF50993BA9FD52F2A61FCD1DC6D59A44E7AF39F4289201CC19EA7D30E8E27E83
     )
 
     env = Environment(
@@ -49,22 +49,32 @@ def test_sstore_call_to_self_sub_refund_below_zero(
 
     # Source: raw
     # 0x3330146015576000600155600080808080305af1005b600360015500
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPI(pc=0x15, condition=Op.EQ(Op.ADDRESS, Op.CALLER))
         + Op.SSTORE(key=0x1, value=0x0)
-        + Op.CALL(gas=Op.GAS, address=Op.ADDRESS, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=Op.DUP1, ret_size=0x0)
-        + Op.STOP + Op.JUMPDEST + Op.SSTORE(key=0x1, value=0x3) + Op.STOP,
+        + Op.CALL(
+            gas=Op.GAS,
+            address=Op.ADDRESS,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=Op.DUP1,
+            ret_size=0x0,
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x1, value=0x3)
+        + Op.STOP,
         storage={1: 2},
         nonce=0,
         address=Address("0xb48023055b6c3d565a6f5488459d64efab79b6c7"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xffffffffffffffff)
-
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFF)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=2367154,
         nonce=0,
         gas_price=10,

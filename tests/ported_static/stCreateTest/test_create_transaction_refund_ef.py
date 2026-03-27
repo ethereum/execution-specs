@@ -32,10 +32,10 @@ def test_create_transaction_refund_ef(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Test combination of gas refund and EF-prefixed create transaction f..."""
+    """Test combination of gas refund and EF-prefixed create transaction..."""
     contract_0 = Address("0x00000000000000000000000000000000005ef94d")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,23 +48,24 @@ def test_create_transaction_refund_ef(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x5af3107a4000)
+    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: yul
     # berlin {
     #   sstore(0,0)
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=Op.DUP1, value=0x0) + Op.STOP,
         storage={0: 1},
         nonce=0,
         address=Address("0x00000000000000000000000000000000005ef94d"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex("600080808080625ef94d61c350f15060ef60005360016000f3"),  # noqa: E501
+        data=bytes.fromhex(
+            "600080808080625ef94d61c350f15060ef60005360016000f3"
+        ),
         gas_limit=100000,
         nonce=0,
         gas_price=10,
@@ -72,7 +73,9 @@ def test_create_transaction_refund_ef(
 
     post = {
         contract_0: Account(storage={0: 1}),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

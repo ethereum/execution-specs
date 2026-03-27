@@ -1,5 +1,5 @@
 """
-Danno Ferrin danno.ferrin@gmail.com
+Danno Ferrin danno.ferrin@gmail.com.
 
 Ported from:
 state_tests/stEIP150Specific/Transaction64Rule_integerBoundariesFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -49,58 +49,84 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stEIP150Specific/Transaction64Rule_integerBoundariesFiller.yml"],
+    [
+        "state_tests/stEIP150Specific/Transaction64Rule_integerBoundariesFiller.yml"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="int8",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="uint8",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="int16",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="uint16",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="int32",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="uint32",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="int64",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="uint64",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="int128",
         ),
         pytest.param(
-            9, 0, 0,
+            9,
+            0,
+            0,
             id="uint128",
         ),
         pytest.param(
-            10, 0, 0,
+            10,
+            0,
+            0,
             id="int256",
         ),
         pytest.param(
-            11, 0, 0,
+            11,
+            0,
+            0,
             id="uint256",
         ),
     ],
@@ -119,7 +145,7 @@ def test_transaction64_rule_integer_boundaries(
     contract_0 = Address("0x0000000000000000000000000000000000001000")
     contract_1 = Address("0x000000000000000000000000000000000000c0de")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -134,9 +160,9 @@ def test_transaction64_rule_integer_boundaries(
 
     # Source: raw
     # 0x600060FF00
-    contract_0 = pre.deploy_contract(
-        code=Op.PUSH1[0x0] + Op.PUSH1[0xff] + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x0] + Op.PUSH1[0xFF] + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -145,31 +171,66 @@ def test_transaction64_rule_integer_boundaries(
     # {
     #   let initialgas := gas()
     #   let callgas := calldataload(0)
-    # 
+    #
     #   pop(call(callgas, 0x1000, 0, 0, 0, 0, 0x20))
     #   sstore(0, lt(gas(), initialgas))
-    # 
+    #
     #   pop(callcode(callgas, 0x1000, 0, 0, 0, 0, 0x20))
     #   sstore(1, lt(gas(), initialgas))
-    # 
+    #
     #   pop(delegatecall(callgas, 0x1000, 0, 0x20, 0, 0x20))
     #   sstore(2, lt(gas(), initialgas))
-    # 
+    #
     #   pop(staticcall(callgas, 0x1000, 0, 0x20, 0, 0x20))
     #   sstore(3, lt(gas(), initialgas))
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.GAS + Op.PUSH1[0x20] + Op.PUSH1[0x0] + Op.DUP2 * 2
-        + Op.PUSH2[0x1000] + Op.CALLDATALOAD(offset=Op.DUP2)
-        + Op.POP(Op.CALL(gas=Op.DUP7, address=Op.DUP7, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=Op.DUP4, ret_size=Op.DUP4))
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.GAS
+        + Op.PUSH1[0x20]
+        + Op.PUSH1[0x0]
+        + Op.DUP2 * 2
+        + Op.PUSH2[0x1000]
+        + Op.CALLDATALOAD(offset=Op.DUP2)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.DUP7,
+                address=Op.DUP7,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP4,
+                ret_size=Op.DUP4,
+            )
+        )
         + Op.SSTORE(key=Op.DUP4, value=Op.LT(Op.GAS, Op.DUP7))
-        + Op.POP(Op.CALLCODE(gas=Op.DUP7, address=Op.DUP7, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=Op.DUP4, ret_size=Op.DUP4))
+        + Op.POP(
+            Op.CALLCODE(
+                gas=Op.DUP7,
+                address=Op.DUP7,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP4,
+                ret_size=Op.DUP4,
+            )
+        )
         + Op.SSTORE(key=0x1, value=Op.LT(Op.GAS, Op.DUP7))
-        + Op.POP(Op.DELEGATECALL(gas=Op.DUP6, address=Op.DUP6, args_offset=Op.DUP2, args_size=Op.DUP2, ret_offset=Op.DUP4, ret_size=Op.DUP4))
+        + Op.POP(
+            Op.DELEGATECALL(
+                gas=Op.DUP6,
+                address=Op.DUP6,
+                args_offset=Op.DUP2,
+                args_size=Op.DUP2,
+                ret_offset=Op.DUP4,
+                ret_size=Op.DUP4,
+            )
+        )
         + Op.SSTORE(key=0x2, value=Op.LT(Op.GAS, Op.DUP7))
-        + Op.POP(Op.STATICCALL) + Op.GAS + Op.SSTORE(key=0x3, value=Op.LT)
+        + Op.POP(Op.STATICCALL)
+        + Op.GAS
+        + Op.SSTORE(key=0x3, value=Op.LT)
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000c0de"),  # noqa: E501
     )
@@ -177,8 +238,8 @@ def test_transaction64_rule_integer_boundaries(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_1: Account(storage={0: 1, 1: 1, 2: 1, 3: 1})},
         },
     ]
@@ -194,6 +255,5 @@ def test_transaction64_rule_integer_boundaries(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

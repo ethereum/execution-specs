@@ -1,5 +1,5 @@
 """
-test_extcodesize_to_epmty_paris
+Test_extcodesize_to_epmty_paris.
 
 Ported from:
 state_tests/stEIP158Specific/EXTCODESIZE_toEpmtyParisFiller.json
@@ -31,11 +31,13 @@ def test_extcodesize_to_epmty_paris(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_extcodesize_to_epmty_paris"""
+    """Test_extcodesize_to_epmty_paris."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address("0x76fae819612a29489a1a43208613d8f8557b8898")  # noqa: E501
+    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
+        "0x76fae819612a29489a1a43208613d8f8557b8898"
+    )
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -48,12 +50,17 @@ def test_extcodesize_to_epmty_paris(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { [0](GAS) [[1]] (EXTCODESIZE <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) [[100]] (SUB @0 (GAS)) }
-    target = pre.deploy_contract(
+    # { [0](GAS) [[1]] (EXTCODESIZE <eoa:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b>) [[100]] (SUB @0 (GAS)) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x1, value=Op.EXTCODESIZE(address=0x76fae819612a29489a1a43208613d8f8557b8898))  # noqa: E501
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.EXTCODESIZE(
+                address=0x76FAE819612A29489A1A43208613D8F8557B8898
+            ),
+        )
         + Op.SSTORE(key=0x64, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         storage={1: 1536},
@@ -62,18 +69,19 @@ def test_extcodesize_to_epmty_paris(
     )
     pre[addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=10)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=600000,
         nonce=0,
         gas_price=10,
     )
 
     post = {
-        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={}, code=b"", balance=10, nonce=0),
+        addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+            storage={}, code=b"", balance=10, nonce=0
+        ),
         target: Account(storage={100: 7617}),
     }
 

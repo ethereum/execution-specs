@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallDelegateCodesHomestead/callcodecallcall_ABCB_RECURSIVEFiller.json"],
+    [
+        "state_tests/stCallDelegateCodesHomestead/callcodecallcall_ABCB_RECURSIVEFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -34,7 +36,7 @@ def test_callcodecallcall_abcb_recursive(
     """DELEGATECALL -> CALL1 -> CALL2 -> CALL1 -> ."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -48,39 +50,70 @@ def test_callcodecallcall_abcb_recursive(
     )
 
     # Source: lll
-    # {  [[ 0 ]] (DELEGATECALL 25000000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.DELEGATECALL(gas=0x17d7840, address=0x66c0d9f841a86866465e6385c3827be02b580020, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))  # noqa: E501
+    # {  [[ 0 ]] (DELEGATECALL 25000000 <contract:0x1000000000000000000000000000000000000001> 0 64 0 64 ) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.DELEGATECALL(
+                gas=0x17D7840,
+                address=0x66C0D9F841A86866465E6385C3827BE02B580020,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x15600a91a7af84b8c85782714b3391ed5d73f9a0"),  # noqa: E501
     )
     # Source: lll
-    # {  [[ 1 ]] (CALL 1000000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) }
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=Op.CALL(gas=0xf4240, address=0x91a8703c1bef34c1e76e152c1f7fb8c336c3be24, value=0x0, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))  # noqa: E501
+    # {  [[ 1 ]] (CALL 1000000 <contract:0x1000000000000000000000000000000000000002> 0 0 64 0 64 ) }  # noqa: E501
+    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x1,
+            value=Op.CALL(
+                gas=0xF4240,
+                address=0x91A8703C1BEF34C1E76E152C1F7FB8C336C3BE24,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
         + Op.STOP,
-        balance=0x2540be400,
+        balance=0x2540BE400,
         nonce=0,
         address=Address("0x66c0d9f841a86866465e6385c3827be02b580020"),  # noqa: E501
     )
     # Source: lll
-    # {  [[ 2 ]] (CALL 500000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) }
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x2, value=Op.CALL(gas=0x7a120, address=0x66c0d9f841a86866465e6385c3827be02b580020, value=0x0, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))  # noqa: E501
+    # {  [[ 2 ]] (CALL 500000 <contract:0x1000000000000000000000000000000000000001> 0 0 64 0 64 ) }  # noqa: E501
+    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x2,
+            value=Op.CALL(
+                gas=0x7A120,
+                address=0x66C0D9F841A86866465E6385C3827BE02B580020,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
         + Op.STOP,
-        balance=0x2540be400,
+        balance=0x2540BE400,
         nonce=0,
         address=Address("0x91a8703c1bef34c1e76e152c1f7fb8c336c3be24"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=600000,
         nonce=0,
         gas_price=10,
@@ -88,8 +121,12 @@ def test_callcodecallcall_abcb_recursive(
 
     post = {
         target: Account(storage={0: 1, 1: 1}),
-        addr_0x1000000000000000000000000000000000000001: Account(storage={1: 0, 2: 0}),
-        addr_0x1000000000000000000000000000000000000002: Account(storage={1: 0, 2: 0}),
+        addr_0x1000000000000000000000000000000000000001: Account(
+            storage={1: 0, 2: 0}
+        ),
+        addr_0x1000000000000000000000000000000000000002: Account(
+            storage={1: 0, 2: 0}
+        ),
         sender: Account(storage={1: 0}),
     }
 

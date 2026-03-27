@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmArithmeticTest/fibFiller.yml
@@ -34,7 +34,7 @@ def test_fib(
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x40ac0fc28c27e961ee46ec43355a094de205856edbd4654cf2577c2608d4ec1e
+        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
     )
 
     env = Environment(
@@ -48,7 +48,7 @@ def test_fib(
     )
 
     # Source: lll
-    # {  
+    # {
     #    (def 'fib (n) [[n]] (+ @@(- n 1) @@(- n 2)))
     #    (fib  2)
     #    (fib  3)
@@ -60,24 +60,68 @@ def test_fib(
     #    (fib  9)
     #    (fib 10)
     # }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x2, value=Op.ADD(Op.SLOAD(key=Op.SUB(0x2, 0x1)), Op.SLOAD(key=Op.SUB(0x2, 0x2))))  # noqa: E501
-        + Op.SSTORE(key=0x3, value=Op.ADD(Op.SLOAD(key=Op.SUB(0x3, 0x1)), Op.SLOAD(key=Op.SUB(0x3, 0x2))))  # noqa: E501
-        + Op.SSTORE(key=0x4, value=Op.ADD(Op.SLOAD(key=Op.SUB(0x4, 0x1)), Op.SLOAD(key=Op.SUB(0x4, 0x2))))  # noqa: E501
-        + Op.SSTORE(key=0x5, value=Op.ADD(Op.SLOAD(key=Op.SUB(0x5, 0x1)), Op.SLOAD(key=Op.SUB(0x5, 0x2))))  # noqa: E501
-        + Op.SSTORE(key=0x6, value=Op.ADD(Op.SLOAD(key=Op.SUB(0x6, 0x1)), Op.SLOAD(key=Op.SUB(0x6, 0x2))))  # noqa: E501
-        + Op.SSTORE(key=0x7, value=Op.ADD(Op.SLOAD(key=Op.SUB(0x7, 0x1)), Op.SLOAD(key=Op.SUB(0x7, 0x2))))  # noqa: E501
-        + Op.SSTORE(key=0x8, value=Op.ADD(Op.SLOAD(key=Op.SUB(0x8, 0x1)), Op.SLOAD(key=Op.SUB(0x8, 0x2))))  # noqa: E501
-        + Op.SSTORE(key=0x9, value=Op.ADD(Op.SLOAD(key=Op.SUB(0x9, 0x1)), Op.SLOAD(key=Op.SUB(0x9, 0x2))))  # noqa: E501
-        + Op.SSTORE(key=0xa, value=Op.ADD(Op.SLOAD(key=Op.SUB(0xa, 0x1)), Op.SLOAD(key=Op.SUB(0xa, 0x2))))  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x2,
+            value=Op.ADD(
+                Op.SLOAD(key=Op.SUB(0x2, 0x1)), Op.SLOAD(key=Op.SUB(0x2, 0x2))
+            ),
+        )
+        + Op.SSTORE(
+            key=0x3,
+            value=Op.ADD(
+                Op.SLOAD(key=Op.SUB(0x3, 0x1)), Op.SLOAD(key=Op.SUB(0x3, 0x2))
+            ),
+        )
+        + Op.SSTORE(
+            key=0x4,
+            value=Op.ADD(
+                Op.SLOAD(key=Op.SUB(0x4, 0x1)), Op.SLOAD(key=Op.SUB(0x4, 0x2))
+            ),
+        )
+        + Op.SSTORE(
+            key=0x5,
+            value=Op.ADD(
+                Op.SLOAD(key=Op.SUB(0x5, 0x1)), Op.SLOAD(key=Op.SUB(0x5, 0x2))
+            ),
+        )
+        + Op.SSTORE(
+            key=0x6,
+            value=Op.ADD(
+                Op.SLOAD(key=Op.SUB(0x6, 0x1)), Op.SLOAD(key=Op.SUB(0x6, 0x2))
+            ),
+        )
+        + Op.SSTORE(
+            key=0x7,
+            value=Op.ADD(
+                Op.SLOAD(key=Op.SUB(0x7, 0x1)), Op.SLOAD(key=Op.SUB(0x7, 0x2))
+            ),
+        )
+        + Op.SSTORE(
+            key=0x8,
+            value=Op.ADD(
+                Op.SLOAD(key=Op.SUB(0x8, 0x1)), Op.SLOAD(key=Op.SUB(0x8, 0x2))
+            ),
+        )
+        + Op.SSTORE(
+            key=0x9,
+            value=Op.ADD(
+                Op.SLOAD(key=Op.SUB(0x9, 0x1)), Op.SLOAD(key=Op.SUB(0x9, 0x2))
+            ),
+        )
+        + Op.SSTORE(
+            key=0xA,
+            value=Op.ADD(
+                Op.SLOAD(key=Op.SUB(0xA, 0x1)), Op.SLOAD(key=Op.SUB(0xA, 0x2))
+            ),
+        )
         + Op.STOP,
         storage={0: 0, 1: 1},
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xf8d9ff3e0cf16acf51098c85f2cb8f082ef588c2"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
-
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx = Transaction(
         sender=sender,
@@ -91,20 +135,20 @@ def test_fib(
 
     post = {
         target: Account(
-                storage={
-            0: 0,
-            1: 1,
-            2: 1,
-            3: 2,
-            4: 3,
-            5: 5,
-            6: 8,
-            7: 13,
-            8: 21,
-            9: 34,
-            10: 55,
-        },
-            ),
+            storage={
+                0: 0,
+                1: 1,
+                2: 1,
+                3: 2,
+                4: 3,
+                5: 5,
+                6: 8,
+                7: 13,
+                8: 21,
+                9: 34,
+                10: 55,
+            },
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

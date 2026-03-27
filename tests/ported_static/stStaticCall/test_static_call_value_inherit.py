@@ -1,5 +1,5 @@
 """
-test_static_call_value_inherit
+Test_static_call_value_inherit.
 
 Ported from:
 state_tests/stStaticCall/static_call_value_inheritFiller.json
@@ -31,10 +31,10 @@ def test_static_call_value_inherit(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_static_call_value_inherit"""
+    """Test_static_call_value_inherit."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -47,12 +47,23 @@ def test_static_call_value_inherit(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { [[0]] (STATICCALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 32) [[1]] (MLOAD 0) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.STATICCALL(gas=0xc350, address=0xcb9a81371bc2600a843f60738091e390318cda9c, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x20))  # noqa: E501
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0)) + Op.STOP,
+    # { [[0]] (STATICCALL 50000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 32) [[1]] (MLOAD 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.STATICCALL(
+                gas=0xC350,
+                address=0xCB9A81371BC2600A843F60738091E390318CDA9C,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
         storage={1: 1},
         balance=1,
         nonce=0,
@@ -60,19 +71,19 @@ def test_static_call_value_inherit(
     )
     # Source: lll
     # { (MSTORE 0 (CALLVALUE)) (RETURN 0 32) }
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(
+    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.CALLVALUE)
-        + Op.RETURN(offset=0x0, size=0x20) + Op.STOP,
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.STOP,
         balance=1,
         nonce=0,
         address=Address("0xcb9a81371bc2600a843f60738091e390318cda9c"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=460000,
         value=10,
         nonce=0,

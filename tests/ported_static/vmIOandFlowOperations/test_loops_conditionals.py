@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/loopsConditionalsFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -55,47 +55,69 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="whenTrue",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="whenFalse",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="unlessTrue",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="unlessFalse",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="ifTrue",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="ifFalse",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="while",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="until",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="for",
         ),
         pytest.param(
-            9, 0, 0,
+            9,
+            0,
+            0,
             id="for_loop1",
         ),
         pytest.param(
-            10, 0, 0,
+            10,
+            0,
+            0,
             id="for_loop2",
         ),
     ],
@@ -124,7 +146,7 @@ def test_loops_conditionals(
     contract_10 = Address("0x000000000000000000000000000000000000100a")
     contract_11 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -141,10 +163,12 @@ def test_loops_conditionals(
     # {
     #     (when (> 1 0) [[0]] 0x600D)
     # }
-    contract_0 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0xf, condition=Op.ISZERO(Op.GT(0x1, 0x0)))
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(pc=0xF, condition=Op.ISZERO(Op.GT(0x1, 0x0)))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPDEST
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -152,10 +176,12 @@ def test_loops_conditionals(
     # {
     #     (when (< 1 0) [[0]] 0x600D)
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0xf, condition=Op.ISZERO(Op.LT(0x1, 0x0)))
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(pc=0xF, condition=Op.ISZERO(Op.LT(0x1, 0x0)))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPDEST
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -163,10 +189,12 @@ def test_loops_conditionals(
     # {
     #     (unless (> 1 0) [[0]] 0x600D)
     # }
-    contract_2 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0xe, condition=Op.GT(0x1, 0x0))
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(pc=0xE, condition=Op.GT(0x1, 0x0))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPDEST
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -174,10 +202,12 @@ def test_loops_conditionals(
     # {
     #     (unless (< 1 0) [[0]] 0x600D)
     # }
-    contract_3 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0xe, condition=Op.LT(0x1, 0x0))
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(pc=0xE, condition=Op.LT(0x1, 0x0))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.JUMPDEST
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
@@ -185,11 +215,17 @@ def test_loops_conditionals(
     # {
     #     [[0]] (if (> 1 0) 0x600D 0x60A7)
     # }
-    contract_4 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0xe, condition=Op.GT(0x1, 0x0)) + Op.PUSH2[0x60a7]
-        + Op.JUMP(pc=0x12) + Op.JUMPDEST + Op.PUSH2[0x600d] + Op.JUMPDEST
-        + Op.PUSH1[0x0] + Op.SSTORE + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(pc=0xE, condition=Op.GT(0x1, 0x0))
+        + Op.PUSH2[0x60A7]
+        + Op.JUMP(pc=0x12)
+        + Op.JUMPDEST
+        + Op.PUSH2[0x600D]
+        + Op.JUMPDEST
+        + Op.PUSH1[0x0]
+        + Op.SSTORE
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
     )
@@ -197,11 +233,17 @@ def test_loops_conditionals(
     # {
     #     [[0]] (if (< 1 0) 0x600D 0x60A7)
     # }
-    contract_5 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0xe, condition=Op.LT(0x1, 0x0)) + Op.PUSH2[0x60a7]
-        + Op.JUMP(pc=0x12) + Op.JUMPDEST + Op.PUSH2[0x600d] + Op.JUMPDEST
-        + Op.PUSH1[0x0] + Op.SSTORE + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(pc=0xE, condition=Op.LT(0x1, 0x0))
+        + Op.PUSH2[0x60A7]
+        + Op.JUMP(pc=0x12)
+        + Op.JUMPDEST
+        + Op.PUSH2[0x600D]
+        + Op.JUMPDEST
+        + Op.PUSH1[0x0]
+        + Op.SSTORE
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
     )
@@ -209,19 +251,23 @@ def test_loops_conditionals(
     # {
     #     [[0]] 0x10
     #     [[1]] 0x01
-    # 
+    #
     #     (while @@0 {
     #        [[0]] (- @@0 1)
     #        [[1]] (* @@1 2)
     #     })  ; while loop
     # }
-    contract_6 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x10) + Op.SSTORE(key=0x1, value=0x1)
-        + Op.JUMPDEST + Op.JUMPI(pc=0x27, condition=Op.ISZERO(Op.SLOAD(key=0x0)))  # noqa: E501
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x10)
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.JUMPDEST
+        + Op.JUMPI(pc=0x27, condition=Op.ISZERO(Op.SLOAD(key=0x0)))
         + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
         + Op.SSTORE(key=0x1, value=Op.MUL(Op.SLOAD(key=0x1), 0x2))
-        + Op.JUMP(pc=0xa) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.JUMP(pc=0xA)
+        + Op.JUMPDEST
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001006"),  # noqa: E501
     )
@@ -229,20 +275,23 @@ def test_loops_conditionals(
     # {
     #     [[0]] 0x10
     #     [[1]] 0x01
-    # 
+    #
     #     (until (= @@0 0) {
     #        [[0]] (- @@0 1)
     #        [[1]] (* @@1 2)
     #     })  ; until loop
     # }
-    contract_7 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x10) + Op.SSTORE(key=0x1, value=0x1)
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x10)
+        + Op.SSTORE(key=0x1, value=0x1)
         + Op.JUMPDEST
         + Op.JUMPI(pc=0x29, condition=Op.EQ(Op.SLOAD(key=0x0), 0x0))
         + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
         + Op.SSTORE(key=0x1, value=Op.MUL(Op.SLOAD(key=0x1), 0x2))
-        + Op.JUMP(pc=0xa) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.JUMP(pc=0xA)
+        + Op.JUMPDEST
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001007"),  # noqa: E501
     )
@@ -255,14 +304,17 @@ def test_loops_conditionals(
     #       [[1]] (* @@1 2)                    ; body
     #     )   ; for loop
     # }
-    contract_8 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x10) + Op.SSTORE(key=0x1, value=0x1)
+    contract_8 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x10)
+        + Op.SSTORE(key=0x1, value=0x1)
         + Op.JUMPDEST
-        + Op.JUMPI(pc=0x2a, condition=Op.ISZERO(Op.GT(Op.SLOAD(key=0x0), 0x0)))
+        + Op.JUMPI(pc=0x2A, condition=Op.ISZERO(Op.GT(Op.SLOAD(key=0x0), 0x0)))
         + Op.SSTORE(key=0x1, value=Op.MUL(Op.SLOAD(key=0x1), 0x2))
         + Op.SSTORE(key=0x0, value=Op.SUB(Op.SLOAD(key=0x0), 0x1))
-        + Op.JUMP(pc=0xa) + Op.JUMPDEST + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.JUMP(pc=0xA)
+        + Op.JUMPDEST
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001008"),  # noqa: E501
     )
@@ -270,23 +322,31 @@ def test_loops_conditionals(
     # {
     #     (def 'i 0x80)
     #     (def 'j 0xA0)
-    # 
+    #
     #     (for [i] 10        ; init
     #          (> @i 0)      ; predicate
     #          [i] (- @i 1)  ; post
     #          [j] (+ @i @j) ; body
     #     )    ; for loop
-    # 
+    #
     #     [[0]] @j
     # }
-    contract_9 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x80, value=0xa) + Op.JUMPDEST
-        + Op.JUMPI(pc=0x26, condition=Op.ISZERO(Op.GT(Op.MLOAD(offset=0x80), 0x0)))
-        + Op.MSTORE(offset=0xa0, value=Op.ADD(Op.MLOAD(offset=0x80), Op.MLOAD(offset=0xa0)))
+    contract_9 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x80, value=0xA)
+        + Op.JUMPDEST
+        + Op.JUMPI(
+            pc=0x26, condition=Op.ISZERO(Op.GT(Op.MLOAD(offset=0x80), 0x0))
+        )
+        + Op.MSTORE(
+            offset=0xA0,
+            value=Op.ADD(Op.MLOAD(offset=0x80), Op.MLOAD(offset=0xA0)),
+        )
         + Op.MSTORE(offset=0x80, value=Op.SUB(Op.MLOAD(offset=0x80), 0x1))
-        + Op.JUMP(pc=0x5) + Op.JUMPDEST
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0xa0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.JUMP(pc=0x5)
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0xA0))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001009"),  # noqa: E501
     )
@@ -294,23 +354,32 @@ def test_loops_conditionals(
     # {
     #     (def 'i 0x80)
     #     (def 'j 0xA0)
-    # 
+    #
     #     (for [i] 0         ; init
     #          (<= @i 10)    ; predicate
     #          [i] (+ @i 1)  ; post
     #          [j] (+ @i @j) ; body
     #     )    ; for loop
-    # 
+    #
     #     [[0]] @j
     # }
-    contract_10 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x80, value=0x0) + Op.JUMPDEST
-        + Op.JUMPI(pc=0x27, condition=Op.ISZERO(Op.ISZERO(Op.GT(Op.MLOAD(offset=0x80), 0xa))))
-        + Op.MSTORE(offset=0xa0, value=Op.ADD(Op.MLOAD(offset=0x80), Op.MLOAD(offset=0xa0)))
+    contract_10 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x80, value=0x0)
+        + Op.JUMPDEST
+        + Op.JUMPI(
+            pc=0x27,
+            condition=Op.ISZERO(Op.ISZERO(Op.GT(Op.MLOAD(offset=0x80), 0xA))),
+        )
+        + Op.MSTORE(
+            offset=0xA0,
+            value=Op.ADD(Op.MLOAD(offset=0x80), Op.MLOAD(offset=0xA0)),
+        )
         + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
-        + Op.JUMP(pc=0x5) + Op.JUMPDEST
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0xa0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.JUMP(pc=0x5)
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0xA0))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100a"),  # noqa: E501
     )
@@ -318,11 +387,18 @@ def test_loops_conditionals(
     # {
     #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
     # }
-    contract_11 = pre.deploy_contract(
-        code=Op.DELEGATECALL(gas=Op.GAS, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_11 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         storage={0: 2989},
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
@@ -330,28 +406,28 @@ def test_loops_conditionals(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0, 2, 4], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0, 2, 4], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_11: Account(storage={0: 24589})},
         },
         {
-            "indexes": {'data': [1, 3], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1, 3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_11: Account(storage={0: 2989})},
         },
         {
-            "indexes": {'data': [5], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [5], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_11: Account(storage={0: 24743})},
         },
         {
-            "indexes": {'data': [8, 6, 7], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [8, 6, 7], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_11: Account(storage={0: 0, 1: 0x10000})},
         },
         {
-            "indexes": {'data': [9, 10], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [9, 10], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_11: Account(storage={0: 55})},
         },
     ]
@@ -368,6 +444,5 @@ def test_loops_conditionals(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

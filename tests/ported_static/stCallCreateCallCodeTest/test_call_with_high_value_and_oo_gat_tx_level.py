@@ -1,5 +1,5 @@
 """
-call with value. call takes more gas then tx has, and more value than account has
+Call with value. call takes more gas then tx has, and more value than...
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/callWithHighValueAndOOGatTxLevelFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -38,18 +38,24 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallCreateCallCodeTest/callWithHighValueAndOOGatTxLevelFiller.json"],
+    [
+        "state_tests/stCallCreateCallCodeTest/callWithHighValueAndOOGatTxLevelFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-v0",
         ),
         pytest.param(
-            0, 0, 1,
+            0,
+            0,
+            1,
             id="-v1",
         ),
     ],
@@ -63,10 +69,10 @@ def test_call_with_high_value_and_oo_gat_tx_level(
     g: int,
     v: int,
 ) -> None:
-    """call with value."""
+    """Call with value."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -80,39 +86,53 @@ def test_call_with_high_value_and_oo_gat_tx_level(
     )
 
     # Source: lll
-    # {  [[ 0 ]] (CALL 3000001 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 100001 0 0 0 0 ) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=0x2dc6c1, address=0x896f13e800125c0ccec44f3c434335f0a97bc1b, value=0x186a1, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+    # {  [[ 0 ]] (CALL 3000001 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 100001 0 0 0 0 ) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=0x2DC6C1,
+                address=0x896F13E800125C0CCEC44F3C434335F0A97BC1B,
+                value=0x186A1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
         storage={0: 5},
-        balance=0x186a0,
+        balance=0x186A0,
         nonce=0,
         address=Address("0x9001fa64dbba07e3eb711a42cf25b34ccee2bd2b"),  # noqa: E501
     )
     # Source: raw
     # 0x6001600155603760005360026000f3
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=0x1) + Op.MSTORE8(offset=0x0, value=0x37)
+    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0x1)
+        + Op.MSTORE8(offset=0x0, value=0x37)
         + Op.RETURN(offset=0x0, size=0x2),
         balance=23,
         nonce=0,
         address=Address("0x0896f13e800125c0ccec44f3c434335f0a97bc1b"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': 0},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": 0},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={})},
         },
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': 1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": 1},
+            "network": [">=Cancun"],
             "result": {
-        target: Account(storage={0: 1}),
-        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(storage={1: 1}),
-    },
+                target: Account(storage={0: 1}),
+                addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
+                    storage={1: 1}
+                ),
+            },
         },
     ]
 
@@ -128,6 +148,5 @@ def test_call_with_high_value_and_oo_gat_tx_level(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

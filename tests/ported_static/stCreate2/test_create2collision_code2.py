@@ -1,5 +1,5 @@
 """
-collision with the contract that already has the same init code that we are about to create
+Collision with the contract that already has the same init code that we...
 
 Ported from:
 state_tests/stCreate2/create2collisionCode2Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -46,11 +46,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
     ],
@@ -64,11 +68,11 @@ def test_create2collision_code2(
     g: int,
     v: int,
 ) -> None:
-    """collision with the contract that already has the same init code tha..."""
+    """Collision with the contract that already has the same init code..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -81,10 +85,10 @@ def test_create2collision_code2(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: raw
     # 0x010203
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SUB(Op.MUL, Op.ADD),
         nonce=1,
         address=Address("0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3"),  # noqa: E501
@@ -92,22 +96,30 @@ def test_create2collision_code2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': 0, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(code=bytes.fromhex("010203"), balance=0, nonce=1),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(code=b"", balance=1, nonce=2),  # noqa: E501
-        sender: Account(nonce=1),
-    },
+                contract_0: Account(
+                    code=bytes.fromhex("010203"), balance=0, nonce=1
+                ),
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    code=b"", balance=1, nonce=2
+                ),
+                sender: Account(nonce=1),
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(code=bytes.fromhex("010203"), balance=0, nonce=1),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(code=b"", balance=1, nonce=2),  # noqa: E501
-        sender: Account(nonce=1),
-    },
+                contract_0: Account(
+                    code=bytes.fromhex("010203"), balance=0, nonce=1
+                ),
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    code=b"", balance=1, nonce=2
+                ),
+                sender: Account(nonce=1),
+            },
         },
     ]
 
@@ -123,6 +135,5 @@ def test_create2collision_code2(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

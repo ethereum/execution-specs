@@ -1,5 +1,5 @@
 """
-test_random_statetest627
+Test_random_statetest627.
 
 Ported from:
 state_tests/stRandom2/randomStatetest627Filler.json
@@ -31,10 +31,10 @@ def test_random_statetest627(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_random_statetest627"""
+    """Test_random_statetest627."""
     coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
     sender = EOA(
-        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
 
     env = Environment(
@@ -49,42 +49,58 @@ def test_random_statetest627(
 
     # Source: raw
     # 0x424243434442424254f262707f3b55
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.TIMESTAMP
-        + Op.SSTORE(key=0x707f3b, value=Op.CALLCODE(gas=Op.SLOAD(key=Op.TIMESTAMP), address=Op.TIMESTAMP, value=Op.TIMESTAMP, args_offset=Op.PREVRANDAO, args_size=Op.NUMBER, ret_offset=Op.NUMBER, ret_size=Op.TIMESTAMP)),  # noqa: E501
-        balance=0xde0b6b3a7640000,
+        + Op.SSTORE(
+            key=0x707F3B,
+            value=Op.CALLCODE(
+                gas=Op.SLOAD(key=Op.TIMESTAMP),
+                address=Op.TIMESTAMP,
+                value=Op.TIMESTAMP,
+                args_offset=Op.PREVRANDAO,
+                args_size=Op.NUMBER,
+                ret_offset=Op.NUMBER,
+                ret_size=Op.TIMESTAMP,
+            ),
+        ),
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xade7de10d61d1ac88700ada2a18cb4d070d34f9e"),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(
-        code=Op.JUMPI(pc=0x9, condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))))  # noqa: E501
-        + Op.STOP + Op.JUMPDEST
-        + Op.SSTORE(key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)),  # noqa: E501
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
         balance=46,
         nonce=0,
         address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=bytes.fromhex("42"),
         gas_limit=400000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
         target: Account(
-                storage={0x707f3b: 1},
-                balance=0xde0b6b3a76586a0,
-                nonce=0,
-            ),
+            storage={0x707F3B: 1},
+            balance=0xDE0B6B3A76586A0,
+            nonce=0,
+        ),
         coinbase: Account(storage={}, nonce=0),
         sender: Account(storage={}, code=b"", nonce=1),
     }

@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmArithmeticTest/mulFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -53,39 +53,57 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="mul_2_3",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="mul_neg1_neg1",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="mul_0_23",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="mul_23_1",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="mul_2pow255_neg1",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="mul_2pow255_2pow255",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="mul_2pow255min1_2pow255min1",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="big_pow_3",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="stack_underflow",
         ),
     ],
@@ -112,7 +130,7 @@ def test_mul(
     contract_8 = Address("0x0000000000000000000000000000000000001008")
     contract_9 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -129,9 +147,9 @@ def test_mul(
     # {
     #     [[0]] (* 2 3)
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MUL(0x2, 0x3)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -140,14 +158,20 @@ def test_mul(
     #     ; -1 * -1
     #     ; -1 = 2^256-1 in evm arithmetic
     #     [[0]] (*
-    #              0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-    #              0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+    #              0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # noqa: E501
+    #              0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff  # noqa: E501
     #           )
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MUL(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.MUL(
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -155,9 +179,9 @@ def test_mul(
     # {
     #      [[0]] (* 0 23)
     # }
-    contract_2 = pre.deploy_contract(
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MUL(0x0, 0x17)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -165,9 +189,9 @@ def test_mul(
     # {
     #      [[0]] (* 23 1)
     # }
-    contract_3 = pre.deploy_contract(
+    contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MUL(0x17, 0x1)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
@@ -180,10 +204,16 @@ def test_mul(
     #        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
     #    )
     # }
-    contract_4 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MUL(0x8000000000000000000000000000000000000000000000000000000000000000, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))  # noqa: E501
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.MUL(
+                0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
     )
@@ -197,10 +227,16 @@ def test_mul(
     #        0x8000000000000000000000000000000000000000000000000000000000000000
     #    )
     # }
-    contract_5 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MUL(0x8000000000000000000000000000000000000000000000000000000000000000, 0x8000000000000000000000000000000000000000000000000000000000000000))  # noqa: E501
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.MUL(
+                0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+                0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
     )
@@ -214,10 +250,16 @@ def test_mul(
     #        0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
     #    )
     # }
-    contract_6 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MUL(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))  # noqa: E501
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.MUL(
+                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001006"),  # noqa: E501
     )
@@ -230,18 +272,27 @@ def test_mul(
     #       0x1234567890abcdef0fedcba0987654321
     #    )
     # }
-    contract_7 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MUL(Op.MUL(0x1234567890abcdef0fedcba0987654321, 0x1234567890abcdef0fedcba0987654321), 0x1234567890abcdef0fedcba0987654321))  # noqa: E501
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.MUL(
+                Op.MUL(
+                    0x1234567890ABCDEF0FEDCBA0987654321,
+                    0x1234567890ABCDEF0FEDCBA0987654321,
+                ),
+                0x1234567890ABCDEF0FEDCBA0987654321,
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001007"),  # noqa: E501
     )
     # Source: raw
     # 0x600160005560010200
-    contract_8 = pre.deploy_contract(
+    contract_8 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x1) + Op.PUSH1[0x1] + Op.MUL + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001008"),  # noqa: E501
     )
@@ -249,66 +300,74 @@ def test_mul(
     # {
     #     (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
     # }
-    contract_9 = pre.deploy_contract(
-        code=Op.CALL(gas=0xffffff, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_9 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0xFFFFFF,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [8, 2, 5], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [8, 2, 5], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_2: Account(storage={0: 0}),
-        contract_5: Account(storage={0: 0}),
-        contract_8: Account(storage={0: 0}),
-    },
+                contract_2: Account(storage={0: 0}),
+                contract_5: Account(storage={0: 0}),
+                contract_8: Account(storage={0: 0}),
+            },
         },
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_0: Account(storage={0: 6})},
         },
         {
-            "indexes": {'data': [1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_1: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [3], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_3: Account(storage={0: 23})},
         },
         {
-            "indexes": {'data': [4], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_4: Account(
-                storage={
-            0: 0x8000000000000000000000000000000000000000000000000000000000000000,
-        },
-            ),
-    },
+                contract_4: Account(
+                    storage={
+                        0: 0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': [6], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [6], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_6: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [7], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [7], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_7: Account(
-                storage={
-            0: 0x47d0817e4167b1eb4f9fc722b133ef9d7d9a6fb4c2c1c442d000107a5e419561,
-        },
-            ),
-    },
+                contract_7: Account(
+                    storage={
+                        0: 0x47D0817E4167B1EB4F9FC722B133EF9D7D9A6FB4C2C1C442D000107A5E419561,  # noqa: E501
+                    },
+                ),
+            },
         },
     ]
 
@@ -324,6 +383,5 @@ def test_mul(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

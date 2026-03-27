@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmBitwiseLogicOperation/notFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -50,27 +50,39 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="not_0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="not_2",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="not_allones",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="not_neg2",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="not_neg_2_pow_256",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="not_neg0",
         ),
     ],
@@ -94,7 +106,7 @@ def test_not(
     contract_5 = Address("0x0000000000000000000000000000000000001005")
     contract_6 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -111,9 +123,9 @@ def test_not(
     # {
     #     [[0]] (not 0)
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.NOT(0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -121,9 +133,9 @@ def test_not(
     # {
     #     [[0]] (not 2)
     # }
-    contract_1 = pre.deploy_contract(
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.NOT(0x2)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -133,10 +145,15 @@ def test_not(
     #       0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
     #     [[0]] (not pow_2_256_min1)
     # }
-    contract_2 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.NOT(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))  # noqa: E501
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.NOT(
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -144,13 +161,13 @@ def test_not(
     # {
     #   ; In evm arithmetic -2 = 256^2-2
     #   ; 256^2-1 is in binary all ones
-    #   ; so 256^2-2 is all ones except for the least significant bit, which is 0
-    #   ; and  the not all zeros except for the least significant bit, which is 1
+    #   ; so 256^2-2 is all ones except for the least significant bit, which is 0  # noqa: E501
+    #   ; and  the not all zeros except for the least significant bit, which is 1  # noqa: E501
     #   [[0]] (not (- 0 2))
     # }
-    contract_3 = pre.deploy_contract(
+    contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.NOT(Op.SUB(0x0, 0x2))) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
@@ -162,10 +179,18 @@ def test_not(
     #       0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
     #     [[0]] (not (- 0 pow_2_256_min1))
     # }
-    contract_4 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.NOT(Op.SUB(0x0, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)))  # noqa: E501
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.NOT(
+                Op.SUB(
+                    0x0,
+                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                )
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
     )
@@ -174,9 +199,9 @@ def test_not(
     #     ; not 00..00 is 11..11
     #     [[0]] (not (- 0 0))
     # }
-    contract_5 = pre.deploy_contract(
+    contract_5 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.NOT(Op.SUB(0x0, 0x0))) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
     )
@@ -184,69 +209,77 @@ def test_not(
     # {
     #     (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
     # }
-    contract_6 = pre.deploy_contract(
-        code=Op.CALL(gas=0xffffff, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0xFFFFFF,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(
-                storage={
-            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
-        },
-            ),
-    },
+                contract_0: Account(
+                    storage={
+                        0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': [1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_1: Account(
-                storage={
-            0: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd,
-        },
-            ),
-    },
+                contract_1: Account(
+                    storage={
+                        0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': [2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={0: 0})},
         },
         {
-            "indexes": {'data': [3], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_3: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [4], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_4: Account(
-                storage={
-            0: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe,
-        },
-            ),
-    },
+                contract_4: Account(
+                    storage={
+                        0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': [5], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [5], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_5: Account(
-                storage={
-            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
-        },
-            ),
-    },
+                contract_5: Account(
+                    storage={
+                        0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                    },
+                ),
+            },
         },
     ]
 
@@ -262,6 +295,5 @@ def test_not(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

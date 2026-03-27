@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmTests/envInfoFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -54,43 +54,63 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="address",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="codecopy",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="codecopy_len0",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="codecopy_neg_offset",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="caller",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="callvalue",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="codesize",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="gasprice",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="origin",
         ),
         pytest.param(
-            9, 0, 0,
+            9,
+            0,
+            0,
             id="calldatasize",
         ),
     ],
@@ -118,7 +138,7 @@ def test_env_info(
     contract_9 = Address("0x0000000000000000000000000000000000001009")
     contract_10 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -135,9 +155,9 @@ def test_env_info(
     # {
     #    [[0]] (address)
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDRESS) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -147,10 +167,11 @@ def test_env_info(
     #    (codecopy 0 0 7)
     #    [[0]] @0
     # }
-    contract_1 = pre.deploy_contract(
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x7)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -160,10 +181,11 @@ def test_env_info(
     #    (codecopy 0 0 0)
     #    [[0]] @0
     # }
-    contract_2 = pre.deploy_contract(
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x0)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -176,10 +198,15 @@ def test_env_info(
     #    (codecopy 0 neg6 8)
     #    [[0]] @0
     # }
-    contract_3 = pre.deploy_contract(
-        code=Op.CODECOPY(dest_offset=0x0, offset=0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa, size=0x8)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.CODECOPY(
+            dest_offset=0x0,
+            offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA,  # noqa: E501
+            size=0x8,
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
@@ -187,9 +214,9 @@ def test_env_info(
     # {
     #    [[0]] (caller)
     # }
-    contract_4 = pre.deploy_contract(
+    contract_4 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.CALLER) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
     )
@@ -197,9 +224,9 @@ def test_env_info(
     # {
     #    [[0]] (callvalue)
     # }
-    contract_5 = pre.deploy_contract(
+    contract_5 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.CALLVALUE) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
     )
@@ -207,9 +234,9 @@ def test_env_info(
     # {
     #    [[0]] (codesize)
     # }
-    contract_6 = pre.deploy_contract(
+    contract_6 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.CODESIZE) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001006"),  # noqa: E501
     )
@@ -217,9 +244,9 @@ def test_env_info(
     # {
     #    [[0]] (gasprice)
     # }
-    contract_7 = pre.deploy_contract(
+    contract_7 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.GASPRICE) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001007"),  # noqa: E501
     )
@@ -227,9 +254,9 @@ def test_env_info(
     # {
     #    [[0]] (origin)
     # }
-    contract_8 = pre.deploy_contract(
+    contract_8 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ORIGIN) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001008"),  # noqa: E501
     )
@@ -237,9 +264,9 @@ def test_env_info(
     # {
     #    [[0]] (calldatasize)
     # }
-    contract_9 = pre.deploy_contract(
+    contract_9 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.CALLDATASIZE) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001009"),  # noqa: E501
     )
@@ -247,78 +274,86 @@ def test_env_info(
     # {
     #     (call 0xffffff (+ 0x1000 $4) 0x10 0 0 0 0)
     # }
-    contract_10 = pre.deploy_contract(
-        code=Op.CALL(gas=0xffffff, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), value=0x10, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_10 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0xFFFFFF,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            value=0x10,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_0: Account(storage={0: 4096})},
         },
         {
-            "indexes": {'data': [1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_1: Account(
-                storage={
-            0: 0x6007600060003900000000000000000000000000000000000000000000000000,
-        },
-            ),
-    },
+                contract_1: Account(
+                    storage={
+                        0: 0x6007600060003900000000000000000000000000000000000000000000000000,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': [2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={0: 0})},
         },
         {
-            "indexes": {'data': [3], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_3: Account(storage={0: 0})},
         },
         {
-            "indexes": {'data': [4], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_4: Account(
-                storage={0: 0xcccccccccccccccccccccccccccccccccccccccc},
-            ),
-    },
+                contract_4: Account(
+                    storage={0: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC},
+                ),
+            },
         },
         {
-            "indexes": {'data': [5], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [5], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_5: Account(storage={0: 16})},
         },
         {
-            "indexes": {'data': [6], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [6], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_6: Account(storage={0: 5})},
         },
         {
-            "indexes": {'data': [7], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [7], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_7: Account(storage={0: 4660})},
         },
         {
-            "indexes": {'data': [8], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [8], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_8: Account(
-                storage={0: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b},
-            ),
-    },
+                contract_8: Account(
+                    storage={0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B},
+                ),
+            },
         },
         {
-            "indexes": {'data': [9], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [9], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_9: Account(storage={0: 0})},
         },
     ]
@@ -335,6 +370,5 @@ def test_env_info(
         gas_price=4660,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

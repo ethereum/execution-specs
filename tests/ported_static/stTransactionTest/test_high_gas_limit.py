@@ -1,5 +1,5 @@
 """
-test_high_gas_limit
+Test_high_gas_limit.
 
 Ported from:
 state_tests/stTransactionTest/HighGasLimitFiller.json
@@ -30,10 +30,10 @@ def test_high_gas_limit(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_high_gas_limit"""
+    """Test_high_gas_limit."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x50eadfb1030587ab3a993a6ecc073041fc3b45e119daa31a13d78c7e209631a5
+        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
     )
 
     env = Environment(
@@ -46,8 +46,9 @@ def test_high_gas_limit(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
-
+    pre[sender] = Account(
+        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+    )
 
     tx = Transaction(
         sender=sender,
@@ -61,7 +62,9 @@ def test_high_gas_limit(
 
     post = {
         sender: Account(nonce=1),
-        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(balance=900),  # noqa: E501
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            balance=900
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

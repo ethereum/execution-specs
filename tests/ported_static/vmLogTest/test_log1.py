@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmLogTest/log1Filler.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -53,39 +53,57 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="emptyMem",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="memStartTooHigh",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="memSizeTooHigh",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="memSizeZero",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="nonEmptyMem",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="log_0_1",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="log_31_1",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="caller",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="maxTopic",
         ),
     ],
@@ -112,7 +130,7 @@ def test_log1(
     contract_8 = Address("0x0000000000000000000000000000000000001008")
     contract_9 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -128,41 +146,58 @@ def test_log1(
     # Source: lll
     # {   ; emptyMem
     #     (log1 0 0 0)
-    # 
+    #
     #     [[0]] 0x600D
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.LOG1(offset=0x0, size=0x0, topic_1=0x0)
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
     # Source: lll
     # {      ; memStartTooHigh
-    #    [0]   0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd
-    #    (log1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1 0)
+    #    [0]   0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd  # noqa: E501
+    #    (log1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1 0)  # noqa: E501
     #    [[0]] 0x600D
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd)
-        + Op.LOG1(offset=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, size=0x1, topic_1=0x0)
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xAABBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCCDD,  # noqa: E501
+        )
+        + Op.LOG1(
+            offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            size=0x1,
+            topic_1=0x0,
+        )
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
     # Source: lll
     # {        ; memSizeTooHigh
     #    [0] 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd
-    #    (log1 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0)
+    #    (log1 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0)  # noqa: E501
     #    [[0]] 0x600D
     # }
-    contract_2 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd)
-        + Op.LOG1(offset=0x1, size=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, topic_1=0x0)
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xAABBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCCDD,  # noqa: E501
+        )
+        + Op.LOG1(
+            offset=0x1,
+            size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            topic_1=0x0,
+        )
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -172,11 +207,15 @@ def test_log1(
     #    (log1 1 0 0)
     #    [[0]] 0x600D
     # }
-    contract_3 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd)
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xAABBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCCDD,  # noqa: E501
+        )
         + Op.LOG1(offset=0x1, size=0x0, topic_1=0x0)
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
@@ -186,11 +225,15 @@ def test_log1(
     #    (log1 0 32 0)
     #    [[0]] 0x600D
     # }
-    contract_4 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+        )
         + Op.LOG1(offset=0x0, size=0x20, topic_1=0x0)
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
     )
@@ -200,11 +243,15 @@ def test_log1(
     #    (log1 0 1 0)
     #    [[0]] 0x600D
     # }
-    contract_5 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd)
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xAABBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCCDD,  # noqa: E501
+        )
         + Op.LOG1(offset=0x0, size=0x1, topic_1=0x0)
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
     )
@@ -214,11 +261,15 @@ def test_log1(
     #    (log1 31 1 0)
     #    [[0]] 0x600D
     # }
-    contract_6 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd)
-        + Op.LOG1(offset=0x1f, size=0x1, topic_1=0x0)
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xAABBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCCDD,  # noqa: E501
+        )
+        + Op.LOG1(offset=0x1F, size=0x1, topic_1=0x0)
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001006"),  # noqa: E501
     )
@@ -228,27 +279,32 @@ def test_log1(
     #    (log1 0 32 (caller))
     #    [[0]] 0x600D
     # }
-    contract_7 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd)
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0xAABBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFCCDD,  # noqa: E501
+        )
         + Op.LOG1(offset=0x0, size=0x20, topic_1=Op.CALLER)
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001007"),  # noqa: E501
     )
     # Source: lll
     # {        ; maxTopic
     #    (def 'neg1 (- 0 1))
-    # 
+    #
     #    (mstore8 0 0xFF)
     #    (log1 31 1 neg1)
     #    [[0]] 0x600D
     # }
-    contract_8 = pre.deploy_contract(
-        code=Op.MSTORE8(offset=0x0, value=0xff)
-        + Op.LOG1(offset=0x1f, size=0x1, topic_1=Op.SUB(0x0, 0x1))
-        + Op.SSTORE(key=0x0, value=0x600d) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_8 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE8(offset=0x0, value=0xFF)
+        + Op.LOG1(offset=0x1F, size=0x1, topic_1=Op.SUB(0x0, 0x1))
+        + Op.SSTORE(key=0x0, value=0x600D)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001008"),  # noqa: E501
     )
@@ -256,11 +312,18 @@ def test_log1(
     # {
     #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
     # }
-    contract_9 = pre.deploy_contract(
-        code=Op.DELEGATECALL(gas=Op.GAS, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_9 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         storage={0: 2989},
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
@@ -268,13 +331,13 @@ def test_log1(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0, 3, 4, 5, 6, 7, 8], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0, 3, 4, 5, 6, 7, 8], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_9: Account(storage={0: 24589})},
         },
         {
-            "indexes": {'data': [1, 2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1, 2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_9: Account(storage={0: 2989})},
         },
     ]
@@ -291,6 +354,5 @@ def test_log1(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

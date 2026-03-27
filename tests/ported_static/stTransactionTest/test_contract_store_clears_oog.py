@@ -1,5 +1,5 @@
 """
-test_contract_store_clears_oog
+Test_contract_store_clears_oog.
 
 Ported from:
 state_tests/stTransactionTest/ContractStoreClearsOOGFiller.json
@@ -31,10 +31,10 @@ def test_contract_store_clears_oog(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_contract_store_clears_oog"""
+    """Test_contract_store_clears_oog."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x2b75d0c814eb07c075fccbdd9a036faf651d9c46d7477d6c4f30772cfca90d38
+        key=0x2B75D0C814EB07C075FCCBDD9A036FAF651D9C46D7477D6C4F30772CFCA90D38
     )
 
     env = Environment(
@@ -47,15 +47,21 @@ def test_contract_store_clears_oog(
         gas_limit=100000,
     )
 
-    pre[sender] = Account(balance=0x1c9c380)
+    pre[sender] = Account(balance=0x1C9C380)
     # Source: lll
-    # {(SSTORE 0 0)(SSTORE 1 0)(SSTORE 2 0)(SSTORE 3 0)(SSTORE 4 0)(SSTORE 5 0)(SSTORE 6 0)(SSTORE 7 0)(SSTORE 8 0)(SSTORE 9 12)}
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x0) + Op.SSTORE(key=0x1, value=0x0)
-        + Op.SSTORE(key=0x2, value=0x0) + Op.SSTORE(key=0x3, value=0x0)
-        + Op.SSTORE(key=0x4, value=0x0) + Op.SSTORE(key=0x5, value=0x0)
-        + Op.SSTORE(key=0x6, value=0x0) + Op.SSTORE(key=0x7, value=0x0)
-        + Op.SSTORE(key=0x8, value=0x0) + Op.SSTORE(key=0x9, value=0xc) + Op.STOP,  # noqa: E501
+    # {(SSTORE 0 0)(SSTORE 1 0)(SSTORE 2 0)(SSTORE 3 0)(SSTORE 4 0)(SSTORE 5 0)(SSTORE 6 0)(SSTORE 7 0)(SSTORE 8 0)(SSTORE 9 12)}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x0)
+        + Op.SSTORE(key=0x1, value=0x0)
+        + Op.SSTORE(key=0x2, value=0x0)
+        + Op.SSTORE(key=0x3, value=0x0)
+        + Op.SSTORE(key=0x4, value=0x0)
+        + Op.SSTORE(key=0x5, value=0x0)
+        + Op.SSTORE(key=0x6, value=0x0)
+        + Op.SSTORE(key=0x7, value=0x0)
+        + Op.SSTORE(key=0x8, value=0x0)
+        + Op.SSTORE(key=0x9, value=0xC)
+        + Op.STOP,
         storage={
             0: 12,
             1: 12,
@@ -72,11 +78,10 @@ def test_contract_store_clears_oog(
         address=Address("0xc9c8ce4628bda9f8bc4a2caaebb3616f83c4305d"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=23000,
         value=10,
         nonce=0,
@@ -86,19 +91,19 @@ def test_contract_store_clears_oog(
     post = {
         sender: Account(nonce=1),
         target: Account(
-                storage={
-            0: 12,
-            1: 12,
-            2: 12,
-            3: 12,
-            4: 12,
-            5: 12,
-            6: 12,
-            7: 12,
-            8: 12,
-            9: 12,
-        },
-            ),
+            storage={
+                0: 12,
+                1: 12,
+                2: 12,
+                3: 12,
+                4: 12,
+                5: 12,
+                6: 12,
+                7: 12,
+                8: 12,
+                9: 12,
+            },
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

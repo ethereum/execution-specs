@@ -1,5 +1,5 @@
 """
-test_call_recursive_bomb0
+Test_call_recursive_bomb0.
 
 Ported from:
 state_tests/stSystemOperationsTest/CallRecursiveBomb0Filler.json
@@ -32,10 +32,10 @@ def test_call_recursive_bomb0(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_call_recursive_bomb0"""
+    """Test_call_recursive_bomb0."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -49,39 +49,59 @@ def test_call_recursive_bomb0(
     )
 
     # Source: lll
-    # {  (CALL 100000000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 23 0 0 0 0)  }
-    target = pre.deploy_contract(
-        code=Op.CALL(gas=0x5f5e100, address=0x783516813e6366b978f7101a6a12b4c8498b0283, value=0x17, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    # {  (CALL 100000000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 23 0 0 0 0)  }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0x5F5E100,
+            address=0x783516813E6366B978F7101A6A12B4C8498B0283,
+            value=0x17,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         balance=0x77359400,
         nonce=0,
         address=Address("0x6904e15f2a58e4c22dbb37ffeb39ab1f64002eb4"),  # noqa: E501
     )
     # Source: lll
-    # { [[ 0 ]] (+ (SLOAD 0) 1) [[ 1 ]] (CALL (- (GAS) 11000) (ADDRESS) 0 0 0 0 0) }
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(
+    # { [[ 0 ]] (+ (SLOAD 0) 1) [[ 1 ]] (CALL (- (GAS) 11000) (ADDRESS) 0 0 0 0 0) }  # noqa: E501
+    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
-        + Op.SSTORE(key=0x1, value=Op.CALL(gas=Op.SUB(Op.GAS, 0x2af8), address=Op.ADDRESS, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.CALL(
+                gas=Op.SUB(Op.GAS, 0x2AF8),
+                address=Op.ADDRESS,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x783516813e6366b978f7101a6a12b4c8498b0283"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=10000000000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
-        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(storage={0: 313, 1: 1}),
+        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
+            storage={0: 313, 1: 1}
+        ),
         sender: Account(nonce=1),
     }
 

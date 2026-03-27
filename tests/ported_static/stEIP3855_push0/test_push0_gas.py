@@ -1,5 +1,5 @@
 """
-test_push0_gas
+Test_push0_gas.
 
 Ported from:
 state_tests/Shanghai/stEIP3855_push0/push0GasFiller.yml
@@ -31,10 +31,10 @@ def test_push0_gas(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_push0_gas"""
+    """Test_push0_gas."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xdc4efa209aecdd4c2d5201a419ea27506151b4ec687f14a613229e310932491b
+        key=0xDC4EFA209AECDD4C2D5201A419EA27506151B4EC687F14A613229E310932491B
     )
 
     env = Environment(
@@ -50,18 +50,19 @@ def test_push0_gas(
     pre[sender] = Account(balance=0x989680)
     # Source: raw
     # 0x5a6000555f5a6000540360015500
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.GAS) + Op.PUSH0
-        + Op.SSTORE(key=0x1, value=Op.SUB(Op.SLOAD(key=0x0), Op.GAS)) + Op.STOP,  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.GAS)
+        + Op.PUSH0
+        + Op.SSTORE(key=0x1, value=Op.SUB(Op.SLOAD(key=0x0), Op.GAS))
+        + Op.STOP,
         nonce=0,
         address=Address("0xc1aca9da71f5ea8db94b3428d8cbe5d544472ff7"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         nonce=0,
         gas_price=10,

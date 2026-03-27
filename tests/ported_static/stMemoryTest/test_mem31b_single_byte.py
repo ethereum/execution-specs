@@ -1,5 +1,5 @@
 """
-test_mem31b_single_byte
+Test_mem31b_single_byte.
 
 Ported from:
 state_tests/stMemoryTest/mem31b_singleByteFiller.json
@@ -31,10 +31,10 @@ def test_mem31b_single_byte(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_mem31b_single_byte"""
+    """Test_mem31b_single_byte."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
 
     env = Environment(
@@ -49,20 +49,20 @@ def test_mem31b_single_byte(
 
     # Source: lll
     # { (MSTORE8 30 42) [[ 0 ]] (MSIZE)  }
-    target = pre.deploy_contract(
-        code=Op.MSTORE8(offset=0x1e, value=0x2a)
-        + Op.SSTORE(key=0x0, value=Op.MSIZE) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE8(offset=0x1E, value=0x2A)
+        + Op.SSTORE(key=0x0, value=Op.MSIZE)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xab348fdb607ae2689a4738d1161dde14f01b206b"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         value=10,
         nonce=0,

@@ -1,5 +1,5 @@
 """
-test_mload32bit_bound
+Test_mload32bit_bound.
 
 Ported from:
 state_tests/stMemoryStressTest/mload32bitBoundFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,10 +67,10 @@ def test_mload32bit_bound(
     g: int,
     v: int,
 ) -> None:
-    """test_mload32bit_bound"""
+    """Test_mload32bit_bound."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xa3a3360edacc183e5d6d28657fc0a09cd4819b2c73a02881b04471f81be35a5a
+        key=0xA3A3360EDACC183E5D6D28657FC0A09CD4819B2C73A02881B04471F81BE35A5A
     )
 
     env = Environment(
@@ -81,38 +85,38 @@ def test_mload32bit_bound(
 
     # Source: lll
     # { [[ 1 ]] (MLOAD 4294967296) }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x100000000)) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x74639acdfe345f749d595381961dac48c3c5e56a"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3e801f4fa93760)
+    pre[sender] = Account(balance=0x3E801F4FA93760)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        target: Account(
-                storage={},
-                code=bytes.fromhex("6401000000005160015500"),
-                nonce=0,
-            ),
-        sender: Account(storage={}, code=b"", nonce=1),
-    },
+                target: Account(
+                    storage={},
+                    code=bytes.fromhex("6401000000005160015500"),
+                    nonce=0,
+                ),
+                sender: Account(storage={}, code=b"", nonce=1),
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        target: Account(
-                storage={},
-                code=bytes.fromhex("6401000000005160015500"),
-                nonce=0,
-            ),
-        sender: Account(storage={}, code=b"", nonce=1),
-    },
+                target: Account(
+                    storage={},
+                    code=bytes.fromhex("6401000000005160015500"),
+                    nonce=0,
+                ),
+                sender: Account(storage={}, code=b"", nonce=1),
+            },
         },
     ]
 
@@ -128,6 +132,5 @@ def test_mload32bit_bound(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

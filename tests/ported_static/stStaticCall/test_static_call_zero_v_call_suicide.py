@@ -1,5 +1,5 @@
 """
-test_static_call_zero_v_call_suicide
+Test_static_call_zero_v_call_suicide.
 
 Ported from:
 state_tests/stStaticCall/static_CALL_ZeroVCallSuicideFiller.json
@@ -31,10 +31,10 @@ def test_static_call_zero_v_call_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_static_call_zero_v_call_suicide"""
+    """Test_static_call_zero_v_call_suicide."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -47,29 +47,37 @@ def test_static_call_zero_v_call_suicide(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { (STATICCALL 60000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }
-    target = pre.deploy_contract(
-        code=Op.STATICCALL(gas=0xea60, address=0x79968a94dbedb20475585e9dd4dae6333add4c01, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    # { (STATICCALL 60000 <contract:0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.STATICCALL(
+            gas=0xEA60,
+            address=0x79968A94DBEDB20475585E9DD4DAE6333ADD4C01,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0x7a0ddd9ccf14d217e4c1ae6b7c2c770cd4e929ee"),  # noqa: E501
     )
     # Source: lll
-    # { (SELFDESTRUCT <contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }
-    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0x7a0ddd9ccf14d217e4c1ae6b7c2c770cd4e929ee)
+    # { (SELFDESTRUCT <contract:target:0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b>) }  # noqa: E501
+    addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(
+            address=0x7A0DDD9CCF14D217E4C1AE6B7C2C770CD4E929EE
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0x79968a94dbedb20475585e9dd4dae6333add4c01"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=600000,
         nonce=0,
         gas_price=10,
@@ -77,8 +85,10 @@ def test_static_call_zero_v_call_suicide(
 
     post = {
         addr_0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
-                code=bytes.fromhex("737a0ddd9ccf14d217e4c1ae6b7c2c770cd4e929eeff00"),  # noqa: E501
+            code=bytes.fromhex(
+                "737a0ddd9ccf14d217e4c1ae6b7c2c770cd4e929eeff00"
             ),
+        ),
         target: Account(storage={0: 0, 100: 0}),
     }
 

@@ -1,5 +1,5 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com
+Ori Pomerantz   qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP1559/gasPriceDiffPlacesFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -80,143 +80,213 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="normal",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="normal",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="normal",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="d3",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="d4",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="d5",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="d6",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="d7",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="d8",
         ),
         pytest.param(
-            9, 0, 0,
+            9,
+            0,
+            0,
             id="d9",
         ),
         pytest.param(
-            10, 0, 0,
+            10,
+            0,
+            0,
             id="d10",
         ),
         pytest.param(
-            11, 0, 0,
+            11,
+            0,
+            0,
             id="d11",
         ),
         pytest.param(
-            12, 0, 0,
+            12,
+            0,
+            0,
             id="d12",
         ),
         pytest.param(
-            13, 0, 0,
+            13,
+            0,
+            0,
             id="d13",
         ),
         pytest.param(
-            14, 0, 0,
+            14,
+            0,
+            0,
             id="d14",
         ),
         pytest.param(
-            15, 0, 0,
+            15,
+            0,
+            0,
             id="d15",
         ),
         pytest.param(
-            16, 0, 0,
+            16,
+            0,
+            0,
             id="d16",
         ),
         pytest.param(
-            17, 0, 0,
+            17,
+            0,
+            0,
             id="d17",
         ),
         pytest.param(
-            18, 0, 0,
+            18,
+            0,
+            0,
             id="d18",
         ),
         pytest.param(
-            19, 0, 0,
+            19,
+            0,
+            0,
             id="d19",
         ),
         pytest.param(
-            20, 0, 0,
+            20,
+            0,
+            0,
             id="d20",
         ),
         pytest.param(
-            21, 0, 0,
+            21,
+            0,
+            0,
             id="d21",
         ),
         pytest.param(
-            22, 0, 0,
+            22,
+            0,
+            0,
             id="d22",
         ),
         pytest.param(
-            23, 0, 0,
+            23,
+            0,
+            0,
             id="d23",
         ),
         pytest.param(
-            24, 0, 0,
+            24,
+            0,
+            0,
             id="d24",
         ),
         pytest.param(
-            25, 0, 0,
+            25,
+            0,
+            0,
             id="d25",
         ),
         pytest.param(
-            26, 0, 0,
+            26,
+            0,
+            0,
             id="d26",
         ),
         pytest.param(
-            27, 0, 0,
+            27,
+            0,
+            0,
             id="d27",
         ),
         pytest.param(
-            28, 0, 0,
+            28,
+            0,
+            0,
             id="d28",
         ),
         pytest.param(
-            29, 0, 0,
+            29,
+            0,
+            0,
             id="d29",
         ),
         pytest.param(
-            30, 0, 0,
+            30,
+            0,
+            0,
             id="d30",
         ),
         pytest.param(
-            31, 0, 0,
+            31,
+            0,
+            0,
             id="d31",
         ),
         pytest.param(
-            32, 0, 0,
+            32,
+            0,
+            0,
             id="d32",
         ),
         pytest.param(
-            33, 0, 0,
+            33,
+            0,
+            0,
             id="d33",
         ),
         pytest.param(
-            34, 0, 0,
+            34,
+            0,
+            0,
             id="d34",
         ),
     ],
@@ -246,7 +316,7 @@ def test_gas_price_diff_places(
     contract_11 = Address("0x00000000000000000000000000000000deaddead")
     contract_12 = Address("0x00000000000000000000000000000060baccfa57")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -262,9 +332,9 @@ def test_gas_price_diff_places(
     # Source: yul
     # berlin {
     #    mstore(0, gasprice())
-    #     
-    #     
-    # 
+    #
+    #
+    #
     #    // Here the result is is mload(0). We want to run it, but
     #    // prefix it with a zero so we'll be safe from being considered
     #    // an invalid program.
@@ -275,27 +345,27 @@ def test_gas_price_diff_places(
     #    mstore(0x40, mload(0x00))
     #    return(0x3F, 0x21)
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GASPRICE)
         + Op.MSTORE(offset=0x40, value=Op.MLOAD(offset=0x0))
-        + Op.RETURN(offset=0x3f, size=0x21),
-        balance=0xde0b6b3a7640000,
+        + Op.RETURN(offset=0x3F, size=0x21),
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x000000000000000000000000000000000000c0de"),  # noqa: E501
     )
     # Source: yul
     # berlin {
     #    mstore(0, gasprice())
-    #     
-    #     
-    # 
+    #
+    #
+    #
     #    // Here the result is is mload(0).
     #    return(0x00, 0x20)
     # }
-    contract_1 = pre.deploy_contract(
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GASPRICE)
         + Op.RETURN(offset=0x0, size=0x20),
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x000000000000000000000000000000000020c0de"),  # noqa: E501
     )
@@ -303,18 +373,25 @@ def test_gas_price_diff_places(
     # berlin {
     #    let addr := 0x20C0DE
     #    let length := extcodesize(addr)
-    # 
+    #
     #    // Read the code from 0x20C0DE
     #    extcodecopy(addr, 0, 0, length)
-    # 
+    #
     #    // Return this memory as the code for the contract
     #    return(0, length)
     # }
-    contract_2 = pre.deploy_contract(
-        code=Op.PUSH1[0x0] + Op.PUSH3[0x20c0de] + Op.DUP2
-        + Op.EXTCODESIZE(address=Op.DUP2) + Op.SWAP3 + Op.DUP4 + Op.SWAP3
-        + Op.EXTCODECOPY + Op.PUSH1[0x0] + Op.RETURN,
-        balance=0xde0b6b3a7640000,
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x0]
+        + Op.PUSH3[0x20C0DE]
+        + Op.DUP2
+        + Op.EXTCODESIZE(address=Op.DUP2)
+        + Op.SWAP3
+        + Op.DUP4
+        + Op.SWAP3
+        + Op.EXTCODECOPY
+        + Op.PUSH1[0x0]
+        + Op.RETURN,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x00000000000000000000000000000000c0dec0de"),  # noqa: E501
     )
@@ -323,24 +400,24 @@ def test_gas_price_diff_places(
     #    let action := calldataload(4)
     #    let res := 1   // If the result of a call is revert, revert here too
     #    let addr := 1  // If the result of CREATE[2] is zero, it reverted
-    # 
+    #
     #    // For when we need code in our memory
     #    let codeBuffer := 0x20
     #    // When running the template in the constructor
     #    let codeLength := extcodesize(0xC0DE)
     #    // When running the template in the created code
     #    let codeLength2 := extcodesize(0xC0DEC0DE)
-    # 
+    #
     #    // Goat should be overwritten
     #    mstore(0, 0x60A7)
-    # 
+    #
     #    switch action
     #    case 0 {  // run the code snippet as normal code
     #       mstore(0, gasprice())
-    #   
-    #   
+    #
+    #
     #    }
-    # 
+    #
     #    // One level of call stack
     #    case 0xF1 {  // call a contract to run this code
     #       res := call(gas(), 0xca11, 0, 0, 0, 0, 0x20) // call template code
@@ -350,176 +427,619 @@ def test_gas_price_diff_places(
     #    }
     #    case 0xF4 {  // delegate call a contract to run this code
     # ... (269 more lines)
-    contract_3 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x60a7) + Op.PUSH1[0x1] + Op.DUP1
-        + Op.CALLDATALOAD(offset=0x4) + Op.EXTCODESIZE(address=0xc0dec0de)
-        + Op.PUSH1[0x20] + Op.EXTCODESIZE(address=0xc0de)
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x60A7)
+        + Op.PUSH1[0x1]
+        + Op.DUP1
+        + Op.CALLDATALOAD(offset=0x4)
+        + Op.EXTCODESIZE(address=0xC0DEC0DE)
+        + Op.PUSH1[0x20]
+        + Op.EXTCODESIZE(address=0xC0DE)
         + Op.JUMPI(pc=0x581, condition=Op.ISZERO(Op.DUP4))
-        + Op.JUMPI(pc=0x56b, condition=Op.EQ(0xf1, Op.DUP4))
-        + Op.JUMPI(pc=0x555, condition=Op.EQ(0xf2, Op.DUP4))
-        + Op.JUMPI(pc=0x540, condition=Op.EQ(0xf4, Op.DUP4))
-        + Op.JUMPI(pc=0x52b, condition=Op.EQ(0xfa, Op.DUP4))
-        + Op.JUMPI(pc=0x513, condition=Op.EQ(0xf1f1, Op.DUP4))
-        + Op.JUMPI(pc=0x4fb, condition=Op.EQ(0xf2f1, Op.DUP4))
-        + Op.JUMPI(pc=0x4e4, condition=Op.EQ(0xf4f1, Op.DUP4))
-        + Op.JUMPI(pc=0x4cd, condition=Op.EQ(0xfaf1, Op.DUP4))
-        + Op.JUMPI(pc=0x4b5, condition=Op.EQ(0xf1f2, Op.DUP4))
-        + Op.JUMPI(pc=0x49d, condition=Op.EQ(0xf2f2, Op.DUP4))
-        + Op.JUMPI(pc=0x486, condition=Op.EQ(0xf4f2, Op.DUP4))
-        + Op.JUMPI(pc=0x46f, condition=Op.EQ(0xfaf2, Op.DUP4))
-        + Op.JUMPI(pc=0x457, condition=Op.EQ(0xf1f4, Op.DUP4))
-        + Op.JUMPI(pc=0x43f, condition=Op.EQ(0xf2f4, Op.DUP4))
-        + Op.JUMPI(pc=0x428, condition=Op.EQ(0xf4f4, Op.DUP4))
-        + Op.JUMPI(pc=0x411, condition=Op.EQ(0xfaf4, Op.DUP4))
-        + Op.JUMPI(pc=0x3f9, condition=Op.EQ(0xf1fa, Op.DUP4))
-        + Op.JUMPI(pc=0x3e1, condition=Op.EQ(0xf2fa, Op.DUP4))
-        + Op.JUMPI(pc=0x3ca, condition=Op.EQ(0xf4fa, Op.DUP4))
-        + Op.JUMPI(pc=0x3b3, condition=Op.EQ(0xfafa, Op.DUP4))
-        + Op.JUMPI(pc=0x37e, condition=Op.EQ(0xfd, Op.DUP4))
-        + Op.JUMPI(pc=0x347, condition=Op.EQ(0xfe, Op.DUP4))
-        + Op.JUMPI(pc=0x311, condition=Op.EQ(0xff, Op.DUP4))
-        + Op.JUMPI(pc=0x2eb, condition=Op.EQ(0xf0, Op.DUP4))
-        + Op.JUMPI(pc=0x2c1, condition=Op.EQ(0xf5, Op.DUP4)) + Op.POP
-        + Op.JUMPI(pc=0x297, condition=Op.EQ(0xf0f1, Op.DUP3))
-        + Op.JUMPI(pc=0x26b, condition=Op.EQ(0xf5f1, Op.DUP3))
-        + Op.JUMPI(pc=0x248, condition=Op.EQ(0xf0f2, Op.DUP3))
-        + Op.JUMPI(pc=0x223, condition=Op.EQ(0xf5f2, Op.DUP3))
-        + Op.JUMPI(pc=0x201, condition=Op.EQ(0xf0f4, Op.DUP3))
-        + Op.JUMPI(pc=0x1dd, condition=Op.EQ(0xf5f4, Op.DUP3))
-        + Op.JUMPI(pc=0x1b4, condition=Op.EQ(0xf0fa, Op.DUP3))
-        + Op.JUMPI(pc=0x189, condition=Op.EQ(0xf5fa, Op.DUP3)) + Op.POP * 2
-        + Op.PUSH5[0x60baccfa57] + Op.JUMPI(pc=0x16e, condition=Op.EQ)
-        + Op.MSTORE(offset=0x0, value=0xbad0bad0bad0) + Op.JUMPDEST
+        + Op.JUMPI(pc=0x56B, condition=Op.EQ(0xF1, Op.DUP4))
+        + Op.JUMPI(pc=0x555, condition=Op.EQ(0xF2, Op.DUP4))
+        + Op.JUMPI(pc=0x540, condition=Op.EQ(0xF4, Op.DUP4))
+        + Op.JUMPI(pc=0x52B, condition=Op.EQ(0xFA, Op.DUP4))
+        + Op.JUMPI(pc=0x513, condition=Op.EQ(0xF1F1, Op.DUP4))
+        + Op.JUMPI(pc=0x4FB, condition=Op.EQ(0xF2F1, Op.DUP4))
+        + Op.JUMPI(pc=0x4E4, condition=Op.EQ(0xF4F1, Op.DUP4))
+        + Op.JUMPI(pc=0x4CD, condition=Op.EQ(0xFAF1, Op.DUP4))
+        + Op.JUMPI(pc=0x4B5, condition=Op.EQ(0xF1F2, Op.DUP4))
+        + Op.JUMPI(pc=0x49D, condition=Op.EQ(0xF2F2, Op.DUP4))
+        + Op.JUMPI(pc=0x486, condition=Op.EQ(0xF4F2, Op.DUP4))
+        + Op.JUMPI(pc=0x46F, condition=Op.EQ(0xFAF2, Op.DUP4))
+        + Op.JUMPI(pc=0x457, condition=Op.EQ(0xF1F4, Op.DUP4))
+        + Op.JUMPI(pc=0x43F, condition=Op.EQ(0xF2F4, Op.DUP4))
+        + Op.JUMPI(pc=0x428, condition=Op.EQ(0xF4F4, Op.DUP4))
+        + Op.JUMPI(pc=0x411, condition=Op.EQ(0xFAF4, Op.DUP4))
+        + Op.JUMPI(pc=0x3F9, condition=Op.EQ(0xF1FA, Op.DUP4))
+        + Op.JUMPI(pc=0x3E1, condition=Op.EQ(0xF2FA, Op.DUP4))
+        + Op.JUMPI(pc=0x3CA, condition=Op.EQ(0xF4FA, Op.DUP4))
+        + Op.JUMPI(pc=0x3B3, condition=Op.EQ(0xFAFA, Op.DUP4))
+        + Op.JUMPI(pc=0x37E, condition=Op.EQ(0xFD, Op.DUP4))
+        + Op.JUMPI(pc=0x347, condition=Op.EQ(0xFE, Op.DUP4))
+        + Op.JUMPI(pc=0x311, condition=Op.EQ(0xFF, Op.DUP4))
+        + Op.JUMPI(pc=0x2EB, condition=Op.EQ(0xF0, Op.DUP4))
+        + Op.JUMPI(pc=0x2C1, condition=Op.EQ(0xF5, Op.DUP4))
+        + Op.POP
+        + Op.JUMPI(pc=0x297, condition=Op.EQ(0xF0F1, Op.DUP3))
+        + Op.JUMPI(pc=0x26B, condition=Op.EQ(0xF5F1, Op.DUP3))
+        + Op.JUMPI(pc=0x248, condition=Op.EQ(0xF0F2, Op.DUP3))
+        + Op.JUMPI(pc=0x223, condition=Op.EQ(0xF5F2, Op.DUP3))
+        + Op.JUMPI(pc=0x201, condition=Op.EQ(0xF0F4, Op.DUP3))
+        + Op.JUMPI(pc=0x1DD, condition=Op.EQ(0xF5F4, Op.DUP3))
+        + Op.JUMPI(pc=0x1B4, condition=Op.EQ(0xF0FA, Op.DUP3))
+        + Op.JUMPI(pc=0x189, condition=Op.EQ(0xF5FA, Op.DUP3))
+        + Op.POP * 2
+        + Op.PUSH5[0x60BACCFA57]
+        + Op.JUMPI(pc=0x16E, condition=Op.EQ)
+        + Op.MSTORE(offset=0x0, value=0xBAD0BAD0BAD0)
+        + Op.JUMPDEST
         + Op.JUMPI(pc=0x168, condition=Op.ISZERO) * 2
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP + Op.JUMPDEST  # noqa: E501
-        + Op.REVERT(offset=0x0, size=0x20) + Op.JUMPDEST + Op.POP
-        + Op.MSTORE(offset=0x0, value=0x3ff)
-        + Op.CALL(gas=Op.GAS, address=0x60baccfa57, value=Op.DUP1, args_offset=Op.DUP2, args_size=Op.DUP2, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.SWAP2 + Op.POP + Op.PUSH2[0x5a17]
-        + Op.SWAP4 + Op.POP + Op.DUP1 + Op.SWAP3 + Op.POP + Op.PUSH1[0x0]
-        + Op.DUP3 + Op.PUSH4[0xc0dec0de] + Op.EXTCODECOPY
-        + Op.PUSH8[0xde0b6b3a7640000] + Op.CREATE2
-        + Op.STATICCALL(gas=Op.GAS, address=Op.DUP5, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.DUP2 + Op.SWAP5 + Op.POP + Op.DUP1
-        + Op.SWAP4 + Op.POP + Op.PUSH1[0x0] + Op.SWAP2 + Op.SWAP3 + Op.POP
-        + Op.PUSH4[0xc0dec0de] + Op.EXTCODECOPY + Op.PUSH8[0xde0b6b3a7640000]
-        + Op.CREATE
-        + Op.STATICCALL(gas=Op.GAS, address=Op.DUP5, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.SWAP2 + Op.POP + Op.PUSH2[0x5a17]
-        + Op.SWAP4 + Op.POP + Op.DUP1 + Op.SWAP3 + Op.POP + Op.PUSH1[0x0]
-        + Op.DUP3 + Op.PUSH4[0xc0dec0de] + Op.EXTCODECOPY + Op.PUSH1[0x0]
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.JUMPDEST
+        + Op.POP
+        + Op.MSTORE(offset=0x0, value=0x3FF)
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0x60BACCFA57,
+            value=Op.DUP1,
+            args_offset=Op.DUP2,
+            args_size=Op.DUP2,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.SWAP2
+        + Op.POP
+        + Op.PUSH2[0x5A17]
+        + Op.SWAP4
+        + Op.POP
+        + Op.DUP1
+        + Op.SWAP3
+        + Op.POP
+        + Op.PUSH1[0x0]
+        + Op.DUP3
+        + Op.PUSH4[0xC0DEC0DE]
+        + Op.EXTCODECOPY
+        + Op.PUSH8[0xDE0B6B3A7640000]
         + Op.CREATE2
-        + Op.DELEGATECALL(gas=Op.GAS, address=Op.DUP5, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.DUP2 + Op.SWAP5 + Op.POP + Op.DUP1
-        + Op.SWAP4 + Op.POP + Op.PUSH1[0x0] + Op.SWAP2 + Op.SWAP3 + Op.POP
-        + Op.PUSH4[0xc0dec0de] + Op.EXTCODECOPY + Op.PUSH1[0x0] + Op.CREATE
-        + Op.DELEGATECALL(gas=Op.GAS, address=Op.DUP5, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.SWAP2 + Op.POP + Op.PUSH2[0x5a17]
-        + Op.SWAP4 + Op.POP + Op.DUP1 + Op.SWAP3 + Op.POP + Op.PUSH1[0x0]
-        + Op.DUP3 + Op.PUSH4[0xc0dec0de] + Op.EXTCODECOPY + Op.PUSH1[0x0]
-        + Op.CREATE2
-        + Op.CALLCODE(gas=Op.GAS, address=Op.DUP6, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.DUP2 + Op.SWAP5 + Op.POP + Op.DUP1
-        + Op.SWAP4 + Op.POP + Op.PUSH1[0x0] + Op.SWAP2 + Op.SWAP3 + Op.POP
-        + Op.PUSH4[0xc0dec0de] + Op.EXTCODECOPY + Op.PUSH1[0x0] + Op.CREATE
-        + Op.CALLCODE(gas=Op.GAS, address=Op.DUP6, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.SWAP2 + Op.POP + Op.PUSH2[0x5a17]
-        + Op.SWAP4 + Op.POP + Op.DUP1 + Op.SWAP3 + Op.POP + Op.PUSH1[0x0]
-        + Op.DUP3 + Op.PUSH4[0xc0dec0de] + Op.EXTCODECOPY
-        + Op.PUSH8[0xde0b6b3a7640000] + Op.CREATE2
-        + Op.CALL(gas=Op.GAS, address=Op.DUP6, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.DUP2 + Op.SWAP5 + Op.POP + Op.DUP1
-        + Op.SWAP4 + Op.POP + Op.PUSH1[0x0] + Op.SWAP2 + Op.SWAP3 + Op.POP
-        + Op.PUSH4[0xc0dec0de] + Op.EXTCODECOPY + Op.PUSH8[0xde0b6b3a7640000]
+        + Op.STATICCALL(
+            gas=Op.GAS,
+            address=Op.DUP5,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.DUP2
+        + Op.SWAP5
+        + Op.POP
+        + Op.DUP1
+        + Op.SWAP4
+        + Op.POP
+        + Op.PUSH1[0x0]
+        + Op.SWAP2
+        + Op.SWAP3
+        + Op.POP
+        + Op.PUSH4[0xC0DEC0DE]
+        + Op.EXTCODECOPY
+        + Op.PUSH8[0xDE0B6B3A7640000]
         + Op.CREATE
-        + Op.CALL(gas=Op.GAS, address=Op.DUP6, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.SWAP3 + Op.POP + Op.SWAP1 + Op.POP
-        + Op.PUSH2[0x5a17] + Op.SWAP3 + Op.SWAP4 + Op.POP
-        + Op.EXTCODECOPY(address=0xc0de, dest_offset=Op.DUP3, offset=0x0, size=Op.DUP2)
-        + Op.PUSH8[0xde0b6b3a7640000] + Op.CREATE2 + Op.SWAP1
-        + Op.EXTCODECOPY(address=Op.DUP5, dest_offset=0x0, offset=0x1, size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.SWAP4 + Op.SWAP5 + Op.POP
-        + Op.SWAP2 + Op.POP * 2
-        + Op.EXTCODECOPY(address=0xc0de, dest_offset=Op.DUP3, offset=0x0, size=Op.DUP2)
-        + Op.PUSH8[0xde0b6b3a7640000] + Op.CREATE + Op.SWAP1
-        + Op.EXTCODECOPY(address=Op.DUP5, dest_offset=0x0, offset=0x1, size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 4
+        + Op.STATICCALL(
+            gas=Op.GAS,
+            address=Op.DUP5,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.SWAP2
+        + Op.POP
+        + Op.PUSH2[0x5A17]
+        + Op.SWAP4
+        + Op.POP
+        + Op.DUP1
+        + Op.SWAP3
+        + Op.POP
+        + Op.PUSH1[0x0]
+        + Op.DUP3
+        + Op.PUSH4[0xC0DEC0DE]
+        + Op.EXTCODECOPY
+        + Op.PUSH1[0x0]
+        + Op.CREATE2
+        + Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=Op.DUP5,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.DUP2
+        + Op.SWAP5
+        + Op.POP
+        + Op.DUP1
+        + Op.SWAP4
+        + Op.POP
+        + Op.PUSH1[0x0]
+        + Op.SWAP2
+        + Op.SWAP3
+        + Op.POP
+        + Op.PUSH4[0xC0DEC0DE]
+        + Op.EXTCODECOPY
+        + Op.PUSH1[0x0]
+        + Op.CREATE
+        + Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=Op.DUP5,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.SWAP2
+        + Op.POP
+        + Op.PUSH2[0x5A17]
+        + Op.SWAP4
+        + Op.POP
+        + Op.DUP1
+        + Op.SWAP3
+        + Op.POP
+        + Op.PUSH1[0x0]
+        + Op.DUP3
+        + Op.PUSH4[0xC0DEC0DE]
+        + Op.EXTCODECOPY
+        + Op.PUSH1[0x0]
+        + Op.CREATE2
+        + Op.CALLCODE(
+            gas=Op.GAS,
+            address=Op.DUP6,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.DUP2
+        + Op.SWAP5
+        + Op.POP
+        + Op.DUP1
+        + Op.SWAP4
+        + Op.POP
+        + Op.PUSH1[0x0]
+        + Op.SWAP2
+        + Op.SWAP3
+        + Op.POP
+        + Op.PUSH4[0xC0DEC0DE]
+        + Op.EXTCODECOPY
+        + Op.PUSH1[0x0]
+        + Op.CREATE
+        + Op.CALLCODE(
+            gas=Op.GAS,
+            address=Op.DUP6,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.SWAP2
+        + Op.POP
+        + Op.PUSH2[0x5A17]
+        + Op.SWAP4
+        + Op.POP
+        + Op.DUP1
+        + Op.SWAP3
+        + Op.POP
+        + Op.PUSH1[0x0]
+        + Op.DUP3
+        + Op.PUSH4[0xC0DEC0DE]
+        + Op.EXTCODECOPY
+        + Op.PUSH8[0xDE0B6B3A7640000]
+        + Op.CREATE2
+        + Op.CALL(
+            gas=Op.GAS,
+            address=Op.DUP6,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.DUP2
+        + Op.SWAP5
+        + Op.POP
+        + Op.DUP1
+        + Op.SWAP4
+        + Op.POP
+        + Op.PUSH1[0x0]
+        + Op.SWAP2
+        + Op.SWAP3
+        + Op.POP
+        + Op.PUSH4[0xC0DEC0DE]
+        + Op.EXTCODECOPY
+        + Op.PUSH8[0xDE0B6B3A7640000]
+        + Op.CREATE
+        + Op.CALL(
+            gas=Op.GAS,
+            address=Op.DUP6,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.SWAP3
+        + Op.POP
+        + Op.SWAP1
+        + Op.POP
+        + Op.PUSH2[0x5A17]
+        + Op.SWAP3
+        + Op.SWAP4
+        + Op.POP
+        + Op.EXTCODECOPY(
+            address=0xC0DE, dest_offset=Op.DUP3, offset=0x0, size=Op.DUP2
+        )
+        + Op.PUSH8[0xDE0B6B3A7640000]
+        + Op.CREATE2
+        + Op.SWAP1
+        + Op.EXTCODECOPY(
+            address=Op.DUP5, dest_offset=0x0, offset=0x1, size=0x20
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.SWAP4
+        + Op.SWAP5
+        + Op.POP
+        + Op.SWAP2
+        + Op.POP * 2
+        + Op.EXTCODECOPY(
+            address=0xC0DE, dest_offset=Op.DUP3, offset=0x0, size=Op.DUP2
+        )
+        + Op.PUSH8[0xDE0B6B3A7640000]
+        + Op.CREATE
+        + Op.SWAP1
+        + Op.EXTCODECOPY(
+            address=Op.DUP5, dest_offset=0x0, offset=0x1, size=0x20
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 4
         + Op.MSTORE(offset=0x0, value=Op.GASPRICE)
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.POP(Op.CALL(gas=Op.GAS, address=0xdeaddead, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=Op.DUP1, ret_size=0x0))
-        + Op.GASPRICE + Op.PUSH1[0x0] + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
-        + Op.SLOAD + Op.JUMPI(pc=0x156, condition=Op.EQ)
-        + Op.MSTORE(offset=0x0, value=0xbadbadbad) + Op.JUMP(pc=0x156)
-        + Op.JUMPDEST + Op.POP * 4 + Op.MSTORE(offset=0x0, value=Op.GASPRICE)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0xDEADDEAD,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            )
+        )
+        + Op.GASPRICE
+        + Op.PUSH1[0x0]
+        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
+        + Op.SLOAD
+        + Op.JUMPI(pc=0x156, condition=Op.EQ)
+        + Op.MSTORE(offset=0x0, value=0xBADBADBAD)
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 4
+        + Op.MSTORE(offset=0x0, value=Op.GASPRICE)
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.POP(Op.CALL(gas=0x61a8, address=0x60006, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=Op.DUP1, ret_size=0x0))
-        + Op.GASPRICE + Op.PUSH1[0x0] + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
-        + Op.SLOAD + Op.JUMPI(pc=0x156, condition=Op.EQ)
-        + Op.MSTORE(offset=0x0, value=0xbadbadbad) + Op.JUMP(pc=0x156)
-        + Op.JUMPDEST + Op.POP * 4 + Op.MSTORE(offset=0x0, value=Op.GASPRICE)
+        + Op.POP(
+            Op.CALL(
+                gas=0x61A8,
+                address=0x60006,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            )
+        )
+        + Op.GASPRICE
+        + Op.PUSH1[0x0]
+        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
+        + Op.SLOAD
+        + Op.JUMPI(pc=0x156, condition=Op.EQ)
+        + Op.MSTORE(offset=0x0, value=0xBADBADBAD)
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 4
+        + Op.MSTORE(offset=0x0, value=Op.GASPRICE)
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.POP(Op.CALL(gas=Op.GAS, address=0x60bacc, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=Op.DUP1, ret_size=0x0))
-        + Op.GASPRICE + Op.PUSH1[0x0] + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
-        + Op.SLOAD + Op.JUMPI(pc=0x156, condition=Op.EQ)
-        + Op.MSTORE(offset=0x0, value=0xbadbadbad) + Op.JUMP(pc=0x156)
-        + Op.JUMPDEST + Op.POP * 5
-        + Op.STATICCALL(gas=Op.GAS, address=0xca1100fa, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.DELEGATECALL(gas=Op.GAS, address=0xca1100fa, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALLCODE(gas=Op.GAS, address=0xca1100fa, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALL(gas=Op.GAS, address=0xca1100fa, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.STATICCALL(gas=Op.GAS, address=0xca1100f4, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.DELEGATECALL(gas=Op.GAS, address=0xca1100f4, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALLCODE(gas=Op.GAS, address=0xca1100f4, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALL(gas=Op.GAS, address=0xca1100f4, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.STATICCALL(gas=Op.GAS, address=0xca1100f2, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.DELEGATECALL(gas=Op.GAS, address=0xca1100f2, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALLCODE(gas=Op.GAS, address=0xca1100f2, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALL(gas=Op.GAS, address=0xca1100f2, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.STATICCALL(gas=Op.GAS, address=0xca1100f1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.DELEGATECALL(gas=Op.GAS, address=0xca1100f1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALLCODE(gas=Op.GAS, address=0xca1100f1, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALL(gas=Op.GAS, address=0xca1100f1, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.STATICCALL(gas=Op.GAS, address=0xca11, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.DELEGATECALL(gas=Op.GAS, address=0xca11, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALLCODE(gas=Op.GAS, address=0xca11, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 5
-        + Op.CALL(gas=Op.GAS, address=0xca11, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)
-        + Op.JUMP(pc=0x156) + Op.JUMPDEST + Op.POP * 4
-        + Op.MSTORE(offset=0x0, value=Op.GASPRICE) + Op.JUMP(pc=0x156),
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0x60BACC,
+                value=Op.DUP1,
+                args_offset=Op.DUP1,
+                args_size=Op.DUP1,
+                ret_offset=Op.DUP1,
+                ret_size=0x0,
+            )
+        )
+        + Op.GASPRICE
+        + Op.PUSH1[0x0]
+        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
+        + Op.SLOAD
+        + Op.JUMPI(pc=0x156, condition=Op.EQ)
+        + Op.MSTORE(offset=0x0, value=0xBADBADBAD)
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.STATICCALL(
+            gas=Op.GAS,
+            address=0xCA1100FA,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xCA1100FA,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALLCODE(
+            gas=Op.GAS,
+            address=0xCA1100FA,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xCA1100FA,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.STATICCALL(
+            gas=Op.GAS,
+            address=0xCA1100F4,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xCA1100F4,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALLCODE(
+            gas=Op.GAS,
+            address=0xCA1100F4,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xCA1100F4,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.STATICCALL(
+            gas=Op.GAS,
+            address=0xCA1100F2,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xCA1100F2,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALLCODE(
+            gas=Op.GAS,
+            address=0xCA1100F2,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xCA1100F2,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.STATICCALL(
+            gas=Op.GAS,
+            address=0xCA1100F1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xCA1100F1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALLCODE(
+            gas=Op.GAS,
+            address=0xCA1100F1,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xCA1100F1,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.STATICCALL(
+            gas=Op.GAS,
+            address=0xCA11,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=0xCA11,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALLCODE(
+            gas=Op.GAS,
+            address=0xCA11,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 5
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xCA11,
+            value=Op.DUP1,
+            args_offset=Op.DUP1,
+            args_size=Op.DUP1,
+            ret_offset=0x0,
+            ret_size=0x20,
+        )
+        + Op.JUMP(pc=0x156)
+        + Op.JUMPDEST
+        + Op.POP * 4
+        + Op.MSTORE(offset=0x0, value=Op.GASPRICE)
+        + Op.JUMP(pc=0x156),
         storage={0: 24743},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
     # Source: yul
     # berlin {
     #   mstore(0, gasprice())
-    #   
-    #   
+    #
+    #
     #   return(0, 0x20)     // return the result as our return value
     # }
-    contract_4 = pre.deploy_contract(
+    contract_4 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GASPRICE)
         + Op.RETURN(offset=0x0, size=0x20),
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x000000000000000000000000000000000000ca11"),  # noqa: E501
     )
@@ -527,14 +1047,28 @@ def test_gas_price_diff_places(
     # berlin {
     #   if iszero(call(gas(), 0xca11, 0, 0, 0, 0, 0x20))
     #      { revert(0,0x20) }
-    # 
+    #
     #   return(0, 0x20)     // return the result as our return value
     # }
-    contract_5 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0x15, condition=Op.ISZERO(Op.CALL(gas=Op.GAS, address=0xca11, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)))
-        + Op.RETURN(offset=0x0, size=0x20) + Op.JUMPDEST
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x15,
+            condition=Op.ISZERO(
+                Op.CALL(
+                    gas=Op.GAS,
+                    address=0xCA11,
+                    value=Op.DUP1,
+                    args_offset=Op.DUP1,
+                    args_size=Op.DUP1,
+                    ret_offset=0x0,
+                    ret_size=0x20,
+                )
+            ),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.JUMPDEST
         + Op.REVERT(offset=0x0, size=0x20),
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x00000000000000000000000000000000ca1100f1"),  # noqa: E501
     )
@@ -542,14 +1076,28 @@ def test_gas_price_diff_places(
     # berlin {
     #   if iszero(callcode(gas(), 0xca11, 0, 0, 0, 0, 0x20))
     #      { revert(0,0x20) }
-    # 
+    #
     #   return(0, 0x20)     // return the result as our return value
     # }
-    contract_6 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0x15, condition=Op.ISZERO(Op.CALLCODE(gas=Op.GAS, address=0xca11, value=Op.DUP1, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)))
-        + Op.RETURN(offset=0x0, size=0x20) + Op.JUMPDEST
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x15,
+            condition=Op.ISZERO(
+                Op.CALLCODE(
+                    gas=Op.GAS,
+                    address=0xCA11,
+                    value=Op.DUP1,
+                    args_offset=Op.DUP1,
+                    args_size=Op.DUP1,
+                    ret_offset=0x0,
+                    ret_size=0x20,
+                )
+            ),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.JUMPDEST
         + Op.REVERT(offset=0x0, size=0x20),
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x00000000000000000000000000000000ca1100f2"),  # noqa: E501
     )
@@ -557,14 +1105,27 @@ def test_gas_price_diff_places(
     # berlin {
     #   if iszero(delegatecall(gas(), 0xca11, 0, 0, 0, 0x20))
     #      { revert(0,0x20) }
-    # 
+    #
     #   return(0, 0x20)     // return the result as our return value
     # }
-    contract_7 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0x14, condition=Op.ISZERO(Op.DELEGATECALL(gas=Op.GAS, address=0xca11, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)))
-        + Op.RETURN(offset=0x0, size=0x20) + Op.JUMPDEST
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x14,
+            condition=Op.ISZERO(
+                Op.DELEGATECALL(
+                    gas=Op.GAS,
+                    address=0xCA11,
+                    args_offset=Op.DUP1,
+                    args_size=Op.DUP1,
+                    ret_offset=0x0,
+                    ret_size=0x20,
+                )
+            ),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.JUMPDEST
         + Op.REVERT(offset=0x0, size=0x20),
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x00000000000000000000000000000000ca1100f4"),  # noqa: E501
     )
@@ -572,47 +1133,63 @@ def test_gas_price_diff_places(
     # berlin {
     #   if iszero(staticcall(gas(), 0xca11, 0, 0, 0, 0x20))
     #      { revert(0,0x20) }
-    # 
+    #
     #   return(0, 0x20)     // return the result as our return value
     # }
-    contract_8 = pre.deploy_contract(
-        code=Op.JUMPI(pc=0x14, condition=Op.ISZERO(Op.STATICCALL(gas=Op.GAS, address=0xca11, args_offset=Op.DUP1, args_size=Op.DUP1, ret_offset=0x0, ret_size=0x20)))
-        + Op.RETURN(offset=0x0, size=0x20) + Op.JUMPDEST
+    contract_8 = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x14,
+            condition=Op.ISZERO(
+                Op.STATICCALL(
+                    gas=Op.GAS,
+                    address=0xCA11,
+                    args_offset=Op.DUP1,
+                    args_size=Op.DUP1,
+                    ret_offset=0x0,
+                    ret_size=0x20,
+                )
+            ),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.JUMPDEST
         + Op.REVERT(offset=0x0, size=0x20),
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x00000000000000000000000000000000ca1100fa"),  # noqa: E501
     )
     # Source: yul
     # berlin {
     #    mstore(0, gasprice())
-    #     
-    #     
+    #
+    #
     #    sstore(0,mload(0))
     #    invalid()
     # }
-    contract_9 = pre.deploy_contract(
-        code=Op.GASPRICE + Op.PUSH1[0x0] + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
-        + Op.SSTORE + Op.INVALID,
+    contract_9 = pre.deploy_contract(  # noqa: F841
+        code=Op.GASPRICE
+        + Op.PUSH1[0x0]
+        + Op.MSTORE(offset=Op.DUP2, value=Op.DUP2)
+        + Op.SSTORE
+        + Op.INVALID,
         storage={0: 24743},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x0000000000000000000000000000000000060006"),  # noqa: E501
     )
     # Source: yul
     # berlin {
     #    mstore(0, gasprice())
-    #     
-    #     
+    #
+    #
     #    sstore(0,mload(0))
     #    revert(0,0x20)
     # }
-    contract_10 = pre.deploy_contract(
+    contract_10 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GASPRICE)
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
         + Op.REVERT(offset=0x0, size=0x20),
         storage={0: 24743},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x000000000000000000000000000000000060bacc"),  # noqa: E501
     )
@@ -620,59 +1197,76 @@ def test_gas_price_diff_places(
     # berlin {
     #    selfdestruct(0)
     # }
-    contract_11 = pre.deploy_contract(
+    contract_11 = pre.deploy_contract(  # noqa: F841
         code=Op.SELFDESTRUCT(address=0x0),
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x00000000000000000000000000000000deaddead"),  # noqa: E501
     )
     # Source: yul
     # berlin {
     #    let depth := calldataload(0)
-    # 
+    #
     #    if eq(depth,0) {
     #        mstore(0, gasprice())
-    #     
-    #     
+    #
+    #
     #        return(0, 0x20)
     #    }
-    # 
+    #
     #    // Dig deeper
     #    mstore(0, sub(depth,1))
-    # 
+    #
     #    // Call yourself with depth-1
     #    if iszero(call(gas(), 0x60BACCFA57, 0, 0, 0x20, 0, 0x20)) {
     #       // Propagate failure if we failed
     #       revert(0, 0x20)
     #    }
-    # 
+    #
     #    // Propagate success
     #    return (0, 0x20)
     # }
-    contract_12 = pre.deploy_contract(
+    contract_12 = pre.deploy_contract(  # noqa: F841
         code=Op.CALLDATALOAD(offset=0x0)
-        + Op.JUMPI(pc=0x2d, condition=Op.ISZERO(Op.DUP1)) + Op.PUSH1[0x1]
-        + Op.SWAP1 + Op.MSTORE(offset=0x0, value=Op.SUB)
-        + Op.JUMPI(pc=0x27, condition=Op.ISZERO(Op.CALL(gas=Op.GAS, address=0x60baccfa57, value=Op.DUP1, args_offset=Op.DUP2, args_size=Op.DUP2, ret_offset=0x0, ret_size=0x20)))
-        + Op.RETURN(offset=0x0, size=0x20) + Op.JUMPDEST
-        + Op.REVERT(offset=0x0, size=0x20) + Op.JUMPDEST
+        + Op.JUMPI(pc=0x2D, condition=Op.ISZERO(Op.DUP1))
+        + Op.PUSH1[0x1]
+        + Op.SWAP1
+        + Op.MSTORE(offset=0x0, value=Op.SUB)
+        + Op.JUMPI(
+            pc=0x27,
+            condition=Op.ISZERO(
+                Op.CALL(
+                    gas=Op.GAS,
+                    address=0x60BACCFA57,
+                    value=Op.DUP1,
+                    args_offset=Op.DUP2,
+                    args_size=Op.DUP2,
+                    ret_offset=0x0,
+                    ret_size=0x20,
+                )
+            ),
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.JUMPDEST
+        + Op.REVERT(offset=0x0, size=0x20)
+        + Op.JUMPDEST
         + Op.MSTORE(offset=0x0, value=Op.GASPRICE)
         + Op.RETURN(offset=0x0, size=0x20),
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x00000000000000000000000000000060baccfa57"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635c9adc5dea00000, nonce=1)
+    pre[sender] = Account(balance=0x3635C9ADC5DEA00000, nonce=1)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {
-        contract_3: Account(storage={0: 2000}),
-        contract_10: Account(storage={0: 24743}),
-        contract_9: Account(storage={0: 24743}),
-    },
+                contract_3: Account(storage={0: 2000}),
+                contract_10: Account(storage={0: 24743}),
+                contract_9: Account(storage={0: 24743}),
+            },
         },
     ]
 
@@ -687,6 +1281,5 @@ def test_gas_price_diff_places(
         gas_price=2000,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

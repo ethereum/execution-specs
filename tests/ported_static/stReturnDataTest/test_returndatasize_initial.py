@@ -1,5 +1,5 @@
 """
-test_returndatasize_initial
+Test_returndatasize_initial.
 
 Ported from:
 state_tests/stReturnDataTest/returndatasize_initialFiller.json
@@ -31,10 +31,10 @@ def test_returndatasize_initial(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_returndatasize_initial"""
+    """Test_returndatasize_initial."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
 
     env = Environment(
@@ -49,20 +49,19 @@ def test_returndatasize_initial(
 
     # Source: lll
     # { (SSTORE 0 (RETURNDATASIZE)) }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE) + Op.STOP,
         storage={0: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x3a939fcca7da8b1332893bcca91690406f4b7a82"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         nonce=0,
         gas_price=10,

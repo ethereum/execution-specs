@@ -1,5 +1,5 @@
 """
-test_loop_calls_depth_then_revert
+Test_loop_calls_depth_then_revert.
 
 Ported from:
 state_tests/stRevertTest/LoopCallsDepthThenRevertFiller.json
@@ -31,10 +31,10 @@ def test_loop_calls_depth_then_revert(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_loop_calls_depth_then_revert"""
+    """Test_loop_calls_depth_then_revert."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -47,31 +47,46 @@ def test_loop_calls_depth_then_revert(
         gas_limit=100000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { [[0]] (+ (SLOAD 0) 1) (CALL (GAS) <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) }
-    target = pre.deploy_contract(
+    # { [[0]] (+ (SLOAD 0) 1) (CALL (GAS) <contract:0xb000000000000000000000000000000000000000> 0 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
-        + Op.CALL(gas=Op.GAS, address=0x80d46fa47b41ab46a227915ae4f63559c0d4dfe2, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0x80D46FA47B41AB46A227915AE4F63559C0D4DFE2,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0xf59fd1c021541704a4a52c067454304566717666"),  # noqa: E501
     )
     # Source: lll
-    # { [[0]] (+ (SLOAD 0) 1) (CALL (GAS) <contract:target:0xa000000000000000000000000000000000000000> 0 0 0 0 0)  }
-    addr_0xb000000000000000000000000000000000000000 = pre.deploy_contract(
+    # { [[0]] (+ (SLOAD 0) 1) (CALL (GAS) <contract:target:0xa000000000000000000000000000000000000000> 0 0 0 0 0)  }  # noqa: E501
+    addr_0xb000000000000000000000000000000000000000 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
-        + Op.CALL(gas=Op.GAS, address=0xf59fd1c021541704a4a52c067454304566717666, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xF59FD1C021541704A4A52C067454304566717666,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0x80d46fa47b41ab46a227915ae4f63559c0d4dfe2"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=10000000,
         nonce=0,
         gas_price=10,
@@ -79,7 +94,9 @@ def test_loop_calls_depth_then_revert(
 
     post = {
         target: Account(storage={0: 193}),
-        addr_0xb000000000000000000000000000000000000000: Account(storage={0: 192}),
+        addr_0xb000000000000000000000000000000000000000: Account(
+            storage={0: 192}
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

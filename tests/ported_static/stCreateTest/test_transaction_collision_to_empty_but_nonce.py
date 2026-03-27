@@ -1,5 +1,5 @@
 """
-test_transaction_collision_to_empty_but_nonce
+Test_transaction_collision_to_empty_but_nonce.
 
 Ported from:
 state_tests/stCreateTest/TransactionCollisionToEmptyButNonceFiller.json
@@ -37,26 +37,36 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCreateTest/TransactionCollisionToEmptyButNonceFiller.json"],
+    [
+        "state_tests/stCreateTest/TransactionCollisionToEmptyButNonceFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0-v0",
         ),
         pytest.param(
-            0, 0, 1,
+            0,
+            0,
+            1,
             id="-g0-v1",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1-v0",
         ),
         pytest.param(
-            0, 1, 1,
+            0,
+            1,
+            1,
             id="-g1-v1",
         ),
     ],
@@ -70,11 +80,11 @@ def test_transaction_collision_to_empty_but_nonce(
     g: int,
     v: int,
 ) -> None:
-    """test_transaction_collision_to_empty_but_nonce"""
+    """Test_transaction_collision_to_empty_but_nonce."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -87,17 +97,17 @@ def test_transaction_collision_to_empty_but_nonce(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     pre[contract_0] = Account(balance=0, nonce=1)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': [0, 1], 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": [0, 1], "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_0: Account(storage={1: 0}, nonce=1),
-    },
+                sender: Account(nonce=1),
+                contract_0: Account(storage={1: 0}, nonce=1),
+            },
         },
     ]
 
@@ -113,6 +123,5 @@ def test_transaction_collision_to_empty_but_nonce(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

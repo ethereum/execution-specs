@@ -1,5 +1,5 @@
 """
-test_out_of_gas_contract_creation
+Test_out_of_gas_contract_creation.
 
 Ported from:
 state_tests/stInitCodeTest/OutOfGasContractCreationFiller.json
@@ -45,19 +45,27 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="d0-g1",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1-g0",
         ),
         pytest.param(
-            1, 1, 0,
+            1,
+            1,
+            0,
             id="d1-g1",
         ),
     ],
@@ -71,10 +79,10 @@ def test_out_of_gas_contract_creation(
     g: int,
     v: int,
 ) -> None:
-    """test_out_of_gas_contract_creation"""
+    """Test_out_of_gas_contract_creation."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -87,32 +95,40 @@ def test_out_of_gas_contract_creation(
         gas_limit=100000000000000,
     )
 
-    pre[sender] = Account(balance=0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    pre[sender] = Account(
+        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+    )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': 0, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 0, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 1, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(nonce=1),  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    nonce=1
+                ),
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                Address(
+                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                ): Account.NONEXISTENT,
+            },
         },
     ]
 
@@ -128,6 +144,5 @@ def test_out_of_gas_contract_creation(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

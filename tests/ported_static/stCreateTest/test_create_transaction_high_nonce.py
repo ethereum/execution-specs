@@ -1,7 +1,7 @@
 """
-The test check if the create transaction is reject if the origin's nonce is maximum value
-(and would overflow if increased by 1).
+The test check if the create transaction is reject if the origin's...
 
+(and would overflow if increased by 1).
 
 Ported from:
 state_tests/stCreateTest/CreateTransactionHighNonceFiller.yml
@@ -11,7 +11,6 @@ import pytest
 from execution_testing import (
     EOA,
     Account,
-    Address,
     Alloc,
     Environment,
     StateTestFiller,
@@ -47,12 +46,16 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-v0",
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
-            0, 0, 1,
+            0,
+            0,
+            1,
             id="-v1",
             marks=pytest.mark.exception_test,
         ),
@@ -67,9 +70,9 @@ def test_create_transaction_high_nonce(
     g: int,
     v: int,
 ) -> None:
-    """The test check if the create transaction is reject if the origin's ..."""
+    """The test check if the create transaction is reject if the origin's..."""
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -82,14 +85,16 @@ def test_create_transaction_high_nonce(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x5af3107a4000, nonce=18446744073709551615)
+    pre[sender] = Account(balance=0x5AF3107A4000, nonce=18446744073709551615)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {},
-            "expect_exception": {">=Cancun": TransactionException.NONCE_IS_MAX},
+            "expect_exception": {
+                ">=Cancun": TransactionException.NONCE_IS_MAX
+            },
         },
     ]
 
@@ -105,6 +110,5 @@ def test_create_transaction_high_nonce(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

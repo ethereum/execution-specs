@@ -1,5 +1,5 @@
 """
-Bug discovered on ropsten https://github.com/ethereum/go-ethereum/pull/23244/files
+Bug discovered on ropsten https://github.com/ethereum/go-ethereum/pull/2...
 
 Ported from:
 state_tests/stEIP1559/transactionIntinsicBug_ParisFiller.yml
@@ -15,8 +15,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
-    AccessList,
-    Hash,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -36,9 +34,11 @@ def test_transaction_intinsic_bug_paris(
 ) -> None:
     """Bug discovered on ropsten https://github."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xcccccccccccccccccccccccccccccccccccccccc = Address("0x85b89db0e2aef2a23f50801209a3de4c65c58d9d")  # noqa: E501
+    addr_0xcccccccccccccccccccccccccccccccccccccccc = Address(
+        "0x85b89db0e2aef2a23f50801209a3de4c65c58d9d"
+    )
     sender = EOA(
-        key=0x91e0c3c68d9de64b3299188625bebd08c8b66d1c7e853e155f997c465e8f5f47
+        key=0x91E0C3C68D9DE64B3299188625BEBD08C8B66D1C7E853E155F997C465E8F5F47
     )
 
     env = Environment(
@@ -52,23 +52,21 @@ def test_transaction_intinsic_bug_paris(
     )
 
     pre[addr_0xcccccccccccccccccccccccccccccccccccccccc] = Account(balance=10)
-    pre[sender] = Account(balance=0x2faf094, nonce=1)
-
+    pre[sender] = Account(balance=0x2FAF094, nonce=1)
 
     tx = Transaction(
         sender=sender,
         to=addr_0xcccccccccccccccccccccccccccccccccccccccc,
         data=bytes.fromhex("00"),
         gas_limit=50000,
-        value=0x2dc6c14,
+        value=0x2DC6C14,
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=20,
         nonce=1,
-        access_list=[
-        ],
+        access_list=[],
         error=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
     )
 
-    post = {sender: Account(balance=0x2faf094)}
+    post = {sender: Account(balance=0x2FAF094)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

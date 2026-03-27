@@ -1,5 +1,5 @@
 """
-test_contract_creation_oo_gdont_leave_empty_contract
+Test_contract_creation_oo_gdont_leave_empty_contract.
 
 Ported from:
 state_tests/stHomesteadSpecific/contractCreationOOGdontLeaveEmptyContractFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stHomesteadSpecific/contractCreationOOGdontLeaveEmptyContractFiller.json"],
+    [
+        "state_tests/stHomesteadSpecific/contractCreationOOGdontLeaveEmptyContractFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,11 +33,11 @@ def test_contract_creation_oo_gdont_leave_empty_contract(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_contract_creation_oo_gdont_leave_empty_contract"""
+    """Test_contract_creation_oo_gdont_leave_empty_contract."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x1000000000000000000000000000000000000001")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,29 +50,34 @@ def test_contract_creation_oo_gdont_leave_empty_contract(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0xf4240)
+    pre[sender] = Account(balance=0xF4240)
     # Source: lll
-    # { (SSTORE 1 0x10) (MSTORE 0 0x6001600155601080600c6000396000f3006000355415600957005b6020356000 ) (CREATE 0 0 32)}
-    contract_0 = pre.deploy_contract(
+    # { (SSTORE 1 0x10) (MSTORE 0 0x6001600155601080600c6000396000f3006000355415600957005b6020356000 ) (CREATE 0 0 32)}  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x10)
-        + Op.MSTORE(offset=0x0, value=0x6001600155601080600c6000396000f3006000355415600957005b6020356000)
-        + Op.CREATE(value=0x0, offset=0x0, size=0x20) + Op.STOP,
+        + Op.MSTORE(
+            offset=0x0,
+            value=0x6001600155601080600C6000396000F3006000355415600957005B6020356000,  # noqa: E501
+        )
+        + Op.CREATE(value=0x0, offset=0x0, size=0x20)
+        + Op.STOP,
         nonce=0,
         address=Address("0x1000000000000000000000000000000000000001"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=93056,
         nonce=0,
         gas_price=10,
     )
 
     post = {
-        Address("0x5dddfce53ee040d9eb21afbc0ae1bb4dbb0ba643"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0x5dddfce53ee040d9eb21afbc0ae1bb4dbb0ba643"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

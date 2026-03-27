@@ -1,5 +1,5 @@
 """
-callcode inside create/create2 contract init to existing contract
+Callcode inside create/create2 contract init to existing contract.
 
 Ported from:
 state_tests/stCallCodes/callcodeInInitcodeToExistingContractFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -39,18 +39,24 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallCodes/callcodeInInitcodeToExistingContractFiller.json"],
+    [
+        "state_tests/stCallCodes/callcodeInInitcodeToExistingContractFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
     ],
@@ -64,14 +70,14 @@ def test_callcode_in_initcode_to_existing_contract(
     g: int,
     v: int,
 ) -> None:
-    """callcode inside create/create2 contract init to existing contract"""
+    """Callcode inside create/create2 contract init to existing contract."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x1100000000000000000000000000000000000000")
     contract_1 = Address("0x1000000000000000000000000000000000000000")
     contract_2 = Address("0x2000000000000000000000000000000000000000")
     contract_3 = Address("0x1000000000000000000000000000000000000001")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -86,30 +92,70 @@ def test_callcode_in_initcode_to_existing_contract(
 
     # Source: lll
     # { (CALL 300000 (CALLDATALOAD 0) 0 0 0 0 0) }
-    contract_0 = pre.deploy_contract(
-        code=Op.CALL(gas=0x493e0, address=Op.CALLDATALOAD(offset=0x0), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0x493E0,
+            address=Op.CALLDATALOAD(offset=0x0),
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0x1100000000000000000000000000000000000000"),  # noqa: E501
     )
     # Source: lll
-    # {(seq (CREATE 1 0 (lll (seq  [[1]] (CALLCODE 50000 0x1000000000000000000000000000000000000001 1 0 0 0 0)) 0)   )           )}
-    contract_1 = pre.deploy_contract(
-        code=Op.PUSH1[0x27] + Op.CODECOPY(dest_offset=0x0, offset=0xf, size=Op.DUP1)
-        + Op.PUSH1[0x0] + Op.PUSH1[0x1] + Op.CREATE + Op.STOP + Op.INVALID
-        + Op.SSTORE(key=0x1, value=Op.CALLCODE(gas=0xc350, address=0x1000000000000000000000000000000000000001, value=0x1, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+    # {(seq (CREATE 1 0 (lll (seq  [[1]] (CALLCODE 50000 0x1000000000000000000000000000000000000001 1 0 0 0 0)) 0)   )           )}  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x27]
+        + Op.CODECOPY(dest_offset=0x0, offset=0xF, size=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.PUSH1[0x1]
+        + Op.CREATE
+        + Op.STOP
+        + Op.INVALID
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.CALLCODE(
+                gas=0xC350,
+                address=0x1000000000000000000000000000000000000001,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
         balance=10000,
         nonce=0,
         address=Address("0x1000000000000000000000000000000000000000"),  # noqa: E501
     )
     # Source: lll
-    # {(seq (CREATE2 1 0 (lll (seq  [[1]] (CALLCODE 50000 0x1000000000000000000000000000000000000001 1 0 0 0 0)) 0)   0)           )}
-    contract_2 = pre.deploy_contract(
-        code=Op.PUSH1[0x0] + Op.PUSH1[0x27]
-        + Op.CODECOPY(dest_offset=0x0, offset=0x11, size=Op.DUP1) + Op.PUSH1[0x0]
-        + Op.PUSH1[0x1] + Op.CREATE2 + Op.STOP + Op.INVALID
-        + Op.SSTORE(key=0x1, value=Op.CALLCODE(gas=0xc350, address=0x1000000000000000000000000000000000000001, value=0x1, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+    # {(seq (CREATE2 1 0 (lll (seq  [[1]] (CALLCODE 50000 0x1000000000000000000000000000000000000001 1 0 0 0 0)) 0)   0)           )}  # noqa: E501
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x0]
+        + Op.PUSH1[0x27]
+        + Op.CODECOPY(dest_offset=0x0, offset=0x11, size=Op.DUP1)
+        + Op.PUSH1[0x0]
+        + Op.PUSH1[0x1]
+        + Op.CREATE2
+        + Op.STOP
+        + Op.INVALID
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.CALLCODE(
+                gas=0xC350,
+                address=0x1000000000000000000000000000000000000001,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
         balance=10000,
         nonce=0,
@@ -117,27 +163,31 @@ def test_callcode_in_initcode_to_existing_contract(
     )
     # Source: lll
     # { (SSTORE 2 1) }
-    contract_3 = pre.deploy_contract(
+    contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x2, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x1000000000000000000000000000000000000001"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x2386f26fc10000)
+    pre[sender] = Account(balance=0x2386F26FC10000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': 0, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(storage={1: 1, 2: 1}, balance=1),  # noqa: E501
-    },
+                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                    storage={1: 1, 2: 1}, balance=1
+                ),
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x11b62573be8f72b4085bafe5b675b3e7f08ed522"): Account(storage={1: 1, 2: 1}, balance=1),  # noqa: E501
-    },
+                Address("0x11b62573be8f72b4085bafe5b675b3e7f08ed522"): Account(
+                    storage={1: 1, 2: 1}, balance=1
+                ),
+            },
         },
     ]
 
@@ -152,6 +202,5 @@ def test_callcode_in_initcode_to_existing_contract(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

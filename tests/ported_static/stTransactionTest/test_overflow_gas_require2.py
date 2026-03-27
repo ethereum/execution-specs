@@ -1,5 +1,5 @@
 """
-test_overflow_gas_require2
+Test_overflow_gas_require2.
 
 Ported from:
 state_tests/stTransactionTest/OverflowGasRequire2Filler.json
@@ -36,10 +36,10 @@ def test_overflow_gas_require2(
     pre: Alloc,
     fork: Fork,
 ) -> None:
-    """test_overflow_gas_require2"""
+    """Test_overflow_gas_require2."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x50eadfb1030587ab3a993a6ecc073041fc3b45e119daa31a13d78c7e209631a5
+        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
     )
 
     env = Environment(
@@ -52,26 +52,28 @@ def test_overflow_gas_require2(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    pre[sender] = Account(
+        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+    )
 
     expect_entries_: list[dict] = [
         {
-            "network": ['Cancun'],
+            "network": ["Cancun"],
             "result": {
-        sender: Account(
-                balance=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe6357f,
-                nonce=1,
-            ),
-    },
+                sender: Account(
+                    balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE6357F,  # noqa: E501
+                    nonce=1,
+                ),
+            },
         },
         {
-            "network": ['Prague'],
+            "network": ["Prague"],
             "result": {
-        sender: Account(
-                balance=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe5f97f,
-                nonce=1,
-            ),
-    },
+                sender: Account(
+                    balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE5F97F,  # noqa: E501
+                    nonce=1,
+                ),
+            },
         },
     ]
 
@@ -86,6 +88,5 @@ def test_overflow_gas_require2(
         gas_price=80,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

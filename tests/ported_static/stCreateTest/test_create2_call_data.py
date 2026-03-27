@@ -35,7 +35,7 @@ def test_create2_call_data(
     """Test if calldata is empty in initcode context."""
     contract_0 = Address("0x000000000000000000000000000000000c5ea705")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,7 +48,7 @@ def test_create2_call_data(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x5af3107a4000)
+    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: yul
     # berlin object "C" {
     #   code {
@@ -59,7 +59,7 @@ def test_create2_call_data(
     #     sstore(0, r)
     #     stop()
     #   }
-    # 
+    #
     #   object "initcode" {
     #     code {
     #       sstore(0, calldataload(0))
@@ -68,10 +68,15 @@ def test_create2_call_data(
     #     }
     #   }
     # }
-    contract_0 = pre.deploy_contract(
-        code=Op.PUSH1[0x0] + Op.PUSH1[0x10]
-        + Op.CODECOPY(dest_offset=Op.DUP4, offset=0x11, size=Op.DUP1) + Op.DUP2
-        + Op.DUP1 + Op.SSTORE(key=0x0, value=Op.CREATE2) + Op.STOP + Op.INVALID
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x0]
+        + Op.PUSH1[0x10]
+        + Op.CODECOPY(dest_offset=Op.DUP4, offset=0x11, size=Op.DUP1)
+        + Op.DUP2
+        + Op.DUP1
+        + Op.SSTORE(key=0x0, value=Op.CREATE2)
+        + Op.STOP
+        + Op.INVALID
         + Op.SSTORE(key=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.CALLDATACOPY(dest_offset=Op.DUP1, offset=0x0, size=0x40)
         + Op.RETURN(offset=0x0, size=Op.MSIZE),
@@ -79,11 +84,10 @@ def test_create2_call_data(
         address=Address("0x000000000000000000000000000000000c5ea705"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         nonce=0,
         gas_price=10,
@@ -91,11 +95,13 @@ def test_create2_call_data(
 
     post = {
         contract_0: Account(
-                storage={0: 0x7f8330ad7bc2afe0dffb2fdc76bbad8bc326296a},
-            ),
+            storage={0: 0x7F8330AD7BC2AFE0DFFB2FDC76BBAD8BC326296A},
+        ),
         Address("0x7f8330ad7bc2afe0dffb2fdc76bbad8bc326296a"): Account(
-                code=bytes.fromhex("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+            code=bytes.fromhex(
+                "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
             ),
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

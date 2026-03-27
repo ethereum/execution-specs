@@ -1,5 +1,5 @@
 """
-test_create_empty_contract_with_balance
+Test_create_empty_contract_with_balance.
 
 Ported from:
 state_tests/stCreateTest/CREATE_EmptyContractWithBalanceFiller.json
@@ -31,11 +31,11 @@ def test_create_empty_contract_with_balance(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_create_empty_contract_with_balance"""
+    """Test_create_empty_contract_with_balance."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,23 +48,23 @@ def test_create_empty_contract_with_balance(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [[0]](GAS) [[1]] (CREATE 1 0 32) [[100]] (GAS) }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.GAS)
         + Op.SSTORE(key=0x1, value=Op.CREATE(value=0x1, offset=0x0, size=0x20))
-        + Op.SSTORE(key=0x64, value=Op.GAS) + Op.STOP,
+        + Op.SSTORE(key=0x64, value=Op.GAS)
+        + Op.STOP,
         balance=1,
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=600000,
         nonce=0,
         gas_price=10,
@@ -72,13 +72,15 @@ def test_create_empty_contract_with_balance(
 
     post = {
         contract_0: Account(
-                storage={
-            0: 0x8d5b6,
-            1: 0xf1ecf98489fa9ed60a664fc4998db699cfa39d40,
-            100: 0x7abf8,
-        },
-            ),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(balance=1),  # noqa: E501
+            storage={
+                0: 0x8D5B6,
+                1: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+                100: 0x7ABF8,
+            },
+        ),
+        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+            balance=1
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

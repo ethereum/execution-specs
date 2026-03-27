@@ -1,5 +1,5 @@
 """
-test_create_name_registrator_per_txs_after
+Test_create_name_registrator_per_txs_after.
 
 Ported from:
 state_tests/stTransitionTest/createNameRegistratorPerTxsAfterFiller.json
@@ -22,7 +22,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stTransitionTest/createNameRegistratorPerTxsAfterFiller.json"],
+    [
+        "state_tests/stTransitionTest/createNameRegistratorPerTxsAfterFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -30,10 +32,10 @@ def test_create_name_registrator_per_txs_after(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_create_name_registrator_per_txs_after"""
+    """Test_create_name_registrator_per_txs_after."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -46,26 +48,27 @@ def test_create_name_registrator_per_txs_after(
         gas_limit=10000000000,
     )
 
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=None,
-        data=bytes.fromhex("6001600155601080600c6000396000f3006000355415600957005b60203560003555"),  # noqa: E501
+        data=bytes.fromhex(
+            "6001600155601080600c6000396000f3006000355415600957005b60203560003555"  # noqa: E501
+        ),
         gas_limit=200000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
         Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                storage={1: 1},
-                code=bytes.fromhex("396000f3006000355415600957005b60"),
-                balance=0x186a0,
-                nonce=1,
-            ),
+            storage={1: 1},
+            code=bytes.fromhex("396000f3006000355415600957005b60"),
+            balance=0x186A0,
+            nonce=1,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

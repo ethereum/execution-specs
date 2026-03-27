@@ -1,5 +1,5 @@
 """
-test_transaction_to_addressh160minus_one
+Test_transaction_to_addressh160minus_one.
 
 Ported from:
 state_tests/stTransactionTest/TransactionToAddressh160minusOneFiller.json
@@ -22,7 +22,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stTransactionTest/TransactionToAddressh160minusOneFiller.json"],
+    [
+        "state_tests/stTransactionTest/TransactionToAddressh160minusOneFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -30,10 +32,10 @@ def test_transaction_to_addressh160minus_one(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_transaction_to_addressh160minus_one"""
+    """Test_transaction_to_addressh160minus_one."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xf79127a3004abde26a4cbd80c428cb10f829fa11b54d36e7b326f4f4a5927acf
+        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
     )
 
     env = Environment(
@@ -46,13 +48,12 @@ def test_transaction_to_addressh160minus_one(
         gas_limit=100000,
     )
 
-    pre[sender] = Account(balance=0x3b9aca00)
-
+    pre[sender] = Account(balance=0x3B9ACA00)
 
     tx = Transaction(
         sender=sender,
         to=Address("0xffffffffffffffffffffffffffffffffffffffff"),
-        data=b'',
+        data=b"",
         gas_limit=22000,
         value=100,
         nonce=0,
@@ -60,7 +61,9 @@ def test_transaction_to_addressh160minus_one(
     )
 
     post = {
-        Address("0xffffffffffffffffffffffffffffffffffffffff"): Account(balance=100),  # noqa: E501
+        Address("0xffffffffffffffffffffffffffffffffffffffff"): Account(
+            balance=100
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

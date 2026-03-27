@@ -1,5 +1,5 @@
 """
-test_create_bounds3
+Test_create_bounds3.
 
 Ported from:
 state_tests/stMemoryStressTest/CREATE_Bounds3Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,15 +45,21 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
         pytest.param(
-            0, 2, 0,
+            0,
+            2,
+            0,
             id="-g2",
         ),
     ],
@@ -67,11 +73,11 @@ def test_create_bounds3(
     g: int,
     v: int,
 ) -> None:
-    """test_create_bounds3"""
+    """Test_create_bounds3."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x1000000000000000000000000000000000000000")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -85,39 +91,80 @@ def test_create_bounds3(
     )
 
     # Source: lll
-    # {  (MSTORE 0 0x6001600155601080600c6000396000f3006000355415600957005b6020356000 )  (MSTORE8 32 0x35) (MSTORE8 33 0x55) (CREATE 1 0 0xffffffffffffffff) (CREATE 1 0 0xffffffffffffffffffffffffffffffff) (CREATE 1 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CREATE 1 0xfffffff 0) (CREATE 1 0xffffffff 0) (CREATE 1 0xffffffffffffffff 0) (CREATE 1 0xffffffffffffffffffffffffffffffff 0) (CREATE 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0) (CREATE 1 0xfffffff 0xfffffff) (CREATE 1 0xffffffff 0xffffffff) (CREATE 1 0xffffffffffffffff 0xffffffffffffffff) (CREATE 1 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff) (CREATE 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)}
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x6001600155601080600c6000396000f3006000355415600957005b6020356000)
+    # {  (MSTORE 0 0x6001600155601080600c6000396000f3006000355415600957005b6020356000 )  (MSTORE8 32 0x35) (MSTORE8 33 0x55) (CREATE 1 0 0xffffffffffffffff) (CREATE 1 0 0xffffffffffffffffffffffffffffffff) (CREATE 1 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) (CREATE 1 0xfffffff 0) (CREATE 1 0xffffffff 0) (CREATE 1 0xffffffffffffffff 0) (CREATE 1 0xffffffffffffffffffffffffffffffff 0) (CREATE 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0) (CREATE 1 0xfffffff 0xfffffff) (CREATE 1 0xffffffff 0xffffffff) (CREATE 1 0xffffffffffffffff 0xffffffffffffffff) (CREATE 1 0xffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffff) (CREATE 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)}  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0x6001600155601080600C6000396000F3006000355415600957005B6020356000,  # noqa: E501
+        )
         + Op.MSTORE8(offset=0x20, value=0x35)
         + Op.MSTORE8(offset=0x21, value=0x55)
-        + Op.POP(Op.CREATE(value=0x1, offset=0x0, size=0xffffffffffffffff))
-        + Op.POP(Op.CREATE(value=0x1, offset=0x0, size=0xffffffffffffffffffffffffffffffff))
-        + Op.POP(Op.CREATE(value=0x1, offset=0x0, size=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff))
-        + Op.POP(Op.CREATE(value=0x1, offset=0xfffffff, size=0x0))
-        + Op.POP(Op.CREATE(value=0x1, offset=0xffffffff, size=0x0))
-        + Op.POP(Op.CREATE(value=0x1, offset=0xffffffffffffffff, size=0x0))
-        + Op.POP(Op.CREATE(value=0x1, offset=0xffffffffffffffffffffffffffffffff, size=0x0))
-        + Op.POP(Op.CREATE(value=0x1, offset=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, size=0x0))
-        + Op.POP(Op.CREATE(value=0x1, offset=0xfffffff, size=0xfffffff))
-        + Op.POP(Op.CREATE(value=0x1, offset=0xffffffff, size=0xffffffff))
-        + Op.POP(Op.CREATE(value=0x1, offset=0xffffffffffffffff, size=0xffffffffffffffff))
-        + Op.POP(Op.CREATE(value=0x1, offset=0xffffffffffffffffffffffffffffffff, size=0xffffffffffffffffffffffffffffffff))
-        + Op.CREATE(value=0x1, offset=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, size=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+        + Op.POP(Op.CREATE(value=0x1, offset=0x0, size=0xFFFFFFFFFFFFFFFF))
+        + Op.POP(
+            Op.CREATE(
+                value=0x1, offset=0x0, size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+            )
+        )
+        + Op.POP(
+            Op.CREATE(
+                value=0x1,
+                offset=0x0,
+                size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            )
+        )
+        + Op.POP(Op.CREATE(value=0x1, offset=0xFFFFFFF, size=0x0))
+        + Op.POP(Op.CREATE(value=0x1, offset=0xFFFFFFFF, size=0x0))
+        + Op.POP(Op.CREATE(value=0x1, offset=0xFFFFFFFFFFFFFFFF, size=0x0))
+        + Op.POP(
+            Op.CREATE(
+                value=0x1, offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, size=0x0
+            )
+        )
+        + Op.POP(
+            Op.CREATE(
+                value=0x1,
+                offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                size=0x0,
+            )
+        )
+        + Op.POP(Op.CREATE(value=0x1, offset=0xFFFFFFF, size=0xFFFFFFF))
+        + Op.POP(Op.CREATE(value=0x1, offset=0xFFFFFFFF, size=0xFFFFFFFF))
+        + Op.POP(
+            Op.CREATE(
+                value=0x1, offset=0xFFFFFFFFFFFFFFFF, size=0xFFFFFFFFFFFFFFFF
+            )
+        )
+        + Op.POP(
+            Op.CREATE(
+                value=0x1,
+                offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+                size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,
+            )
+        )
+        + Op.CREATE(
+            value=0x1,
+            offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+            size=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+        )
         + Op.STOP,
         balance=100,
         nonce=0,
         address=Address("0x1000000000000000000000000000000000000000"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xfffffffffffffffffffffffffffffffffffffffffffffffff)
+    pre[sender] = Account(
+        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+    )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(balance=100),
-        Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account.NONEXISTENT,  # noqa: E501
-    },
+                contract_0: Account(balance=100),
+                Address(
+                    "0x13136008b64ff592819b2fa6d43f2835c452020e"
+                ): Account.NONEXISTENT,
+            },
         },
     ]
 
@@ -132,6 +179,5 @@ def test_create_bounds3(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

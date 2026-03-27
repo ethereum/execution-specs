@@ -1,5 +1,5 @@
 """
-test_refund_oog
+Test_refund_oog.
 
 Ported from:
 state_tests/stRefundTest/refund_OOGFiller.json
@@ -31,10 +31,10 @@ def test_refund_oog(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_refund_oog"""
+    """Test_refund_oog."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
     sender = EOA(
-        key=0x8518c6b13163f88376adbde956b3d6c1e4e027e25e20994c1ad0d78b8fd7fac9
+        key=0x8518C6B13163F88376ADBDE956B3D6C1E4E027E25E20994C1AD0D78B8FD7FAC9
     )
 
     env = Environment(
@@ -50,20 +50,19 @@ def test_refund_oog(
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[ 1 ]] 0 }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xf4c9fc42faeda49049e3b8e2b97a17cc2fe95718"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7a120)
-
+    pre[sender] = Account(balance=0x7A120)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=26005,
         value=10,
         nonce=0,
@@ -71,9 +70,9 @@ def test_refund_oog(
     )
 
     post = {
-        target: Account(storage={1: 1}, balance=0xde0b6b3a7640000),
+        target: Account(storage={1: 1}, balance=0xDE0B6B3A7640000),
         coinbase: Account(balance=0),
-        sender: Account(balance=0x3a94e, nonce=1),
+        sender: Account(balance=0x3A94E, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

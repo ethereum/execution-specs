@@ -1,5 +1,5 @@
 """
-create fails because init code has stack underflow, trying to suicide to it
+Create fails because init code has stack underflow, trying to suicide...
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createInitFailStackUnderflowFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallCreateCallCodeTest/createInitFailStackUnderflowFiller.json"],
+    [
+        "state_tests/stCallCreateCallCodeTest/createInitFailStackUnderflowFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,10 +33,10 @@ def test_create_init_fail_stack_underflow(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """create fails because init code has stack underflow, trying to suici..."""
+    """Create fails because init code has stack underflow, trying to..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -49,29 +51,30 @@ def test_create_init_fail_stack_underflow(
 
     # Source: lll
     # {(MSTORE8 0 0x01 ) (SELFDESTRUCT (CREATE 1 0 1)) }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE8(offset=0x0, value=0x1)
         + Op.SELFDESTRUCT(address=Op.CREATE(value=0x1, offset=0x0, size=0x1))
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x1ec952083e988eeb19fcab317760ffc6671246fd"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=2200000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
-        Address("0x0000000000000000000000000000000000000000"): Account(balance=0xde0b6b3a76586a0),  # noqa: E501
+        Address("0x0000000000000000000000000000000000000000"): Account(
+            balance=0xDE0B6B3A76586A0
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

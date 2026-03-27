@@ -1,5 +1,5 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com
+Ori Pomerantz   qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stRefundTest/refundFFFiller.yml
@@ -14,8 +14,6 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
-    AccessList,
-    Hash,
 )
 from execution_testing.vm import Op
 
@@ -35,9 +33,11 @@ def test_refund_ff(
 ) -> None:
     """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xdddddddddddddddddddddddddddddddddddddddd = Address("0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3")  # noqa: E501
+    addr_0xdddddddddddddddddddddddddddddddddddddddd = Address(
+        "0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3"
+    )
     sender = EOA(
-        key=0xd6b0676afde099a078f9d00f24d2c1cb4278546e1734927015023db0980a92c5
+        key=0xD6B0676AFDE099A078F9D00F24D2C1CB4278546E1734927015023DB0980A92C5
     )
 
     env = Environment(
@@ -55,14 +55,17 @@ def test_refund_ff(
     # {
     #    selfdestruct(<eoa:0xdddddddddddddddddddddddddddddddddddddddd>)
     # }
-    target = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0x7704d8a022a1ba8f3539fc82c7d7fb065abc0df3),
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(
+            address=0x7704D8A022A1BA8F3539FC82C7D7FB065ABC0DF3
+        ),
         nonce=1,
         address=Address("0xa45b53c7b70adf8ea2e910d0e826df8d895b2b49"),  # noqa: E501
     )
-    pre[addr_0xdddddddddddddddddddddddddddddddddddddddd] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0xe8d6599218, nonce=1)
-
+    pre[addr_0xdddddddddddddddddddddddddddddddddddddddd] = Account(
+        balance=0, nonce=1
+    )
+    pre[sender] = Account(balance=0xE8D6599218, nonce=1)
 
     tx = Transaction(
         sender=sender,
@@ -71,10 +74,9 @@ def test_refund_ff(
         gas_limit=2601000,
         nonce=1,
         gas_price=1000,
-        access_list=[
-        ],
+        access_list=[],
     )
 
-    post = {sender: Account(balance=0xe8d4a51000)}
+    post = {sender: Account(balance=0xE8D4A51000)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,5 +1,5 @@
 """
-test_stack_under_flow_contract_creation
+Test_stack_under_flow_contract_creation.
 
 Ported from:
 state_tests/stInitCodeTest/StackUnderFlowContractCreationFiller.json
@@ -30,10 +30,10 @@ def test_stack_under_flow_contract_creation(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_stack_under_flow_contract_creation"""
+    """Test_stack_under_flow_contract_creation."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -47,8 +47,7 @@ def test_stack_under_flow_contract_creation(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0xae9f7bcc00)
-
+    pre[sender] = Account(balance=0xAE9F7BCC00)
 
     tx = Transaction(
         sender=sender,
@@ -60,7 +59,9 @@ def test_stack_under_flow_contract_creation(
     )
 
     post = {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+        ): Account.NONEXISTENT,
         sender: Account(nonce=1),
     }
 

@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmArithmeticTest/mulmodFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -60,67 +60,99 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="mm_1_2_2",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="mm_neg1_neg2_3",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="mm_neg5_1_3",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="mm_5_1_neg3",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="mm_27_37_100",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="mm_2pow255_2_5",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="mm_neg1_2_5",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="mm_2pow255min1_2_5",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="mm_2pow255plus1_2_5",
         ),
         pytest.param(
-            9, 0, 0,
+            9,
+            0,
+            0,
             id="mulmod_vs_smod",
         ),
         pytest.param(
-            10, 0, 0,
+            10,
+            0,
+            0,
             id="mulmod_vs_mod",
         ),
         pytest.param(
-            11, 0, 0,
+            11,
+            0,
+            0,
             id="mulmod_pos_pos_neg",
         ),
         pytest.param(
-            12, 0, 0,
+            12,
+            0,
+            0,
             id="mm_0_1_0",
         ),
         pytest.param(
-            13, 0, 0,
+            13,
+            0,
+            0,
             id="mm_1_0_0",
         ),
         pytest.param(
-            14, 0, 0,
+            14,
+            0,
+            0,
             id="one_minus_mm_0_0_0",
         ),
         pytest.param(
-            15, 0, 0,
+            15,
+            0,
+            0,
             id="mm_5_1_0",
         ),
     ],
@@ -154,7 +186,7 @@ def test_mulmod(
     contract_15 = Address("0x000000000000000000000000000000000000100f")
     contract_16 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -172,9 +204,9 @@ def test_mulmod(
     #    ; (1*2) % 2 is zero
     #    [[0]] (mulmod 1 2 2)
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MULMOD(0x1, 0x2, 0x2)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -186,10 +218,12 @@ def test_mulmod(
     #    ; (2^256-1) % 3 = (1-1)%3 = 0
     #    [[0]] (mulmod (- 0 1) (- 0 2) 3)
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MULMOD(Op.SUB(0x0, 0x1), Op.SUB(0x0, 0x2), 0x3))  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0, value=Op.MULMOD(Op.SUB(0x0, 0x1), Op.SUB(0x0, 0x2), 0x3)
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -198,10 +232,10 @@ def test_mulmod(
     #    ; -5 % 3 = (2^256 - 5) % 3 = (1-2)%3 = (-1) % 3 = 2
     #    [[0]] (mulmod (- 0 5) 1 3)
     # }
-    contract_2 = pre.deploy_contract(
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MULMOD(Op.SUB(0x0, 0x5), 0x1, 0x3))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -210,10 +244,10 @@ def test_mulmod(
     #    ; -3 is actually 2^256-3, which is much more than five
     #    [[0]] (mulmod 5 1 (- 0 3))
     # }
-    contract_3 = pre.deploy_contract(
+    contract_3 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MULMOD(0x5, 0x1, Op.SUB(0x0, 0x3)))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
@@ -221,25 +255,32 @@ def test_mulmod(
     # {
     #    [[0]] (mulmod 27 37 100)
     # }
-    contract_4 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MULMOD(0x1b, 0x25, 0x64)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.MULMOD(0x1B, 0x25, 0x64)) + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
     )
     # Source: lll
     # {
-    #    (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
-    # 
+    #    (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #
     #    ; 2^255%5 = 3
     #    ;     2%5 = 2
     #    ;           6%5 = 1
     #    [[0]] (mulmod pow2_255 2 5)
     # }
-    contract_5 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MULMOD(0x8000000000000000000000000000000000000000000000000000000000000000, 0x2, 0x5))  # noqa: E501
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.MULMOD(
+                0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+                0x2,
+                0x5,
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
     )
@@ -248,42 +289,62 @@ def test_mulmod(
     #    ; (256^2-1) % 5 = 0
     #    [[0]] (mulmod (- 0 1) 2 5)
     # }
-    contract_6 = pre.deploy_contract(
+    contract_6 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MULMOD(Op.SUB(0x0, 0x1), 0x2, 0x5))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001006"),  # noqa: E501
     )
     # Source: lll
     # {
-    #    (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
-    # 
+    #    (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #
     #    ; 2^255%5 = 3
     #    ;     2%5 = 2
     #    ; (3-1) * 2 = 4
     #    [[0]] (mulmod (- pow2_255 1) 2 5)
     # }
-    contract_7 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MULMOD(Op.SUB(0x8000000000000000000000000000000000000000000000000000000000000000, 0x1), 0x2, 0x5))  # noqa: E501
+    contract_7 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.MULMOD(
+                Op.SUB(
+                    0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+                    0x1,
+                ),
+                0x2,
+                0x5,
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001007"),  # noqa: E501
     )
     # Source: lll
     # {
-    #    (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
-    # 
+    #    (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)  # noqa: E501
+    #
     #    ; 2^255%5 = 3
     #    ;     2%5 = 2
     #    ; ((3+1) * 2) % 5 = 3
     #    [[0]] (mulmod (+ pow2_255 1) 2 5)
     # }
-    contract_8 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MULMOD(Op.ADD(0x8000000000000000000000000000000000000000000000000000000000000000, 0x1), 0x2, 0x5))  # noqa: E501
+    contract_8 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.MULMOD(
+                Op.ADD(
+                    0x8000000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+                    0x1,
+                ),
+                0x2,
+                0x5,
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001008"),  # noqa: E501
     )
@@ -294,10 +355,16 @@ def test_mulmod(
     #    ; -1 != 2
     #    [[0]] (= (smod (- 0 5) 3) (mulmod (- 0 5) 1 3))
     # }
-    contract_9 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.EQ(Op.SMOD(Op.SUB(0x0, 0x5), 0x3), Op.MULMOD(Op.SUB(0x0, 0x5), 0x1, 0x3)))  # noqa: E501
+    contract_9 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.EQ(
+                Op.SMOD(Op.SUB(0x0, 0x5), 0x3),
+                Op.MULMOD(Op.SUB(0x0, 0x5), 0x1, 0x3),
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001009"),  # noqa: E501
     )
@@ -307,10 +374,16 @@ def test_mulmod(
     #    ; equal
     #    [[0]] (= (mod (- 0 5) 3) (mulmod (- 0 5) 1 3))
     # }
-    contract_10 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.EQ(Op.MOD(Op.SUB(0x0, 0x5), 0x3), Op.MULMOD(Op.SUB(0x0, 0x5), 0x1, 0x3)))  # noqa: E501
+    contract_10 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.EQ(
+                Op.MOD(Op.SUB(0x0, 0x5), 0x3),
+                Op.MULMOD(Op.SUB(0x0, 0x5), 0x1, 0x3),
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100a"),  # noqa: E501
     )
@@ -321,10 +394,12 @@ def test_mulmod(
     #    ; not equal
     #    [[0]] (= (mulmod 5 1 (- 0 3)) 2)
     # }
-    contract_11 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.EQ(Op.MULMOD(0x5, 0x1, Op.SUB(0x0, 0x3)), 0x2))  # noqa: E501
+    contract_11 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0, value=Op.EQ(Op.MULMOD(0x5, 0x1, Op.SUB(0x0, 0x3)), 0x2)
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100b"),  # noqa: E501
     )
@@ -333,9 +408,9 @@ def test_mulmod(
     #    ; (mulmod x y 0) is zero
     #    [[0]] (mulmod 0 1 0)
     # }
-    contract_12 = pre.deploy_contract(
+    contract_12 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MULMOD(0x0, 0x1, 0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100c"),  # noqa: E501
     )
@@ -344,9 +419,9 @@ def test_mulmod(
     #    ; (mulmod x y 0) is zero
     #    [[0]] (mulmod 1 0 0)
     # }
-    contract_13 = pre.deploy_contract(
+    contract_13 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MULMOD(0x1, 0x0, 0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100d"),  # noqa: E501
     )
@@ -355,10 +430,10 @@ def test_mulmod(
     #    ; (mulmod x y 0) is zero
     #    [[0]] (- 1 (mulmod 0 0 0))
     # }
-    contract_14 = pre.deploy_contract(
+    contract_14 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.SUB(0x1, Op.MULMOD(0x0, 0x0, 0x0)))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100e"),  # noqa: E501
     )
@@ -367,9 +442,9 @@ def test_mulmod(
     #    ; (mulmod x y 0) is zero
     #    [[0]] (mulmod 5 1 0)
     # }
-    contract_15 = pre.deploy_contract(
+    contract_15 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MULMOD(0x5, 0x1, 0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100f"),  # noqa: E501
     )
@@ -377,68 +452,80 @@ def test_mulmod(
     # {
     #     (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
     # }
-    contract_16 = pre.deploy_contract(
-        code=Op.CALL(gas=0xffffff, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_16 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0xFFFFFF,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0, 1, 6, 9, 11, 12, 13, 15], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {
+                "data": [0, 1, 6, 9, 11, 12, 13, 15],
+                "gas": -1,
+                "value": -1,
+            },
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(storage={0: 0}),
-        contract_1: Account(storage={0: 0}),
-        contract_6: Account(storage={0: 0}),
-        contract_9: Account(storage={0: 0}),
-        contract_11: Account(storage={0: 0}),
-        contract_12: Account(storage={0: 0}),
-        contract_13: Account(storage={0: 0}),
-        contract_15: Account(storage={0: 0}),
-    },
+                contract_0: Account(storage={0: 0}),
+                contract_1: Account(storage={0: 0}),
+                contract_6: Account(storage={0: 0}),
+                contract_9: Account(storage={0: 0}),
+                contract_11: Account(storage={0: 0}),
+                contract_12: Account(storage={0: 0}),
+                contract_13: Account(storage={0: 0}),
+                contract_15: Account(storage={0: 0}),
+            },
         },
         {
-            "indexes": {'data': [2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={0: 2})},
         },
         {
-            "indexes": {'data': [3], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_3: Account(storage={0: 5})},
         },
         {
-            "indexes": {'data': [4], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_4: Account(storage={0: 99})},
         },
         {
-            "indexes": {'data': [5], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [5], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_5: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [7], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [7], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_7: Account(storage={0: 4})},
         },
         {
-            "indexes": {'data': [8], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [8], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_8: Account(storage={0: 3})},
         },
         {
-            "indexes": {'data': [10], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [10], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_10: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [14], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [14], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_14: Account(storage={0: 1})},
         },
     ]
@@ -455,6 +542,5 @@ def test_mulmod(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

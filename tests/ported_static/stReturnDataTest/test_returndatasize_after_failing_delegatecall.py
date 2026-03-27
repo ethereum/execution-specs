@@ -1,5 +1,5 @@
 """
-test_returndatasize_after_failing_delegatecall
+Test_returndatasize_after_failing_delegatecall.
 
 Ported from:
 state_tests/stReturnDataTest/returndatasize_after_failing_delegatecallFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stReturnDataTest/returndatasize_after_failing_delegatecallFiller.json"],
+    [
+        "state_tests/stReturnDataTest/returndatasize_after_failing_delegatecallFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,11 +33,13 @@ def test_returndatasize_after_failing_delegatecall(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_returndatasize_after_failing_delegatecall"""
+    """Test_returndatasize_after_failing_delegatecall."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 = Address("0x6c7410da158fa432392fcad5989e1b28280f99d8")  # noqa: E501
+    addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 = Address(
+        "0x6c7410da158fa432392fcad5989e1b28280f99d8"
+    )
     sender = EOA(
-        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
 
     env = Environment(
@@ -48,21 +52,33 @@ def test_returndatasize_after_failing_delegatecall(
         gas_limit=111669149696,
     )
 
-    pre[addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6] = Account(balance=0x1000000)
+    pre[addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6] = Account(
+        balance=0x1000000
+    )
     # Source: lll
-    # { (seq (DELEGATECALL 10000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)))}
-    target = pre.deploy_contract(
-        code=Op.POP(Op.DELEGATECALL(gas=0x2710, address=0x665521fd750490fd880ee369c267fca44ed8a078, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE) + Op.STOP,
+    # { (seq (DELEGATECALL 10000 <contract:0x1000000000000000000000000000000000000002> 0 0 0 0) (SSTORE 0 (RETURNDATASIZE)))}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.DELEGATECALL(
+                gas=0x2710,
+                address=0x665521FD750490FD880EE369C267FCA44ED8A078,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
+        + Op.STOP,
         storage={
-            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+            0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
         },
         nonce=0,
         address=Address("0xacb6ad74f94ea8c5a482f1e89d1c0946600a9888"),  # noqa: E501
     )
     # Source: raw
     # 0xfd
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(
+    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
         code=Op.REVERT,
         balance=0x6400000000,
         nonce=0,
@@ -70,11 +86,10 @@ def test_returndatasize_after_failing_delegatecall(
     )
     pre[sender] = Account(balance=0x6400000000)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         nonce=0,
         gas_price=10,

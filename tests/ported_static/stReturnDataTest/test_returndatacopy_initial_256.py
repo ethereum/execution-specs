@@ -1,5 +1,5 @@
 """
-test_returndatacopy_initial_256
+Test_returndatacopy_initial_256.
 
 Ported from:
 state_tests/stReturnDataTest/returndatacopy_initial_256Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -47,15 +47,21 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="d2",
         ),
     ],
@@ -69,10 +75,10 @@ def test_returndatacopy_initial_256(
     g: int,
     v: int,
 ) -> None:
-    """test_returndatacopy_initial_256"""
+    """Test_returndatacopy_initial_256."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
 
     env = Environment(
@@ -86,13 +92,18 @@ def test_returndatacopy_initial_256(
     )
 
     # Source: lll
-    # { (RETURNDATACOPY (- 0 (CALLDATALOAD 0)) 0 0x64) (MSTORE 0 0x112233445566778899aabbccddeeff) (SSTORE 0 (MLOAD 0)) }
-    target = pre.deploy_contract(
-        code=Op.RETURNDATACOPY(dest_offset=Op.SUB(0x0, Op.CALLDATALOAD(offset=0x0)), offset=0x0, size=0x64)
-        + Op.MSTORE(offset=0x0, value=0x112233445566778899aabbccddeeff)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
+    # { (RETURNDATACOPY (- 0 (CALLDATALOAD 0)) 0 0x64) (MSTORE 0 0x112233445566778899aabbccddeeff) (SSTORE 0 (MLOAD 0)) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.RETURNDATACOPY(
+            dest_offset=Op.SUB(0x0, Op.CALLDATALOAD(offset=0x0)),
+            offset=0x0,
+            size=0x64,
+        )
+        + Op.MSTORE(offset=0x0, value=0x112233445566778899AABBCCDDEEFF)
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
         storage={0: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x28f194b678152b435b5910dbdf69c091fa056347"),  # noqa: E501
     )
@@ -100,8 +111,8 @@ def test_returndatacopy_initial_256(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={0: 1})},
         },
     ]
@@ -117,6 +128,5 @@ def test_returndatacopy_initial_256(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

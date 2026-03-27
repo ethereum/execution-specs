@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmArithmeticTest/addmodFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -60,67 +60,99 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="addmod_1_2_2",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="addmod_neg1_neg2_2",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="addmod_neg6_1_3",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="addmod_eq_smod",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="addmod_eq_mod",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="addmod_4_1_neg3",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="addmod_4_1_neg3_eq",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="addmod_neg1_0_5",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="addmod_neg1_1_5",
         ),
         pytest.param(
-            9, 0, 0,
+            9,
+            0,
+            0,
             id="addmod_neg1_2_5",
         ),
         pytest.param(
-            10, 0, 0,
+            10,
+            0,
+            0,
             id="addmod_neg1_neg2_5",
         ),
         pytest.param(
-            11, 0, 0,
+            11,
+            0,
+            0,
             id="addmod_2_160_1_5",
         ),
         pytest.param(
-            12, 0, 0,
+            12,
+            0,
+            0,
             id="addmod_4_1_0",
         ),
         pytest.param(
-            13, 0, 0,
+            13,
+            0,
+            0,
             id="addmod_0_1_0",
         ),
         pytest.param(
-            14, 0, 0,
+            14,
+            0,
+            0,
             id="addmod_1_0_0",
         ),
         pytest.param(
-            15, 0, 0,
+            15,
+            0,
+            0,
             id="addmod_0_0_0_min_1",
         ),
     ],
@@ -154,7 +186,7 @@ def test_addmod(
     contract_15 = Address("0x000000000000000000000000000000000000100f")
     contract_16 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -171,9 +203,9 @@ def test_addmod(
     # {
     #    [[0]] (addmod 1 2 2)
     # }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDMOD(0x1, 0x2, 0x2)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -181,10 +213,12 @@ def test_addmod(
     # {
     #    [[0]] (addmod (- 0 1) (- 0 2) 2)
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.ADDMOD(Op.SUB(0x0, 0x1), Op.SUB(0x0, 0x2), 0x2))  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0, value=Op.ADDMOD(Op.SUB(0x0, 0x1), Op.SUB(0x0, 0x2), 0x2)
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -192,10 +226,10 @@ def test_addmod(
     # {
     #    [[0]] (addmod (- 0 6) 1 3)
     # }
-    contract_2 = pre.deploy_contract(
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDMOD(Op.SUB(0x0, 0x6), 0x1, 0x3))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -203,10 +237,16 @@ def test_addmod(
     # {
     #    [[0]] (eq (smod (- 0 5) 3) (addmod (- 0 6) 1 3) )
     # }
-    contract_3 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.EQ(Op.SMOD(Op.SUB(0x0, 0x5), 0x3), Op.ADDMOD(Op.SUB(0x0, 0x6), 0x1, 0x3)))  # noqa: E501
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.EQ(
+                Op.SMOD(Op.SUB(0x0, 0x5), 0x3),
+                Op.ADDMOD(Op.SUB(0x0, 0x6), 0x1, 0x3),
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
@@ -214,10 +254,16 @@ def test_addmod(
     # {
     #    [[0]] (eq (mod  (- 0 5) 3) (addmod (- 0 6) 1 3) )
     # }
-    contract_4 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.EQ(Op.MOD(Op.SUB(0x0, 0x5), 0x3), Op.ADDMOD(Op.SUB(0x0, 0x6), 0x1, 0x3)))  # noqa: E501
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.EQ(
+                Op.MOD(Op.SUB(0x0, 0x5), 0x3),
+                Op.ADDMOD(Op.SUB(0x0, 0x6), 0x1, 0x3),
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
     )
@@ -225,10 +271,10 @@ def test_addmod(
     # {
     #    [[0]] (addmod 4 1 (- 0 3) )
     # }
-    contract_5 = pre.deploy_contract(
+    contract_5 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDMOD(0x4, 0x1, Op.SUB(0x0, 0x3)))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
     )
@@ -236,10 +282,12 @@ def test_addmod(
     # {
     #    [[0]] (eq (addmod 4 1 (- 0 3) ) 2 )
     # }
-    contract_6 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.EQ(Op.ADDMOD(0x4, 0x1, Op.SUB(0x0, 0x3)), 0x2))  # noqa: E501
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0, value=Op.EQ(Op.ADDMOD(0x4, 0x1, Op.SUB(0x0, 0x3)), 0x2)
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001006"),  # noqa: E501
     )
@@ -247,10 +295,10 @@ def test_addmod(
     # {
     #    [[0]] (addmod (- 0 1) 0 5)
     # }
-    contract_7 = pre.deploy_contract(
+    contract_7 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDMOD(Op.SUB(0x0, 0x1), 0x0, 0x5))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001007"),  # noqa: E501
     )
@@ -258,10 +306,10 @@ def test_addmod(
     # {
     #    [[0]] (addmod (- 0 1) 1 5)
     # }
-    contract_8 = pre.deploy_contract(
+    contract_8 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDMOD(Op.SUB(0x0, 0x1), 0x1, 0x5))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001008"),  # noqa: E501
     )
@@ -269,10 +317,10 @@ def test_addmod(
     # {
     #    [[0]] (addmod (- 0 1) 2 5)
     # }
-    contract_9 = pre.deploy_contract(
+    contract_9 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDMOD(Op.SUB(0x0, 0x1), 0x2, 0x5))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001009"),  # noqa: E501
     )
@@ -280,22 +328,31 @@ def test_addmod(
     # {
     #    [[0]] (addmod (- 0 1) (- 0 2) 5)
     # }
-    contract_10 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.ADDMOD(Op.SUB(0x0, 0x1), Op.SUB(0x0, 0x2), 0x5))  # noqa: E501
+    contract_10 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0, value=Op.ADDMOD(Op.SUB(0x0, 0x1), Op.SUB(0x0, 0x2), 0x5)
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100a"),  # noqa: E501
     )
     # Source: lll
     # {
     #    ; ((2^160)-1 + 1) % 5
-    #    [[0]] (addmod 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1 5)
+    #    [[0]] (addmod 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1 5)  # noqa: E501
     # }
-    contract_11 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.ADDMOD(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, 0x1, 0x5))  # noqa: E501
+    contract_11 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.ADDMOD(
+                0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                0x1,
+                0x5,
+            ),
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100b"),  # noqa: E501
     )
@@ -303,9 +360,9 @@ def test_addmod(
     # {
     #    [[0]] (addmod 4 1 0)
     # }
-    contract_12 = pre.deploy_contract(
+    contract_12 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDMOD(0x4, 0x1, 0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100c"),  # noqa: E501
     )
@@ -313,9 +370,9 @@ def test_addmod(
     # {
     #    [[0]] (addmod 0 1 0)
     # }
-    contract_13 = pre.deploy_contract(
+    contract_13 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDMOD(0x0, 0x1, 0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100d"),  # noqa: E501
     )
@@ -323,9 +380,9 @@ def test_addmod(
     # {
     #    [[0]] (addmod 1 0 0)
     # }
-    contract_14 = pre.deploy_contract(
+    contract_14 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADDMOD(0x1, 0x0, 0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100e"),  # noqa: E501
     )
@@ -333,10 +390,10 @@ def test_addmod(
     # {
     #    [[0]] (- (addmod 0 0 0) 1)
     # }
-    contract_15 = pre.deploy_contract(
+    contract_15 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.SUB(Op.ADDMOD(0x0, 0x0, 0x0), 0x1))
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x000000000000000000000000000000000000100f"),  # noqa: E501
     )
@@ -344,101 +401,109 @@ def test_addmod(
     # {
     #     (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
     # }
-    contract_16 = pre.deploy_contract(
-        code=Op.CALL(gas=0xffffff, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_16 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0xFFFFFF,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_0: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_1: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_2: Account(storage={0: 2})},
         },
         {
-            "indexes": {'data': [3], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [3], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_3: Account(storage={0: 0})},
         },
         {
-            "indexes": {'data': [4], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_4: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [5], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [5], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_5: Account(storage={0: 5})},
         },
         {
-            "indexes": {'data': [6], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [6], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_6: Account(storage={0: 0})},
         },
         {
-            "indexes": {'data': [7], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [7], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_7: Account(storage={0: 0})},
         },
         {
-            "indexes": {'data': [8], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [8], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_8: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [9], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [9], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_9: Account(storage={0: 2})},
         },
         {
-            "indexes": {'data': [10], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [10], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_10: Account(storage={0: 4})},
         },
         {
-            "indexes": {'data': [11], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [11], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_11: Account(storage={0: 1})},
         },
         {
-            "indexes": {'data': [12], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [12], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_12: Account(storage={0: 0})},
         },
         {
-            "indexes": {'data': [13], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [13], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_13: Account(storage={0: 0})},
         },
         {
-            "indexes": {'data': [14], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [14], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_14: Account(storage={0: 0})},
         },
         {
-            "indexes": {'data': [15], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [15], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_15: Account(
-                storage={
-            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
-        },
-            ),
-    },
+                contract_15: Account(
+                    storage={
+                        0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                    },
+                ),
+            },
         },
     ]
 
@@ -454,6 +519,5 @@ def test_addmod(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

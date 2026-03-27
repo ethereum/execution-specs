@@ -1,5 +1,5 @@
 """
-test_extcodesize_to_non_existent
+Test_extcodesize_to_non_existent.
 
 Ported from:
 state_tests/stEIP158Specific/EXTCODESIZE_toNonExistentFiller.json
@@ -31,11 +31,11 @@ def test_extcodesize_to_non_existent(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_extcodesize_to_non_existent"""
+    """Test_extcodesize_to_non_existent."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,30 +48,36 @@ def test_extcodesize_to_non_existent(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { [0](GAS) [[1]] (EXTCODESIZE 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b) [[100]] (SUB @0 (GAS)) }
-    contract_0 = pre.deploy_contract(
+    # { [0](GAS) [[1]] (EXTCODESIZE 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b) [[100]] (SUB @0 (GAS)) }  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.SSTORE(key=0x1, value=Op.EXTCODESIZE(address=0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b))  # noqa: E501
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.EXTCODESIZE(
+                address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B
+            ),
+        )
         + Op.SSTORE(key=0x64, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=600000,
         nonce=0,
         gas_price=10,
     )
 
     post = {
-        Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"
+        ): Account.NONEXISTENT,
         contract_0: Account(storage={100: 4817}),
     }
 

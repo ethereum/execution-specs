@@ -1,5 +1,5 @@
 """
-test_contract_store_clears_success
+Test_contract_store_clears_success.
 
 Ported from:
 state_tests/stTransactionTest/ContractStoreClearsSuccessFiller.json
@@ -31,10 +31,10 @@ def test_contract_store_clears_success(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_contract_store_clears_success"""
+    """Test_contract_store_clears_success."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0xe624afc0dccead9a7c59f0007c5c5c3b3dd36eed1cfd8f309a68c9ba3d07769b
+        key=0xE624AFC0DCCEAD9A7C59F0007C5C5C3B3DD36EED1CFD8F309A68C9BA3D07769B
     )
 
     env = Environment(
@@ -47,15 +47,21 @@ def test_contract_store_clears_success(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0x8583b00)
+    pre[sender] = Account(balance=0x8583B00)
     # Source: lll
-    # {(SSTORE 0 0)(SSTORE 1 0)(SSTORE 2 0)(SSTORE 3 0)(SSTORE 4 0)(SSTORE 5 0)(SSTORE 6 0)(SSTORE 7 0)(SSTORE 8 0)(SSTORE 9 0)}
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=0x0) + Op.SSTORE(key=0x1, value=0x0)
-        + Op.SSTORE(key=0x2, value=0x0) + Op.SSTORE(key=0x3, value=0x0)
-        + Op.SSTORE(key=0x4, value=0x0) + Op.SSTORE(key=0x5, value=0x0)
-        + Op.SSTORE(key=0x6, value=0x0) + Op.SSTORE(key=0x7, value=0x0)
-        + Op.SSTORE(key=0x8, value=0x0) + Op.SSTORE(key=0x9, value=0x0) + Op.STOP,  # noqa: E501
+    # {(SSTORE 0 0)(SSTORE 1 0)(SSTORE 2 0)(SSTORE 3 0)(SSTORE 4 0)(SSTORE 5 0)(SSTORE 6 0)(SSTORE 7 0)(SSTORE 8 0)(SSTORE 9 0)}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=0x0)
+        + Op.SSTORE(key=0x1, value=0x0)
+        + Op.SSTORE(key=0x2, value=0x0)
+        + Op.SSTORE(key=0x3, value=0x0)
+        + Op.SSTORE(key=0x4, value=0x0)
+        + Op.SSTORE(key=0x5, value=0x0)
+        + Op.SSTORE(key=0x6, value=0x0)
+        + Op.SSTORE(key=0x7, value=0x0)
+        + Op.SSTORE(key=0x8, value=0x0)
+        + Op.SSTORE(key=0x9, value=0x0)
+        + Op.STOP,
         storage={
             0: 12,
             1: 12,
@@ -72,11 +78,10 @@ def test_contract_store_clears_success(
         address=Address("0xd61e0564fab2b0da5136f75db579b663bd9f2bd8"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=130000,
         value=10,
         nonce=0,

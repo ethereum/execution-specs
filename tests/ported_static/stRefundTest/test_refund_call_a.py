@@ -1,5 +1,5 @@
 """
-test_refund_call_a
+Test_refund_call_a.
 
 Ported from:
 state_tests/stRefundTest/refund_CallAFiller.json
@@ -31,10 +31,10 @@ def test_refund_call_a(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_refund_call_a"""
+    """Test_refund_call_a."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
     sender = EOA(
-        key=0x752660e61324e901f7231dfae39984f4d433a241d533838e4700925f477814fd
+        key=0x752660E61324E901F7231DFAE39984F4D433A241D533838E4700925F477814FD
     )
 
     env = Environment(
@@ -49,31 +49,41 @@ def test_refund_call_a(
 
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
-    # { [[ 0 ]] (CALL 5500 <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=0x157c, address=0xf4c9fc42faeda49049e3b8e2b97a17cc2fe95718, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+    # { [[ 0 ]] (CALL 5500 <contract:0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa> 0 0 0 0 0 )}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=0x157C,
+                address=0xF4C9FC42FAEDA49049E3B8E2B97A17CC2FE95718,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
         storage={1: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x3d72f604b4d56320853a5ece45772dbbf419f315"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x1312d00)
+    pre[sender] = Account(balance=0x1312D00)
     # Source: lll
     # { [[ 1 ]] 0 }
-    addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa = pre.deploy_contract(
+    addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x0) + Op.STOP,
         storage={1: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xf4c9fc42faeda49049e3b8e2b97a17cc2fe95718"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=200000,
         value=10,
         nonce=0,
@@ -81,9 +91,9 @@ def test_refund_call_a(
     )
 
     post = {
-        target: Account(storage={0: 1, 1: 1}, balance=0xde0b6b3a764000a),
+        target: Account(storage={0: 1, 1: 1}, balance=0xDE0B6B3A764000A),
         coinbase: Account(balance=0),
-        sender: Account(balance=0x12a2ad2, nonce=1),
+        sender: Account(balance=0x12A2AD2, nonce=1),
         addr_0xaaae7baea6a6c7c4c2dfeb977efac326af552aaa: Account(storage={}),
     }
 

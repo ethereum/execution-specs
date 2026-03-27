@@ -1,5 +1,5 @@
 """
-calldepth with balance too low
+Calldepth with balance too low.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/Call1024BalanceTooLowFiller.json
@@ -32,11 +32,13 @@ def test_call1024_balance_too_low(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """calldepth with balance too low"""
+    """Calldepth with balance too low."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address("0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0")  # noqa: E501
+    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
+        "0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0"
+    )
     sender = EOA(
-        key=0xe7c72b378297589acee4e0ba3272841bcfc5e220f86de253f890274cfee9e474
+        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
 
     env = Environment(
@@ -49,24 +51,36 @@ def test_call1024_balance_too_low(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0xffffffffffffffffffffffffffffffff)
-    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=7000)
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
+        balance=7000
+    )
     # Source: lll
-    # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (CALL 0xfffffffffff <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> @@0 0 0 0 0) }
-    target = pre.deploy_contract(
+    # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (CALL 0xfffffffffff <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> @@0 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
-        + Op.SSTORE(key=0x1, value=Op.CALL(gas=0xfffffffffff, address=0x2aaa3ab47a59b4ad0ba3f72ad0b5bc35388333b4, value=Op.SLOAD(key=0x0), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.CALL(
+                gas=0xFFFFFFFFFFF,
+                address=0x2AAA3AB47A59B4AD0BA3F72AD0B5BC35388333B4,
+                value=Op.SLOAD(key=0x0),
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
         balance=1024,
         nonce=0,
         address=Address("0x2aaa3ab47a59b4ad0ba3f72ad0b5bc35388333b4"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=17592186099592,
         value=10,
         nonce=0,

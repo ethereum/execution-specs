@@ -1,5 +1,5 @@
 """
-test_raw_create_gas_memory
+Test_raw_create_gas_memory.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/RawCreateGasMemoryFiller.json
@@ -31,11 +31,11 @@ def test_raw_create_gas_memory(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_raw_create_gas_memory"""
+    """Test_raw_create_gas_memory."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,23 +48,22 @@ def test_raw_create_gas_memory(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { [0] (GAS) (CREATE 0 0 8000) [[1]] (SUB @0 (GAS)) }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x1f40))
+        + Op.POP(Op.CREATE(value=0x0, offset=0x0, size=0x1F40))
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=500000,
         nonce=0,
         gas_price=10,
@@ -72,7 +71,9 @@ def test_raw_create_gas_memory(
 
     post = {
         contract_0: Account(storage={1: 33391}),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(balance=0),  # noqa: E501
+        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+            balance=0
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

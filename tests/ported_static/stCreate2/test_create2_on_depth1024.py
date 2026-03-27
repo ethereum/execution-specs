@@ -37,7 +37,7 @@ def test_create2_on_depth1024(
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     contract_1 = Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -50,49 +50,78 @@ def test_create2_on_depth1024(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    pre[sender] = Account(
+        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+    )
     # Source: lll
-    # { (MSTORE 0 (CALLDATALOAD 0)) (MSTORE 0 (ADD 2 (MLOAD 0))) (if (EQ (MLOAD 0) 0x0400) (seq (MSTORE 32 0x686000600060006000f56000526000600960176000f5600155) [[1]] (CREATE2 0 39 25 0))  (CALL (GAS) 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b (EQ (MLOAD 0) 0x0400) 0 32 0 0)) }
-    contract_0 = pre.deploy_contract(
+    # { (MSTORE 0 (CALLDATALOAD 0)) (MSTORE 0 (ADD 2 (MLOAD 0))) (if (EQ (MLOAD 0) 0x0400) (seq (MSTORE 32 0x686000600060006000f56000526000600960176000f5600155) [[1]] (CREATE2 0 39 25 0))  (CALL (GAS) 0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b (EQ (MLOAD 0) 0x0400) 0 32 0 0)) }  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
         + Op.MSTORE(offset=0x0, value=Op.ADD(0x2, Op.MLOAD(offset=0x0)))
         + Op.JUMPI(pc=0x43, condition=Op.EQ(Op.MLOAD(offset=0x0), 0x400))
-        + Op.POP(Op.CALL(gas=Op.GAS, address=0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b, value=Op.EQ(Op.MLOAD(offset=0x0), 0x400), args_offset=0x0, args_size=0x20, ret_offset=0x0, ret_size=0x0))
-        + Op.JUMP(pc=0x6d) + Op.JUMPDEST
-        + Op.MSTORE(offset=0x20, value=0x686000600060006000f56000526000600960176000f5600155)
-        + Op.SSTORE(key=0x1, value=Op.CREATE2(value=0x0, offset=0x27, size=0x19, salt=0x0))  # noqa: E501
-        + Op.JUMPDEST + Op.STOP,
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+                value=Op.EQ(Op.MLOAD(offset=0x0), 0x400),
+                args_offset=0x0,
+                args_size=0x20,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.JUMP(pc=0x6D)
+        + Op.JUMPDEST
+        + Op.MSTORE(
+            offset=0x20,
+            value=0x686000600060006000F56000526000600960176000F5600155,
+        )
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.CREATE2(value=0x0, offset=0x27, size=0x19, salt=0x0),
+        )
+        + Op.JUMPDEST
+        + Op.STOP,
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
     # Source: lll
-    # { (MSTORE 0 (CALLDATALOAD 0)) (CALL (GAS) 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 32 0 0) }
-    contract_1 = pre.deploy_contract(
+    # { (MSTORE 0 (CALLDATALOAD 0)) (CALL (GAS) 0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b 0 0 32 0 0) }  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.CALLDATALOAD(offset=0x0))
-        + Op.CALL(gas=Op.GAS, address=0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b, value=0x0, args_offset=0x0, args_size=0x20, ret_offset=0x0, ret_size=0x0)
+        + Op.CALL(
+            gas=Op.GAS,
+            address=0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x20,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=9151314442816847871,
         nonce=0,
         gas_price=10,
     )
 
     post = {
-        Address("0x436b8f99e8d953cdaf8f9472116add83ccd82a65"): Account(nonce=1),  # noqa: E501
+        Address("0x436b8f99e8d953cdaf8f9472116add83ccd82a65"): Account(
+            nonce=1
+        ),
         Address("0xb250d8cdad4a7a81323be508f4ac44584dd27597"): Account(
-                storage={1: 0x436b8f99e8d953cdaf8f9472116add83ccd82a65},
-            ),
+            storage={1: 0x436B8F99E8D953CDAF8F9472116ADD83CCD82A65},
+        ),
         contract_0: Account(
-                storage={1: 0xb250d8cdad4a7a81323be508f4ac44584dd27597},
-            ),
+            storage={1: 0xB250D8CDAD4A7A81323BE508F4AC44584DD27597},
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,5 +1,5 @@
 """
-test_log_in_oog_call
+Test_log_in_oog_call.
 
 Ported from:
 state_tests/stLogTests/logInOOG_CallFiller.json
@@ -31,10 +31,10 @@ def test_log_in_oog_call(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_log_in_oog_call"""
+    """Test_log_in_oog_call."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -48,32 +48,43 @@ def test_log_in_oog_call(
     )
 
     # Source: lll
-    # { [[ 0 ]] (CALL 100000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=0x186a0, address=0x69b6134b97e638b919a7089df82af74961e71ff8, value=0x17, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+    # { [[ 0 ]] (CALL 100000 <contract:0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6> 23 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=0x186A0,
+                address=0x69B6134B97E638B919A7089DF82AF74961E71FF8,
+                value=0x17,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x825dcc9fbf5cff44e688bae15b79e8e11951be2a"),  # noqa: E501
     )
     # Source: lll
     # { (LOG0 0 32) (MLOAD 0xffffffffffffffff) }
-    addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 = pre.deploy_contract(
-        code=Op.LOG0(offset=0x0, size=0x20) + Op.MLOAD(offset=0xffffffffffffffff)
+    addr_0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6 = pre.deploy_contract(  # noqa: F841
+        code=Op.LOG0(offset=0x0, size=0x20)
+        + Op.MLOAD(offset=0xFFFFFFFFFFFFFFFF)
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x69b6134b97e638b919a7089df82af74961e71ff8"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=210000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )

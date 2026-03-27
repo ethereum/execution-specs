@@ -1,5 +1,5 @@
 """
-test_create_and_gas_inside_create_with_mem_expanding_calls
+Test_create_and_gas_inside_create_with_mem_expanding_calls.
 
 Ported from:
 state_tests/stMemExpandingEIP150Calls/CreateAndGasInsideCreateWithMemExpandingCallsFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stMemExpandingEIP150Calls/CreateAndGasInsideCreateWithMemExpandingCallsFiller.json"],
+    [
+        "state_tests/stMemExpandingEIP150Calls/CreateAndGasInsideCreateWithMemExpandingCallsFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,11 +33,11 @@ def test_create_and_gas_inside_create_with_mem_expanding_calls(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_create_and_gas_inside_create_with_mem_expanding_calls"""
+    """Test_create_and_gas_inside_create_with_mem_expanding_calls."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,23 +50,22 @@ def test_create_and_gas_inside_create_with_mem_expanding_calls(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: hex
     # 0x5a600a55635a60fd556000526004601c6000f0600b555a600955
-    contract_0 = pre.deploy_contract(
-        code=Op.SSTORE(key=0xa, value=Op.GAS)
-        + Op.MSTORE(offset=0x0, value=0x5a60fd55)
-        + Op.SSTORE(key=0xb, value=Op.CREATE(value=0x0, offset=0x1c, size=0x4))
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0xA, value=Op.GAS)
+        + Op.MSTORE(offset=0x0, value=0x5A60FD55)
+        + Op.SSTORE(key=0xB, value=Op.CREATE(value=0x0, offset=0x1C, size=0x4))
         + Op.SSTORE(key=0x9, value=Op.GAS),
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=600000,
         nonce=0,
         gas_price=10,
@@ -73,14 +74,16 @@ def test_create_and_gas_inside_create_with_mem_expanding_calls(
     post = {
         sender: Account(nonce=1),
         contract_0: Account(
-                storage={
-            9: 0x75596,
-            10: 0x8d5b6,
-            11: 0xf1ecf98489fa9ed60a664fc4998db699cfa39d40,
-        },
-                nonce=1,
-            ),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(storage={253: 0x7e23d}),  # noqa: E501
+            storage={
+                9: 0x75596,
+                10: 0x8D5B6,
+                11: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
+            },
+            nonce=1,
+        ),
+        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+            storage={253: 0x7E23D}
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

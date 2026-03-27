@@ -1,8 +1,9 @@
 """
-The execution records the EIP-1559 transaction origin balance to make sure its value is 
-properly computed based on the effective gas price (not the maximum gas price as in 
-the transaction validity check).
+The execution records the EIP-1559 transaction origin balance to make...
 
+properly computed based on the effective gas price (not the maximum gas price
+as in
+the transaction validity check).
 
 Ported from:
 state_tests/stEIP1559/senderBalanceFiller.yml
@@ -17,8 +18,6 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
-    AccessList,
-    Hash,
 )
 from execution_testing.vm import Op
 
@@ -36,10 +35,10 @@ def test_sender_balance(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """The execution records the EIP-1559 transaction origin balance to ma..."""
+    """The execution records the EIP-1559 transaction origin balance to..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -57,26 +56,24 @@ def test_sender_balance(
     # {
     #   sstore(0, balance(caller()))
     # }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.BALANCE(address=Op.CALLER)) + Op.STOP,
         nonce=0,
         address=Address("0x420132f96200ba8e5c98298a85633c35c4f052ef"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=60000,
         max_fee_per_gas=1000,
         max_priority_fee_per_gas=100,
         nonce=0,
-        access_list=[
-        ],
+        access_list=[],
     )
 
-    post = {target: Account(storage={0: 0xde0b6b3a6fe6060})}
+    post = {target: Account(storage={0: 0xDE0B6B3A6FE6060})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

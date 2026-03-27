@@ -1,5 +1,5 @@
 """
-create fails because we try to send more wei to it that we have
+Create fails because we try to send more wei to it that we have.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createFailBalanceTooLowFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -38,18 +38,24 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallCreateCallCodeTest/createFailBalanceTooLowFiller.json"],
+    [
+        "state_tests/stCallCreateCallCodeTest/createFailBalanceTooLowFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-v0",
         ),
         pytest.param(
-            0, 0, 1,
+            0,
+            0,
+            1,
             id="-v1",
         ),
     ],
@@ -63,11 +69,11 @@ def test_create_fail_balance_too_low(
     g: int,
     v: int,
 ) -> None:
-    """create fails because we try to send more wei to it that we have"""
+    """Create fails because we try to send more wei to it that we have."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -81,33 +87,43 @@ def test_create_fail_balance_too_low(
     )
 
     # Source: lll
-    # {(MSTORE 0 0x6001600255 ) (SELFDESTRUCT (CREATE 1000000000000000024 27 5)) }
-    contract_0 = pre.deploy_contract(
+    # {(MSTORE 0 0x6001600255 ) (SELFDESTRUCT (CREATE 1000000000000000024 27 5)) }  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=0x6001600255)
-        + Op.SELFDESTRUCT(address=Op.CREATE(value=0xde0b6b3a7640018, offset=0x1b, size=0x5))
+        + Op.SELFDESTRUCT(
+            address=Op.CREATE(value=0xDE0B6B3A7640018, offset=0x1B, size=0x5)
+        )
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': 0},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x0000000000000000000000000000000000000000"): Account(storage={}),  # noqa: E501
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account.NONEXISTENT,  # noqa: E501
-    },
+                Address("0x0000000000000000000000000000000000000000"): Account(
+                    storage={}
+                ),
+                Address(
+                    "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+                ): Account.NONEXISTENT,
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': 1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": 1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x0000000000000000000000000000000000000000"): Account.NONEXISTENT,  # noqa: E501
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(storage={2: 1}),  # noqa: E501
-    },
+                Address(
+                    "0x0000000000000000000000000000000000000000"
+                ): Account.NONEXISTENT,
+                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+                    storage={2: 1}
+                ),
+            },
         },
     ]
 
@@ -123,6 +139,5 @@ def test_create_fail_balance_too_low(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

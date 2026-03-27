@@ -1,5 +1,5 @@
 """
-test_transaction64_rule_d64p1
+Test_transaction64_rule_d64p1.
 
 Ported from:
 state_tests/stEIP150Specific/Transaction64Rule_d64p1Filler.json
@@ -31,10 +31,10 @@ def test_transaction64_rule_d64p1(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_transaction64_rule_d64p1"""
+    """Test_transaction64_rule_d64p1."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -47,12 +47,22 @@ def test_transaction64_rule_d64p1(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { [0] (GAS) (CALL 160000 <contract:0x1000000000000000000000000000000000000118> 0 0 0 0 0) [[2]] (SUB @0 (GAS)) }
-    target = pre.deploy_contract(
+    # { [0] (GAS) (CALL 160000 <contract:0x1000000000000000000000000000000000000118> 0 0 0 0 0) [[2]] (SUB @0 (GAS)) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=0x27100, address=0x6b7466044211f090b767199794f6f7041829ba85, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.POP(
+            Op.CALL(
+                gas=0x27100,
+                address=0x6B7466044211F090B767199794F6F7041829BA85,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
         + Op.SSTORE(key=0x2, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
@@ -60,24 +70,25 @@ def test_transaction64_rule_d64p1(
     )
     # Source: lll
     # { [[1]] 12 }
-    addr_0x1000000000000000000000000000000000000118 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=0xc) + Op.STOP,
+    addr_0x1000000000000000000000000000000000000118 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x1, value=0xC) + Op.STOP,
         nonce=0,
         address=Address("0x6b7466044211f090b767199794f6f7041829ba85"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=160063,
         nonce=0,
         gas_price=10,
     )
 
     post = {
-        addr_0x1000000000000000000000000000000000000118: Account(storage={1: 12}),
+        addr_0x1000000000000000000000000000000000000118: Account(
+            storage={1: 12}
+        ),
         target: Account(storage={2: 24740}),
     }
 

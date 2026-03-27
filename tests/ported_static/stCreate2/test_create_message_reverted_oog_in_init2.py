@@ -1,5 +1,5 @@
 """
-create2 oog during the init code, + when create2 is from transaction init code. but oog still in create2 init code
+Create2 oog during the init code, + when create2 is from transaction...
 
 Ported from:
 state_tests/stCreate2/CreateMessageRevertedOOGInInit2Filler.json
@@ -44,11 +44,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -62,11 +66,11 @@ def test_create_message_reverted_oog_in_init2(
     g: int,
     v: int,
 ) -> None:
-    """create2 oog during the init code, + when create2 is from transactio..."""
+    """Create2 oog during the init code, + when create2 is from..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -79,10 +83,10 @@ def test_create_message_reverted_oog_in_init2(
         gas_limit=1000000000000,
     )
 
-    pre[sender] = Account(balance=0x2dc6c0)
+    pre[sender] = Account(balance=0x2DC6C0)
     # Source: hex
     # 0x
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code="",
         balance=10,
         nonce=0,
@@ -91,20 +95,24 @@ def test_create_message_reverted_oog_in_init2(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        Address("0xf3059e18a327c662766f6ba11808c400635847ef"): Account.NONEXISTENT,  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                Address(
+                    "0xf3059e18a327c662766f6ba11808c400635847ef"
+                ): Account.NONEXISTENT,
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        Address("0xf3059e18a327c662766f6ba11808c400635847ef"): Account(storage={0: 12, 1: 13}, balance=0, nonce=1),  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                Address("0xf3059e18a327c662766f6ba11808c400635847ef"): Account(
+                    storage={0: 12, 1: 13}, balance=0, nonce=1
+                ),
+            },
         },
     ]
 
@@ -120,6 +128,5 @@ def test_create_message_reverted_oog_in_init2(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

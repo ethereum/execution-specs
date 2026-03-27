@@ -1,5 +1,5 @@
 """
-Fuzzed input discovered by Guido
+Fuzzed input discovered by Guido.
 
 Ported from:
 state_tests/stPreCompiledContracts2/modexpRandomInputFiller.json
@@ -25,9 +25,9 @@ REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
-    "00000000000000000000000000000000000000000000000000000000000000e300000000000000000000000000000000000000000000000000",
-    "00000000008000000000000000000000000000000000000000000000000000000000000400000000000000000000000a",
-    "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001147000000000000000000000000000000000000000000000000000000000061660350000000000000000000000000000000000000000000000000000000000000008",
+    "00000000000000000000000000000000000000000000000000000000000000e300000000000000000000000000000000000000000000000000",  # noqa: E501
+    "00000000008000000000000000000000000000000000000000000000000000000000000400000000000000000000000a",  # noqa: E501
+    "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001147000000000000000000000000000000000000000000000000000000000061660350000000000000000000000000000000000000000000000000000000000000008",  # noqa: E501
 ]
 TX_GAS = [710000, 7000000]
 TX_VALUE = [0]
@@ -46,27 +46,39 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="d0-g1",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1-g0",
         ),
         pytest.param(
-            1, 1, 0,
+            1,
+            1,
+            0,
             id="d1-g1",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="d2-g0",
         ),
         pytest.param(
-            2, 1, 0,
+            2,
+            1,
+            0,
             id="d2-g1",
         ),
     ],
@@ -80,10 +92,10 @@ def test_modexp_random_input(
     g: int,
     v: int,
 ) -> None:
-    """Fuzzed input discovered by Guido"""
+    """Fuzzed input discovered by Guido."""
     coinbase = Address("0x3535353535353535353535353535353535353535")
     sender = EOA(
-        key=0x897b12d02d588d8a4fe16ff831cbd4459c6f62f8c845b0ccdd31caf068c84a26
+        key=0x897B12D02D588D8A4FE16FF831CBD4459C6F62F8C845B0CCDD31CAF068C84A26
     )
 
     env = Environment(
@@ -96,12 +108,12 @@ def test_modexp_random_input(
         gas_limit=100000000,
     )
 
-    pre[sender] = Account(balance=0x3635c9adc5dea00000)
+    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {sender: Account(nonce=1)},
         },
     ]
@@ -117,6 +129,5 @@ def test_modexp_random_input(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

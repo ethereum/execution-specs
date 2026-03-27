@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP2930/manualCreateFiller.yml
@@ -8,14 +8,14 @@ state_tests/stEIP2930/manualCreateFiller.yml
 import pytest
 from execution_testing import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
-    AccessList,
-    Hash,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -39,12 +39,15 @@ def _tx_data(d: int) -> bytes:
     """Convert TX_DATA[d] hex string to bytes."""
     return bytes.fromhex(TX_DATA[d])
 
+
 TX_ACCESS_LISTS: dict[int, list] = {
     0: [
         AccessList(
             address=Address("0x0000000000000000000000000000000000000100"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -52,7 +55,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000001"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000001"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -60,7 +65,9 @@ TX_ACCESS_LISTS: dict[int, list] = {
         AccessList(
             address=Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"),
             storage_keys=[
-                Hash("0x0000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+                Hash(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                ),  # noqa: E501
             ],
         ),
     ],
@@ -68,7 +75,7 @@ TX_ACCESS_LISTS: dict[int, list] = {
 
 
 def _tx_access_list(d: int) -> list | None:
-    """Get access list for data index d. None means no access list (legacy tx)."""
+    """Get access list for data index d. None means no access list (legacy tx)."""  # noqa: E501
     return TX_ACCESS_LISTS.get(d)
 
 
@@ -80,15 +87,21 @@ def _tx_access_list(d: int) -> list | None:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="allBad",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="addrGoodCellBad",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="allGood",
         ),
     ],
@@ -105,7 +118,7 @@ def test_manual_create(
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -122,18 +135,22 @@ def test_manual_create(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(storage={0: 20008, 1: 106}),  # noqa: E501
-    },
+                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
+                    storage={0: 20008, 1: 106}
+                ),
+            },
         },
         {
-            "indexes": {'data': [0, 1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(storage={0: 22108, 1: 106}),  # noqa: E501
-    },
+                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
+                    storage={0: 22108, 1: 106}
+                ),
+            },
         },
     ]
 
@@ -149,6 +166,5 @@ def test_manual_create(
         access_list=_tx_access_list(d),
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

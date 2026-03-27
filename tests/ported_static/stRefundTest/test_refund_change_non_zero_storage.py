@@ -1,5 +1,5 @@
 """
-test_refund_change_non_zero_storage
+Test_refund_change_non_zero_storage.
 
 Ported from:
 state_tests/stRefundTest/refund_changeNonZeroStorageFiller.json
@@ -31,10 +31,10 @@ def test_refund_change_non_zero_storage(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_refund_change_non_zero_storage"""
+    """Test_refund_change_non_zero_storage."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
     sender = EOA(
-        key=0x4d9fc6fdf95098986741ee78843ac52beed77c8c801dc87bd3f04cd6bbf1a3eb
+        key=0x4D9FC6FDF95098986741EE78843AC52BEED77C8C801DC87BD3F04CD6BBF1A3EB
     )
 
     env = Environment(
@@ -50,20 +50,19 @@ def test_refund_change_non_zero_storage(
     pre[coinbase] = Account(balance=0, nonce=1)
     # Source: lll
     # { [[ 1 ]] 23 }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=0x17) + Op.STOP,
         storage={1: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x904261b07d3a5f213bbd6fb9f3bb66f4fb65c7eb"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3c336080)
-
+    pre[sender] = Account(balance=0x3C336080)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=228500,
         value=10,
         nonce=0,
@@ -71,9 +70,9 @@ def test_refund_change_non_zero_storage(
     )
 
     post = {
-        target: Account(storage={1: 23}, balance=0xde0b6b3a764000a),
+        target: Account(storage={1: 23}, balance=0xDE0B6B3A764000A),
         coinbase: Account(balance=0),
-        sender: Account(balance=0x3c2f689a, nonce=1),
+        sender: Account(balance=0x3C2F689A, nonce=1),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

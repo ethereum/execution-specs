@@ -1,5 +1,5 @@
 """
-test_static_ab_acalls_suicide0
+Test_static_ab_acalls_suicide0.
 
 Ported from:
 state_tests/stStaticCall/static_ABAcallsSuicide0Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -46,11 +46,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
     ],
@@ -64,10 +68,10 @@ def test_static_ab_acalls_suicide0(
     g: int,
     v: int,
 ) -> None:
-    """test_static_ab_acalls_suicide0"""
+    """Test_static_ab_acalls_suicide0."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -82,68 +86,130 @@ def test_static_ab_acalls_suicide0(
 
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=Op.GAS, address=Op.CALLDATALOAD(offset=0x0), value=Op.CALLVALUE, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
-        + Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=Op.CALLDATALOAD(offset=0x0),
+                value=Op.CALLVALUE,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.STOP,
         nonce=0,
         address=Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"),  # noqa: E501
     )
     # Source: lll
-    # {  [[ (PC) ]] (STATICCALL 100000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) (SELFDESTRUCT <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>)  }
-    addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(
-        code=Op.SSTORE(key=Op.PC, value=Op.STATICCALL(gas=0x186a0, address=0xc20b4779ed25a1ccf1848f1cbcc84433fcb9d083, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
-        + Op.SELFDESTRUCT(address=0xc20b4779ed25a1ccf1848f1cbcc84433fcb9d083)
+    # {  [[ (PC) ]] (STATICCALL 100000 <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0) (SELFDESTRUCT <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>)  }  # noqa: E501
+    addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=Op.PC,
+            value=Op.STATICCALL(
+                gas=0x186A0,
+                address=0xC20B4779ED25A1CCF1848F1CBCC84433FCB9D083,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SELFDESTRUCT(address=0xC20B4779ED25A1CCF1848F1CBCC84433FCB9D083)
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x195198c66c5e31767d41365ff8003c5fe4387110"),  # noqa: E501
     )
     # Source: lll
-    # { [[ (PC) ]] (ADD 1 (STATICCALL 50000 <contract:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0)) }
-    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(
-        code=Op.SSTORE(key=Op.PC, value=Op.ADD(0x1, Op.STATICCALL(gas=0xc350, address=0x195198c66c5e31767d41365ff8003c5fe4387110, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)))  # noqa: E501
+    # { [[ (PC) ]] (ADD 1 (STATICCALL 50000 <contract:0x095e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0)) }  # noqa: E501
+    addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=Op.PC,
+            value=Op.ADD(
+                0x1,
+                Op.STATICCALL(
+                    gas=0xC350,
+                    address=0x195198C66C5E31767D41365FF8003C5FE4387110,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                ),
+            ),
+        )
         + Op.STOP,
         balance=23,
         nonce=0,
         address=Address("0xc20b4779ed25a1ccf1848f1cbcc84433fcb9d083"),  # noqa: E501
     )
     # Source: lll
-    # {  (MSTORE (PC)  (STATICCALL 100000 <contract:0x245304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0)) (SELFDESTRUCT <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>)  }
-    addr_0x195e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(
-        code=Op.MSTORE(offset=Op.PC, value=Op.STATICCALL(gas=0x186a0, address=0x644ac2b24a9316ed4c55001e5eda02d77f729c7b, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SELFDESTRUCT(address=0xc20b4779ed25a1ccf1848f1cbcc84433fcb9d083)
+    # {  (MSTORE (PC)  (STATICCALL 100000 <contract:0x245304eb96065b2a98b57a48a06ae28d285a71b5> 0 0 0 0)) (SELFDESTRUCT <contract:0x945304eb96065b2a98b57a48a06ae28d285a71b5>)  }  # noqa: E501
+    addr_0x195e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=Op.PC,
+            value=Op.STATICCALL(
+                gas=0x186A0,
+                address=0x644AC2B24A9316ED4C55001E5EDA02D77F729C7B,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SELFDESTRUCT(address=0xC20B4779ED25A1CCF1848F1CBCC84433FCB9D083)
         + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x15631f76b02193e5716cbd4b4d696f2f7a39f0a4"),  # noqa: E501
     )
     # Source: lll
-    # { (MSTORE (PC) (ADD 1 (STATICCALL 50000 <contract:0x195e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0)) ) }
-    addr_0x245304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(
-        code=Op.MSTORE(offset=Op.PC, value=Op.ADD(0x1, Op.STATICCALL(gas=0xc350, address=0x15631f76b02193e5716cbd4b4d696f2f7a39f0a4, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)))
+    # { (MSTORE (PC) (ADD 1 (STATICCALL 50000 <contract:0x195e7baea6a6c7c4c2dfeb977efac326af552d87> 0 0 0 0)) ) }  # noqa: E501
+    addr_0x245304eb96065b2a98b57a48a06ae28d285a71b5 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=Op.PC,
+            value=Op.ADD(
+                0x1,
+                Op.STATICCALL(
+                    gas=0xC350,
+                    address=0x15631F76B02193E5716CBD4B4D696F2F7A39F0A4,
+                    args_offset=0x0,
+                    args_size=0x0,
+                    ret_offset=0x0,
+                    ret_size=0x0,
+                ),
+            ),
+        )
         + Op.STOP,
         balance=23,
         nonce=0,
         address=Address("0x644ac2b24a9316ed4c55001e5eda02d77f729c7b"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': 0, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(storage={38: 0}),
-        target: Account(storage={0: 1, 1: 1}),
-    },
+                addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
+                    storage={38: 0}
+                ),
+                target: Account(storage={0: 1, 1: 1}),
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        target: Account(storage={0: 1, 1: 1}),
-        addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(storage={38: 0}),
-    },
+                target: Account(storage={0: 1, 1: 1}),
+                addr_0x945304eb96065b2a98b57a48a06ae28d285a71b5: Account(
+                    storage={38: 0}
+                ),
+            },
         },
     ]
 
@@ -159,6 +225,5 @@ def test_static_ab_acalls_suicide0(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

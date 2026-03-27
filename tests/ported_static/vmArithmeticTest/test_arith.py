@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmArithmeticTest/arithFiller.yml
@@ -34,7 +34,7 @@ def test_arith(
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x40ac0fc28c27e961ee46ec43355a094de205856edbd4654cf2577c2608d4ec1e
+        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
     )
 
     env = Environment(
@@ -48,20 +48,29 @@ def test_arith(
     )
 
     # Source: raw
-    # 0x600160019001600702600501600290046004906021900560170160030260059007600303600960110A60005560086000F3
-    target = pre.deploy_contract(
-        code=Op.PUSH1[0x1] * 2 + Op.SWAP1 + Op.ADD(0x5, Op.MUL(0x7, Op.ADD))
-        + Op.PUSH1[0x2] + Op.SWAP1 + Op.DIV + Op.PUSH1[0x4] + Op.SWAP1
-        + Op.PUSH1[0x21] + Op.SWAP1 + Op.MUL(0x3, Op.ADD(0x17, Op.SDIV))
-        + Op.PUSH1[0x5] + Op.SWAP1 + Op.SUB(0x3, Op.SMOD)
+    # 0x600160019001600702600501600290046004906021900560170160030260059007600303600960110A60005560086000F3  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.PUSH1[0x1] * 2
+        + Op.SWAP1
+        + Op.ADD(0x5, Op.MUL(0x7, Op.ADD))
+        + Op.PUSH1[0x2]
+        + Op.SWAP1
+        + Op.DIV
+        + Op.PUSH1[0x4]
+        + Op.SWAP1
+        + Op.PUSH1[0x21]
+        + Op.SWAP1
+        + Op.MUL(0x3, Op.ADD(0x17, Op.SDIV))
+        + Op.PUSH1[0x5]
+        + Op.SWAP1
+        + Op.SUB(0x3, Op.SMOD)
         + Op.SSTORE(key=0x0, value=Op.EXP(0x11, 0x9))
         + Op.RETURN(offset=0x0, size=0x8),
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x14814d06e93efb1102a15d5881432c9ff6c91362"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
-
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx = Transaction(
         sender=sender,
@@ -73,6 +82,6 @@ def test_arith(
         gas_price=10,
     )
 
-    post = {target: Account(storage={0: 0x1b9c636491})}
+    post = {target: Account(storage={0: 0x1B9C636491})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

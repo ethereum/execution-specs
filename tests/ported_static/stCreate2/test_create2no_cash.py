@@ -1,5 +1,5 @@
 """
-create2 fails with not enough cash (endowment of a new account) + inside staticcall
+Create2 fails with not enough cash (endowment of a new account) +...
 
 Ported from:
 state_tests/stCreate2/create2noCashFiller.json
@@ -15,19 +15,19 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
 REFERENCE_SPEC_VERSION = "N/A"
 
 TX_DATA = [
-    "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c620249f0f100",
-    "6000600060006000600173e2b35478fdd26477cc576dd906e6277761246a3c620249f0f100",
+    "6000600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c620249f0f100",  # noqa: E501
+    "6000600060006000600173e2b35478fdd26477cc576dd906e6277761246a3c620249f0f100",  # noqa: E501
     "600060006000600073e2b35478fdd26477cc576dd906e6277761246a3c620249f0fa00",
 ]
 TX_GAS = [400000]
@@ -47,15 +47,21 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="d2",
         ),
     ],
@@ -69,11 +75,11 @@ def test_create2no_cash(
     g: int,
     v: int,
 ) -> None:
-    """create2 fails with not enough cash (endowment of a new account) + i..."""
+    """Create2 fails with not enough cash (endowment of a new account) +..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xe2b35478fdd26477cc576dd906e6277761246a3c")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -86,10 +92,10 @@ def test_create2no_cash(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
     # Source: lll
     # { (CREATE2 101 0 0 0) }
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.CREATE2(value=0x65, offset=0x0, size=0x0, salt=0x0) + Op.STOP,
         balance=100,
         nonce=0,
@@ -98,22 +104,26 @@ def test_create2no_cash(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0, 2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0, 2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(balance=100),
-        Address("0x12aaefbc0350a026228076e5369e6ce148ce67be"): Account.NONEXISTENT,  # noqa: E501
-        sender: Account(nonce=1),
-    },
+                contract_0: Account(balance=100),
+                Address(
+                    "0x12aaefbc0350a026228076e5369e6ce148ce67be"
+                ): Account.NONEXISTENT,
+                sender: Account(nonce=1),
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(balance=0),
-        Address("0x12aaefbc0350a026228076e5369e6ce148ce67be"): Account(balance=101),  # noqa: E501
-        sender: Account(nonce=1),
-    },
+                contract_0: Account(balance=0),
+                Address("0x12aaefbc0350a026228076e5369e6ce148ce67be"): Account(
+                    balance=101
+                ),
+                sender: Account(nonce=1),
+            },
         },
     ]
 
@@ -129,6 +139,5 @@ def test_create2no_cash(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

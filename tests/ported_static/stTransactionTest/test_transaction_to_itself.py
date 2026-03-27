@@ -1,5 +1,5 @@
 """
-test_transaction_to_itself
+Test_transaction_to_itself.
 
 Ported from:
 state_tests/stTransactionTest/TransactionToItselfFiller.json
@@ -30,10 +30,10 @@ def test_transaction_to_itself(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_transaction_to_itself"""
+    """Test_transaction_to_itself."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xf79127a3004abde26a4cbd80c428cb10f829fa11b54d36e7b326f4f4a5927acf
+        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
     )
 
     env = Environment(
@@ -46,19 +46,18 @@ def test_transaction_to_itself(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x3b9aca00)
-
+    pre[sender] = Account(balance=0x3B9ACA00)
 
     tx = Transaction(
         sender=sender,
         to=sender,
-        data=b'',
+        data=b"",
         gas_limit=25000,
         value=1,
         nonce=0,
         gas_price=10,
     )
 
-    post = {sender: Account(balance=0x3b9795b0, nonce=1)}
+    post = {sender: Account(balance=0x3B9795B0, nonce=1)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

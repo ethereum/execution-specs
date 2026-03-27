@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmArithmeticTest/notFiller.yml
@@ -36,7 +36,7 @@ def test_not(
     contract_0 = Address("0x0000000000000000000000000000000000001000")
     contract_1 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -53,9 +53,9 @@ def test_not(
     # {
     #    [[0]] (not 0x0123456789abcdef)
     # }
-    contract_0 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.NOT(0x123456789abcdef)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.NOT(0x123456789ABCDEF)) + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -63,20 +63,29 @@ def test_not(
     # {
     #     (call 0xffffff (+ 0x1000 $4) 0 0 0 0 0)
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.CALL(gas=0xffffff, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALL(
+            gas=0xFFFFFF,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            value=0x0,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
-
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=bytes.fromhex("693c61390000000000000000000000000000000000000000000000000000000000000000"),  # noqa: E501
+        data=bytes.fromhex(
+            "693c61390000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+        ),
         gas_limit=16777216,
         value=1,
         nonce=0,
@@ -85,10 +94,10 @@ def test_not(
 
     post = {
         contract_0: Account(
-                storage={
-            0: 0xfffffffffffffffffffffffffffffffffffffffffffffffffedcba9876543210,
-        },
-            ),
+            storage={
+                0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEDCBA9876543210,  # noqa: E501
+            },
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

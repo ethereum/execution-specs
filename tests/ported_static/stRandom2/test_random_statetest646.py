@@ -1,5 +1,5 @@
 """
-Geth Failed this test on all networks
+Geth Failed this test on all networks.
 
 Ported from:
 state_tests/stRandom2/randomStatetest646Filler.json
@@ -31,12 +31,12 @@ def test_random_statetest646(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Geth Failed this test on all networks"""
+    """Geth Failed this test on all networks."""
     coinbase = Address("0xd94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     contract_0 = Address("0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     contract_1 = Address("0xffffffffffffffffffffffffffffffffffffffff")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -49,35 +49,40 @@ def test_random_statetest646(
         gas_limit=18857228215205537,
     )
 
-    pre[sender] = Account(balance=0x54465ef1c769628b)
-    pre[contract_0] = Account(balance=0x33888d4ce6b934, nonce=7)
+    pre[sender] = Account(balance=0x54465EF1C769628B)
+    pre[contract_0] = Account(balance=0x33888D4CE6B934, nonce=7)
     # Source: raw
-    # 0x64ba8b878e0154689b908f27acb42e5269603972609834bf9a7e578e45609242172907dd75a92555656c5aa6e9248162013ffa6203864863446d325df0336d2c38cfa2f1cdf8cb623c0591987419
-    contract_1 = pre.deploy_contract(
-        code=Op.SLOAD(key=0xba8b878e01) + Op.PUSH9[0x9b908f27acb42e5269]
-        + Op.SSTORE(key=0x609834bf9a7e578e45609242172907dd75a925, value=0x39)
-        + Op.PUSH6[0x6c5aa6e92481]
-        + Op.CREATE(value=0x446d325d, offset=0x38648, size=0x13ffa) + Op.CALLER
-        + Op.NOT(0x2c38cfa2f1cdf8cb623c05919874),
-        balance=0xd61773f0c27b842f,
+    # 0x64ba8b878e0154689b908f27acb42e5269603972609834bf9a7e578e45609242172907dd75a92555656c5aa6e9248162013ffa6203864863446d325df0336d2c38cfa2f1cdf8cb623c0591987419  # noqa: E501
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SLOAD(key=0xBA8B878E01)
+        + Op.PUSH9[0x9B908F27ACB42E5269]
+        + Op.SSTORE(key=0x609834BF9A7E578E45609242172907DD75A925, value=0x39)
+        + Op.PUSH6[0x6C5AA6E92481]
+        + Op.CREATE(value=0x446D325D, offset=0x38648, size=0x13FFA)
+        + Op.CALLER
+        + Op.NOT(0x2C38CFA2F1CDF8CB623C05919874),
+        balance=0xD61773F0C27B842F,
         nonce=28,
         address=Address("0xffffffffffffffffffffffffffffffffffffffff"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_1,
-        data=bytes.fromhex("785196fdcb5d7e54c4b381e68c7eaeae2735e5537830130057f554672e70a6b867385ea2714ea3185b854bf0b4f9617fb47e6afe9ed4ed68f94b50776420fa24010960ce6b65e2a1ebdce518181d6c69a678989d767fc3d28b6c524f52a87d05519cb32e38fbdc5f801f756922b90c0e2e5bc848bb9c6a5d08ee65470af4fbbeacf87a65c90dc57babd8cdc9819f898551925828bfd360e8a1f1616619d171c23004b0045424cc962e09d8a65d9fd94af9863d61eba97d76dc150e19d991ff1b5fd340dd4fd7e522a659ddf69bcbc729599667aa30536cd85576cc3477495dae10c85b56"),  # noqa: E501
+        data=bytes.fromhex(
+            "785196fdcb5d7e54c4b381e68c7eaeae2735e5537830130057f554672e70a6b867385ea2714ea3185b854bf0b4f9617fb47e6afe9ed4ed68f94b50776420fa24010960ce6b65e2a1ebdce518181d6c69a678989d767fc3d28b6c524f52a87d05519cb32e38fbdc5f801f756922b90c0e2e5bc848bb9c6a5d08ee65470af4fbbeacf87a65c90dc57babd8cdc9819f898551925828bfd360e8a1f1616619d171c23004b0045424cc962e09d8a65d9fd94af9863d61eba97d76dc150e19d991ff1b5fd340dd4fd7e522a659ddf69bcbc729599667aa30536cd85576cc3477495dae10c85b56"  # noqa: E501
+        ),
         gas_limit=5786929,
-        value=0x5684b90a,
+        value=0x5684B90A,
         nonce=0,
         gas_price=10,
     )
 
     post = {
         sender: Account(storage={}, code=b"", nonce=1),
-        Address("0xb1c0d37237a1f6bd6202aed4b5a7290dfcda6591"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0xb1c0d37237a1f6bd6202aed4b5a7290dfcda6591"
+        ): Account.NONEXISTENT,
         contract_0: Account(storage={}, code=b"", nonce=7),
         contract_1: Account(storage={}, nonce=28),
     }

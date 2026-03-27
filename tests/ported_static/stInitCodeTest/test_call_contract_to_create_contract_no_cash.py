@@ -1,5 +1,5 @@
 """
-test_call_contract_to_create_contract_no_cash
+Test_call_contract_to_create_contract_no_cash.
 
 Ported from:
 state_tests/stInitCodeTest/CallContractToCreateContractNoCashFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stInitCodeTest/CallContractToCreateContractNoCashFiller.json"],
+    [
+        "state_tests/stInitCodeTest/CallContractToCreateContractNoCashFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,10 +33,10 @@ def test_call_contract_to_create_contract_no_cash(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_call_contract_to_create_contract_no_cash"""
+    """Test_call_contract_to_create_contract_no_cash."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xf79127a3004abde26a4cbd80c428cb10f829fa11b54d36e7b326f4f4a5927acf
+        key=0xF79127A3004ABDE26A4CBD80C428CB10F829FA11B54D36E7B326F4F4A5927ACF
     )
 
     env = Environment(
@@ -48,17 +50,20 @@ def test_call_contract_to_create_contract_no_cash(
     )
 
     # Source: lll
-    # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3)[[0]](CREATE 100000 11 21)}
-    target = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x600c60005566602060406000f060205260076039f3)
-        + Op.SSTORE(key=0x0, value=Op.CREATE(value=0x186a0, offset=0xb, size=0x15))  # noqa: E501
+    # {(MSTORE 0 0x600c60005566602060406000f060205260076039f3)[[0]](CREATE 100000 11 21)}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0, value=0x600C60005566602060406000F060205260076039F3
+        )
+        + Op.SSTORE(
+            key=0x0, value=Op.CREATE(value=0x186A0, offset=0xB, size=0x15)
+        )
         + Op.STOP,
         balance=10000,
         nonce=0,
         address=Address("0x985aca92559c5b1b9cd7897fec0f7c7993ad0d60"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3b9aca00)
-
+    pre[sender] = Account(balance=0x3B9ACA00)
 
     tx = Transaction(
         sender=sender,

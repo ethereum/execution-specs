@@ -1,5 +1,5 @@
 """
-test_mstore_bounds
+Test_mstore_bounds.
 
 Ported from:
 state_tests/stMemoryStressTest/MSTORE_BoundsFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,10 +67,10 @@ def test_mstore_bounds(
     g: int,
     v: int,
 ) -> None:
-    """test_mstore_bounds"""
+    """Test_mstore_bounds."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x50eadfb1030587ab3a993a6ecc073041fc3b45e119daa31a13d78c7e209631a5
+        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
     )
 
     env = Environment(
@@ -81,17 +85,19 @@ def test_mstore_bounds(
 
     # Source: lll
     # {  (MSTORE 0xffffffffffffffff 1)}
-    target = pre.deploy_contract(
-        code=Op.MSTORE(offset=0xffffffffffffffff, value=0x1) + Op.STOP,
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0xFFFFFFFFFFFFFFFF, value=0x1) + Op.STOP,
         nonce=0,
         address=Address("0x3634c48093587d5dab61c69ee815d8e8752e9312"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    pre[sender] = Account(
+        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+    )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(balance=0)},
         },
     ]
@@ -108,6 +114,5 @@ def test_mstore_bounds(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

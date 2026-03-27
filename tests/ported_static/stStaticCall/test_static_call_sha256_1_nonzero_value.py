@@ -1,5 +1,5 @@
 """
-test_static_call_sha256_1_nonzero_value
+Test_static_call_sha256_1_nonzero_value.
 
 Ported from:
 state_tests/stStaticCall/static_CallSha256_1_nonzeroValueFiller.json
@@ -31,10 +31,10 @@ def test_static_call_sha256_1_nonzero_value(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_static_call_sha256_1_nonzero_value"""
+    """Test_static_call_sha256_1_nonzero_value."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -48,38 +48,67 @@ def test_static_call_sha256_1_nonzero_value(
     )
 
     # Source: lll
-    # { [[ 2 ]] (STATICCALL 200000 2 0 0 0 32) [[ 0 ]] (MLOAD 0) (CALL (GAS) 2 19 0 0 0 0) (CALLCODE (GAS) 2 19 0 0 0 0) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x2, value=Op.STATICCALL(gas=0x30d40, address=0x2, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x20))  # noqa: E501
+    # { [[ 2 ]] (STATICCALL 200000 2 0 0 0 32) [[ 0 ]] (MLOAD 0) (CALL (GAS) 2 19 0 0 0 0) (CALLCODE (GAS) 2 19 0 0 0 0) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x2,
+            value=Op.STATICCALL(
+                gas=0x30D40,
+                address=0x2,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x20,
+            ),
+        )
         + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
-        + Op.POP(Op.CALL(gas=Op.GAS, address=0x2, value=0x13, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.CALLCODE(gas=Op.GAS, address=0x2, value=0x13, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+        + Op.POP(
+            Op.CALL(
+                gas=Op.GAS,
+                address=0x2,
+                value=0x13,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.CALLCODE(
+            gas=Op.GAS,
+            address=0x2,
+            value=0x13,
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xbebc200,
+        balance=0xBEBC200,
         nonce=0,
         address=Address("0x6efbd97a458c5b978bea2d03f8808bf02fe8c42d"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=365224,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
-        Address("0x0000000000000000000000000000000000000002"): Account(balance=19),  # noqa: E501
+        Address("0x0000000000000000000000000000000000000002"): Account(
+            balance=19
+        ),
         target: Account(
-                storage={
-            0: 0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855,
-            2: 1,
-        },
-            ),
+            storage={
+                0: 0xE3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855,  # noqa: E501
+                2: 1,
+            },
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

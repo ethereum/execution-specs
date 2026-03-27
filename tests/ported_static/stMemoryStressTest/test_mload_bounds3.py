@@ -1,5 +1,5 @@
 """
-test_mload_bounds3
+Test_mload_bounds3.
 
 Ported from:
 state_tests/stMemoryStressTest/MLOAD_Bounds3Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -46,11 +46,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -64,10 +68,10 @@ def test_mload_bounds3(
     g: int,
     v: int,
 ) -> None:
-    """test_mload_bounds3"""
+    """Test_mload_bounds3."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xfe5be118ad5955e30e0ffc4e1f1bbdcaa7f5a67cb1426c4ac19e32c80eccdc06
+        key=0xFE5BE118AD5955E30E0FFC4E1F1BBDCAA7F5A67CB1426C4AC19E32C80ECCDC06
     )
 
     env = Environment(
@@ -82,17 +86,17 @@ def test_mload_bounds3(
 
     # Source: lll
     # {  (MLOAD 0x400000) }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.MLOAD(offset=0x400000) + Op.STOP,
         nonce=0,
         address=Address("0xb4b66eef4a593bfd61289ec192af659c68266259"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7ffffffffffffffffff)
+    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFFFFF)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {target: Account(balance=1)},
         },
     ]
@@ -109,6 +113,5 @@ def test_mload_bounds3(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

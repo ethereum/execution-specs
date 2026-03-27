@@ -1,5 +1,5 @@
 """
-test_call1024_oog
+Test_call1024_oog.
 
 Ported from:
 state_tests/stDelegatecallTestHomestead/Call1024OOGFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,11 +67,13 @@ def test_call1024_oog(
     g: int,
     v: int,
 ) -> None:
-    """test_call1024_oog"""
+    """Test_call1024_oog."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address("0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0")  # noqa: E501
+    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
+        "0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0"
+    )
     sender = EOA(
-        key=0xe7c72b378297589acee4e0ba3272841bcfc5e220f86de253f890274cfee9e474
+        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
 
     env = Environment(
@@ -80,14 +86,31 @@ def test_call1024_oog(
         gas_limit=9223372036854775807,
     )
 
-    pre[sender] = Account(balance=0xffffffffffffffffffffffffffffffff)
-    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=7000)
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
+        balance=7000
+    )
     # Source: lll
-    # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (DELEGATECALL (MUL (SUB (GAS) 10000) (SUB 1 (DIV @@0 1025))) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[ 2 ]] (ADD 1(MUL @@0 1000)) }
-    target = pre.deploy_contract(
+    # { [[ 0 ]] (ADD @@0 1) [[ 1 ]] (DELEGATECALL (MUL (SUB (GAS) 10000) (SUB 1 (DIV @@0 1025))) <contract:target:0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b> 0 0 0 0) [[ 2 ]] (ADD 1(MUL @@0 1000)) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.ADD(Op.SLOAD(key=0x0), 0x1))
-        + Op.SSTORE(key=0x1, value=Op.DELEGATECALL(gas=Op.MUL(Op.SUB(Op.GAS, 0x2710), Op.SUB(0x1, Op.DIV(Op.SLOAD(key=0x0), 0x401))), address=0x62c5c9278da01e6594d6fede061838cf5e597f2b, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
-        + Op.SSTORE(key=0x2, value=Op.ADD(0x1, Op.MUL(Op.SLOAD(key=0x0), 0x3e8)))  # noqa: E501
+        + Op.SSTORE(
+            key=0x1,
+            value=Op.DELEGATECALL(
+                gas=Op.MUL(
+                    Op.SUB(Op.GAS, 0x2710),
+                    Op.SUB(0x1, Op.DIV(Op.SLOAD(key=0x0), 0x401)),
+                ),
+                address=0x62C5C9278DA01E6594D6FEDE061838CF5E597F2B,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(
+            key=0x2, value=Op.ADD(0x1, Op.MUL(Op.SLOAD(key=0x0), 0x3E8))
+        )
         + Op.STOP,
         balance=1024,
         nonce=0,
@@ -96,14 +119,14 @@ def test_call1024_oog(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
-            "result": {target: Account(storage={0: 134, 1: 1, 2: 0x20b71})},
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
+            "result": {target: Account(storage={0: 134, 1: 1, 2: 0x20B71})},
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
-            "result": {target: Account(storage={0: 146, 1: 1, 2: 0x23a51})},
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
+            "result": {target: Account(storage={0: 146, 1: 1, 2: 0x23A51})},
         },
     ]
 
@@ -119,6 +142,5 @@ def test_call1024_oog(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

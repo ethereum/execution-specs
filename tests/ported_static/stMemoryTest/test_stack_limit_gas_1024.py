@@ -1,5 +1,5 @@
 """
-test_stack_limit_gas_1024
+Test_stack_limit_gas_1024.
 
 Ported from:
 state_tests/stMemoryTest/stackLimitGas_1024Filler.json
@@ -31,10 +31,10 @@ def test_stack_limit_gas_1024(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_stack_limit_gas_1024"""
+    """Test_stack_limit_gas_1024."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
 
     env = Environment(
@@ -48,22 +48,24 @@ def test_stack_limit_gas_1024(
     )
 
     # Source: lll
-    # (asm 1022 0x00 MSTORE JUMPDEST GAS 0x01 0x00 MLOAD SUB 0x00 MSTORE 0x00 MLOAD 0x06 JUMPI STOP )
-    target = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x3fe) + Op.JUMPDEST + Op.GAS
+    # (asm 1022 0x00 MSTORE JUMPDEST GAS 0x01 0x00 MLOAD SUB 0x00 MSTORE 0x00 MLOAD 0x06 JUMPI STOP )  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x3FE)
+        + Op.JUMPDEST
+        + Op.GAS
         + Op.MSTORE(offset=0x0, value=Op.SUB(Op.MLOAD(offset=0x0), 0x1))
-        + Op.JUMPI(pc=0x6, condition=Op.MLOAD(offset=0x0)) + Op.STOP * 2,
-        balance=0xde0b6b3a7640000,
+        + Op.JUMPI(pc=0x6, condition=Op.MLOAD(offset=0x0))
+        + Op.STOP * 2,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xb2b4442b80edd3930f9d8a8696794672fbeebfd0"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         value=10,
         nonce=0,
@@ -72,10 +74,12 @@ def test_stack_limit_gas_1024(
 
     post = {
         target: Account(
-                storage={},
-                code=bytes.fromhex("6103fe6000525b5a6001600051036000526000516006570000"),  # noqa: E501
-                nonce=0,
+            storage={},
+            code=bytes.fromhex(
+                "6103fe6000525b5a6001600051036000526000516006570000"
             ),
+            nonce=0,
+        ),
         sender: Account(storage={}, code=b"", nonce=1),
     }
 

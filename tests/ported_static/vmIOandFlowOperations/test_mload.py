@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/mloadFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -47,15 +47,21 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="mload",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="mloadOOG",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="mloadOOG",
         ),
     ],
@@ -76,7 +82,7 @@ def test_mload(
     contract_2 = Address("0x0000000000000000000000000000000000001002")
     contract_3 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -91,36 +97,40 @@ def test_mload(
 
     # Source: lll
     # {
-    #      [0] 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff
+    #      [0] 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff  # noqa: E501
     #      [[0]] (mload 0)
-    # 
+    #
     # }
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x111122223333444455556666777788889999aaaabbbbccccddddeeeeffff)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0x111122223333444455556666777788889999AAAABBBBCCCCDDDDEEEEFFFF,  # noqa: E501
+        )
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
     # Source: lll
     # {
     #      [[0]] (mload 0x0fffffff)
-    # 
+    #
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0xfffffff)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0xFFFFFFF)) + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
     # Source: lll
     # {
     #      [[0]] (mload 7489573)
-    # 
+    #
     # }
-    contract_2 = pre.deploy_contract(
+    contract_2 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x724825)) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -128,11 +138,18 @@ def test_mload(
     # {
     #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
     # }
-    contract_3 = pre.deploy_contract(
-        code=Op.DELEGATECALL(gas=Op.GAS, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         storage={0: 2989},
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
@@ -140,19 +157,19 @@ def test_mload(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_3: Account(
-                storage={
-            0: 0x111122223333444455556666777788889999aaaabbbbccccddddeeeeffff,
-        },
-            ),
-    },
+                contract_3: Account(
+                    storage={
+                        0: 0x111122223333444455556666777788889999AAAABBBBCCCCDDDDEEEEFFFF,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': [1, 2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [1, 2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {contract_3: Account(storage={0: 2989})},
         },
     ]
@@ -169,6 +186,5 @@ def test_mload(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

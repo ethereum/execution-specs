@@ -1,5 +1,5 @@
 """
-test_not_non_const
+Test_not_non_const.
 
 Ported from:
 state_tests/stArgsZeroOneBalance/notNonConstFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-v0",
         ),
         pytest.param(
-            0, 0, 1,
+            0,
+            0,
+            1,
             id="-v1",
         ),
     ],
@@ -63,10 +67,10 @@ def test_not_non_const(
     g: int,
     v: int,
 ) -> None:
-    """test_not_non_const"""
+    """Test_not_non_const."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
 
     env = Environment(
@@ -80,37 +84,42 @@ def test_not_non_const(
     )
 
     # Source: lll
-    # { [[ 0 ]](NOT (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.NOT(Op.BALANCE(address=0xcb87599782f7101d77a9b56283a67cd13fa0d97e)))  # noqa: E501
+    # { [[ 0 ]](NOT (BALANCE <contract:target:0x095e7baea6a6c7c4c2dfeb977efac326af552d87>)) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.NOT(
+                Op.BALANCE(address=0xCB87599782F7101D77A9B56283A67CD13FA0D97E)
+            ),
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0xcb87599782f7101d77a9b56283a67cd13fa0d97e"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': 0},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": 0},
+            "network": [">=Cancun"],
             "result": {
-        target: Account(
-                storage={
-            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
-        },
-            ),
-    },
+                target: Account(
+                    storage={
+                        0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                    },
+                ),
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': 1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": 1},
+            "network": [">=Cancun"],
             "result": {
-        target: Account(
-                storage={
-            0: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe,
-        },
-            ),
-    },
+                target: Account(
+                    storage={
+                        0: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE,  # noqa: E501
+                    },
+                ),
+            },
         },
     ]
 
@@ -126,6 +135,5 @@ def test_not_non_const(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

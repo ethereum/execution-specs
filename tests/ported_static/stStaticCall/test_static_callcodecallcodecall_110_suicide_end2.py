@@ -1,5 +1,5 @@
 """
-test_static_callcodecallcodecall_110_suicide_end2
+Test_static_callcodecallcodecall_110_suicide_end2.
 
 Ported from:
 state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideEnd2Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -38,18 +38,24 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideEnd2Filler.json"],
+    [
+        "state_tests/stStaticCall/static_callcodecallcodecall_110_SuicideEnd2Filler.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-v0",
         ),
         pytest.param(
-            0, 0, 1,
+            0,
+            0,
+            1,
             id="-v1",
         ),
     ],
@@ -63,10 +69,10 @@ def test_static_callcodecallcodecall_110_suicide_end2(
     g: int,
     v: int,
 ) -> None:
-    """test_static_callcodecallcodecall_110_suicide_end2"""
+    """Test_static_callcodecallcodecall_110_suicide_end2."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -80,53 +86,90 @@ def test_static_callcodecallcodecall_110_suicide_end2(
     )
 
     # Source: lll
-    # {  [[ 0 ]] (CALLCODE 150000 <contract:0x1000000000000000000000000000000000000001> (CALLVALUE) 0 64 0 64 ) [[ 1 ]] (GAS) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CALLCODE(gas=0x249f0, address=0x1d36753cd1d8d4795799d3f4d0925c63f72b2685, value=Op.CALLVALUE, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))  # noqa: E501
-        + Op.SSTORE(key=0x1, value=Op.GAS) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+    # {  [[ 0 ]] (CALLCODE 150000 <contract:0x1000000000000000000000000000000000000001> (CALLVALUE) 0 64 0 64 ) [[ 1 ]] (GAS) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALLCODE(
+                gas=0x249F0,
+                address=0x1D36753CD1D8D4795799D3F4D0925C63F72B2685,
+                value=Op.CALLVALUE,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=Op.GAS)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x44d09ddf088dd88c0e91fa7ef74973ff94ad7414"),  # noqa: E501
     )
     # Source: lll
-    # {  (CALLCODE 100000 <contract:0x1000000000000000000000000000000000000002> (CALLVALUE) 0 64 0 64 ) }
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(
-        code=Op.CALLCODE(gas=0x186a0, address=0xb7770360e0b87603e3d9c87c866451760c95abca, value=Op.CALLVALUE, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40)
+    # {  (CALLCODE 100000 <contract:0x1000000000000000000000000000000000000002> (CALLVALUE) 0 64 0 64 ) }  # noqa: E501
+    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=0x186A0,
+            address=0xB7770360E0B87603E3D9C87C866451760C95ABCA,
+            value=Op.CALLVALUE,
+            args_offset=0x0,
+            args_size=0x40,
+            ret_offset=0x0,
+            ret_size=0x40,
+        )
         + Op.STOP,
-        balance=0x2540be400,
+        balance=0x2540BE400,
         nonce=0,
         address=Address("0x1d36753cd1d8d4795799d3f4d0925c63f72b2685"),  # noqa: E501
     )
     # Source: lll
-    # {  (STATICCALL 50000 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (SELFDESTRUCT <contract:0x1000000000000000000000000000000000000001>) }
-    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(
-        code=Op.POP(Op.STATICCALL(gas=0xc350, address=0x48e2d4c0b593bfebe5ddb4f13aa355b8bd83ddd3, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))
-        + Op.SELFDESTRUCT(address=0x1d36753cd1d8d4795799d3f4d0925c63f72b2685)
+    # {  (STATICCALL 50000 <contract:0x1000000000000000000000000000000000000003> 0 64 0 64 ) (SELFDESTRUCT <contract:0x1000000000000000000000000000000000000001>) }  # noqa: E501
+    addr_0x1000000000000000000000000000000000000002 = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.STATICCALL(
+                gas=0xC350,
+                address=0x48E2D4C0B593BFEBE5DDB4F13AA355B8BD83DDD3,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            )
+        )
+        + Op.SELFDESTRUCT(address=0x1D36753CD1D8D4795799D3F4D0925C63F72B2685)
         + Op.STOP,
-        balance=0x2540be400,
+        balance=0x2540BE400,
         nonce=0,
         address=Address("0xb7770360e0b87603e3d9c87c866451760c95abca"),  # noqa: E501
     )
     # Source: lll
     # {  (MSTORE 3 1) }
-    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(
+    addr_0x1000000000000000000000000000000000000003 = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x3, value=0x1) + Op.STOP,
-        balance=0x2540be400,
+        balance=0x2540BE400,
         nonce=0,
         address=Address("0x48e2d4c0b593bfebe5ddb4f13aa355b8bd83ddd3"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': 0},
-            "network": ['>=Cancun'],
-            "result": {target: Account(storage={0: 1, 1: 0x2cebff}, balance=0, nonce=0)},
+            "indexes": {"data": -1, "gas": -1, "value": 0},
+            "network": [">=Cancun"],
+            "result": {
+                target: Account(
+                    storage={0: 1, 1: 0x2CEBFF}, balance=0, nonce=0
+                )
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': 1},
-            "network": ['>=Cancun'],
-            "result": {target: Account(storage={0: 1, 1: 0x2cb7a7}, balance=0, nonce=0)},
+            "indexes": {"data": -1, "gas": -1, "value": 1},
+            "network": [">=Cancun"],
+            "result": {
+                target: Account(
+                    storage={0: 1, 1: 0x2CB7A7}, balance=0, nonce=0
+                )
+            },
         },
     ]
 
@@ -142,6 +185,5 @@ def test_static_callcodecallcodecall_110_suicide_end2(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

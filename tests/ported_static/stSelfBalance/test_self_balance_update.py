@@ -1,5 +1,5 @@
 """
-test_self_balance_update
+Test_self_balance_update.
 
 Ported from:
 state_tests/stSelfBalance/selfBalanceUpdateFiller.json
@@ -31,10 +31,10 @@ def test_self_balance_update(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_self_balance_update"""
+    """Test_self_balance_update."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x897b12d02d588d8a4fe16ff831cbd4459c6f62f8c845b0ccdd31caf068c84a26
+        key=0x897B12D02D588D8A4FE16FF831CBD4459C6F62F8C845B0CCDD31CAF068C84A26
     )
 
     env = Environment(
@@ -48,23 +48,36 @@ def test_self_balance_update(
     )
 
     # Source: lll
-    # (asm SELFBALANCE DUP1 1 SSTORE 0 0 0 0 1 0 0 CALL POP SELFBALANCE DUP1 2 SSTORE SWAP1 SUB 3 SSTORE)
-    target = pre.deploy_contract(
-        code=Op.SELFBALANCE + Op.SSTORE(key=0x1, value=Op.DUP1)
-        + Op.POP(Op.CALL(gas=0x0, address=0x0, value=0x1, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.SELFBALANCE + Op.SSTORE(key=0x2, value=Op.DUP1) + Op.SWAP1
-        + Op.SSTORE(key=0x3, value=Op.SUB) + Op.STOP,
+    # (asm SELFBALANCE DUP1 1 SSTORE 0 0 0 0 1 0 0 CALL POP SELFBALANCE DUP1 2 SSTORE SWAP1 SUB 3 SSTORE)  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFBALANCE
+        + Op.SSTORE(key=0x1, value=Op.DUP1)
+        + Op.POP(
+            Op.CALL(
+                gas=0x0,
+                address=0x0,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.SELFBALANCE
+        + Op.SSTORE(key=0x2, value=Op.DUP1)
+        + Op.SWAP1
+        + Op.SSTORE(key=0x3, value=Op.SUB)
+        + Op.STOP,
         balance=500,
         nonce=0,
         address=Address("0xff44472f5ffdd079c61153f097871f57c1f689ca"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635c9adc5dea00000)
-
+    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=200000,
         nonce=0,
         gas_price=10,

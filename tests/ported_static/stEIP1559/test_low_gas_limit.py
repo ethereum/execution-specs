@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP1559/lowGasLimitFiller.yml
@@ -15,14 +15,12 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
-    AccessList,
-    Hash,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -39,14 +37,14 @@ def _tx_data(d: int) -> bytes:
     """Convert TX_DATA[d] hex string to bytes."""
     return bytes.fromhex(TX_DATA[d])
 
+
 TX_ACCESS_LISTS: dict[int, list] = {
-    0: [
-    ],
+    0: [],
 }
 
 
 def _tx_access_list(d: int) -> list | None:
-    """Get access list for data index d. None means no access list (legacy tx)."""
+    """Get access list for data index d. None means no access list (legacy tx)."""  # noqa: E501
     return TX_ACCESS_LISTS.get(d)
 
 
@@ -58,20 +56,28 @@ def _tx_access_list(d: int) -> list | None:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
         pytest.param(
-            0, 2, 0,
+            0,
+            2,
+            0,
             id="-g2",
         ),
         pytest.param(
-            0, 3, 0,
+            0,
+            3,
+            0,
             id="-g3",
             marks=pytest.mark.exception_test,
         ),
@@ -89,7 +95,7 @@ def test_low_gas_limit(
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xde0c95357363da5c1c5a73bd7c2781ca5c9fecc1014103b5e1d1e990ae8208ec
+        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
     )
 
     env = Environment(
@@ -107,37 +113,41 @@ def test_low_gas_limit(
     # {
     #     sstore(0, add(1,1))
     # }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
         storage={0: 24743},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xef0454d0376d1921b9a83868282725853c293ab5"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=1)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {},
-            "expect_exception": {">=Cancun": TransactionException.GAS_ALLOWANCE_EXCEEDED},
+            "expect_exception": {
+                ">=Cancun": TransactionException.GAS_ALLOWANCE_EXCEEDED
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={0: 2})},
         },
         {
-            "indexes": {'data': -1, 'gas': 2, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 2, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={0: 24743})},
         },
         {
-            "indexes": {'data': -1, 'gas': 3, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 3, "value": -1},
+            "network": [">=Cancun"],
             "result": {},
-            "expect_exception": {">=Cancun": TransactionException.INTRINSIC_GAS_TOO_LOW},
+            "expect_exception": {
+                ">=Cancun": TransactionException.INTRINSIC_GAS_TOO_LOW
+            },
         },
     ]
 
@@ -154,6 +164,5 @@ def test_low_gas_limit(
         access_list=_tx_access_list(d),
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

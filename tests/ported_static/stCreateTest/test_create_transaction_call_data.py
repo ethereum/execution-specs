@@ -1,7 +1,7 @@
 """
-Tests if CALLDATALOAD, CALLDATACOPY, CODECOPY and CODESIZE work correctly in initcode context:
-call data is always empty in initcode context and "code" is initcode.
+Tests if CALLDATALOAD, CALLDATACOPY, CODECOPY and CODESIZE work...
 
+call data is always empty in initcode context and "code" is initcode.
 
 Ported from:
 state_tests/stCreateTest/CreateTransactionCallDataFiller.yml
@@ -48,15 +48,21 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="calldataload",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="calldatacopy",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="codecopy",
         ),
     ],
@@ -70,9 +76,9 @@ def test_create_transaction_call_data(
     g: int,
     v: int,
 ) -> None:
-    """Tests if CALLDATALOAD, CALLDATACOPY, CODECOPY and CODESIZE work cor..."""
+    """Tests if CALLDATALOAD, CALLDATACOPY, CODECOPY and CODESIZE work..."""
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -85,26 +91,28 @@ def test_create_transaction_call_data(
         gas_limit=1000000,
     )
 
-    pre[sender] = Account(balance=0x5af3107a4000)
+    pre[sender] = Account(balance=0x5AF3107A4000)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0, 1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(storage={}, code=b"", nonce=1),  # noqa: E501
-    },
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    storage={}, code=b"", nonce=1
+                ),
+            },
         },
         {
-            "indexes": {'data': [2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-                storage={},
-                code=bytes.fromhex("3860008039386000f3"),
-                nonce=1,
-            ),
-    },
+                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                    storage={},
+                    code=bytes.fromhex("3860008039386000f3"),
+                    nonce=1,
+                ),
+            },
         },
     ]
 
@@ -119,6 +127,5 @@ def test_create_transaction_call_data(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

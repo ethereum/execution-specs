@@ -1,5 +1,5 @@
 """
-test_non_zero_value_transaction_cal_lwith_data_to_non_non_zero_balance
+Test_non_zero_value_transaction_cal_lwith_data_to_non_non_zero_balance.
 
 Ported from:
 state_tests/stNonZeroCallsTest/NonZeroValue_TransactionCALLwithData_ToNonNonZeroBalanceFiller.json
@@ -22,7 +22,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stNonZeroCallsTest/NonZeroValue_TransactionCALLwithData_ToNonNonZeroBalanceFiller.json"],
+    [
+        "state_tests/stNonZeroCallsTest/NonZeroValue_TransactionCALLwithData_ToNonNonZeroBalanceFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -30,11 +32,13 @@ def test_non_zero_value_transaction_cal_lwith_data_to_non_non_zero_balance(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_non_zero_value_transaction_cal_lwith_data_to_non_non_zero_balance"""
+    """Test_non_zero_value_transaction_cal_lwith_data_to_non_non_zero_balance."""  # noqa: E501
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
-    addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address("0x9089da66e8bbc08846842a301905501bc8525dc4")  # noqa: E501
+    addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
+        "0x9089da66e8bbc08846842a301905501bc8525dc4"
+    )
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -47,9 +51,8 @@ def test_non_zero_value_transaction_cal_lwith_data_to_non_non_zero_balance(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     pre[addr_0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=100)
-
 
     tx = Transaction(
         sender=sender,

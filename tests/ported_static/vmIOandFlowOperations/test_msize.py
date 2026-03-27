@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/msizeFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -51,27 +51,39 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="msize0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="msize1",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="msize2",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="msize3",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="chunks",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="farChunk",
         ),
     ],
@@ -95,7 +107,7 @@ def test_msize(
     contract_5 = Address("0x0000000000000000000000000000000000001005")
     contract_6 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -114,10 +126,11 @@ def test_msize(
     #     [0]  0xFF
     #    [[0]] (msize)
     # }
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xff) + Op.SSTORE(key=0x0, value=Op.MSIZE)  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0xFF)
+        + Op.SSTORE(key=0x0, value=Op.MSIZE)
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -127,10 +140,11 @@ def test_msize(
     #     [0]  0xffffffffff
     #    [[0]] (msize)
     # }
-    contract_1 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xffffffffff)
-        + Op.SSTORE(key=0x0, value=Op.MSIZE) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_1 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0xFFFFFFFFFF)
+        + Op.SSTORE(key=0x0, value=Op.MSIZE)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -141,11 +155,12 @@ def test_msize(
     #    [0x20] 0xeeee
     #    [[0]] (msize)
     # }
-    contract_2 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xffffffffff)
-        + Op.MSTORE(offset=0x20, value=0xeeee)
-        + Op.SSTORE(key=0x0, value=Op.MSIZE) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0xFFFFFFFFFF)
+        + Op.MSTORE(offset=0x20, value=0xEEEE)
+        + Op.SSTORE(key=0x0, value=Op.MSIZE)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001002"),  # noqa: E501
     )
@@ -155,15 +170,16 @@ def test_msize(
     #    [0]    0xffffffffff
     #    [0x5a] 0xeeee
     #    [[0]] (msize)
-    # 
+    #
     #    ; The 0xEEEE value is stored 0x5a-0x79,
     #    ; and memory is allocated in 0x20 byte chunks
     # }
-    contract_3 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xffffffffff)
-        + Op.MSTORE(offset=0x5a, value=0xeeee)
-        + Op.SSTORE(key=0x0, value=Op.MSIZE) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_3 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0xFFFFFFFFFF)
+        + Op.MSTORE(offset=0x5A, value=0xEEEE)
+        + Op.SSTORE(key=0x0, value=Op.MSIZE)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001003"),  # noqa: E501
     )
@@ -172,23 +188,26 @@ def test_msize(
     #    ; Store at the very end of the first chunk
     #    (mstore8 0x1F 1)
     #    [[0]] (msize)
-    # 
+    #
     #    ; Store at the beginning of the second chuck
     #    (mstore8 0x20 1)
     #    [[1]] (msize)
-    # 
+    #
     #    ; Does it matter if we reset the memory?
     #    ; Spoiler alert, it doesn't
     #    (mstore8 0x20 0)
     #    [[2]] (msize)
-    # 
+    #
     # }
-    contract_4 = pre.deploy_contract(
-        code=Op.MSTORE8(offset=0x1f, value=0x1) + Op.SSTORE(key=0x0, value=Op.MSIZE)  # noqa: E501
-        + Op.MSTORE8(offset=0x20, value=0x1) + Op.SSTORE(key=0x1, value=Op.MSIZE)  # noqa: E501
-        + Op.MSTORE8(offset=0x20, value=0x0) + Op.SSTORE(key=0x2, value=Op.MSIZE)  # noqa: E501
+    contract_4 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE8(offset=0x1F, value=0x1)
+        + Op.SSTORE(key=0x0, value=Op.MSIZE)
+        + Op.MSTORE8(offset=0x20, value=0x1)
+        + Op.SSTORE(key=0x1, value=Op.MSIZE)
+        + Op.MSTORE8(offset=0x20, value=0x0)
+        + Op.SSTORE(key=0x2, value=Op.MSIZE)
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001004"),  # noqa: E501
     )
@@ -200,10 +219,11 @@ def test_msize(
     #    (mstore8 0xB00000 1)
     #    [[0]] (msize)
     # }
-    contract_5 = pre.deploy_contract(
-        code=Op.MSTORE8(offset=0xb00000, value=0x1)
-        + Op.SSTORE(key=0x0, value=Op.MSIZE) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+    contract_5 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE8(offset=0xB00000, value=0x1)
+        + Op.SSTORE(key=0x0, value=Op.MSIZE)
+        + Op.STOP,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001005"),  # noqa: E501
     )
@@ -211,10 +231,17 @@ def test_msize(
     # {
     #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
     # }
-    contract_6 = pre.deploy_contract(
-        code=Op.DELEGATECALL(gas=Op.GAS, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_6 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
@@ -222,29 +249,29 @@ def test_msize(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0, 1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": [0, 1], "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {contract_6: Account(storage={0: 32})},
         },
         {
-            "indexes": {'data': [2], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": [2], "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {contract_6: Account(storage={0: 64})},
         },
         {
-            "indexes": {'data': [3], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": [3], "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {contract_6: Account(storage={0: 128})},
         },
         {
-            "indexes": {'data': [4], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": [4], "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {contract_6: Account(storage={0: 32, 1: 64, 2: 64})},
         },
         {
-            "indexes": {'data': [5], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
-            "result": {contract_6: Account(storage={0: 0xb00020})},
+            "indexes": {"data": [5], "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
+            "result": {contract_6: Account(storage={0: 0xB00020})},
         },
     ]
 
@@ -260,6 +287,5 @@ def test_msize(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

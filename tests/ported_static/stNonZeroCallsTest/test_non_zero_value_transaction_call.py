@@ -1,5 +1,5 @@
 """
-test_non_zero_value_transaction_call
+Test_non_zero_value_transaction_call.
 
 Ported from:
 state_tests/stNonZeroCallsTest/NonZeroValue_TransactionCALLFiller.json
@@ -30,10 +30,10 @@ def test_non_zero_value_transaction_call(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_non_zero_value_transaction_call"""
+    """Test_non_zero_value_transaction_call."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -46,13 +46,12 @@ def test_non_zero_value_transaction_call(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
-
+    pre[sender] = Account(balance=0xE8D4A51000)
 
     tx = Transaction(
         sender=sender,
         to=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
-        data=b'',
+        data=b"",
         gas_limit=600000,
         value=1,
         nonce=0,
@@ -60,7 +59,9 @@ def test_non_zero_value_transaction_call(
     )
 
     post = {
-        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(storage={}, balance=1),  # noqa: E501
+        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+            storage={}, balance=1
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

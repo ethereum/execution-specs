@@ -1,5 +1,5 @@
 """
-Ori Pomerantz   qbzzt1@gmail.com
+Ori Pomerantz   qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stRefundTest/refundSSTOREFiller.yml
@@ -14,8 +14,6 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
-    AccessList,
-    Hash,
 )
 from execution_testing.vm import Op
 
@@ -36,7 +34,7 @@ def test_refund_sstore(
     """Ori Pomerantz   qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x8c45b94dca330650c0392398fb2097bb64764e973720a845ee67605ffabf0c7c
+        key=0x8C45B94DCA330650C0392398FB2097BB64764E973720A845EE67605FFABF0C7C
     )
 
     env = Environment(
@@ -50,19 +48,18 @@ def test_refund_sstore(
     )
 
     # Source: yul
-    # berlin 
+    # berlin
     # {
     #    sstore(0,0x0)
     # }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=Op.DUP1, value=0x0) + Op.STOP,
         storage={0: 24743},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0xf5f86b947fc07a75e19106a6b7e4953d431ad57f"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xe8d631f190, nonce=1)
-
+    pre[sender] = Account(balance=0xE8D631F190, nonce=1)
 
     tx = Transaction(
         sender=sender,
@@ -71,10 +68,9 @@ def test_refund_sstore(
         gas_limit=2601000,
         nonce=1,
         gas_price=1000,
-        access_list=[
-        ],
+        access_list=[],
     )
 
-    post = {sender: Account(balance=0xe8d4ee4e00)}
+    post = {sender: Account(balance=0xE8D4EE4E00)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

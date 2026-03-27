@@ -1,5 +1,5 @@
 """
-Example of PoS merge state test
+Example of PoS merge state test.
 
 Ported from:
 state_tests/stExample/mergeTestFiller.yml
@@ -8,14 +8,14 @@ state_tests/stExample/mergeTestFiller.yml
 import pytest
 from execution_testing import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
-    AccessList,
-    Hash,
 )
 from execution_testing.vm import Op
 
@@ -33,17 +33,17 @@ def test_merge_test(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Example of PoS merge state test"""
+    """Example of PoS merge state test."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xde0c95357363da5c1c5a73bd7c2781ca5c9fecc1014103b5e1d1e990ae8208ec
+        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
     )
 
     env = Environment(
         fee_recipient=coinbase,
         number=1,
         timestamp=1000,
-        prev_randao=0x1500000000000000000000000000000000000000000000000000000000000000,
+        prev_randao=0x1500000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
         difficulty=0x20000,
         base_fee_per_gas=1000,
         gas_limit=16777216,
@@ -55,16 +55,16 @@ def test_merge_test(
     #    (sstore 1 (basefee))
     #    (sstore 2 (difficulty))
     # }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.GASPRICE)
         + Op.SSTORE(key=0x1, value=Op.BASEFEE)
-        + Op.SSTORE(key=0x2, value=Op.PREVRANDAO) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        + Op.SSTORE(key=0x2, value=Op.PREVRANDAO)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=1,
         address=Address("0x49a0fe79e28d1d65e16cdf53acafeae7baccac0e"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=1)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     tx = Transaction(
         sender=sender,
@@ -91,13 +91,13 @@ def test_merge_test(
 
     post = {
         target: Account(
-                storage={
-            0: 1010,
-            1: 1000,
-            2: 0x1500000000000000000000000000000000000000000000000000000000000000,
-        },
-                nonce=1,
-            ),
+            storage={
+                0: 1010,
+                1: 1000,
+                2: 0x1500000000000000000000000000000000000000000000000000000000000000,  # noqa: E501
+            },
+            nonce=1,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

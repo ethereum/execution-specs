@@ -1,5 +1,5 @@
 """
-test_mload16bit_bound
+Test_mload16bit_bound.
 
 Ported from:
 state_tests/stMemoryTest/mload16bitBoundFiller.json
@@ -31,10 +31,10 @@ def test_mload16bit_bound(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_mload16bit_bound"""
+    """Test_mload16bit_bound."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xa9df11bd92fc8535ffca3ae0a2133c80d5f4ecc5d31d100b94ff03e63f7e74ff
+        key=0xA9DF11BD92FC8535FFCA3AE0A2133C80D5F4ECC5D31D100B94FF03E63F7E74FF
     )
 
     env = Environment(
@@ -49,19 +49,18 @@ def test_mload16bit_bound(
 
     # Source: lll
     # { [[ 1 ]] (MLOAD 65536) }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x10000)) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x85eaa01ac6288c06360d431d62cd865c92b74a28"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xa00050281798)
-
+    pre[sender] = Account(balance=0xA00050281798)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         value=10,
         nonce=0,

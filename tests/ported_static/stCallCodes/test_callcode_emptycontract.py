@@ -1,5 +1,5 @@
 """
-test_callcode_emptycontract
+Test_callcode_emptycontract.
 
 Ported from:
 state_tests/stCallCodes/callcodeEmptycontractFiller.json
@@ -31,10 +31,10 @@ def test_callcode_emptycontract(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_callcode_emptycontract"""
+    """Test_callcode_emptycontract."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xa2333eef5630066b928dea5fd85a239f511b5b067d1441ee7ac290d0122b917b
+        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
     )
 
     env = Environment(
@@ -48,21 +48,31 @@ def test_callcode_emptycontract(
     )
 
     # Source: lll
-    # { [[ 0 ]] (CALLCODE 50000 0x945304eb96065b2a98b57a48a06ae28d285a71b5 1000 0 64 0 64 )}
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CALLCODE(gas=0xc350, address=0x945304eb96065b2a98b57a48a06ae28d285a71b5, value=0x3e8, args_offset=0x0, args_size=0x40, ret_offset=0x0, ret_size=0x40))  # noqa: E501
+    # { [[ 0 ]] (CALLCODE 50000 0x945304eb96065b2a98b57a48a06ae28d285a71b5 1000 0 64 0 64 )}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALLCODE(
+                gas=0xC350,
+                address=0x945304EB96065B2A98B57A48A06AE28D285A71B5,
+                value=0x3E8,
+                args_offset=0x0,
+                args_size=0x40,
+                ret_offset=0x0,
+                ret_size=0x40,
+            ),
+        )
         + Op.STOP,
         balance=1000,
         nonce=0,
         address=Address("0x594f6a1a002fc9949ac40616cc146845680302e1"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x5f5e100)
-
+    pre[sender] = Account(balance=0x5F5E100)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=1050440,
         nonce=0,
         gas_price=10,

@@ -1,5 +1,5 @@
 """
-test_jump_bounds
+Test_jump_bounds.
 
 Ported from:
 state_tests/stMemoryStressTest/JUMP_BoundsFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,10 +67,10 @@ def test_jump_bounds(
     g: int,
     v: int,
 ) -> None:
-    """test_jump_bounds"""
+    """Test_jump_bounds."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x31b5af02b012484ae954b3a43943242ede546a2e76fc0a6acc17435107c385eb
+        key=0x31B5AF02B012484AE954B3A43943242EDE546A2E76FC0A6ACC17435107C385EB
     )
 
     env = Environment(
@@ -81,17 +85,17 @@ def test_jump_bounds(
 
     # Source: lll
     # { (JUMP 0) }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.JUMP(pc=0x0) + Op.STOP,
         nonce=0,
         address=Address("0xb2448deb71e9fd31ed854e3b856f729adbc0c288"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7fffffffffffffff)
+    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFF)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(balance=0)},
         },
     ]
@@ -108,6 +112,5 @@ def test_jump_bounds(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

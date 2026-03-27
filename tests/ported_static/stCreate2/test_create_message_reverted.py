@@ -1,5 +1,5 @@
 """
-CreateMessageReverted for CREATE2
+CreateMessageReverted for CREATE2.
 
 Ported from:
 state_tests/stCreate2/CreateMessageRevertedFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,11 +67,11 @@ def test_create_message_reverted(
     g: int,
     v: int,
 ) -> None:
-    """CreateMessageReverted for CREATE2"""
+    """CreateMessageReverted for CREATE2."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -80,32 +84,37 @@ def test_create_message_reverted(
         gas_limit=1000000000000,
     )
 
-    pre[sender] = Account(balance=0x2dc6c0)
+    pre[sender] = Account(balance=0x2DC6C0)
     # Source: lll
     # {(MSTORE 0 0x600c600055600d600155) (CREATE2 0 22 10 0)}
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x600c600055600d600155)
-        + Op.CREATE2(value=0x0, offset=0x16, size=0xa, salt=0x0) + Op.STOP,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x600C600055600D600155)
+        + Op.CREATE2(value=0x0, offset=0x16, size=0xA, salt=0x0)
+        + Op.STOP,
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        Address("0x244fe9a7867edcc140245e775071fbfe6ebedbae"): Account.NONEXISTENT,  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                Address(
+                    "0x244fe9a7867edcc140245e775071fbfe6ebedbae"
+                ): Account.NONEXISTENT,
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        Address("0x244fe9a7867edcc140245e775071fbfe6ebedbae"): Account(storage={0: 12, 1: 13}, balance=0, nonce=1),  # noqa: E501
-    },
+                sender: Account(nonce=1),
+                Address("0x244fe9a7867edcc140245e775071fbfe6ebedbae"): Account(
+                    storage={0: 12, 1: 13}, balance=0, nonce=1
+                ),
+            },
         },
     ]
 
@@ -121,6 +130,5 @@ def test_create_message_reverted(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

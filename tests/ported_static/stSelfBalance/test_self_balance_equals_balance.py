@@ -1,5 +1,5 @@
 """
-test_self_balance_equals_balance
+Test_self_balance_equals_balance.
 
 Ported from:
 state_tests/stSelfBalance/selfBalanceEqualsBalanceFiller.json
@@ -31,10 +31,10 @@ def test_self_balance_equals_balance(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_self_balance_equals_balance"""
+    """Test_self_balance_equals_balance."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x897b12d02d588d8a4fe16ff831cbd4459c6f62f8c845b0ccdd31caf068c84a26
+        key=0x897B12D02D588D8A4FE16FF831CBD4459C6F62F8C845B0CCDD31CAF068C84A26
     )
 
     env = Environment(
@@ -49,20 +49,22 @@ def test_self_balance_equals_balance(
 
     # Source: lll
     # { [[ 1 ]] (EQ (SELFBALANCE) (BALANCE (ADDRESS))) }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x1, value=Op.EQ(Op.SELFBALANCE, Op.BALANCE(address=Op.ADDRESS)))  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x1,
+            value=Op.EQ(Op.SELFBALANCE, Op.BALANCE(address=Op.ADDRESS)),
+        )
         + Op.STOP,
         balance=500,
         nonce=0,
         address=Address("0x2f9dc2c2519cfd4ff8f7f296575c59dbe303d452"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3635c9adc5dea00000)
-
+    pre[sender] = Account(balance=0x3635C9ADC5DEA00000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         nonce=0,
         gas_price=10,

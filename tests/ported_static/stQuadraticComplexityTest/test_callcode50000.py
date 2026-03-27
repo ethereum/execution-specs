@@ -1,5 +1,5 @@
 """
-test_callcode50000
+Test_callcode50000.
 
 Ported from:
 state_tests/stQuadraticComplexityTest/Callcode50000Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -46,11 +46,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -64,11 +68,13 @@ def test_callcode50000(
     g: int,
     v: int,
 ) -> None:
-    """test_callcode50000"""
+    """Test_callcode50000."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address("0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0")  # noqa: E501
+    addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b = Address(
+        "0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0"
+    )
     sender = EOA(
-        key=0xe7c72b378297589acee4e0ba3272841bcfc5e220f86de253f890274cfee9e474
+        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
 
     env = Environment(
@@ -81,48 +87,73 @@ def test_callcode50000(
         gas_limit=8600000000,
     )
 
-    pre[sender] = Account(balance=0xffffffffffffffffffffffffffffffff)
-    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(balance=7000)
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+    pre[addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b] = Account(
+        balance=7000
+    )
     # Source: lll
-    # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALLCODE 1600 <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 50000 0 0) ) [[ 1 ]] @i}
-    target = pre.deploy_contract(
+    # { (def 'i 0x80) (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (CALLCODE 1600 <eoa:0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b> 1 0 50000 0 0) ) [[ 1 ]] @i}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.JUMPDEST
-        + Op.JUMPI(pc=0x3f, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xc350)))
-        + Op.SSTORE(key=0x0, value=Op.CALLCODE(gas=0x640, address=0xd9b97c712ebce43f3c19179bbef44b550f9e8bc0, value=0x1, args_offset=0x0, args_size=0xc350, ret_offset=0x0, ret_size=0x0))  # noqa: E501
+        + Op.JUMPI(
+            pc=0x3F, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
+        )
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.CALLCODE(
+                gas=0x640,
+                address=0xD9B97C712EBCE43F3C19179BBEF44B550F9E8BC0,
+                value=0x1,
+                args_offset=0x0,
+                args_size=0xC350,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
         + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
-        + Op.JUMP(pc=0x0) + Op.JUMPDEST
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80)) + Op.STOP,
-        balance=0xfffffffffffff,
+        + Op.JUMP(pc=0x0)
+        + Op.JUMPDEST
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
+        + Op.STOP,
+        balance=0xFFFFFFFFFFFFF,
         nonce=0,
         address=Address("0x7fc89545bed7af26b6ef809b53e9a93fd0718468"),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {
-        sender: Account(storage={}, code=b"", nonce=1),
-        addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={}, code=b"", nonce=0),
-        target: Account(
-                storage={},
-                code=bytes.fromhex("5b61c3506080511015603f576000600061c3506000600173d9b97c712ebce43f3c19179bbef44b550f9e8bc0610640f26000556001608051016080526000565b60805160015500"),  # noqa: E501
-                nonce=0,
-            ),
-    },
+                sender: Account(storage={}, code=b"", nonce=1),
+                addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+                    storage={}, code=b"", nonce=0
+                ),
+                target: Account(
+                    storage={},
+                    code=bytes.fromhex(
+                        "5b61c3506080511015603f576000600061c3506000600173d9b97c712ebce43f3c19179bbef44b550f9e8bc0610640f26000556001608051016080526000565b60805160015500"  # noqa: E501
+                    ),
+                    nonce=0,
+                ),
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {
-        sender: Account(storage={}, code=b"", nonce=1),
-        addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={}, code=b"", nonce=0),
-        target: Account(
-                storage={},
-                code=bytes.fromhex("5b61c3506080511015603f576000600061c3506000600173d9b97c712ebce43f3c19179bbef44b550f9e8bc0610640f26000556001608051016080526000565b60805160015500"),  # noqa: E501
-                nonce=0,
-            ),
-    },
+                sender: Account(storage={}, code=b"", nonce=1),
+                addr_0xaaaf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+                    storage={}, code=b"", nonce=0
+                ),
+                target: Account(
+                    storage={},
+                    code=bytes.fromhex(
+                        "5b61c3506080511015603f576000600061c3506000600173d9b97c712ebce43f3c19179bbef44b550f9e8bc0610640f26000556001608051016080526000565b60805160015500"  # noqa: E501
+                    ),
+                    nonce=0,
+                ),
+            },
         },
     ]
 
@@ -138,6 +169,5 @@ def test_callcode50000(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

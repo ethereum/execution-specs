@@ -1,5 +1,5 @@
 """
-test_mload_bounds2
+Test_mload_bounds2.
 
 Ported from:
 state_tests/stMemoryStressTest/MLOAD_Bounds2Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,10 +67,10 @@ def test_mload_bounds2(
     g: int,
     v: int,
 ) -> None:
-    """test_mload_bounds2"""
+    """Test_mload_bounds2."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xfe5be118ad5955e30e0ffc4e1f1bbdcaa7f5a67cb1426c4ac19e32c80eccdc06
+        key=0xFE5BE118AD5955E30E0FFC4E1F1BBDCAA7F5A67CB1426C4AC19E32C80ECCDC06
     )
 
     env = Environment(
@@ -80,21 +84,23 @@ def test_mload_bounds2(
     )
 
     # Source: lll
-    # { (MLOAD 0xffffffffffffffff) (MLOAD 0xffffffffffffffffffffffffffffffff) (MLOAD 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) }
-    target = pre.deploy_contract(
-        code=Op.POP(Op.MLOAD(offset=0xffffffffffffffff))
-        + Op.POP(Op.MLOAD(offset=0xffffffffffffffffffffffffffffffff))
-        + Op.MLOAD(offset=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    # { (MLOAD 0xffffffffffffffff) (MLOAD 0xffffffffffffffffffffffffffffffff) (MLOAD 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(Op.MLOAD(offset=0xFFFFFFFFFFFFFFFF))
+        + Op.POP(Op.MLOAD(offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
+        + Op.MLOAD(
+            offset=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0xb581f1a0f5810ad50a1f96713df63eb8cb0ebf8a"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x7ffffffffffffffffff)
+    pre[sender] = Account(balance=0x7FFFFFFFFFFFFFFFFFF)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(balance=0)},
         },
     ]
@@ -111,6 +117,5 @@ def test_mload_bounds2(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

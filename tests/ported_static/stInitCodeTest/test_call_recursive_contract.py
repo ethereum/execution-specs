@@ -1,5 +1,5 @@
 """
-test_call_recursive_contract
+Test_call_recursive_contract.
 
 Ported from:
 state_tests/stInitCodeTest/CallRecursiveContractFiller.json
@@ -31,11 +31,11 @@ def test_call_recursive_contract(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_call_recursive_contract"""
+    """Test_call_recursive_contract."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -50,15 +50,15 @@ def test_call_recursive_contract(
 
     # Source: lll
     # {[[ 2 ]](ADDRESS)(CODECOPY 0 0 32)(CREATE 0 0 32)}
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x2, value=Op.ADDRESS)
         + Op.CODECOPY(dest_offset=0x0, offset=0x0, size=0x20)
-        + Op.CREATE(value=0x0, offset=0x0, size=0x20) + Op.STOP,
+        + Op.CREATE(value=0x0, offset=0x0, size=0x20)
+        + Op.STOP,
         nonce=40,
         address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x989680)
-
 
     tx = Transaction(
         sender=sender,
@@ -72,12 +72,16 @@ def test_call_recursive_contract(
 
     post = {
         contract_0: Account(
-                storage={2: 0x95e7baea6a6c7c4c2dfeb977efac326af552d87},
-                balance=1,
-                nonce=41,
-            ),
-        Address("0x1a4c83e1a9834cdc7e4a905ff7f0cf44aed73180"): Account.NONEXISTENT,  # noqa: E501
-        Address("0x8e3411c91d5dd4081b4846fa2f93808f5ad19686"): Account.NONEXISTENT,  # noqa: E501
+            storage={2: 0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87},
+            balance=1,
+            nonce=41,
+        ),
+        Address(
+            "0x1a4c83e1a9834cdc7e4a905ff7f0cf44aed73180"
+        ): Account.NONEXISTENT,
+        Address(
+            "0x8e3411c91d5dd4081b4846fa2f93808f5ad19686"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

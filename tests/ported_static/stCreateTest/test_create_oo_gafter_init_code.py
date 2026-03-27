@@ -1,5 +1,5 @@
 """
-test_create_oo_gafter_init_code
+Test_create_oo_gafter_init_code.
 
 Ported from:
 state_tests/stCreateTest/CreateOOGafterInitCodeFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,11 +67,11 @@ def test_create_oo_gafter_init_code(
     g: int,
     v: int,
 ) -> None:
-    """test_create_oo_gafter_init_code"""
+    """Test_create_oo_gafter_init_code."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -80,32 +84,37 @@ def test_create_oo_gafter_init_code(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
     # { (MSTORE 0 0x6460016001556000526005601bf3) (CREATE 0 18 14) }
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601bf3)
-        + Op.CREATE(value=0x0, offset=0x12, size=0xe) + Op.STOP,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x6460016001556000526005601BF3)
+        + Op.CREATE(value=0x0, offset=0x12, size=0xE)
+        + Op.STOP,
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(storage={1: 0}),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account.NONEXISTENT,  # noqa: E501
-    },
+                contract_0: Account(storage={1: 0}),
+                Address(
+                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+                ): Account.NONEXISTENT,
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': 1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        contract_0: Account(storage={1: 0}),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(code=bytes.fromhex("6001600155")),  # noqa: E501
-    },
+                contract_0: Account(storage={1: 0}),
+                Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+                    code=bytes.fromhex("6001600155")
+                ),
+            },
         },
     ]
 
@@ -120,6 +129,5 @@ def test_create_oo_gafter_init_code(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

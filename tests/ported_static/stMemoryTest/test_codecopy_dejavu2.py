@@ -1,5 +1,5 @@
 """
-test_codecopy_dejavu2
+Test_codecopy_dejavu2.
 
 Ported from:
 state_tests/stMemoryTest/codecopy_dejavu2Filler.json
@@ -31,10 +31,10 @@ def test_codecopy_dejavu2(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_codecopy_dejavu2"""
+    """Test_codecopy_dejavu2."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x7dd1d0ec78fe936b0e88f8c21226f51f048579915c7baff1c5d7fd84b2139bf1
+        key=0x7DD1D0EC78FE936B0E88F8C21226F51F048579915C7BAFF1C5D7FD84B2139BF1
     )
 
     env = Environment(
@@ -48,22 +48,22 @@ def test_codecopy_dejavu2(
     )
 
     # Source: yul
-    # berlin { codecopy(0x1f, 0x010000000000000001, 0x0a) let mem := mload(0) if eq(mem, 0) {stop()} }
-    target = pre.deploy_contract(
-        code=Op.CODECOPY(dest_offset=0x1f, offset=0x10000000000000001, size=0xa)
-        + Op.JUMPI(pc=0x17, condition=Op.ISZERO(Op.MLOAD(offset=0x0))) + Op.STOP
-        + Op.JUMPDEST + Op.STOP,
-        balance=0xde0b6b3a7640000,
+    # berlin { codecopy(0x1f, 0x010000000000000001, 0x0a) let mem := mload(0) if eq(mem, 0) {stop()} }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.CODECOPY(
+            dest_offset=0x1F, offset=0x10000000000000001, size=0xA
+        )
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xc165257d26f9435cbd00d8e2825ff173393d3b31"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x271000000000)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         value=10,
         nonce=0,

@@ -1,5 +1,5 @@
 """
-test_mload8bit_bound
+Test_mload8bit_bound.
 
 Ported from:
 state_tests/stMemoryTest/mload8bitBoundFiller.json
@@ -31,10 +31,10 @@ def test_mload8bit_bound(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_mload8bit_bound"""
+    """Test_mload8bit_bound."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
 
     env = Environment(
@@ -49,19 +49,18 @@ def test_mload8bit_bound(
 
     # Source: lll
     # { [[ 1 ]] (MLOAD 256) }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x100)) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xadea3cdf2c1f0efd3db876810aa68cbcd58d7693"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=220000,
         value=10,
         nonce=0,

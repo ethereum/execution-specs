@@ -1,5 +1,5 @@
 """
-test_random_statetest20
+Test_random_statetest20.
 
 Ported from:
 state_tests/stRandom/randomStatetest20Filler.json
@@ -31,10 +31,10 @@ def test_random_statetest20(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_random_statetest20"""
+    """Test_random_statetest20."""
     coinbase = Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79")
     sender = EOA(
-        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
 
     env = Environment(
@@ -48,36 +48,56 @@ def test_random_statetest20(
     )
 
     # Source: raw
-    # 0x31417f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0315208a675944747f7430661519049a55
-    target = pre.deploy_contract(
-        code=Op.BALANCE + Op.COINBASE
-        + Op.PUSH32[0xffffffffffffffffffffffffffffffffffffffff]
-        + Op.PUSH32[0xc350]
-        + Op.PUSH32[0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe]
-        + Op.SHA3(offset=Op.ISZERO(Op.SUB(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, Op.PUSH32[0x1])), size=Op.PUSH32[0x10000000000000000000000000000000000000000])
-        + Op.DIV(Op.NOT(0x5944747f74306615), Op.DUP11) + Op.SWAP11 + Op.SSTORE,
+    # 0x31417f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0315208a675944747f7430661519049a55  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.BALANCE
+        + Op.COINBASE
+        + Op.PUSH32[0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF]
+        + Op.PUSH32[0xC350]
+        + Op.PUSH32[
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
+        ]
+        + Op.SHA3(
+            offset=Op.ISZERO(
+                Op.SUB(
+                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF,  # noqa: E501
+                    Op.PUSH32[0x1],
+                )
+            ),
+            size=Op.PUSH32[0x10000000000000000000000000000000000000000],
+        )
+        + Op.DIV(Op.NOT(0x5944747F74306615), Op.DUP11)
+        + Op.SWAP11
+        + Op.SSTORE,
         nonce=0,
         address=Address("0x14aae767bfb5a29ee9b0f5b449eb48366103601c"),  # noqa: E501
     )
     # Source: raw
     # 0x6000355415600957005b60203560003555
-    coinbase = pre.deploy_contract(
-        code=Op.JUMPI(pc=0x9, condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))))  # noqa: E501
-        + Op.STOP + Op.JUMPDEST
-        + Op.SSTORE(key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)),  # noqa: E501
+    coinbase = pre.deploy_contract(  # noqa: F841
+        code=Op.JUMPI(
+            pc=0x9,
+            condition=Op.ISZERO(Op.SLOAD(key=Op.CALLDATALOAD(offset=0x0))),
+        )
+        + Op.STOP
+        + Op.JUMPDEST
+        + Op.SSTORE(
+            key=Op.CALLDATALOAD(offset=0x0), value=Op.CALLDATALOAD(offset=0x20)
+        ),
         balance=46,
         nonce=0,
         address=Address("0x4f3f701464972e74606d6ea82d4d3080599a0e79"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("31417f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0315208a675944747f7430661519049a"),  # noqa: E501
+        data=bytes.fromhex(
+            "31417f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000c3507ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe7f00000000000000000000000100000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0315208a675944747f7430661519049a"  # noqa: E501
+        ),
         gas_limit=100000,
-        value=0x68d133b4,
+        value=0x68D133B4,
         nonce=0,
         gas_price=10,
     )

@@ -1,5 +1,5 @@
 """
-test_callcode_bounds2
+Test_callcode_bounds2.
 
 Ported from:
 state_tests/stMemoryStressTest/CALLCODE_Bounds2Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -45,11 +45,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
     ],
@@ -63,10 +67,10 @@ def test_callcode_bounds2(
     g: int,
     v: int,
 ) -> None:
-    """test_callcode_bounds2"""
+    """Test_callcode_bounds2."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x50eadfb1030587ab3a993a6ecc073041fc3b45e119daa31a13d78c7e209631a5
+        key=0x50EADFB1030587AB3A993A6ECC073041FC3B45E119DAA31A13D78C7E209631A5
     )
 
     env = Environment(
@@ -80,26 +84,37 @@ def test_callcode_bounds2(
     )
 
     # Source: lll
-    # { (CALLCODE 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xfffffff 0xfffffff 0xfffffff 0xfffffff)  }
-    target = pre.deploy_contract(
-        code=Op.CALLCODE(gas=0x7ffffffffffffff, address=0x849f53126ade5f72469029537296f2b6644d4d41, value=0x0, args_offset=0xfffffff, args_size=0xfffffff, ret_offset=0xfffffff, ret_size=0xfffffff)
+    # { (CALLCODE 0x7ffffffffffffff <contract:0x1000000000000000000000000000000000000001> 0 0xfffffff 0xfffffff 0xfffffff 0xfffffff)  }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.CALLCODE(
+            gas=0x7FFFFFFFFFFFFFF,
+            address=0x849F53126ADE5F72469029537296F2B6644D4D41,
+            value=0x0,
+            args_offset=0xFFFFFFF,
+            args_size=0xFFFFFFF,
+            ret_offset=0xFFFFFFF,
+            ret_size=0xFFFFFFF,
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0x814cc86eb9caa0e43cfea934fbb77c7917f5cc0e"),  # noqa: E501
     )
     # Source: lll
     # { (SSTORE 0 (ADD 1 (SLOAD 0))) }
-    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0))) + Op.STOP,  # noqa: E501
+    addr_0x1000000000000000000000000000000000000001 = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(key=0x0, value=Op.ADD(0x1, Op.SLOAD(key=0x0)))
+        + Op.STOP,
         nonce=0,
         address=Address("0x849f53126ade5f72469029537296f2b6644d4d41"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+    pre[sender] = Account(
+        balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF  # noqa: E501
+    )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={0: 0}, balance=0)},
         },
     ]
@@ -116,6 +131,5 @@ def test_callcode_bounds2(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

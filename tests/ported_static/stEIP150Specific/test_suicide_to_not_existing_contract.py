@@ -1,5 +1,5 @@
 """
-test_suicide_to_not_existing_contract
+Test_suicide_to_not_existing_contract.
 
 Ported from:
 state_tests/stEIP150Specific/SuicideToNotExistingContractFiller.json
@@ -31,10 +31,10 @@ def test_suicide_to_not_existing_contract(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_suicide_to_not_existing_contract"""
+    """Test_suicide_to_not_existing_contract."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x4f31b3206fbf0e0e598b9b1a7d8ac86302a0ff1d8930738f1bebae9b67173e52
+        key=0x4F31B3206FBF0E0E598B9B1A7D8AC86302A0FF1D8930738F1BEBAE9B67173E52
     )
 
     env = Environment(
@@ -47,12 +47,22 @@ def test_suicide_to_not_existing_contract(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0xe8d4a51000)
+    pre[sender] = Account(balance=0xE8D4A51000)
     # Source: lll
-    # { [0] (GAS) (CALL 60000 <contract:0x1000000000000000000000000000000000000116> 0 0 0 0 0) [[1]] (SUB @0 (GAS)) }
-    target = pre.deploy_contract(
+    # { [0] (GAS) (CALL 60000 <contract:0x1000000000000000000000000000000000000116> 0 0 0 0 0) [[1]] (SUB @0 (GAS)) }  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.MSTORE(offset=0x0, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=0xea60, address=0x9d6d7885d3d58a49c8352635776c205f722501c, value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.POP(
+            Op.CALL(
+                gas=0xEA60,
+                address=0x9D6D7885D3D58A49C8352635776C205F722501C,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
         + Op.SSTORE(key=0x1, value=Op.SUB(Op.MLOAD(offset=0x0), Op.GAS))
         + Op.STOP,
         nonce=0,
@@ -60,18 +70,19 @@ def test_suicide_to_not_existing_contract(
     )
     # Source: lll
     # { (SELFDESTRUCT 0x2000000000000000000000000000000000000115) }
-    addr_0x1000000000000000000000000000000000000116 = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0x2000000000000000000000000000000000000115)
+    addr_0x1000000000000000000000000000000000000116 = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(
+            address=0x2000000000000000000000000000000000000115
+        )
         + Op.STOP,
         nonce=0,
         address=Address("0x09d6d7885d3d58a49c8352635776c205f722501c"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=600000,
         nonce=0,
         gas_price=10,
@@ -79,11 +90,13 @@ def test_suicide_to_not_existing_contract(
 
     post = {
         addr_0x1000000000000000000000000000000000000116: Account(
-                storage={},
-                code=bytes.fromhex("732000000000000000000000000000000000000115ff00"),  # noqa: E501
-                balance=0,
-                nonce=0,
+            storage={},
+            code=bytes.fromhex(
+                "732000000000000000000000000000000000000115ff00"
             ),
+            balance=0,
+            nonce=0,
+        ),
         target: Account(storage={1: 10237}),
     }
 

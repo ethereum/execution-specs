@@ -1,5 +1,5 @@
 """
-BLOB001
+BLOB001.
 
 Ported from:
 state_tests/Cancun/stEIP4844_blobtransactions/wrongBlobhashVersionFiller.yml
@@ -8,15 +8,15 @@ state_tests/Cancun/stEIP4844_blobtransactions/wrongBlobhashVersionFiller.yml
 import pytest
 from execution_testing import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
     Environment,
+    Hash,
     StateTestFiller,
     Transaction,
     TransactionException,
-    AccessList,
-    Hash,
 )
 from execution_testing.vm import Op
 
@@ -26,7 +26,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/Cancun/stEIP4844_blobtransactions/wrongBlobhashVersionFiller.yml"],
+    [
+        "state_tests/Cancun/stEIP4844_blobtransactions/wrongBlobhashVersionFiller.yml"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.exception_test
@@ -35,10 +37,10 @@ def test_wrong_blobhash_version(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """BLOB001"""
+    """BLOB001."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xb1f4cbc3a50042184425a6f9e996d0910f7ba879457ce5dac5c71e498ad3c005
+        key=0xB1F4CBC3A50042184425A6F9E996D0910F7BA879457CE5DAC5C71E498AD3C005
     )
 
     env = Environment(
@@ -55,23 +57,22 @@ def test_wrong_blobhash_version(
     # Source: lll
     # {
     #    ; Can also add lll style comments here
-    #    [[0]] (BLOBHASH 0) 
+    #    [[0]] (BLOBHASH 0)
     # }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.BLOBHASH(index=0x0)) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xc4dcf66bd4cdefe4ce7fba4951be4e9f580122c5"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=bytes.fromhex("00"),
         gas_limit=4000000,
-        value=0x186a0,
+        value=0x186A0,
         max_fee_per_gas=5000000000,
         max_priority_fee_per_gas=2,
         nonce=0,

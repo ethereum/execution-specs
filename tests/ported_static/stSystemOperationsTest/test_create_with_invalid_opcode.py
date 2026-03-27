@@ -1,5 +1,5 @@
 """
-test_create_with_invalid_opcode
+Test_create_with_invalid_opcode.
 
 Ported from:
 state_tests/stSystemOperationsTest/createWithInvalidOpcodeFiller.json
@@ -31,10 +31,10 @@ def test_create_with_invalid_opcode(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_create_with_invalid_opcode"""
+    """Test_create_with_invalid_opcode."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -49,22 +49,24 @@ def test_create_with_invalid_opcode(
 
     # Source: raw
     # 0x444242424245434253f0
-    target = pre.deploy_contract(
-        code=Op.PREVRANDAO + Op.TIMESTAMP * 4 + Op.GASLIMIT
-        + Op.MSTORE8(offset=Op.TIMESTAMP, value=Op.NUMBER) + Op.CREATE,
-        balance=0xde0b6b3a7640000,
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.PREVRANDAO
+        + Op.TIMESTAMP * 4
+        + Op.GASLIMIT
+        + Op.MSTORE8(offset=Op.TIMESTAMP, value=Op.NUMBER)
+        + Op.CREATE,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xcc73f3508071f505fb5a5c6108b9444fe05fdd4d"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=300000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )

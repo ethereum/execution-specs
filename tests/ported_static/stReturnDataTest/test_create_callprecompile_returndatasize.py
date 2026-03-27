@@ -1,5 +1,5 @@
 """
-test_create_callprecompile_returndatasize
+Test_create_callprecompile_returndatasize.
 
 Ported from:
 state_tests/stReturnDataTest/create_callprecompile_returndatasizeFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stReturnDataTest/create_callprecompile_returndatasizeFiller.json"],
+    [
+        "state_tests/stReturnDataTest/create_callprecompile_returndatasizeFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -31,10 +33,10 @@ def test_create_callprecompile_returndatasize(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_create_callprecompile_returndatasize"""
+    """Test_create_callprecompile_returndatasize."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
 
     env = Environment(
@@ -48,35 +50,52 @@ def test_create_callprecompile_returndatasize(
     )
 
     # Source: lll
-    # { (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32)) }
-    addr_0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x111122223333444455556666777788889999aaaabbbbccccddddeeeeffff)
-        + Op.RETURN(offset=0x0, size=0x20) + Op.STOP,
+    # { (seq (MSTORE 0 0x0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff) (RETURN 0 32)) }  # noqa: E501
+    addr_0x0aabbccdd5c57f15886f9b263e2f6d2d6c7b5ec6 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0x111122223333444455556666777788889999AAAABBBBCCCCDDDDEEEEFFFF,  # noqa: E501
+        )
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.STOP,
         nonce=0,
         address=Address("0x9898dd5e5c526b55ec49b1047e298705c13279f1"),  # noqa: E501
     )
     # Source: lll
-    # { (seq (CREATE 0 0 (lll (seq (mstore 0 0x112233) (CALL 0x9000 4 0 0 32 0 32) (SSTORE 0 (RETURNDATASIZE)) (RETURN 0 32) (STOP) ) 0)) (SSTORE 0 (RETURNDATASIZE)) (STOP) )}
-    target = pre.deploy_contract(
+    # { (seq (CREATE 0 0 (lll (seq (mstore 0 0x112233) (CALL 0x9000 4 0 0 32 0 32) (SSTORE 0 (RETURNDATASIZE)) (RETURN 0 32) (STOP) ) 0)) (SSTORE 0 (RETURNDATASIZE)) (STOP) )}  # noqa: E501
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.PUSH1[0x23]
         + Op.CODECOPY(dest_offset=0x0, offset=0x15, size=Op.DUP1)
-        + Op.PUSH1[0x0] * 2 + Op.POP(Op.CREATE)
-        + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE) + Op.STOP * 2 + Op.INVALID  # noqa: E501
-        + Op.MSTORE(offset=0x0, value=0x112233)
-        + Op.POP(Op.CALL(gas=0x9000, address=0x4, value=0x0, args_offset=0x0, args_size=0x20, ret_offset=0x0, ret_size=0x20))
+        + Op.PUSH1[0x0] * 2
+        + Op.POP(Op.CREATE)
         + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
-        + Op.RETURN(offset=0x0, size=0x20) + Op.STOP * 2,
+        + Op.STOP * 2
+        + Op.INVALID
+        + Op.MSTORE(offset=0x0, value=0x112233)
+        + Op.POP(
+            Op.CALL(
+                gas=0x9000,
+                address=0x4,
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x20,
+                ret_offset=0x0,
+                ret_size=0x20,
+            )
+        )
+        + Op.SSTORE(key=0x0, value=Op.RETURNDATASIZE)
+        + Op.RETURN(offset=0x0, size=0x20)
+        + Op.STOP * 2,
         storage={0: 1},
         nonce=0,
         address=Address("0xa2412b1e2a1e23e8fd87f52566c8a89f48682676"),  # noqa: E501
     )
     pre[sender] = Account(balance=0x6400000000)
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=100000,
         nonce=0,
         gas_price=10,

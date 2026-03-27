@@ -1,5 +1,5 @@
 """
-test_create_contract_sstore_during_init
+Test_create_contract_sstore_during_init.
 
 Ported from:
 state_tests/stCreateTest/CREATE_ContractSSTOREDuringInitFiller.json
@@ -30,10 +30,10 @@ def test_create_contract_sstore_during_init(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_create_contract_sstore_during_init"""
+    """Test_create_contract_sstore_during_init."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -46,8 +46,7 @@ def test_create_contract_sstore_during_init(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0x174876e800)
-
+    pre[sender] = Account(balance=0x174876E800)
 
     tx = Transaction(
         sender=sender,
@@ -59,7 +58,9 @@ def test_create_contract_sstore_during_init(
     )
 
     post = {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(storage={0: 255}),  # noqa: E501
+        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+            storage={0: 255}
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

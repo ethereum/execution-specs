@@ -1,5 +1,5 @@
 """
-test_suicide_caller
+Test_suicide_caller.
 
 Ported from:
 state_tests/stSystemOperationsTest/suicideCallerFiller.json
@@ -31,10 +31,10 @@ def test_suicide_caller(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_suicide_caller"""
+    """Test_suicide_caller."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -49,22 +49,22 @@ def test_suicide_caller(
 
     # Source: lll
     # { [[0]] (CALLER) (SELFDESTRUCT (CALLER))}
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.CALLER)
-        + Op.SELFDESTRUCT(address=Op.CALLER) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        + Op.SELFDESTRUCT(address=Op.CALLER)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x26a4c0125cc2ac853d5c04c3a710e7628ee352a3"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=1000000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
@@ -72,10 +72,10 @@ def test_suicide_caller(
     post = {
         sender: Account(nonce=1),
         target: Account(
-                storage={0: 0xebaf50debf10e08302fe4280c32df010463ca297},
-                balance=0,
-                nonce=0,
-            ),
+            storage={0: 0xEBAF50DEBF10E08302FE4280C32DF010463CA297},
+            balance=0,
+            nonce=0,
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

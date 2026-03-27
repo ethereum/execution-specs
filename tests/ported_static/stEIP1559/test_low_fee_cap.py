@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP1559/lowFeeCapFiller.yml
@@ -15,8 +15,6 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
-    AccessList,
-    Hash,
 )
 from execution_testing.vm import Op
 
@@ -38,7 +36,7 @@ def test_low_fee_cap(
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xde0c95357363da5c1c5a73bd7c2781ca5c9fecc1014103b5e1d1e990ae8208ec
+        key=0xDE0C95357363DA5C1C5A73BD7C2781CA5C9FECC1014103B5E1D1E990AE8208EC
     )
 
     env = Environment(
@@ -55,26 +53,24 @@ def test_low_fee_cap(
     # berlin {
     #     sstore(0, add(1,1))
     # }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=0x2) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0xd71b14c239fc39327f25764dd784c85ef0285fda"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000, nonce=1)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, nonce=1)
 
     tx = Transaction(
         sender=sender,
         to=target,
         data=bytes.fromhex("00"),
         gas_limit=400000,
-        value=0x186a0,
+        value=0x186A0,
         max_fee_per_gas=999,
         max_priority_fee_per_gas=100,
         nonce=1,
-        access_list=[
-        ],
+        access_list=[],
         error=TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
     )
 

@@ -1,5 +1,5 @@
 """
-Legacy Test from Christoph. J
+Legacy Test from Christoph. J.
 
 Ported from:
 state_tests/stCallCreateCallCodeTest/createNameRegistratorPreStore1NotEnoughGasFiller.json
@@ -23,7 +23,9 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stCallCreateCallCodeTest/createNameRegistratorPreStore1NotEnoughGasFiller.json"],
+    [
+        "state_tests/stCallCreateCallCodeTest/createNameRegistratorPreStore1NotEnoughGasFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
@@ -35,7 +37,7 @@ def test_create_name_registrator_pre_store1_not_enough_gas(
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -49,32 +51,37 @@ def test_create_name_registrator_pre_store1_not_enough_gas(
     )
 
     # Source: lll
-    # {(MSTORE 0 0x6001600155601080600c6000396000f3006000355415600957005b6020356000 )  (MSTORE8 32 0x35) (MSTORE8 33 0x55) (CREATE 23 0 34) }
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x6001600155601080600c6000396000f3006000355415600957005b6020356000)
+    # {(MSTORE 0 0x6001600155601080600c6000396000f3006000355415600957005b6020356000 )  (MSTORE8 32 0x35) (MSTORE8 33 0x55) (CREATE 23 0 34) }  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x0,
+            value=0x6001600155601080600C6000396000F3006000355415600957005B6020356000,  # noqa: E501
+        )
         + Op.MSTORE8(offset=0x20, value=0x35)
         + Op.MSTORE8(offset=0x21, value=0x55)
-        + Op.CREATE(value=0x17, offset=0x0, size=0x22) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        + Op.CREATE(value=0x17, offset=0x0, size=0x22)
+        + Op.STOP,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=73071,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
     post = {
         contract_0: Account(nonce=1),
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+        ): Account.NONEXISTENT,
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

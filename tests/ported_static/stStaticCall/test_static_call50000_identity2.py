@@ -1,5 +1,5 @@
 """
-test_static_call50000_identity2
+Test_static_call50000_identity2.
 
 Ported from:
 state_tests/stStaticCall/static_Call50000_identity2Filler.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -47,11 +47,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
     ],
@@ -65,10 +69,10 @@ def test_static_call50000_identity2(
     g: int,
     v: int,
 ) -> None:
-    """test_static_call50000_identity2"""
+    """Test_static_call50000_identity2."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0xe7c72b378297589acee4e0ba3272841bcfc5e220f86de253f890274cfee9e474
+        key=0xE7C72B378297589ACEE4E0BA3272841BCFC5E220F86DE253F890274CFEE9E474
     )
 
     env = Environment(
@@ -81,62 +85,108 @@ def test_static_call50000_identity2(
         gas_limit=8925000000,
     )
 
-    pre[sender] = Account(balance=0xffffffffffffffffffffffffffffffff)
+    pre[sender] = Account(balance=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     # Source: lll
     # {  [[ 0 ]] (CALL (GAS) (CALLDATALOAD 0) (CALLVALUE) 0 0 0 0) [[ 1 ]] 1 }
-    target = pre.deploy_contract(
-        code=Op.SSTORE(key=0x0, value=Op.CALL(gas=Op.GAS, address=Op.CALLDATALOAD(offset=0x0), value=Op.CALLVALUE, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))  # noqa: E501
-        + Op.SSTORE(key=0x1, value=0x1) + Op.STOP,
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SSTORE(
+            key=0x0,
+            value=Op.CALL(
+                gas=Op.GAS,
+                address=Op.CALLDATALOAD(offset=0x0),
+                value=Op.CALLVALUE,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=0x1)
+        + Op.STOP,
         nonce=0,
         address=Address("0xc0e4183389eb57f779a986d8c878f89b9401dc8e"),  # noqa: E501
     )
     # Source: lll
-    # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 1564 4 0 50000 1 50000) ) [[ 1 ]] @i [[ 2 ]] @1 }
-    addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x1, value=0x2a) + Op.JUMPDEST
-        + Op.JUMPI(pc=0x30, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xc350)))
-        + Op.SSTORE(key=0x0, value=Op.STATICCALL(gas=0x61c, address=0x4, args_offset=0x0, args_size=0xc350, ret_offset=0x1, ret_size=0xc350))  # noqa: E501
+    # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) [[ 0 ]] (STATICCALL 1564 4 0 50000 1 50000) ) [[ 1 ]] @i [[ 2 ]] @1 }  # noqa: E501
+    addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x1, value=0x2A)
+        + Op.JUMPDEST
+        + Op.JUMPI(
+            pc=0x30, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
+        )
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.STATICCALL(
+                gas=0x61C,
+                address=0x4,
+                args_offset=0x0,
+                args_size=0xC350,
+                ret_offset=0x1,
+                ret_size=0xC350,
+            ),
+        )
         + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
-        + Op.JUMP(pc=0x5) + Op.JUMPDEST
+        + Op.JUMP(pc=0x5)
+        + Op.JUMPDEST
         + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x80))
-        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x1)) + Op.STOP,
-        balance=0xfffffffffffff,
+        + Op.SSTORE(key=0x2, value=Op.MLOAD(offset=0x1))
+        + Op.STOP,
+        balance=0xFFFFFFFFFFFFF,
         nonce=0,
         address=Address("0xcfb4c99d22928822feffa77a1a6de64042e48dd3"),  # noqa: E501
     )
     # Source: lll
-    # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) (MSTORE 0 (STATICCALL 1564 4 0 50000 1 50000)) ) (MSTORE 32 @i) (MSTORE 64 @1 ) }
-    addr_0xcccf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x1, value=0x2a) + Op.JUMPDEST
-        + Op.JUMPI(pc=0x30, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xc350)))
-        + Op.MSTORE(offset=0x0, value=Op.STATICCALL(gas=0x61c, address=0x4, args_offset=0x0, args_size=0xc350, ret_offset=0x1, ret_size=0xc350))
+    # { (def 'i 0x80) [ 1 ] 42 (for {} (< @i 50000) [i](+ @i 1) (MSTORE 0 (STATICCALL 1564 4 0 50000 1 50000)) ) (MSTORE 32 @i) (MSTORE 64 @1 ) }  # noqa: E501
+    addr_0xcccf5374fce5edbc8e2a8697c15331677e6ebf0b = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x1, value=0x2A)
+        + Op.JUMPDEST
+        + Op.JUMPI(
+            pc=0x30, condition=Op.ISZERO(Op.LT(Op.MLOAD(offset=0x80), 0xC350))
+        )
+        + Op.MSTORE(
+            offset=0x0,
+            value=Op.STATICCALL(
+                gas=0x61C,
+                address=0x4,
+                args_offset=0x0,
+                args_size=0xC350,
+                ret_offset=0x1,
+                ret_size=0xC350,
+            ),
+        )
         + Op.MSTORE(offset=0x80, value=Op.ADD(Op.MLOAD(offset=0x80), 0x1))
-        + Op.JUMP(pc=0x5) + Op.JUMPDEST
+        + Op.JUMP(pc=0x5)
+        + Op.JUMPDEST
         + Op.MSTORE(offset=0x20, value=Op.MLOAD(offset=0x80))
-        + Op.MSTORE(offset=0x40, value=Op.MLOAD(offset=0x1)) + Op.STOP,
-        balance=0xfffffffffffff,
+        + Op.MSTORE(offset=0x40, value=Op.MLOAD(offset=0x1))
+        + Op.STOP,
+        balance=0xFFFFFFFFFFFFF,
         nonce=0,
         address=Address("0xb02bd8691a1a4f5fd4432b5b17c68dde3013fc35"),  # noqa: E501
     )
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': 0, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": 0, "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {
-        sender: Account(storage={}, code=b"", nonce=1),
-        addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={1: 50000, 2: 42}, nonce=0),
-        target: Account(storage={0: 1, 1: 1}),
-    },
+                sender: Account(storage={}, code=b"", nonce=1),
+                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+                    storage={1: 50000, 2: 42}, nonce=0
+                ),
+                target: Account(storage={0: 1, 1: 1}),
+            },
         },
         {
-            "indexes": {'data': 1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
+            "indexes": {"data": 1, "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
             "result": {
-        sender: Account(storage={}, code=b"", nonce=1),
-        addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(storage={}, nonce=0),
-        target: Account(storage={0: 1, 1: 1}),
-    },
+                sender: Account(storage={}, code=b"", nonce=1),
+                addr_0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b: Account(
+                    storage={}, nonce=0
+                ),
+                target: Account(storage={0: 1, 1: 1}),
+            },
         },
     ]
 
@@ -152,6 +202,5 @@ def test_static_call50000_identity2(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

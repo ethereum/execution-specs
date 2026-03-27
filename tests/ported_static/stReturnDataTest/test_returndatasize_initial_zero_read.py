@@ -1,5 +1,5 @@
 """
-test_returndatasize_initial_zero_read
+Test_returndatasize_initial_zero_read.
 
 Ported from:
 state_tests/stReturnDataTest/returndatasize_initial_zero_readFiller.json
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -39,18 +39,24 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stReturnDataTest/returndatasize_initial_zero_readFiller.json"],
+    [
+        "state_tests/stReturnDataTest/returndatasize_initial_zero_readFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
     ],
@@ -64,10 +70,10 @@ def test_returndatasize_initial_zero_read(
     g: int,
     v: int,
 ) -> None:
-    """test_returndatasize_initial_zero_read"""
+    """Test_returndatasize_initial_zero_read."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x834185262e53584684bf2b72c64e510013c235d0f45e462db65900455df45a35
+        key=0x834185262E53584684BF2B72C64E510013C235D0F45E462DB65900455DF45A35
     )
 
     env = Environment(
@@ -82,11 +88,12 @@ def test_returndatasize_initial_zero_read(
 
     # Source: lll
     # { (RETURNDATACOPY 0 0 0) (SSTORE 0 (MLOAD 0)) }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.RETURNDATACOPY(dest_offset=0x0, offset=0x0, size=0x0)
-        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0)) + Op.STOP,
+        + Op.SSTORE(key=0x0, value=Op.MLOAD(offset=0x0))
+        + Op.STOP,
         storage={0: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x537cd1744af41c3a74d5aa5ae93958d1160ca98f"),  # noqa: E501
     )
@@ -94,8 +101,8 @@ def test_returndatasize_initial_zero_read(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {target: Account(storage={0: 0})},
         },
     ]
@@ -111,6 +118,5 @@ def test_returndatasize_initial_zero_read(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

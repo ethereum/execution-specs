@@ -1,5 +1,5 @@
 """
-test_refund_tx_to_suicide
+Test_refund_tx_to_suicide.
 
 Ported from:
 state_tests/stRefundTest/refund_TxToSuicideFiller.json
@@ -31,10 +31,10 @@ def test_refund_tx_to_suicide(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_refund_tx_to_suicide"""
+    """Test_refund_tx_to_suicide."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
     sender = EOA(
-        key=0xa2333eef5630066b928dea5fd85a239f511b5b067d1441ee7ac290d0122b917b
+        key=0xA2333EEF5630066B928DEA5FD85A239F511B5B067D1441EE7AC290D0122B917B
     )
 
     env = Environment(
@@ -48,23 +48,22 @@ def test_refund_tx_to_suicide(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0x5f5e100)
+    pre[sender] = Account(balance=0x5F5E100)
     # Source: lll
     # { (SELFDESTRUCT 0x095e7baea6a6c7c4c2dfeb977efac326af552d87) }
-    target = pre.deploy_contract(
-        code=Op.SELFDESTRUCT(address=0x95e7baea6a6c7c4c2dfeb977efac326af552d87)
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.SELFDESTRUCT(address=0x95E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87)
         + Op.STOP,
         storage={1: 1},
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x2bc33a472f0fba1e30bf2317d07910367908c7f6"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=61003,
         value=10,
         nonce=0,
@@ -72,9 +71,11 @@ def test_refund_tx_to_suicide(
     )
 
     post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(storage={}, balance=0xde0b6b3a764000a),  # noqa: E501
+        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+            storage={}, balance=0xDE0B6B3A764000A
+        ),
         coinbase: Account(balance=0),
-        sender: Account(balance=0x5edb318, nonce=1),
+        sender: Account(balance=0x5EDB318, nonce=1),
         target: Account(storage={1: 1}, balance=0, nonce=0),
     }
 

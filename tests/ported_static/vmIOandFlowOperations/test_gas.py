@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/VMTests/vmIOandFlowOperations/gasFiller.yml
@@ -15,11 +15,11 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -47,11 +47,15 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="gas1",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="gas2",
         ),
     ],
@@ -71,7 +75,7 @@ def test_gas(
     contract_1 = Address("0x0000000000000000000000000000000000001001")
     contract_2 = Address("0xcccccccccccccccccccccccccccccccccccccccc")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -90,11 +94,12 @@ def test_gas(
     #    [90] 0xeeee
     #    [[0]] (gas)
     # }
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0xffffffffff)
-        + Op.MSTORE(offset=0x5a, value=0xeeee) + Op.SSTORE(key=0x0, value=Op.GAS)  # noqa: E501
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0xFFFFFFFFFF)
+        + Op.MSTORE(offset=0x5A, value=0xEEEE)
+        + Op.SSTORE(key=0x0, value=Op.GAS)
         + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001000"),  # noqa: E501
     )
@@ -102,9 +107,9 @@ def test_gas(
     # {
     #    [[0]] (gas)
     # }
-    contract_1 = pre.deploy_contract(
+    contract_1 = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.GAS) + Op.STOP,
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x0000000000000000000000000000000000001001"),  # noqa: E501
     )
@@ -112,11 +117,18 @@ def test_gas(
     # {
     #     (delegatecall (gas) (+ 0x1000 $4) 0 0 0 0)
     # }
-    contract_2 = pre.deploy_contract(
-        code=Op.DELEGATECALL(gas=Op.GAS, address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)), args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0)
+    contract_2 = pre.deploy_contract(  # noqa: F841
+        code=Op.DELEGATECALL(
+            gas=Op.GAS,
+            address=Op.ADD(0x1000, Op.CALLDATALOAD(offset=0x4)),
+            args_offset=0x0,
+            args_size=0x0,
+            ret_offset=0x0,
+            ret_size=0x0,
+        )
         + Op.STOP,
         storage={0: 2989},
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0xcccccccccccccccccccccccccccccccccccccccc"),  # noqa: E501
     )
@@ -124,14 +136,14 @@ def test_gas(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': [0], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
-            "result": {contract_2: Account(storage={0: 0x4b1457b})},
+            "indexes": {"data": [0], "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
+            "result": {contract_2: Account(storage={0: 0x4B1457B})},
         },
         {
-            "indexes": {'data': [1], 'gas': -1, 'value': -1},
-            "network": ['>=Cancun<Osaka'],
-            "result": {contract_2: Account(storage={0: 0x4b1458d})},
+            "indexes": {"data": [1], "gas": -1, "value": -1},
+            "network": [">=Cancun<Osaka"],
+            "result": {contract_2: Account(storage={0: 0x4B1458D})},
         },
     ]
 
@@ -147,6 +159,5 @@ def test_gas(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

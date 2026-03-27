@@ -1,5 +1,5 @@
 """
-test_create_message_success
+Test_create_message_success.
 
 Ported from:
 state_tests/stTransactionTest/CreateMessageSuccessFiller.json
@@ -31,11 +31,11 @@ def test_create_message_success(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_create_message_success"""
+    """Test_create_message_success."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -48,21 +48,21 @@ def test_create_message_success(
         gas_limit=1000000000000,
     )
 
-    pre[sender] = Account(balance=0x17d78400)
+    pre[sender] = Account(balance=0x17D78400)
     # Source: lll
     # {(MSTORE 0 0x600c600055) (CREATE 0 27 5)}
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x600c600055)
-        + Op.CREATE(value=0x0, offset=0x1b, size=0x5) + Op.STOP,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x600C600055)
+        + Op.CREATE(value=0x0, offset=0x1B, size=0x5)
+        + Op.STOP,
         nonce=0,
         address=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=contract_0,
-        data=b'',
+        data=b"",
         gas_limit=131882,
         value=100,
         nonce=0,
@@ -71,7 +71,9 @@ def test_create_message_success(
 
     post = {
         contract_0: Account(balance=100, nonce=1),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(storage={0: 12}),  # noqa: E501
+        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+            storage={0: 12}
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

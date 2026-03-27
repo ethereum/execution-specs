@@ -1,5 +1,5 @@
 """
-Ori Pomerantz qbzzt1@gmail.com
+Ori Pomerantz qbzzt1@gmail.com.
 
 Ported from:
 state_tests/stEIP150singleCodeGasPrices/gasCostBerlinFiller.yml
@@ -13,16 +13,17 @@ from execution_testing import (
     Alloc,
     Environment,
     StateTestFiller,
-    Transaction,
     Storage,
+    Transaction,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+
 
 def _storage_with_any(base: dict, any_keys: list) -> Storage:
     """Create Storage with set_expect_any for specified keys."""
@@ -30,6 +31,7 @@ def _storage_with_any(base: dict, any_keys: list) -> Storage:
     for k in any_keys:
         s.set_expect_any(k)
     return s
+
 
 REFERENCE_SPEC_VERSION = "N/A"
 
@@ -162,443 +164,663 @@ def _tx_data(d: int) -> bytes:
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="d2",
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="d3",
         ),
         pytest.param(
-            4, 0, 0,
+            4,
+            0,
+            0,
             id="d4",
         ),
         pytest.param(
-            5, 0, 0,
+            5,
+            0,
+            0,
             id="d5",
         ),
         pytest.param(
-            6, 0, 0,
+            6,
+            0,
+            0,
             id="d6",
         ),
         pytest.param(
-            7, 0, 0,
+            7,
+            0,
+            0,
             id="d7",
         ),
         pytest.param(
-            8, 0, 0,
+            8,
+            0,
+            0,
             id="d8",
         ),
         pytest.param(
-            9, 0, 0,
+            9,
+            0,
+            0,
             id="d9",
         ),
         pytest.param(
-            10, 0, 0,
+            10,
+            0,
+            0,
             id="d10",
         ),
         pytest.param(
-            11, 0, 0,
+            11,
+            0,
+            0,
             id="d11",
         ),
         pytest.param(
-            12, 0, 0,
+            12,
+            0,
+            0,
             id="d12",
         ),
         pytest.param(
-            13, 0, 0,
+            13,
+            0,
+            0,
             id="d13",
         ),
         pytest.param(
-            14, 0, 0,
+            14,
+            0,
+            0,
             id="d14",
         ),
         pytest.param(
-            15, 0, 0,
+            15,
+            0,
+            0,
             id="d15",
         ),
         pytest.param(
-            16, 0, 0,
+            16,
+            0,
+            0,
             id="d16",
         ),
         pytest.param(
-            17, 0, 0,
+            17,
+            0,
+            0,
             id="d17",
         ),
         pytest.param(
-            18, 0, 0,
+            18,
+            0,
+            0,
             id="d18",
         ),
         pytest.param(
-            19, 0, 0,
+            19,
+            0,
+            0,
             id="d19",
         ),
         pytest.param(
-            20, 0, 0,
+            20,
+            0,
+            0,
             id="d20",
         ),
         pytest.param(
-            21, 0, 0,
+            21,
+            0,
+            0,
             id="d21",
         ),
         pytest.param(
-            22, 0, 0,
+            22,
+            0,
+            0,
             id="d22",
         ),
         pytest.param(
-            23, 0, 0,
+            23,
+            0,
+            0,
             id="d23",
         ),
         pytest.param(
-            24, 0, 0,
+            24,
+            0,
+            0,
             id="d24",
         ),
         pytest.param(
-            25, 0, 0,
+            25,
+            0,
+            0,
             id="d25",
         ),
         pytest.param(
-            26, 0, 0,
+            26,
+            0,
+            0,
             id="d26",
         ),
         pytest.param(
-            27, 0, 0,
+            27,
+            0,
+            0,
             id="d27",
         ),
         pytest.param(
-            28, 0, 0,
+            28,
+            0,
+            0,
             id="d28",
         ),
         pytest.param(
-            29, 0, 0,
+            29,
+            0,
+            0,
             id="d29",
         ),
         pytest.param(
-            30, 0, 0,
+            30,
+            0,
+            0,
             id="d30",
         ),
         pytest.param(
-            31, 0, 0,
+            31,
+            0,
+            0,
             id="d31",
         ),
         pytest.param(
-            32, 0, 0,
+            32,
+            0,
+            0,
             id="d32",
         ),
         pytest.param(
-            33, 0, 0,
+            33,
+            0,
+            0,
             id="d33",
         ),
         pytest.param(
-            34, 0, 0,
+            34,
+            0,
+            0,
             id="d34",
         ),
         pytest.param(
-            35, 0, 0,
+            35,
+            0,
+            0,
             id="d35",
         ),
         pytest.param(
-            36, 0, 0,
+            36,
+            0,
+            0,
             id="d36",
         ),
         pytest.param(
-            37, 0, 0,
+            37,
+            0,
+            0,
             id="d37",
         ),
         pytest.param(
-            38, 0, 0,
+            38,
+            0,
+            0,
             id="d38",
         ),
         pytest.param(
-            39, 0, 0,
+            39,
+            0,
+            0,
             id="d39",
         ),
         pytest.param(
-            40, 0, 0,
+            40,
+            0,
+            0,
             id="d40",
         ),
         pytest.param(
-            41, 0, 0,
+            41,
+            0,
+            0,
             id="d41",
         ),
         pytest.param(
-            42, 0, 0,
+            42,
+            0,
+            0,
             id="d42",
         ),
         pytest.param(
-            43, 0, 0,
+            43,
+            0,
+            0,
             id="d43",
         ),
         pytest.param(
-            44, 0, 0,
+            44,
+            0,
+            0,
             id="d44",
         ),
         pytest.param(
-            45, 0, 0,
+            45,
+            0,
+            0,
             id="d45",
         ),
         pytest.param(
-            46, 0, 0,
+            46,
+            0,
+            0,
             id="d46",
         ),
         pytest.param(
-            47, 0, 0,
+            47,
+            0,
+            0,
             id="d47",
         ),
         pytest.param(
-            48, 0, 0,
+            48,
+            0,
+            0,
             id="d48",
         ),
         pytest.param(
-            49, 0, 0,
+            49,
+            0,
+            0,
             id="d49",
         ),
         pytest.param(
-            50, 0, 0,
+            50,
+            0,
+            0,
             id="d50",
         ),
         pytest.param(
-            51, 0, 0,
+            51,
+            0,
+            0,
             id="d51",
         ),
         pytest.param(
-            52, 0, 0,
+            52,
+            0,
+            0,
             id="d52",
         ),
         pytest.param(
-            53, 0, 0,
+            53,
+            0,
+            0,
             id="d53",
         ),
         pytest.param(
-            54, 0, 0,
+            54,
+            0,
+            0,
             id="d54",
         ),
         pytest.param(
-            55, 0, 0,
+            55,
+            0,
+            0,
             id="d55",
         ),
         pytest.param(
-            56, 0, 0,
+            56,
+            0,
+            0,
             id="d56",
         ),
         pytest.param(
-            57, 0, 0,
+            57,
+            0,
+            0,
             id="d57",
         ),
         pytest.param(
-            58, 0, 0,
+            58,
+            0,
+            0,
             id="d58",
         ),
         pytest.param(
-            59, 0, 0,
+            59,
+            0,
+            0,
             id="d59",
         ),
         pytest.param(
-            60, 0, 0,
+            60,
+            0,
+            0,
             id="d60",
         ),
         pytest.param(
-            61, 0, 0,
+            61,
+            0,
+            0,
             id="d61",
         ),
         pytest.param(
-            62, 0, 0,
+            62,
+            0,
+            0,
             id="d62",
         ),
         pytest.param(
-            63, 0, 0,
+            63,
+            0,
+            0,
             id="d63",
         ),
         pytest.param(
-            64, 0, 0,
+            64,
+            0,
+            0,
             id="d64",
         ),
         pytest.param(
-            65, 0, 0,
+            65,
+            0,
+            0,
             id="d65",
         ),
         pytest.param(
-            66, 0, 0,
+            66,
+            0,
+            0,
             id="d66",
         ),
         pytest.param(
-            67, 0, 0,
+            67,
+            0,
+            0,
             id="d67",
         ),
         pytest.param(
-            68, 0, 0,
+            68,
+            0,
+            0,
             id="d68",
         ),
         pytest.param(
-            69, 0, 0,
+            69,
+            0,
+            0,
             id="d69",
         ),
         pytest.param(
-            70, 0, 0,
+            70,
+            0,
+            0,
             id="d70",
         ),
         pytest.param(
-            71, 0, 0,
+            71,
+            0,
+            0,
             id="d71",
         ),
         pytest.param(
-            72, 0, 0,
+            72,
+            0,
+            0,
             id="d72",
         ),
         pytest.param(
-            73, 0, 0,
+            73,
+            0,
+            0,
             id="d73",
         ),
         pytest.param(
-            74, 0, 0,
+            74,
+            0,
+            0,
             id="d74",
         ),
         pytest.param(
-            75, 0, 0,
+            75,
+            0,
+            0,
             id="d75",
         ),
         pytest.param(
-            76, 0, 0,
+            76,
+            0,
+            0,
             id="d76",
         ),
         pytest.param(
-            77, 0, 0,
+            77,
+            0,
+            0,
             id="d77",
         ),
         pytest.param(
-            78, 0, 0,
+            78,
+            0,
+            0,
             id="d78",
         ),
         pytest.param(
-            79, 0, 0,
+            79,
+            0,
+            0,
             id="d79",
         ),
         pytest.param(
-            80, 0, 0,
+            80,
+            0,
+            0,
             id="d80",
         ),
         pytest.param(
-            81, 0, 0,
+            81,
+            0,
+            0,
             id="d81",
         ),
         pytest.param(
-            82, 0, 0,
+            82,
+            0,
+            0,
             id="d82",
         ),
         pytest.param(
-            83, 0, 0,
+            83,
+            0,
+            0,
             id="d83",
         ),
         pytest.param(
-            84, 0, 0,
+            84,
+            0,
+            0,
             id="d84",
         ),
         pytest.param(
-            85, 0, 0,
+            85,
+            0,
+            0,
             id="d85",
         ),
         pytest.param(
-            86, 0, 0,
+            86,
+            0,
+            0,
             id="d86",
         ),
         pytest.param(
-            87, 0, 0,
+            87,
+            0,
+            0,
             id="d87",
         ),
         pytest.param(
-            88, 0, 0,
+            88,
+            0,
+            0,
             id="d88",
         ),
         pytest.param(
-            89, 0, 0,
+            89,
+            0,
+            0,
             id="d89",
         ),
         pytest.param(
-            90, 0, 0,
+            90,
+            0,
+            0,
             id="d90",
         ),
         pytest.param(
-            91, 0, 0,
+            91,
+            0,
+            0,
             id="d91",
         ),
         pytest.param(
-            92, 0, 0,
+            92,
+            0,
+            0,
             id="d92",
         ),
         pytest.param(
-            93, 0, 0,
+            93,
+            0,
+            0,
             id="d93",
         ),
         pytest.param(
-            94, 0, 0,
+            94,
+            0,
+            0,
             id="d94",
         ),
         pytest.param(
-            95, 0, 0,
+            95,
+            0,
+            0,
             id="d95",
         ),
         pytest.param(
-            96, 0, 0,
+            96,
+            0,
+            0,
             id="d96",
         ),
         pytest.param(
-            97, 0, 0,
+            97,
+            0,
+            0,
             id="d97",
         ),
         pytest.param(
-            98, 0, 0,
+            98,
+            0,
+            0,
             id="d98",
         ),
         pytest.param(
-            99, 0, 0,
+            99,
+            0,
+            0,
             id="d99",
         ),
         pytest.param(
-            100, 0, 0,
+            100,
+            0,
+            0,
             id="d100",
         ),
         pytest.param(
-            101, 0, 0,
+            101,
+            0,
+            0,
             id="d101",
         ),
         pytest.param(
-            102, 0, 0,
+            102,
+            0,
+            0,
             id="d102",
         ),
         pytest.param(
-            103, 0, 0,
+            103,
+            0,
+            0,
             id="d103",
         ),
         pytest.param(
-            104, 0, 0,
+            104,
+            0,
+            0,
             id="d104",
         ),
         pytest.param(
-            105, 0, 0,
+            105,
+            0,
+            0,
             id="d105",
         ),
         pytest.param(
-            106, 0, 0,
+            106,
+            0,
+            0,
             id="d106",
         ),
         pytest.param(
-            107, 0, 0,
+            107,
+            0,
+            0,
             id="d107",
         ),
         pytest.param(
-            108, 0, 0,
+            108,
+            0,
+            0,
             id="d108",
         ),
         pytest.param(
-            109, 0, 0,
+            109,
+            0,
+            0,
             id="d109",
         ),
     ],
@@ -615,7 +837,7 @@ def test_gas_cost_berlin(
     """Ori Pomerantz qbzzt1@gmail."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x40ac0fc28c27e961ee46ec43355a094de205856edbd4654cf2577c2608d4ec1e
+        key=0x40AC0FC28C27E961EE46EC43355A094DE205856EDBD4654CF2577C2608D4EC1E
     )
 
     env = Environment(
@@ -634,7 +856,7 @@ def test_gas_cost_berlin(
     #   ; how much the contract cost
     #   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     #   ; Initialization
-    # 
+    #
     #   ; Variables (0x20 byte wide)
     #   (def 'opcode            0x200)
     #   (def 'contractLength    0x220)
@@ -644,61 +866,124 @@ def test_gas_cost_berlin(
     #   (def 'gasB4             0x300)
     #   (def 'gasAfter          0x320)
     #   (def 'expectedCost      0x340)
-    # 
+    #
     #   ; Maximum length of contract
     #   (def 'maxLength         0x100)
-    # 
+    #
     #   ; Code in memory
     #   (def 'constructorCode   0x000)
     #   (def 'contractCode      (+ constructorCode maxLength))
-    #   ; contractCode has to be immediately after constructoCode 
+    #   ; contractCode has to be immediately after constructoCode
     #   ; for us to send it as part of the constructor code
-    # 
+    #
     #   ; Cost of everything around the opcode
     #   (def 'sysCost           0xb9)
-    # 
-    # 
+    #
+    #
     #   ; Understand the input
     # ... (55 more lines)
-    addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x200, value=Op.DIV(Op.CALLDATALOAD(offset=0x0), Op.EXP(0x2, 0xf8)))
-        + Op.MSTORE(offset=0x340, value=Op.AND(Op.DIV(Op.CALLDATALOAD(offset=0x0), Op.EXP(0x2, 0xe8)), 0xffff))
-        + Op.MSTORE(offset=0x260, value=0x11) + Op.JUMPDEST
+    addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(
+            offset=0x200,
+            value=Op.DIV(Op.CALLDATALOAD(offset=0x0), Op.EXP(0x2, 0xF8)),
+        )
+        + Op.MSTORE(
+            offset=0x340,
+            value=Op.AND(
+                Op.DIV(Op.CALLDATALOAD(offset=0x0), Op.EXP(0x2, 0xE8)), 0xFFFF
+            ),
+        )
+        + Op.MSTORE(offset=0x260, value=0x11)
+        + Op.JUMPDEST
         + Op.JUMPI(pc=0x76, condition=Op.ISZERO(Op.MLOAD(offset=0x260)))
         + Op.MSTORE(offset=0x260, value=Op.SUB(Op.MLOAD(offset=0x260), 0x1))
-        + Op.MSTORE8(offset=Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)), value=0x61)
-        + Op.MSTORE8(offset=Op.ADD(Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)), 0x1), value=0xda)
-        + Op.MSTORE8(offset=Op.ADD(Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)), 0x2), value=0x7a)
+        + Op.MSTORE8(
+            offset=Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)),
+            value=0x61,
+        )
+        + Op.MSTORE8(
+            offset=Op.ADD(
+                Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)), 0x1
+            ),
+            value=0xDA,
+        )
+        + Op.MSTORE8(
+            offset=Op.ADD(
+                Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)), 0x2
+            ),
+            value=0x7A,
+        )
         + Op.MSTORE(offset=0x220, value=Op.ADD(Op.MLOAD(offset=0x220), 0x3))
-        + Op.JUMP(pc=0x24) + Op.JUMPDEST
-        + Op.MSTORE8(offset=Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)), value=Op.MLOAD(offset=0x200))
-        + Op.MSTORE8(offset=Op.ADD(Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)), 0x1), value=0x0)
+        + Op.JUMP(pc=0x24)
+        + Op.JUMPDEST
+        + Op.MSTORE8(
+            offset=Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)),
+            value=Op.MLOAD(offset=0x200),
+        )
+        + Op.MSTORE8(
+            offset=Op.ADD(
+                Op.ADD(Op.ADD(0x0, 0x100), Op.MLOAD(offset=0x220)), 0x1
+            ),
+            value=0x0,
+        )
         + Op.MSTORE(offset=0x220, value=Op.ADD(Op.MLOAD(offset=0x220), 0x2))
-        + Op.PUSH1[0x1b]
-        + Op.CODECOPY(dest_offset=0x0, offset=Op.PUSH2[0xfa], size=Op.DUP1)
-        + Op.PUSH2[0x240] + Op.MSTORE
-        + Op.MSTORE(offset=0x280, value=Op.CREATE(value=0x0, offset=0x0, size=Op.MUL(0x100, 0x2)))
+        + Op.PUSH1[0x1B]
+        + Op.CODECOPY(dest_offset=0x0, offset=Op.PUSH2[0xFA], size=Op.DUP1)
+        + Op.PUSH2[0x240]
+        + Op.MSTORE
+        + Op.MSTORE(
+            offset=0x280,
+            value=Op.CREATE(value=0x0, offset=0x0, size=Op.MUL(0x100, 0x2)),
+        )
         + Op.MSTORE(offset=0x300, value=Op.GAS)
-        + Op.POP(Op.CALL(gas=0x10000, address=Op.MLOAD(offset=0x280), value=0x0, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
+        + Op.POP(
+            Op.CALL(
+                gas=0x10000,
+                address=Op.MLOAD(offset=0x280),
+                value=0x0,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
         + Op.MSTORE(offset=0x320, value=Op.GAS)
-        + Op.SSTORE(key=0x0, value=Op.SUB(Op.SUB(Op.SUB(Op.MLOAD(offset=0x300), Op.MLOAD(offset=0x320)), 0xb9), Op.MLOAD(offset=0x340)))  # noqa: E501
-        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x340)) + Op.STOP + Op.INVALID  # noqa: E501
-        + Op.CODECOPY(dest_offset=Op.ADD(0x0, 0x100), offset=Op.ADD(0x0, 0x100), size=0x100)
-        + Op.RETURN(offset=Op.ADD(0x0, 0x100), size=0x100) + Op.STOP,
+        + Op.SSTORE(
+            key=0x0,
+            value=Op.SUB(
+                Op.SUB(
+                    Op.SUB(Op.MLOAD(offset=0x300), Op.MLOAD(offset=0x320)),
+                    0xB9,
+                ),
+                Op.MLOAD(offset=0x340),
+            ),
+        )
+        + Op.SSTORE(key=0x1, value=Op.MLOAD(offset=0x340))
+        + Op.STOP
+        + Op.INVALID
+        + Op.CODECOPY(
+            dest_offset=Op.ADD(0x0, 0x100),
+            offset=Op.ADD(0x0, 0x100),
+            size=0x100,
+        )
+        + Op.RETURN(offset=Op.ADD(0x0, 0x100), size=0x100)
+        + Op.STOP,
         storage={0: 24743},
-        balance=0xba1a9ce0ba1a9ce,
+        balance=0xBA1A9CE0BA1A9CE,
         nonce=0,
         address=Address("0x2f170b2347023bb6bf3eec84b53259b96e0268c3"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xba1a9ce0ba1a9ce)
+    pre[sender] = Account(balance=0xBA1A9CE0BA1A9CE)
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': -1, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": -1, "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87: Account(storage=_storage_with_any({0: 0}, [1])),
-    },
+                addr_0x095e7baea6a6c7c4c2dfeb977efac326af552d87: Account(
+                    storage=_storage_with_any({0: 0}, [1])
+                ),
+            },
         },
     ]
 
@@ -714,6 +999,5 @@ def test_gas_cost_berlin(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

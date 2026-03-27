@@ -1,5 +1,5 @@
 """
-Consensus issue test produced by fuzz testing team 00000005-storagefuzz-1
+Consensus issue test produced by fuzz testing team 00000005-storagefuzz-1.
 
 Ported from:
 state_tests/stRandom2/randomStatetest648Filler.json
@@ -31,10 +31,10 @@ def test_random_statetest648(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Consensus issue test produced by fuzz testing team 00000005-storage..."""
+    """Consensus issue test produced by fuzz testing team..."""
     coinbase = Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b")
     sender = EOA(
-        key=0xff348633b687ec0f553647f4ddeed7590e90c7ea65b87c5bd399f4c869b9c9fc
+        key=0xFF348633B687EC0F553647F4DDEED7590E90C7EA65B87C5BD399F4C869B9C9FC
     )
 
     env = Environment(
@@ -49,28 +49,41 @@ def test_random_statetest648(
 
     # Source: raw
     # 0x600060006000600060f15af450600060005060f5fffd
-    target = pre.deploy_contract(
-        code=Op.POP(Op.DELEGATECALL(gas=Op.GAS, address=0xf1, args_offset=0x0, args_size=0x0, ret_offset=0x0, ret_size=0x0))
-        + Op.PUSH1[0x0] + Op.POP(0x0) + Op.SELFDESTRUCT(address=0xf5) + Op.REVERT,
+    target = pre.deploy_contract(  # noqa: F841
+        code=Op.POP(
+            Op.DELEGATECALL(
+                gas=Op.GAS,
+                address=0xF1,
+                args_offset=0x0,
+                args_size=0x0,
+                ret_offset=0x0,
+                ret_size=0x0,
+            )
+        )
+        + Op.PUSH1[0x0]
+        + Op.POP(0x0)
+        + Op.SELFDESTRUCT(address=0xF5)
+        + Op.REVERT,
         nonce=0,
         address=Address("0xca5c69fa03b9dff4d059971ac17edac7ef758725"),  # noqa: E501
     )
     # Source: raw
     # 0x600050
-    addr_0x00000000000000000000000000000000000000f5 = pre.deploy_contract(
+    addr_0x00000000000000000000000000000000000000f5 = pre.deploy_contract(  # noqa: F841
         code=Op.POP(0x0),
         nonce=0,
         address=Address("0xa828265d4b2db08e65a1c68d2878f15368b5ae75"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xffffffff)
-
+    pre[sender] = Account(balance=0xFFFFFFFF)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=bytes.fromhex("384c289327fda733f319011b605929b98b6cc52e4915c942369264c71a3ca70ebce56fef7e41103f1acc71e91f299bf6c5730b265d6f9d475936735ea60c58b9bb125a78178171784759606d696e98f8522b52fe213edee397b3df6ca9f0c6"),  # noqa: E501
+        data=bytes.fromhex(
+            "384c289327fda733f319011b605929b98b6cc52e4915c942369264c71a3ca70ebce56fef7e41103f1acc71e91f299bf6c5730b265d6f9d475936735ea60c58b9bb125a78178171784759606d696e98f8522b52fe213edee397b3df6ca9f0c6"  # noqa: E501
+        ),
         gas_limit=343469,
-        value=0xdb2206,
+        value=0xDB2206,
         nonce=0,
         gas_price=10,
     )

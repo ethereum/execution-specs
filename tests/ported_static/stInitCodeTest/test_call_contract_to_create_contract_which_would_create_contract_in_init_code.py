@@ -1,5 +1,5 @@
 """
-test_call_contract_to_create_contract_which_would_create_contract_in_init_code
+Test_call_contract_to_create_contract_which_would_create_contract_in_ini...
 
 Ported from:
 state_tests/stInitCodeTest/CallContractToCreateContractWhichWouldCreateContractInInitCodeFiller.json
@@ -23,19 +23,21 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stInitCodeTest/CallContractToCreateContractWhichWouldCreateContractInInitCodeFiller.json"],
+    [
+        "state_tests/stInitCodeTest/CallContractToCreateContractWhichWouldCreateContractInInitCodeFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.pre_alloc_mutable
-def test_call_contract_to_create_contract_which_would_create_contract_in_init_code(
+def test_call_contract_to_create_contract_which_would_create_contract_in_init_code(  # noqa: E501
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_call_contract_to_create_contract_which_would_create_contract_i..."""
+    """Test_call_contract_to_create_contract_which_would_create_contract_i..."""  # noqa: E501
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -50,15 +52,15 @@ def test_call_contract_to_create_contract_which_would_create_contract_in_init_co
 
     # Source: lll
     # {(MSTORE 0 0x600c600055602060406000f0)(CREATE 0 20 12)}
-    contract_0 = pre.deploy_contract(
-        code=Op.MSTORE(offset=0x0, value=0x600c600055602060406000f0)
-        + Op.CREATE(value=0x0, offset=0x14, size=0xc) + Op.STOP,
+    contract_0 = pre.deploy_contract(  # noqa: F841
+        code=Op.MSTORE(offset=0x0, value=0x600C600055602060406000F0)
+        + Op.CREATE(value=0x0, offset=0x14, size=0xC)
+        + Op.STOP,
         balance=1,
         nonce=0,
         address=Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0x3b9aca00)
-
+    pre[sender] = Account(balance=0x3B9ACA00)
 
     tx = Transaction(
         sender=sender,
@@ -71,9 +73,13 @@ def test_call_contract_to_create_contract_which_would_create_contract_in_init_co
 
     post = {
         contract_0: Account(balance=1, nonce=1),
-        Address("0x62c01474f089b07dae603491675dc5b5748f7049"): Account.NONEXISTENT,  # noqa: E501
+        Address(
+            "0x62c01474f089b07dae603491675dc5b5748f7049"
+        ): Account.NONEXISTENT,
         sender: Account(nonce=1),
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(storage={0: 12}, nonce=2),  # noqa: E501
+        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+            storage={0: 12}, nonce=2
+        ),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

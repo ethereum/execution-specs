@@ -1,5 +1,5 @@
 """
-test_out_of_gas_prefunded_contract_creation
+Test_out_of_gas_prefunded_contract_creation.
 
 Ported from:
 state_tests/stInitCodeTest/OutOfGasPrefundedContractCreationFiller.json
@@ -37,22 +37,30 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stInitCodeTest/OutOfGasPrefundedContractCreationFiller.json"],
+    [
+        "state_tests/stInitCodeTest/OutOfGasPrefundedContractCreationFiller.json"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="-g0",
         ),
         pytest.param(
-            0, 1, 0,
+            0,
+            1,
+            0,
             id="-g1",
         ),
         pytest.param(
-            0, 2, 0,
+            0,
+            2,
+            0,
             id="-g2",
         ),
     ],
@@ -66,11 +74,11 @@ def test_out_of_gas_prefunded_contract_creation(
     g: int,
     v: int,
 ) -> None:
-    """test_out_of_gas_prefunded_contract_creation"""
+    """Test_out_of_gas_prefunded_contract_creation."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     contract_0 = Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f")
     sender = EOA(
-        key=0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+        key=0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8
     )
 
     env = Environment(
@@ -83,10 +91,10 @@ def test_out_of_gas_prefunded_contract_creation(
         gas_limit=1000000000,
     )
 
-    pre[sender] = Account(balance=0xf424000)
+    pre[sender] = Account(balance=0xF424000)
     # Source: hex
     # 0x
-    contract_0 = pre.deploy_contract(
+    contract_0 = pre.deploy_contract(  # noqa: F841
         code="",
         balance=1,
         nonce=0,
@@ -95,20 +103,20 @@ def test_out_of_gas_prefunded_contract_creation(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': [0, 1], 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": [0, 1], "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_0: Account(balance=1),
-    },
+                sender: Account(nonce=1),
+                contract_0: Account(balance=1),
+            },
         },
         {
-            "indexes": {'data': -1, 'gas': [2], 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": [2], "value": -1},
+            "network": [">=Cancun"],
             "result": {
-        sender: Account(nonce=1),
-        contract_0: Account(balance=2),
-    },
+                sender: Account(nonce=1),
+                contract_0: Account(balance=2),
+            },
         },
     ]
 
@@ -124,6 +132,5 @@ def test_out_of_gas_prefunded_contract_creation(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)

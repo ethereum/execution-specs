@@ -1,5 +1,5 @@
 """
-Calling a runtime code that contains only a single `REVERT` should consume all gas.
+Calling a runtime code that contains only a single `REVERT` should...
 
 Ported from:
 state_tests/stRevertTest/RevertOnEmptyStackFiller.json
@@ -31,10 +31,10 @@ def test_revert_on_empty_stack(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """Calling a runtime code that contains only a single `REVERT` should ..."""
+    """Calling a runtime code that contains only a single `REVERT` should..."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0x3327048bbc0b8c348a6352be62994144e64b8ff2cec68d9ff4ca4e911ecd5d22
+        key=0x3327048BBC0B8C348A6352BE62994144E64B8FF2CEC68D9FF4CA4E911ECD5D22
     )
 
     env = Environment(
@@ -47,25 +47,24 @@ def test_revert_on_empty_stack(
         gas_limit=10000000,
     )
 
-    pre[sender] = Account(balance=0x5af3107a4000)
+    pre[sender] = Account(balance=0x5AF3107A4000)
     # Source: raw
     # 0xfd
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.REVERT,
         nonce=0,
         address=Address("0x3141bb954e8294e47a14ebd08229f30e6294ba83"),  # noqa: E501
     )
 
-
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=2000000,
         nonce=0,
         gas_price=10,
     )
 
-    post = {sender: Account(balance=0x5af30f491300, nonce=1)}
+    post = {sender: Account(balance=0x5AF30F491300, nonce=1)}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

@@ -1,5 +1,5 @@
 """
-test_caller_account_balance
+Test_caller_account_balance.
 
 Ported from:
 state_tests/stSystemOperationsTest/callerAccountBalanceFiller.json
@@ -31,10 +31,10 @@ def test_caller_account_balance(
     state_test: StateTestFiller,
     pre: Alloc,
 ) -> None:
-    """test_caller_account_balance"""
+    """Test_caller_account_balance."""
     coinbase = Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
     sender = EOA(
-        key=0xe04d1ac7ddda0c98397d56a0b501e960d4cd325a39286919ac23c1a07009a869
+        key=0xE04D1AC7DDDA0C98397D56A0B501E960D4CD325A39286919AC23C1A07009A869
     )
 
     env = Environment(
@@ -49,25 +49,24 @@ def test_caller_account_balance(
 
     # Source: lll
     # { [[0]] (balance (caller)) }
-    target = pre.deploy_contract(
+    target = pre.deploy_contract(  # noqa: F841
         code=Op.SSTORE(key=0x0, value=Op.BALANCE(address=Op.CALLER)) + Op.STOP,
-        balance=0xde0b6b3a7640000,
+        balance=0xDE0B6B3A7640000,
         nonce=0,
         address=Address("0x13ab36baf5501d0a3c5cd05be4788496f99a4e34"),  # noqa: E501
     )
-    pre[sender] = Account(balance=0xde0b6b3a7640000)
-
+    pre[sender] = Account(balance=0xDE0B6B3A7640000)
 
     tx = Transaction(
         sender=sender,
         to=target,
-        data=b'',
+        data=b"",
         gas_limit=10000000,
-        value=0x186a0,
+        value=0x186A0,
         nonce=0,
         gas_price=10,
     )
 
-    post = {target: Account(storage={0: 0xde0b6b3a16c9860})}
+    post = {target: Account(storage={0: 0xDE0B6B3A16C9860})}
 
     state_test(env=env, pre=pre, post=post, tx=tx)

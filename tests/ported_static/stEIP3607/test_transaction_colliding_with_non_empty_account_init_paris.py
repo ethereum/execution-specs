@@ -1,5 +1,5 @@
 """
-Account with non-empty code attempts to send tx to create a contract
+Account with non-empty code attempts to send tx to create a contract.
 
 Ported from:
 state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_init_ParisFiller.yml
@@ -16,11 +16,11 @@ from execution_testing import (
     Transaction,
     TransactionException,
 )
-from execution_testing.vm import Op
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
     resolve_expect_post,
 )
+from execution_testing.vm import Op
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 
@@ -42,29 +42,39 @@ def _tx_data(d: int) -> bytes:
 
 
 @pytest.mark.ported_from(
-    ["state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_init_ParisFiller.yml"],
+    [
+        "state_tests/stEIP3607/transactionCollidingWithNonEmptyAccount_init_ParisFiller.yml"  # noqa: E501
+    ],
 )
 @pytest.mark.valid_from("Cancun")
 @pytest.mark.parametrize(
     "d, g, v",
     [
         pytest.param(
-            0, 0, 0,
+            0,
+            0,
+            0,
             id="d0",
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
-            1, 0, 0,
+            1,
+            0,
+            0,
             id="d1",
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
-            2, 0, 0,
+            2,
+            0,
+            0,
             id="d2",
             marks=pytest.mark.exception_test,
         ),
         pytest.param(
-            3, 0, 0,
+            3,
+            0,
+            0,
             id="d3",
             marks=pytest.mark.exception_test,
         ),
@@ -79,11 +89,13 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
     g: int,
     v: int,
 ) -> None:
-    """Account with non-empty code attempts to send tx to create a contract"""
+    """Account with non-empty code attempts to send tx to create a contract."""
     coinbase = Address("0xeb201d2887816e041f6e807e804f64f3a7a226fe")
-    addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f = Address("0x76fae819612a29489a1a43208613d8f8557b8898")  # noqa: E501
+    addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f = Address(
+        "0x76fae819612a29489a1a43208613d8f8557b8898"
+    )
     sender = EOA(
-        key=0x3696bfbdbc65b14f4dc76d7762e0567e1dd55f053314276e47969d22e70a554e
+        key=0x3696BFBDBC65B14F4DC76D7762E0567E1DD55F053314276E47969D22E70A554E
     )
 
     env = Environment(
@@ -97,11 +109,11 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
     )
 
     pre[coinbase] = Account(balance=0, nonce=1)
-    pre[sender] = Account(balance=0xde0b6b3a7640000, code=Op.STOP)
+    pre[sender] = Account(balance=0xDE0B6B3A7640000, code=Op.STOP)
     pre[addr_0x6295ee1b4f6dd65047762f924ecd367c17eabf8f] = Account(balance=10)
     # Source: raw
     # 0x00
-    addr_0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0 = pre.deploy_contract(
+    addr_0xd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0 = pre.deploy_contract(  # noqa: F841
         code=Op.STOP,
         balance=10,
         nonce=0,
@@ -110,10 +122,12 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
 
     expect_entries_: list[dict] = [
         {
-            "indexes": {'data': -1, 'gas': 0, 'value': -1},
-            "network": ['>=Cancun'],
+            "indexes": {"data": -1, "gas": 0, "value": -1},
+            "network": [">=Cancun"],
             "result": {},
-            "expect_exception": {">=Frontier": TransactionException.SENDER_NOT_EOA},
+            "expect_exception": {
+                ">=Frontier": TransactionException.SENDER_NOT_EOA
+            },
         },
     ]
 
@@ -129,6 +143,5 @@ def test_transaction_colliding_with_non_empty_account_init_paris(
         gas_price=10,
         error=_exc,
     )
-
 
     state_test(env=env, pre=pre, post=post, tx=tx)
