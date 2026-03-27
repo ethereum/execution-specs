@@ -5,7 +5,7 @@ from collections.abc import Mapping, Sequence
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum_types.bytes import Bytes32
 from ethereum_types.numeric import U256, Uint
-from execution_testing import Account, Alloc, Bytes, Storage
+from execution_testing import Account, Address, Alloc, Bytes, Storage
 from execution_testing.forks import Amsterdam
 
 from ethereum.forks.amsterdam.incremental_mpt import (
@@ -114,6 +114,21 @@ def collect_storage_post_state_only_nodes(
     return _nodes(post_state_nodes - pre_state_nodes)
 
 
+def find_account_with_shared_secured_nibble(
+    target: Address,
+    excluded: set[Address],
+) -> Address:
+    """Return an occupied address that deepens one account absence proof."""
+    target_nibble = keccak256(bytes(target))[0] >> 4
+    for value in range(0x100, 0x1000):
+        address = Address(value)
+        if address in excluded:
+            continue
+        if (keccak256(bytes(address))[0] >> 4) == target_nibble:
+            return address
+    raise AssertionError("failed to find non-precompile sibling address")
+
+
 def merge_with_amsterdam_pre_alloc(pre: Alloc) -> Alloc:
     """Merge test-local accounts with Amsterdam's implicit pre-allocation."""
     return Alloc.merge(
@@ -150,11 +165,11 @@ def _state_account(account: Account) -> StateAccount:
     )
 
 
-def collect_account_proof_nodes(
+def _collect_account_node_set(
     alloc: Alloc,
     addresses: Sequence[StateAddress | bytes],
-) -> list[Bytes]:
-    """Collect account-trie proof nodes for the given addresses."""
+) -> set[bytes]:
+    """Collect hashed witness nodes for the given account proof paths."""
     storage_roots: dict[StateAddress, Root] = {}
     accounts: dict[StateAddress, StateAccount | None] = {}
 
@@ -177,4 +192,23 @@ def collect_account_proof_nodes(
     )
     for address in addresses:
         mpt_get(account_mpt, StateAddress(bytes(address)))
-    return _nodes(set(account_mpt.witness.accessed_nodes.values()))
+    return set(account_mpt.witness.accessed_nodes.values())
+
+
+def collect_account_proof_nodes(
+    alloc: Alloc,
+    addresses: Sequence[StateAddress | bytes],
+) -> list[Bytes]:
+    """Collect account-trie proof nodes for the given addresses."""
+    return _nodes(_collect_account_node_set(alloc, addresses))
+
+
+def collect_account_path_only_nodes(
+    alloc: Alloc,
+    address: StateAddress | bytes,
+    relative_to_addresses: Sequence[StateAddress | bytes],
+) -> list[Bytes]:
+    """Collect nodes unique to one account proof path relative to others."""
+    address_nodes = _collect_account_node_set(alloc, [address])
+    reference_nodes = _collect_account_node_set(alloc, relative_to_addresses)
+    return _nodes(address_nodes - reference_nodes)
