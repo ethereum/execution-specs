@@ -42,9 +42,6 @@ from tests.benchmark.stateful.helpers import (
     BALANCEOF_SELECTOR,
     DECREMENT_COUNTER_CONDITION,
     MINT_SELECTOR,
-    SLOAD_TOKENS,
-    SSTORE_MINT_TOKENS,
-    SSTORE_TOKENS,
     CacheStrategy,
     build_cache_strategy_blocks,
 )
@@ -193,7 +190,7 @@ def test_sload_erc20_generic(
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("token_name", SLOAD_TOKENS)
+@pytest.mark.stub_parametrize("token_name", "sload_tokens")
 @pytest.mark.parametrize("existing_slots", [False, True])
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 def test_sload_erc20_balanceof(
@@ -453,7 +450,7 @@ def test_sstore_erc20_generic(
 
 @pytest.mark.repricing
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
-@pytest.mark.parametrize("token_name", SSTORE_TOKENS)
+@pytest.mark.stub_parametrize("token_name", "sstore_tokens")
 @pytest.mark.parametrize("write_new_value", [False, True])
 @pytest.mark.parametrize("existing_slot", [True, False])
 def test_sstore_erc20_approve(
@@ -805,7 +802,7 @@ def build_external_call(
 
 
 @pytest.mark.repricing
-@pytest.mark.parametrize("token_name", SSTORE_MINT_TOKENS)
+@pytest.mark.stub_parametrize("token_name", "sstore_mint_tokens")
 @pytest.mark.parametrize("existing_slots", [False, True])
 @pytest.mark.parametrize("cache_strategy", list(CacheStrategy))
 @pytest.mark.parametrize("no_change", [False, True])

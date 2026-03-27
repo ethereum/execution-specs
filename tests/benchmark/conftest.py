@@ -43,11 +43,11 @@ def pytest_generate_tests(metafunc: Any) -> None:
             metafunc.definition.add_marker(benchmark_marker)
 
     # Inject parametrization from StubConfig for stub_parametrize markers
-    cfg = metafunc.config.stash.get(_stub_config_key, None)
-    if cfg is not None:
+    stub_config = metafunc.config.stash.get(_stub_config_key, None)
+    if stub_config is not None:
         for marker in metafunc.definition.iter_markers("stub_parametrize"):
             param_name, attr_name = marker.args
-            values = getattr(cfg, attr_name)
+            values = getattr(stub_config, attr_name)
             metafunc.parametrize(param_name, values, **marker.kwargs)
 
 

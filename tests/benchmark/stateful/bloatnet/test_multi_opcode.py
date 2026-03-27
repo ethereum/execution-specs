@@ -25,8 +25,6 @@ from tests.benchmark.stateful.helpers import (
     APPROVE_SELECTOR,
     BALANCEOF_SELECTOR,
     DECREMENT_COUNTER_CONDITION,
-    FACTORY_STUBS,
-    MIXED_TOKENS,
     build_benchmark_txs,
 )
 
@@ -58,9 +56,9 @@ REFERENCE_SPEC_VERSION = "1.0"
 #   4. Attack rapidly accesses all contracts per factory stub
 
 
-@pytest.mark.parametrize(
+@pytest.mark.stub_parametrize(
     "factory_stub",
-    FACTORY_STUBS,
+    "factory_stubs",
     ids=lambda s: s.replace("bloatnet_factory_", "").upper(),
 )
 @pytest.mark.parametrize(
@@ -225,9 +223,9 @@ def test_bloatnet_balance_opcode(
 #   stressing trie expansion through massive new account creation.
 
 
-@pytest.mark.parametrize(
+@pytest.mark.stub_parametrize(
     "factory_stub",
-    FACTORY_STUBS,
+    "factory_stubs",
     ids=lambda s: s.replace("bloatnet_factory_", "").upper(),
 )
 def test_bloatnet_call_value_existing(
@@ -411,7 +409,7 @@ def test_bloatnet_call_value_new_account(
     )
 
 
-@pytest.mark.parametrize("token_name", MIXED_TOKENS)
+@pytest.mark.stub_parametrize("token_name", "mixed_tokens")
 @pytest.mark.parametrize(
     "sload_percent,sstore_percent",
     [
