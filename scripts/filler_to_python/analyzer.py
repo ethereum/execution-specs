@@ -202,10 +202,7 @@ def analyze(
         category=category,
         valid_from=valid_from,
         valid_until=valid_until,
-        is_slow=(
-            model.info is not None
-            and "slow" in model.info.pytest_marks
-        ),
+        is_slow=(model.info is not None and "slow" in model.info.pytest_marks),
         is_multi_case=is_multi_case,
         is_fork_dependent=is_fork_dependent,
         needs_op_import=needs_op,
