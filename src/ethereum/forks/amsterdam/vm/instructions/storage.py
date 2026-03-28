@@ -104,9 +104,10 @@ def sstore(evm: Evm) -> None:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GAS_COLD_STORAGE_ACCESS
 
+    needs_state_gas = False
     if original_value == current_value and current_value != new_value:
         if original_value == 0:
-            charge_state_gas(evm, state_gas_storage_set)
+            needs_state_gas = True
         # charge regular cost for the operation, even when we
         # already charge state gas for state creation
         gas_cost += GAS_STORAGE_UPDATE - GAS_COLD_STORAGE_ACCESS
@@ -144,7 +145,12 @@ def sstore(evm: Evm) -> None:
                     - GAS_WARM_ACCESS
                 )
 
+    # Charge regular gas before state gas so that a regular-gas OOG
+    # does not consume state gas that would inflate the parent's
+    # reservoir on frame failure.
     charge_gas(evm, gas_cost)
+    if needs_state_gas:
+        charge_state_gas(evm, state_gas_storage_set)
     set_storage(tx_state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
