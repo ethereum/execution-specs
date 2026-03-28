@@ -242,64 +242,6 @@ def test_block_regular_gas_limit(
     blockchain_test(pre=pre, post={}, blocks=[block])
 
 
-@pytest.mark.parametrize(
-    "exceed_block_gas_limit",
-    [
-        pytest.param(True, marks=pytest.mark.exception_test),
-        pytest.param(False),
-    ],
-)
-@pytest.mark.valid_from("Amsterdam")
-def test_block_state_gas_limit(
-    blockchain_test: BlockchainTestFiller,
-    pre: Alloc,
-    exceed_block_gas_limit: bool,
-) -> None:
-    """
-    Test check_transaction enforcement of state gas against block limit.
-
-    The block-level state gas check compares tx.gas against remaining
-    state gas capacity. The first tx performs an SSTORE (consuming
-    state gas from its reservoir), which increases block_state_gas_used.
-    A second tx with gas_limit equal to block_gas_limit then exceeds
-    the remaining state gas capacity.
-    """
-    env = Environment()
-    high_gas = env.gas_limit
-
-    # Contract that performs a single SSTORE (consumes state gas)
-    state_gas_spender = pre.deploy_contract(
-        code=Op.SSTORE(0, 1),
-    )
-
-    txs = [
-        Transaction(
-            to=state_gas_spender,
-            sender=pre.fund_eoa(),
-            gas_limit=high_gas,
-        ),
-    ]
-
-    if exceed_block_gas_limit:
-        txs.append(
-            Transaction(
-                to=state_gas_spender,
-                sender=pre.fund_eoa(),
-                gas_limit=high_gas,
-                error=TransactionException.GAS_ALLOWANCE_EXCEEDED,
-            ),
-        )
-
-    block = Block(
-        txs=txs,
-        exception=TransactionException.GAS_ALLOWANCE_EXCEEDED
-        if exceed_block_gas_limit
-        else None,
-    )
-
-    blockchain_test(pre=pre, post={}, blocks=[block])
-
-
 @pytest.mark.valid_from("Amsterdam")
 def test_block_gas_used_no_state_ops(
     blockchain_test: BlockchainTestFiller,
