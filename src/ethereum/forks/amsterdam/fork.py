@@ -546,21 +546,16 @@ def check_transaction(
         is empty.
 
     """
-    # Both regular gas and state gas have their own limits
+    # Regular gas is capped at TX_MAX_GAS_LIMIT per EIP-7825.
+    # State gas is not checked per-tx; block-end validation enforces
+    # max(block_regular_gas_used, block_state_gas_used) <= gas_limit.
     regular_gas_available = (
         block_env.block_gas_limit - block_output.block_gas_used
     )
-    state_gas_available = (
-        block_env.block_gas_limit - block_output.block_state_gas_used
-    )
     blob_gas_available = MAX_BLOB_GAS_PER_BLOCK - block_output.blob_gas_used
 
-    # Regular gas is capped at TX_MAX_GAS_LIMIT; state gas can use all
-    # of tx.gas (gas_left can be drawn for state gas when reservoir is empty)
     if min(TX_MAX_GAS_LIMIT, tx.gas) > regular_gas_available:
         raise GasUsedExceedsLimitError("regular gas used exceeds limit")
-    if tx.gas > state_gas_available:
-        raise GasUsedExceedsLimitError("state gas used exceeds limit")
 
     tx_blob_gas_used = calculate_total_blob_gas(tx)
     if tx_blob_gas_used > blob_gas_available:
