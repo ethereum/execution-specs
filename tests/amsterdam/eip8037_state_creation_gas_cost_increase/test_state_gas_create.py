@@ -457,6 +457,97 @@ def test_nested_create_code_deposit_cannot_borrow_parent_gas(
         pytest.param(1, id="short_one_gas"),
     ],
 )
+@pytest.mark.valid_from("Amsterdam")
+def test_sstore_oog_no_reservoir_inflation(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_shortfall: int,
+) -> None:
+    """
+    Verify SSTORE state gas is not charged when regular gas OOGs.
+
+    With zero reservoir, all state gas spills into gas_left. A child
+    frame does CREATE (charging state gas from gas_left) followed by
+    SSTORE. When the factory is 1 gas short, SSTORE OOGs. If state
+    gas is incorrectly charged before regular gas, the extra state gas
+    inflates the parent's reservoir on frame failure, changing the
+    transaction's effective gas consumption.
+
+    Regression test for SSTORE gas ordering: regular gas must be
+    checked before state gas.
+    """
+    initcode = Initcode(deploy_code=Op.STOP)
+    initcode_len = len(initcode)
+
+    factory_code = Op.CALLDATACOPY(
+        0,
+        0,
+        Op.CALLDATASIZE,
+        data_size=initcode_len,
+        new_memory_size=initcode_len,
+    ) + Op.SSTORE(
+        0,
+        Op.CREATE(
+            value=0,
+            offset=0,
+            size=Op.CALLDATASIZE,
+            init_code_size=initcode_len,
+        ),
+    )
+    factory = pre.deploy_contract(factory_code)
+    create_address = compute_create_address(address=factory, nonce=1)
+
+    # Total gas includes both regular and state components since
+    # reservoir is zero — all state gas comes from gas_left.
+    factory_gas = (
+        factory_code.gas_cost(fork)
+        + initcode.execution_gas(fork)
+        + initcode.deployment_gas(fork)
+    )
+
+    # Caller forwards total gas (regular + state) through CALL.
+    # With zero reservoir, the CALL gas parameter is the only source.
+    caller = pre.deploy_contract(
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.CALL(
+            gas=factory_gas - gas_shortfall,
+            address=factory,
+            value=0,
+            args_offset=0,
+            args_size=Op.CALLDATASIZE,
+            ret_offset=0,
+            ret_size=0,
+        )
+    )
+
+    sender = pre.fund_eoa()
+    # gas_limit = cap, reservoir = 0
+    tx = Transaction(
+        sender=sender,
+        to=caller,
+        data=bytes(initcode),
+        gas_limit=fork.transaction_gas_limit_cap(),
+    )
+
+    created = not gas_shortfall
+    post = {
+        create_address: Account(code=Op.STOP)
+        if created
+        else Account.NONEXISTENT,
+        factory: Account(storage={0: create_address if created else 0}),
+    }
+
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.parametrize(
+    "gas_shortfall",
+    [
+        pytest.param(0, id="exact_gas"),
+        pytest.param(1, id="short_one_gas"),
+    ],
+)
 @pytest.mark.with_all_create_opcodes()
 @pytest.mark.valid_from("Amsterdam")
 def test_max_initcode_size_gas_metering_via_create(
@@ -563,4 +654,59 @@ def test_max_initcode_size_gas_metering_via_create(
         factory: Account(storage={0: create_address if created else 0}),
     }
 
+    state_test(pre=pre, tx=tx, post=post)
+
+
+@pytest.mark.valid_from("Amsterdam")
+def test_create_no_double_charge_new_account(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+) -> None:
+    """
+    Verify CREATE does not double-charge new-account gas.
+
+    CREATE charges REGULAR_GAS_CREATE as regular gas and new-account
+    state gas separately. Provide exactly enough gas for both — if
+    GAS_NEW_ACCOUNT were charged twice (once in regular, once in
+    state), the CREATE would OOG.
+    """
+    create_state_gas = fork.create_state_gas(code_size=0)
+
+    # Child: just does CREATE(value=0, offset=0, size=0) and stores result.
+    # This creates an empty account (no code deposit).
+    child_code = Op.SSTORE(0, Op.CREATE(value=0, offset=0, size=0))
+    child = pre.deploy_contract(child_code)
+
+    # Compute exact gas: child bytecode + CREATE child frame.
+    # The child frame is empty (size=0) so only the CREATE opcode
+    # charges matter: regular (REGULAR_GAS_CREATE) + state (new account).
+    child_total = child_code.gas_cost(fork)
+
+    create_address = compute_create_address(address=child, nonce=1)
+
+    # Caller forwards exact regular gas via CALL. State gas for
+    # new account comes from the reservoir (gas_limit above the cap).
+    caller_storage = Storage()
+    regular_gas = child_total - create_state_gas
+    caller = pre.deploy_contract(
+        Op.SSTORE(
+            caller_storage.store_next(1, "create_succeeds"),
+            Op.CALL(gas=regular_gas, address=child),
+        )
+    )
+
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        gas_limit=gas_limit_cap + create_state_gas,
+    )
+
+    post = {
+        caller: Account(storage=caller_storage),
+        child: Account(storage={0: create_address}),
+        create_address: Account(nonce=1),
+    }
     state_test(pre=pre, tx=tx, post=post)

@@ -434,15 +434,6 @@ def call(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(to)
 
-    # Charge state gas for new account creation (replaces GAS_NEW_ACCOUNT)
-    if value != 0 and not is_account_alive(tx_state, to):
-        cost_per_state_byte = state_gas_per_byte(
-            evm.message.block_env.block_gas_limit
-        )
-        charge_state_gas(
-            evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
-        )
-
     extra_gas = access_gas_cost + transfer_gas_cost
     (
         is_delegated,
@@ -460,14 +451,26 @@ def call(evm: Evm) -> None:
     code_hash = get_account(tx_state, code_address).code_hash
     code = get_code(tx_state, code_hash)
 
+    # TODO: Consider consolidating charge_gas + charge_state_gas into
+    # a single gas charge to avoid duplicate EVM trace entries.
+    # Applies here and in create, create2, selfdestruct. See #2526.
+    charge_gas(evm, extra_gas + extend_memory.cost)
+    if value != 0 and not is_account_alive(tx_state, to):
+        cost_per_state_byte = state_gas_per_byte(
+            evm.message.block_env.block_gas_limit
+        )
+        charge_state_gas(
+            evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
+        )
+
     message_call_gas = calculate_message_call_gas(
         value,
         gas,
         Uint(evm.gas_left),
-        extend_memory.cost,
-        extra_gas,
+        memory_cost=Uint(0),
+        extra_gas=Uint(0),
     )
-    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost)
     escrow_subcall_regular_gas(evm, message_call_gas.sub_call)
 
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -649,18 +652,22 @@ def selfdestruct(evm: Evm) -> None:
     if is_cold_access:
         evm.accessed_addresses.add(beneficiary)
 
-    if (
+    needs_state_gas = (
         not is_account_alive(tx_state, beneficiary)
         and get_account(tx_state, evm.message.current_target).balance != 0
-    ):
+    )
+
+    # Charge regular gas before state gas so that a regular-gas OOG
+    # does not consume state gas that would inflate the parent's
+    # reservoir on frame failure.
+    charge_gas(evm, gas_cost)
+    if needs_state_gas:
         cost_per_state_byte = state_gas_per_byte(
             evm.message.block_env.block_gas_limit
         )
         charge_state_gas(
             evm, STATE_BYTES_PER_NEW_ACCOUNT * cost_per_state_byte
         )
-
-    charge_gas(evm, gas_cost)
 
     originator = evm.message.current_target
     originator_balance = get_account(tx_state, originator).balance
