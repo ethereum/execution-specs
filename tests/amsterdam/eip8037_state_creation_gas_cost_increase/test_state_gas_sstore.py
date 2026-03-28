@@ -343,3 +343,76 @@ def test_sstore_state_gas_all_tx_types(
 
     post = {contract: Account(storage=storage)}
     state_test(pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "gas_above_stipend",
+    [
+        pytest.param(-1, id="below_stipend"),
+        pytest.param(0, id="at_stipend"),
+    ],
+)
+@pytest.mark.valid_from("Amsterdam")
+def test_sstore_stipend_check_excludes_reservoir(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    gas_above_stipend: int,
+) -> None:
+    """
+    Verify SSTORE stipend check uses gas_left only, not the reservoir.
+
+    A child frame has gas_left at or just below the stipend threshold
+    (GAS_CALL_STIPEND + 1) while the reservoir holds ample state gas.
+    The stipend check must fail when gas_left < stipend, regardless
+    of the reservoir balance.
+
+    With below_stipend: SSTORE fails (gas_left < 2301, reservoir ignored).
+    With at_stipend: SSTORE passes the stipend check and proceeds.
+    """
+    gas_costs = fork.gas_costs()
+    stipend = gas_costs.GAS_CALL_STIPEND + 1
+    sstore_state_gas = fork.sstore_state_gas()
+
+    # Child: Op.SSTORE(0, 1) = 2 pushes + SSTORE opcode.
+    child_code = Op.SSTORE(0, 1)
+    child = pre.deploy_contract(child_code)
+
+    # Full regular gas for the child (pushes + SSTORE regular cost).
+    # State gas comes from the reservoir so it doesn't affect gas_left.
+    child_full_regular = child_code.gas_cost(fork) - sstore_state_gas
+
+    # below_stipend: give 1 less than stipend after pushes, fails check.
+    # at_stipend: give full regular gas, passes check and completes.
+    if gas_above_stipend < 0:
+        push_gas = 2 * gas_costs.GAS_VERY_LOW
+        child_gas = push_gas + stipend - 1
+    else:
+        child_gas = child_full_regular
+
+    # Caller forwards limited regular gas via CALL. State gas comes
+    # from the reservoir (gas_limit above the cap).
+    caller_storage = Storage()
+    sstore_succeeds = gas_above_stipend >= 0
+    caller = pre.deploy_contract(
+        Op.SSTORE(
+            caller_storage.store_next(
+                1 if sstore_succeeds else 0,
+                "sstore_succeeds"
+                if sstore_succeeds
+                else "sstore_fails_stipend",
+            ),
+            Op.CALL(gas=child_gas, address=child),
+        )
+    )
+
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+    tx = Transaction(
+        sender=pre.fund_eoa(),
+        to=caller,
+        gas_limit=gas_limit_cap + sstore_state_gas,
+    )
+
+    post = {caller: Account(storage=caller_storage)}
+    state_test(pre=pre, tx=tx, post=post)
