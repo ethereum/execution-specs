@@ -453,6 +453,9 @@ def call(evm: Evm) -> None:
     code_hash = get_account(tx_state, code_address).code_hash
     code = get_code(tx_state, code_hash)
 
+    # TODO: Consider consolidating charge_gas + charge_state_gas into
+    # a single gas charge to avoid duplicate EVM trace entries.
+    # Applies here and in create, create2, selfdestruct. See #2526.
     charge_gas(evm, extra_gas + extend_memory.cost)
     if value != 0 and not is_account_alive(tx_state, to):
         cost_per_state_byte = state_gas_per_byte(
