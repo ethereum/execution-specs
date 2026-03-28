@@ -20,6 +20,7 @@ from execution_testing import (
     StateTestFiller,
     Storage,
     Transaction,
+    TransactionException,
 )
 from execution_testing.checklists import EIPChecklist
 
@@ -128,3 +129,67 @@ def test_calldata_floor_higher_than_execution_with_state_ops(
 
     post = {contract: Account(storage=storage)}
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "exceeds_cap",
+    [
+        pytest.param(False, id="at_cap"),
+        pytest.param(True, id="exceeds_cap", marks=pytest.mark.exception_test),
+    ],
+)
+@pytest.mark.valid_from("Amsterdam")
+def test_calldata_floor_exceeding_tx_gas_limit_cap(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    fork: Fork,
+    exceeds_cap: bool,
+) -> None:
+    """
+    Verify calldata floor > TX_MAX_GAS_LIMIT rejects the transaction.
+
+    When the EIP-7623 calldata floor cost exceeds the EIP-7825 transaction
+    gas limit cap, the transaction must be rejected at validation —
+    even though the regular intrinsic gas may be within the cap.
+
+    at_cap: tightest calldata floor that fits within the cap —
+    transaction accepted.
+    exceeds_cap: one zero byte more tips the floor over the cap —
+    transaction rejected.
+    """
+    gas_costs = fork.gas_costs()
+    gas_limit_cap = fork.transaction_gas_limit_cap()
+    assert gas_limit_cap is not None
+
+    # calldata_floor = tokens * GAS_TX_DATA_TOKEN_FLOOR + GAS_TX_BASE
+    # Non-zero bytes contribute 4 tokens each, zero bytes 1 token.
+    # Exact equality with the cap is not always reachable because
+    # the floor advances in steps of GAS_TX_DATA_TOKEN_FLOOR.
+    # Use nonzero bytes for bulk tokens, then zero bytes (1 token
+    # each) to get as close to the cap as possible.
+    floor_token = gas_costs.GAS_TX_DATA_TOKEN_FLOOR
+    tx_base = gas_costs.GAS_TX_BASE
+    tokens_per_nonzero = 4
+
+    max_tokens = (gas_limit_cap - tx_base) // floor_token
+    nonzero_bytes = max_tokens // tokens_per_nonzero
+    zero_bytes = max_tokens - nonzero_bytes * tokens_per_nonzero
+
+    if exceeds_cap:
+        zero_bytes += 1
+
+    calldata = b"\x01" * nonzero_bytes + b"\x00" * zero_bytes
+    contract = pre.deploy_contract(Op.STOP)
+
+    tx = Transaction(
+        to=contract,
+        data=calldata,
+        gas_limit=gas_limit_cap,
+        sender=pre.fund_eoa(),
+        error=TransactionException.INTRINSIC_GAS_TOO_LOW
+        if exceeds_cap
+        else None,
+    )
+
+    post = {contract: Account(code=Op.STOP)} if not exceeds_cap else {}
+    state_test(pre=pre, post=post, tx=tx)
