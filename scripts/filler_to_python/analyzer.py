@@ -25,6 +25,9 @@ from execution_testing.specs.static_state.common.tags import (
 from execution_testing.specs.static_state.expect_section import (
     ForkSet,
 )
+from execution_testing.specs.static_state.general_transaction import (
+    GeneralTransactionInFiller,
+)
 from execution_testing.test_types import EOA, Alloc, eoa_from_hash
 from execution_testing.vm import Op
 
@@ -135,30 +138,9 @@ def analyze(
     sender_ir, sender_tag_name = _build_sender_ir(model, tags)
 
     # 7. Build TX arrays
-    needs_hash = False
-    needs_bytes = False
-    tx_data: list[str] = []
-    for d_entry in model.transaction.data:
-        data_box = model.transaction.data[d_entry.index]
-        compiled = data_box.data.compiled(tags)
-
-        if len(compiled) == 32 or len(compiled) == 20:
-            if len(compiled) == 32:
-                needs_hash = True
-                hex_type = "Hash"
-            else:
-                hex_type = "Address"
-            hex_string = compiled.hex().lstrip("0")
-            if len(hex_string) == 0:
-                hex_string = "0"
-            tx_data.append(f"{hex_type}(0x{hex_string})")
-        else:
-            needs_bytes = True
-            hex_string = compiled.hex()
-            tx_data.append(f'Bytes("{hex_string}")')
-
-    tx_gas = [int(g) for g in model.transaction.gas_limit]
-    tx_value = [int(v) for v in model.transaction.value]
+    tx_data, tx_gas, tx_value, needs_hash, needs_bytes = _build_tx_arrays(
+        model.transaction, tags, addr_to_var
+    )
 
     # 8. Parameter matrix
     parameters = _build_parameters(model)
@@ -398,6 +380,9 @@ def _sanitize_var_name(name: str, used: set[str]) -> str:
     """Sanitize a tag name into a valid Python variable name."""
     var = re.sub(r"[^a-zA-Z0-9_]", "_", name)
     var = re.sub(r"_+", "_", var).strip("_").lower()
+    if re.match(r"0x[0-9a-f]{40}", var):
+        # Some tagged tests use addresses as tags, which is confusing, remove
+        var = "addr"
     if not var or var[0].isdigit():
         var = "addr_" + var
     # Avoid Python keywords and builtins
@@ -1071,3 +1056,48 @@ def _build_address_constants(
                 seen.add(address_or_tag)
 
     return constants
+
+
+def _build_tx_arrays(
+    tx: GeneralTransactionInFiller,
+    tags: TagDict,
+    addr_to_var: dict[Address | EOA, str],
+) -> tuple[list[str], list[int], list[int], bool, bool]:
+    """Build the list of data that goes in each transaction."""
+    tx_data: list[str] = []
+    needs_hash = False
+    needs_bytes = False
+    for d_entry in tx.data:
+        data_box = tx.data[d_entry.index]
+        compiled = data_box.data.compiled(tags)
+        addr_var: str | None = None
+        if len(compiled.lstrip(b"\x00")) <= 20:
+            maybe_addr = Address(int.from_bytes(compiled, "big"))
+            if maybe_addr in addr_to_var:
+                addr_var = addr_to_var[maybe_addr]
+
+        if len(compiled) == 32 or len(compiled) == 20:
+            if addr_var:
+                if len(compiled) == 20:
+                    tx_data.append(addr_var)
+                else:
+                    needs_hash = True
+                    tx_data.append(f"Hash({addr_var}, left_padding=True)")
+            else:
+                if len(compiled) == 32:
+                    needs_hash = True
+                    hex_type = "Hash"
+                else:
+                    hex_type = "Address"
+                hex_string = compiled.hex().lstrip("0")
+                if len(hex_string) == 0:
+                    hex_string = "0"
+                tx_data.append(f"{hex_type}(0x{hex_string})")
+        else:
+            needs_bytes = True
+            hex_string = compiled.hex()
+            tx_data.append(f'Bytes("{hex_string}")')
+
+    tx_gas = [int(g) for g in tx.gas_limit]
+    tx_value = [int(v) for v in tx.value]
+    return tx_data, tx_gas, tx_value, needs_hash, needs_bytes
