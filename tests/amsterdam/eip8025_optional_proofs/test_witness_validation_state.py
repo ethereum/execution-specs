@@ -204,16 +204,22 @@ def test_validation_state_missing_delete_auxiliary_node(
     )
 
 
-def test_validation_state_missing_account_trie_proof_node(
+def test_validation_state_missing_sender_account_proof_leaf_node(
     pre: Alloc,
     blockchain_test: BlockchainTestFiller,
 ) -> None:
-    """Removing a required account proof node should fail a transfer."""
+    """Removing the sender account proof leaf should fail a transfer."""
     sender = pre.fund_eoa()
-    recipient = pre.fund_eoa(amount=0)
+    recipient = pre.fund_eoa(amount=1)
     full_alloc = merge_with_amsterdam_pre_alloc(pre)
     proof_nodes = collect_account_proof_nodes(full_alloc, [sender, recipient])
-    removed_node = _required_node(proof_nodes)
+    sender_only_nodes = collect_account_path_only_nodes(
+        full_alloc,
+        sender,
+        [recipient, *Amsterdam.execution_witness_implicit_code_addresses()],
+    )
+    assert len(sender_only_nodes) == 1
+    removed_node = _leaf_node(sender_only_nodes)
 
     tx = Transaction(sender=sender, to=recipient, value=1, gas_limit=21_000)
 
@@ -232,7 +238,7 @@ def test_validation_state_missing_account_trie_proof_node(
         ],
         post={
             sender: Account(nonce=1),
-            recipient: Account(balance=1),
+            recipient: Account(balance=2),
         },
     )
 
