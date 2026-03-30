@@ -135,11 +135,27 @@ def analyze(
     sender_ir, sender_tag_name = _build_sender_ir(model, tags)
 
     # 7. Build TX arrays
+    needs_hash = False
+    needs_bytes = False
     tx_data: list[str] = []
     for d_entry in model.transaction.data:
         data_box = model.transaction.data[d_entry.index]
         compiled = data_box.data.compiled(tags)
-        tx_data.append(compiled.hex())
+
+        if len(compiled) == 32 or len(compiled) == 20:
+            if len(compiled) == 32:
+                needs_hash = True
+                hex_type = "Hash"
+            else:
+                hex_type = "Address"
+            hex_string = compiled.hex().lstrip("0")
+            if len(hex_string) == 0:
+                hex_string = "0"
+            tx_data.append(f"{hex_type}(0x{hex_string})")
+        else:
+            needs_bytes = True
+            hex_string = compiled.hex()
+            tx_data.append(f'Bytes("{hex_string}")')
 
     tx_gas = [int(g) for g in model.transaction.gas_limit]
     tx_value = [int(v) for v in model.transaction.value]
@@ -187,8 +203,9 @@ def analyze(
         for d in model.transaction.data
     )
     needs_hash = (
-        model.transaction.blob_versioned_hashes is not None
+        needs_hash
         or needs_access_list
+        or model.transaction.blob_versioned_hashes is not None
     )
     needs_tx_exception = any(p.has_exception for p in parameters)
 
@@ -215,6 +232,7 @@ def analyze(
         is_fork_dependent=is_fork_dependent,
         needs_op_import=needs_op,
         needs_access_list_import=needs_access_list,
+        needs_bytes_import=needs_bytes,
         needs_hash_import=needs_hash,
         needs_tx_exception_import=needs_tx_exception,
         environment=environment_ir,
@@ -475,11 +493,12 @@ def _sanitize_var_name(name: str, used: set[str]) -> str:
     return var
 
 
-def _addr_hex(addr: Any) -> str:
-    """Normalize an address-like value to lowercase hex string."""
-    if isinstance(addr, EOA):
-        return str(Address(addr)).lower()
-    return str(Address(addr)).lower()
+def _addr_hex(addr: Address | EOA) -> str:
+    """Normalize an address-like value to hex string."""
+    hex_str = str(addr)[2:].lstrip("0")
+    if hex_str == "":
+        hex_str = "0"
+    return f"0x{hex_str}"
 
 
 def _build_sender_ir(
@@ -950,7 +969,7 @@ def _build_transaction_ir(
     value_single: int | None = None
     if not is_multi_case:
         if tx_data and tx_data[0]:
-            data_inline = f'bytes.fromhex("{tx_data[0]}")'
+            data_inline = tx_data[0]
         else:
             data_inline = "b''"
         gas_limit_single = tx_gas[0] if tx_gas else 21000

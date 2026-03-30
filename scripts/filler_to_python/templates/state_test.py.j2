@@ -80,6 +80,9 @@ from execution_testing import (
     Account,
     Address,
     Alloc,
+{% if needs_bytes %}
+    Bytes,
+{% endif %}
     Environment,
     StateTestFiller,
     Transaction,
@@ -128,16 +131,12 @@ REFERENCE_SPEC_VERSION = "N/A"
 {# Module-level arrays: tx fields indexed by d, g, v #}
 TX_DATA = [
 {% for d in tx_data %}
-    "{{ d }}",
+    {{ d }},
 {% endfor %}
 ]
 TX_GAS = [{{ tx_gas | join(", ") }}]
 TX_VALUE = [{{ tx_value | join(", ") }}]
 
-
-def _tx_data(d: int) -> bytes:
-    """Convert TX_DATA[d] hex string to bytes."""
-    return bytes.fromhex(TX_DATA[d])
 
 {% if tx.per_data_access_lists %}
 TX_ACCESS_LISTS: dict[int, list] = {
@@ -145,7 +144,7 @@ TX_ACCESS_LISTS: dict[int, list] = {
     {{ d_idx }}: [
 {% for al in al_entries %}
         AccessList(
-            address=Address("{{ al.address }}"),
+            address=Address({{ al.address }}),
             storage_keys=[
 {% for sk in al.storage_keys %}
                 Hash("{{ sk }}"),  # noqa: E501
@@ -209,7 +208,7 @@ def {{ test_name }}(
 ) -> None:
     """{{ short_docstring }}"""
 {% for addr in address_constants %}
-    {{ addr.var_name }} = Address("{{ addr.hex }}")
+    {{ addr.var_name }} = Address({{ addr.hex }})
 {% endfor %}
 {% if sender.not_in_pre %}
     sender = pre.fund_eoa(amount=0)
@@ -248,7 +247,7 @@ def {{ test_name }}(
 {# Contract: source comment + deploy #}
 {{ account.source_comment }}
 {% if account.oversized_code %}
-    {{ account.var_name }} = Address("{{ account.address }}")
+    {{ account.var_name }} = Address({{ account.address }})
     pre[{{ account.var_name }}] = Account(
         code={{ account.code_expr | wrap_op_chain(indent=8) }},
 {% if account.storage %}
@@ -273,14 +272,16 @@ def {{ test_name }}(
 {% if account.nonce is not none %}
         nonce={{ account.nonce }},
 {% endif %}
-        address=Address("{{ account.address }}"),  # noqa: E501
+        address=Address({{ account.address }}),  # noqa: E501
     )
 {% endif %}
 {% endif %}
 {% endfor %}
 
 {# Expect entries (used by resolve_expect_post at runtime) #}
-{% if is_multi_case or is_fork_dependent %}
+{% if single_post %}
+{# Post will be assigned below #}
+{% elif is_multi_case or is_fork_dependent %}
     expect_entries_: list[dict] = [
 {% for entry in expect_entries %}
         {
@@ -312,7 +313,7 @@ def {{ test_name }}(
         to=None,
 {% endif %}
 {% if is_multi_case %}
-        data=_tx_data(d),
+        data=TX_DATA[d],
         gas_limit=TX_GAS[g],
 {% if tx_value != [0] %}
         value=TX_VALUE[v],
@@ -358,7 +359,7 @@ def {{ test_name }}(
         access_list=[
 {% for al in tx.access_list %}
             AccessList(
-                address=Address("{{ al.address }}"),
+                address=Address({{ al.address }}),
                 storage_keys=[
 {% for sk in al.storage_keys %}
                     Hash(
@@ -370,18 +371,20 @@ def {{ test_name }}(
 {% endfor %}
         ],
 {% endif %}
-{% if is_multi_case or is_fork_dependent %}
-        error=_exc,
-{% elif single_error %}
+{% if single_error %}
         error={{ single_error }},
+{% elif single_post %}
+    {# Single post without error #}
+{% elif is_multi_case or is_fork_dependent %}
+        error=_exc,
 {% endif %}
     )
 
 {# Post-state #}
-{% if is_multi_case or is_fork_dependent %}
-{# Post resolved above via resolve_expect_post / resolve_expect_post_fork #}
-{% elif single_post %}
+{% if single_post %}
     post = {{ single_post | format_post }}
+{% elif is_multi_case or is_fork_dependent %}
+{# Post resolved above via resolve_expect_post / resolve_expect_post_fork #}
 {% else %}
     post: dict = {}
 {% endif %}

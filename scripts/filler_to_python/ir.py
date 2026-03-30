@@ -124,6 +124,7 @@ class IntermediateTestModel:
     is_fork_dependent: bool = False
     needs_op_import: bool = False
     needs_access_list_import: bool = False
+    needs_bytes_import: bool = False
     needs_hash_import: bool = False
     needs_tx_exception_import: bool = False
     environment: EnvironmentIR = field(

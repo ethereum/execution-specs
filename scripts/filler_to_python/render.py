@@ -251,7 +251,7 @@ def render_test(ir: IntermediateTestModel) -> str:
     # Single-case post and error
     single_post = None
     single_error = None
-    if not ir.is_multi_case and ir.expect_entries:
+    if ir.expect_entries and len(ir.expect_entries) == 1:
         entry = ir.expect_entries[0]
         if entry.result:
             single_post = entry.result
@@ -274,6 +274,7 @@ def render_test(ir: IntermediateTestModel) -> str:
         "needs_op": ir.needs_op_import,
         "needs_tx_exception": ir.needs_tx_exception_import,
         "needs_access_list": ir.needs_access_list_import,
+        "needs_bytes": ir.needs_bytes_import,
         "needs_hash": ir.needs_hash_import,
         "env": ir.environment,
         "accounts": ir.accounts,
