@@ -59,7 +59,7 @@ def build_refund_tx(
     empty_storage_on_success = False
     refund_tx_extra_gas = 1 if refund_tx_has_extra_gas_limit else 0
 
-    for refund_type in refund_types:
+    for refund_type in sorted(refund_types, key=lambda r: r.value):
         match refund_type:
             case RefundTypes.STORAGE_CLEAR:
                 for slot in storage_slots:
