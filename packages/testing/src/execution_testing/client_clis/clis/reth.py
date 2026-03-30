@@ -125,7 +125,7 @@ class RethExceptionMapper(ExceptionMapper):
             r"block access list hash mismatch"
         ),
         BlockException.BLOCK_ACCESS_LIST_GAS_LIMIT_EXCEEDED: (
-           r"block access list cost exceeds gas limit"
+            r"block access list cost exceeds gas limit"
         ),
         # Reth does not validate the sizes or offsets of the deposit
         # contract logs. As a workaround we have set
