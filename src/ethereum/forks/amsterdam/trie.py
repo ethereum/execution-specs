@@ -70,16 +70,7 @@ EMPTY_TRIE_ROOT = Root(
     )
 )
 
-Node = (
-    Account
-    | Bytes
-    | LegacyTransaction
-    | Receipt
-    | Uint
-    | U256
-    | Withdrawal
-    | None
-)
+Node = Account | Bytes | LegacyTransaction | Receipt | Uint | U256 | Withdrawal
 K = TypeVar("K", bound=Bytes)
 V = TypeVar(
     "V",
@@ -148,7 +139,9 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     if isinstance(node, Account):
         assert storage_root is not None
         return encode_account(node, storage_root)
-    elif isinstance(node, (LegacyTransaction, Receipt, Withdrawal, U256)):
+    elif isinstance(
+        node, (LegacyTransaction, Receipt, Withdrawal, U256, Uint)
+    ):
         return rlp.encode(node)
     elif isinstance(node, Bytes):
         return node
@@ -342,6 +335,8 @@ def _prepare_trie(
             assert get_storage_root is not None
             address = Address(preimage)
             encoded_value = encode_node(value, get_storage_root(address))
+        elif value is None:
+            raise AssertionError("cannot encode `None`")
         else:
             encoded_value = encode_node(value)
         if encoded_value == b"":

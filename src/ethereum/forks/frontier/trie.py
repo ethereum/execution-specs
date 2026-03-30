@@ -25,6 +25,7 @@ from typing import (
     Sequence,
     Tuple,
     TypeVar,
+    assert_never,
     assert_type,
     cast,
 )
@@ -60,7 +61,7 @@ EMPTY_TRIE_ROOT = Root(
     )
 )
 
-Node = Account | Bytes | Transaction | Receipt | Uint | U256 | None
+Node = Account | Bytes | Transaction | Receipt | Uint | U256
 K = TypeVar("K", bound=Bytes)
 V = TypeVar(
     "V",
@@ -178,14 +179,12 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     if isinstance(node, Account):
         assert storage_root is not None
         return encode_account(node, storage_root)
-    elif isinstance(node, (Transaction, Receipt, U256)):
+    elif isinstance(node, (Transaction, Receipt, U256, Uint)):
         return rlp.encode(node)
     elif isinstance(node, Bytes):
         return node
     else:
-        raise AssertionError(
-            f"encoding for {type(node)} is not currently implemented"
-        )
+        assert_never(node)
 
 
 @dataclass
@@ -374,6 +373,8 @@ def _prepare_trie(
             assert get_storage_root is not None
             address = Address(preimage)
             encoded_value = encode_node(value, get_storage_root(address))
+        elif value is None:
+            raise AssertionError("cannot encode `None`")
         else:
             encoded_value = encode_node(value)
         if encoded_value == b"":
