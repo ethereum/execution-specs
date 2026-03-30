@@ -1,60 +1,52 @@
 """Benchmark stub configuration model."""
 
 import json
+import warnings
 from pathlib import Path
-from typing import Any, Dict
 
-from execution_testing import Address
-from execution_testing.base_types import EthereumTestBaseModel
-
-
-def _extract_tokens(stubs: dict, prefix: str) -> list[str]:
-    """Extract token names by stripping *prefix* from matching keys."""
-    return [k.removeprefix(prefix) for k in stubs if k.startswith(prefix)]
+from execution_testing.base_types import (
+    Address,
+    EthereumTestBaseModel,
+)
 
 
 class StubConfig(EthereumTestBaseModel):
     """
-    Benchmark stub configuration with derived token lists.
+    Benchmark stub configuration with prefix-based token extraction.
 
     Build from an ``AddressStubs`` mapping (via ``--address-stubs``)
-    or from a JSON file.  Token lists and factory stub names are
-    derived automatically in ``model_post_init``.
+    or from a JSON file.  Use ``extract_tokens`` to derive parameter
+    lists for any prefix — no hardcoded categories required.
     """
 
-    stubs: Dict[str, Address]
+    stubs: dict[str, Address]
 
-    sload_tokens: list[str] = []
-    sstore_tokens: list[str] = []
-    sstore_mint_tokens: list[str] = []
-    mixed_tokens: list[str] = []
-    factory_stubs: list[str] = []
+    def extract_tokens(self, prefix: str) -> list[str]:
+        """Return stub keys matching *prefix*."""
+        return [k for k in self.stubs if k.startswith(prefix)]
 
-    def model_post_init(self, __context: Any) -> None:
-        """Derive token lists from stub keys."""
-        self.sload_tokens = _extract_tokens(
-            self.stubs, "test_sload_empty_erc20_balanceof_"
-        )
-        self.sstore_tokens = _extract_tokens(
-            self.stubs, "test_sstore_erc20_approve_"
-        )
-        self.sstore_mint_tokens = _extract_tokens(
-            self.stubs, "test_sstore_erc20_mint_"
-        )
-        self.mixed_tokens = _extract_tokens(
-            self.stubs, "test_mixed_sload_sstore_"
-        )
-        self.factory_stubs = sorted(
-            [k for k in self.stubs if k.startswith("bloatnet_factory_")],
-            key=lambda name: float(
-                name.replace("bloatnet_factory_", "")
-                .replace("kb", "")
-                .replace("_", ".")
-            ),
-        )
+    def parametrize_args(
+        self, prefix: str, *, caller: str = ""
+    ) -> tuple[list[str], list[str]]:
+        """
+        Return ``(values, ids)`` for ``metafunc.parametrize``.
+
+        *values* are full stub keys matching *prefix*.
+        *ids* are the keys with the prefix stripped for clean test output.
+        Emits a warning when no stubs match.
+        """
+        values = self.extract_tokens(prefix)
+        ids = [v.removeprefix(prefix) for v in values]
+        if not values:
+            label = f" for {caller}" if caller else ""
+            warnings.warn(
+                f"stub_parametrize: no stubs matched prefix "
+                f"'{prefix}'{label}; test will be skipped",
+                stacklevel=2,
+            )
+        return values, ids
 
     @classmethod
     def from_file(cls, path: Path) -> "StubConfig":
         """Load stubs from a JSON file."""
-        with open(path) as f:
-            return cls(stubs=json.load(f))
+        return cls(stubs=json.loads(path.read_text()))

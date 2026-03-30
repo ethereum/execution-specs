@@ -46,9 +46,13 @@ def pytest_generate_tests(metafunc: Any) -> None:
     stub_config = metafunc.config.stash.get(_stub_config_key, None)
     if stub_config is not None:
         for marker in metafunc.definition.iter_markers("stub_parametrize"):
-            param_name, attr_name = marker.args
-            values = getattr(stub_config, attr_name)
-            metafunc.parametrize(param_name, values, **marker.kwargs)
+            param_name, prefix = marker.args
+            kwargs = dict(marker.kwargs)
+            values, ids = stub_config.parametrize_args(
+                prefix, caller=metafunc.function.__name__
+            )
+            kwargs.setdefault("ids", ids)
+            metafunc.parametrize(param_name, values, **kwargs)
 
 
 def pytest_ignore_collect(collection_path: Path, config: Any) -> bool | None:

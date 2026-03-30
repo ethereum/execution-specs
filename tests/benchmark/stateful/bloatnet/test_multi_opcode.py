@@ -56,11 +56,7 @@ REFERENCE_SPEC_VERSION = "1.0"
 #   4. Attack rapidly accesses all contracts per factory stub
 
 
-@pytest.mark.stub_parametrize(
-    "factory_stub",
-    "factory_stubs",
-    ids=lambda s: s.replace("bloatnet_factory_", "").upper(),
-)
+@pytest.mark.stub_parametrize("factory_stub", "bloatnet_factory_")
 @pytest.mark.parametrize(
     "second_opcode",
     [Op.EXTCODESIZE, Op.EXTCODECOPY, Op.EXTCODEHASH, Op.STATICCALL, Op.CALL],
@@ -223,11 +219,7 @@ def test_bloatnet_balance_opcode(
 #   stressing trie expansion through massive new account creation.
 
 
-@pytest.mark.stub_parametrize(
-    "factory_stub",
-    "factory_stubs",
-    ids=lambda s: s.replace("bloatnet_factory_", "").upper(),
-)
+@pytest.mark.stub_parametrize("factory_stub", "bloatnet_factory_")
 def test_bloatnet_call_value_existing(
     benchmark_test: BenchmarkTestFiller,
     pre: Alloc,
@@ -409,7 +401,7 @@ def test_bloatnet_call_value_new_account(
     )
 
 
-@pytest.mark.stub_parametrize("token_name", "mixed_tokens")
+@pytest.mark.stub_parametrize("erc20_stub", "test_mixed_sload_sstore_")
 @pytest.mark.parametrize(
     "sload_percent,sstore_percent",
     [
@@ -426,7 +418,7 @@ def test_mixed_sload_sstore(
     fork: Fork,
     gas_benchmark_value: int,
     tx_gas_limit: int,
-    token_name: str,
+    erc20_stub: str,
     sload_percent: int,
     sstore_percent: int,
 ) -> None:
@@ -450,7 +442,7 @@ def test_mixed_sload_sstore(
     # Stub Account
     erc20_address = pre.deploy_contract(
         code=Bytecode(),
-        stub=f"test_mixed_sload_sstore_{token_name}",
+        stub=erc20_stub,
     )
 
     # Contract Construction
