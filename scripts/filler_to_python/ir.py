@@ -112,6 +112,18 @@ class SenderIR:
 
 
 @dataclass
+class ImportsIR:
+    """List of import requirements for the test."""
+
+    needs_op: bool = False
+    needs_access_list: bool = False
+    needs_bytes: bool = False
+    needs_hash: bool = False
+    needs_tx_exception: bool = False
+    needs_compute_create_address: bool = False
+
+
+@dataclass
 class IntermediateTestModel:
     """Complete IR for one test file."""
 
@@ -124,11 +136,6 @@ class IntermediateTestModel:
     is_slow: bool = False
     is_multi_case: bool = False
     is_fork_dependent: bool = False
-    needs_op_import: bool = False
-    needs_access_list_import: bool = False
-    needs_bytes_import: bool = False
-    needs_hash_import: bool = False
-    needs_tx_exception_import: bool = False
     environment: EnvironmentIR = field(
         default_factory=lambda: EnvironmentIR(
             coinbase_var="coinbase", number=0, timestamp=0
@@ -143,3 +150,4 @@ class IntermediateTestModel:
     tx_data: list = field(default_factory=list)
     tx_gas: list = field(default_factory=list)
     tx_value: list = field(default_factory=list)
+    imports: ImportsIR = field(default_factory=ImportsIR)

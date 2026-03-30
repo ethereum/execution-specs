@@ -28,7 +28,12 @@ from execution_testing.specs.static_state.expect_section import (
 from execution_testing.specs.static_state.general_transaction import (
     GeneralTransactionInFiller,
 )
-from execution_testing.test_types import EOA, Alloc, eoa_from_hash
+from execution_testing.test_types import (
+    EOA,
+    Alloc,
+    compute_create_address,
+    eoa_from_hash,
+)
 from execution_testing.vm import Op
 
 from .ir import (
@@ -37,6 +42,7 @@ from .ir import (
     AccountIR,
     EnvironmentIR,
     ExpectEntryIR,
+    ImportsIR,
     IntermediateTestModel,
     ParameterCaseIR,
     SenderIR,
@@ -113,6 +119,7 @@ def analyze(
     all_deps.update(model.transaction.tag_dependencies())
     for expect in model.expect:
         all_deps.update(expect.result.tag_dependencies())
+    imports = ImportsIR()
 
     # 2. Resolve tags via pre-state setup
     pre = _AnalyzerAlloc()
@@ -138,8 +145,8 @@ def analyze(
     sender_ir, sender_tag_name = _build_sender_ir(model, tags)
 
     # 7. Build TX arrays
-    tx_data, tx_gas, tx_value, needs_hash, needs_bytes = _build_tx_arrays(
-        model.transaction, tags, addr_to_var
+    tx_data, tx_gas, tx_value = _build_tx_arrays(
+        model.transaction, tags, addr_to_var, imports
     )
 
     # 8. Parameter matrix
@@ -151,8 +158,8 @@ def analyze(
     is_fork_dependent = not is_multi_case and len(model.expect) > 1
 
     # 9. Build accounts
-    accounts, needs_op = _build_accounts(
-        model, tags, addr_to_var, sender_tag_name
+    accounts = _build_accounts(
+        model, tags, addr_to_var, sender_tag_name, imports
     )
 
     # Track if sender is not in the pre-state (for fund_eoa handling).
@@ -166,12 +173,19 @@ def analyze(
 
     # 11. Build expect entries
     expect_entries = _build_expect_entries(
-        model, tags, addr_to_var, all_fork_names
+        model, tags, addr_to_var, all_fork_names, imports
     )
 
     # 12. Build transaction IR
     transaction_ir, access_list_entries = _build_transaction_ir(
-        model, tags, addr_to_var, tx_data, tx_gas, tx_value, is_multi_case
+        model,
+        tags,
+        addr_to_var,
+        tx_data,
+        tx_gas,
+        tx_value,
+        is_multi_case,
+        imports,
     )
 
     # 13. Address constants (non-tagged, non-sender addresses)
@@ -180,16 +194,20 @@ def analyze(
     )
 
     # 14. Import flags
-    needs_access_list = bool(access_list_entries) or any(
+    if access_list_entries or any(
         model.transaction.data[d.index].access_list is not None
         for d in model.transaction.data
-    )
-    needs_hash = (
-        needs_hash
-        or needs_access_list
+    ):
+        imports.needs_access_list = True
+
+    if (
+        imports.needs_access_list
         or model.transaction.blob_versioned_hashes is not None
-    )
-    needs_tx_exception = any(p.has_exception for p in parameters)
+    ):
+        imports.needs_hash = True
+
+    if any(p.has_exception for p in parameters):
+        imports.needs_tx_exception = True
 
     # 15. Filler comment
     filler_comment = ""
@@ -212,11 +230,6 @@ def analyze(
         ),
         is_multi_case=is_multi_case,
         is_fork_dependent=is_fork_dependent,
-        needs_op_import=needs_op,
-        needs_access_list_import=needs_access_list,
-        needs_bytes_import=needs_bytes,
-        needs_hash_import=needs_hash,
-        needs_tx_exception_import=needs_tx_exception,
         environment=environment_ir,
         accounts=accounts,
         sender=sender_ir,
@@ -227,6 +240,7 @@ def analyze(
         tx_data=tx_data,
         tx_gas=tx_gas,
         tx_value=tx_value,
+        imports=imports,
     )
 
 
@@ -566,10 +580,10 @@ def _build_accounts(
     tags: TagDict,
     addr_to_var: dict[Address | EOA, str],
     sender_tag_name: str | None,
-) -> tuple[list[AccountIR], bool]:
+    imports: ImportsIR,
+) -> list[AccountIR]:
     """Build AccountIR list. Return (accounts, needs_op_import)."""
     accounts: list[AccountIR] = []
-    needs_op = False
 
     for address_or_tag, account in model.pre.root.items():
         is_tagged = isinstance(address_or_tag, Tag)
@@ -621,7 +635,7 @@ def _build_accounts(
                 op_expr = _bytes_to_op_expr(code_bytes)
                 if op_expr:
                     code_expr = op_expr
-                    needs_op = True
+                    imports.needs_op = True
                 elif code_bytes:
                     code_expr = f'bytes.fromhex("{code_bytes.hex()}")'
             except Exception as e:
@@ -658,7 +672,7 @@ def _build_accounts(
             )
         )
 
-    return accounts, needs_op
+    return accounts
 
 
 def _build_environment(
@@ -764,6 +778,7 @@ def _build_expect_entries(
     tags: TagDict,
     addr_to_var: dict[Address | EOA, str],
     all_fork_names: list[str],
+    imports: ImportsIR,
 ) -> list[ExpectEntryIR]:
     """Build ExpectEntryIR list."""
     entries: list[ExpectEntryIR] = []
@@ -787,13 +802,15 @@ def _build_expect_entries(
                 # address derivation (compute_create_address etc.)
                 try:
                     addr = address_or_tag.resolve(tags)
+                    var_ref = _resolve_address(addr, addr_to_var, imports)
                 except (KeyError, AssertionError):
                     tag_name = address_or_tag.name
                     addr = tags.get(tag_name, tag_name)
-                var_ref = addr_to_var.get(addr, f'Address("{addr}")')
+                    assert not isinstance(addr, str)
+                    var_ref = _resolve_address(addr, addr_to_var, imports)
             else:
-                var_ref = addr_to_var.get(
-                    address_or_tag, f'Address("{address_or_tag}")'
+                var_ref = _resolve_address(
+                    address_or_tag, addr_to_var, imports
                 )
 
             if account_expect is None:
@@ -878,6 +895,7 @@ def _build_transaction_ir(
     tx_gas: list[int],
     tx_value: list[int],
     is_multi_case: bool,
+    imports: ImportsIR,
 ) -> tuple[TransactionIR, list[AccessListEntryIR]]:
     """Build TransactionIR. Return (transaction_ir, access_list_entries)."""
     # Resolve "to"
@@ -893,9 +911,7 @@ def _build_transaction_ir(
         else:
             to_var = tag_name
     else:
-        to_var = addr_to_var.get(
-            model.transaction.to, f'Address("{model.transaction.to}")'
-        )
+        to_var = _resolve_address(model.transaction.to, addr_to_var, imports)
 
     # Access lists — check if they vary per data entry
     access_list_entries: list[AccessListEntryIR] = []
@@ -1062,11 +1078,10 @@ def _build_tx_arrays(
     tx: GeneralTransactionInFiller,
     tags: TagDict,
     addr_to_var: dict[Address | EOA, str],
-) -> tuple[list[str], list[int], list[int], bool, bool]:
+    imports: ImportsIR,
+) -> tuple[list[str], list[int], list[int]]:
     """Build the list of data that goes in each transaction."""
     tx_data: list[str] = []
-    needs_hash = False
-    needs_bytes = False
     for d_entry in tx.data:
         data_box = tx.data[d_entry.index]
         compiled = data_box.data.compiled(tags)
@@ -1081,11 +1096,11 @@ def _build_tx_arrays(
                 if len(compiled) == 20:
                     tx_data.append(addr_var)
                 else:
-                    needs_hash = True
+                    imports.needs_hash = True
                     tx_data.append(f"Hash({addr_var}, left_padding=True)")
             else:
                 if len(compiled) == 32:
-                    needs_hash = True
+                    imports.needs_hash = True
                     hex_type = "Hash"
                 else:
                     hex_type = "Address"
@@ -1094,10 +1109,36 @@ def _build_tx_arrays(
                     hex_string = "0"
                 tx_data.append(f"{hex_type}(0x{hex_string})")
         else:
-            needs_bytes = True
+            imports.needs_bytes = True
             hex_string = compiled.hex()
             tx_data.append(f'Bytes("{hex_string}")')
 
     tx_gas = [int(g) for g in tx.gas_limit]
     tx_value = [int(v) for v in tx.value]
-    return tx_data, tx_gas, tx_value, needs_hash, needs_bytes
+    return tx_data, tx_gas, tx_value
+
+
+def _resolve_address(
+    addr: Address,
+    addr_to_var: dict[Address | EOA, str],
+    imports: ImportsIR,
+) -> str:
+    """
+    Return a variable reference if the address or an address derived from it
+    is contained in the `addr_to_var` dictionary.
+
+    Fallbacks to returning f"Address({addr})".
+    """
+    for var_addr, var in addr_to_var.items():
+        if addr == var_addr:
+            return var
+    # Check if the address is the result of contract creation from a known
+    # address.
+    for var_addr, var in addr_to_var.items():
+        max_created_contracts = 256
+        for nonce in range(max_created_contracts):
+            if addr == compute_create_address(address=var_addr, nonce=nonce):
+                imports.needs_compute_create_address = True
+                return f"compute_create_address(address={var}, nonce={nonce})"
+
+    return f"Address({addr})"

@@ -98,6 +98,9 @@ from execution_testing import (
 {% if needs_storage_any %}
     Storage,
 {% endif %}
+{% if needs_compute_create_address %}
+    compute_create_address,
+{% endif %}
 )
 {% if needs_op %}
 from execution_testing.vm import Op

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 
 import jinja2
@@ -271,11 +272,6 @@ def render_test(ir: IntermediateTestModel) -> str:
         "is_multi_case": ir.is_multi_case,
         "is_fork_dependent": ir.is_fork_dependent,
         "has_exceptions": has_exceptions,
-        "needs_op": ir.needs_op_import,
-        "needs_tx_exception": ir.needs_tx_exception_import,
-        "needs_access_list": ir.needs_access_list_import,
-        "needs_bytes": ir.needs_bytes_import,
-        "needs_hash": ir.needs_hash_import,
         "env": ir.environment,
         "accounts": ir.accounts,
         "tx": ir.transaction,
@@ -289,6 +285,6 @@ def render_test(ir: IntermediateTestModel) -> str:
         "needs_storage_any": needs_storage_any,
         "single_post": single_post,
         "single_error": single_error,
-    }
+    } | asdict(ir.imports)
 
     return template.render(**context)
