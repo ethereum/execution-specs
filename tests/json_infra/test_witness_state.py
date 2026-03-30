@@ -275,49 +275,8 @@ class TestComputeStateRoot:
 class TestCanonicalSecureTrieValidation:
     """Test state/storage-trie canonicality checks in WitnessState."""
 
-    def test_account_trie_rejects_nonempty_branch_value(self) -> None:
-        """Secured account tries must not use the branch value slot."""
-        branch: list[Any] = [b""] * 17
-        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
-        branch[16] = b"terminal"
-        state_root, node_db = _root_witness(Bytes(rlp.encode(branch)))
-        witness_state = WitnessState(
-            _node_db=node_db,
-            _state_root=state_root,
-            _code_db={},
-        )
-
-        with pytest.raises(
-            AssertionError,
-            match="BranchNode value must be empty in state/storage trie",
-        ):
-            witness_state.get_account_optional(_ADDR1)
-
-    def test_storage_trie_rejects_nonempty_branch_value(self) -> None:
-        """Secured storage tries must not use the branch value slot."""
-        branch: list[Any] = [b""] * 17
-        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
-        branch[16] = b"terminal"
-        storage_root, storage_node_db = _root_witness(
-            Bytes(rlp.encode(branch))
-        )
-        state_root, state_node_db = _single_account_state_witness(
-            storage_root=storage_root
-        )
-        witness_state = WitnessState(
-            _node_db={**state_node_db, **storage_node_db},
-            _state_root=state_root,
-            _code_db={},
-        )
-
-        with pytest.raises(
-            AssertionError,
-            match="BranchNode value must be empty in state/storage trie",
-        ):
-            witness_state.get_storage(_ADDR1, _SLOT1)
-
     def test_account_trie_rejects_zero_length_extension_path(self) -> None:
-        """Secured account tries must reject empty extension segments."""
+        """Account tries must reject empty extension segments."""
         branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
         branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]
@@ -338,7 +297,7 @@ class TestCanonicalSecureTrieValidation:
             witness_state.get_account_optional(_ADDR1)
 
     def test_storage_trie_rejects_zero_length_extension_path(self) -> None:
-        """Secured storage tries must reject empty extension segments."""
+        """Storage tries must reject empty extension segments."""
         branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
         branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]

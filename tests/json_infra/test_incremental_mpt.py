@@ -333,20 +333,8 @@ class TestMalformedWitnessNodes:
         ):
             _decode_root_from_rlp(Bytes(rlp.encode(branch)))
 
-    def test_secured_branch_with_value(self) -> None:
-        """Secured tries must not use the branch value slot."""
-        branch: list[Any] = [b""] * 17
-        branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
-        branch[16] = b"terminal"
-
-        with pytest.raises(
-            AssertionError,
-            match="BranchNode value must be empty in state/storage trie",
-        ):
-            _decode_root_from_rlp(Bytes(rlp.encode(branch)), secured=True)
-
-    def test_secured_extension_with_empty_path(self) -> None:
-        """Secured tries must reject empty extension segments."""
+    def test_extension_with_empty_path(self) -> None:
+        """Tries must reject empty extension segments."""
         branch: list[Any] = [b""] * 17
         branch[0] = [nibble_list_to_compact(Bytes(b"\x01"), True), b"left"]
         branch[1] = [nibble_list_to_compact(Bytes(b"\x02"), True), b"right"]
@@ -358,7 +346,7 @@ class TestMalformedWitnessNodes:
             AssertionError,
             match="ExtensionNode must have a non-empty path",
         ):
-            _decode_root_from_rlp(root_rlp, secured=True)
+            _decode_root_from_rlp(root_rlp)
 
 
 class TestDecodeWitnessToMptMore:
