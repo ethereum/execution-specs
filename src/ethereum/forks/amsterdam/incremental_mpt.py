@@ -921,6 +921,7 @@ def _decode_witness_node(
         Mapping from node hash to RLP-encoded node data.
     rlp_bytes :
         The RLP-encoded node to decode.
+
     """
     node_hash: Optional[Bytes] = None
     if len(rlp_bytes) >= 32:
@@ -949,9 +950,7 @@ def _decode_witness_node(
                 _rlp=rlp_bytes,
             )
         else:
-            assert len(nibbles) > 0, (
-                "ExtensionNode must have a non-empty path"
-            )
+            assert len(nibbles) > 0, "ExtensionNode must have a non-empty path"
             child = _resolve_child_ref(node_db, decoded[1])
             assert isinstance(child, (MutableBranchNode, HashedNode)), (
                 "ExtensionNode child must be a BranchNode"
