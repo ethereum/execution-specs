@@ -343,7 +343,7 @@ def {{ test_name }}(
 {% if tx.max_fee_per_blob_gas is not none %}
         max_fee_per_blob_gas={{ tx.max_fee_per_blob_gas | format_int }},
 {% endif %}
-{% if tx.blob_versioned_hashes %}
+{% if tx.blob_versioned_hashes is not none %}
         blob_versioned_hashes=[
 {% for h in tx.blob_versioned_hashes %}
             Hash(
