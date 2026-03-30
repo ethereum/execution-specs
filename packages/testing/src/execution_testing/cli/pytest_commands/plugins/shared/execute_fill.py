@@ -401,18 +401,3 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help=("Enable reading and filling from static test files."),
     )
-    common_group = parser.getgroup(
-        "common_options",
-        "Common arguments shared across subcommands.",
-    )
-    common_group.addoption(
-        "--address-stubs",
-        action="store",
-        dest="address_stubs",
-        default=None,
-        type=AddressStubs.model_validate_json_or_file,
-        help=(
-            "Address stubs mapping stub names to on-chain addresses. "
-            "Can be a JSON string or path to a JSON file."
-        ),
-    )

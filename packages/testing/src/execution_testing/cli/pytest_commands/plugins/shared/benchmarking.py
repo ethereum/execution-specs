@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, RootModel
 from execution_testing.test_types import Environment, EnvironmentDefaults
 from execution_testing.tools import ParameterSet
 
+from .address_stubs import AddressStubs
 from .execute_fill import OpMode
 from .fixture_output import (
     FORK_SUBDIR_PREFIX,
@@ -57,6 +58,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Example: '0.5,1,2' runs 500, 1K, 2K opcodes. "
             "Without value, uses .fixed_opcode_counts.json config. "
             f"Cannot be used with {GasBenchmarkValues.flag}."
+        ),
+    )
+    benchmark_group.addoption(
+        "--address-stubs",
+        action="store",
+        dest="address_stubs",
+        default=None,
+        type=AddressStubs.model_validate_json_or_file,
+        help=(
+            "Address stubs mapping stub names to on-chain addresses. "
+            "Can be a JSON string or path to a JSON file."
         ),
     )
 
