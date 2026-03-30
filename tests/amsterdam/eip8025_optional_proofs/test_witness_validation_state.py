@@ -107,11 +107,29 @@ def test_validation_state_missing_absent_slot_proof_leaf_node(
     blockchain_test: BlockchainTestFiller,
 ) -> None:
     """Removing the absent-slot proof leaf should fail insertion."""
+    # The contract will insert a value to a non-existent slot 1.
+
     # These slots produce a multi-node absence proof for slot 1:
-    # keccak(1) and keccak(24) share the first two nibbles ("b1"), while
-    # keccak(14) shares only the first nibble ("b"). That yields an
-    # extension -> branch -> leaf path, so this test can remove the leaf,
-    # thus the proof of absence is invalid due to missing data.
+    #
+    #   keccak(1)  -> b1...
+    #   keccak(24) -> b1...
+    #   keccak(14) -> bx...  (x != 1)
+    #
+    #   ext("b") (root)
+    #     |
+    #   branch
+    #   /    \
+    # [x]    [1]
+    #  |      |
+    # leaf   leaf
+    # (14)   (24)
+    #         ^
+    #         |
+    #   absent slot 1 follows this edge, then diverges inside the leaf
+    #
+    # The proof for slot 1 is therefore `extension -> branch -> leaf`.
+    # Removing that leaf makes the absence proof invalid due to missing
+    # data.
     pre_storage = build_large_storage([14, 24])
     insert_slot = 1
     insert_value = large_storage_value(insert_slot)
