@@ -58,7 +58,6 @@ class GasCosts:
     GAS_KECCAK256_PER_WORD: int
 
     GAS_COPY: int
-    GAS_BLOCK_HASH: int
 
     GAS_AUTH_PER_EMPTY_ACCOUNT: int
 
@@ -125,6 +124,7 @@ class GasCosts:
     GAS_OPCODE_CALLDATALOAD: int
     GAS_OPCODE_CALLDATACOPY: int
     GAS_OPCODE_CODECOPY: int
+    GAS_OPCODE_BLOCKHASH: int
     GAS_OPCODE_MLOAD: int
     GAS_OPCODE_MSTORE: int
     GAS_OPCODE_MSTORE8: int

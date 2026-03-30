@@ -33,7 +33,7 @@ def block_hash(evm: Evm) -> None:
     block_number = Uint(pop(evm.stack))
 
     # GAS
-    charge_gas(evm, GasCosts.GAS_BLOCK_HASH)
+    charge_gas(evm, GasCosts.GAS_OPCODE_BLOCKHASH)
 
     # OPERATION
     max_block_number = block_number + Uint(256)
