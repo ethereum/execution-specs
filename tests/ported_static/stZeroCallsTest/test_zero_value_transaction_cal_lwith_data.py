@@ -50,14 +50,14 @@ def test_zero_value_transaction_cal_lwith_data(
 
     tx = Transaction(
         sender=sender,
-        to=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
+        to=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
         data=Address(0x1122334455667788991011121314151617181920),
         gas_limit=600000,
     )
 
     post = {
         Address(
-            "0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"
+            0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B
         ): Account.NONEXISTENT,
         sender: Account(nonce=1),
     }

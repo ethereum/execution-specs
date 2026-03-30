@@ -106,7 +106,7 @@ def test_create2_code_size_limit(
                         1: 1,
                     },
                 ),
-                Address("0x81c305016ab9ca56033a07cc37e7a30fc3e079ac"): Account(
+                Address(0x81C305016AB9CA56033A07CC37E7A30FC3E079AC): Account(
                     storage={}, balance=0, nonce=1
                 ),
             },
@@ -118,7 +118,7 @@ def test_create2_code_size_limit(
                 sender: Account(nonce=1),
                 contract_0: Account(storage={0: 0, 1: 1}),
                 Address(
-                    "0x81c305016ab9ca56033a07cc37e7a30fc3e079ac"
+                    0x81C305016AB9CA56033A07CC37E7A30FC3E079AC
                 ): Account.NONEXISTENT,
             },
         },

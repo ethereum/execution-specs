@@ -152,7 +152,7 @@ def test_extcodecopy(
     )
 
     post = {
-        Address("0x00000000002147c39fd6b5c19b7b89fc003e6b16"): Account(
+        Address(0x00000000002147C39FD6B5C19B7B89FC003E6B16): Account(
             storage={}, nonce=0
         ),
         coinbase: Account(storage={}, nonce=0),

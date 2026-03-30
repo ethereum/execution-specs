@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -66,7 +67,7 @@ def test_store_gas_on_create(
     )
 
     post = {
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+        compute_create_address(address=coinbase, nonce=0): Account(
             storage={253: 0x12F39}
         ),
     }

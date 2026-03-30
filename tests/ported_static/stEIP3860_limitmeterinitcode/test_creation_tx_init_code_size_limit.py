@@ -16,6 +16,7 @@ from execution_testing import (
     StateTestFiller,
     Transaction,
     TransactionException,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -82,7 +83,7 @@ def test_creation_tx_init_code_size_limit(
             "network": ["Cancun"],
             "result": {
                 sender: Account(balance=0xBA82720, nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     storage={},
                     code=bytes.fromhex("60606040523615610074576000357c01"),
                     balance=0,
@@ -95,7 +96,7 @@ def test_creation_tx_init_code_size_limit(
             "network": [">=Prague"],
             "result": {
                 sender: Account(balance=0xB562920, nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     storage={},
                     code=bytes.fromhex("60606040523615610074576000357c01"),
                     balance=0,
@@ -108,8 +109,8 @@ def test_creation_tx_init_code_size_limit(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=0),
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                compute_create_address(
+                    address=sender, nonce=0
                 ): Account.NONEXISTENT,
             },
             "expect_exception": {

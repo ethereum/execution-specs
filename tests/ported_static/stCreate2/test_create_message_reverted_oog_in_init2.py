@@ -88,7 +88,7 @@ def test_create_message_reverted_oog_in_init2(
             "result": {
                 sender: Account(nonce=1),
                 Address(
-                    "0xf3059e18a327c662766f6ba11808c400635847ef"
+                    0xF3059E18A327C662766F6BA11808C400635847EF
                 ): Account.NONEXISTENT,
             },
         },
@@ -97,7 +97,7 @@ def test_create_message_reverted_oog_in_init2(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0xf3059e18a327c662766f6ba11808c400635847ef"): Account(
+                Address(0xF3059E18A327C662766F6BA11808C400635847EF): Account(
                     storage={0: 12, 1: 13}, balance=0, nonce=1
                 ),
             },

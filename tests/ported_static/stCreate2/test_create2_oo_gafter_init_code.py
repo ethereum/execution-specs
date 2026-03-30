@@ -90,7 +90,7 @@ def test_create2_oo_gafter_init_code(
             "result": {
                 contract_0: Account(storage={1: 0}),
                 Address(
-                    "0x6878b140f875209c82ab4d5f083b55947299ef6b"
+                    0x6878B140F875209C82AB4D5F083B55947299EF6B
                 ): Account.NONEXISTENT,
             },
         },
@@ -99,7 +99,7 @@ def test_create2_oo_gafter_init_code(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(storage={1: 0}),
-                Address("0x6878b140f875209c82ab4d5f083b55947299ef6b"): Account(
+                Address(0x6878B140F875209C82AB4D5F083B55947299EF6B): Account(
                     code=bytes.fromhex("6001600155")
                 ),
             },

@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -124,8 +125,8 @@ def test_staticcall_createfails(
 
     post = {
         contract_0: Account(storage={1: 0}),
-        Address(
-            "0x1d0384eb7c2b1a9d9862c8e180f9e4d1696a2a8e"
+        compute_create_address(
+            address=contract_1, nonce=63
         ): Account.NONEXISTENT,
     }
 

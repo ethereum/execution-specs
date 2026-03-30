@@ -398,7 +398,7 @@ def test_delegatecall_to_precompile_from_contract_initialization(
             },
             balance=1100,
         ),
-        Address("0xfd7776b1a634b0dc19301b174ccf30d4d24070a8"): Account(
+        Address(0xFD7776B1A634B0DC19301B174CCF30D4D24070A8): Account(
             storage={
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 1: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501

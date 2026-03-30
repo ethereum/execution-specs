@@ -116,7 +116,7 @@ def test_create2_refund_ef(
     post = {
         contract_0: Account(storage={0: 1}),
         Address(
-            "0xbe8f87148d0767989cce2e6a6a5d91c7d0c840e0"
+            0xBE8F87148D0767989CCE2E6A6A5D91C7D0C840E0
         ): Account.NONEXISTENT,
     }
 

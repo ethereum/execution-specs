@@ -70,7 +70,7 @@ def test_suicide_not_existing_account(
     )
 
     post = {
-        Address("0xaa1722f3947def4cf144679da39c4c32bdc35681"): Account(
+        Address(0xAA1722F3947DEF4CF144679DA39C4C32BDC35681): Account(
             balance=0xDE0B6B3A76586A0
         ),
     }

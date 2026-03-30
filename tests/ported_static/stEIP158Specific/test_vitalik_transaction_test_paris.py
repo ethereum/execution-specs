@@ -70,10 +70,10 @@ def test_vitalik_transaction_test_paris(
     post = {
         coinbase: Account(storage={}, code=b"", nonce=1),
         sender: Account(storage={}, code=b"", nonce=336),
-        Address("0x1bc78ae0e5ec5cb439f1d5355d6f90d38343e109"): Account(
+        Address(0x1BC78AE0E5EC5CB439F1D5355D6F90D38343E109): Account(
             storage={}, code=b"", nonce=3
         ),
-        Address("0x51f9d7f98e997bdd6bebde4c2dd27be8c99303aa"): Account(
+        Address(0x51F9D7F98E997BDD6BEBDE4C2DD27BE8C99303AA): Account(
             storage={},
             code=bytes.fromhex(
                 "6000603f5359610043806100135939610056566c010000000000000000000000007fee098e6c2a43d9e2c04f08f0c3a87b0ba59079d4d53532071d6cd0cb86facd5605ff6100008061003f60003961003f565b6000f35b816000f0905050fe"  # noqa: E501

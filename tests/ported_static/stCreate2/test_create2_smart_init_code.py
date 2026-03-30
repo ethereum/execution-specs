@@ -138,7 +138,7 @@ def test_create2_smart_init_code(
             "indexes": {"data": 0, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000001"): Account(
+                Address(0x0000000000000000000000000000000000000001): Account(
                     balance=1
                 ),
                 contract_0: Account(nonce=2),
@@ -154,7 +154,7 @@ def test_create2_smart_init_code(
                         2: 0,
                     },
                 ),
-                Address("0xd27e800c69122409ac5609fe4df903745f3988a0"): Account(
+                Address(0xD27E800C69122409AC5609FE4DF903745F3988A0): Account(
                     storage={1: 1},
                     code=bytes.fromhex("00000000000000000000"),
                     nonce=1,

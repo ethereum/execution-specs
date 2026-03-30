@@ -93,7 +93,7 @@ def test_random_statetest635(
     )
 
     post = {
-        Address("0x0000000000000000005b7fffffffffffffffffff"): Account(
+        Address(0x0000000000000000005B7FFFFFFFFFFFFFFFFFFF): Account(
             storage={}, code=b"", nonce=0
         ),
         coinbase: Account(storage={}, nonce=0),

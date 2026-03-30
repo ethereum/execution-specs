@@ -69,7 +69,7 @@ def test_create_init_fail_bad_jump_destination2(
     )
 
     post = {
-        Address("0x0000000000000000000000000000000000000000"): Account(
+        Address(0x0000000000000000000000000000000000000000): Account(
             balance=0xDE0B6B3A76586A0
         ),
     }

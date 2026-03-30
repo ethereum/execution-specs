@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -93,8 +94,8 @@ def test_create2_oo_gafter_init_code_returndata2(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(storage={1: 2, 2: 0}),
-                Address(
-                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+                compute_create_address(
+                    address=contract_0, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -105,7 +106,7 @@ def test_create2_oo_gafter_init_code_returndata2(
                 contract_0: Account(
                     storage={1: 0, 2: 0x6460016001556000526005601BF3}
                 ),
-                Address("0x6878b140f875209c82ab4d5f083b55947299ef6b"): Account(
+                Address(0x6878B140F875209C82AB4D5F083B55947299EF6B): Account(
                     code=bytes.fromhex("6001600155")
                 ),
             },

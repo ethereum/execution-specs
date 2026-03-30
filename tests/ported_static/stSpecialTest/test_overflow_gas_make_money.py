@@ -49,7 +49,7 @@ def test_overflow_gas_make_money(
 
     tx = Transaction(
         sender=sender,
-        to=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
+        to=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
         data=Bytes(""),
         gas_limit=100000,
         value=501,

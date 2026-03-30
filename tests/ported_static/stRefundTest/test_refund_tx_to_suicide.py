@@ -68,7 +68,7 @@ def test_refund_tx_to_suicide(
     )
 
     post = {
-        Address("0x095e7baea6a6c7c4c2dfeb977efac326af552d87"): Account(
+        Address(0x095E7BAEA6A6C7C4C2DFEB977EFAC326AF552D87): Account(
             storage={}, balance=0xDE0B6B3A764000A
         ),
         coinbase: Account(balance=0),

@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -93,11 +94,11 @@ def test_create_fail_balance_too_low(
             "indexes": {"data": -1, "gas": -1, "value": 0},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000000"): Account(
+                Address(0x0000000000000000000000000000000000000000): Account(
                     storage={}
                 ),
-                Address(
-                    "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+                compute_create_address(
+                    address=contract_0, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -106,9 +107,9 @@ def test_create_fail_balance_too_low(
             "network": [">=Cancun"],
             "result": {
                 Address(
-                    "0x0000000000000000000000000000000000000000"
+                    0x0000000000000000000000000000000000000000
                 ): Account.NONEXISTENT,
-                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+                compute_create_address(address=contract_0, nonce=0): Account(
                     storage={2: 1}
                 ),
             },

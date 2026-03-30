@@ -83,7 +83,7 @@ def test_zero_value_call_oog_revert(
     post = {
         sender: Account(nonce=1),
         Address(
-            "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"
+            0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B
         ): Account.NONEXISTENT,
         contract_0: Account(storage={0: 0, 1: 0, 100: 0}),
     }

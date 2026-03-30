@@ -59,7 +59,7 @@ def test_transaction_create_auto_suicide_contract(
 
     post = {
         Address(
-            "0x0000000000000000000000000000000000000000"
+            0x0000000000000000000000000000000000000000
         ): Account.NONEXISTENT,
     }
 

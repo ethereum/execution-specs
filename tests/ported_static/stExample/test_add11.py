@@ -80,7 +80,7 @@ def test_add11(
         coinbase: Account(nonce=1),
         sender: Account(storage={}, code=b"", nonce=1),
         Address(
-            "0xe94f5374fce5edbc8e2a8697c15331677e6ebf0b"
+            0xE94F5374FCE5EDBC8E2A8697C15331677E6EBF0B
         ): Account.NONEXISTENT,
     }
 

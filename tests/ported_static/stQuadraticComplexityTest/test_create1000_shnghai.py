@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -99,29 +100,29 @@ def test_create1000_shnghai(
             "network": [">=Cancun<Osaka"],
             "result": {
                 Address(
-                    "0x010d8b0816e30ff51ba07678c64b272cdeddb807"
+                    0x010D8B0816E30FF51BA07678C64B272CDEDDB807
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x014830fe159f418212e5c39b4b2e2ddc7b295395"
+                    0x014830FE159F418212E5C39B4B2E2DDC7B295395
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
                 Address(
-                    "0x0c6a8f1bf692cb9e4f9d9c5a2785d58edfd42457"
+                    0x0C6A8F1BF692CB9E4F9D9C5A2785D58EDFD42457
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x198d23bedd1a9fdbd4adb5760930f6877f5d142f"
+                    0x198D23BEDD1A9FDBD4ADB5760930F6877F5D142F
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x266c09580d28c1c576e5c6b9adc926be1fecffb1"
+                    0x266C09580D28C1C576E5C6B9ADC926BE1FECFFB1
+                ): Account.NONEXISTENT,
+                compute_create_address(
+                    address=contract_0, nonce=19
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xe5dc2e5b40069a91f688e56ea8d12149c5480b42"
+                    0xFDBD2625737DF76E194C99994BE160C5F8248DAD
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xfdbd2625737df76e194c99994be160c5f8248dad"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0xfff043abcbf2b0972c1dca19b2ba3cd682f10e90"
+                    0xFFF043ABCBF2B0972C1DCA19B2BA3CD682F10E90
                 ): Account.NONEXISTENT,
             },
         },
@@ -129,10 +130,10 @@ def test_create1000_shnghai(
             "indexes": {"data": -1, "gas": 1, "value": -1},
             "network": [">=Cancun<Osaka"],
             "result": {
-                Address("0x010d8b0816e30ff51ba07678c64b272cdeddb807"): Account(
+                Address(0x010D8B0816E30FF51BA07678C64B272CDEDDB807): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0x014830fe159f418212e5c39b4b2e2ddc7b295395"): Account(
+                Address(0x014830FE159F418212E5C39B4B2E2DDC7B295395): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
                 contract_0: Account(
@@ -143,43 +144,43 @@ def test_create1000_shnghai(
                     balance=0xFFFFFFFFFFC21,
                     nonce=1000,
                 ),
-                Address("0x0443d33cbefcfb9dedd1885b4c58b06cb1bb0c09"): Account(
+                Address(0x0443D33CBEFCFB9DEDD1885B4C58B06CB1BB0C09): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0x0c6a8f1bf692cb9e4f9d9c5a2785d58edfd42457"): Account(
+                Address(0x0C6A8F1BF692CB9E4F9D9C5A2785D58EDFD42457): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0x198d23bedd1a9fdbd4adb5760930f6877f5d142f"): Account(
+                Address(0x198D23BEDD1A9FDBD4ADB5760930F6877F5D142F): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0x266c09580d28c1c576e5c6b9adc926be1fecffb1"): Account(
+                Address(0x266C09580D28C1C576E5C6B9ADC926BE1FECFFB1): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0x38382e1ec7bf834f328feb3170293b1ae558aed0"): Account(
+                compute_create_address(address=contract_0, nonce=36): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0x49198360b42d89332f8cc121182e071493045c40"): Account(
+                Address(0x49198360B42D89332F8CC121182E071493045C40): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0x69eada7f1d77ff9bf9c789d44990f9141e39d71f"): Account(
+                compute_create_address(address=contract_0, nonce=66): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0x901cc1c13f30eb2fc6de17ba1867dcc8c1561d46"): Account(
+                Address(0x901CC1C13F30EB2FC6DE17BA1867DCC8C1561D46): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0xcb78de6453fe67ac38868ac60825f0288e509167"): Account(
+                Address(0xCB78DE6453FE67AC38868AC60825F0288E509167): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0xde8ae395bafe56c8968a2cec0567ec2562598189"): Account(
+                Address(0xDE8AE395BAFE56C8968A2CEC0567EC2562598189): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0xe5dc2e5b40069a91f688e56ea8d12149c5480b42"): Account(
+                compute_create_address(address=contract_0, nonce=19): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0xfdbd2625737df76e194c99994be160c5f8248dad"): Account(
+                Address(0xFDBD2625737DF76E194C99994BE160C5F8248DAD): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
-                Address("0xfff043abcbf2b0972c1dca19b2ba3cd682f10e90"): Account(
+                Address(0xFFF043ABCBF2B0972C1DCA19B2BA3CD682F10E90): Account(
                     storage={}, code=b"", balance=1, nonce=1
                 ),
             },

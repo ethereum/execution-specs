@@ -74,10 +74,10 @@ def test_call_recursive_contract(
             nonce=41,
         ),
         Address(
-            "0x1a4c83e1a9834cdc7e4a905ff7f0cf44aed73180"
+            0x1A4C83E1A9834CDC7E4A905FF7F0CF44AED73180
         ): Account.NONEXISTENT,
         Address(
-            "0x8e3411c91d5dd4081b4846fa2f93808f5ad19686"
+            0x8E3411C91D5DD4081B4846FA2F93808F5AD19686
         ): Account.NONEXISTENT,
     }
 

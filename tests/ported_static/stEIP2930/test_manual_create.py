@@ -17,6 +17,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -85,7 +86,7 @@ def test_manual_create(
             "indexes": {"data": [2], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
+                compute_create_address(address=sender, nonce=1): Account(
                     storage={0: 20008, 1: 106}
                 ),
             },
@@ -94,7 +95,7 @@ def test_manual_create(
             "indexes": {"data": [0, 1], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
+                compute_create_address(address=sender, nonce=1): Account(
                     storage={0: 22108, 1: 106}
                 ),
             },

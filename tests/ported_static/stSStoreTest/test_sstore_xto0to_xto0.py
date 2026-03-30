@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -253,7 +254,7 @@ def test_sstore_xto0to_xto0(
             "result": {
                 contract_0: Account(storage={1: 0}),
                 contract_2: Account(storage={1: 1}),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     storage={}, nonce=1
                 ),
             },
@@ -264,7 +265,7 @@ def test_sstore_xto0to_xto0(
             "result": {
                 contract_0: Account(storage={1: 1}),
                 contract_2: Account(storage={1: 1}),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     storage={1: 0}, nonce=1
                 ),
             },
@@ -278,7 +279,7 @@ def test_sstore_xto0to_xto0(
             "indexes": {"data": 4, "gas": 0, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xa26b643c4ba8272d24f60806a37b20f255620586"): Account(
+                Address(0xA26B643C4BA8272D24F60806A37B20F255620586): Account(
                     storage={0: 0, 1: 1}
                 ),
                 contract_2: Account(storage={1: 1}),

@@ -71,7 +71,7 @@ def test_create_init_fail_oo_gduring_init(
 
     post = {
         Address(
-            "0x0000000000000000000000000000000000000000"
+            0x0000000000000000000000000000000000000000
         ): Account.NONEXISTENT,
     }
 

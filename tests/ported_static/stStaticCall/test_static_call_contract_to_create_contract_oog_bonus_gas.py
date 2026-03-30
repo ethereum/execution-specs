@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -111,7 +112,7 @@ def test_static_call_contract_to_create_contract_oog_bonus_gas(
                     nonce=1,
                 ),
                 sender: Account(nonce=1),
-                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+                compute_create_address(address=contract_0, nonce=0): Account(
                     storage={0: 12, 1: 0}, balance=1, nonce=1
                 ),
             },
@@ -122,8 +123,8 @@ def test_static_call_contract_to_create_contract_oog_bonus_gas(
             "result": {
                 contract_0: Account(storage={0: 0}, nonce=0),
                 sender: Account(nonce=1),
-                Address(
-                    "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+                compute_create_address(
+                    address=contract_0, nonce=0
                 ): Account.NONEXISTENT,
             },
         },

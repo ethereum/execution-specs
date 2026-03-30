@@ -102,7 +102,7 @@ def test_create2collision_selfdestructed2(
                     balance=0,
                     nonce=0,
                 ),
-                Address("0x0000000000000000000000000000000000000010"): Account(
+                Address(0x0000000000000000000000000000000000000010): Account(
                     balance=1
                 ),
                 sender: Account(nonce=1),
@@ -113,7 +113,7 @@ def test_create2collision_selfdestructed2(
             "network": [">=Cancun"],
             "result": {
                 contract_1: Account(balance=0, nonce=1),
-                Address("0x0000000000000000000000000000000000000010"): Account(
+                Address(0x0000000000000000000000000000000000000010): Account(
                     balance=1
                 ),
                 sender: Account(nonce=1),

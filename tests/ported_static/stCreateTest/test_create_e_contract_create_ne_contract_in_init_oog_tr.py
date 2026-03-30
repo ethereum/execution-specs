@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -90,11 +91,11 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(storage={1: 12}),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=2
                 ),
                 Address(
-                    "0xa42676447b7cedfa5fde894d1d3df24aab362701"
+                    0xA42676447B7CEDFA5FDE894D1D3DF24AAB362701
                 ): Account.NONEXISTENT,
             },
         },
@@ -103,11 +104,11 @@ def test_create_e_contract_create_ne_contract_in_init_oog_tr(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(storage={1: 0}),
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                compute_create_address(
+                    address=sender, nonce=0
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xa42676447b7cedfa5fde894d1d3df24aab362701"
+                    0xA42676447B7CEDFA5FDE894D1D3DF24AAB362701
                 ): Account.NONEXISTENT,
             },
         },

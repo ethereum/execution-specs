@@ -89,7 +89,7 @@ def test_staticcall_to_precompile_from_contract_initialization(
         contract_0: Account(
             storage={0: 0xFAD204ED1275B429B66C9CE0614D62832D6B2580},
         ),
-        Address("0xfad204ed1275b429b66c9ce0614d62832d6b2580"): Account(
+        Address(0xFAD204ED1275B429B66C9CE0614D62832D6B2580): Account(
             storage={
                 0: 1,
                 1: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,

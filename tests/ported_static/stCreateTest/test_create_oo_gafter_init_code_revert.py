@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -107,8 +108,8 @@ def test_create_oo_gafter_init_code_revert(
 
     post = {
         contract_0: Account(storage={1: 0x6460016001556000526005601BF3}),
-        Address(
-            "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+        compute_create_address(
+            address=contract_1, nonce=0
         ): Account.NONEXISTENT,
     }
 

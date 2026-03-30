@@ -132,10 +132,10 @@ def test_create2_first_byte_loop(
             "result": {
                 sender: Account(nonce=1),
                 entry: Account(storage={256: 1}, nonce=239),
-                Address("0x0d03885ed4f051b06ae83d869cd60f8ebdde37d8"): Account(
+                Address(0x0D03885ED4F051B06AE83D869CD60F8EBDDE37D8): Account(
                     nonce=1
                 ),
-                Address("0x94b507d001a223d7948119d899358a073fe5e331"): Account(
+                Address(0x94B507D001A223D7948119D899358A073FE5E331): Account(
                     nonce=1
                 ),
             },
@@ -146,10 +146,10 @@ def test_create2_first_byte_loop(
             "result": {
                 sender: Account(nonce=1),
                 entry: Account(storage={256: 1}, nonce=16),
-                Address("0x896e9dc41224489ed98380921ef0aeac66115d7b"): Account(
+                Address(0x896E9DC41224489ED98380921EF0AEAC66115D7B): Account(
                     nonce=1
                 ),
-                Address("0x070db4fa29b5d139bedb29347001bb9c3d75dc3a"): Account(
+                Address(0x070DB4FA29B5D139BEDB29347001BB9C3D75DC3A): Account(
                     nonce=1
                 ),
             },
@@ -161,7 +161,7 @@ def test_create2_first_byte_loop(
                 sender: Account(nonce=1),
                 entry: Account(storage={239: 1, 256: 1}, nonce=1),
                 Address(
-                    "0xa492678492a13f1031904de45f26a114234b668d"
+                    0xA492678492A13F1031904DE45F26A114234B668D
                 ): Account.NONEXISTENT,
             },
         },

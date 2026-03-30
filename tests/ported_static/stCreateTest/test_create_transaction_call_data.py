@@ -11,12 +11,12 @@ import pytest
 from execution_testing import (
     EOA,
     Account,
-    Address,
     Alloc,
     Bytes,
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -84,7 +84,7 @@ def test_create_transaction_call_data(
             "indexes": {"data": [0, 1], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     storage={}, code=b"", nonce=1
                 ),
             },
@@ -93,7 +93,7 @@ def test_create_transaction_call_data(
             "indexes": {"data": [2], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     storage={},
                     code=bytes.fromhex("3860008039386000f3"),
                     nonce=1,

@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -80,8 +81,8 @@ def test_create_name_registrator_per_txs_not_enough_gas(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                compute_create_address(
+                    address=sender, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -90,7 +91,7 @@ def test_create_name_registrator_per_txs_not_enough_gas(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     storage={1: 1}
                 ),
             },

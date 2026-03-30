@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -162,7 +163,7 @@ def test_callcode_dynamic_code2_self_call(
             "indexes": {"data": 0, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7"): Account(
+                compute_create_address(address=contract_1, nonce=0): Account(
                     storage={
                         11: 1,
                         12: 0xA000000000000000000000000000000000000000,
@@ -186,7 +187,7 @@ def test_callcode_dynamic_code2_self_call(
                     },
                     nonce=1,
                 ),
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                compute_create_address(address=contract_2, nonce=0): Account(
                     storage={122: 1}, nonce=1
                 ),
             },

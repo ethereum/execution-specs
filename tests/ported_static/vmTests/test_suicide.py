@@ -145,7 +145,7 @@ def test_suicide(
             "indexes": {"data": [1], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x000000000000000000000000000000000000dead"): Account(
+                Address(0x000000000000000000000000000000000000DEAD): Account(
                     balance=0x100000000000
                 ),
             },

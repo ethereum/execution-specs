@@ -152,7 +152,7 @@ def test_create2_init_code_size_limit(
                         10: 55539,
                     },
                 ),
-                Address("0x9e7a3337d18c31fe4c1fe51ab2da6cfd3629923d"): Account(
+                Address(0x9E7A3337D18C31FE4C1FE51AB2DA6CFD3629923D): Account(
                     storage={},
                     code=bytes.fromhex("600a80600080396000f3"),
                     balance=0,
@@ -168,7 +168,7 @@ def test_create2_init_code_size_limit(
                 contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
                 contract_1: Account(storage={}),
                 Address(
-                    "0x67d49ae27e912b3b508d62ce1e463298db6edf32"
+                    0x67D49AE27E912B3B508D62CE1E463298DB6EDF32
                 ): Account.NONEXISTENT,
             },
         },

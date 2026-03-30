@@ -109,7 +109,7 @@ def test_random_statetest645(
 
     tx = Transaction(
         sender=sender,
-        to=Address("0x0000000000000000000000000000000000000003"),
+        to=Address(0x0000000000000000000000000000000000000003),
         data=tx_data[d],
         gas_limit=tx_gas[g],
         value=tx_value[v],

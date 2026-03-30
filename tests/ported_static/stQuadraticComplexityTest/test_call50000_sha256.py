@@ -110,7 +110,7 @@ def test_call50000_sha256(
             "network": [">=Cancun<Osaka"],
             "result": {
                 Address(
-                    "0x0000000000000000000000000000000000000002"
+                    0x0000000000000000000000000000000000000002
                 ): Account.NONEXISTENT,
                 sender: Account(storage={}, code=b"", nonce=1),
                 contract_0: Account(
@@ -127,7 +127,7 @@ def test_call50000_sha256(
             "network": [">=Cancun<Osaka"],
             "result": {
                 Address(
-                    "0x0000000000000000000000000000000000000002"
+                    0x0000000000000000000000000000000000000002
                 ): Account.NONEXISTENT,
                 sender: Account(storage={}, code=b"", nonce=1),
                 contract_0: Account(

@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -135,7 +136,7 @@ def test_create2collision_code(
             balance=0,
             nonce=0,
         ),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+        compute_create_address(address=sender, nonce=0): Account(
             code=b"", balance=1, nonce=2
         ),
         sender: Account(nonce=1),

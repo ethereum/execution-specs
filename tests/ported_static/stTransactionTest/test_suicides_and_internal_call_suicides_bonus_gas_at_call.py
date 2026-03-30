@@ -89,7 +89,7 @@ def test_suicides_and_internal_call_suicides_bonus_gas_at_call(
 
     post = {
         Address(
-            "0x0000000000000000000000000000000000000001"
+            0x0000000000000000000000000000000000000001
         ): Account.NONEXISTENT,
         contract_1: Account(
             storage={},

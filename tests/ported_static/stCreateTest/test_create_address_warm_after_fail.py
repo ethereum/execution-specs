@@ -21,6 +21,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -395,8 +396,8 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address(
-                    "0xd4e7ae083132925a4927c1f5816238ba17b82a65"
+                compute_create_address(
+                    address=contract_0, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -419,10 +420,10 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a65"): Account(
+                compute_create_address(address=contract_0, nonce=0): Account(
                     code=b"", balance=2, nonce=0
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
                     code=b"", balance=2, nonce=0
                 ),
             },
@@ -446,8 +447,8 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address(
-                    "0xd4e7ae083132925a4927c1f5816238ba17b82a65"
+                compute_create_address(
+                    address=contract_0, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -470,10 +471,10 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address("0x43255ee039968e0254887fc8c7172736983d878c"): Account(
+                Address(0x43255EE039968E0254887FC8C7172736983D878C): Account(
                     code=b"", balance=2, nonce=0
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
                     code=b"", balance=2, nonce=0
                 ),
             },
@@ -498,7 +499,7 @@ def test_create_address_warm_after_fail(
                     nonce=1,
                 ),
                 Address(
-                    "0x562d97e3e4d6d3c6e791ea64bb73d820871aa219"
+                    0x562D97E3E4D6D3C6E791EA64BB73D820871AA219
                 ): Account.NONEXISTENT,
             },
         },
@@ -521,10 +522,10 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address("0x562d97e3e4d6d3c6e791ea64bb73d820871aa219"): Account(
+                Address(0x562D97E3E4D6D3C6E791EA64BB73D820871AA219): Account(
                     code=b"", balance=2, nonce=0
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
                     code=b"", balance=2, nonce=0
                 ),
             },
@@ -549,7 +550,7 @@ def test_create_address_warm_after_fail(
                     nonce=1,
                 ),
                 Address(
-                    "0x014001fdbede82315f4b8c2a7d45e980a8a4a12e"
+                    0x014001FDBEDE82315F4B8C2A7D45E980A8A4A12E
                 ): Account.NONEXISTENT,
             },
         },
@@ -572,10 +573,10 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address("0x014001fdbede82315f4b8c2a7d45e980a8a4a12e"): Account(
+                Address(0x014001FDBEDE82315F4B8C2A7D45E980A8A4A12E): Account(
                     code=b"", balance=2, nonce=0
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
                     code=b"", balance=2, nonce=0
                 ),
             },
@@ -600,7 +601,7 @@ def test_create_address_warm_after_fail(
                     nonce=1,
                 ),
                 Address(
-                    "0xa13d43586820e5d97a3fd1960625d537c86dc4e7"
+                    0xA13D43586820E5D97A3FD1960625D537C86DC4E7
                 ): Account.NONEXISTENT,
             },
         },
@@ -623,10 +624,10 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address("0xa13d43586820e5d97a3fd1960625d537c86dc4e7"): Account(
+                Address(0xA13D43586820E5D97A3FD1960625D537C86DC4E7): Account(
                     code=b"", balance=2, nonce=0
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
                     code=b"", balance=2, nonce=0
                 ),
             },
@@ -651,10 +652,10 @@ def test_create_address_warm_after_fail(
                     nonce=0,
                 ),
                 Address(
-                    "0xb2050fc27ab6d6d42dc0ce6f7c0bf9481a4c3fc3"
+                    0xB2050FC27AB6D6D42DC0CE6F7C0BF9481A4C3FC3
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xd4e7ae083132925a4927c1f5816238ba17b82a00"
+                    0xD4E7AE083132925A4927C1F5816238BA17B82A00
                 ): Account.NONEXISTENT,
             },
         },
@@ -677,10 +678,10 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=0,
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
                     code=b"", balance=2, nonce=0
                 ),
-                Address("0xb2050fc27ab6d6d42dc0ce6f7c0bf9481a4c3fc3"): Account(
+                Address(0xB2050FC27AB6D6D42DC0CE6F7C0BF9481A4C3FC3): Account(
                     code=b"", balance=2, nonce=0
                 ),
             },
@@ -704,8 +705,8 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=0,
                 ),
-                Address(
-                    "0xd4e7ae083132925a4927c1f5816238ba17b82a65"
+                compute_create_address(
+                    address=contract_0, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -728,7 +729,7 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=0,
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
                     code=b"", balance=2, nonce=0
                 ),
             },
@@ -752,7 +753,7 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a65"): Account(
+                compute_create_address(address=contract_0, nonce=0): Account(
                     code=bytes.fromhex("00")
                 ),
             },
@@ -776,10 +777,10 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a65"): Account(
+                compute_create_address(address=contract_0, nonce=0): Account(
                     code=bytes.fromhex("00"), balance=2, nonce=1
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
                     code=b"", balance=2, nonce=0
                 ),
             },
@@ -803,7 +804,7 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address("0xf7fef4b66b1570a057d7d5cec5c58846befa5b5c"): Account(
+                Address(0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C): Account(
                     code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -827,10 +828,10 @@ def test_create_address_warm_after_fail(
                     },
                     nonce=1,
                 ),
-                Address("0xf7fef4b66b1570a057d7d5cec5c58846befa5b5c"): Account(
+                Address(0xF7FEF4B66B1570A057D7D5CEC5C58846BEFA5B5C): Account(
                     code=bytes.fromhex("00"), balance=2, nonce=1
                 ),
-                Address("0xd4e7ae083132925a4927c1f5816238ba17b82a00"): Account(
+                Address(0xD4E7AE083132925A4927C1F5816238BA17B82A00): Account(
                     code=b"", balance=2, nonce=0
                 ),
             },

@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -95,7 +96,7 @@ def test_create_init_oo_gfor_create(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(balance=0, nonce=1),
-                Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+                compute_create_address(address=contract_0, nonce=0): Account(
                     nonce=1
                 ),
             },

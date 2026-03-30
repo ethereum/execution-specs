@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -70,11 +71,9 @@ def test_create_empty000_createin_init_code_transaction(
 
     post = {
         contract_0: Account(storage={1: 12}),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-            nonce=2
-        ),
+        compute_create_address(address=sender, nonce=0): Account(nonce=2),
         Address(
-            "0xa42676447b7cedfa5fde894d1d3df24aab362701"
+            0xA42676447B7CEDFA5FDE894D1D3DF24AAB362701
         ): Account.NONEXISTENT,
     }
 

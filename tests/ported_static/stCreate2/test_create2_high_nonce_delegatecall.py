@@ -471,13 +471,13 @@ def test_create2_high_nonce_delegatecall(
                     nonce=18446744073709551615,
                 ),
                 Address(
-                    "0x3689dbe15f5217cda3865b4158da57c7a3f9ad88"
+                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xd77662c5102179c42abbcafccc90ab351e7a1e4b"
+                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xb840e64c3aa027210a2ceba09411cf1dd48c56a7"
+                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
                 ): Account.NONEXISTENT,
             },
         },
@@ -504,17 +504,17 @@ def test_create2_high_nonce_delegatecall(
                     storage={65535: 0xFFFFFFFFFFFFFFFF},
                     nonce=18446744073709551615,
                 ),
-                Address("0x99f1bfb202fdf527e07fb8eb682a03c713aeaf11"): Account(
+                Address(0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11): Account(
                     storage={1: 1}, code=bytes.fromhex("6001600155")
                 ),
                 Address(
-                    "0x3689dbe15f5217cda3865b4158da57c7a3f9ad88"
+                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xd77662c5102179c42abbcafccc90ab351e7a1e4b"
+                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xb840e64c3aa027210a2ceba09411cf1dd48c56a7"
+                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
                 ): Account.NONEXISTENT,
             },
         },
@@ -536,13 +536,13 @@ def test_create2_high_nonce_delegatecall(
                     nonce=18446744073709551615,
                 ),
                 Address(
-                    "0x3689dbe15f5217cda3865b4158da57c7a3f9ad88"
+                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xd77662c5102179c42abbcafccc90ab351e7a1e4b"
+                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xb840e64c3aa027210a2ceba09411cf1dd48c56a7"
+                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
                 ): Account.NONEXISTENT,
             },
         },
@@ -567,17 +567,17 @@ def test_create2_high_nonce_delegatecall(
                     storage={65535: 0xFFFFFFFFFFFFFFFF},
                     nonce=18446744073709551615,
                 ),
-                Address("0x74f5960e3479218ec095e853ed1fc95e285adc3b"): Account(
+                Address(0x74F5960E3479218EC095E853ED1FC95E285ADC3B): Account(
                     storage={1: 1}, code=bytes.fromhex("6001600155")
                 ),
                 Address(
-                    "0x3689dbe15f5217cda3865b4158da57c7a3f9ad88"
+                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xd77662c5102179c42abbcafccc90ab351e7a1e4b"
+                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xb840e64c3aa027210a2ceba09411cf1dd48c56a7"
+                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
                 ): Account.NONEXISTENT,
             },
         },
@@ -604,17 +604,17 @@ def test_create2_high_nonce_delegatecall(
                     storage={65535: 0xFFFFFFFFFFFFFFFF},
                     nonce=18446744073709551615,
                 ),
-                Address("0x99f1bfb202fdf527e07fb8eb682a03c713aeaf11"): Account(
+                Address(0x99F1BFB202FDF527E07FB8EB682A03C713AEAF11): Account(
                     storage={1: 1}, code=bytes.fromhex("6001600155")
                 ),
                 Address(
-                    "0x3689dbe15f5217cda3865b4158da57c7a3f9ad88"
+                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xd77662c5102179c42abbcafccc90ab351e7a1e4b"
+                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xb840e64c3aa027210a2ceba09411cf1dd48c56a7"
+                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
                 ): Account.NONEXISTENT,
             },
         },
@@ -636,13 +636,13 @@ def test_create2_high_nonce_delegatecall(
                     nonce=18446744073709551615,
                 ),
                 Address(
-                    "0x3689dbe15f5217cda3865b4158da57c7a3f9ad88"
+                    0x3689DBE15F5217CDA3865B4158DA57C7A3F9AD88
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xd77662c5102179c42abbcafccc90ab351e7a1e4b"
+                    0xD77662C5102179C42ABBCAFCCC90AB351E7A1E4B
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xb840e64c3aa027210a2ceba09411cf1dd48c56a7"
+                    0xB840E64C3AA027210A2CEBA09411CF1DD48C56A7
                 ): Account.NONEXISTENT,
             },
         },
@@ -664,13 +664,13 @@ def test_create2_high_nonce_delegatecall(
                     nonce=18446744073709551615,
                 ),
                 Address(
-                    "0x4e060b3a192fd2a082a00259be2f021ad996d71c"
+                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xaa17fc42ef60f987cd7bc803ec28bcc9f0ed1c31"
+                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x76e76dcfbbe7db1a0a9ab7d6b12e3a309188018a"
+                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
                 ): Account.NONEXISTENT,
             },
         },
@@ -697,17 +697,17 @@ def test_create2_high_nonce_delegatecall(
                     storage={65535: 0xFFFFFFFFFFFFFFFF},
                     nonce=18446744073709551615,
                 ),
-                Address("0x1cfc908bb573719841cad6a8bc34e7c1ce5ee020"): Account(
+                Address(0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020): Account(
                     storage={1: 1}, code=bytes.fromhex("6001600155")
                 ),
                 Address(
-                    "0x4e060b3a192fd2a082a00259be2f021ad996d71c"
+                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xaa17fc42ef60f987cd7bc803ec28bcc9f0ed1c31"
+                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x76e76dcfbbe7db1a0a9ab7d6b12e3a309188018a"
+                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
                 ): Account.NONEXISTENT,
             },
         },
@@ -729,13 +729,13 @@ def test_create2_high_nonce_delegatecall(
                     nonce=18446744073709551615,
                 ),
                 Address(
-                    "0x4e060b3a192fd2a082a00259be2f021ad996d71c"
+                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xaa17fc42ef60f987cd7bc803ec28bcc9f0ed1c31"
+                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x76e76dcfbbe7db1a0a9ab7d6b12e3a309188018a"
+                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
                 ): Account.NONEXISTENT,
             },
         },
@@ -760,17 +760,17 @@ def test_create2_high_nonce_delegatecall(
                     storage={65535: 0xFFFFFFFFFFFFFFFF},
                     nonce=18446744073709551615,
                 ),
-                Address("0x09f07a698496a643301174853c4f7f1eaab166be"): Account(
+                Address(0x09F07A698496A643301174853C4F7F1EAAB166BE): Account(
                     storage={1: 1}, code=bytes.fromhex("6001600155")
                 ),
                 Address(
-                    "0x4e060b3a192fd2a082a00259be2f021ad996d71c"
+                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xaa17fc42ef60f987cd7bc803ec28bcc9f0ed1c31"
+                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x76e76dcfbbe7db1a0a9ab7d6b12e3a309188018a"
+                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
                 ): Account.NONEXISTENT,
             },
         },
@@ -797,17 +797,17 @@ def test_create2_high_nonce_delegatecall(
                     storage={65535: 0xFFFFFFFFFFFFFFFF},
                     nonce=18446744073709551615,
                 ),
-                Address("0x1cfc908bb573719841cad6a8bc34e7c1ce5ee020"): Account(
+                Address(0x1CFC908BB573719841CAD6A8BC34E7C1CE5EE020): Account(
                     storage={1: 1}, code=bytes.fromhex("6001600155")
                 ),
                 Address(
-                    "0x4e060b3a192fd2a082a00259be2f021ad996d71c"
+                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xaa17fc42ef60f987cd7bc803ec28bcc9f0ed1c31"
+                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x76e76dcfbbe7db1a0a9ab7d6b12e3a309188018a"
+                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
                 ): Account.NONEXISTENT,
             },
         },
@@ -829,13 +829,13 @@ def test_create2_high_nonce_delegatecall(
                     nonce=18446744073709551615,
                 ),
                 Address(
-                    "0x4e060b3a192fd2a082a00259be2f021ad996d71c"
+                    0x4E060B3A192FD2A082A00259BE2F021AD996D71C
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xaa17fc42ef60f987cd7bc803ec28bcc9f0ed1c31"
+                    0xAA17FC42EF60F987CD7BC803EC28BCC9F0ED1C31
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x76e76dcfbbe7db1a0a9ab7d6b12e3a309188018a"
+                    0x76E76DCFBBE7DB1A0A9AB7D6B12E3A309188018A
                 ): Account.NONEXISTENT,
             },
         },

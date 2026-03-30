@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -162,7 +163,7 @@ def test_callcode_in_initcode_to_existing_contract(
             "indexes": {"data": 0, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                compute_create_address(address=contract_1, nonce=0): Account(
                     storage={1: 1, 2: 1}, balance=1
                 ),
             },
@@ -171,7 +172,7 @@ def test_callcode_in_initcode_to_existing_contract(
             "indexes": {"data": 1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x11b62573be8f72b4085bafe5b675b3e7f08ed522"): Account(
+                Address(0x11B62573BE8F72B4085BAFE5B675B3E7F08ED522): Account(
                     storage={1: 1, 2: 1}, balance=1
                 ),
             },

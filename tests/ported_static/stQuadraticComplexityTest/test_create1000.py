@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -101,29 +102,29 @@ def test_create1000(
             "network": [">=Cancun<Osaka"],
             "result": {
                 Address(
-                    "0x010d8b0816e30ff51ba07678c64b272cdeddb807"
+                    0x010D8B0816E30FF51BA07678C64B272CDEDDB807
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x014830fe159f418212e5c39b4b2e2ddc7b295395"
+                    0x014830FE159F418212E5C39B4B2E2DDC7B295395
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
                 Address(
-                    "0x0c6a8f1bf692cb9e4f9d9c5a2785d58edfd42457"
+                    0x0C6A8F1BF692CB9E4F9D9C5A2785D58EDFD42457
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x198d23bedd1a9fdbd4adb5760930f6877f5d142f"
+                    0x198D23BEDD1A9FDBD4ADB5760930F6877F5D142F
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x266c09580d28c1c576e5c6b9adc926be1fecffb1"
+                    0x266C09580D28C1C576E5C6B9ADC926BE1FECFFB1
+                ): Account.NONEXISTENT,
+                compute_create_address(
+                    address=contract_0, nonce=19
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xe5dc2e5b40069a91f688e56ea8d12149c5480b42"
+                    0xFDBD2625737DF76E194C99994BE160C5F8248DAD
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xfdbd2625737df76e194c99994be160c5f8248dad"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0xfff043abcbf2b0972c1dca19b2ba3cd682f10e90"
+                    0xFFF043ABCBF2B0972C1DCA19B2BA3CD682F10E90
                 ): Account.NONEXISTENT,
             },
         },
@@ -132,29 +133,29 @@ def test_create1000(
             "network": [">=Cancun<Osaka"],
             "result": {
                 Address(
-                    "0x010d8b0816e30ff51ba07678c64b272cdeddb807"
+                    0x010D8B0816E30FF51BA07678C64B272CDEDDB807
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x014830fe159f418212e5c39b4b2e2ddc7b295395"
+                    0x014830FE159F418212E5C39B4B2E2DDC7B295395
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={0: 0, 1: 0}, nonce=0),
                 Address(
-                    "0x0c6a8f1bf692cb9e4f9d9c5a2785d58edfd42457"
+                    0x0C6A8F1BF692CB9E4F9D9C5A2785D58EDFD42457
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x198d23bedd1a9fdbd4adb5760930f6877f5d142f"
+                    0x198D23BEDD1A9FDBD4ADB5760930F6877F5D142F
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x266c09580d28c1c576e5c6b9adc926be1fecffb1"
+                    0x266C09580D28C1C576E5C6B9ADC926BE1FECFFB1
+                ): Account.NONEXISTENT,
+                compute_create_address(
+                    address=contract_0, nonce=19
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xe5dc2e5b40069a91f688e56ea8d12149c5480b42"
+                    0xFDBD2625737DF76E194C99994BE160C5F8248DAD
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xfdbd2625737df76e194c99994be160c5f8248dad"
-                ): Account.NONEXISTENT,
-                Address(
-                    "0xfff043abcbf2b0972c1dca19b2ba3cd682f10e90"
+                    0xFFF043ABCBF2B0972C1DCA19B2BA3CD682F10E90
                 ): Account.NONEXISTENT,
             },
         },

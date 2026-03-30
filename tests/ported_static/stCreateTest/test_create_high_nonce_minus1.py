@@ -88,7 +88,7 @@ def test_create_high_nonce_minus1(
             },
             nonce=18446744073709551615,
         ),
-        Address("0xd061b08a84ebc70fe797f9bd62f4269ef8274a13"): Account(
+        Address(0xD061B08A84EBC70FE797F9BD62F4269EF8274A13): Account(
             code=bytes.fromhex("00")
         ),
     }

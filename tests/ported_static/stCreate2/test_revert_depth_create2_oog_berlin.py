@@ -148,7 +148,7 @@ def test_revert_depth_create2_oog_berlin(
             "indexes": {"data": 1, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x05a28fc366483258507bcf739658573cb47e4fad"): Account(
+                Address(0x05A28FC366483258507BCF739658573CB47E4FAD): Account(
                     nonce=1
                 ),
                 contract_0: Account(storage={0: 1, 1: 1, 4: 12}),
@@ -160,7 +160,7 @@ def test_revert_depth_create2_oog_berlin(
             "network": [">=Cancun"],
             "result": {
                 Address(
-                    "0x05a28fc366483258507bcf739658573cb47e4fad"
+                    0x05A28FC366483258507BCF739658573CB47E4FAD
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={0: 1, 4: 12}),
                 contract_1: Account(storage={}),
@@ -171,7 +171,7 @@ def test_revert_depth_create2_oog_berlin(
             "network": [">=Cancun"],
             "result": {
                 Address(
-                    "0x05a28fc366483258507bcf739658573cb47e4fad"
+                    0x05A28FC366483258507BCF739658573CB47E4FAD
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={}),
                 contract_1: Account(storage={}),

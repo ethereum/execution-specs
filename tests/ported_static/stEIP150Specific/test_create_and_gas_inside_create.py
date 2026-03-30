@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -74,7 +75,7 @@ def test_create_and_gas_inside_create(
                 11: 0xF1ECF98489FA9ED60A664FC4998DB699CFA39D40,
             },
         ),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+        compute_create_address(address=contract_0, nonce=0): Account(
             storage={253: 0x83729}
         ),
     }

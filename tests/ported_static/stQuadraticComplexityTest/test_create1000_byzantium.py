@@ -108,7 +108,7 @@ def test_create1000_byzantium(
 
     post = {
         Address(
-            "0x010d8b0816e30ff51ba07678c64b272cdeddb807"
+            0x010D8B0816E30FF51BA07678C64B272CDEDDB807
         ): Account.NONEXISTENT,
     }
 

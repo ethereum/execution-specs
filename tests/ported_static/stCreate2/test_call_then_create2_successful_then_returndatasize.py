@@ -101,7 +101,7 @@ def test_call_then_create2_successful_then_returndatasize(
     )
 
     post = {
-        Address("0xc0c06666fad9e52251740536e21fc0f3db0e0fa0"): Account(
+        Address(0xC0C06666FAD9E52251740536E21FC0F3DB0E0FA0): Account(
             code=bytes.fromhex(
                 "0000000000000000000000000000000000000000000000000000000000112233"  # noqa: E501
             ),

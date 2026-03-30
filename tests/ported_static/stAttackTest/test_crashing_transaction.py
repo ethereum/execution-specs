@@ -61,7 +61,7 @@ def test_crashing_transaction(
 
     post = {
         sender: Account(nonce=3271),
-        Address("0xecbf9aa676d9e0bbba7e517d1350c1b64f8c6779"): Account(
+        Address(0xECBF9AA676D9E0BBBA7E517D1350C1B64F8C6779): Account(
             code=bytes.fromhex("60606040526008565b00"),
             balance=1,
             nonce=124,

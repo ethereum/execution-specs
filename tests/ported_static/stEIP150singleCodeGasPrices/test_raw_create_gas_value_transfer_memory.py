@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -71,7 +72,7 @@ def test_raw_create_gas_value_transfer_memory(
 
     post = {
         contract_0: Account(storage={1: 33391}),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
+        compute_create_address(address=contract_0, nonce=0): Account(
             balance=10
         ),
     }

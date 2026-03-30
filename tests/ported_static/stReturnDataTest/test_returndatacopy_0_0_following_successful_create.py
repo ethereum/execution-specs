@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -77,7 +78,7 @@ def test_returndatacopy_0_0_following_successful_create(
 
     post = {
         contract_0: Account(storage={0: 0}),
-        Address("0x945304eb96065b2a98b57a48a06ae28d285a71b5"): Account(
+        compute_create_address(address=contract_0, nonce=0): Account(
             storage={0: 1}
         ),
     }

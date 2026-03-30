@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -86,9 +87,7 @@ def test_contract_creation_oo_gdont_leave_empty_contract_via_transaction(
     )
 
     post = {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-            balance=0
-        ),
+        compute_create_address(address=sender, nonce=0): Account(balance=0)
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

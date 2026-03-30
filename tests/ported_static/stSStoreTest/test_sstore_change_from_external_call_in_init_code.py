@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -228,7 +229,7 @@ def test_sstore_change_from_external_call_in_init_code(
             "result": {
                 contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
                 Address(
-                    "0x6602cfc925be62bf18470598a98f72812a1ebef2"
+                    0x6602CFC925BE62BF18470598A98F72812A1EBEF2
                 ): Account.NONEXISTENT,
             },
         },
@@ -237,7 +238,7 @@ def test_sstore_change_from_external_call_in_init_code(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     storage={0: 1, 1: 1}, nonce=1
                 ),
             },
@@ -247,7 +248,7 @@ def test_sstore_change_from_external_call_in_init_code(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(storage={0: 0, 1: 1}, nonce=0),
-                Address("0x0f446e1bd7a5da68b5e3a305c7030e3aa8efc293"): Account(
+                Address(0x0F446E1BD7A5DA68B5E3A305C7030E3AA8EFC293): Account(
                     storage={0: 1, 1: 1}, nonce=1
                 ),
             },

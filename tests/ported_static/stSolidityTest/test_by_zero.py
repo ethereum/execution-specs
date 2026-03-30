@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 
@@ -98,7 +99,7 @@ def test_by_zero(
     )
 
     post = {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+        compute_create_address(address=sender, nonce=0): Account(
             storage={0: 1}, code=b"", balance=0
         ),
         sender: Account(storage={}, code=b"", nonce=1),

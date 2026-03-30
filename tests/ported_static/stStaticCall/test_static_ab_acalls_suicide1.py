@@ -128,7 +128,7 @@ def test_static_ab_acalls_suicide1(
     post = {
         contract_0: Account(storage={}),
         Address(
-            "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6"
+            0x0F572E5295C57F15886F9B263E2F6D2D6C7B5EC6
         ): Account.NONEXISTENT,
         contract_1: Account(storage={}, balance=23),
         sender: Account(nonce=1),

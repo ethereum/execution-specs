@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -81,9 +82,9 @@ def test_delegatecode_dynamic_code(
 
     post = {
         Address(
-            "0xffe4ebd2a68c02d9dcb0a17283d13346beb2d8b6"
+            0xFFE4EBD2A68C02D9DCB0A17283D13346BEB2D8B6
         ): Account.NONEXISTENT,
-        Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+        compute_create_address(address=contract_0, nonce=0): Account(
             storage={
                 0: 0,
                 10: 0x568A95F77B047BECE6AA68843D2019332C46A585,

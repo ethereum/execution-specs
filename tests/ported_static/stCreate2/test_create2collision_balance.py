@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -117,7 +118,7 @@ def test_create2collision_balance(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(balance=1, nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     balance=1, nonce=2
                 ),
                 sender: Account(nonce=1),
@@ -130,7 +131,7 @@ def test_create2collision_balance(
                 contract_1: Account(
                     storage={1: 1}, code=b"", balance=1, nonce=1
                 ),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     balance=1, nonce=2
                 ),
                 sender: Account(nonce=1),
@@ -146,7 +147,7 @@ def test_create2collision_balance(
                     balance=1,
                     nonce=1,
                 ),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     balance=1, nonce=2
                 ),
                 sender: Account(nonce=1),
@@ -157,7 +158,7 @@ def test_create2collision_balance(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(balance=2, nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     balance=0, nonce=2
                 ),
                 sender: Account(nonce=1),

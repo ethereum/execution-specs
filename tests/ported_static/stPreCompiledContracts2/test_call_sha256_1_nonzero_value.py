@@ -80,7 +80,7 @@ def test_call_sha256_1_nonzero_value(
     )
 
     post = {
-        Address("0x0000000000000000000000000000000000000002"): Account(
+        Address(0x0000000000000000000000000000000000000002): Account(
             balance=19
         ),
         target: Account(

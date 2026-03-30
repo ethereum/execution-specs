@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -324,11 +325,11 @@ def test_create_oo_gafter_max_codesize(
             "result": {
                 contract_3: Account(storage={1: 1}, nonce=1),
                 contract_2: Account(storage={}, nonce=1),
-                Address(
-                    "0x76e2310dc9277b22ffceb40d49229131674ebe02"
+                compute_create_address(
+                    address=contract_2, nonce=1
                 ): Account.NONEXISTENT,
-                Address(
-                    "0xb3210b741a5dfbddc1636521965b3558defa3e60"
+                compute_create_address(
+                    address=contract_2, nonce=10
                 ): Account.NONEXISTENT,
             },
         },
@@ -338,17 +339,17 @@ def test_create_oo_gafter_max_codesize(
             "result": {
                 contract_3: Account(storage={1: 1}, nonce=11),
                 contract_2: Account(storage={}, nonce=1),
-                Address("0x396b47fae89161b1959b5a833acf816be526b860"): Account(
+                compute_create_address(address=contract_3, nonce=1): Account(
                     storage={0: 24576}
                 ),
-                Address("0xbd205415c24eb289b6a275baae74527b92b49fe2"): Account(
+                compute_create_address(address=contract_3, nonce=10): Account(
                     storage={0: 24576}
                 ),
-                Address(
-                    "0x76e2310dc9277b22ffceb40d49229131674ebe02"
+                compute_create_address(
+                    address=contract_2, nonce=1
                 ): Account.NONEXISTENT,
-                Address(
-                    "0xb3210b741a5dfbddc1636521965b3558defa3e60"
+                compute_create_address(
+                    address=contract_2, nonce=10
                 ): Account.NONEXISTENT,
             },
         },
@@ -358,34 +359,34 @@ def test_create_oo_gafter_max_codesize(
             "result": {
                 contract_3: Account(storage={1: 1}, nonce=11),
                 contract_2: Account(storage={1: 1}, nonce=11),
-                Address(
-                    "0x396b47fae89161b1959b5a833acf816be526b860"
+                compute_create_address(
+                    address=contract_3, nonce=1
                 ): Account.NONEXISTENT,
-                Address(
-                    "0xbd205415c24eb289b6a275baae74527b92b49fe2"
+                compute_create_address(
+                    address=contract_3, nonce=10
                 ): Account.NONEXISTENT,
-                Address(
-                    "0x76e2310dc9277b22ffceb40d49229131674ebe02"
+                compute_create_address(
+                    address=contract_2, nonce=1
                 ): Account.NONEXISTENT,
-                Address(
-                    "0x936d5e529580a9cc92bc2b2963a9d0a99f437e89"
+                compute_create_address(
+                    address=contract_2, nonce=4
                 ): Account.NONEXISTENT,
-                Address("0x2e5a5ec103443f6b299cf31a52c69cf222ae4e6b"): Account(
+                compute_create_address(address=contract_2, nonce=5): Account(
                     storage={0: 24576}
                 ),
-                Address("0xbade62b355fe6b7117f4f7c913321b318ca3a4da"): Account(
+                compute_create_address(address=contract_2, nonce=6): Account(
                     storage={0: 24576}
                 ),
-                Address("0xd8a8f3569a1d76027f9ece5010489576897014ea"): Account(
+                compute_create_address(address=contract_2, nonce=7): Account(
                     storage={0: 24576}
                 ),
-                Address("0xfcdccc3b46b9fbe71221061091e8fe82b77e02f2"): Account(
+                compute_create_address(address=contract_2, nonce=8): Account(
                     storage={0: 24576}
                 ),
-                Address("0x67262aa10552371ec665c2f90c56d9d65c16715e"): Account(
+                compute_create_address(address=contract_2, nonce=9): Account(
                     storage={0: 24576}
                 ),
-                Address("0xb3210b741a5dfbddc1636521965b3558defa3e60"): Account(
+                compute_create_address(address=contract_2, nonce=10): Account(
                     storage={0: 24576}
                 ),
             },
@@ -396,11 +397,11 @@ def test_create_oo_gafter_max_codesize(
             "result": {
                 contract_3: Account(storage={1: 1}, nonce=1),
                 contract_2: Account(storage={}, nonce=1),
-                Address(
-                    "0x76e2310dc9277b22ffceb40d49229131674ebe02"
+                compute_create_address(
+                    address=contract_2, nonce=1
                 ): Account.NONEXISTENT,
-                Address(
-                    "0x782f34ee13897680a5000838ce53d07b9558b5e2"
+                compute_create_address(
+                    address=contract_2, nonce=250
                 ): Account.NONEXISTENT,
             },
         },
@@ -410,17 +411,17 @@ def test_create_oo_gafter_max_codesize(
             "result": {
                 contract_3: Account(storage={1: 1}, nonce=251),
                 contract_2: Account(storage={}, nonce=1),
-                Address("0x396b47fae89161b1959b5a833acf816be526b860"): Account(
+                compute_create_address(address=contract_3, nonce=1): Account(
                     storage={0: 24576}
                 ),
-                Address("0x336debb8ce5a3cf4b40be471ac04f77b51f2d2e1"): Account(
+                compute_create_address(address=contract_3, nonce=250): Account(
                     storage={0: 24576}
                 ),
-                Address(
-                    "0x76e2310dc9277b22ffceb40d49229131674ebe02"
+                compute_create_address(
+                    address=contract_2, nonce=1
                 ): Account.NONEXISTENT,
-                Address(
-                    "0x782f34ee13897680a5000838ce53d07b9558b5e2"
+                compute_create_address(
+                    address=contract_2, nonce=250
                 ): Account.NONEXISTENT,
             },
         },
@@ -430,34 +431,34 @@ def test_create_oo_gafter_max_codesize(
             "result": {
                 contract_3: Account(storage={1: 1}, nonce=251),
                 contract_2: Account(storage={1: 1}, nonce=251),
-                Address(
-                    "0x396b47fae89161b1959b5a833acf816be526b860"
+                compute_create_address(
+                    address=contract_3, nonce=1
                 ): Account.NONEXISTENT,
-                Address(
-                    "0x336debb8ce5a3cf4b40be471ac04f77b51f2d2e1"
+                compute_create_address(
+                    address=contract_3, nonce=250
                 ): Account.NONEXISTENT,
-                Address(
-                    "0x76e2310dc9277b22ffceb40d49229131674ebe02"
+                compute_create_address(
+                    address=contract_2, nonce=1
                 ): Account.NONEXISTENT,
-                Address(
-                    "0x638e1b782452eaf5270509651f665d2c00e599ff"
+                compute_create_address(
+                    address=contract_2, nonce=244
                 ): Account.NONEXISTENT,
-                Address("0x511c6c5591eacfc8b9bf2658916225418508f548"): Account(
+                compute_create_address(address=contract_2, nonce=245): Account(
                     storage={0: 24576}
                 ),
-                Address("0x9ca6a1cfda677fc2679fce570dd47120686cb7c0"): Account(
+                compute_create_address(address=contract_2, nonce=246): Account(
                     storage={0: 24576}
                 ),
-                Address("0xdf7cd0b9839e4d93b98f09bf4c79366b9ffbe638"): Account(
+                compute_create_address(address=contract_2, nonce=247): Account(
                     storage={0: 24576}
                 ),
-                Address("0xee8b40edee25283a8c934b9c3a2ad8c848dc61b9"): Account(
+                compute_create_address(address=contract_2, nonce=248): Account(
                     storage={0: 24576}
                 ),
-                Address("0xe0fad4310f169961f052ac02bb70707ebfa3ece2"): Account(
+                compute_create_address(address=contract_2, nonce=249): Account(
                     storage={0: 24576}
                 ),
-                Address("0x782f34ee13897680a5000838ce53d07b9558b5e2"): Account(
+                compute_create_address(address=contract_2, nonce=250): Account(
                     storage={0: 24576}
                 ),
             },

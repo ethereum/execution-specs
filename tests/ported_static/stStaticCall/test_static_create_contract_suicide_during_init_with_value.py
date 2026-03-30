@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -109,9 +110,7 @@ def test_static_create_contract_suicide_during_init_with_value(
     )
 
     post = {
-        Address(
-            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
-        ): Account.NONEXISTENT,
+        compute_create_address(address=sender, nonce=0): Account.NONEXISTENT,
         contract_0: Account(storage={1: 0}, balance=10),
     }
 

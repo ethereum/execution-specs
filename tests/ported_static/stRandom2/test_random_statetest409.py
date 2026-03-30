@@ -110,7 +110,7 @@ def test_random_statetest409(
     post = {
         coinbase: Account(storage={}, nonce=0),
         sender: Account(storage={}, code=b"", nonce=1),
-        Address("0xffffffffffffffffffffffffffffffffffffffff"): Account(
+        Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF): Account(
             storage={}, code=b"", balance=0x41028C83, nonce=0
         ),
     }

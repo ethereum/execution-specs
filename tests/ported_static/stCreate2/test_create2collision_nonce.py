@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 
@@ -119,7 +120,7 @@ def test_create2collision_nonce(
         contract_0: Account(storage={}, code=b"", balance=0, nonce=1),
         contract_1: Account(storage={}, code=b"", balance=0, nonce=1),
         contract_2: Account(storage={}, code=b"", balance=0, nonce=1),
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+        compute_create_address(address=sender, nonce=0): Account(
             balance=1, nonce=2
         ),
         sender: Account(nonce=1),

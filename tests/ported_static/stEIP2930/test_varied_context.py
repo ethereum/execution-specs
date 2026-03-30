@@ -17,6 +17,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -1615,7 +1616,7 @@ def test_varied_context(
             "indexes": {"data": [22], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xf342e57f24e0333f3af34af08fdbbe9c72cbd37c"): Account(
+                compute_create_address(address=contract_18, nonce=0): Account(
                     storage={0: 65535, 1: 20017}
                 ),
             },
@@ -1624,7 +1625,7 @@ def test_varied_context(
             "indexes": {"data": [23], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xf342e57f24e0333f3af34af08fdbbe9c72cbd37c"): Account(
+                compute_create_address(address=contract_18, nonce=0): Account(
                     storage={0: 65535, 1: 22117}
                 ),
             },
@@ -1633,7 +1634,7 @@ def test_varied_context(
             "indexes": {"data": [24], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xd82f21135ed7d7d833a9f2a0f1cf6c3da214b8e3"): Account(
+                Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
                     storage={0: 65535, 1: 20017}
                 ),
             },
@@ -1642,7 +1643,7 @@ def test_varied_context(
             "indexes": {"data": [25], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xd82f21135ed7d7d833a9f2a0f1cf6c3da214b8e3"): Account(
+                Address(0xD82F21135ED7D7D833A9F2A0F1CF6C3DA214B8E3): Account(
                     storage={0: 65535, 1: 22117}
                 ),
             },
@@ -1651,7 +1652,7 @@ def test_varied_context(
             "indexes": {"data": [26], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"): Account(
+                compute_create_address(address=contract_20, nonce=0): Account(
                     storage={0: 65535, 1: 20017}
                 ),
             },
@@ -1660,7 +1661,7 @@ def test_varied_context(
             "indexes": {"data": [27], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x58fd03a2d731b2fb751e4a0f593d373ee77d39e6"): Account(
+                compute_create_address(address=contract_20, nonce=0): Account(
                     storage={0: 65535, 1: 22117}
                 ),
             },
@@ -1669,7 +1670,7 @@ def test_varied_context(
             "indexes": {"data": [28], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x530508498d2aa75d8e591612809fec3d37a45615"): Account(
+                Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
                     storage={0: 65535, 1: 20017}
                 ),
             },
@@ -1678,7 +1679,7 @@ def test_varied_context(
             "indexes": {"data": [29], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x530508498d2aa75d8e591612809fec3d37a45615"): Account(
+                Address(0x530508498D2AA75D8E591612809FEC3D37A45615): Account(
                     storage={0: 65535, 1: 22117}
                 ),
             },
@@ -1687,7 +1688,7 @@ def test_varied_context(
             "indexes": {"data": [30], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xb76ab2d646c4df221edd345957d0a396a2ab1b6d"): Account(
+                compute_create_address(address=contract_22, nonce=0): Account(
                     storage={0: 65535, 1: 20017, 2: 117}
                 ),
             },
@@ -1696,7 +1697,7 @@ def test_varied_context(
             "indexes": {"data": [31], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xb76ab2d646c4df221edd345957d0a396a2ab1b6d"): Account(
+                compute_create_address(address=contract_22, nonce=0): Account(
                     storage={0: 65535, 1: 22117, 2: 117}
                 ),
             },
@@ -1705,7 +1706,7 @@ def test_varied_context(
             "indexes": {"data": [32], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x83fbdae70258ac0fa837b701cc63cedf48d4b6bf"): Account(
+                Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
                     storage={0: 65535, 1: 20017, 2: 117}
                 ),
             },
@@ -1714,7 +1715,7 @@ def test_varied_context(
             "indexes": {"data": [33], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x83fbdae70258ac0fa837b701cc63cedf48d4b6bf"): Account(
+                Address(0x83FBDAE70258AC0FA837B701CC63CEDF48D4B6BF): Account(
                     storage={0: 65535, 1: 22117, 2: 117}
                 ),
             },

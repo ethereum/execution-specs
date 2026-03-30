@@ -107,10 +107,8 @@ def test_create2_on_depth1023(
     )
 
     post = {
-        Address("0x4f05179f0987710f94f2cbde67c5357bc1815af3"): Account(
-            nonce=1
-        ),
-        Address("0xa3da9580897e90044fa0de6969815406b3172e3a"): Account(
+        Address(0x4F05179F0987710F94F2CBDE67C5357BC1815AF3): Account(nonce=1),
+        Address(0xA3DA9580897E90044FA0DE6969815406B3172E3A): Account(
             storage={1: 0x4F05179F0987710F94F2CBDE67C5357BC1815AF3},
         ),
         contract_0: Account(

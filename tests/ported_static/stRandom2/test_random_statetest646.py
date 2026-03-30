@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -77,8 +78,8 @@ def test_random_statetest646(
 
     post = {
         sender: Account(storage={}, code=b"", nonce=1),
-        Address(
-            "0xb1c0d37237a1f6bd6202aed4b5a7290dfcda6591"
+        compute_create_address(
+            address=contract_1, nonce=28
         ): Account.NONEXISTENT,
         contract_0: Account(storage={}, code=b"", nonce=7),
         contract_1: Account(storage={}, nonce=28),

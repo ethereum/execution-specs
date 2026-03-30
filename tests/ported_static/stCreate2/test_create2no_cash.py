@@ -95,7 +95,7 @@ def test_create2no_cash(
             "result": {
                 contract_0: Account(balance=100),
                 Address(
-                    "0x12aaefbc0350a026228076e5369e6ce148ce67be"
+                    0x12AAEFBC0350A026228076E5369E6CE148CE67BE
                 ): Account.NONEXISTENT,
                 sender: Account(nonce=1),
             },
@@ -105,7 +105,7 @@ def test_create2no_cash(
             "network": [">=Cancun"],
             "result": {
                 contract_0: Account(balance=0),
-                Address("0x12aaefbc0350a026228076e5369e6ce148ce67be"): Account(
+                Address(0x12AAEFBC0350A026228076E5369E6CE148CE67BE): Account(
                     balance=101
                 ),
                 sender: Account(nonce=1),

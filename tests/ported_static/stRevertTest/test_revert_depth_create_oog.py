@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -148,7 +149,7 @@ def test_revert_depth_create_oog(
             "indexes": {"data": 1, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x3e180b1862f9d158abb5e519a6d8605540c23682"): Account(
+                compute_create_address(address=contract_1, nonce=0): Account(
                     nonce=1
                 ),
                 contract_0: Account(storage={0: 1, 1: 1, 4: 12}),
@@ -159,8 +160,8 @@ def test_revert_depth_create_oog(
             "indexes": {"data": 0, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x3e180b1862f9d158abb5e519a6d8605540c23682"
+                compute_create_address(
+                    address=contract_1, nonce=0
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={0: 1, 4: 12}),
                 contract_1: Account(storage={}),
@@ -170,8 +171,8 @@ def test_revert_depth_create_oog(
             "indexes": {"data": [0, 1], "gas": 0, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0x3e180b1862f9d158abb5e519a6d8605540c23682"
+                compute_create_address(
+                    address=contract_1, nonce=0
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={}),
                 contract_1: Account(storage={}),

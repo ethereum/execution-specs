@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -59,9 +60,7 @@ def test_transaction_create_suicide_in_initcode(
     )
 
     post = {
-        Address(
-            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
-        ): Account.NONEXISTENT,
+        compute_create_address(address=sender, nonce=0): Account.NONEXISTENT,
         sender: Account(nonce=1),
     }
 

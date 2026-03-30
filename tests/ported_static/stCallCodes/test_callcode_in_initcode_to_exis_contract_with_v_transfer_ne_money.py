@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -160,7 +161,7 @@ def test_callcode_in_initcode_to_exis_contract_with_v_transfer_ne_money(
             "indexes": {"data": 0, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+                compute_create_address(address=contract_1, nonce=0): Account(
                     storage={1: 0, 2: 0}, balance=0, nonce=1
                 ),
             },
@@ -169,7 +170,7 @@ def test_callcode_in_initcode_to_exis_contract_with_v_transfer_ne_money(
             "indexes": {"data": 1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xb0de090b1e01bd09ac6b1d9224229302ed48fd47"): Account(
+                Address(0xB0DE090B1E01BD09AC6B1D9224229302ED48FD47): Account(
                     storage={1: 0, 2: 0}, balance=0, nonce=1
                 ),
             },

@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -137,10 +138,10 @@ def test_init_colliding_with_non_empty_account(
         ),
         contract_1: Account(balance=0),
         Address(
-            "0x05cd8493115c3299094a269e839e2f5f25691785"
+            0x05CD8493115C3299094A269E839E2F5F25691785
         ): Account.NONEXISTENT,
-        Address(
-            "0xa42676447b7cedfa5fde894d1d3df24aab362701"
+        compute_create_address(
+            address=contract_0, nonce=0
         ): Account.NONEXISTENT,
         sender: Account(nonce=1),
     }

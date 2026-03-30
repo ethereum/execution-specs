@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -76,8 +77,8 @@ def test_create_name_registrator_pre_store1_not_enough_gas(
 
     post = {
         contract_0: Account(nonce=1),
-        Address(
-            "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+        compute_create_address(
+            address=contract_0, nonce=0
         ): Account.NONEXISTENT,
     }
 

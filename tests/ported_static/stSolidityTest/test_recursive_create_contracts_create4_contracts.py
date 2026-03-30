@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -268,17 +269,17 @@ def test_recursive_create_contracts_create4_contracts(
             },
             nonce=3,
         ),
-        Address("0x2b25ae4b13cb6e06869f694d29de45e7614ebd97"): Account(
+        Address(0x2B25AE4B13CB6E06869F694D29DE45E7614EBD97): Account(
             storage={0: 1}, nonce=1
         ),
-        Address("0x5d35480c6e7f8952363fa280a0a96906da981f63"): Account(
+        compute_create_address(address=contract_0, nonce=2): Account(
             balance=2, nonce=1
         ),
         sender: Account(nonce=1),
-        Address("0xb88de88b35ecbf3c141e3caae2baf35834d18f63"): Account(
+        compute_create_address(address=contract_0, nonce=1): Account(
             storage={0: 2}, balance=2, nonce=2
         ),
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
+        compute_create_address(address=contract_0, nonce=0): Account(
             storage={0: 3}, nonce=1
         ),
     }

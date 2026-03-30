@@ -528,7 +528,7 @@ def test_callcode_to_precompile_from_contract_initialization(
             },
             balance=1100,
         ),
-        Address("0xb2bc42a2d3b34f228ba399e53ab6f1b3d2672177"): Account(
+        Address(0xB2BC42A2D3B34F228BA399E53AB6F1B3D2672177): Account(
             storage={
                 0: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501
                 1: 0xFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEEDFEED,  # noqa: E501

@@ -944,7 +944,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0xcfb6834f84b9e726f5f8aef446d585b732abdd99"): Account(
+                Address(0xCFB6834F84B9E726F5F8AEF446D585B732ABDD99): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -954,7 +954,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0xd615c5eaff84f487cff253b50dc18517fc8385b0"): Account(
+                Address(0xD615C5EAFF84F487CFF253B50DC18517FC8385B0): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -964,7 +964,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0x0d44b2ad06c5c9f9a86c9edf8d13fb7d44fe756c"): Account(
+                Address(0x0D44B2AD06C5C9F9A86C9EDF8D13FB7D44FE756C): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -974,7 +974,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0x858ec13538276b49d5ece2a408c8331ccb79ad89"): Account(
+                Address(0x858EC13538276B49D5ECE2A408C8331CCB79AD89): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -989,28 +989,28 @@ def test_create2_oog_from_call_refunds(
             "result": {
                 sender: Account(balance=0, nonce=2),
                 Address(
-                    "0x95e88628c53b5c0e40ff6de65a3cf8cdc3b477f7"
+                    0x95E88628C53B5C0E40FF6DE65A3CF8CDC3B477F7
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x66e1cc2616a273450621c8cc5e91d8cfd92494fa"
+                    0x66E1CC2616A273450621C8CC5E91D8CFD92494FA
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x6175ba9976476425b1cda8e1da479768fb429542"
+                    0x6175BA9976476425B1CDA8E1DA479768FB429542
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x8dff0e448f1e078e9b8a7fcf0bf6c291f167aaef"
+                    0x8DFF0E448F1E078E9B8A7FCF0BF6C291F167AAEF
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xa2c4270800a5dbeea48464e5f2420efb1747725a"
+                    0xA2C4270800A5DBEEA48464E5F2420EFB1747725A
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x4d80f1150ee236adfaab47c70df90e757cef1141"
+                    0x4D80F1150EE236ADFAAB47C70DF90E757CEF1141
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x0566dc8dabc80fad3ed9ab2b4309ebfd98894f44"
+                    0x0566DC8DABC80FAD3ED9AB2B4309EBFD98894F44
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x55305cc46bdaf1e755a05a771d55cfec3fedef90"
+                    0x55305CC46BDAF1E755A05A771D55CFEC3FEDEF90
                 ): Account.NONEXISTENT,
             },
         },
@@ -1019,7 +1019,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0xd83e541aa11c5ae1e9c847aa1728d5bc47d32faf"): Account(
+                Address(0xD83E541AA11C5AE1E9C847AA1728D5BC47D32FAF): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
                 contract_26: Account(balance=0, nonce=1),
@@ -1031,10 +1031,10 @@ def test_create2_oog_from_call_refunds(
             "result": {
                 sender: Account(balance=0, nonce=2),
                 Address(
-                    "0x8f6e6c741ac95c1a9109850ea1a3ffc722dc3bf8"
+                    0x8F6E6C741AC95C1A9109850EA1A3FFC722DC3BF8
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x1f5d187bb3a48dbb2c011d0a6e731ac8131799ad"
+                    0x1F5D187BB3A48DBB2C011D0A6E731AC8131799AD
                 ): Account.NONEXISTENT,
                 contract_26: Account(
                     storage={1: 1}, code=bytes.fromhex("32ff"), nonce=1
@@ -1046,7 +1046,7 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0x2a2141ed764598d4c5a8b6e036987928d5ec6bea"): Account(
+                Address(0x2A2141ED764598D4C5A8B6E036987928D5EC6BEA): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -1057,10 +1057,10 @@ def test_create2_oog_from_call_refunds(
             "result": {
                 sender: Account(balance=0, nonce=2),
                 Address(
-                    "0x74b39291dfc237c0d42fd15457754778f51c6de8"
+                    0x74B39291DFC237C0D42FD15457754778F51C6DE8
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x3399c78929eab89c673a8986ff7ca9ccc49db454"
+                    0x3399C78929EAB89C673A8986FF7CA9CCC49DB454
                 ): Account.NONEXISTENT,
             },
         },
@@ -1069,10 +1069,10 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0xdeb7d920f2653a8eddcffca0a77f56fcd788c00a"): Account(
+                Address(0xDEB7D920F2653A8EDDCFFCA0A77F56FCD788C00A): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=2
                 ),
-                Address("0x8109d28de74bfac2f298ec019548b8c346e51310"): Account(
+                Address(0x8109D28DE74BFAC2F298EC019548B8C346E51310): Account(
                     storage={}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -1083,16 +1083,16 @@ def test_create2_oog_from_call_refunds(
             "result": {
                 sender: Account(balance=0, nonce=2),
                 Address(
-                    "0xf922b2f70110c83f8ec7df512b41bac5627e8e59"
+                    0xF922B2F70110C83F8EC7DF512B41BAC5627E8E59
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x2ca788d22e21134ab1909266ed3b6c352e2a07cb"
+                    0x2CA788D22E21134AB1909266ED3B6C352E2A07CB
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x398426e736801fe712df1ef078a3b6ca3c6f063b"
+                    0x398426E736801FE712DF1EF078A3B6CA3C6F063B
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xb520686759ced3bc9d8898e02ee41623032ff47f"
+                    0xB520686759CED3BC9D8898E02EE41623032FF47F
                 ): Account.NONEXISTENT,
             },
         },
@@ -1101,10 +1101,10 @@ def test_create2_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0x5a2664b55822aa3c6d9d90fec18b4c87cde07d04"): Account(
+                Address(0x5A2664B55822AA3C6D9D90FEC18B4C87CDE07D04): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=2
                 ),
-                Address("0x442ed1b502544d146e46b5d9849a476aebd3b8db"): Account(
+                Address(0x442ED1B502544D146E46B5D9849A476AEBD3B8DB): Account(
                     storage={}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -1115,16 +1115,16 @@ def test_create2_oog_from_call_refunds(
             "result": {
                 sender: Account(balance=0, nonce=2),
                 Address(
-                    "0xdd2c53bfcaf5c1d698a2b21c0908f15f7fbfd635"
+                    0xDD2C53BFCAF5C1D698A2B21C0908F15F7FBFD635
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x2d556bdbcc37c7a021879a21abe25d1850d4fd36"
+                    0x2D556BDBCC37C7A021879A21ABE25D1850D4FD36
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xa99da4ea490335c986d52b0cc9e3f78b286ac5fc"
+                    0xA99DA4EA490335C986D52B0CC9E3F78B286AC5FC
                 ): Account.NONEXISTENT,
                 Address(
-                    "0xb4ab8ab0d363765586925e35c715e342e4ae3c63"
+                    0xB4AB8AB0D363765586925E35C715E342E4AE3C63
                 ): Account.NONEXISTENT,
             },
         },

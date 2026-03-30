@@ -51,7 +51,7 @@ def test_high_gas_limit(
 
     tx = Transaction(
         sender=sender,
-        to=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
+        to=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
         data=Bytes("3240349548983454"),
         gas_limit=100000,
         value=900,
@@ -59,7 +59,7 @@ def test_high_gas_limit(
 
     post = {
         sender: Account(nonce=1),
-        Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"): Account(
+        Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B): Account(
             balance=900
         ),
     }

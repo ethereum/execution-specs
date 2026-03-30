@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -71,8 +72,8 @@ def test_create2_oo_gafter_init_code_returndata_size(
 
     post = {
         contract_0: Account(balance=1),
-        Address(
-            "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+        compute_create_address(
+            address=contract_0, nonce=0
         ): Account.NONEXISTENT,
     }
 

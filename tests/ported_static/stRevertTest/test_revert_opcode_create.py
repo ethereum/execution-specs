@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -90,8 +91,8 @@ def test_revert_opcode_create(
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+                compute_create_address(
+                    address=contract_0, nonce=0
                 ): Account.NONEXISTENT,
                 contract_0: Account(storage={0: 12, 1: 0}, nonce=1),
             },
@@ -100,8 +101,8 @@ def test_revert_opcode_create(
             "indexes": {"data": -1, "gas": 1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address(
-                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+                compute_create_address(
+                    address=contract_0, nonce=0
                 ): Account.NONEXISTENT,
                 contract_0: Account(nonce=0),
             },

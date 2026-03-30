@@ -124,7 +124,7 @@ def test_ext_code_copy_tests_paris(
             },
         ),
         Address(
-            "0xbbbf5374fce5edbc8e2a8697c15331677e6ebf0b"
+            0xBBBF5374FCE5EDBC8E2A8697C15331677E6EBF0B
         ): Account.NONEXISTENT,
         contract_1: Account(balance=10),
         contract_2: Account(nonce=1),

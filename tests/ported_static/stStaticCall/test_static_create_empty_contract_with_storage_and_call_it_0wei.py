@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -108,9 +109,7 @@ def test_static_create_empty_contract_with_storage_and_call_it_0wei(
                 100: 0x64766,
             },
         ),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-            nonce=1
-        ),
+        compute_create_address(address=contract_0, nonce=0): Account(nonce=1),
         contract_1: Account(storage={1: 12}),
     }
 

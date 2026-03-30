@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -72,9 +73,7 @@ def test_recursive_create_return_value(
     )
 
     post = {
-        Address("0xd2571607e241ecf590ed94b12d87c94babe36db6"): Account(
-            nonce=2
-        ),
+        compute_create_address(address=contract_0, nonce=0): Account(nonce=2),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

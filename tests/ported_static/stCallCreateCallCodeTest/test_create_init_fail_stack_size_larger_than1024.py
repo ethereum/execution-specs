@@ -76,7 +76,7 @@ def test_create_init_fail_stack_size_larger_than1024(
     )
 
     post = {
-        Address("0x0000000000000000000000000000000000000000"): Account(
+        Address(0x0000000000000000000000000000000000000000): Account(
             balance=0xDE0B6B3A76586A0
         ),
     }

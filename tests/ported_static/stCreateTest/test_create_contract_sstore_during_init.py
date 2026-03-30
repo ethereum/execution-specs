@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -55,7 +56,7 @@ def test_create_contract_sstore_during_init(
     )
 
     post = {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+        compute_create_address(address=sender, nonce=0): Account(
             storage={0: 255}
         ),
     }

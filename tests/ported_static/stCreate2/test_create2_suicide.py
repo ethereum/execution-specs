@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -138,13 +139,13 @@ def test_create2_suicide(
             "network": [">=Cancun"],
             "result": {
                 Address(
-                    "0x0000000000000000000000000000000000000001"
+                    0x0000000000000000000000000000000000000001
                 ): Account.NONEXISTENT,
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=2
                 ),
                 Address(
-                    "0x5649527a8464a86cae579719d347065f6eb27279"
+                    0x5649527A8464A86CAE579719D347065F6EB27279
                 ): Account.NONEXISTENT,
             },
         },
@@ -152,14 +153,14 @@ def test_create2_suicide(
             "indexes": {"data": [2, 3], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000001"): Account(
+                Address(0x0000000000000000000000000000000000000001): Account(
                     balance=1
                 ),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=2
                 ),
                 Address(
-                    "0x5649527a8464a86cae579719d347065f6eb27279"
+                    0x5649527A8464A86CAE579719D347065F6EB27279
                 ): Account.NONEXISTENT,
             },
         },
@@ -167,11 +168,11 @@ def test_create2_suicide(
             "indexes": {"data": [4, 5], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=2
                 ),
                 Address(
-                    "0x6cd0e5133771823da00d4cb545ec8cdab0e38203"
+                    0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203
                 ): Account.NONEXISTENT,
             },
         },
@@ -179,11 +180,11 @@ def test_create2_suicide(
             "indexes": {"data": [6, 7], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     balance=9, nonce=2
                 ),
                 Address(
-                    "0x6cd0e5133771823da00d4cb545ec8cdab0e38203"
+                    0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203
                 ): Account.NONEXISTENT,
             },
         },
@@ -191,10 +192,10 @@ def test_create2_suicide(
             "indexes": {"data": [8, 9], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=2
                 ),
-                Address("0x5649527a8464a86cae579719d347065f6eb27279"): Account(
+                Address(0x5649527A8464A86CAE579719D347065F6EB27279): Account(
                     code=bytes.fromhex("6001ff")
                 ),
             },
@@ -203,10 +204,10 @@ def test_create2_suicide(
             "indexes": {"data": [10, 11], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=2
                 ),
-                Address("0x6cd0e5133771823da00d4cb545ec8cdab0e38203"): Account(
+                Address(0x6CD0E5133771823DA00D4CB545EC8CDAB0E38203): Account(
                     code=bytes.fromhex("30ff")
                 ),
             },

@@ -51,14 +51,14 @@ def test_transaction_to_addressh160minus_one(
 
     tx = Transaction(
         sender=sender,
-        to=Address("0xffffffffffffffffffffffffffffffffffffffff"),
+        to=Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF),
         data=Bytes(""),
         gas_limit=22000,
         value=100,
     )
 
     post = {
-        Address("0xffffffffffffffffffffffffffffffffffffffff"): Account(
+        Address(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF): Account(
             balance=100
         ),
     }

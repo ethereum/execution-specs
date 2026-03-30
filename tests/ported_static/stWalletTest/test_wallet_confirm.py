@@ -94,7 +94,7 @@ def test_wallet_confirm(
     post = {
         sender: Account(storage={}, code=b"", nonce=1),
         contract_0: Account(storage={}, nonce=1),
-        Address("0xaaaf5374fce5edbc8e2a8697c15331677e6ebaaa"): Account(
+        Address(0xAAAF5374FCE5EDBC8E2A8697C15331677E6EBAAA): Account(
             storage={}, code=b"", balance=9, nonce=0
         ),
         contract_1: Account(

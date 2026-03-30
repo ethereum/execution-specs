@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -130,11 +131,9 @@ def test_create2collision_selfdestructed_oog(
         contract_1: Account(code=bytes.fromhex("6010ff00"), balance=1),
         contract_2: Account(code=bytes.fromhex("6010ff00"), balance=1),
         Address(
-            "0x0000000000000000000000000000000000000010"
+            0x0000000000000000000000000000000000000010
         ): Account.NONEXISTENT,
-        Address(
-            "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
-        ): Account.NONEXISTENT,
+        compute_create_address(address=sender, nonce=0): Account.NONEXISTENT,
         sender: Account(nonce=1),
     }
 

@@ -109,7 +109,7 @@ def test_modexp_random_input(
 
     tx = Transaction(
         sender=sender,
-        to=Address("0x0000000000000000000000000000000000000005"),
+        to=Address(0x0000000000000000000000000000000000000005),
         data=tx_data[d],
         gas_limit=tx_gas[g],
     )

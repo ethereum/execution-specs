@@ -16,6 +16,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -877,7 +878,7 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     storage={
                         0: 0x38600060013960015160005560006000F3000000000000000000000000000000,  # noqa: E501
                     },
@@ -890,7 +891,7 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=1
                 ),
             },
@@ -900,7 +901,7 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=1
                 ),
             },
@@ -910,7 +911,7 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=2
                 ),
             },
@@ -920,7 +921,7 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=1
                 ),
             },
@@ -930,7 +931,7 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=1
                 ),
             },
@@ -940,8 +941,8 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                compute_create_address(
+                    address=sender, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -950,8 +951,8 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                compute_create_address(
+                    address=sender, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -1085,7 +1086,7 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=1
                 ),
             },
@@ -1095,8 +1096,8 @@ def test_opcodes_transaction_init(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                compute_create_address(
+                    address=sender, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -1106,7 +1107,7 @@ def test_opcodes_transaction_init(
             "result": {
                 sender: Account(nonce=1),
                 contract_0: Account(storage={0: 1, 1: 0}),
-                Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
+                compute_create_address(address=sender, nonce=0): Account(
                     nonce=1
                 ),
             },
@@ -1117,8 +1118,8 @@ def test_opcodes_transaction_init(
             "result": {
                 sender: Account(nonce=1),
                 contract_0: Account(storage={}),
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                compute_create_address(
+                    address=sender, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -1128,8 +1129,8 @@ def test_opcodes_transaction_init(
             "result": {
                 sender: Account(nonce=1),
                 contract_0: Account(storage={}),
-                Address(
-                    "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+                compute_create_address(
+                    address=sender, nonce=0
                 ): Account.NONEXISTENT,
             },
         },

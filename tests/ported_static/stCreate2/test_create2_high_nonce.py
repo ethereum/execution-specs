@@ -83,7 +83,7 @@ def test_create2_high_nonce(
         sender: Account(nonce=1),
         contract_0: Account(storage={0: 0, 1: 1}, nonce=18446744073709551615),
         Address(
-            "0x77dd5d2a2b742ca01ee2cfff306445e3741ef744"
+            0x77DD5D2A2B742CA01EE2CFFF306445E3741EF744
         ): Account.NONEXISTENT,
     }
 

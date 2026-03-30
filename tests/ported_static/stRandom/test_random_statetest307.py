@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -95,14 +96,14 @@ def test_random_statetest307(
     post = {
         contract_0: Account(storage={}, nonce=0),
         Address(
-            "0x62c01474f089b07dae603491675dc5b5748f7049"
+            0x62C01474F089B07DAE603491675DC5B5748F7049
         ): Account.NONEXISTENT,
         Address(
-            "0x91ed00a0a906270d466af043c4e111dadca970a3"
+            0x91ED00A0A906270D466AF043C4E111DADCA970A3
         ): Account.NONEXISTENT,
         coinbase: Account(storage={}, nonce=0),
-        Address(
-            "0xd2571607e241ecf590ed94b12d87c94babe36db6"
+        compute_create_address(
+            address=contract_0, nonce=0
         ): Account.NONEXISTENT,
     }
 

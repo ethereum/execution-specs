@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -151,7 +152,7 @@ def test_create_init_code_size_limit(
                         10: 46323,
                     },
                 ),
-                Address("0x5f6baaeb5b7c97725f84d1569c4abc85135f4716"): Account(
+                compute_create_address(address=contract_1, nonce=1): Account(
                     storage={},
                     code=bytes.fromhex("600a80600080396000f3"),
                     balance=0,
@@ -167,7 +168,7 @@ def test_create_init_code_size_limit(
                 contract_0: Account(storage={0: 0, 1: 1}, nonce=1),
                 contract_1: Account(storage={}),
                 Address(
-                    "0x682327124c5d2dc0cd2158ba65d37ac3d2140c91"
+                    0x682327124C5D2DC0CD2158BA65D37AC3D2140C91
                 ): Account.NONEXISTENT,
             },
         },

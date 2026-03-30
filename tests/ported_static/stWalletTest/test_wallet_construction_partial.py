@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
@@ -60,7 +61,7 @@ def test_wallet_construction_partial(
 
     post = {
         sender: Account(storage={}, nonce=2),
-        Address("0xec0e71ad0a90ffe1909d27dac207f7680abba42d"): Account(
+        compute_create_address(address=sender, nonce=1): Account(
             storage={
                 0: 1,
                 1: 1,

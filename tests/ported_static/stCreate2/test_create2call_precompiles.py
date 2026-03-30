@@ -190,7 +190,7 @@ def test_create2call_precompiles(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0xf68e26002db0f9ca9b54367c57c25e474c581622"): Account(
+                Address(0xF68E26002DB0F9CA9B54367C57C25E474C581622): Account(
                     storage={
                         0: 0xA94F5374FCE5EDBC8E2A8697C15331677E6EBF0B,
                         1: 1,
@@ -204,7 +204,7 @@ def test_create2call_precompiles(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x3b9ea59b92545beb727022289665cf38fa462bae"): Account(
+                Address(0x3B9EA59B92545BEB727022289665CF38FA462BAE): Account(
                     storage={
                         0: 0xCB39B3BDE22925B2F931111130C774761D8895E0E08437C9B396C1E97D10F34D,  # noqa: E501
                         2: 1,
@@ -217,7 +217,7 @@ def test_create2call_precompiles(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x7525f19e2970539fd2897357777a4c275175bcf5"): Account(
+                Address(0x7525F19E2970539FD2897357777A4C275175BCF5): Account(
                     storage={
                         0: 0x9C1185A5C5E9FC54612808977EE8F548B2258D31,
                         2: 1,
@@ -230,7 +230,7 @@ def test_create2call_precompiles(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x0ee431db7c48fc10a9a56c909bfefa87661442fb"): Account(
+                Address(0x0EE431DB7C48FC10A9A56C909BFEFA87661442FB): Account(
                     storage={0: 0xF34578907F, 2: 1}
                 ),
             },
@@ -240,7 +240,7 @@ def test_create2call_precompiles(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0xbbd394930b408da783ee071ced240ece997bc8b2"): Account(
+                Address(0xBBD394930B408DA783EE071CED240ECE997BC8B2): Account(
                     storage={
                         1: 1,
                         2: 0x162EAD82CADEFAEAF6E9283248FDF2F2845F6396F6F17C4D5A39F820B6F6B5F9,  # noqa: E501
@@ -253,7 +253,7 @@ def test_create2call_precompiles(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0x2e3ec33a50ed32c2fcbef07a1bab8643db4dc670"): Account(
+                Address(0x2E3EC33A50ED32C2FCBEF07A1BAB8643DB4DC670): Account(
                     storage={0: 1, 2: 0}
                 ),
             },
@@ -263,7 +263,7 @@ def test_create2call_precompiles(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0xaa0ab87aa0e27e22e21671040c11f3537cdc7b3e"): Account(
+                Address(0xAA0AB87AA0E27E22E21671040C11F3537CDC7B3E): Account(
                     storage={
                         0: 1,
                         1: 0x1F4D1D80177B1377743D1901F70D7389BE7F7A35A35BFD234A8AAEE615B88C49,  # noqa: E501
@@ -277,7 +277,7 @@ def test_create2call_precompiles(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=1),
-                Address("0xab7cf4e4980432e892fa512ec2b9e8532c23ac15"): Account(
+                Address(0xAB7CF4E4980432E892FA512EC2B9E8532C23AC15): Account(
                     storage={
                         0: 1,
                         1: 1,

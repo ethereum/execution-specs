@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 
@@ -217,9 +218,7 @@ def test_stack_overflow_m1(
     )
 
     post = {
-        Address("0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"): Account(
-            balance=1
-        ),
+        compute_create_address(address=sender, nonce=0): Account(balance=1)
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

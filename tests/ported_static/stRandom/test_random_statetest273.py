@@ -91,7 +91,7 @@ def test_random_statetest273(
     )
 
     post = {
-        Address("0x0000000000000000000000000000000000000001"): Account(
+        Address(0x0000000000000000000000000000000000000001): Account(
             storage={},
             code=b"",
             balance=0xDE0B6B3A76586A0,

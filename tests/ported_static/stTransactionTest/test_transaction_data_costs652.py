@@ -77,7 +77,7 @@ def test_transaction_data_costs652(
 
     tx = Transaction(
         sender=sender,
-        to=Address("0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b"),
+        to=Address(0xB94F5374FCE5EDBC8E2A8697C15331677E6EBF0B),
         data=tx_data[d],
         gas_limit=tx_gas[g],
     )

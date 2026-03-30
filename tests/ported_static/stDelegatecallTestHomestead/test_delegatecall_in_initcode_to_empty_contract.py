@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -76,7 +77,7 @@ def test_delegatecall_in_initcode_to_empty_contract(
     )
 
     post = {
-        Address("0x13136008b64ff592819b2fa6d43f2835c452020e"): Account(
+        compute_create_address(address=contract_0, nonce=0): Account(
             storage={0: 1}, balance=1
         ),
     }

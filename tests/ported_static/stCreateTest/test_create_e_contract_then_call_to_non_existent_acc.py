@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -91,11 +92,9 @@ def test_create_e_contract_then_call_to_non_existent_acc(
                 100: 0x6F50B,
             },
         ),
-        Address("0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"): Account(
-            nonce=1
-        ),
+        compute_create_address(address=contract_0, nonce=0): Account(nonce=1),
         Address(
-            "0xe1ecf98489fa9ed60a664fc4998db699cfa39d40"
+            0xE1ECF98489FA9ED60A664FC4998DB699CFA39D40
         ): Account.NONEXISTENT,
     }
 

@@ -69,7 +69,7 @@ def test_create_contract_via_contract_oog_init_code(
 
     post = {
         Address(
-            "0x4ff884bffc83e888ae11b32b1d94bf9bc8d1732f"
+            0x4FF884BFFC83E888AE11B32B1D94BF9BC8D1732F
         ): Account.NONEXISTENT,
     }
 

@@ -234,9 +234,9 @@ def test_double_selfdestruct_test(
             "network": [">=Cancun"],
             "result": {
                 Address(
-                    "0x0000000000000000000000000000000000001001"
+                    0x0000000000000000000000000000000000001001
                 ): Account.NONEXISTENT,
-                Address("0x0000000000000000000000000000000000001002"): Account(
+                Address(0x0000000000000000000000000000000000001002): Account(
                     balance=0xF4241
                 ),
             },
@@ -245,11 +245,11 @@ def test_double_selfdestruct_test(
             "indexes": {"data": [3, 7], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000001001"): Account(
+                Address(0x0000000000000000000000000000000000001001): Account(
                     balance=0xF4241, nonce=0
                 ),
                 Address(
-                    "0x0000000000000000000000000000000000001002"
+                    0x0000000000000000000000000000000000001002
                 ): Account.NONEXISTENT,
                 contract_0: Account(nonce=1),
             },
@@ -258,7 +258,7 @@ def test_double_selfdestruct_test(
             "indexes": {"data": [4, 5, 6], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000001001"): Account(
+                Address(0x0000000000000000000000000000000000001001): Account(
                     balance=0xF4241, nonce=0
                 ),
                 contract_0: Account(nonce=1),

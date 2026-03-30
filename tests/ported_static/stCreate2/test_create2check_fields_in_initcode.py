@@ -352,7 +352,7 @@ def test_create2check_fields_in_initcode(
             "indexes": {"data": [0, 4], "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xdaf9f53e732f21fe517e624b6dfe92dc8d0e51e0"): Account(
+                Address(0xDAF9F53E732F21FE517E624B6DFE92DC8D0E51E0): Account(
                     storage={
                         0: 0xDAF9F53E732F21FE517E624B6DFE92DC8D0E51E0,
                         1: 0,
@@ -373,7 +373,7 @@ def test_create2check_fields_in_initcode(
             "indexes": {"data": 1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xdfad1c567f12d848fabb8d9d8872c42e7aa81e95"): Account(
+                Address(0xDFAD1C567F12D848FABB8D9D8872C42E7AA81E95): Account(
                     storage={
                         0: 0xDFAD1C567F12D848FABB8D9D8872C42E7AA81E95,
                         1: 0,
@@ -394,7 +394,7 @@ def test_create2check_fields_in_initcode(
             "indexes": {"data": 2, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x3ff16480055c6ccc070257c61fa902448f4ae111"): Account(
+                Address(0x3FF16480055C6CCC070257C61FA902448F4AE111): Account(
                     storage={
                         0: 0x3FF16480055C6CCC070257C61FA902448F4AE111,
                         1: 0,
@@ -420,7 +420,7 @@ def test_create2check_fields_in_initcode(
             "indexes": {"data": 5, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x7ce21e3c16d63738cbbb697c919555c910504278"): Account(
+                Address(0x7CE21E3C16D63738CBBB697C919555C910504278): Account(
                     storage={
                         0: 0x7CE21E3C16D63738CBBB697C919555C910504278,
                         1: 0,
@@ -441,7 +441,7 @@ def test_create2check_fields_in_initcode(
             "indexes": {"data": 6, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0xbb1b88ea45d33397f45583ca612adea3eb267318"): Account(
+                Address(0xBB1B88EA45D33397F45583CA612ADEA3EB267318): Account(
                     storage={
                         0: 0xBB1B88EA45D33397F45583CA612ADEA3EB267318,
                         1: 0,

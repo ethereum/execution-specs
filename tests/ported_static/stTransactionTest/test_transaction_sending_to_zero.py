@@ -49,14 +49,14 @@ def test_transaction_sending_to_zero(
 
     tx = Transaction(
         sender=sender,
-        to=Address("0x0000000000000000000000000000000000000000"),
+        to=Address(0x0000000000000000000000000000000000000000),
         data=Bytes(""),
         gas_limit=25000,
         value=1,
     )
 
     post = {
-        Address("0x0000000000000000000000000000000000000000"): Account(
+        Address(0x0000000000000000000000000000000000000000): Account(
             balance=1
         ),
         sender: Account(nonce=1),

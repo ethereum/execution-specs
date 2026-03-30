@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -72,8 +73,8 @@ def test_contract_creation_oo_gdont_leave_empty_contract(
     )
 
     post = {
-        Address(
-            "0x5dddfce53ee040d9eb21afbc0ae1bb4dbb0ba643"
+        compute_create_address(
+            address=contract_0, nonce=0
         ): Account.NONEXISTENT,
     }
 

@@ -79,7 +79,7 @@ def test_zero_value_callcode(
 
     post = {
         Address(
-            "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b"
+            0xC94F5374FCE5EDBC8E2A8697C15331677E6EBF0B
         ): Account.NONEXISTENT,
         contract_0: Account(storage={0: 0x8D5B6, 1: 1, 100: 1}),
     }

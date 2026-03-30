@@ -110,7 +110,7 @@ def test_suicides_and_internal_call_suicides_success(
             "network": [">=Cancun"],
             "result": {
                 Address(
-                    "0x0000000000000000000000000000000000000001"
+                    0x0000000000000000000000000000000000000001
                 ): Account.NONEXISTENT,
             },
         },
@@ -118,7 +118,7 @@ def test_suicides_and_internal_call_suicides_success(
             "indexes": {"data": 1, "gas": -1, "value": -1},
             "network": [">=Cancun"],
             "result": {
-                Address("0x0000000000000000000000000000000000000001"): Account(
+                Address(0x0000000000000000000000000000000000000001): Account(
                     storage={}, balance=1
                 ),
             },

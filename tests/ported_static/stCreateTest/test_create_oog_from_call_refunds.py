@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -940,7 +941,7 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                compute_create_address(address=contract_0, nonce=1): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -954,8 +955,8 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(balance=0, nonce=2),
-                Address(
-                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                compute_create_address(
+                    address=contract_0, nonce=1
                 ): Account.NONEXISTENT,
             },
         },
@@ -964,7 +965,7 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                compute_create_address(address=contract_0, nonce=1): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
                 contract_26: Account(balance=0, nonce=1),
@@ -975,8 +976,8 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(balance=0, nonce=2),
-                Address(
-                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                compute_create_address(
+                    address=contract_0, nonce=1
                 ): Account.NONEXISTENT,
                 contract_26: Account(
                     storage={1: 1}, code=bytes.fromhex("32ff"), nonce=1
@@ -988,7 +989,7 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                compute_create_address(address=contract_0, nonce=1): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -998,8 +999,8 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(balance=0, nonce=2),
-                Address(
-                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                compute_create_address(
+                    address=contract_0, nonce=1
                 ): Account.NONEXISTENT,
             },
         },
@@ -1008,10 +1009,10 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                compute_create_address(address=contract_0, nonce=1): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=2
                 ),
-                Address("0x522c2e1c5da65010908ef9929e327fe8b6cc86da"): Account(
+                Address(0x522C2E1C5DA65010908EF9929E327FE8B6CC86DA): Account(
                     storage={}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -1021,11 +1022,11 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(balance=0, nonce=2),
-                Address(
-                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                compute_create_address(
+                    address=contract_0, nonce=1
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x522c2e1c5da65010908ef9929e327fe8b6cc86da"
+                    0x522C2E1C5DA65010908EF9929E327FE8B6CC86DA
                 ): Account.NONEXISTENT,
             },
         },
@@ -1034,10 +1035,10 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(nonce=2),
-                Address("0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"): Account(
+                compute_create_address(address=contract_0, nonce=1): Account(
                     storage={0: 1}, code=bytes.fromhex("00"), nonce=2
                 ),
-                Address("0x06019547b6e360abdafeade158a9667cc6106c17"): Account(
+                Address(0x06019547B6E360ABDAFEADE158A9667CC6106C17): Account(
                     storage={}, code=bytes.fromhex("00"), nonce=1
                 ),
             },
@@ -1047,11 +1048,11 @@ def test_create_oog_from_call_refunds(
             "network": [">=Cancun"],
             "result": {
                 sender: Account(balance=0, nonce=2),
-                Address(
-                    "0x4501f8fa1e67827ebfb1f6d5510c606871c5a599"
+                compute_create_address(
+                    address=contract_0, nonce=1
                 ): Account.NONEXISTENT,
                 Address(
-                    "0x06019547b6e360abdafeade158a9667cc6106c17"
+                    0x06019547B6E360ABDAFEADE158A9667CC6106C17
                 ): Account.NONEXISTENT,
             },
         },

@@ -100,7 +100,7 @@ def test_create2_recursive(
             "indexes": {"data": -1, "gas": 0, "value": -1},
             "network": [">=Cancun<Osaka"],
             "result": {
-                Address("0x4b17a07e119e86a0ff1fd21cdc9b4aba196ed3f8"): Account(
+                Address(0x4B17A07E119E86A0FF1FD21CDC9B4ABA196ED3F8): Account(
                     nonce=1
                 ),
             },
@@ -110,7 +110,7 @@ def test_create2_recursive(
             "network": [">=Cancun<Osaka"],
             "result": {
                 Address(
-                    "0x4b17a07e119e86a0ff1fd21cdc9b4aba196ed3f8"
+                    0x4B17A07E119E86A0FF1FD21CDC9B4ABA196ED3F8
                 ): Account.NONEXISTENT,
             },
         },
@@ -118,7 +118,7 @@ def test_create2_recursive(
             "indexes": {"data": -1, "gas": 2, "value": -1},
             "network": [">=Cancun<Osaka"],
             "result": {
-                Address("0x471a0e624a2ac11c82cf1ff843127f1c6aa98351"): Account(
+                Address(0x471A0E624A2AC11C82CF1FF843127F1C6AA98351): Account(
                     nonce=1
                 ),
             },

@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.vm import Op
 
@@ -83,7 +84,7 @@ def test_loop_calls_depth_then_revert2(
     )
 
     post = {
-        Address("0x7db299e0885c85039f56fa504a13dd8ce8a56aa7"): Account(
+        compute_create_address(address=contract_0, nonce=0): Account(
             balance=3, nonce=1
         ),
     }

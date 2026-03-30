@@ -15,6 +15,7 @@ from execution_testing import (
     Hash,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.specs.static_state.expect_section import (
@@ -152,8 +153,8 @@ def test_create_oo_gafter_init_code_revert2(
                 contract_1: Account(
                     storage={1: 0x6460016001556000526005601BF3}
                 ),
-                Address(
-                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+                compute_create_address(
+                    address=contract_3, nonce=0
                 ): Account.NONEXISTENT,
             },
         },
@@ -162,8 +163,8 @@ def test_create_oo_gafter_init_code_revert2(
             "network": [">=Cancun"],
             "result": {
                 contract_2: Account(storage={1: 0}),
-                Address(
-                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40"
+                compute_create_address(
+                    address=contract_3, nonce=0
                 ): Account.NONEXISTENT,
             },
         },

@@ -15,6 +15,7 @@ from execution_testing import (
     Environment,
     StateTestFiller,
     Transaction,
+    compute_create_address,
 )
 from execution_testing.forks import Fork
 from execution_testing.vm import Op
@@ -104,11 +105,11 @@ def test_create_bounds(
 
     post = {
         contract_0: Account(balance=100),
-        Address(
-            "0x13136008b64ff592819b2fa6d43f2835c452020e"
+        compute_create_address(
+            address=contract_0, nonce=0
         ): Account.NONEXISTENT,
-        Address(
-            "0x7c5a2c91b22d7a9226523d4ba717db6afb741ebd"
+        compute_create_address(
+            address=contract_0, nonce=1
         ): Account.NONEXISTENT,
     }
 
