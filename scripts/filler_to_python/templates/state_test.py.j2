@@ -3,7 +3,7 @@
 
     Parametrize approach: always (d, g, v).
     Transaction fields are looked up from module-level arrays:
-        TX_DATA[d], TX_GAS[g], TX_VALUE[v]
+        tx_data[d], tx_gas[g], tx_value[v]
     Post-state and exceptions are resolved at runtime:
         resolve_expect_post(expect_entries_, d, g, v, fork)
 
@@ -115,6 +115,7 @@ from execution_testing.specs.static_state.expect_section import (
 {% endif %}
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
+REFERENCE_SPEC_VERSION = "N/A"
 
 {% if needs_storage_any %}
 def _storage_with_any(base: dict, any_keys: list) -> Storage:
@@ -124,44 +125,6 @@ def _storage_with_any(base: dict, any_keys: list) -> Storage:
         s.set_expect_any(k)
     return s
 
-{% endif %}
-REFERENCE_SPEC_VERSION = "N/A"
-
-{% if is_multi_case %}
-{# Module-level arrays: tx fields indexed by d, g, v #}
-TX_DATA = [
-{% for d in tx_data %}
-    {{ d }},
-{% endfor %}
-]
-TX_GAS = [{{ tx_gas | join(", ") }}]
-TX_VALUE = [{{ tx_value | join(", ") }}]
-
-
-{% if tx.per_data_access_lists %}
-TX_ACCESS_LISTS: dict[int, list] = {
-{% for d_idx, al_entries in tx.per_data_access_lists.items() %}
-    {{ d_idx }}: [
-{% for al in al_entries %}
-        AccessList(
-            address=Address({{ al.address }}),
-            storage_keys=[
-{% for sk in al.storage_keys %}
-                Hash("{{ sk }}"),  # noqa: E501
-{% endfor %}
-            ],
-        ),
-{% endfor %}
-    ],
-{% endfor %}
-}
-
-
-def _tx_access_list(d: int) -> list | None:
-    """Get access list for data index d. None means no access list (legacy tx)."""
-    return TX_ACCESS_LISTS.get(d)
-
-{% endif %}
 {% endif %}
 
 @pytest.mark.ported_from(
@@ -304,6 +267,38 @@ def {{ test_name }}(
 {% endif %}
 {% endif %}
 
+{% if is_multi_case %}
+{# Case value arrays: tx fields indexed by d, g, v #}
+    tx_data = [
+    {% for d in tx_data %}
+        {{ d }},
+    {% endfor %}
+    ]
+    tx_gas = [{{ tx_gas | join(", ") }}]
+    tx_value = [{{ tx_value | join(", ") }}]
+
+
+    {% if tx.per_data_access_lists %}
+    tx_access_lists: dict[int, list] = {
+    {% for d_idx, al_entries in tx.per_data_access_lists.items() %}
+        {{ d_idx }}: [
+    {% for al in al_entries %}
+            AccessList(
+                address=Address({{ al.address }}),
+                storage_keys=[
+    {% for sk in al.storage_keys %}
+                    Hash("{{ sk }}"),  # noqa: E501
+    {% endfor %}
+                ],
+            ),
+    {% endfor %}
+        ],
+    {% endfor %}
+    }
+
+{% endif %}
+{% endif %}
+
 {# Transaction #}
     tx = Transaction(
         sender=sender,
@@ -313,10 +308,10 @@ def {{ test_name }}(
         to=None,
 {% endif %}
 {% if is_multi_case %}
-        data=TX_DATA[d],
-        gas_limit=TX_GAS[g],
+        data=tx_data[d],
+        gas_limit=tx_gas[g],
 {% if tx_value != [0] %}
-        value=TX_VALUE[v],
+        value=tx_value[v],
 {% endif %}
 {% else %}
 {% if tx.data_inline and tx.data_inline != "b''" %}
@@ -354,7 +349,7 @@ def {{ test_name }}(
         ],
 {% endif %}
 {% if tx.per_data_access_lists and is_multi_case %}
-        access_list=_tx_access_list(d),
+        access_list=tx_access_lists.get(d),
 {% elif tx.access_list is not none %}
         access_list=[
 {% for al in tx.access_list %}
