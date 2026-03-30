@@ -337,7 +337,7 @@ def {{ test_name }}(
 {% if tx.nonce is not none and tx.nonce != 0 %}
         nonce={{ tx.nonce }},
 {% endif %}
-{% if tx.gas_price is not none %}
+{% if tx.gas_price is not none and tx.gas_price != 10 %}
         gas_price={{ tx.gas_price }},
 {% endif %}
 {% if tx.max_fee_per_blob_gas is not none %}
